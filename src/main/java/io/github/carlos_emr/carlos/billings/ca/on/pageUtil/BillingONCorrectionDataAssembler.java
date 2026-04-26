@@ -13,15 +13,24 @@
 package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
+import java.util.Vector;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import org.apache.commons.lang3.StringUtils;
+
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONCorrectionViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingRAImpl;
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
@@ -234,10 +243,136 @@ public final class BillingONCorrectionDataAssembler {
         if (renderContextComposer != null) {
             renderContextComposer.compose(builder, request, loggedInInfo,
                     billCtx.bCh1, billCtx.billNo, billCtx.multiSiteProvider, billCtx.payProgram);
+            // Render-helpers (multisite per-site provider HTML, BillingDataHlp
+            // payment-type pairs, JdbcBillingPageUtil non-multisite provider list,
+            // request-param echoes, resolved current site) live in this branch
+            // because they depend on JDBC + static helpers the 7-arg test
+            // constructor isn't expected to wire up. Tests that exercise them
+            // construct via the full ctor and stub the relevant downstream calls.
+            populateRenderHelpers(builder, request, providerNo, siteAccessPrivacy, teamAccessPrivacy,
+                    teamBillingOnly, multisites, billCtx);
         }
 
         return builder.build();
     }
+
+    /**
+     * Populate the JSP render-helper fields that the legacy scriptlet block
+     * computed inline (multisite per-site provider HTML, non-multisite
+     * provider option list, BillingDataHlp.vecPaymentType pairs, request-param
+     * echoes for {@code admin}/{@code adminSubmit}, and the resolved current
+     * site value for the multisite picker's {@code selected} attribute).
+     */
+    private void populateRenderHelpers(BillingONCorrectionViewModel.Builder b,
+                                       HttpServletRequest request,
+                                       String userProviderNo,
+                                       boolean siteAccessPrivacy,
+                                       boolean teamAccessPrivacy,
+                                       boolean teamBillingOnly,
+                                       boolean multisites,
+                                       BillRecordContext billCtx) {
+        // ---- multisite sites + provider HTML ----
+        if (multisites && userProviderNo != null && !userProviderNo.isEmpty()) {
+            List<Site> sites = siteDao.getActiveSitesByProviderNo(userProviderNo);
+            List<BillingONCorrectionViewModel.MultisiteSite> msites = new ArrayList<>();
+            Map<String, String> siteHtml = new LinkedHashMap<>();
+            for (Site site : sites) {
+                Set<Provider> siteProviderSet = site.getProviders();
+                List<Provider> siteProvidersList = new ArrayList<>(siteProviderSet);
+                Collections.sort(siteProvidersList, new Provider().ComparatorName());
+                List<BillingONCorrectionViewModel.MultisiteProvider> mProvs = new ArrayList<>();
+                StringBuilder html = new StringBuilder();
+                for (Provider p : siteProvidersList) {
+                    if ("1".equals(p.getStatus()) && StringUtils.isNotBlank(p.getOhipNo())) {
+                        mProvs.add(new BillingONCorrectionViewModel.MultisiteProvider(
+                                nullToEmpty(p.getProviderNo()),
+                                nullToEmpty(p.getLastName()),
+                                nullToEmpty(p.getFirstName())));
+                        html.append("<option value='")
+                                .append(escapeForHtmlAttr(nullToEmpty(p.getProviderNo())))
+                                .append("'>")
+                                .append(escapeForHtml(nullToEmpty(p.getLastName())))
+                                .append(", ")
+                                .append(escapeForHtml(nullToEmpty(p.getFirstName())))
+                                .append("</option>");
+                    }
+                }
+                msites.add(new BillingONCorrectionViewModel.MultisiteSite(
+                        nullToEmpty(site.getName()),
+                        nullToEmpty(site.getBgColor()),
+                        mProvs));
+                siteHtml.put(nullToEmpty(site.getName()), html.toString());
+            }
+            b.multisiteSites(msites);
+            b.multisiteProviderHtml(siteHtml);
+        }
+
+        // ---- non-multisite provider list ----
+        // Mirrors legacy scriptlet's tri-branch over JdbcBillingPageUtil.
+        List<String> pList;
+        JdbcBillingPageUtil util = new JdbcBillingPageUtil();
+        if (teamBillingOnly || teamAccessPrivacy) {
+            pList = util.getCurTeamProviderStr(userProviderNo);
+        } else if (siteAccessPrivacy) {
+            pList = util.getCurSiteProviderStr(userProviderNo);
+        } else {
+            pList = util.getCurProviderStr();
+        }
+        List<BillingONCorrectionViewModel.ProviderOption> providerOptions = new ArrayList<>();
+        if (pList != null) {
+            for (String entry : pList) {
+                if (entry == null) {
+                    continue;
+                }
+                String[] parts = entry.split("\\|");
+                if (parts.length >= 3) {
+                    providerOptions.add(new BillingONCorrectionViewModel.ProviderOption(
+                            parts[0], parts[2], parts[1]));
+                } else if (parts.length == 2) {
+                    providerOptions.add(new BillingONCorrectionViewModel.ProviderOption(
+                            parts[0], "", parts[1]));
+                } else if (parts.length == 1) {
+                    providerOptions.add(new BillingONCorrectionViewModel.ProviderOption(
+                            parts[0], "", ""));
+                }
+            }
+        }
+        b.providerOptions(providerOptions);
+
+        // ---- payment type code/label pairs ----
+        Vector<?> raw = BillingDataHlp.vecPaymentType;
+        List<BillingONCorrectionViewModel.PaymentTypeEntry> paymentTypes = new ArrayList<>();
+        for (int i = 0; i + 1 < raw.size(); i += 2) {
+            paymentTypes.add(new BillingONCorrectionViewModel.PaymentTypeEntry(
+                    String.valueOf(raw.get(i)), String.valueOf(raw.get(i + 1))));
+        }
+        b.paymentTypes(paymentTypes);
+
+        // ---- request-param echoes (for ?adminSubmit / ?admin / ?site UI gating) ----
+        Map<String, String> echoes = new HashMap<>();
+        for (String name : new String[]{"adminSubmit", "admin", "site"}) {
+            String v = request.getParameter(name);
+            if (v != null) {
+                echoes.put(name, v);
+            }
+        }
+        b.requestParamEchoes(echoes);
+
+        // ---- resolved current site (?site request param overrides bill clinicSite) ----
+        String siteParam = request.getParameter("site");
+        String resolvedSite = siteParam == null ? nullToEmpty(billCtx.clinicSite()) : siteParam;
+        b.currentSite(resolvedSite);
+    }
+
+    private static String escapeForHtmlAttr(String v) {
+        return io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(v);
+    }
+
+    private static String escapeForHtml(String v) {
+        return io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(v);
+    }
+
+    private static String nullToEmpty(String s) { return s == null ? "" : s; }
 
     /**
      * Internal carrier for the bill-record state {@link #loadBillRecord}
@@ -247,7 +382,8 @@ public final class BillingONCorrectionDataAssembler {
      * across method boundaries via the builder.
      */
     private record BillRecordContext(BillingONCHeader1 bCh1, String billNo,
-                                     boolean multiSiteProvider, String payProgram) {}
+                                     boolean multiSiteProvider, String payProgram,
+                                     String clinicSite) {}
 
     /**
      * Loads the bill record (BillingONCHeader1) referenced by the {@code billing_no}
@@ -293,7 +429,7 @@ public final class BillingONCorrectionDataAssembler {
         b.billingNo(billNo).claimNo(claimNo);
 
         if (billNo.isEmpty()) {
-            return new BillRecordContext(null, billNo, false, "");
+            return new BillRecordContext(null, billNo, false, "", "");
         }
 
         Integer billingNo;
@@ -301,13 +437,13 @@ public final class BillingONCorrectionDataAssembler {
             billingNo = Integer.parseInt(billNo);
         } catch (NumberFormatException nfe) {
             b.billNoErr(true);
-            return new BillRecordContext(null, billNo, false, "");
+            return new BillRecordContext(null, billNo, false, "", "");
         }
 
         BillingONCHeader1 bCh1 = bCh1Dao.find(billingNo);
         if (bCh1 == null) {
             b.billNoErr(true);
-            return new BillRecordContext(null, billNo, false, "");
+            return new BillRecordContext(null, billNo, false, "", "");
         }
 
         b.billLoaded(true);
@@ -332,7 +468,7 @@ public final class BillingONCorrectionDataAssembler {
             // build the (empty) third-party totals consistent with the
             // legacy scriptlet, which always rendered the htmlPaid block.
             return new BillRecordContext(bCh1, billNo, false,
-                    bCh1.getPayProgram() == null ? "" : bCh1.getPayProgram());
+                    bCh1.getPayProgram() == null ? "" : bCh1.getPayProgram(), clinicSite);
         }
 
         Locale locale = request.getLocale();
@@ -435,6 +571,6 @@ public final class BillingONCorrectionDataAssembler {
         }
 
         return new BillRecordContext(bCh1, billNo, true,
-                bCh1.getPayProgram() == null ? "" : bCh1.getPayProgram());
+                bCh1.getPayProgram() == null ? "" : bCh1.getPayProgram(), clinicSite);
     }
 }

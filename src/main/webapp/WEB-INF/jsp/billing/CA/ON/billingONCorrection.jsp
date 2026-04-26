@@ -23,73 +23,36 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingOnItemPaymentDao" %>
-<%@page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="java.math.*,java.util.*,java.sql.*,io.github.carlos_emr.*,java.net.*" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONCorrectionDataAssembler" %>
 <%-- errorPage routes JSP-render exceptions to errorpage.jsp, which calls
      ErrorPageLogger.logIfPresent so a render-time NPE doesn't disappear
      into a generic CARLOS Error 500 with no stack trace in catalina.out.
      Without this directive, a throw inside the scriptlet body or any
      <jsp:include> would fall through to the container default. --%>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
-<%@page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
-<%@page import="io.github.carlos_emr.carlos.demographic.data.*" %>
-<%@page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.util.DateUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONErrorCodeDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONEAReportDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.RaDetailDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONExtDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.service.BillingONService" %>
-<%@page import="java.text.NumberFormat" %>
-
-<%@page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingRAImpl" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingONCorrectionViewModel" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.Billing3rdPartPrep" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
+<%--
+  Defensive model-resolver: ensures ${correctionModel} is set on the request
+  even on the unlikely path where this JSP is reached without going through
+  BillingCorrection2Action (e.g., a stray <jsp:forward> from an unguarded
+  entry). The action's own _billing privilege check is duplicated here for
+  parity: without it a future bypass would silently run the full
+  PHI-touching assembler on an unauthenticated request. Mirrors billingON.jsp.
+--%>
 <%
-    // View-model bridge: BillingCorrection2Action.buildModel populates the
-    // user-context fields (provider, site/team-access flags, multisite list).
-    // The action layer is responsible for the security checks; the JSP keeps
-    // the scriptlet-variable names so the existing render-expression sites
-    // keep compiling. A follow-up commit will replace those with EL on the
-    // same model.
-    BillingONCorrectionViewModel correctionModel =
-            (BillingONCorrectionViewModel) request.getAttribute("correctionModel");
-    if (correctionModel == null) {
-        // Defensive fallback for any caller that forwards directly to this JSP
-        // without going through BillingCorrection2Action. Re-check the same
-        // privilege the action enforces — without this guard a future
-        // <jsp:forward> from an unguarded JSP could silently expose PHI
-        // through the patient/bill assembly. Mirrors billingON.jsp.
+    if (request.getAttribute("correctionModel") == null) {
         io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
-                "billingONCorrection.jsp reached without correctionModel — using empty fallback. "
+                "billingONCorrection.jsp reached without correctionModel — re-running assembler defensively. "
                 + "Caller should route through billing/CA/ON/BillingONCorrection.");
         LoggedInInfo __fallbackLii = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (__fallbackLii == null) {
@@ -104,91 +67,28 @@
             throw new SecurityException("billingONCorrection.jsp fallback: privilege check unavailable", __springEx);
         }
         // BillingCorrection2Action enforces _billing w (mutation gate); on the
-        // empty-fallback render path no mutation occurs, so r is sufficient.
+        // fallback render path no mutation occurs from the JSP itself, so r is
+        // sufficient.
         if (!__secMgr.hasPrivilege(__fallbackLii, "_billing", "r", null)) {
             throw new SecurityException("billingONCorrection.jsp fallback: missing required sec object (_billing)");
         }
-        correctionModel = BillingONCorrectionViewModel.builder().build();
+        request.setAttribute("correctionModel",
+                new BillingONCorrectionDataAssembler().assemble(__fallbackLii, request));
     }
-
-    String userProviderNo = correctionModel.getUserProviderNo();
-    String userfirstname = correctionModel.getUserFirstName();
-    String userlastname = correctionModel.getUserLastName();
-    boolean isSiteAccessPrivacy = correctionModel.isSiteAccessPrivacy();
-    boolean isTeamAccessPrivacy = correctionModel.isTeamAccessPrivacy();
-    boolean isTeamBillingOnly = correctionModel.isTeamBillingOnly();
-    // Fail-closed default: if for any reason the bill-record load below
-    // doesn't run (early return, exception caught upstream), the page must
-    // not render as if multi-site access is unrestricted.
-    boolean isMultiSiteProvider = false;
-    boolean bMultisites = correctionModel.isMultisites();
-    Set<String> providerAccessList = correctionModel.getProviderAccessList();
-    List<String> mgrSites = correctionModel.getMgrSites();
-
-    // Record-specific render-time DAOs (BillingONExtDao due-date / use-bill-to
-    // lookups, BillingONPaymentDao third-party totals, BillingServiceDao /
-    // BillingONService for the line-items table, BillingONEAReportDao /
-    // BillingONErrorCodeDao / RaDetailDao for the RA error report,
-    // ClinicLocationDao + ClinicNbrDao for the dropdowns, and the
-    // SecurityInfoManager _billing-w gate) are all owned by
-    // BillingONCorrectionRenderContextComposer now; the JSP reads pre-resolved
-    // records from correctionModel.
-
-    int MAXRECORDS = 6;  //number of billing items to display if record has less than 6
-    String UpdateDate = "";
-    String DemoNo = "";
-    String DemoName = "";
-    String DemoAddress = "";
-    String DemoCity = "";
-    String DemoProvince = "";
-    String DemoPostal = "";
-    String DemoDOB = "";
-    String DemoRS = "";
-    String DemoSex = "";
-    String hin = "";
-    String location = "";
-    String BillLocation = "";
-    String BillLocationNo = "";
-    String BillDate = "";
-    String Provider = "";
-    String BillType = "";
-    String payProgram = "";
-    String BillTotal = "";
-    String visitdate = "";
-    String visittype = "";
-    String sliCode = "";
-    String BillDTNo = "";
-    String HCTYPE = "";
-    String HCSex = "";
-    String r_doctor_ohip = "";
-    String r_doctor = "";
-    String r_doctor_ohip_s = "";
-    String r_doctor_s = "";
-    String m_review = "";
-    String specialty = "";
-    String r_status = "";
-    String roster_status = "";
-    String comment = "";
-    String payer = "";
-    String htmlPaid = "";
-    int rowCount = 0;
-    int rowReCount = 0;
-    ResultSet rslocation = null;
-    ResultSet rsPatient = null;
 %>
 
 <html>
     <head>
         <title><fmt:message key="billing.billingCorrection.title"/></title>
 
-        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
 
-        <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
-        <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
+        <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+        <script src="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.js"></script>
 
-        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
-        <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet">
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+        <link href="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
 
         <oscar:customInterface section="editInvoice"/>
 
@@ -220,7 +120,7 @@
                 f1 = document.forms[1].xml_dig_search1.value;
                 // f2 = escape(document.serviceform.elements["File2Data"].value);
                 // fname = escape(document.Compose.elements["FName"].value);
-                awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingDigSearch?name=' + f0 + '&search=' + f1, 600, 600, 1);
+                awnd = rs('att', '${pageContext.request.contextPath}/billing/CA/ON/ViewBillingDigSearch?name=' + f0 + '&search=' + f1, 600, 600, 1);
                 awnd.focus();
             }
 
@@ -228,21 +128,21 @@
                 var d = elementName;
                 t0 = escape("document.forms[1].elements[\'" + d + "\'].value");
                 t1 = escape("document.forms[1].elements[\'" + name2 + "\'].value");
-                awnd = rs('att', ('<%= request.getContextPath() %>/billing/CA/ON/ViewSearchRefDoc?param=' + t0 + '&param2=' + t1), 600, 600, 1);
+                awnd = rs('att', ('${pageContext.request.contextPath}/billing/CA/ON/ViewSearchRefDoc?param=' + t0 + '&param2=' + t1), 600, 600, 1);
                 awnd.focus();
             }
 
             function scScriptAttach(nameF) {
                 f0 = document.forms[1].elements[nameF].value;
                 f1 = escape("document.forms[1].elements[\'" + nameF + "\'].value");
-                awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCodeSearch?name=' + f0 + '&search=&name1=&name2=&nameF=' + f1, 600, 600, 1);
+                awnd = rs('att', '${pageContext.request.contextPath}/billing/CA/ON/ViewBillingCodeSearch?name=' + f0 + '&search=&name1=&name2=&nameF=' + f1, 600, 600, 1);
                 awnd.focus();
             }
 
             function search3rdParty(elementName) {
                 var d = elementName;
                 t0 = escape("document.forms[1].elements[\'" + d + "\'].value");
-                popupPage('600', '700', '<%= request.getContextPath() %>/billing/CA/ON/ViewOnSearch3rdBillAddr?param=' + t0);
+                popupPage('600', '700', '${pageContext.request.contextPath}/billing/CA/ON/ViewOnSearch3rdBillAddr?param=' + t0);
             }
 
             function validateNum(el) {
@@ -281,7 +181,7 @@
                 }
 
                 var billamt;
-                for (idx = 0; idx < <%=MAXRECORDS%>; ++idx) {
+                for (idx = 0; idx < 6; ++idx) {
                     billamt = document.getElementById("billingamount" + idx);
                     if (billamt != undefined && !validateNum(billamt)) {
                         return false;
@@ -349,7 +249,7 @@
 
             function sanityCheck(id, billNoErr) {
                 if (id != "" && !billNoErr) {
-                    location.href = "<%= request.getContextPath() %>/billing/CA/ON/ViewBillingON3rdInv?billingNo=" + id;
+                    location.href = "${pageContext.request.contextPath}/billing/CA/ON/ViewBillingON3rdInv?billingNo=" + id;
                 } else {
                     alert("Please search a valid invoice number");
                 }
@@ -428,122 +328,68 @@
     </head>
 
     <body onload="setfocus();">
-    <%
-        // All bill-record + render-context preparation happens upstream in
-        // BillingONCorrectionDataAssembler / BillingONCorrectionRenderContextComposer;
-        // the JSP only reads from correctionModel. Legacy scriptlet variable
-        // names are kept in the unchanged render expressions below.
-        String billNo = correctionModel.getBillingNo();
-        String claimNo = correctionModel.getClaimNo();
-        if (claimNo == null || claimNo.equals("null")) {
-            claimNo = "";
-        }
-        boolean bFlag = correctionModel.isBillLoaded() || correctionModel.isBillNoErr() || !billNo.isEmpty();
-        boolean billNoErr = correctionModel.isBillNoErr();
-
-        Integer billingNo = correctionModel.isBillLoaded() ? Integer.parseInt(billNo) : null;
-        String createTimestamp = correctionModel.getCreateTimestamp().isEmpty() ? null : correctionModel.getCreateTimestamp();
-        String clinicSite = correctionModel.getClinicSite();
-
-        isMultiSiteProvider = correctionModel.isMultiSiteProvider();
-
-        if (correctionModel.isBillLoaded()) {
-            if (!isMultiSiteProvider) {
-                m_review = correctionModel.getManReview();
-                out.write("<script>window.alert('sorry, billing access denied.')</script>");
-            } else {
-                DemoNo = correctionModel.getDemoNo();
-                DemoName = correctionModel.getDemoName();
-                DemoDOB = correctionModel.getDemoDob();
-                DemoSex = correctionModel.getDemoSex();
-                DemoRS = correctionModel.getDemoRosterStatus();
-                hin = correctionModel.getHin();
-                location = correctionModel.getBillLocationNo();
-                BillLocationNo = correctionModel.getBillLocationNo();
-                BillDate = correctionModel.getBillDate();
-                Provider = correctionModel.getBillProvider();
-                BillType = correctionModel.getBillStatus();
-                payProgram = correctionModel.getPayProgram();
-                BillTotal = correctionModel.getBillTotal();
-                visitdate = correctionModel.getVisitDate();
-                visittype = correctionModel.getVisitType();
-                sliCode = correctionModel.getSliCode();
-                HCTYPE = correctionModel.getHcType();
-                HCSex = correctionModel.getHcSex();
-                r_doctor_ohip = correctionModel.getReferralDoctorOhip();
-                r_doctor = correctionModel.getReferralDoctor();
-                m_review = correctionModel.getManReview();
-                comment = correctionModel.getComment();
-            }
-        }
-
-        boolean thirdParty = correctionModel.isThirdParty();
-        payer = correctionModel.getPayer();
-        htmlPaid = correctionModel.getHtmlPaid();
-    %>
 
     <h3><fmt:message key="admin.admin.btnBillingCorrection"/></h3>
 
     <div class="container-fluid">
 
-        <%if (request.getParameter("adminSubmit") != null) { %>
+        <c:if test="${not empty correctionModel.requestParamEchoes['adminSubmit']}">
         <div class="alert alert-success" id="alert_message">
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             <strong>Success! </strong> Your entry was saved!
         </div>
-        <%} %>
+        </c:if>
 
-        <%if (billNoErr) { %>
+        <c:if test="${correctionModel.billNoErr}">
         <div class="alert alert-danger" id="alert_message">
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             <strong>Error! </strong> Invoice number does not exist!
         </div>
-        <%} %>
+        </c:if>
 
         <%-- Banners for the demoLoadError / raLookupError flags set by
-             BillingCorrection2Action.loadBillRecord. Without these, the
-             operator might mistake an empty patient context or empty
-             claimNo for authoritative data. Scriptlet form to match the
-             surrounding banner style; the file does not declare jakarta.tags.core. --%>
-        <%if (correctionModel.isDemoLoadError()) {%>
+             BillingONCorrectionDataAssembler.loadBillRecord. Without these,
+             the operator might mistake an empty patient context or empty
+             claimNo for authoritative data. --%>
+        <c:if test="${correctionModel.demoLoadError}">
         <div class="alert alert-warning" role="alert">
             <strong>Warning:</strong> The patient demographic could not be
             loaded for this bill. Patient name, DOB, sex, HIN, and roster
-            status are unavailable below — do <em>not</em> rely on the empty
+            status are unavailable below &mdash; do <em>not</em> rely on the empty
             fields as authoritative. The system administrator has been
             notified via the server log; please retry shortly.
         </div>
-        <%}%>
-        <%if (correctionModel.isRaLookupError()) {%>
+        </c:if>
+        <c:if test="${correctionModel.raLookupError}">
         <div class="alert alert-warning" role="alert">
             <strong>Warning:</strong> The OHIP RA claim number lookup failed
-            for this bill. The claim number field below may be empty —
+            for this bill. The claim number field below may be empty &mdash;
             cross-reference with ministry remittance is unavailable until
             the lookup is restored. The system administrator has been
             notified via the server log.
         </div>
-        <%}%>
+        </c:if>
 
         <div class="row card card-body bg-body-tertiary">
-            <%if (createTimestamp != null) {%>
-            <fmt:message key="billing.billingCorrection.msgLastUpdate"/>: <%=nullToEmpty(createTimestamp)%>
-            <%}%>
+            <c:if test="${not empty correctionModel.createTimestamp}">
+            <fmt:message key="billing.billingCorrection.msgLastUpdate"/>: <carlos:encode value="${correctionModel.createTimestamp}" context="html"/>
+            </c:if>
 
+            <c:set var="__formAction" value="billingONCorrection.jsp${not empty correctionModel.requestParamEchoes['admin'] ? '?admin' : ''}"/>
             <form name="form1" method="post"
-                  action="billingONCorrection.jsp<%if (request.getParameter("admin")!=null) { out.print("?admin"); }%>">
+                  action="${carlos:forHtmlAttribute(__formAction)}">
                 <input type="hidden" id="billTotal" value="${carlos:forHtmlAttribute(correctionModel.billTotal)}"/>
 
                 <div class="col-md-2">
-                    <c:set var="__enc_1"><carlos:encode value='<%= nullToEmpty(billNo) %>' context="uriComponent"/></c:set>
-                    <a href="#" onclick="return sanityCheck('<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>', <%=billNoErr%>);"><fmt:message key="billing.billingCorrection.formInvoiceNo"/></a><br>
-                    <input type="text" id="billing_no" name="billing_no" value="<carlos:encode value='<%= nullToEmpty(billNo) %>' context="htmlAttribute"/>" class="col-md-2"
+                    <a href="#" onclick="return sanityCheck('${carlos:forJavaScriptAttribute(correctionModel.billingNo)}', ${correctionModel.billNoErr});"><fmt:message key="billing.billingCorrection.formInvoiceNo"/></a><br>
+                    <input type="text" id="billing_no" name="billing_no" value="${carlos:forHtmlAttribute(correctionModel.billingNo)}" class="col-md-2"
                            required>
                 </div>
 
 
                 <div class="col-md-2">
                     OHIP Claim No <br>
-                    <input type="text" name="claim_no" value="<carlos:encode value='<%= nullToEmpty(claimNo) %>' context="htmlAttribute"/>" class="col-md-2">
+                    <input type="text" name="claim_no" value="${carlos:forHtmlAttribute(correctionModel.claimNo)}" class="col-md-2">
                 </div>
 
                 <div class="col-md-2">
@@ -556,18 +402,17 @@
 
 
         <!-- RA error -->
-        <% if (bFlag && !correctionModel.getErrorReportEntries().isEmpty()) { %>
+        <c:set var="__bFlag" value="${correctionModel.billLoaded or correctionModel.billNoErr or not empty correctionModel.billingNo}"/>
+        <c:if test="${__bFlag and not empty correctionModel.errorReportEntries}">
         <table>
-            <% for (BillingONCorrectionViewModel.ErrorReportEntry __err : correctionModel.getErrorReportEntries()) { %>
+            <c:forEach var="__err" items="${correctionModel.errorReportEntries}">
             <tr>
-                <th style="width:10%"><b><%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(__err.code())%></b></th>
-                <td style="text-align:left"><%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(__err.description())%></td>
+                <th style="width:10%"><b><carlos:encode value="${__err.code}" context="html"/></b></th>
+                <td style="text-align:left"><carlos:encode value="${__err.description}" context="html"/></td>
             </tr>
-            <% } %>
+            </c:forEach>
         </table>
-        <% }
-            String curSite = request.getParameter("site") == null ? clinicSite : request.getParameter("site");
-        %>
+        </c:if>
 
 
         <%-- Form posts to UpdateBillingONCorrection2Action (POST-only).
@@ -575,12 +420,12 @@
              method=updateInvoice param; the new sibling action makes the
              update workflow its own URL endpoint, removing the
              string-switch dispatch on the action class. --%>
-        <form action="<%=request.getContextPath() %>/billing/CA/ON/UpdateBillingONCorrection" method="post">
-            <input type="hidden" name="xml_billing_no" value="<carlos:encode value='<%= billNo %>' context="htmlAttribute"/>"/>
-            <input type="hidden" name="update_date" value="<%=nullToEmpty(createTimestamp)%>"/>
-            <input type="hidden" name="payDate" value="<%=UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss")%>"/>
+        <form action="${pageContext.request.contextPath}/billing/CA/ON/UpdateBillingONCorrection" method="post">
+            <input type="hidden" name="xml_billing_no" value="${carlos:forHtmlAttribute(correctionModel.billingNo)}"/>
+            <input type="hidden" name="update_date" value="${carlos:forHtmlAttribute(correctionModel.createTimestamp)}"/>
+            <input type="hidden" name="payDate" value=""/>
             <input type="hidden" name="demoNo" value="${carlos:forHtmlAttribute(correctionModel.demoNo)}"/>
-            <input type="hidden" name="oldStatus" value="<%=thirdParty ? "thirdParty" : "" %>"/>
+            <input type="hidden" name="oldStatus" value="${correctionModel.thirdParty ? 'thirdParty' : ''}"/>
 
             <div class="row card card-body bg-body-tertiary">
                 <div class="col-md-10">
@@ -591,31 +436,31 @@
                         <tr>
                             <td style="width:54%"><fmt:message key="billing.billingCorrection.msgPatientName"/>: <a href=#
                                                                                          onclick="popupPage(720,860,'${carlos:forJavaScriptAttribute(pageContext.request.contextPath)}/demographic/DemographicEdit?demographic_no=${carlos:forJavaScriptAttribute(carlos:forUriComponent(correctionModel.demoNo))}');return false;">
-                                ${carlos:forHtmlContent(correctionModel.demoName)}
+                                <carlos:encode value="${correctionModel.demoName}" context="html"/>
                             </a> <input type="hidden" name="demo_name"
                                         value="${carlos:forHtmlAttribute(correctionModel.demoName)}"></td>
-                            <td style="width:46%"><fmt:message key="billing.billingCorrection.formHealth"/>: ${carlos:forHtmlContent(correctionModel.hin)} <input
+                            <td style="width:46%"><fmt:message key="billing.billingCorrection.formHealth"/>: <carlos:encode value="${correctionModel.hin}" context="html"/> <input
                                     type="hidden" name="xml_hin" value="${carlos:forHtmlAttribute(correctionModel.hin)}">
-                                RS: ${carlos:forHtmlContent(correctionModel.demoRosterStatus)}
+                                RS: <carlos:encode value="${correctionModel.demoRosterStatus}" context="html"/>
                             </td>
                         </tr>
                         <tr>
                             <td><fmt:message key="billing.billingCorrection.msgSex"/>:
-                                ${carlos:forHtmlContent(correctionModel.demoSex)} <input type="hidden" name="demo_sex" value="${carlos:forHtmlAttribute(correctionModel.demoSex)}">
+                                <carlos:encode value="${correctionModel.demoSex}" context="html"/> <input type="hidden" name="demo_sex" value="${carlos:forHtmlAttribute(correctionModel.demoSex)}">
                                 <input type="hidden" name="hc_sex" value="${carlos:forHtmlAttribute(correctionModel.hcSex)}"></td>
                             <td><fmt:message key="billing.billingCorrection.formDOB"/>:
-                                <input type="hidden" name="xml_dob" value="${carlos:forHtmlAttribute(correctionModel.demoDob)}"> ${carlos:forHtmlContent(correctionModel.demoDob)}
+                                <input type="hidden" name="xml_dob" value="${carlos:forHtmlAttribute(correctionModel.demoDob)}"> <carlos:encode value="${correctionModel.demoDob}" context="html"/>
                             </td>
                         </tr>
                         <tr>
                             <td><fmt:message key="billing.billingCorrection.msgDoctor"/>:<br>
-                                <input type="text" name="rd" value="<%=r_doctor%>" size=20 readonly>
+                                <input type="text" name="rd" value="${carlos:forHtmlAttribute(correctionModel.referralDoctor)}" size=20 readonly>
                             </td>
                             <td>
 
                                 <fmt:message key="billing.billingCorrection.msgDoctorNo"/>:
                                 <div class="input-group">
-                                    <input type="text" name="rdohip" value="<%=r_doctor_ohip%>" class="col-md-2" readonly/>
+                                    <input type="text" name="rdohip" value="${carlos:forHtmlAttribute(correctionModel.referralDoctorOhip)}" class="col-md-2" readonly/>
                                     <a href="javascript:referralScriptAttach2('rdohip','rd')" class="btn btn-secondary"><i
                                             class="fa-solid fa-magnifying-glass"></i></a>
                                 </div>
@@ -632,92 +477,93 @@
 
                     <fmt:message key="billing.billingCorrection.formHCType"/>:
                     <select name="hc_type" style="font-size: 80%;">
-                        <option value="OT" <%=HCTYPE.equals("OT") ? " selected" : ""%>>OT-Other</option>
-                        <option value="AB" <%=HCTYPE.equals("AB") ? " selected" : ""%>>AB-Alberta</option>
-                        <option value="BC" <%=HCTYPE.equals("BC") ? " selected" : ""%>>BC-British Columbia</option>
-                        <option value="MB" <%=HCTYPE.equals("MB") ? " selected" : ""%>>MB-Manitoba</option>
-                        <option value="NB" <%=HCTYPE.equals("NB") ? " selected" : ""%>>NB-New Brunswick</option>
-                        <option value="NF" <%=HCTYPE.equals("NF") ? " selected" : ""%>>NF-Newfoundland & Labrador
+                        <c:set var="__hc" value="${correctionModel.hcType}"/>
+                        <option value="OT" ${__hc eq 'OT' ? 'selected' : ''}>OT-Other</option>
+                        <option value="AB" ${__hc eq 'AB' ? 'selected' : ''}>AB-Alberta</option>
+                        <option value="BC" ${__hc eq 'BC' ? 'selected' : ''}>BC-British Columbia</option>
+                        <option value="MB" ${__hc eq 'MB' ? 'selected' : ''}>MB-Manitoba</option>
+                        <option value="NB" ${__hc eq 'NB' ? 'selected' : ''}>NB-New Brunswick</option>
+                        <option value="NF" ${__hc eq 'NF' ? 'selected' : ''}>NF-Newfoundland &amp; Labrador
                         </option>
-                        <option value="NT" <%=HCTYPE.equals("NT") ? " selected" : ""%>>NT-Northwest Territory</option>
-                        <option value="NS" <%=HCTYPE.equals("NS") ? " selected" : ""%>>NS-Nova Scotia</option>
-                        <option value="NU" <%=HCTYPE.equals("NU") ? " selected" : ""%>>NU-Nunavut</option>
-                        <option value="ON" <%=HCTYPE.equals("ON") ? " selected" : ""%>>ON-Ontario</option>
-                        <option value="PE" <%=HCTYPE.equals("PE") ? " selected" : ""%>>PE-Prince Edward Island</option>
-                        <option value="QC" <%=HCTYPE.equals("QC") ? " selected" : ""%>>QC-Quebec</option>
-                        <option value="SK" <%=HCTYPE.equals("SK") ? " selected" : ""%>>SK-Saskatchewan</option>
-                        <option value="YT" <%=HCTYPE.equals("YT") ? " selected" : ""%>>YT-Yukon</option>
-                        <option value="US" <%=HCTYPE.equals("US") ? " selected" : ""%>>US resident</option>
-                        <option value="US-AK" <%=HCTYPE.equals("US-AK") ? " selected" : ""%>>US-AK-Alaska</option>
-                        <option value="US-AL" <%=HCTYPE.equals("US-AL") ? " selected" : ""%>>US-AL-Alabama</option>
-                        <option value="US-AR" <%=HCTYPE.equals("US-AR") ? " selected" : ""%>>US-AR-Arkansas</option>
-                        <option value="US-AZ" <%=HCTYPE.equals("US-AZ") ? " selected" : ""%>>US-AZ-Arizona</option>
-                        <option value="US-CA" <%=HCTYPE.equals("US-CA") ? " selected" : ""%>>US-CA-California</option>
-                        <option value="US-CO" <%=HCTYPE.equals("US-CO") ? " selected" : ""%>>US-CO-Colorado</option>
-                        <option value="US-CT" <%=HCTYPE.equals("US-CT") ? " selected" : ""%>>US-CT-Connecticut</option>
-                        <option value="US-CZ" <%=HCTYPE.equals("US-CZ") ? " selected" : ""%>>US-CZ-Canal Zone</option>
-                        <option value="US-DC" <%=HCTYPE.equals("US-DC") ? " selected" : ""%>>US-DC-District Of
+                        <option value="NT" ${__hc eq 'NT' ? 'selected' : ''}>NT-Northwest Territory</option>
+                        <option value="NS" ${__hc eq 'NS' ? 'selected' : ''}>NS-Nova Scotia</option>
+                        <option value="NU" ${__hc eq 'NU' ? 'selected' : ''}>NU-Nunavut</option>
+                        <option value="ON" ${__hc eq 'ON' ? 'selected' : ''}>ON-Ontario</option>
+                        <option value="PE" ${__hc eq 'PE' ? 'selected' : ''}>PE-Prince Edward Island</option>
+                        <option value="QC" ${__hc eq 'QC' ? 'selected' : ''}>QC-Quebec</option>
+                        <option value="SK" ${__hc eq 'SK' ? 'selected' : ''}>SK-Saskatchewan</option>
+                        <option value="YT" ${__hc eq 'YT' ? 'selected' : ''}>YT-Yukon</option>
+                        <option value="US" ${__hc eq 'US' ? 'selected' : ''}>US resident</option>
+                        <option value="US-AK" ${__hc eq 'US-AK' ? 'selected' : ''}>US-AK-Alaska</option>
+                        <option value="US-AL" ${__hc eq 'US-AL' ? 'selected' : ''}>US-AL-Alabama</option>
+                        <option value="US-AR" ${__hc eq 'US-AR' ? 'selected' : ''}>US-AR-Arkansas</option>
+                        <option value="US-AZ" ${__hc eq 'US-AZ' ? 'selected' : ''}>US-AZ-Arizona</option>
+                        <option value="US-CA" ${__hc eq 'US-CA' ? 'selected' : ''}>US-CA-California</option>
+                        <option value="US-CO" ${__hc eq 'US-CO' ? 'selected' : ''}>US-CO-Colorado</option>
+                        <option value="US-CT" ${__hc eq 'US-CT' ? 'selected' : ''}>US-CT-Connecticut</option>
+                        <option value="US-CZ" ${__hc eq 'US-CZ' ? 'selected' : ''}>US-CZ-Canal Zone</option>
+                        <option value="US-DC" ${__hc eq 'US-DC' ? 'selected' : ''}>US-DC-District Of
                             Columbia
                         </option>
-                        <option value="US-DE" <%=HCTYPE.equals("US-DE") ? " selected" : ""%>>US-DE-Delaware</option>
-                        <option value="US-FL" <%=HCTYPE.equals("US-FL") ? " selected" : ""%>>US-FL-Florida</option>
-                        <option value="US-GA" <%=HCTYPE.equals("US-GA") ? " selected" : ""%>>US-GA-Georgia</option>
-                        <option value="US-GU" <%=HCTYPE.equals("US-GU") ? " selected" : ""%>>US-GU-Guam</option>
-                        <option value="US-HI" <%=HCTYPE.equals("US-HI") ? " selected" : ""%>>US-HI-Hawaii</option>
-                        <option value="US-IA" <%=HCTYPE.equals("US-IA") ? " selected" : ""%>>US-IA-Iowa</option>
-                        <option value="US-ID" <%=HCTYPE.equals("US-ID") ? " selected" : ""%>>US-ID-Idaho</option>
-                        <option value="US-IL" <%=HCTYPE.equals("US-IL") ? " selected" : ""%>>US-IL-Illinois</option>
-                        <option value="US-IN" <%=HCTYPE.equals("US-IN") ? " selected" : ""%>>US-IN-Indiana</option>
-                        <option value="US-KS" <%=HCTYPE.equals("US-KS") ? " selected" : ""%>>US-KS-Kansas</option>
-                        <option value="US-KY" <%=HCTYPE.equals("US-KY") ? " selected" : ""%>>US-KY-Kentucky</option>
-                        <option value="US-LA" <%=HCTYPE.equals("US-LA") ? " selected" : ""%>>US-LA-Louisiana</option>
-                        <option value="US-MA" <%=HCTYPE.equals("US-MA") ? " selected" : ""%>>US-MA-Massachusetts
+                        <option value="US-DE" ${__hc eq 'US-DE' ? 'selected' : ''}>US-DE-Delaware</option>
+                        <option value="US-FL" ${__hc eq 'US-FL' ? 'selected' : ''}>US-FL-Florida</option>
+                        <option value="US-GA" ${__hc eq 'US-GA' ? 'selected' : ''}>US-GA-Georgia</option>
+                        <option value="US-GU" ${__hc eq 'US-GU' ? 'selected' : ''}>US-GU-Guam</option>
+                        <option value="US-HI" ${__hc eq 'US-HI' ? 'selected' : ''}>US-HI-Hawaii</option>
+                        <option value="US-IA" ${__hc eq 'US-IA' ? 'selected' : ''}>US-IA-Iowa</option>
+                        <option value="US-ID" ${__hc eq 'US-ID' ? 'selected' : ''}>US-ID-Idaho</option>
+                        <option value="US-IL" ${__hc eq 'US-IL' ? 'selected' : ''}>US-IL-Illinois</option>
+                        <option value="US-IN" ${__hc eq 'US-IN' ? 'selected' : ''}>US-IN-Indiana</option>
+                        <option value="US-KS" ${__hc eq 'US-KS' ? 'selected' : ''}>US-KS-Kansas</option>
+                        <option value="US-KY" ${__hc eq 'US-KY' ? 'selected' : ''}>US-KY-Kentucky</option>
+                        <option value="US-LA" ${__hc eq 'US-LA' ? 'selected' : ''}>US-LA-Louisiana</option>
+                        <option value="US-MA" ${__hc eq 'US-MA' ? 'selected' : ''}>US-MA-Massachusetts
                         </option>
-                        <option value="US-MD" <%=HCTYPE.equals("US-MD") ? " selected" : ""%>>US-MD-Maryland</option>
-                        <option value="US-ME" <%=HCTYPE.equals("US-ME") ? " selected" : ""%>>US-ME-Maine</option>
-                        <option value="US-MI" <%=HCTYPE.equals("US-MI") ? " selected" : ""%>>US-MI-Michigan</option>
-                        <option value="US-MN" <%=HCTYPE.equals("US-MN") ? " selected" : ""%>>US-MN-Minnesota</option>
-                        <option value="US-MO" <%=HCTYPE.equals("US-MO") ? " selected" : ""%>>US-MO-Missouri</option>
-                        <option value="US-MS" <%=HCTYPE.equals("US-MS") ? " selected" : ""%>>US-MS-Mississippi</option>
-                        <option value="US-MT" <%=HCTYPE.equals("US-MT") ? " selected" : ""%>>US-MT-Montana</option>
-                        <option value="US-NC" <%=HCTYPE.equals("US-NC") ? " selected" : ""%>>US-NC-North Carolina
+                        <option value="US-MD" ${__hc eq 'US-MD' ? 'selected' : ''}>US-MD-Maryland</option>
+                        <option value="US-ME" ${__hc eq 'US-ME' ? 'selected' : ''}>US-ME-Maine</option>
+                        <option value="US-MI" ${__hc eq 'US-MI' ? 'selected' : ''}>US-MI-Michigan</option>
+                        <option value="US-MN" ${__hc eq 'US-MN' ? 'selected' : ''}>US-MN-Minnesota</option>
+                        <option value="US-MO" ${__hc eq 'US-MO' ? 'selected' : ''}>US-MO-Missouri</option>
+                        <option value="US-MS" ${__hc eq 'US-MS' ? 'selected' : ''}>US-MS-Mississippi</option>
+                        <option value="US-MT" ${__hc eq 'US-MT' ? 'selected' : ''}>US-MT-Montana</option>
+                        <option value="US-NC" ${__hc eq 'US-NC' ? 'selected' : ''}>US-NC-North Carolina
                         </option>
-                        <option value="US-ND" <%=HCTYPE.equals("US-ND") ? " selected" : ""%>>US-ND-North Dakota</option>
-                        <option value="US-NE" <%=HCTYPE.equals("US-NE") ? " selected" : ""%>>US-NE-Nebraska</option>
-                        <option value="US-NH" <%=HCTYPE.equals("US-NH") ? " selected" : ""%>>US-NH-New Hampshire
+                        <option value="US-ND" ${__hc eq 'US-ND' ? 'selected' : ''}>US-ND-North Dakota</option>
+                        <option value="US-NE" ${__hc eq 'US-NE' ? 'selected' : ''}>US-NE-Nebraska</option>
+                        <option value="US-NH" ${__hc eq 'US-NH' ? 'selected' : ''}>US-NH-New Hampshire
                         </option>
-                        <option value="US-NJ" <%=HCTYPE.equals("US-NJ") ? " selected" : ""%>>US-NJ-New Jersey</option>
-                        <option value="US-NM" <%=HCTYPE.equals("US-NM") ? " selected" : ""%>>US-NM-New Mexico</option>
-                        <option value="US-NU" <%=HCTYPE.equals("US-NU") ? " selected" : ""%>>US-NU-Nunavut</option>
-                        <option value="US-NV" <%=HCTYPE.equals("US-NV") ? " selected" : ""%>>US-NV-Nevada</option>
-                        <option value="US-NY" <%=HCTYPE.equals("US-NY") ? " selected" : ""%>>US-NY-New York</option>
-                        <option value="US-OH" <%=HCTYPE.equals("US-OH") ? " selected" : ""%>>US-OH-Ohio</option>
-                        <option value="US-OK" <%=HCTYPE.equals("US-OK") ? " selected" : ""%>>US-OK-Oklahoma</option>
-                        <option value="US-OR" <%=HCTYPE.equals("US-OR") ? " selected" : ""%>>US-OR-Oregon</option>
-                        <option value="US-PA" <%=HCTYPE.equals("US-PA") ? " selected" : ""%>>US-PA-Pennsylvania</option>
-                        <option value="US-PR" <%=HCTYPE.equals("US-PR") ? " selected" : ""%>>US-PR-Puerto Rico</option>
-                        <option value="US-RI" <%=HCTYPE.equals("US-RI") ? " selected" : ""%>>US-RI-Rhode Island</option>
-                        <option value="US-SC" <%=HCTYPE.equals("US-SC") ? " selected" : ""%>>US-SC-South Carolina
+                        <option value="US-NJ" ${__hc eq 'US-NJ' ? 'selected' : ''}>US-NJ-New Jersey</option>
+                        <option value="US-NM" ${__hc eq 'US-NM' ? 'selected' : ''}>US-NM-New Mexico</option>
+                        <option value="US-NU" ${__hc eq 'US-NU' ? 'selected' : ''}>US-NU-Nunavut</option>
+                        <option value="US-NV" ${__hc eq 'US-NV' ? 'selected' : ''}>US-NV-Nevada</option>
+                        <option value="US-NY" ${__hc eq 'US-NY' ? 'selected' : ''}>US-NY-New York</option>
+                        <option value="US-OH" ${__hc eq 'US-OH' ? 'selected' : ''}>US-OH-Ohio</option>
+                        <option value="US-OK" ${__hc eq 'US-OK' ? 'selected' : ''}>US-OK-Oklahoma</option>
+                        <option value="US-OR" ${__hc eq 'US-OR' ? 'selected' : ''}>US-OR-Oregon</option>
+                        <option value="US-PA" ${__hc eq 'US-PA' ? 'selected' : ''}>US-PA-Pennsylvania</option>
+                        <option value="US-PR" ${__hc eq 'US-PR' ? 'selected' : ''}>US-PR-Puerto Rico</option>
+                        <option value="US-RI" ${__hc eq 'US-RI' ? 'selected' : ''}>US-RI-Rhode Island</option>
+                        <option value="US-SC" ${__hc eq 'US-SC' ? 'selected' : ''}>US-SC-South Carolina
                         </option>
-                        <option value="US-SD" <%=HCTYPE.equals("US-SD") ? " selected" : ""%>>US-SD-South Dakota</option>
-                        <option value="US-TN" <%=HCTYPE.equals("US-TN") ? " selected" : ""%>>US-TN-Tennessee</option>
-                        <option value="US-TX" <%=HCTYPE.equals("US-TX") ? " selected" : ""%>>US-TX-Texas</option>
-                        <option value="US-UT" <%=HCTYPE.equals("US-UT") ? " selected" : ""%>>US-UT-Utah</option>
-                        <option value="US-VA" <%=HCTYPE.equals("US-VA") ? " selected" : ""%>>US-VA-Virginia</option>
-                        <option value="US-VI" <%=HCTYPE.equals("US-VI") ? " selected" : ""%>>US-VI-Virgin Islands
+                        <option value="US-SD" ${__hc eq 'US-SD' ? 'selected' : ''}>US-SD-South Dakota</option>
+                        <option value="US-TN" ${__hc eq 'US-TN' ? 'selected' : ''}>US-TN-Tennessee</option>
+                        <option value="US-TX" ${__hc eq 'US-TX' ? 'selected' : ''}>US-TX-Texas</option>
+                        <option value="US-UT" ${__hc eq 'US-UT' ? 'selected' : ''}>US-UT-Utah</option>
+                        <option value="US-VA" ${__hc eq 'US-VA' ? 'selected' : ''}>US-VA-Virginia</option>
+                        <option value="US-VI" ${__hc eq 'US-VI' ? 'selected' : ''}>US-VI-Virgin Islands
                         </option>
-                        <option value="US-VT" <%=HCTYPE.equals("US-VT") ? " selected" : ""%>>US-VT-Vermont</option>
-                        <option value="US-WA" <%=HCTYPE.equals("US-WA") ? " selected" : ""%>>US-WA-Washington</option>
-                        <option value="US-WI" <%=HCTYPE.equals("US-WI") ? " selected" : ""%>>US-WI-Wisconsin</option>
-                        <option value="US-WV" <%=HCTYPE.equals("US-WV") ? " selected" : ""%>>US-WV-West Virginia
+                        <option value="US-VT" ${__hc eq 'US-VT' ? 'selected' : ''}>US-VT-Vermont</option>
+                        <option value="US-WA" ${__hc eq 'US-WA' ? 'selected' : ''}>US-WA-Washington</option>
+                        <option value="US-WI" ${__hc eq 'US-WI' ? 'selected' : ''}>US-WI-Wisconsin</option>
+                        <option value="US-WV" ${__hc eq 'US-WV' ? 'selected' : ''}>US-WV-West Virginia
                         </option>
-                        <option value="US-WY" <%=HCTYPE.equals("US-WY") ? " selected" : ""%>>US-WY-Wyoming</option>
+                        <option value="US-WY" ${__hc eq 'US-WY' ? 'selected' : ''}>US-WY-Wyoming</option>
                     </select>
 
 
                     <fmt:message key="billing.billingCorrection.formManualReview"/>: <input type="checkbox"
                                                                                              name="m_review"
-                                                                                             value="Y" <%=m_review.equals("Y")?"checked":""%> >
+                                                                                             value="Y" ${correctionModel.manReview eq 'Y' ? 'checked' : ''} >
                 </div><!--span-->
             </div>
 
@@ -739,76 +585,45 @@
                         </div><!--cal col-md-2-->
 
                         <fmt:message key="billing.billingCorrection.formBillingType"/>:<br>
-                        <input type="hidden" name="xml_status" value="<%=BillType%>">
+                        <input type="hidden" name="xml_status" value="${carlos:forHtmlAttribute(correctionModel.billStatus)}">
+                        <c:set var="__bt" value="${correctionModel.billStatus}"/>
                         <select style="font-size: 80%;" id="status" name="status"
                                 onchange="checkSettle(this.options[this.selectedIndex].value);">
                             <option value=""><fmt:message key="billing.billingCorrection.formSelectBillType"/></option>
-                            <option value="H" <%=BillType.equals("H") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formBillTypeH"/></option>
-                            <option value="O" <%=BillType.equals("O") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formBillTypeO"/></option>
-                            <option value="P" <%=BillType.equals("P") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formBillTypeP"/></option>
-                            <option value="N" <%=BillType.equals("N") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formBillTypeN"/></option>
-                            <option value="W" <%=BillType.equals("W") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formBillTypeW"/></option>
-                            <option value="B" <%=BillType.equals("B") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formBillTypeB"/></option>
-                            <option value="S" <%=BillType.equals("S") ? "selected" : ""%>>S
+                            <option value="H" ${__bt eq 'H' ? 'selected' : ''}><fmt:message key="billing.billingCorrection.formBillTypeH"/></option>
+                            <option value="O" ${__bt eq 'O' ? 'selected' : ''}><fmt:message key="billing.billingCorrection.formBillTypeO"/></option>
+                            <option value="P" ${__bt eq 'P' ? 'selected' : ''}><fmt:message key="billing.billingCorrection.formBillTypeP"/></option>
+                            <option value="N" ${__bt eq 'N' ? 'selected' : ''}><fmt:message key="billing.billingCorrection.formBillTypeN"/></option>
+                            <option value="W" ${__bt eq 'W' ? 'selected' : ''}><fmt:message key="billing.billingCorrection.formBillTypeW"/></option>
+                            <option value="B" ${__bt eq 'B' ? 'selected' : ''}><fmt:message key="billing.billingCorrection.formBillTypeB"/></option>
+                            <option value="S" ${__bt eq 'S' ? 'selected' : ''}>S
                                 | Settled
                             </option>
-                            <option value="X" <%=BillType.equals("X") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formBillTypeX"/></option>
-                            <option value="D" <%=BillType.equals("D") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formBillTypeD"/></option>
-                            <option value="I" <%=BillType.equals("I") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formBillTypeI"/></option>
+                            <option value="X" ${__bt eq 'X' ? 'selected' : ''}><fmt:message key="billing.billingCorrection.formBillTypeX"/></option>
+                            <option value="D" ${__bt eq 'D' ? 'selected' : ''}><fmt:message key="billing.billingCorrection.formBillTypeD"/></option>
+                            <option value="I" ${__bt eq 'I' ? 'selected' : ''}><fmt:message key="billing.billingCorrection.formBillTypeI"/></option>
                         </select><br>
 
                         Pay Program:<br>
-                        <input type="hidden" name="xml_payProgram" value="<%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(payProgram)%>"/>
+                        <input type="hidden" name="xml_payProgram" value="${carlos:forHtmlAttribute(correctionModel.payProgram)}"/>
                         <select style="font-size: 80%;" id="payProgram" name="payProgram"
                                 onchange="checkPayProgram(this.options[this.selectedIndex].value)">
-                            <%
-                                for (int i = 0; i < BillingDataHlp.vecPaymentType.size(); i = i + 2) {
-
-                            %>
-                            <option value="<%=BillingDataHlp.vecPaymentType.get(i) %>"
-                                    <%=payProgram.equals(BillingDataHlp.vecPaymentType.get(i)) ? "selected" : "" %>><%=BillingDataHlp.vecPaymentType.get(i + 1)%>
+                            <c:forEach var="__pt" items="${correctionModel.paymentTypes}">
+                            <option value="${carlos:forHtmlAttribute(__pt.code)}"
+                                    ${correctionModel.payProgram eq __pt.code ? 'selected' : ''}><carlos:encode value="${__pt.label}" context="html"/>
                             </option>
-                            <%
-                                }
-
-                            %>
+                            </c:forEach>
                         </select><br>
                         <fmt:message key="billing.billingCorrection.formBillingPhysician"/>: <br>
 
-                        <% // multisite start ==========================================
-                            if (bMultisites) {
-                                SiteDao siteDao = (SiteDao) WebApplicationContextUtils.getWebApplicationContext(application).getBean(SiteDao.class);
-                                List<Site> sites = siteDao.getActiveSitesByProviderNo(userProviderNo);
-                                // now get all providers eligible
-
-
-                                List pList;
-
-                                if (isTeamBillingOnly || isTeamAccessPrivacy) {
-                                    pList = (new JdbcBillingPageUtil()).getCurTeamProviderStr(userProviderNo);
-                                } else if (isSiteAccessPrivacy) {
-                                    pList = (new JdbcBillingPageUtil()).getCurSiteProviderStr(userProviderNo);
-                                } else {
-                                    pList = (new JdbcBillingPageUtil()).getCurProviderStr();
-                                }
-
-                                HashSet<String> pros = new HashSet<String>();
-                                for (Object s : pList) {
-                                    pros.add(((String) s).substring(0, ((String) s).indexOf("|")));
-                                }
-                        %>
+                        <%-- multisite start ========================================== --%>
+                        <c:choose>
+                        <c:when test="${correctionModel.multisites}">
                         <script>
                             var _providers = [];
-                            <%	for (int i=0; i<sites.size(); i++) {
-                                Set<Provider> siteProviders = sites.get(i).getProviders();
-                                List<Provider>  siteProvidersList = new ArrayList<Provider> (siteProviders);
-                                 Collections.sort(siteProvidersList,(new Provider()).ComparatorName());%>
-                            _providers["<%= sites.get(i).getName() %>"] = "<% Iterator<Provider> iter = siteProvidersList.iterator();
-	while (iter.hasNext()) {
-		Provider p=iter.next();
-		if ("1".equals(p.getStatus()) && StringUtils.isNotBlank(p.getOhipNo())) {
-	%><option value='<%= p.getProviderNo() %>' ><%=p.getLastName()%>, <%=p.getFirstName()%></option><%}}%>";
-                            <%}%>
+                            <c:forEach var="__msite" items="${correctionModel.multisiteSites}">
+                            _providers["${carlos:forJavaScript(__msite.name)}"] = "${carlos:forJavaScript(correctionModel.multisiteProviderHtml[__msite.name])}";
+                            </c:forEach>
 
                             function changeSite(sel) {
                                 sel.form.provider_no.innerHTML = sel.value == "none" ? "" : _providers[sel.value];
@@ -817,63 +632,43 @@
                         </script>
                         <select id="site" name="site" style="font-size: 80%;" onchange="changeSite(this)">
                             <option value="none" style="background-color:white">---select clinic---</option>
-                            <%
-                                for (int i = 0; i < sites.size(); i++) {
-                            %>
-                            <option value="<%= sites.get(i).getName() %>"
-                                    style="background-color:<%= sites.get(i).getBgColor() %>"
-                                    <%=sites.get(i).getName().toString().equals(curSite) ? "selected" : "" %>><%= sites.get(i).getName() %>
+                            <c:forEach var="__msite" items="${correctionModel.multisiteSites}">
+                            <option value="${carlos:forHtmlAttribute(__msite.name)}"
+                                    style="background-color:${carlos:forCssString(__msite.bgColor)}"
+                                    ${__msite.name eq correctionModel.currentSite ? 'selected' : ''}><carlos:encode value="${__msite.name}" context="html"/>
                             </option>
-                            <% } %>
+                            </c:forEach>
                         </select>
                         <select id="provider_no" name="provider_no" style="font-size: 80%;width:140px"></select>
                         <script>
                             changeSite(document.getElementById("site"));
-                            document.getElementById("provider_no").value = '<%=Provider%>';
+                            document.getElementById("provider_no").value = '${carlos:forJavaScript(correctionModel.billProvider)}';
                         </script>
-                        <% // multisite end ==========================================
-                        } else {
-                        %>
+                        </c:when>
+                        <c:otherwise>
                         <select
                                 id="provider_no" style="font-size: 80%;" name="provider_no">
                             <option value=""><fmt:message key="billing.billingCorrection.msgSelectProvider"/></option>
-                            <%
-
-                                List pList;
-
-                                if (isTeamBillingOnly || isTeamAccessPrivacy) {
-                                    pList = (new JdbcBillingPageUtil()).getCurTeamProviderStr(userProviderNo);
-                                } else if (isSiteAccessPrivacy) {
-                                    pList = (new JdbcBillingPageUtil()).getCurSiteProviderStr(userProviderNo);
-                                } else {
-                                    pList = (new JdbcBillingPageUtil()).getCurProviderStr();
-                                }
-
-
-                                for (int i = 0; i < pList.size(); i++) {
-                                    String temp[] = ((String) pList.get(i)).split("\\|");
-
-                            %>
-                            <option value="<%=temp[0]%>"
-                                    <%=Provider.equals(temp[0]) ? "selected" : ""%>><%=temp[0]%> |
-                                <%=temp[1]%>, <%=temp[2]%>
+                            <c:forEach var="__po" items="${correctionModel.providerOptions}">
+                            <option value="${carlos:forHtmlAttribute(__po.providerNo)}"
+                                    ${correctionModel.billProvider eq __po.providerNo ? 'selected' : ''}><carlos:encode value="${__po.providerNo}" context="html"/> |
+                                <carlos:encode value="${__po.lastName}" context="html"/>, <carlos:encode value="${__po.firstName}" context="html"/>
                             </option>
-                            <%
-                                }
-
-                            %>
+                            </c:forEach>
                         </select>
-                        <% } %>
-                        <input type="hidden" name="xml_provider_no" value="<%=Provider%>">
+                        </c:otherwise>
+                        </c:choose>
+                        <%-- multisite end ========================================== --%>
+                        <input type="hidden" name="xml_provider_no" value="${carlos:forHtmlAttribute(correctionModel.billProvider)}">
                     </div><!--span4-->
 
                     <div class="col-md-4">
-                        <input type="hidden" name="xml_visitdate" value="<%=visitdate%>"/>
+                        <input type="hidden" name="xml_visitdate" value="${carlos:forHtmlAttribute(correctionModel.visitDate)}"/>
                         <div class="col-md-4" style="margin-left:0px;">
                             <label><fmt:message key="billing.billingCorrection.btnAdmissionDate"/>:</label>
                             <div class="input-group">
                                 <input type="text" name="xml_vdate" id="xml_vdate" class="form-control"
-                                       value="<%=visitdate%>"
+                                       value="${carlos:forHtmlAttribute(correctionModel.visitDate)}"
                                        pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" style="width:90px"
                                        autocomplete="off"/>
                                 <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
@@ -882,56 +677,60 @@
                         <br>
 
                         <fmt:message key="billing.billingCorrection.formVisit"/>: <br>
-                        <input type="hidden" name="xml_clinic_ref_code" value="<%=location%>">
+                        <input type="hidden" name="xml_clinic_ref_code" value="${carlos:forHtmlAttribute(correctionModel.billLocationNo)}">
                         <select name="clinic_ref_code">
                             <option value=""><fmt:message key="billing.billingCorrection.msgSelectLocation"/></option>
-                            <% for (BillingONCorrectionViewModel.ClinicLocationEntry __cl : correctionModel.getClinicLocations()) {
-                                BillLocationNo = __cl.no();
-                                BillLocation = __cl.name();
-                            %>
-                            <option value="<%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(BillLocationNo)%>"
-                                    <%=location.equals(BillLocationNo) ? "selected" : ""%>><%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(BillLocationNo)%>
-                                | <%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(BillLocation)%>
+                            <c:forEach var="__cl" items="${correctionModel.clinicLocations}">
+                            <option value="${carlos:forHtmlAttribute(__cl.no)}"
+                                    ${correctionModel.billLocationNo eq __cl.no ? 'selected' : ''}><carlos:encode value="${__cl.no}" context="html"/>
+                                | <carlos:encode value="${__cl.name}" context="html"/>
                             </option>
-                            <%}%>
+                            </c:forEach>
                         </select><br>
 
-                        <%if (correctionModel.isRmaEnabled()) { %> Clinic
-                        Nbr <% } else { %> <fmt:message key="billing.billingCorrection.formVisitType"/> <% } %>: <br>
+                        <c:choose>
+                        <c:when test="${correctionModel.rmaEnabled}"> Clinic
+                        Nbr </c:when>
+                        <c:otherwise> <fmt:message key="billing.billingCorrection.formVisitType"/> </c:otherwise>
+                        </c:choose>: <br>
 
-                        <input type="hidden" name="xml_visittype" value="<%=visittype%>">
+                        <input type="hidden" name="xml_visittype" value="${carlos:forHtmlAttribute(correctionModel.visitType)}">
+                        <c:set var="__vt" value="${correctionModel.visitType}"/>
                         <select style="font-size: 80%;" name="visittype">
                             <option value=""><fmt:message key="billing.billingCorrection.msgSelectVisitType"/></option>
-                            <% if (correctionModel.isRmaEnabled()) { %>
-                            <% for (BillingONCorrectionViewModel.ClinicNbrEntry __cn : correctionModel.getClinicNbrs()) { %>
-                            <option value="<%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(__cn.label())%>" <%=visittype.startsWith(__cn.value()) ? "selected" : ""%>><%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(__cn.label())%>
+                            <c:choose>
+                            <c:when test="${correctionModel.rmaEnabled}">
+                            <c:forEach var="__cn" items="${correctionModel.clinicNbrs}">
+                            <option value="${carlos:forHtmlAttribute(__cn.label)}" ${fn:startsWith(__vt, __cn.value) ? 'selected' : ''}><carlos:encode value="${__cn.label}" context="html"/>
                             </option>
-                            <% }
-                            } else { %>
-                            <option value="00" <%=visittype.equals("00") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formClinicVisit"/></option>
-                            <option value="01" <%=visittype.equals("01") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formOutpatientVisit"/></option>
-                            <option value="02" <%=visittype.equals("02") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formHospitalVisit"/></option>
-                            <option value="03" <%=visittype.equals("03") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formER"/></option>
-                            <option value="04" <%=visittype.equals("04") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formNursingHome"/></option>
-                            <option value="05" <%=visittype.equals("05") ? "selected" : ""%>><fmt:message key="billing.billingCorrection.formHomeVisit"/></option>
-                            <% } %>
+                            </c:forEach>
+                            </c:when>
+                            <c:otherwise>
+                            <option value="00" ${__vt eq '00' ? 'selected' : ''}><fmt:message key="billing.billingCorrection.formClinicVisit"/></option>
+                            <option value="01" ${__vt eq '01' ? 'selected' : ''}><fmt:message key="billing.billingCorrection.formOutpatientVisit"/></option>
+                            <option value="02" ${__vt eq '02' ? 'selected' : ''}><fmt:message key="billing.billingCorrection.formHospitalVisit"/></option>
+                            <option value="03" ${__vt eq '03' ? 'selected' : ''}><fmt:message key="billing.billingCorrection.formER"/></option>
+                            <option value="04" ${__vt eq '04' ? 'selected' : ''}><fmt:message key="billing.billingCorrection.formNursingHome"/></option>
+                            <option value="05" ${__vt eq '05' ? 'selected' : ''}><fmt:message key="billing.billingCorrection.formHomeVisit"/></option>
+                            </c:otherwise>
+                            </c:choose>
                         </select><br>
 
 
-                        <%String clinicNo = correctionModel.getClinicNo();%>
+                        <c:set var="__sli" value="${correctionModel.sliCode}"/>
                         <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode"/>: <br>
                         <select name="xml_slicode">
-                            <option value="<%=clinicNo%>"><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.NA"/></option>
-                            <option value="HDS " <%=sliCode.startsWith("HDS") ? "selected" : ""%>><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HDS"/></option>
-                            <option value="HED " <%=sliCode.startsWith("HED") ? "selected" : ""%>><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HED"/></option>
-                            <option value="HIP " <%=sliCode.startsWith("HIP") ? "selected" : ""%>><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HIP"/></option>
-                            <option value="HOP " <%=sliCode.startsWith("HOP") ? "selected" : ""%>><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HOP"/></option>
-                            <option value="HRP " <%=sliCode.startsWith("HRP") ? "selected" : ""%>><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HRP"/></option>
-                            <option value="IHF " <%=sliCode.startsWith("IHF") ? "selected" : ""%>><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.IHF"/></option>
-                            <option value="OFF " <%=sliCode.startsWith("OFF") ? "selected" : ""%>><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.OFF"/></option>
-                            <option value="OTN " <%=sliCode.startsWith("OTN") ? "selected" : ""%>><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.OTN"/></option>
-                            <option value="PDF " <%=sliCode.startsWith("PDF") ? "selected" : ""%>><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.PDF"/></option>
-                            <option value="RTF " <%=sliCode.startsWith("RTF") ? "selected" : ""%>><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.RTF"/></option>
+                            <option value="${carlos:forHtmlAttribute(correctionModel.clinicNo)}"><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.NA"/></option>
+                            <option value="HDS " ${fn:startsWith(__sli, 'HDS') ? 'selected' : ''}><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HDS"/></option>
+                            <option value="HED " ${fn:startsWith(__sli, 'HED') ? 'selected' : ''}><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HED"/></option>
+                            <option value="HIP " ${fn:startsWith(__sli, 'HIP') ? 'selected' : ''}><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HIP"/></option>
+                            <option value="HOP " ${fn:startsWith(__sli, 'HOP') ? 'selected' : ''}><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HOP"/></option>
+                            <option value="HRP " ${fn:startsWith(__sli, 'HRP') ? 'selected' : ''}><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HRP"/></option>
+                            <option value="IHF " ${fn:startsWith(__sli, 'IHF') ? 'selected' : ''}><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.IHF"/></option>
+                            <option value="OFF " ${fn:startsWith(__sli, 'OFF') ? 'selected' : ''}><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.OFF"/></option>
+                            <option value="OTN " ${fn:startsWith(__sli, 'OTN') ? 'selected' : ''}><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.OTN"/></option>
+                            <option value="PDF " ${fn:startsWith(__sli, 'PDF') ? 'selected' : ''}><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.PDF"/></option>
+                            <option value="RTF " ${fn:startsWith(__sli, 'RTF') ? 'selected' : ''}><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.RTF"/></option>
                         </select>
                     </div><!--span4-->
                 </div><!-- col-md-10 -->
@@ -953,72 +752,59 @@
                     </thead>
 
                     <tbody>
-                    <%
-                        // Per-row line-item state — strings used by the rendered
-                        // <input value=...> attributes below. Refilled on each
-                        // iteration; legacy variable names preserved so the
-                        // unchanged HTML expressions keep compiling.
-                        String serviceCode = "";
-                        String serviceDesc = "";
-                        String billAmount = "";
-                        String diagCode = "";
-                        String billingunit = "";
-                        String itemStatus = "";
-
-                        if (bFlag && isMultiSiteProvider) {
-                            List<BillingONCorrectionViewModel.BillItemEntry> __bItems = correctionModel.getBillItems();
-                            if (!__bItems.isEmpty()) {
-                                int maxRecs = Math.max(__bItems.size(), MAXRECORDS);
-                                for (int i = 0; i < maxRecs; i++) {
-                                    serviceCode = "";
-                                    serviceDesc = "";
-                                    billAmount = "";
-                                    billingunit = "";
-                                    itemStatus = "";
-
-                                    if (i < __bItems.size()) {
-                                        BillingONCorrectionViewModel.BillItemEntry __bi = __bItems.get(i);
-                                        serviceCode = __bi.serviceCode();
-                                        serviceDesc = __bi.serviceDesc();
-                                        billAmount = __bi.fee();
-                                        diagCode = __bi.dx();
-                                        billingunit = __bi.count();
-                                        itemStatus = __bi.status();
-                                    }
-
-                                    rowCount = rowCount + 1;
-                    %>
-
+                    <%-- Per-row line-item table; correctionModel.billItems is
+                         pre-resolved by BillingONCorrectionRenderContextComposer.
+                         Display at least MAXRECORDS (6) rows; pad with empty
+                         rows if fewer items exist. --%>
+                    <c:if test="${__bFlag and correctionModel.multiSiteProvider and not empty correctionModel.billItems}">
+                    <c:set var="__maxRecs" value="${fn:length(correctionModel.billItems) > 6 ? fn:length(correctionModel.billItems) : 6}"/>
+                    <c:forEach var="__i" begin="0" end="${__maxRecs - 1}" varStatus="__rowLoop">
+                    <c:set var="__rowCount" value="${__rowLoop.index + 1}"/>
+                    <c:set var="__rowZero" value="${__rowLoop.index}"/>
+                    <c:choose>
+                    <c:when test="${__rowLoop.index < fn:length(correctionModel.billItems)}">
+                        <c:set var="__bi" value="${correctionModel.billItems[__rowLoop.index]}"/>
+                        <c:set var="__sc" value="${__bi.serviceCode}"/>
+                        <c:set var="__sd" value="${__bi.serviceDesc}"/>
+                        <c:set var="__ba" value="${__bi.fee}"/>
+                        <c:set var="__bu" value="${__bi.count}"/>
+                        <c:set var="__is" value="${__bi.status}"/>
+                    </c:when>
+                    <c:otherwise>
+                        <c:set var="__sc" value=""/>
+                        <c:set var="__sd" value=""/>
+                        <c:set var="__ba" value=""/>
+                        <c:set var="__bu" value=""/>
+                        <c:set var="__is" value=""/>
+                    </c:otherwise>
+                    </c:choose>
                     <tr>
                         <th style="width:25%"><input type="hidden"
-                                                     name="xml_service_code<%=rowCount%>" value="<%=serviceCode%>">
+                                                     name="xml_service_code${__rowCount}" value="${carlos:forHtmlAttribute(__sc)}">
                             <input type="text" style="width: 100%"
-                                   name="servicecode<%=rowCount-1%>" value="<%=serviceCode%>"></th>
-                        <td><a href=# onClick="scScriptAttach('servicecode<%=rowCount-1%>')">Search</a></td>
-                        <th><%=serviceDesc%>
+                                   name="servicecode${__rowZero}" value="${carlos:forHtmlAttribute(__sc)}"></th>
+                        <td><a href=# onClick="scScriptAttach('servicecode${__rowZero}')">Search</a></td>
+                        <th><carlos:encode value="${__sd}" context="html"/>
                         </th>
-                        <th><input type="hidden" name="xml_billing_unit<%=rowCount%>"
-                                   value="<%=billingunit%>"> <input type="text"
+                        <th><input type="hidden" name="xml_billing_unit${__rowCount}"
+                                   value="${carlos:forHtmlAttribute(__bu)}"> <input type="text"
                                                                     style="width: 100%"
-                                                                    name="billingunit<%=rowCount-1%>"
-                                                                    value="<%=billingunit%>" size="5" maxlength="5">
+                                                                    name="billingunit${__rowZero}"
+                                                                    value="${carlos:forHtmlAttribute(__bu)}" size="5" maxlength="5">
                         </th>
                         <th style="text-align:right"><input type="hidden"
-                                                            name="xml_billing_amount<%=rowCount%>"
-                                                            value="<%=billAmount%>">
+                                                            name="xml_billing_amount${__rowCount}"
+                                                            value="${carlos:forHtmlAttribute(__ba)}">
                             <input type="text" style="width: 100%" size="5" maxlength="6"
-                                   id="billingamount<%=rowCount-1%>" name="billingamount<%=rowCount-1%>"
-                                   value="<%=billAmount%>" onchange="javascript:validateNum(this)"></th>
+                                   id="billingamount${__rowZero}" name="billingamount${__rowZero}"
+                                   value="${carlos:forHtmlAttribute(__ba)}" onchange="javascript:validateNum(this)"></th>
                         <td style="text-align:center"><input type="checkbox"
-                                                             name="itemStatus<%=rowCount-1%>"
-                                                             id="itemStatus<%=rowCount-1%>"
-                                                             value="S" <%=itemStatus %>></td>
+                                                             name="itemStatus${__rowZero}"
+                                                             id="itemStatus${__rowZero}"
+                                                             value="S" ${__is}></td>
                     </tr>
-                    <%
-                                }
-                            }
-                        }
-                    %>
+                    </c:forEach>
+                    </c:if>
                     </tbody>
                 </table>
             </div>
@@ -1030,11 +816,18 @@
                     <b> <fmt:message key="billing.billingCorrection.formDiagnosticCode"/></b>
                     <br>
 
-                    <input type="hidden" name="xml_diagnostic_code" value="<%=diagCode%>">
+                    <%-- diagCode comes from the last bill item in the legacy
+                         scriptlet (if any). The composer surfaces it as the
+                         dx field on the last billItem. --%>
+                    <c:set var="__diagCode" value=""/>
+                    <c:forEach var="__bi" items="${correctionModel.billItems}">
+                        <c:set var="__diagCode" value="${__bi.dx}"/>
+                    </c:forEach>
+                    <input type="hidden" name="xml_diagnostic_code" value="${carlos:forHtmlAttribute(__diagCode)}">
                     <input type="hidden" name="xml_dig_search1">
 
                     <div class="input-group">
-                        <input type="text" name="xml_diagnostic_detail" value="<%=diagCode%>" class="col-md-8">
+                        <input type="text" name="xml_diagnostic_detail" value="${carlos:forHtmlAttribute(__diagCode)}" class="col-md-8">
                         <a href="javascript:ScriptAttach()" class="btn btn-secondary"><i class="fa-solid fa-magnifying-glass"></i></a>
                     </div>
 
@@ -1044,24 +837,25 @@
             <div class="row card card-body bg-body-tertiary">
                 <div class="col-md-10">
 
-                    <%
-                        if (correctionModel.isCanEditBilling()) {
-                    %>
-                    <%if (request.getParameter("admin") != null || request.getParameter("adminSubmit") != null) { %>
+                    <c:if test="${correctionModel.canEditBilling}">
+                    <c:choose>
+                    <c:when test="${not empty correctionModel.requestParamEchoes['admin'] or not empty correctionModel.requestParamEchoes['adminSubmit']}">
                     <input type="hidden" name="adminSubmit" value="adminSubmit">
                     <input class="btn btn-primary" type="submit" name="submit" onclick="return validateAllItems();"
                            value="Save">
-                    <%} else {%>
+                    </c:when>
+                    <c:otherwise>
                     <input class="btn btn-primary" type="submit" name="submit" onclick="return validateAllItems();"
                            value="Save">
                     <input class="btn btn-secondary" type="submit" name="submit" onclick="return validateAllItems();"
                            value="Save&Correct Another">
-                    <%}%>
-                    <%}%>
+                    </c:otherwise>
+                    </c:choose>
+                    </c:if>
 
-                    <%if (billNo != null) {%>
+                    <c:if test="${not empty correctionModel.billingNo}">
 
-                    <a id="reprintLink" onclick="return sanityCheck('<carlos:encode value='<%= nullToEmpty(billNo) %>' context="javaScriptAttribute"/>', <%=billNoErr%>)" href="<%= request.getContextPath() %>/billing/CA/ON/ViewBillingON3rdInv?billingNo=<carlos:encode value='<%= billNo %>' context="uriComponent"/>" class="btn btn-secondary"><i
+                    <a id="reprintLink" onclick="return sanityCheck('${carlos:forJavaScriptAttribute(correctionModel.billingNo)}', ${correctionModel.billNoErr})" href="${pageContext.request.contextPath}/billing/CA/ON/ViewBillingON3rdInv?billingNo=${carlos:forUriComponent(correctionModel.billingNo)}" class="btn btn-secondary"><i
                             class="fa-solid fa-print"></i> Reprint</a>
                     <a id="rebillLink"
                        onclick="document.querySelector(&quot;select[name='status']&quot;).value = 'O'; document.getElementsByName(&quot;submit&quot;)[1].click();"
@@ -1069,7 +863,7 @@
                     <a id="settleLink"
                        onclick="document.querySelector(&quot;select[name='status']&quot;).value = 'S';document.getElementsByName(&quot;submit&quot;)[1].click();"
                        class="btn btn-secondary">Settle All</a>
-                    <%}%>
+                    </c:if>
 
 
                     <br><br>
@@ -1077,39 +871,34 @@
                     <div class="row">
                         <div class="col-md-5">
                             <fmt:message key="billing.billingCorrection.msgNotes"/>:<br>
-                            <textarea name="comment" style="width:100%" rows=4><%=comment %></textarea>
-                            <%
-                                if (correctionModel.isDueDateAvailable()) {
-                                    String dueDateStr = correctionModel.getDueDateString();
-                            %>
+                            <textarea name="comment" style="width:100%" rows=4><carlos:encode value="${correctionModel.comment}" context="html"/></textarea>
+                            <c:if test="${correctionModel.dueDateAvailable}">
                             <br>
                             <!--
-                    <fmt:message key="billing.billingCorrection.dueDate"/><img src="<%= request.getContextPath() %>/images/cal.gif" id="invoiceDueDate_cal" />
-                    :<input type="text" maxlength="10" id="invoiceDueDate" name="invoiceDueDate" value="<%=dueDateStr%>"/>
+                    <fmt:message key="billing.billingCorrection.dueDate"/><img src="${pageContext.request.contextPath}/images/cal.gif" id="invoiceDueDate_cal" />
+                    :<input type="text" maxlength="10" id="invoiceDueDate" name="invoiceDueDate" value="${carlos:forHtmlAttribute(correctionModel.dueDateString)}"/>
                     -->
                             <div class="col-md-2">
                                 <label><fmt:message key="billing.billingCorrection.dueDate"/>:</label>
                                 <div class="input-group">
                                     <input type="text" name="invoiceDueDate" id="invoiceDueDate" class="form-control"
-                                           value="<%=dueDateStr%>"
+                                           value="${carlos:forHtmlAttribute(correctionModel.dueDateString)}"
                                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"
                                            style="width:90px"/>
                                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                                 </div>
                             </div>
-                            <% } %>
+                            </c:if>
                         </div>
 
-                        <div class="col-md-5" id="thirdParty" style=" <%=thirdParty ? "" : "display:none"%>">
+                        <div class="col-md-5" id="thirdParty" style=" ${correctionModel.thirdParty ? '' : 'display:none'}">
                             <a href="#" onclick="search3rdParty('billTo');return false;"><fmt:message key="billing.billingCorrection.msgPayer"/></a><br>
-                            <textarea id="billTo" name="billTo" cols="32" rows=4><%=payer%></textarea>
-                            <% if (correctionModel.isUseDemoContactAvailable()) {
-                                    String selectUseBillTo = correctionModel.isUseDemoContactChecked() ? "checked" : "";
-                            %>
+                            <textarea id="billTo" name="billTo" cols="32" rows=4><carlos:encode value="${correctionModel.payer}" context="html"/></textarea>
+                            <c:if test="${correctionModel.useDemoContactAvailable}">
                             <br><fmt:message key="billing.billingCorrection.useDemoContactYesNo"/>:<input
                                 type="checkbox" name="overrideUseDemoContact"
-                                id="overrideUseDemoContact" <%=selectUseBillTo%> />
-                            <% } %>
+                                id="overrideUseDemoContact" ${correctionModel.useDemoContactChecked ? 'checked' : ''} />
+                            </c:if>
                         </div>
                     </div>
 
@@ -1117,8 +906,8 @@
             </div>
 
 
-            <div id="thirdPartyPymnt" style="<%=thirdParty ? "" : "display:none"%>">
-                <%=htmlPaid %>
+            <div id="thirdPartyPymnt" style="${correctionModel.thirdParty ? '' : 'display:none'}">
+                ${correctionModel.htmlPaid}
             </div>
 
         </form>
@@ -1126,16 +915,11 @@
     <div>
 
 
-        <% if (correctionModel.isDueDateAvailable()) { %>
+        <c:if test="${correctionModel.dueDateAvailable}">
         <script>
             flatpickr("#invoiceDueDate", {dateFormat: "Y-m-d", allowInput: true});
         </script>
-        <% } %>
-        <%!
-            String nullToEmpty(String str) {
-                return (str == null ? "" : str);
-            }
-        %>
+        </c:if>
 
 
     </div>
@@ -1151,8 +935,7 @@
         }, 5000);
 
         function display3rdPartyPayments() {
-                <c:set var="__enc_2"><carlos:encode value='<%= billNo %>' context="uriComponent"/></c:set>
-        popupPage('800', '860', 'billingON3rdPayments?method=listPayments&billingNo=<carlos:encode value='${__enc_2}' context="javaScript"/>');
+        popupPage('800', '860', 'billingON3rdPayments?method=listPayments&billingNo=${carlos:forJavaScript(carlos:forUriComponent(correctionModel.billingNo))}');
         }
 
         document.addEventListener('DOMContentLoaded', function () {

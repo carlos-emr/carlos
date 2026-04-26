@@ -14,6 +14,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.data;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -113,12 +114,42 @@ public final class BillingONCorrectionViewModel {
     private final List<ClinicNbrEntry> clinicNbrs;
     private final List<BillItemEntry> billItems;
     private final List<ErrorReportEntry> errorReportEntries;
+    // Multisite picker context for the JSP. The legacy scriptlet looped
+    // SiteDao + Provider lists inline; the assembler now supplies the
+    // pre-resolved list of {@link MultisiteSite} entries plus a name->HTML
+    // map of <option> fragments mirroring billingON.jsp.
+    private final List<MultisiteSite> multisiteSites;
+    private final Map<String, String> multisiteProviderHtml;
+    // Non-multisite provider dropdown — pre-resolved triples of
+    // {providerNo, firstName, lastName} from JdbcBillingPageUtil so the JSP
+    // can render with c:forEach.
+    private final List<ProviderOption> providerOptions;
+    // BillingDataHlp.vecPaymentType pairs (code + label) so the JSP renders
+    // <c:forEach var="pt" items="${correctionModel.paymentTypes}"> rather
+    // than reading the static Vector via a scriptlet.
+    private final List<PaymentTypeEntry> paymentTypes;
+    // Echo of select request parameters (e.g. ?adminSubmit, ?admin) so the
+    // JSP can branch on them without referencing ${param.X} (the encoder
+    // validator treats raw param refs as XSS even inside <c:out>).
+    private final Map<String, String> requestParamEchoes;
+    // Resolved current site value: ?site param when present, else the bill
+    // record's clinicSite. Used for the <option selected> attribute on the
+    // multisite site picker.
+    private final String currentSite;
 
     public record ClinicLocationEntry(String no, String name) {}
     public record ClinicNbrEntry(String value, String label) {}
     public record BillItemEntry(String serviceCode, String serviceDesc,
                                 String fee, String dx, String count, String status) {}
     public record ErrorReportEntry(String code, String description) {}
+    /** A multisite site (name + bg color + the providers attached to it). */
+    public record MultisiteSite(String name, String bgColor, List<MultisiteProvider> providers) {}
+    /** A provider attached to a multisite site (for the per-site picker). */
+    public record MultisiteProvider(String providerNo, String lastName, String firstName) {}
+    /** A row in the non-multisite provider dropdown. */
+    public record ProviderOption(String providerNo, String firstName, String lastName) {}
+    /** Pay-program code + display label for the payProgram dropdown. */
+    public record PaymentTypeEntry(String code, String label) {}
 
     private BillingONCorrectionViewModel(Builder b) {
         this.userProviderNo = nullToEmpty(b.userProviderNo);
@@ -183,6 +214,17 @@ public final class BillingONCorrectionViewModel {
                 ? Collections.emptyList() : List.copyOf(b.billItems);
         this.errorReportEntries = b.errorReportEntries == null
                 ? Collections.emptyList() : List.copyOf(b.errorReportEntries);
+        this.multisiteSites = b.multisiteSites == null
+                ? Collections.emptyList() : List.copyOf(b.multisiteSites);
+        this.multisiteProviderHtml = b.multisiteProviderHtml == null
+                ? Collections.emptyMap() : Map.copyOf(b.multisiteProviderHtml);
+        this.providerOptions = b.providerOptions == null
+                ? Collections.emptyList() : List.copyOf(b.providerOptions);
+        this.paymentTypes = b.paymentTypes == null
+                ? Collections.emptyList() : List.copyOf(b.paymentTypes);
+        this.requestParamEchoes = b.requestParamEchoes == null
+                ? Collections.emptyMap() : Map.copyOf(b.requestParamEchoes);
+        this.currentSite = nullToEmpty(b.currentSite);
     }
 
     private static String nullToEmpty(String s) {
@@ -249,6 +291,12 @@ public final class BillingONCorrectionViewModel {
     public List<ClinicNbrEntry> getClinicNbrs() { return clinicNbrs; }
     public List<BillItemEntry> getBillItems() { return billItems; }
     public List<ErrorReportEntry> getErrorReportEntries() { return errorReportEntries; }
+    public List<MultisiteSite> getMultisiteSites() { return multisiteSites; }
+    public Map<String, String> getMultisiteProviderHtml() { return multisiteProviderHtml; }
+    public List<ProviderOption> getProviderOptions() { return providerOptions; }
+    public List<PaymentTypeEntry> getPaymentTypes() { return paymentTypes; }
+    public Map<String, String> getRequestParamEchoes() { return requestParamEchoes; }
+    public String getCurrentSite() { return currentSite; }
 
     public static final class Builder {
         private String userProviderNo;
@@ -311,6 +359,12 @@ public final class BillingONCorrectionViewModel {
         private List<ClinicNbrEntry> clinicNbrs;
         private List<BillItemEntry> billItems;
         private List<ErrorReportEntry> errorReportEntries;
+        private List<MultisiteSite> multisiteSites;
+        private Map<String, String> multisiteProviderHtml;
+        private List<ProviderOption> providerOptions;
+        private List<PaymentTypeEntry> paymentTypes;
+        private Map<String, String> requestParamEchoes;
+        private String currentSite;
 
         public Builder userProviderNo(String v) { this.userProviderNo = v; return this; }
         public Builder userFirstName(String v) { this.userFirstName = v; return this; }
@@ -373,6 +427,12 @@ public final class BillingONCorrectionViewModel {
         public Builder clinicNbrs(List<ClinicNbrEntry> v) { this.clinicNbrs = v == null ? null : List.copyOf(v); return this; }
         public Builder billItems(List<BillItemEntry> v) { this.billItems = v == null ? null : List.copyOf(v); return this; }
         public Builder errorReportEntries(List<ErrorReportEntry> v) { this.errorReportEntries = v == null ? null : List.copyOf(v); return this; }
+        public Builder multisiteSites(List<MultisiteSite> v) { this.multisiteSites = v == null ? null : List.copyOf(v); return this; }
+        public Builder multisiteProviderHtml(Map<String, String> v) { this.multisiteProviderHtml = v == null ? null : Map.copyOf(v); return this; }
+        public Builder providerOptions(List<ProviderOption> v) { this.providerOptions = v == null ? null : List.copyOf(v); return this; }
+        public Builder paymentTypes(List<PaymentTypeEntry> v) { this.paymentTypes = v == null ? null : List.copyOf(v); return this; }
+        public Builder requestParamEchoes(Map<String, String> v) { this.requestParamEchoes = v == null ? null : Map.copyOf(v); return this; }
+        public Builder currentSite(String v) { this.currentSite = v; return this; }
 
         public BillingONCorrectionViewModel build() {
             return new BillingONCorrectionViewModel(this);
