@@ -397,7 +397,7 @@ class LogSanitizerUnitTest {
         @Test
         @DisplayName("should strip CRLF / NUL / other ASCII control characters")
         void shouldStripControlCharacters_fromInput() {
-            String input = "before\r\nafter end";
+            String input = "before\r\nafter\u0000\u0001end";
             assertThat(LogSanitizer.sanitizeForDisplay(input)).isEqualTo("beforeafterend");
         }
 

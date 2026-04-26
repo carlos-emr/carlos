@@ -90,9 +90,13 @@ public class BatchBill2Action extends ActionSupport {
             try {
                 billingDate = dateFmt.parse(strDate);
             } catch (ParseException e) {
-                MiscUtils.getLogger().error("Error", e);
-                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                return null;
+                // Send an explicit 400 with a body and return NONE so Struts
+                // doesn't try to resolve a result string. Returning null after
+                // setStatus produces an empty/ambiguous response — the same
+                // shape this PR fixed elsewhere.
+                MiscUtils.getLogger().error("BatchBill execute: invalid BillDate", e);
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid BillDate");
+                return NONE;
             }
         }
 
@@ -113,8 +117,8 @@ public class BatchBill2Action extends ActionSupport {
                     MiscUtils.getLogger().error(
                             "BatchBill execute: row {} malformed (expected 3 fields, got {})",
                             idx, temp.length);
-                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                    return null;
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Malformed bill row");
+                    return NONE;
                 }
                 try {
                     Integer.parseInt(temp[1]);
@@ -122,8 +126,8 @@ public class BatchBill2Action extends ActionSupport {
                     MiscUtils.getLogger().error(
                             "BatchBill execute: row {} demographic_no is non-numeric",
                             idx, nfe);
-                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                    return null;
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Non-numeric demographic_no");
+                    return NONE;
                 }
             }
 

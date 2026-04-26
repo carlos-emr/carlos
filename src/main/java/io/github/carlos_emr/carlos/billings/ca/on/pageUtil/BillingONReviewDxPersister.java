@@ -81,9 +81,12 @@ public final class BillingONReviewDxPersister {
         String dxCodeMatch = nullToEmpty(request.getParameter("codeMatchToPatientDx"));
         String dxCodeAdd = dxCodeMatch.isEmpty() ? dxCode : dxCodeMatch;
         if (dxCodeAdd.isEmpty()) {
+            // demographic_no kept out of the log line per CARLOS PHI policy
+            // (demographic_no correlates 1:1 to a patient via the demographic
+            // table, so it's PHI-adjacent in catalina.out). Operators
+            // correlate via the UI session, not by greping logs for IDs.
             MiscUtils.getLogger().error(
-                    "addToPatientDx requested for demo {} without a dx code",
-                    LogSanitizer.sanitize(demoNo));
+                    "addToPatientDx requested without a dx code");
             throw new BillingValidationException(
                     "Add-to-patient-dx requested but no diagnostic code was supplied — "
                     + "no record was saved.");
@@ -93,12 +96,11 @@ public final class BillingONReviewDxPersister {
         try {
             demoNoInt = Integer.valueOf(demoNo);
         } catch (NumberFormatException nfe) {
-            // sanitize() for log (defends against log-injection); for the
-            // user-facing BVE message use sanitizeForDisplay so the operator
-            // sees printable characters as themselves.
+            // Log a generic error (no demographic_no) for PHI hygiene; the
+            // user-facing BVE message includes the malformed value so the
+            // operator can see what they typed and self-correct.
             MiscUtils.getLogger().error(
-                    "addToPatientDx requested with non-numeric demographic_no: {}",
-                    LogSanitizer.sanitize(demoNo));
+                    "addToPatientDx requested with non-numeric demographic_no");
             throw new BillingValidationException(
                     "addToPatientDx requested with non-numeric demographic_no: "
                     + LogSanitizer.sanitizeForDisplay(demoNo), nfe);
@@ -121,16 +123,19 @@ public final class BillingONReviewDxPersister {
             // so the user sees the friendly "submission rejected" page rather
             // than the generic CARLOS Error 500. The save was a clinical
             // write — the operator needs to know it was rejected.
+            // demographic_no kept out of the log per CARLOS PHI policy.
+            // Operators correlate via the UI; the dx code is sufficient
+            // forensic context.
             MiscUtils.getLogger().error(
-                    "addToPatientDx: data-integrity violation persisting dx {} for demo {}",
-                    LogSanitizer.sanitize(dxCodeAdd), demoNoInt, dive);
+                    "addToPatientDx: data-integrity violation persisting dx {}",
+                    LogSanitizer.sanitize(dxCodeAdd), dive);
             throw new BillingValidationException(
                     "Could not save dx (" + LogSanitizer.sanitizeForDisplay(dxCodeAdd)
                     + ") for the patient: it may already be in the registry.", dive);
         } catch (org.hibernate.NonUniqueObjectException nuoe) {
             MiscUtils.getLogger().error(
-                    "addToPatientDx: NonUniqueObjectException for dx {} demo {}",
-                    LogSanitizer.sanitize(dxCodeAdd), demoNoInt, nuoe);
+                    "addToPatientDx: NonUniqueObjectException for dx {}",
+                    LogSanitizer.sanitize(dxCodeAdd), nuoe);
             throw new BillingValidationException(
                     "Could not save dx (" + LogSanitizer.sanitizeForDisplay(dxCodeAdd)
                     + ") for the patient: a session conflict occurred. Please reload the chart and retry.", nuoe);
@@ -141,8 +146,8 @@ public final class BillingONReviewDxPersister {
             // gap the targeted catches above close. Translate to BVE so the
             // operator gets the friendly "retry" message.
             MiscUtils.getLogger().error(
-                    "addToPatientDx: unexpected save failure for dx {} demo {}",
-                    LogSanitizer.sanitize(dxCodeAdd), demoNoInt, rtEx);
+                    "addToPatientDx: unexpected save failure for dx {}",
+                    LogSanitizer.sanitize(dxCodeAdd), rtEx);
             throw new BillingValidationException(
                     "Could not save dx (" + LogSanitizer.sanitizeForDisplay(dxCodeAdd)
                     + ") for the patient — please retry, then contact support if the problem persists.", rtEx);
