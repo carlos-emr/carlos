@@ -111,15 +111,14 @@ public final class BillingONCorrectionViewModel {
     private final String clinicNo;
     private final boolean rmaEnabled;
     private final List<ClinicLocationEntry> clinicLocations;
-    private final List<ClinicNbrEntry> clinicNbrs;
+    private final List<BillingMultisiteContext.ClinicNbrEntry> clinicNbrs;
     private final List<BillItemEntry> billItems;
     private final List<ErrorReportEntry> errorReportEntries;
     // Multisite picker context for the JSP. The legacy scriptlet looped
     // SiteDao + Provider lists inline; the assembler now supplies the
-    // pre-resolved list of {@link MultisiteSite} entries plus a name->HTML
-    // map of <option> fragments mirroring billingON.jsp.
-    private final List<MultisiteSite> multisiteSites;
-    private final Map<String, String> multisiteProviderHtml;
+    // pre-resolved {@link BillingMultisiteContext} record carrying the site
+    // list and the name->HTML map of <option> fragments mirroring billingON.jsp.
+    private final BillingMultisiteContext multisite;
     // Non-multisite provider dropdown — pre-resolved triples of
     // {providerNo, firstName, lastName} from JdbcBillingPageUtil so the JSP
     // can render with c:forEach.
@@ -138,14 +137,9 @@ public final class BillingONCorrectionViewModel {
     private final String currentSite;
 
     public record ClinicLocationEntry(String no, String name) {}
-    public record ClinicNbrEntry(String value, String label) {}
     public record BillItemEntry(String serviceCode, String serviceDesc,
                                 String fee, String dx, String count, String status) {}
     public record ErrorReportEntry(String code, String description) {}
-    /** A multisite site (name + bg color + the providers attached to it). */
-    public record MultisiteSite(String name, String bgColor, List<MultisiteProvider> providers) {}
-    /** A provider attached to a multisite site (for the per-site picker). */
-    public record MultisiteProvider(String providerNo, String lastName, String firstName) {}
     /** A row in the non-multisite provider dropdown. */
     public record ProviderOption(String providerNo, String firstName, String lastName) {}
     /** Pay-program code + display label for the payProgram dropdown. */
@@ -214,10 +208,18 @@ public final class BillingONCorrectionViewModel {
                 ? Collections.emptyList() : List.copyOf(b.billItems);
         this.errorReportEntries = b.errorReportEntries == null
                 ? Collections.emptyList() : List.copyOf(b.errorReportEntries);
-        this.multisiteSites = b.multisiteSites == null
-                ? Collections.emptyList() : List.copyOf(b.multisiteSites);
-        this.multisiteProviderHtml = b.multisiteProviderHtml == null
-                ? Collections.emptyMap() : Map.copyOf(b.multisiteProviderHtml);
+        // Correction's multisite scope is sites + multisiteProviderHtml only.
+        // Other slices are populated as empty defaults.
+        this.multisite = (b.multisite != null)
+                ? b.multisite
+                : new BillingMultisiteContext(
+                        b.multisites,
+                        b.multisiteSites,
+                        "", "", "",
+                        b.multisiteProviderHtml,
+                        b.rmaEnabled,
+                        Collections.emptyList(),
+                        "");
         this.providerOptions = b.providerOptions == null
                 ? Collections.emptyList() : List.copyOf(b.providerOptions);
         this.paymentTypes = b.paymentTypes == null
@@ -288,11 +290,13 @@ public final class BillingONCorrectionViewModel {
     public String getClinicNo() { return clinicNo; }
     public boolean isRmaEnabled() { return rmaEnabled; }
     public List<ClinicLocationEntry> getClinicLocations() { return clinicLocations; }
-    public List<ClinicNbrEntry> getClinicNbrs() { return clinicNbrs; }
+    public List<BillingMultisiteContext.ClinicNbrEntry> getClinicNbrs() { return clinicNbrs; }
     public List<BillItemEntry> getBillItems() { return billItems; }
     public List<ErrorReportEntry> getErrorReportEntries() { return errorReportEntries; }
-    public List<MultisiteSite> getMultisiteSites() { return multisiteSites; }
-    public Map<String, String> getMultisiteProviderHtml() { return multisiteProviderHtml; }
+    /** Aggregated multisite context — primary internal storage. */
+    public BillingMultisiteContext getMultisite() { return multisite; }
+    public List<BillingMultisiteContext.MultisiteSite> getMultisiteSites() { return multisite.sites(); }
+    public Map<String, String> getMultisiteProviderHtml() { return multisite.multisiteProviderHtml(); }
     public List<ProviderOption> getProviderOptions() { return providerOptions; }
     public List<PaymentTypeEntry> getPaymentTypes() { return paymentTypes; }
     public Map<String, String> getRequestParamEchoes() { return requestParamEchoes; }
@@ -356,10 +360,11 @@ public final class BillingONCorrectionViewModel {
         private String clinicNo;
         private boolean rmaEnabled;
         private List<ClinicLocationEntry> clinicLocations;
-        private List<ClinicNbrEntry> clinicNbrs;
+        private List<BillingMultisiteContext.ClinicNbrEntry> clinicNbrs;
         private List<BillItemEntry> billItems;
         private List<ErrorReportEntry> errorReportEntries;
-        private List<MultisiteSite> multisiteSites;
+        private BillingMultisiteContext multisite;
+        private List<BillingMultisiteContext.MultisiteSite> multisiteSites;
         private Map<String, String> multisiteProviderHtml;
         private List<ProviderOption> providerOptions;
         private List<PaymentTypeEntry> paymentTypes;
@@ -424,10 +429,12 @@ public final class BillingONCorrectionViewModel {
         // Defensive copy at the setter so callers retaining the original
         // mutable List can't influence builder state between setter and build().
         public Builder clinicLocations(List<ClinicLocationEntry> v) { this.clinicLocations = v == null ? null : List.copyOf(v); return this; }
-        public Builder clinicNbrs(List<ClinicNbrEntry> v) { this.clinicNbrs = v == null ? null : List.copyOf(v); return this; }
+        public Builder clinicNbrs(List<BillingMultisiteContext.ClinicNbrEntry> v) { this.clinicNbrs = v == null ? null : List.copyOf(v); return this; }
         public Builder billItems(List<BillItemEntry> v) { this.billItems = v == null ? null : List.copyOf(v); return this; }
         public Builder errorReportEntries(List<ErrorReportEntry> v) { this.errorReportEntries = v == null ? null : List.copyOf(v); return this; }
-        public Builder multisiteSites(List<MultisiteSite> v) { this.multisiteSites = v == null ? null : List.copyOf(v); return this; }
+        /** Composed multisite-context setter (preferred over the slice-by-slice setters). */
+        public Builder multisite(BillingMultisiteContext v) { this.multisite = v; return this; }
+        public Builder multisiteSites(List<BillingMultisiteContext.MultisiteSite> v) { this.multisiteSites = v == null ? null : List.copyOf(v); return this; }
         public Builder multisiteProviderHtml(Map<String, String> v) { this.multisiteProviderHtml = v == null ? null : Map.copyOf(v); return this; }
         public Builder providerOptions(List<ProviderOption> v) { this.providerOptions = v == null ? null : List.copyOf(v); return this; }
         public Builder paymentTypes(List<PaymentTypeEntry> v) { this.paymentTypes = v == null ? null : List.copyOf(v); return this; }

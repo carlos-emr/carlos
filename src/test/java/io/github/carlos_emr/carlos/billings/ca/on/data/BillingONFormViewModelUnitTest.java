@@ -396,4 +396,81 @@ class BillingONFormViewModelUnitTest {
         assertThat(r.ohip()).isEqualTo(m.getReferralDoctorOhip());
         assertThat(r.specialty()).isEqualTo(m.getReferralSpecialty());
     }
+
+    @Test
+    @DisplayName("composed setter wins, flat getters delegate to the composed record")
+    void shouldDelegateFlatGetters_toComposedRecord_whenComposedSetterUsed() {
+        // The composed-record setter is the preferred shape; when both are
+        // supplied the composed wins and the flat getters delegate to it.
+        BillingDemographicSummary demoComposed = new BillingDemographicSummary(
+                "Composed", "Doe", "9999999999", "AB", "1", "ON",
+                "19900101", "1990", "01", "01");
+        BillingReferralDoctor refComposed = new BillingReferralDoctor(
+                "Smith,Adam", "987654", "GP");
+        BillingValidationMessages msgsComposed = new BillingValidationMessages(
+                "1", "Composed error", "Composed warning");
+        BillingMultisiteContext multiComposed = new BillingMultisiteContext(
+                true, List.of(),
+                "DefaultSite", "doc|111", "doc|111",
+                Map.of("DefaultSite", "<option/>"),
+                true, List.of(),
+                "C0001");
+
+        BillingONFormViewModel m = BillingONFormViewModel.builder()
+                // Flat setters: should be overridden by the composed record below.
+                .demoFirst("Flat").demoLast("Wrong").demoHin("000")
+                .referralDoctor("Wrong").referralDoctorOhip("000000")
+                .errorFlag("").errorMsg("flat err").warningMsg("flat warn")
+                .multisiteEnabled(false)
+                // Composed setters take precedence.
+                .demographic(demoComposed)
+                .referral(refComposed)
+                .messages(msgsComposed)
+                .multisite(multiComposed)
+                .build();
+
+        // Composed record getters return the composed values, NOT the flats.
+        assertThat(m.getDemographic()).isSameAs(demoComposed);
+        assertThat(m.getReferral()).isSameAs(refComposed);
+        assertThat(m.getMessages()).isSameAs(msgsComposed);
+        assertThat(m.getMultisite()).isSameAs(multiComposed);
+
+        // Flat getters delegate to the composed record (single source of truth).
+        assertThat(m.getDemoFirst()).isEqualTo(demoComposed.firstName());
+        assertThat(m.getDemoLast()).isEqualTo(demoComposed.lastName());
+        assertThat(m.getDemoHin()).isEqualTo(demoComposed.hin());
+        assertThat(m.getReferralDoctor()).isEqualTo(refComposed.name());
+        assertThat(m.getReferralDoctorOhip()).isEqualTo(refComposed.ohip());
+        assertThat(m.getReferralSpecialty()).isEqualTo(refComposed.specialty());
+        assertThat(m.getErrorFlag()).isEqualTo(msgsComposed.errorFlag());
+        assertThat(m.getErrorMsg()).isEqualTo(msgsComposed.errorMessage());
+        assertThat(m.getWarningMsg()).isEqualTo(msgsComposed.warningMessage());
+        assertThat(m.isMultisiteEnabled()).isTrue();
+        assertThat(m.getDefaultSelectedSite()).isEqualTo("DefaultSite");
+        assertThat(m.getSelectedClinicNbrPrefix()).isEqualTo("C0001");
+    }
+
+    @Test
+    @DisplayName("composed accessors expose the same data as flat getters when only flats supplied")
+    void shouldExposeComposed_fromFlatSetters() {
+        BillingONFormViewModel m = BillingONFormViewModel.builder()
+                .demoFirst("Jane").demoLast("Doe").demoHin("9876543225")
+                .demoVer("AB").demoSex("F").demoHcType("ON")
+                .demoDob("19850615").demoDobYear("1985").demoDobMonth("06").demoDobDay("15")
+                .referralDoctor("Smith").referralDoctorOhip("123456").referralSpecialty("00")
+                .errorFlag("1").errorMsg("err").warningMsg("warn")
+                .multisiteEnabled(true).rmaEnabled(true).selectedClinicNbrPrefix("X")
+                .build();
+
+        // Composed records assembled from flat fields preserve every value.
+        assertThat(m.getDemographic().firstName()).isEqualTo(m.getDemoFirst());
+        assertThat(m.getDemographic().lastName()).isEqualTo(m.getDemoLast());
+        assertThat(m.getReferral().name()).isEqualTo(m.getReferralDoctor());
+        assertThat(m.getMessages().errorFlag()).isEqualTo(m.getErrorFlag());
+        assertThat(m.getMessages().errorMessage()).isEqualTo(m.getErrorMsg());
+        assertThat(m.getMessages().warningMessage()).isEqualTo(m.getWarningMsg());
+        assertThat(m.getMultisite().enabled()).isEqualTo(m.isMultisiteEnabled());
+        assertThat(m.getMultisite().rmaEnabled()).isEqualTo(m.isRmaEnabled());
+        assertThat(m.getMultisite().selectedClinicNbrPrefix()).isEqualTo(m.getSelectedClinicNbrPrefix());
+    }
 }

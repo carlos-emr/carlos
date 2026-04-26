@@ -701,7 +701,7 @@
                             <c:choose>
                             <c:when test="${correctionModel.rmaEnabled}">
                             <c:forEach var="__cn" items="${correctionModel.clinicNbrs}">
-                            <option value="${carlos:forHtmlAttribute(__cn.label)}" ${fn:startsWith(__vt, __cn.value) ? 'selected' : ''}><carlos:encode value="${__cn.label}" context="html"/>
+                            <option value="${carlos:forHtmlAttribute(__cn.displayLabel)}" ${fn:startsWith(__vt, __cn.nbrValue) ? 'selected' : ''}><carlos:encode value="${__cn.displayLabel}" context="html"/>
                             </option>
                             </c:forEach>
                             </c:when>

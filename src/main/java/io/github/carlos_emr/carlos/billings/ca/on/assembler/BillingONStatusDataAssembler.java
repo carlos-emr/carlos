@@ -34,6 +34,7 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingErrorRepData;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingMultisiteContext;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONStatusViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingErrorRepImpl;
@@ -165,7 +166,7 @@ public final class BillingONStatusDataAssembler {
         //      provider option lists ----
         Map<String, String> siteBgColorMap = new HashMap<>();
         Map<String, String> siteShortNameMap = new HashMap<>();
-        List<BillingONStatusViewModel.MultisiteSite> multisiteSites = new ArrayList<>();
+        List<BillingMultisiteContext.MultisiteSite> multisiteSites = new ArrayList<>();
         Map<String, String> multisiteProviderHtml = new LinkedHashMap<>();
         if (multisitesEnabled) {
             SiteDao siteDao = lookupSiteDao(request);
@@ -196,21 +197,25 @@ public final class BillingONStatusDataAssembler {
                     if (!sortedProviders.isEmpty()) {
                         Collections.sort(sortedProviders, (new Provider()).ComparatorName());
                     }
-                    List<BillingONStatusViewModel.MultisiteProviderOption> providerOpts =
+                    List<BillingMultisiteContext.MultisiteProvider> providerOpts =
                             new ArrayList<>();
                     for (Provider p : sortedProviders) {
                         if (allowedProviders.contains(p.getProviderNo())) {
+                            // Status doesn't expose ohipNo on the multisite
+                            // option list, so the cross-cutting record's
+                            // ohipNo slot is left empty.
                             providerOpts.add(
-                                    new BillingONStatusViewModel.MultisiteProviderOption(
+                                    new BillingMultisiteContext.MultisiteProvider(
                                             p.getProviderNo(),
+                                            "",
                                             p.getLastName(),
                                             p.getFirstName()));
                         }
                     }
-                    multisiteSites.add(new BillingONStatusViewModel.MultisiteSite(
+                    multisiteSites.add(new BillingMultisiteContext.MultisiteSite(
                             site.getName(), site.getBgColor(), providerOpts));
                     StringBuilder html = new StringBuilder();
-                    for (BillingONStatusViewModel.MultisiteProviderOption mp : providerOpts) {
+                    for (BillingMultisiteContext.MultisiteProvider mp : providerOpts) {
                         html.append("<option value='")
                                 .append(escapeHtmlAttr(mp.providerNo()))
                                 .append("'>")

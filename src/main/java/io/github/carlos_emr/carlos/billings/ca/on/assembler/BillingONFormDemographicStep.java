@@ -107,6 +107,11 @@ final class BillingONFormDemographicStep {
         }
 
         BillingONFormDataAssembler.AgeResult ageResult = calculateAge(demoDob);
+        // Flat setters accumulate into the builder's fields; the build()
+        // step composes them into a {@link BillingDemographicSummary} record
+        // unless the orchestrator (or a later composer) calls .demographic()
+        // explicitly. Keeping setters flat here means peek* helpers stay
+        // consistent across composers that haven't migrated.
         b.demoLast(demoLast)
                 .demoFirst(demoFirst)
                 .demoHin(demoHin)

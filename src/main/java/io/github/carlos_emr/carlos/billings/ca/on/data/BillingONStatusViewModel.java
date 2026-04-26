@@ -38,13 +38,6 @@ public final class BillingONStatusViewModel {
     /** A {@code provider_no|last|first|ohip_no}-derived dropdown row. */
     public record ProviderOption(String providerNo, String lastName, String firstName, String ohipNo) { }
 
-    /** Multisite per-site provider option (already filtered by user privileges). */
-    public record MultisiteProviderOption(String providerNo, String lastName, String firstName) { }
-
-    /** Multisite site entry with bgColor and pre-filtered list of providers. */
-    public record MultisiteSite(String name, String bgColor,
-                                List<MultisiteProviderOption> providers) { }
-
     /** Visit-location dropdown entry. */
     public record VisitLocationOption(String code, String label) { }
 
@@ -133,8 +126,10 @@ public final class BillingONStatusViewModel {
 
     // Render-only derived data (assembler-populated)
     private final List<ProviderOption> providers;
-    private final List<MultisiteSite> multisiteSites;
-    private final Map<String, String> multisiteProviderHtml;
+    /** Aggregated multisite slice — Status populates sites + providerHtml only;
+     *  other fields default to empty. The legacy {@code multisites} flag stays
+     *  on the top-level fields for back-compat. */
+    private final BillingMultisiteContext multisite;
     private final Map<String, String> siteBgColor;
     private final Map<String, String> siteShortName;
     private final List<BillingFormOption> billingForms;
@@ -181,10 +176,17 @@ public final class BillingONStatusViewModel {
 
         this.providers = b.providers == null
                 ? Collections.emptyList() : List.copyOf(b.providers);
-        this.multisiteSites = b.multisiteSites == null
-                ? Collections.emptyList() : List.copyOf(b.multisiteSites);
-        this.multisiteProviderHtml = b.multisiteProviderHtml == null
-                ? Collections.emptyMap() : Map.copyOf(b.multisiteProviderHtml);
+        // Status's multisite scope is multisites flag + sites + providerHtml only.
+        this.multisite = (b.multisite != null)
+                ? b.multisite
+                : new BillingMultisiteContext(
+                        b.multisites,
+                        b.multisiteSites,
+                        "", "", "",
+                        b.multisiteProviderHtml,
+                        false,
+                        Collections.emptyList(),
+                        "");
         this.siteBgColor = b.siteBgColor == null
                 ? Collections.emptyMap() : Map.copyOf(b.siteBgColor);
         this.siteShortName = b.siteShortName == null
@@ -246,8 +248,10 @@ public final class BillingONStatusViewModel {
     public String getEndDateMinus90() { return endDateMinus90; }
 
     public List<ProviderOption> getProviders() { return providers; }
-    public List<MultisiteSite> getMultisiteSites() { return multisiteSites; }
-    public Map<String, String> getMultisiteProviderHtml() { return multisiteProviderHtml; }
+    /** Aggregated multisite slice — primary internal storage. */
+    public BillingMultisiteContext getMultisite() { return multisite; }
+    public List<BillingMultisiteContext.MultisiteSite> getMultisiteSites() { return multisite.sites(); }
+    public Map<String, String> getMultisiteProviderHtml() { return multisite.multisiteProviderHtml(); }
     public Map<String, String> getSiteBgColor() { return siteBgColor; }
     public Map<String, String> getSiteShortName() { return siteShortName; }
     public List<BillingFormOption> getBillingForms() { return billingForms; }
@@ -293,7 +297,8 @@ public final class BillingONStatusViewModel {
         private String endDateMinus90;
 
         private List<ProviderOption> providers;
-        private List<MultisiteSite> multisiteSites;
+        private BillingMultisiteContext multisite;
+        private List<BillingMultisiteContext.MultisiteSite> multisiteSites;
         private Map<String, String> multisiteProviderHtml;
         private Map<String, String> siteBgColor;
         private Map<String, String> siteShortName;
@@ -350,7 +355,9 @@ public final class BillingONStatusViewModel {
             this.providers = v == null ? null : List.copyOf(v);
             return this;
         }
-        public Builder multisiteSites(List<MultisiteSite> v) {
+        /** Composed multisite-context setter (preferred over the slice-by-slice setters). */
+        public Builder multisite(BillingMultisiteContext v) { this.multisite = v; return this; }
+        public Builder multisiteSites(List<BillingMultisiteContext.MultisiteSite> v) {
             this.multisiteSites = v == null ? null : List.copyOf(v);
             return this;
         }

@@ -27,19 +27,13 @@ package io.github.carlos_emr.carlos.billings.ca.on.data;
  */
 public final class BillingONReviewViewModel {
 
-    private final String demoFirst;
-    private final String demoLast;
-    private final String demoHin;
-    private final String demoVer;
-    private final String demoSex;
-    private final String demoHcType;
-    private final String demoDob;
-    private final String demoDobYy;
-    private final String demoDobMm;
-    private final String demoDobDd;
+    // ---- Primary composed records ----
+    private final BillingDemographicSummary demographic;
+    private final BillingReferralDoctor referral;
+    private final BillingValidationMessages messages;
+    private final BillingMultisiteContext multisite;
+
     private final String patientAddress;
-    private final String referralDoctorName;
-    private final String referralDoctorOhip;
     private final String assignedProviderNo;
 
     private final String providerOhip;
@@ -48,10 +42,6 @@ public final class BillingONReviewViewModel {
 
     private final String dxCode;
     private final String dxDesc;
-
-    private final String errorFlag;
-    private final String errorMessage;
-    private final String warningMessage;
 
     private final java.util.List<io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONReviewValidator.Message> validationMessages;
     private final boolean codeValid;
@@ -63,7 +53,6 @@ public final class BillingONReviewViewModel {
     private final String wrongMessage;
     private final String demoSexLabel;
     private final String demoHeaderLine;
-    private final boolean multisitesEnabled;
     private final boolean mReview;
     private final java.util.List<String> serviceDateLines;
     private final String billingPhysicianLabel;
@@ -137,28 +126,39 @@ public final class BillingONReviewViewModel {
     public record ParamPair(String name, String value) { }
 
     private BillingONReviewViewModel(Builder b) {
-        this.demoFirst = nullToEmpty(b.demoFirst);
-        this.demoLast = nullToEmpty(b.demoLast);
-        this.demoHin = nullToEmpty(b.demoHin);
-        this.demoVer = nullToEmpty(b.demoVer);
-        this.demoSex = nullToEmpty(b.demoSex);
-        this.demoHcType = nullToEmpty(b.demoHcType);
-        this.demoDob = nullToEmpty(b.demoDob);
-        this.demoDobYy = nullToEmpty(b.demoDobYy);
-        this.demoDobMm = nullToEmpty(b.demoDobMm);
-        this.demoDobDd = nullToEmpty(b.demoDobDd);
+        this.demographic = (b.demographic != null)
+                ? b.demographic
+                : new BillingDemographicSummary(
+                        b.demoFirst, b.demoLast, b.demoHin, b.demoVer,
+                        b.demoSex, b.demoHcType, b.demoDob,
+                        b.demoDobYy, b.demoDobMm, b.demoDobDd);
+        this.referral = (b.referral != null)
+                ? b.referral
+                : new BillingReferralDoctor(
+                        b.referralDoctorName, b.referralDoctorOhip, "");
+        this.messages = (b.messages != null)
+                ? b.messages
+                : new BillingValidationMessages(b.errorFlag, b.errorMessage, b.warningMessage);
+        // Review only carries the multisitesEnabled flag — sites & providerHtml
+        // are not populated by this assembler today, so the composed record is
+        // synthesized with empty collections for those slices.
+        this.multisite = (b.multisite != null)
+                ? b.multisite
+                : new BillingMultisiteContext(
+                        b.multisitesEnabled,
+                        java.util.Collections.emptyList(),
+                        "", "", "",
+                        java.util.Collections.emptyMap(),
+                        false,
+                        java.util.Collections.emptyList(),
+                        "");
         this.patientAddress = nullToEmpty(b.patientAddress);
-        this.referralDoctorName = nullToEmpty(b.referralDoctorName);
-        this.referralDoctorOhip = nullToEmpty(b.referralDoctorOhip);
         this.assignedProviderNo = nullToEmpty(b.assignedProviderNo);
         this.providerOhip = nullToEmpty(b.providerOhip);
         this.providerRma = nullToEmpty(b.providerRma);
         this.providerView = nullToEmpty(b.providerView);
         this.dxCode = nullToEmpty(b.dxCode);
         this.dxDesc = nullToEmpty(b.dxDesc);
-        this.errorFlag = nullToEmpty(b.errorFlag);
-        this.errorMessage = nullToEmpty(b.errorMessage);
-        this.warningMessage = nullToEmpty(b.warningMessage);
         this.validationMessages = b.validationMessages == null
                 ? java.util.Collections.emptyList()
                 : java.util.List.copyOf(b.validationMessages);
@@ -174,7 +174,6 @@ public final class BillingONReviewViewModel {
         this.wrongMessage = nullToEmpty(b.wrongMessage);
         this.demoSexLabel = nullToEmpty(b.demoSexLabel);
         this.demoHeaderLine = nullToEmpty(b.demoHeaderLine);
-        this.multisitesEnabled = b.multisitesEnabled;
         this.mReview = b.mReview;
         this.serviceDateLines = b.serviceDateLines == null
                 ? java.util.Collections.emptyList()
@@ -231,38 +230,43 @@ public final class BillingONReviewViewModel {
         return s == null ? "" : s;
     }
 
-    public String getDemoFirst() { return demoFirst; }
-    public String getDemoLast() { return demoLast; }
-    public String getDemoHin() { return demoHin; }
-    public String getDemoVer() { return demoVer; }
-    public String getDemoSex() { return demoSex; }
-    public String getDemoHcType() { return demoHcType; }
-    public String getDemoDob() { return demoDob; }
-    public String getDemoDobYy() { return demoDobYy; }
-    public String getDemoDobMm() { return demoDobMm; }
-    public String getDemoDobDd() { return demoDobDd; }
-    public BillingDemographicSummary getDemographicSummary() {
-        return new BillingDemographicSummary(demoFirst, demoLast, demoHin, demoVer,
-                demoSex, demoHcType, demoDob, demoDobYy, demoDobMm, demoDobDd);
-    }
+    /** Aggregated demographic snapshot — primary internal storage. */
+    public BillingDemographicSummary getDemographic() { return demographic; }
+    /** Aggregated referral-doctor record — primary internal storage. */
+    public BillingReferralDoctor getReferral() { return referral; }
+    /** Aggregated validation banner state — primary internal storage. */
+    public BillingValidationMessages getMessages() { return messages; }
+    /** Aggregated multisite context — primary internal storage. */
+    public BillingMultisiteContext getMultisite() { return multisite; }
+
+    public String getDemoFirst() { return demographic.firstName(); }
+    public String getDemoLast() { return demographic.lastName(); }
+    public String getDemoHin() { return demographic.hin(); }
+    public String getDemoVer() { return demographic.ver(); }
+    public String getDemoSex() { return demographic.sex(); }
+    public String getDemoHcType() { return demographic.hcType(); }
+    public String getDemoDob() { return demographic.dob(); }
+    public String getDemoDobYy() { return demographic.dobYy(); }
+    public String getDemoDobMm() { return demographic.dobMm(); }
+    public String getDemoDobDd() { return demographic.dobDd(); }
+    /** Alias of {@link #getDemographic()} (legacy). */
+    public BillingDemographicSummary getDemographicSummary() { return demographic; }
     public String getPatientAddress() { return patientAddress; }
-    public String getReferralDoctorName() { return referralDoctorName; }
-    public String getReferralDoctorOhip() { return referralDoctorOhip; }
-    public BillingReferralDoctor getReferralDoctorRecord() {
-        return new BillingReferralDoctor(referralDoctorName, referralDoctorOhip, "");
-    }
+    public String getReferralDoctorName() { return referral.name(); }
+    public String getReferralDoctorOhip() { return referral.ohip(); }
+    /** Alias of {@link #getReferral()} (legacy). */
+    public BillingReferralDoctor getReferralDoctorRecord() { return referral; }
     public String getAssignedProviderNo() { return assignedProviderNo; }
     public String getProviderOhip() { return providerOhip; }
     public String getProviderRma() { return providerRma; }
     public String getProviderView() { return providerView; }
     public String getDxCode() { return dxCode; }
     public String getDxDesc() { return dxDesc; }
-    public String getErrorFlag() { return errorFlag; }
-    public String getErrorMessage() { return errorMessage; }
-    public String getWarningMessage() { return warningMessage; }
-    public BillingValidationMessages getValidationMessagesAggregate() {
-        return new BillingValidationMessages(errorFlag, errorMessage, warningMessage);
-    }
+    public String getErrorFlag() { return messages.errorFlag(); }
+    public String getErrorMessage() { return messages.errorMessage(); }
+    public String getWarningMessage() { return messages.warningMessage(); }
+    /** Alias of {@link #getMessages()} (legacy). */
+    public BillingValidationMessages getValidationMessagesAggregate() { return messages; }
     public java.util.List<io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONReviewValidator.Message> getValidationMessages() {
         return validationMessages;
     }
@@ -274,7 +278,7 @@ public final class BillingONReviewViewModel {
     public String getWrongMessage() { return wrongMessage; }
     public String getDemoSexLabel() { return demoSexLabel; }
     public String getDemoHeaderLine() { return demoHeaderLine; }
-    public boolean isMultisitesEnabled() { return multisitesEnabled; }
+    public boolean isMultisitesEnabled() { return multisite.enabled(); }
     public boolean isMReview() { return mReview; }
     public java.util.List<String> getServiceDateLines() { return serviceDateLines; }
     public String getBillingPhysicianLabel() { return billingPhysicianLabel; }
@@ -309,6 +313,18 @@ public final class BillingONReviewViewModel {
     public String getLoggedInUserNo() { return loggedInUserNo; }
 
     public static final class Builder {
+        // ---- Composed-record setters (preferred) ----
+        private BillingDemographicSummary demographic;
+        private BillingReferralDoctor referral;
+        private BillingValidationMessages messages;
+        private BillingMultisiteContext multisite;
+
+        public Builder demographic(BillingDemographicSummary v) { this.demographic = v; return this; }
+        public Builder referral(BillingReferralDoctor v) { this.referral = v; return this; }
+        public Builder messages(BillingValidationMessages v) { this.messages = v; return this; }
+        public Builder multisite(BillingMultisiteContext v) { this.multisite = v; return this; }
+
+        // ---- Legacy flat-field accumulators ----
         private String demoFirst = "";
         private String demoLast = "";
         private String demoHin = "";

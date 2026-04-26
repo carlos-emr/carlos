@@ -22,6 +22,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingMultisiteContext;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONFormViewModel;
 import io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
@@ -96,11 +97,11 @@ final class BillingONFormSiteContextComposer {
         b.rmaEnabled(rmaEnabled);
 
         if (rmaEnabled && clinicNbrDao != null) {
-            List<BillingONFormViewModel.ClinicNbrEntry> clinicNbrs = new ArrayList<>();
+            List<BillingMultisiteContext.ClinicNbrEntry> clinicNbrs = new ArrayList<>();
             for (ClinicNbr c : clinicNbrDao.findAll()) {
                 String value = nullToEmpty(c.getNbrValue());
                 String label = String.format("%s | %s", value, nullToEmpty(c.getNbrString()));
-                clinicNbrs.add(new BillingONFormViewModel.ClinicNbrEntry(value, label));
+                clinicNbrs.add(new BillingMultisiteContext.ClinicNbrEntry(value, label));
             }
             b.clinicNbrs(clinicNbrs);
         } else {
@@ -130,9 +131,9 @@ final class BillingONFormSiteContextComposer {
                                    String userNo,
                                    String apptNo) {
         // Site list (with each site's providers).
-        List<BillingONFormViewModel.MultisiteSite> sites = new ArrayList<>();
+        List<BillingMultisiteContext.MultisiteSite> sites = new ArrayList<>();
         for (Site site : siteDao.getActiveSitesByProviderNo(nullToEmpty(userNo))) {
-            List<BillingONFormViewModel.MultisiteProvider> siteProviders = new ArrayList<>();
+            List<BillingMultisiteContext.MultisiteProvider> siteProviders = new ArrayList<>();
             Set<Provider> raw = site.getProviders();
             if (raw != null) {
                 List<Provider> sortedProviders = new ArrayList<>(raw);
@@ -140,7 +141,7 @@ final class BillingONFormSiteContextComposer {
                 for (Provider p : sortedProviders) {
                     if ("1".equals(p.getStatus())
                             && p.getOhipNo() != null && !p.getOhipNo().isBlank()) {
-                        siteProviders.add(new BillingONFormViewModel.MultisiteProvider(
+                        siteProviders.add(new BillingMultisiteContext.MultisiteProvider(
                                 nullToEmpty(p.getProviderNo()),
                                 nullToEmpty(p.getOhipNo()),
                                 nullToEmpty(p.getLastName()),
@@ -148,7 +149,7 @@ final class BillingONFormSiteContextComposer {
                     }
                 }
             }
-            sites.add(new BillingONFormViewModel.MultisiteSite(
+            sites.add(new BillingMultisiteContext.MultisiteSite(
                     nullToEmpty(site.getName()),
                     nullToEmpty(site.getBgColor()),
                     siteProviders));

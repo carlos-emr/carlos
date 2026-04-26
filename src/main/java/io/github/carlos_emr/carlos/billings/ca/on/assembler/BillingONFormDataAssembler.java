@@ -23,6 +23,7 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billing.CA.filters.CodeFilterManager;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingMultisiteContext;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONFormViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
@@ -586,9 +587,9 @@ public final class BillingONFormDataAssembler {
         // inline. We pre-render it here so the JSP renders one
         // <c:forEach> JS-string assignment instead of a 50-line scriptlet.
         java.util.Map<String, String> siteHtml = new java.util.LinkedHashMap<>();
-        for (BillingONFormViewModel.MultisiteSite site : b.peekMultisiteSites()) {
+        for (BillingMultisiteContext.MultisiteSite site : b.peekMultisiteSites()) {
             StringBuilder html = new StringBuilder();
-            for (BillingONFormViewModel.MultisiteProvider p : site.providers()) {
+            for (BillingMultisiteContext.MultisiteProvider p : site.providers()) {
                 String value = p.providerNo() + "|" + p.ohipNo();
                 String label = p.lastName() + ", " + p.firstName();
                 html.append("<option value='")

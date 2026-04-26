@@ -22,6 +22,7 @@ import java.util.Properties;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingMultisiteContext;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONCorrectionViewModel;
 import io.github.carlos_emr.carlos.commn.dao.BillingONEAReportDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONErrorCodeDao;
@@ -192,12 +193,12 @@ final class BillingONCorrectionRenderStep {
         return out;
     }
 
-    private List<BillingONCorrectionViewModel.ClinicNbrEntry> loadClinicNbrs() {
-        List<BillingONCorrectionViewModel.ClinicNbrEntry> out = new ArrayList<>();
+    private List<BillingMultisiteContext.ClinicNbrEntry> loadClinicNbrs() {
+        List<BillingMultisiteContext.ClinicNbrEntry> out = new ArrayList<>();
         for (ClinicNbr c : clinicNbrDao.findAll()) {
             String value = nullToEmpty(c.getNbrValue());
             String label = String.format("%s | %s", value, nullToEmpty(c.getNbrString()));
-            out.add(new BillingONCorrectionViewModel.ClinicNbrEntry(value, label));
+            out.add(new BillingMultisiteContext.ClinicNbrEntry(value, label));
         }
         return out;
     }

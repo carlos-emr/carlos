@@ -219,4 +219,27 @@ class BillingONReviewViewModelUnitTest {
         // Review doesn't carry a specialty field — empty by design.
         assertThat(r.specialty()).isEmpty();
     }
+
+    @org.junit.jupiter.api.Test
+    @org.junit.jupiter.api.DisplayName("composed accessors expose the same data as flat getters")
+    void shouldExposeComposed_fromFlatSetters() {
+        BillingONReviewViewModel m = BillingONReviewViewModel.builder()
+                .demoFirst("Jane").demoLast("Doe").demoHin("9876543225").demoVer("AB")
+                .demoSex("2").demoHcType("ON")
+                .demoDob("19850615").demoDobYy("1985").demoDobMm("06").demoDobDd("15")
+                .referralDoctorName("Smith").referralDoctorOhip("123456")
+                .errorFlag("1").errorMessage("err").warningMessage("warn")
+                .multisitesEnabled(true)
+                .build();
+
+        // The composed records reflect the same data as the flat getters.
+        assertThat(m.getDemographic().firstName()).isEqualTo(m.getDemoFirst());
+        assertThat(m.getDemographic().lastName()).isEqualTo(m.getDemoLast());
+        assertThat(m.getReferral().name()).isEqualTo(m.getReferralDoctorName());
+        assertThat(m.getReferral().ohip()).isEqualTo(m.getReferralDoctorOhip());
+        assertThat(m.getMessages().errorFlag()).isEqualTo(m.getErrorFlag());
+        assertThat(m.getMessages().errorMessage()).isEqualTo(m.getErrorMessage());
+        assertThat(m.getMessages().warningMessage()).isEqualTo(m.getWarningMessage());
+        assertThat(m.getMultisite().enabled()).isEqualTo(m.isMultisitesEnabled());
+    }
 }

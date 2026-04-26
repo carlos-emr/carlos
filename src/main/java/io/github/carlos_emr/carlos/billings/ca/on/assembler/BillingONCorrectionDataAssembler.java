@@ -29,6 +29,7 @@ import org.apache.commons.lang3.StringUtils;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingMultisiteContext;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONCorrectionViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingRAImpl;
@@ -275,18 +276,22 @@ public final class BillingONCorrectionDataAssembler {
         // ---- multisite sites + provider HTML ----
         if (multisites && userProviderNo != null && !userProviderNo.isEmpty()) {
             List<Site> sites = siteDao.getActiveSitesByProviderNo(userProviderNo);
-            List<BillingONCorrectionViewModel.MultisiteSite> msites = new ArrayList<>();
+            List<BillingMultisiteContext.MultisiteSite> msites = new ArrayList<>();
             Map<String, String> siteHtml = new LinkedHashMap<>();
             for (Site site : sites) {
                 Set<Provider> siteProviderSet = site.getProviders();
                 List<Provider> siteProvidersList = new ArrayList<>(siteProviderSet);
                 Collections.sort(siteProvidersList, new Provider().ComparatorName());
-                List<BillingONCorrectionViewModel.MultisiteProvider> mProvs = new ArrayList<>();
+                List<BillingMultisiteContext.MultisiteProvider> mProvs = new ArrayList<>();
                 StringBuilder html = new StringBuilder();
                 for (Provider p : siteProvidersList) {
                     if ("1".equals(p.getStatus()) && StringUtils.isNotBlank(p.getOhipNo())) {
-                        mProvs.add(new BillingONCorrectionViewModel.MultisiteProvider(
+                        // Cross-cutting record carries ohipNo too — Correction
+                        // doesn't currently use it, so we propagate the actual
+                        // provider OHIP for forward-compat.
+                        mProvs.add(new BillingMultisiteContext.MultisiteProvider(
                                 nullToEmpty(p.getProviderNo()),
+                                nullToEmpty(p.getOhipNo()),
                                 nullToEmpty(p.getLastName()),
                                 nullToEmpty(p.getFirstName())));
                         html.append("<option value='")
@@ -298,7 +303,7 @@ public final class BillingONCorrectionDataAssembler {
                                 .append("</option>");
                     }
                 }
-                msites.add(new BillingONCorrectionViewModel.MultisiteSite(
+                msites.add(new BillingMultisiteContext.MultisiteSite(
                         nullToEmpty(site.getName()),
                         nullToEmpty(site.getBgColor()),
                         mProvs));

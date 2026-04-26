@@ -284,4 +284,55 @@ class BillingShortcutPg1ViewModelUnitTest {
         assertThat(m.getWarningMessage()).isEmpty();
         assertThat(m.getMsg()).isEmpty();
     }
+
+    @Test
+    @DisplayName("composed accessors expose the same data as flat getters")
+    void shouldExposeComposed_fromFlatSetters() {
+        BillingShortcutPg1ViewModel m = BillingShortcutPg1ViewModel.builder()
+                .demoFirst("Jane").demoLast("Doe").demoHin("9876543225")
+                .demoSex("F").demoHcType("ON")
+                .demoDob("19850615").demoDobYy("1985").demoDobMm("06").demoDobDd("15")
+                .referralDoctorName("Smith").referralDoctorOhip("123456")
+                .errorFlag("1").errorMessage("err").warningMessage("warn")
+                .rmaEnabled(true)
+                .selectedClinicNbrPrefix("XX")
+                .build();
+
+        // Composed records mirror flat values.
+        assertThat(m.getDemographic().firstName()).isEqualTo(m.getDemoFirst());
+        assertThat(m.getDemographic().lastName()).isEqualTo(m.getDemoLast());
+        assertThat(m.getDemographic().hin()).isEqualTo(m.getDemoHin());
+        // Shortcut never populates ver — composed slot stays empty per design.
+        assertThat(m.getDemographic().ver()).isEmpty();
+        assertThat(m.getReferral().name()).isEqualTo(m.getReferralDoctorName());
+        assertThat(m.getReferral().ohip()).isEqualTo(m.getReferralDoctorOhip());
+        assertThat(m.getMessagesAggregate().errorFlag()).isEqualTo(m.getErrorFlag());
+        assertThat(m.getMessagesAggregate().errorMessage()).isEqualTo(m.getErrorMessage());
+        assertThat(m.getMessagesAggregate().warningMessage()).isEqualTo(m.getWarningMessage());
+        assertThat(m.getMultisite().rmaEnabled()).isEqualTo(m.isRmaEnabled());
+        assertThat(m.getMultisite().selectedClinicNbrPrefix()).isEqualTo(m.getSelectedClinicNbrPrefix());
+    }
+
+    @Test
+    @DisplayName("composed setter wins over flat setters")
+    void shouldDelegateFlatGetters_toComposedRecord_whenComposedSetterUsed() {
+        BillingDemographicSummary demoComposed = new BillingDemographicSummary(
+                "Composed", "Doe", "9999999999", "", "1", "ON",
+                "19900101", "1990", "01", "01");
+        BillingReferralDoctor refComposed = new BillingReferralDoctor(
+                "Smith,Adam", "987654", "GP");
+
+        BillingShortcutPg1ViewModel m = BillingShortcutPg1ViewModel.builder()
+                .demoFirst("Flat").demoLast("Wrong")
+                .referralDoctorName("Wrong").referralDoctorOhip("000000")
+                .demographic(demoComposed)
+                .referral(refComposed)
+                .build();
+
+        assertThat(m.getDemographic()).isSameAs(demoComposed);
+        assertThat(m.getReferral()).isSameAs(refComposed);
+        assertThat(m.getDemoFirst()).isEqualTo("Composed");
+        assertThat(m.getDemoLast()).isEqualTo("Doe");
+        assertThat(m.getReferralDoctorName()).isEqualTo("Smith,Adam");
+    }
 }

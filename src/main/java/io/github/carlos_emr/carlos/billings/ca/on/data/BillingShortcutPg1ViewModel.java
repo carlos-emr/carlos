@@ -41,6 +41,14 @@ import java.util.Vector;
  */
 public final class BillingShortcutPg1ViewModel {
 
+    // ---- Primary composed records ----
+    private final BillingDemographicSummary demographic;
+    private final BillingReferralDoctor referral;
+    private final BillingValidationMessages messages;
+    /** Multisite slice — Shortcut populates only the rmaEnabled flag and the
+     *  clinicNbrs list (no multisite picker). */
+    private final BillingMultisiteContext multisite;
+
     // Identity / context
     private final String userProviderNo;
     private final String providerView;
@@ -53,19 +61,8 @@ public final class BillingShortcutPg1ViewModel {
     private final String ctlBillForm;
     private final String clinicNo;
 
-    // Demographic-driven
-    private final String demoFirst;
-    private final String demoLast;
-    private final String demoSex;
-    private final String demoHin;
-    private final String demoDob;
-    private final String demoDobYy;
-    private final String demoDobMm;
-    private final String demoDobDd;
-    private final String demoHcType;
+    // Demographic-adjacent fields not subsumed by BillingDemographicSummary
     private final String assignedProviderNo;
-    private final String referralDoctorName;
-    private final String referralDoctorOhip;
 
     // Defaulted view config
     private final String visitType;
@@ -73,10 +70,7 @@ public final class BillingShortcutPg1ViewModel {
     private final String visitDate;
     private final String dxCode;
 
-    // Validation messages
-    private final String errorFlag;
-    private final String errorMessage;
-    private final String warningMessage;
+    // Pre-rendered banner (msg seed)
     private final String msg;
 
     // Vectors / maps preserved for downstream JSP rendering
@@ -96,9 +90,7 @@ public final class BillingShortcutPg1ViewModel {
     // SpringUtils.getBean (CtlBillingServiceDao, DiagnosticCodeDao,
     // ClinicNbrDao, ProviderDao for comments XML). Pre-loaded here so the
     // JSP can iterate via EL/JSTL without any DAO lookups in body code.
-    private final boolean rmaEnabled;
-    private final List<ClinicNbrEntry> clinicNbrs;
-    private final String selectedClinicNbrPrefix;
+    // (rmaEnabled + clinicNbrs are now under {@link #multisite}.)
     private final String selectedXmlPSli;
     private final List<ServiceTypeEntry> serviceTypes;
     private final List<DxCodeEntry> dxCodes;
@@ -111,11 +103,37 @@ public final class BillingShortcutPg1ViewModel {
     private final boolean newOnBilling;
     private final String admissionDate;
 
-    public record ClinicNbrEntry(String nbrValue, String displayLabel) { }
     public record ServiceTypeEntry(String code, String name) { }
     public record DxCodeEntry(String code, String description) { }
 
     private BillingShortcutPg1ViewModel(Builder b) {
+        // Composed-record resolution. Shortcut doesn't carry a hin-version
+        // field, so demoVer always comes through as "".
+        this.demographic = (b.demographic != null)
+                ? b.demographic
+                : new BillingDemographicSummary(
+                        b.demoFirst, b.demoLast, b.demoHin, "",
+                        b.demoSex, b.demoHcType, b.demoDob,
+                        b.demoDobYy, b.demoDobMm, b.demoDobDd);
+        this.referral = (b.referral != null)
+                ? b.referral
+                : new BillingReferralDoctor(
+                        b.referralDoctorName, b.referralDoctorOhip, "");
+        this.messages = (b.messages != null)
+                ? b.messages
+                : new BillingValidationMessages(b.errorFlag, b.errorMessage, b.warningMessage);
+        // Shortcut's multisite slice is rmaEnabled + clinicNbrs +
+        // selectedClinicNbrPrefix only. Other slices stay empty.
+        this.multisite = (b.multisite != null)
+                ? b.multisite
+                : new BillingMultisiteContext(
+                        false,
+                        Collections.emptyList(),
+                        "", "", "",
+                        Collections.emptyMap(),
+                        b.rmaEnabled,
+                        b.clinicNbrs,
+                        b.selectedClinicNbrPrefix);
         this.userProviderNo = nullToEmpty(b.userProviderNo);
         this.providerView = nullToEmpty(b.providerView);
         this.demoNo = nullToEmpty(b.demoNo);
@@ -126,25 +144,11 @@ public final class BillingShortcutPg1ViewModel {
         this.startTime = nullToEmpty(b.startTime);
         this.ctlBillForm = nullToEmpty(b.ctlBillForm);
         this.clinicNo = nullToEmpty(b.clinicNo);
-        this.demoFirst = nullToEmpty(b.demoFirst);
-        this.demoLast = nullToEmpty(b.demoLast);
-        this.demoSex = nullToEmpty(b.demoSex);
-        this.demoHin = nullToEmpty(b.demoHin);
-        this.demoDob = nullToEmpty(b.demoDob);
-        this.demoDobYy = nullToEmpty(b.demoDobYy);
-        this.demoDobMm = nullToEmpty(b.demoDobMm);
-        this.demoDobDd = nullToEmpty(b.demoDobDd);
-        this.demoHcType = nullToEmpty(b.demoHcType);
         this.assignedProviderNo = nullToEmpty(b.assignedProviderNo);
-        this.referralDoctorName = nullToEmpty(b.referralDoctorName);
-        this.referralDoctorOhip = nullToEmpty(b.referralDoctorOhip);
         this.visitType = nullToEmpty(b.visitType);
         this.clinicView = nullToEmpty(b.clinicView);
         this.visitDate = nullToEmpty(b.visitDate);
         this.dxCode = nullToEmpty(b.dxCode);
-        this.errorFlag = nullToEmpty(b.errorFlag);
-        this.errorMessage = nullToEmpty(b.errorMessage);
-        this.warningMessage = nullToEmpty(b.warningMessage);
         this.msg = nullToEmpty(b.msg);
         this.billingHistory = b.billingHistory == null ? Collections.emptyList() : List.copyOf(b.billingHistory);
         this.billingHistoryDetails = b.billingHistoryDetails == null ? Collections.emptyList() : List.copyOf(b.billingHistoryDetails);
@@ -157,9 +161,6 @@ public final class BillingShortcutPg1ViewModel {
         this.headerTitle2 = nullToEmpty(b.headerTitle2);
         this.headerTitle3 = nullToEmpty(b.headerTitle3);
         this.propPremium = b.propPremium == null ? Collections.emptyMap() : Map.copyOf(b.propPremium);
-        this.rmaEnabled = b.rmaEnabled;
-        this.clinicNbrs = b.clinicNbrs == null ? Collections.emptyList() : List.copyOf(b.clinicNbrs);
-        this.selectedClinicNbrPrefix = nullToEmpty(b.selectedClinicNbrPrefix);
         this.selectedXmlPSli = nullToEmpty(b.selectedXmlPSli);
         this.serviceTypes = b.serviceTypes == null ? Collections.emptyList() : List.copyOf(b.serviceTypes);
         this.dxCodes = b.dxCodes == null ? Collections.emptyList() : List.copyOf(b.dxCodes);
@@ -179,6 +180,15 @@ public final class BillingShortcutPg1ViewModel {
         return s == null ? "" : s;
     }
 
+    /** Aggregated demographic snapshot — primary internal storage. */
+    public BillingDemographicSummary getDemographic() { return demographic; }
+    /** Aggregated referral-doctor record — primary internal storage. */
+    public BillingReferralDoctor getReferral() { return referral; }
+    /** Aggregated validation banner state — primary internal storage. */
+    public BillingValidationMessages getMessagesAggregate() { return messages; }
+    /** Aggregated multisite slice (rmaEnabled + clinicNbrs only). */
+    public BillingMultisiteContext getMultisite() { return multisite; }
+
     public String getUserProviderNo() { return userProviderNo; }
     public String getProviderView() { return providerView; }
     public String getDemoNo() { return demoNo; }
@@ -189,42 +199,31 @@ public final class BillingShortcutPg1ViewModel {
     public String getStartTime() { return startTime; }
     public String getCtlBillForm() { return ctlBillForm; }
     public String getClinicNo() { return clinicNo; }
-    public String getDemoFirst() { return demoFirst; }
-    public String getDemoLast() { return demoLast; }
-    public String getDemoSex() { return demoSex; }
-    public String getDemoHin() { return demoHin; }
-    public String getDemoDob() { return demoDob; }
-    public String getDemoDobYy() { return demoDobYy; }
-    public String getDemoDobMm() { return demoDobMm; }
-    public String getDemoDobDd() { return demoDobDd; }
-    public String getDemoHcType() { return demoHcType; }
-    /**
-     * Aggregated view of the demographic snapshot as a structured record.
-     * Shortcut doesn't carry a hin-version field, so {@code ver} comes through
-     * as empty.
-     */
-    public BillingDemographicSummary getDemographicSummary() {
-        return new BillingDemographicSummary(demoFirst, demoLast, demoHin, "",
-                demoSex, demoHcType, demoDob, demoDobYy, demoDobMm, demoDobDd);
-    }
+    public String getDemoFirst() { return demographic.firstName(); }
+    public String getDemoLast() { return demographic.lastName(); }
+    public String getDemoSex() { return demographic.sex(); }
+    public String getDemoHin() { return demographic.hin(); }
+    public String getDemoDob() { return demographic.dob(); }
+    public String getDemoDobYy() { return demographic.dobYy(); }
+    public String getDemoDobMm() { return demographic.dobMm(); }
+    public String getDemoDobDd() { return demographic.dobDd(); }
+    public String getDemoHcType() { return demographic.hcType(); }
+    /** Alias of {@link #getDemographic()} (legacy). */
+    public BillingDemographicSummary getDemographicSummary() { return demographic; }
     public String getAssignedProviderNo() { return assignedProviderNo; }
-    public String getReferralDoctorName() { return referralDoctorName; }
-    public String getReferralDoctorOhip() { return referralDoctorOhip; }
-    /** Aggregated referral-doctor view as a structured record (specialty empty for shortcut). */
-    public BillingReferralDoctor getReferralDoctorRecord() {
-        return new BillingReferralDoctor(referralDoctorName, referralDoctorOhip, "");
-    }
+    public String getReferralDoctorName() { return referral.name(); }
+    public String getReferralDoctorOhip() { return referral.ohip(); }
+    /** Alias of {@link #getReferral()} (legacy). */
+    public BillingReferralDoctor getReferralDoctorRecord() { return referral; }
     public String getVisitType() { return visitType; }
     public String getClinicView() { return clinicView; }
     public String getVisitDate() { return visitDate; }
     public String getDxCode() { return dxCode; }
-    public String getErrorFlag() { return errorFlag; }
-    public String getErrorMessage() { return errorMessage; }
-    public String getWarningMessage() { return warningMessage; }
-    /** Aggregated view of the (errorFlag, errorMessage, warningMessage) triple. */
-    public BillingValidationMessages getValidationMessages() {
-        return new BillingValidationMessages(errorFlag, errorMessage, warningMessage);
-    }
+    public String getErrorFlag() { return messages.errorFlag(); }
+    public String getErrorMessage() { return messages.errorMessage(); }
+    public String getWarningMessage() { return messages.warningMessage(); }
+    /** Alias of {@link #getMessagesAggregate()} (legacy). */
+    public BillingValidationMessages getValidationMessages() { return messages; }
     public String getMsg() { return msg; }
     public List<Properties> getBillingHistory() { return billingHistory; }
     public List<Properties> getBillingHistoryDetails() { return billingHistoryDetails; }
@@ -238,9 +237,9 @@ public final class BillingShortcutPg1ViewModel {
     public String getHeaderTitle3() { return headerTitle3; }
     public Map<String, String> getPropPremium() { return propPremium; }
 
-    public boolean isRmaEnabled() { return rmaEnabled; }
-    public List<ClinicNbrEntry> getClinicNbrs() { return clinicNbrs; }
-    public String getSelectedClinicNbrPrefix() { return selectedClinicNbrPrefix; }
+    public boolean isRmaEnabled() { return multisite.rmaEnabled(); }
+    public List<BillingMultisiteContext.ClinicNbrEntry> getClinicNbrs() { return multisite.clinicNbrs(); }
+    public String getSelectedClinicNbrPrefix() { return multisite.selectedClinicNbrPrefix(); }
     public String getSelectedXmlPSli() { return selectedXmlPSli; }
     public List<ServiceTypeEntry> getServiceTypes() { return serviceTypes; }
     public List<DxCodeEntry> getDxCodes() { return dxCodes; }
@@ -308,6 +307,18 @@ public final class BillingShortcutPg1ViewModel {
     }
 
     public static final class Builder {
+        // ---- Composed-record setters (preferred) ----
+        private BillingDemographicSummary demographic;
+        private BillingReferralDoctor referral;
+        private BillingValidationMessages messages;
+        private BillingMultisiteContext multisite;
+
+        public Builder demographic(BillingDemographicSummary v) { this.demographic = v; return this; }
+        public Builder referral(BillingReferralDoctor v) { this.referral = v; return this; }
+        public Builder messages(BillingValidationMessages v) { this.messages = v; return this; }
+        public Builder multisite(BillingMultisiteContext v) { this.multisite = v; return this; }
+
+        // ---- Legacy flat-field accumulators ----
         private String userProviderNo;
         private String providerView;
         private String demoNo;
@@ -393,14 +404,14 @@ public final class BillingShortcutPg1ViewModel {
         public Builder propPremium(Map<String, String> v) { this.propPremium = v; return this; }
 
         private boolean rmaEnabled;
-        private List<ClinicNbrEntry> clinicNbrs;
+        private List<BillingMultisiteContext.ClinicNbrEntry> clinicNbrs;
         private String selectedClinicNbrPrefix;
         private String selectedXmlPSli;
         private List<ServiceTypeEntry> serviceTypes;
         private List<DxCodeEntry> dxCodes;
 
         public Builder rmaEnabled(boolean v) { this.rmaEnabled = v; return this; }
-        public Builder clinicNbrs(List<ClinicNbrEntry> v) {
+        public Builder clinicNbrs(List<BillingMultisiteContext.ClinicNbrEntry> v) {
             this.clinicNbrs = v == null ? null : List.copyOf(v); return this;
         }
         public Builder selectedClinicNbrPrefix(String v) { this.selectedClinicNbrPrefix = v; return this; }

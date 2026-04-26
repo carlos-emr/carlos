@@ -398,12 +398,12 @@ public final class BillingShortcutPg1DataAssembler {
         boolean rmaEnabled = io.github.carlos_emr.CarlosProperties.getInstance()
                 .getBooleanProperty("rma_enabled", "true");
 
-        java.util.List<BillingShortcutPg1ViewModel.ClinicNbrEntry> clinicNbrEntries = new ArrayList<>();
+        java.util.List<io.github.carlos_emr.carlos.billings.ca.on.data.BillingMultisiteContext.ClinicNbrEntry> clinicNbrEntries = new ArrayList<>();
         if (rmaEnabled && clinicNbrDao != null) {
             for (io.github.carlos_emr.carlos.commn.model.ClinicNbr c : clinicNbrDao.findAll()) {
                 String value = nullToEmpty(c.getNbrValue());
                 String label = String.format("%s | %s", value, nullToEmpty(c.getNbrString()));
-                clinicNbrEntries.add(new BillingShortcutPg1ViewModel.ClinicNbrEntry(value, label));
+                clinicNbrEntries.add(new io.github.carlos_emr.carlos.billings.ca.on.data.BillingMultisiteContext.ClinicNbrEntry(value, label));
             }
         }
 
