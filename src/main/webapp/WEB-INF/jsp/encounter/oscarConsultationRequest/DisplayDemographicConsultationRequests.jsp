@@ -112,7 +112,7 @@
     <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
-    <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css" rel="stylesheet">
     <script src="${pageContext.request.contextPath}/library/DataTables/datatables.min.js"></script>
 
     <style>

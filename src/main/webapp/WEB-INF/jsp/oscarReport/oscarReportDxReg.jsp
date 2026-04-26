@@ -72,7 +72,7 @@
               href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.theme-1.14.2.min.css"/>
         <link rel="stylesheet" type="text/css" media="all"
               href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.structure-1.14.2.min.css"/>
-        <link href="${pageContext.servletContext.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css"/>
+        <link href="${pageContext.servletContext.contextPath}/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css"/>
         <link type="text/css" media="all" href="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css"
               rel="stylesheet">
         <link href="${pageContext.servletContext.contextPath}/library/DataTables/Responsive-2.4.1/css/responsive.dataTables.min.css"
@@ -86,9 +86,9 @@
         <script type="text/javascript" src="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
         <script type="text/javascript" src="${pageContext.servletContext.contextPath}/js/dxJSONCodeSearch.js"></script>
         <script type="text/javascript"
-                src="${pageContext.servletContext.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
+                src="${pageContext.servletContext.contextPath}/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
         <script type="text/javascript"
-                src="${pageContext.servletContext.contextPath}/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
+                src="${pageContext.servletContext.contextPath}/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
         <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/library/DataTables/Responsive-2.4.1/js/dataTables.responsive.min.js"></script>
 

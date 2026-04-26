@@ -67,14 +67,14 @@
         <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.14.2.min.css">
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <!-- Bootstrap 2.3.1 -->
-        <link href="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
+        <link href="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
 
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath() %>/library/DataTables/datatables.min.js"></script>
         <!-- DataTables 1.13.4 -->
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script src="<%=request.getContextPath() %>/library/jquery/jquery.validate-1.21.0.min.js"></script>
-        <script src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
         <script src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
 
 

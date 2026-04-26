@@ -117,7 +117,7 @@
     <title><fmt:message key="admin.admin.page.title"/></title>
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
     <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
-    <link href="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
+    <link href="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
 
@@ -422,8 +422,8 @@
 <script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 <script type="text/javascript" src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery.validate-1.21.0.min.js"></script>
-<script type="text/javascript" src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
-<script type="text/javascript" src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
+<script type="text/javascript" src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
+<script type="text/javascript" src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
 
 
 <script type="text/javascript">

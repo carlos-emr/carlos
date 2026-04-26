@@ -276,7 +276,7 @@
     <link rel="apple-touch-icon-precomposed" href="ico/apple-touch-icon-57-precomposed.png">
     <link rel="shortcut icon" href="ico/favicon.png">
 
-    <link rel="stylesheet" type="text/css" href="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css">
+    <link rel="stylesheet" type="text/css" href="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css">
 
 <style>
 
@@ -798,8 +798,8 @@ Flowsheet: <span style="font-weight:normal">${carlos:forHtml(requestScope.displa
 </div>
     <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
-    <script type="text/javascript" src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
-    <script type="text/javascript" src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
+    <script type="text/javascript" src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
+    <script type="text/javascript" src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
     <script src="<%=request.getContextPath() %>/library/jquery/jquery.validate-1.21.0.min.js"></script>
 
     <script>

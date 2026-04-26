@@ -61,7 +61,7 @@
         <title>Report by Template</title>
 
         <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
-        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css" rel="stylesheet">
         <link href="${pageContext.request.contextPath}/share/calendar/calendar.css" title="win2k-cold-1"
               rel="stylesheet">
         <script src="${pageContext.request.contextPath}/share/javascript/Oscar.js"></script>

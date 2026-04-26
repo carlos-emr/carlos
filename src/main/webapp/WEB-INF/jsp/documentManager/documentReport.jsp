@@ -163,15 +163,15 @@
         <title><fmt:message key="dms.documentReport.titleDocumentManager"/></title>
 
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
-        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css"
+        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css"
               rel="stylesheet" type="text/css"/>
 
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"
                 type="text/javascript"></script>
         <script type="text/javascript"
-                src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
+                src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
         <script type="text/javascript"
-                src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
+                src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
         <%
             CtlDocClassDao docClassDao = (CtlDocClassDao) SpringUtils.getBean(CtlDocClassDao.class);
             List<String> reportClasses = docClassDao.findUniqueReportClasses();

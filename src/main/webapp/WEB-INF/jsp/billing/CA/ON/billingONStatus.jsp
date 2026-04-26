@@ -86,9 +86,9 @@
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
         <script src="${pageContext.request.contextPath}/js/table-export.js"></script>
-        <script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
+        <script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
         <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
-        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css"
+        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css"
               rel="stylesheet">
         <link rel="stylesheet" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
         <link rel="stylesheet" href="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.css">

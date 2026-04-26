@@ -36,8 +36,8 @@
 <head>
     <script type="text/javascript" src="<c:out value='${pageContext.request.contextPath}'/>/js/global.js"></script>
     <script type="text/javascript" src="<c:out value='${pageContext.request.contextPath}'/>/library/jquery/jquery-3.7.1.min.js"></script>
-    <script type="text/javascript" src="<c:out value='${pageContext.request.contextPath}'/>/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
-    <link rel="stylesheet" type="text/css" href="<c:out value='${pageContext.request.contextPath}'/>/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css"/>
+    <script type="text/javascript" src="<c:out value='${pageContext.request.contextPath}'/>/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="<c:out value='${pageContext.request.contextPath}'/>/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css"/>
     <link rel="stylesheet" type="text/css" href="billingON.css"/>
     <title>Billing Reconcilliation</title>
     <style>
