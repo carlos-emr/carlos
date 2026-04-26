@@ -144,7 +144,7 @@
                         </tr>
 
                         <c:choose>
-                            <c:when test="${manageLocationModel.empty}">
+                            <c:when test="${empty manageLocationModel.locations}">
                                 <c:out value="failed!!!"/>
                             </c:when>
                             <c:otherwise>

@@ -103,23 +103,23 @@
 
             function typeInData3(billno, toname, toaddress, tophone, tofax) {
                 var fieldsSet = false;
-                <c:if test="${refDocModel.fld1.present}">
+                <c:if test="${not empty refDocModel.fld1.fieldId}">
                 opener.document.forms[<carlos:encode value='${refDocModel.fld1.formIdx}' context='javaScript'/>].elements["<carlos:encode value='${refDocModel.fld1.fieldId}' context='javaScriptBlock'/>"].value = billno;
                 fieldsSet = true;
                 </c:if>
-                <c:if test="${refDocModel.fld3.present}">
+                <c:if test="${not empty refDocModel.fld3.fieldId}">
                 opener.document.forms[<carlos:encode value='${refDocModel.fld3.formIdx}' context='javaScript'/>].elements["<carlos:encode value='${refDocModel.fld3.fieldId}' context='javaScriptBlock'/>"].value = toname;
                 fieldsSet = true;
                 </c:if>
-                <c:if test="${refDocModel.fld4.present}">
+                <c:if test="${not empty refDocModel.fld4.fieldId}">
                 opener.document.forms[<carlos:encode value='${refDocModel.fld4.formIdx}' context='javaScript'/>].elements["<carlos:encode value='${refDocModel.fld4.fieldId}' context='javaScriptBlock'/>"].value = toaddress;
                 fieldsSet = true;
                 </c:if>
-                <c:if test="${refDocModel.fld5.present}">
+                <c:if test="${not empty refDocModel.fld5.fieldId}">
                 opener.document.forms[<carlos:encode value='${refDocModel.fld5.formIdx}' context='javaScript'/>].elements["<carlos:encode value='${refDocModel.fld5.fieldId}' context='javaScriptBlock'/>"].value = tophone;
                 fieldsSet = true;
                 </c:if>
-                <c:if test="${refDocModel.fld6.present}">
+                <c:if test="${not empty refDocModel.fld6.fieldId}">
                 opener.document.forms[<carlos:encode value='${refDocModel.fld6.formIdx}' context='javaScript'/>].elements["<carlos:encode value='${refDocModel.fld6.fieldId}' context='javaScriptBlock'/>"].value = tofax;
                 fieldsSet = true;
                 </c:if>

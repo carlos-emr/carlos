@@ -134,7 +134,7 @@
         <tr>
             <c:forEach var="cell" items="${week.cells}">
                 <c:choose>
-                    <c:when test="${cell.empty}">
+                    <c:when test="${cell.day == 0}">
                         <td></td>
                     </c:when>
                     <c:when test="${billingCalendarPopupModel.admission}">
