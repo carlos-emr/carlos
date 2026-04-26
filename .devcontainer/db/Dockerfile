@@ -9,7 +9,8 @@ LABEL description="OpenOSP-EMR Docker Image for Development Environment"
 RUN apt-get update && apt-get install -y dos2unix  \
     && apt-get autoclean \
     && apt-get clean \
-    && apt-get autoremove
+    && apt-get autoremove \
+    && rm -rf /var/lib/apt/lists/*
 
 # Adding required files
 # Currently this needs the database configuration for post-scripts from the OpenOSP-EMR
@@ -30,6 +31,10 @@ RUN chmod 755 /scripts
 # Converting script files using dos2unix (Required for Windows)
 RUN dos2unix /docker-entrypoint-initdb.d/populate_db.sh
 RUN dos2unix /database/mysql/*.sh
+
+# Pre-create required directories for initialization and assign ownership to the mysql user
+RUN mkdir -p /var/lib/OscarDocument/oscar/eform/images/ && \
+    chown -R mysql:mysql /var/lib/OscarDocument
 
 # Ports
 EXPOSE 3306
