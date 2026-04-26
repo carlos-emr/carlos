@@ -1,0 +1,3 @@
+## 2026-04-26 - Improved accessibility of dynamic action links
+**Learning:** For accessibility in JSPs (including HTML dynamically constructed via JavaScript string builders for data tables), single-character or icon-like action links require explicit `aria-label` attributes on the anchor tag, and purely decorative inner icon elements (e.g., `<span class="fas fa-pencil-alt">` or `<i>`) must be hidden from screen readers using `aria-hidden="true"`.
+**Action:** When creating or modifying data tables that render custom HTML string elements for action columns, explicitly include `aria-label` and `aria-hidden` attributes to ensure screen readers can announce the purpose of the action properly.

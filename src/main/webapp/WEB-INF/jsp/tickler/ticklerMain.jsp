@@ -372,7 +372,7 @@
                             data: 'id',
                             orderable: false,
                             render: function(data) {
-                                return '<a href="javascript:void(0)" title="' + i18nEditTickler + '" onClick="openTicklerEdit(this,' + encodeURIComponent(data) + ')"><span class="fas fa-pencil-alt"></span></a>';
+                                return '<a href="javascript:void(0)" title="' + i18nEditTickler + '" aria-label="' + i18nEditTickler + '" onClick="openTicklerEdit(this,' + encodeURIComponent(data) + ')"><span class="fas fa-pencil-alt" aria-hidden="true"></span></a>';
                             }
                         },
                         {
@@ -440,7 +440,7 @@
                             data: null,
                             orderable: false,
                             render: function(data) {
-                                return '<a href="javascript:void(0)" class="noteDialogLink noprint" onClick="openNoteDialog(\'' + escapeHtml(String(data.demographicNo)) + '\',\'' + escapeHtml(String(data.id)) + '\')" title="' + i18nAddNote + '"><span class="fas fa-comment"></span></a>';
+                                return '<a href="javascript:void(0)" class="noteDialogLink noprint" onClick="openNoteDialog(\'' + escapeHtml(String(data.demographicNo)) + '\',\'' + escapeHtml(String(data.id)) + '\')" title="' + i18nAddNote + '" aria-label="' + i18nAddNote + '"><span class="fas fa-comment" aria-hidden="true"></span></a>';
                             }
                         }
                     ],
@@ -528,7 +528,7 @@
                 } else {
                     url = 'javascript:reportWindow(\'' + ctx + '/lab/CA/BC/ViewLabDisplay?segmentID=' + encodedId + '\')';
                 }
-                return ' <a title="' + i18nViewAttachment + '" href="' + url + '"><i class="fas fa-paperclip"></i></a>';
+                return ' <a title="' + i18nViewAttachment + '" aria-label="' + i18nViewAttachment + '" href="' + url + '"><i class="fas fa-paperclip" aria-hidden="true"></i></a>';
             }
 
             function openNoteDialog(demographicNo, ticklerNo) {
