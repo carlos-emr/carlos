@@ -82,6 +82,12 @@
             <result name="ON">/WEB-INF/jsp/billing/CA/ON/billingOB2.jsp</result>
             <result name="private">/WEB-INF/jsp/billing/CA/BC/billReceipt.jsp</result>
         </action>
+        <!-- Dedicated ON view gate for the OHIP-billing history popup.
+             "OB" = OHIP Billing (not obstetric). ON callers point here
+             directly; BC's billingView action is no longer their entrypoint. -->
+        <action name="billing/CA/ON/ViewBillingOB2" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingOB2View2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/ON/billingOB2.jsp</result>
+        </action>
         <action name="billing/CA/ON/billingView" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewBillingON2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingON.jsp</result>
         </action>

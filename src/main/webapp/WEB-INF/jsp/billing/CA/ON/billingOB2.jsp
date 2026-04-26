@@ -22,133 +22,30 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingOB2ViewModel" %>
 <%
-    String curUser_no = (String) session.getAttribute("user");
-
+    // BillingOB2View2Action enforces _billing r and assembles the view model
+    // with the 6 DAO lookups the JSP body used to perform. "OB" = OHIP
+    // Billing, not obstetric.
+    BillingOB2ViewModel ob2Model = (BillingOB2ViewModel) request.getAttribute("ob2Model");
+    if (ob2Model == null) {
+        // Defensive fallback: any caller that forwards directly here gets a
+        // stub render. The canonical entrypoint is billing/CA/ON/ViewBillingOB2.
+        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
+                "billingOB2.jsp reached without ob2Model — caller should route "
+              + "through billing/CA/ON/ViewBillingOB2.");
+        ob2Model = BillingOB2ViewModel.builder().build();
+    }
 %>
-<%@ page import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
-
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ClinicLocation" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Billing" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
-<%@ page import="io.github.carlos_emr.carlos.billing.CA.model.BillingDetail" %>
-<%@ page import="io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%
-    DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
-    ClinicLocationDao clinicLocationDao = (ClinicLocationDao) SpringUtils.getBean(ClinicLocationDao.class);
-    BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
-    DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
-    ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
-    BillingDetailDao billingDetailDao = SpringUtils.getBean(BillingDetailDao.class);
-%>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title>Billing History</title>
 </head>
-<% String billNo = request.getParameter("billing_no");
-    ResultSet rslocation = null;
-    ResultSet rsPatient = null;
-    String proFirst = "", proLast = "", proRMA = "", proOHIPNO = "", crFirst = "Not", crLast = "Available", apptFirst = "Not", apptLast = "Available", asstFirst = "Not", asstLast = "Available";
-    String UpdateDate = "";
-    String DemoNo = "";
-    String DemoName = "";
-    String DemoAddress = "";
-    String DemoCity = "";
-    String DemoProvince = "";
-    String DemoPostal = "";
-    String DemoDOB = "";
-    String DemoSex = "";
-    String hin = "";
-    String location = "";
-    String BillLocation = "";
-    String BillDate = "";
-    String proNO = "";
-    String asstProvider_no = "";
-    String apptProvider_no = "";
-    String BillType = "";
-    String BillTotal = "";
-    String visitdate = "";
-    String visittype = "";
-    String creator = "";
-    String creatdate = "";
-
-    Billing b = billingDao.find(Integer.parseInt(billNo));
-    if (b != null) {
-        DemoNo = String.valueOf(b.getDemographicNo());
-        DemoName = b.getDemographicName();
-        UpdateDate = ConversionUtils.toDateString(b.getUpdateDate());
-        hin = b.getHin();
-        location = b.getClinicRefCode();
-        // BillDate = rslocation.getString("billing_date");
-        BillType = b.getStatus();
-        proNO = b.getProviderNo();
-        BillTotal = b.getTotal();
-        visitdate = ConversionUtils.toDateString(b.getVisitDate());
-        visittype = b.getVisitType();
-        apptProvider_no = b.getApptProviderNo();
-        asstProvider_no = b.getAsstProviderNo();
-        creator = b.getCreator();
-    }
-
-    ClinicLocation clinicLocation = clinicLocationDao.searchBillLocation(1, location);
-    if (clinicLocation != null) {
-        BillLocation = clinicLocation.getClinicLocationName();
-    }
-
-    Demographic d = demographicDao.getDemographic(DemoNo);
-    if (d != null) {
-        DemoSex = d.getSex();
-        DemoAddress = d.getAddress();
-        DemoCity = d.getCity();
-        DemoProvince = d.getProvince();
-        DemoPostal = d.getPostal();
-        DemoDOB = d.getYearOfBirth() + "-" + d.getMonthOfBirth() + "-" + d.getDateOfBirth();
-    }
-
-    Provider p = providerDao.getProvider(proNO);
-    if (p != null) {
-        proFirst = p.getFirstName();
-        proLast = p.getLastName();
-        proOHIPNO = p.getOhipNo();
-        proRMA = p.getRmaNo();
-    }
-
-    p = providerDao.getProvider(apptProvider_no);
-    if (p != null) {
-        apptFirst = p.getFirstName();
-        apptLast = p.getLastName();
-    }
-
-    p = providerDao.getProvider(asstProvider_no);
-    if (p != null) {
-        asstFirst = p.getFirstName();
-        asstLast = p.getLastName();
-    }
-
-    p = providerDao.getProvider(creator);
-    if (p != null) {
-        crFirst = p.getFirstName();
-        crLast = p.getLastName();
-    }
-
-    BillingDetail bd = billingDetailDao.find(Integer.parseInt(billNo));
-    if (bd != null) {
-        BillDate = ConversionUtils.toDateString(bd.getAppointmentDate());
-    }
-
-%>
-
 
 <body bgcolor="#FFFFFF" text="#000000">
 <SCRIPT Language="Javascript">
@@ -158,7 +55,7 @@
         } else {
             var WebBrowser = '<OBJECT ID="WebBrowser1" WIDTH=0 HEIGHT=0 CLASSID="CLSID:8856F961-340A-11D0-A96B-00C04FD705A2"></OBJECT>';
             document.body.insertAdjacentHTML('beforeEnd', WebBrowser);
-            WebBrowser1.ExecWB(6, 2);//Use a 1 vs. a 2 for a prompting dialog box    WebBrowser1.outerHTML = "";
+            WebBrowser1.ExecWB(6, 2);
         }
     }
 </script>
@@ -168,7 +65,7 @@
         <th align='LEFT'><input type='button' name='print' value='Print'
                                 onClick='window.print()'></th>
         <th align='CENTER'><font face="Arial, Helvetica, sans-serif"
-                                 color="#FFFFFF">Biiling Summary </font></th>
+                                 color="#FFFFFF">Billing Summary </font></th>
         <th align='RIGHT'><input type='button' name='close' value='Done'
                                  onClick='window.close()'></th>
     </tr>
@@ -182,34 +79,34 @@
     </tr>
     <tr>
         <td width="54%"><b><font face="Arial, Helvetica, sans-serif"
-                                 size="2">Patient Name: <%=DemoName%>
+                                 size="2">Patient Name: <carlos:encode value="${ob2Model.demoName}" context="html"/>
         </font></b></td>
         <td width="46%"><b><font face="Arial, Helvetica, sans-serif"
-                                 size="2">Health# : <%=hin%>
+                                 size="2">Health# : <carlos:encode value="${ob2Model.hin}" context="html"/>
         </font></b></td>
     </tr>
     <tr>
         <td><font size="2" face="Arial, Helvetica, sans-serif"><b>Sex:
-            <%=DemoSex%>
+            <carlos:encode value="${ob2Model.demoSex}" context="html"/>
         </b></font></td>
         <td><font size="2"><b><font
-                face="Arial, Helvetica, sans-serif">D.O.B. : <%=DemoDOB%>
+                face="Arial, Helvetica, sans-serif">D.O.B. : <carlos:encode value="${ob2Model.demoDob}" context="html"/>
         </font></b></font></td>
     </tr>
     <tr>
         <td><b><font size="2" face="Arial, Helvetica, sans-serif">Address:
-            <%=DemoAddress%>
+            <carlos:encode value="${ob2Model.demoAddress}" context="html"/>
         </font></b></td>
         <td><b><font size="2" face="Arial, Helvetica, sans-serif">City:
-            <%=DemoCity%>
+            <carlos:encode value="${ob2Model.demoCity}" context="html"/>
         </font></b></td>
     </tr>
     <tr>
         <td><b><font size="2" face="Arial, Helvetica, sans-serif">Province:
-            <%=DemoProvince%>
+            <carlos:encode value="${ob2Model.demoProvince}" context="html"/>
         </font></b></td>
         <td><b><font size="2" face="Arial, Helvetica, sans-serif">Postal
-            Code: <%=DemoPostal%>
+            Code: <carlos:encode value="${ob2Model.demoPostal}" context="html"/>
         </font></b></td>
     </tr>
 </table>
@@ -221,45 +118,44 @@
     </tr>
     <tr>
         <td width="54%"><b><font face="Arial, Helvetica, sans-serif"
-                                 size="2">Billing Type: <%=BillType%>
+                                 size="2">Billing Type: <carlos:encode value="${ob2Model.billType}" context="html"/>
         </font></b></td>
         <td width="46%"><b><font face="Arial, Helvetica, sans-serif"
-                                 size="2">Billing Date: <%=BillDate%>
+                                 size="2">Billing Date: <carlos:encode value="${ob2Model.billDate}" context="html"/>
         </font></b></td>
     </tr>
     <tr>
         <td width="54%"><b><font face="Arial, Helvetica, sans-serif"
-                                 size="2">Visit Type: <%=visittype%>
+                                 size="2">Visit Type: <carlos:encode value="${ob2Model.visitType}" context="html"/>
         </font></b></td>
         <td width="46%"><b><font face="Arial, Helvetica, sans-serif"
-                                 size="2">Visit Date: <%=visitdate%>
+                                 size="2">Visit Date: <carlos:encode value="${ob2Model.visitDate}" context="html"/>
         </font></b></td>
     </tr>
     <tr>
         <td width="54%"><b><font face="Arial, Helvetica, sans-serif"
-                                 size="2">Visit Location: <%=BillLocation%>
+                                 size="2">Visit Location: <carlos:encode value="${ob2Model.billLocation}" context="html"/>
         </font></b></td>
         <td width="46%"><b><font face="Arial, Helvetica, sans-serif"
-                                 size="2">Billing Physician#: <%=proFirst%> <%=proLast%>
+                                 size="2">Billing Physician#: <carlos:encode value="${ob2Model.providerFirst}" context="html"/> <carlos:encode value="${ob2Model.providerLast}" context="html"/>
         </font></b></td>
     </tr>
     <tr>
         <td width="54%"><b><font face="Arial, Helvetica, sans-serif"
-                                 size="2">Appointment Physician: <%=apptFirst%> <%=apptLast%>
+                                 size="2">Appointment Physician: <carlos:encode value="${ob2Model.apptProviderFirst}" context="html"/> <carlos:encode value="${ob2Model.apptProviderLast}" context="html"/>
         </font></b></td>
         <td width="46%"><b><font face="Arial, Helvetica, sans-serif"
-                                 size="2">Secordary Physician: <%=asstFirst%> <%=asstLast%>
+                                 size="2">Secondary Physician: <carlos:encode value="${ob2Model.asstProviderFirst}" context="html"/> <carlos:encode value="${ob2Model.asstProviderLast}" context="html"/>
         </font></b></td>
     </tr>
     <tr>
         <td width="54%"><b><font face="Arial, Helvetica, sans-serif"
-                                 size="2">Creator: <%=crFirst%> <%=crLast%>
+                                 size="2">Creator: <carlos:encode value="${ob2Model.creatorFirst}" context="html"/> <carlos:encode value="${ob2Model.creatorLast}" context="html"/>
         </font></b></td>
         <td width="46%"><b><font face="Arial, Helvetica, sans-serif"
-                                 size="2">Update Date: <%=UpdateDate%>
+                                 size="2">Update Date: <carlos:encode value="${ob2Model.updateDate}" context="html"/>
         </font></b></td>
     </tr>
-
 </table>
 <table width="600" border="1">
     <tr>
@@ -276,54 +172,27 @@
                     face="Arial, Helvetica, sans-serif" size="2">$ Fee</font></b></div>
         </td>
     </tr>
-    <%
-        String serviceCode = "";
-        String serviceDesc = "";
-        String billAmount = "";
-        String diagCode = "";
-        String billUnit = "";
-
-        BillingDetail bd1 = billingDetailDao.find(Integer.parseInt(billNo));
-        if (bd1 != null) {
-            billUnit = bd1.getBillingUnit();
-            serviceCode = bd1.getServiceCode();
-            serviceDesc = bd1.getServiceDesc();
-            billAmount = bd1.getBillingAmount();
-            diagCode = bd1.getDiagnosticCode();
-
-
-    %>
-
+    <% if (ob2Model.isBillDetailLoaded()) { %>
     <tr>
         <td width="22%"><font face="Arial, Helvetica, sans-serif"
-                              size="2"><%=serviceCode%>
+                              size="2"><carlos:encode value="${ob2Model.serviceCode}" context="html"/>
         </font></td>
 
         <td width="58%"><font face="Arial, Helvetica, sans-serif"
-                              size="2"><%=serviceDesc%>
+                              size="2"><carlos:encode value="${ob2Model.serviceDesc}" context="html"/>
         </font></td>
         <td width="6%">
             <div align="right"><font size="2"
-                                     face="Arial, Helvetica, sans-serif"><%=billUnit%>
+                                     face="Arial, Helvetica, sans-serif"><carlos:encode value="${ob2Model.billUnit}" context="html"/>
             </font></div>
         </td>
         <td width="14%">
             <div align="right"><font face="Arial, Helvetica, sans-serif"
-                                     size="2"><%=billAmount.substring(0, billAmount.length() - 2) + "." + billAmount.substring(billAmount.length() - 2)%>
+                                     size="2"><carlos:encode value="${ob2Model.billAmount}" context="html"/>
             </font></div>
         </td>
     </tr>
-    <%
-        }
-        String diagDesc = "";
-        ResultSet rsDiagCode = null;
-        rsDiagCode = null;
-        List<DiagnosticCode> results = diagnosticCodeDao.searchCode(diagCode);
-        for (DiagnosticCode result : results) {
-            diagDesc = result.getDescription();
-        }
-    %>
-
+    <% } %>
     <tr bgcolor="#CCCCCC">
         <td colspan="4"><font face="Arial, Helvetica, sans-serif"
                               size="2"><b>Diagnostic Code</b></font></td>
@@ -331,11 +200,11 @@
     </tr>
     <tr>
         <td width="22%"><font face="Arial, Helvetica, sans-serif"
-                              size="2"><%=diagCode%>
+                              size="2"><carlos:encode value="${ob2Model.diagCode}" context="html"/>
         </font></td>
         <td colspan="3">
             <div align="left"><font face="Arial, Helvetica, sans-serif"
-                                    size="2"><%=diagDesc%>
+                                    size="2"><carlos:encode value="${ob2Model.diagDesc}" context="html"/>
             </font></div>
         </td>
 
@@ -348,22 +217,11 @@
         </td>
         <td width="14%">
             <div align="right"><font face="Arial, Helvetica, sans-serif"
-                                     size="2"><%=BillTotal%>
+                                     size="2"><carlos:encode value="${ob2Model.billTotal}" context="html"/>
             </font></div>
         </td>
     </tr>
 </table>
-<p></p>
-<p></p>
-<p>
-    <SCRIPT Language="Javascript">
-        var NS = (navigator.appName == "Netscape");
-        var VERSION = parseInt(navigator.appVersion);
-        if (VERSION > 3) {
-            document.write('<form><input type=button value="Print Billing History" name="Print" onClick="printBill()"></form>');
-        }
-    </script>
-</p>
 
 </body>
 </html>
