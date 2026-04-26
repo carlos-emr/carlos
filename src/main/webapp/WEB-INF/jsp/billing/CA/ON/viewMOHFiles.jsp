@@ -2,44 +2,72 @@
 <%--
 
     Copyright (c) 2008-2012 Indivica Inc.
-    
+
     This software is made available under the terms of the
     GNU General Public License, Version 2, 1991 (GPLv2).
     License details are available via "indivica.ca/gplv2"
     and "gnu.org/licenses/gpl-2.0.html".
-    
+
 
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@page import="java.nio.charset.StandardCharsets" %>
-<%@page import="org.owasp.encoder.Encode" %>
-<%@ page import="java.util.*,io.github.carlos_emr.*,java.io.*,java.net.*,io.github.carlos_emr.carlos.util.*,org.apache.commons.io.FileUtils,java.text.SimpleDateFormat,io.github.carlos_emr.carlos.billing.CA.ON.util.EDTFolder,io.github.carlos_emr.carlos.utility.MiscUtils,io.github.carlos_emr.carlos.utility.PathValidationUtils"%>
-<%@ page import="io.github.carlos_emr.carlos.util.FileSortByDate" %>
-<%@ page import="io.github.carlos_emr.carlos.util.zip" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.ViewMOHFilesViewModel" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.CA.ON.web.MoveMOHFiles2Action" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <fmt:setBundle basename="oscarResources"/>
+<%--
+  Defensive model-resolver: ensures ${mohModel} is set on the request even if
+  this JSP is reached without going through MoveMOHFiles2Action. The action's
+  own _admin w privilege check is duplicated here for parity.
+--%>
 <%
-    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
-    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
-    boolean bodd = false;
-    EDTFolder folder = EDTFolder.getFolder(request.getParameter("folder"));
-    String folderPath = folder.getPath();
+    if (request.getAttribute("mohModel") == null) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            response.sendRedirect(request.getContextPath() + "/logoutPage");
+            return;
+        }
+        SecurityInfoManager __secMgr;
+        try {
+            __secMgr = SpringUtils.getBean(SecurityInfoManager.class);
+        } catch (RuntimeException __springEx) {
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
+                    "viewMOHFiles.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
+            throw new SecurityException("viewMOHFiles.jsp fallback: privilege check unavailable", __springEx);
+        }
+        if (!__secMgr.hasPrivilege(loggedInInfo, "_admin", "r", null)
+                && !__secMgr.hasPrivilege(loggedInInfo, "_admin.backup", "r", null)
+                && !__secMgr.hasPrivilege(loggedInInfo, "_admin.billing", "r", null)) {
+            response.sendRedirect(request.getContextPath() + "/logoutPage");
+            return;
+        }
+        request.setAttribute("mohModel", new MoveMOHFiles2Action().assembleViewModelForFallback(request));
+    }
+    if (request.getAttribute("__roleName") == null) {
+        Object userRole = session.getAttribute("userrole");
+        Object userId = session.getAttribute("user");
+        request.setAttribute("__roleName", String.valueOf(userRole) + "," + String.valueOf(userId));
+    }
 %>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.backup,_admin.billing" rights="r" reverse="<%=true%>">
-    <% response.sendRedirect(request.getContextPath() + "/logoutPage"); %>
+<security:oscarSec roleName="${__roleName}" objectName="_admin,_admin.backup,_admin.billing" rights="r" reverse="true">
+    <c:redirect url="${pageContext.request.contextPath}/logoutPage"/>
 </security:oscarSec>
 <jsp:useBean id="oscarVariables" class="java.util.Properties" scope="session"/>
 <html>
 <head>
     <title><fmt:message key="admin.admin.viewMOHFiles"/></title>
 
-    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
 
     <script LANGUAGE="JavaScript">
         function viewMOHFile(anchor) {
@@ -50,14 +78,14 @@
             var fileType = decodedFilename.substring(0, 1).toUpperCase();
             if (decodedFilename.substring(decodedFilename.length - 4).toLowerCase() == ".zip") {
                 alert("Please unzip " + decodedFilename + " before processing.");
-                location.href = "<%= request.getContextPath() %>/billing/CA/ON/moveMOHFiles";
+                location.href = "${pageContext.request.contextPath}/billing/CA/ON/moveMOHFiles";
                 return;
             } else if (fileType == "P" || fileType == "S") {
-                form.action = "<%= request.getContextPath() %>/servlet/io.github.carlos_emr.DocumentUploadServlet";
+                form.action = "${pageContext.request.contextPath}/servlet/io.github.carlos_emr.DocumentUploadServlet";
             } else if (fileType == "L") {
-                form.action = "<%= request.getContextPath() %>/billing/CA/ON/billingLreport.jsp";
+                form.action = "${pageContext.request.contextPath}/billing/CA/ON/billingLreport.jsp";
             } else {
-                form.action = "/<%= CarlosProperties.getInstance().getProperty("project_home") %>/oscarBilling/DocumentErrorReportUpload";
+                form.action = "/<carlos:encode value='${mohModel.projectHome}' context='javaScriptAttribute'/>/oscarBilling/DocumentErrorReportUpload";
             }
             form.submit();
         }
@@ -66,7 +94,7 @@
             var allowed = ["inbox", "outbox", "sent", "archive"];
             var folder = selectEl.options[selectEl.selectedIndex].value;
             if (allowed.indexOf(folder) !== -1) {
-                location.href = "<%= request.getContextPath() %>/billing/CA/ON/moveMOHFiles?folder=" + encodeURIComponent(folder);
+                location.href = "${pageContext.request.contextPath}/billing/CA/ON/moveMOHFiles?folder=" + encodeURIComponent(folder);
             }
         }
 
@@ -95,113 +123,80 @@
         <input type="hidden" id="filename" name="filename" value="">
     </form>
 
-    <% if (folder == EDTFolder.INBOX) { %>
-    <form method="POST" action="<%=request.getContextPath()%>/billing/CA/ON/moveMOHFiles" onsubmit="return checkForm();" class="d-flex flex-wrap align-items-center gap-2">
-    <% } %>
+    <c:if test="${mohModel.inbox}">
+    <form method="POST" action="${pageContext.request.contextPath}/billing/CA/ON/moveMOHFiles" onsubmit="return checkForm();" class="d-flex flex-wrap align-items-center gap-2">
+    </c:if>
 
-        <% if (folder == EDTFolder.INBOX) {%>
+        <c:if test="${mohModel.inbox}">
         <input type="submit" value="Archive" class="btn btn-secondary">
-        <% } %>
+        </c:if>
 
         View:
         <select name="folder" onchange="navigateToFolder(this)">
-            <option value="inbox" <% if (folder == EDTFolder.INBOX) {%>selected<%}%>>Inbox</option>
-            <option value="outbox" <% if (folder == EDTFolder.OUTBOX) {%>selected<%}%>>Outbox</option>
-            <option value="sent" <% if (folder == EDTFolder.SENT) {%>selected<%}%>>Sent</option>
-            <option value="archive" <% if (folder == EDTFolder.ARCHIVE) {%>selected<%}%>>Archive</option>
+            <option value="inbox" <c:if test="${mohModel.inbox}">selected</c:if>>Inbox</option>
+            <option value="outbox" <c:if test="${mohModel.outbox}">selected</c:if>>Outbox</option>
+            <option value="sent" <c:if test="${mohModel.sent}">selected</c:if>>Sent</option>
+            <option value="archive" <c:if test="${mohModel.archive}">selected</c:if>>Archive</option>
         </select>
 
 
         <table class="table table-striped table-hover">
             <thead>
             <tr>
-                <% if (folder == EDTFolder.INBOX) {%>
+                <c:if test="${mohModel.inbox}">
                 <th><input type="checkbox" onclick="toggleCheckboxes(this)" title="select all"></th>
-                <% } %>
+                </c:if>
                 <th>View File</th>
-                <% if (folder.providesAccessToFiles()) {%>
+                <c:if test="${mohModel.providesAccessToFiles}">
                 <th>Download File</th>
-                <%}%>
+                </c:if>
                 <th>Date</th>
             </tr>
             </thead>
 
             <tbody>
-            <%
-                if (folderPath == null || folderPath.equals("")) {
-                    Exception e = new Exception("Unable to find the key ONEDT_" + folder.name() + " in the properties file.  Please check the value of this key or add it if it is missing.");
-                    throw e;
-                }
-                session.setAttribute("backupfilepath", folderPath);
-
-                // unzip any files indicated by <unzipfile>
-                String zname = request.getParameter("unzipfile");
-                String unzipMSG = "";
-                try {
-                    if (zname != null && !zname.equals("")) {
-                        // Validate the user-provided filename to prevent path traversal (CWE-22)
-                        File safeZipFile = PathValidationUtils.validatePath(zname, new File(folderPath));
-                        Boolean unzipDone = zip.unzipXML(folderPath, safeZipFile.getName());
-                        if (!unzipDone) {
-                            unzipMSG = "(Cannot unzip)";
-                        }
-                    }
-                } catch (SecurityException e) {
-                    MiscUtils.getLogger().warn("viewMOHFiles: path traversal attempt blocked for unzipfile parameter");
-                    unzipMSG = "(Cannot unzip)";
-                } catch (Exception e) {
-                    MiscUtils.getLogger().error("viewMOHFiles: unzip file Unhandled exception:", e);
-                    unzipMSG = "(Cannot unzip)";
-                }
-
-                File f = new File(folderPath);
-                File[] contents = null;
-                if (f.exists()) {
-                    contents = f.listFiles();
-                } else {
-                    contents = new File[]{};
-                }
-
-                Arrays.sort(contents, new FileSortByDate());
-                if (contents == null) {
-                    Exception e = new Exception("Unable to find any files in the directory " + folderPath + ".  (If this is the incorrect directory, please modify the value of ONEDT_" + folder.name() + " in your properties file to reflect the correct directory).");
-                    throw e;
-                }
-                for (int i = 0; i < contents.length; i++) {
-                    bodd = bodd ? false : true;
-                    if (contents[i].isDirectory() || contents[i].getName().startsWith(".")) continue;
-                    if (contents[i].getName().endsWith(".sh")) continue;
-                    String archiveElement = "<td ><input type='checkbox' name='mohFile' value='" + SafeEncode.forHtmlAttribute(URLEncoder.encode(contents[i].getName(), StandardCharsets.UTF_8)) + "' title='select to archive'/></td>";
-                    if (folder == EDTFolder.INBOX || folder == EDTFolder.ARCHIVE) {
-                        out.println("<tr>" + (folder == EDTFolder.INBOX ? archiveElement : "") + "<td><a href='#' onclick='viewMOHFile(this)' data-filename='" + SafeEncode.forHtmlAttribute(URLEncoder.encode(contents[i].getName(), StandardCharsets.UTF_8)) + "'>" + SafeEncode.forHtml(contents[i].getName()) + unzipMSG + "</a></td>");
-                        out.println("<td><a href=\"" + SafeEncode.forHtmlAttribute(request.getContextPath() + "/servlet/BackupDownload?filename=" + URLEncoder.encode(contents[i].getName(), StandardCharsets.UTF_8)) + "\">Download</a></td>");
-                    } else {
-                        out.println("<tr><td>" + SafeEncode.forHtml(contents[i].getName()) + "</td>");
-                    }
-                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-                    Date d = new Date(contents[i].lastModified());
-                    out.println("<td align='right'>" + sdf.format(d) + "</td></tr>"); //+System.getProperty("file.separator")
-                }
-            %>
+            <c:forEach var="file" items="${mohModel.files}">
+                <tr>
+                    <c:if test="${mohModel.inbox}">
+                        <td><input type='checkbox' name='mohFile'
+                                   value="<carlos:encode value='${file.urlEncodedName}' context='htmlAttribute'/>"
+                                   title='select to archive'/></td>
+                    </c:if>
+                    <c:choose>
+                        <c:when test="${mohModel.inbox or mohModel.archive}">
+                            <td>
+                                <a href='#' onclick='viewMOHFile(this)'
+                                   data-filename="<carlos:encode value='${file.urlEncodedName}' context='htmlAttribute'/>"><carlos:encode
+                                        value="${file.displayName}" context="html"/><carlos:encode
+                                        value="${file.unzipMessage}" context="html"/></a>
+                            </td>
+                            <td>
+                                <a href="${pageContext.request.contextPath}/servlet/BackupDownload?filename=<carlos:encode value='${file.urlEncodedName}' context='uriComponent'/>">Download</a>
+                            </td>
+                        </c:when>
+                        <c:otherwise>
+                            <td><carlos:encode value="${file.displayName}" context="html"/></td>
+                        </c:otherwise>
+                    </c:choose>
+                    <td align='right'><carlos:encode value="${file.date}" context="html"/></td>
+                </tr>
+            </c:forEach>
             </tbody>
         </table>
 
-        <% if (contents.length > 20) { %>
+        <c:if test="${fn:length(mohModel.files) > 20}">
+            <c:if test="${mohModel.inbox}">
+                <input type="submit" value="Archive" class="btn btn-secondary">
+            </c:if>
 
-        <% if (folder == EDTFolder.INBOX) {%>
-        <input type="submit" value="Archive" class="btn btn-secondary">
-        <% } %>
-
-        <select name="folder" onchange="navigateToFolder(this)">
-            <option value="inbox" <% if (folder == EDTFolder.INBOX) {%>selected<%}%>>Inbox</option>
-            <option value="outbox" <% if (folder == EDTFolder.OUTBOX) {%>selected<%}%>>Outbox</option>
-            <option value="sent" <% if (folder == EDTFolder.SENT) {%>selected<%}%>>Sent</option>
-            <option value="archive" <% if (folder == EDTFolder.ARCHIVE) {%>selected<%}%>>Archive</option>
-        </select>
-
-
-        <% } %>
-        <% if (folder == EDTFolder.INBOX) { %></form> <% } %>
+            <select name="folder" onchange="navigateToFolder(this)">
+                <option value="inbox" <c:if test="${mohModel.inbox}">selected</c:if>>Inbox</option>
+                <option value="outbox" <c:if test="${mohModel.outbox}">selected</c:if>>Outbox</option>
+                <option value="sent" <c:if test="${mohModel.sent}">selected</c:if>>Sent</option>
+                <option value="archive" <c:if test="${mohModel.archive}">selected</c:if>>Archive</option>
+            </select>
+        </c:if>
+        <c:if test="${mohModel.inbox}"></form></c:if>
 </div><!--container-->
 </body>
 </html>

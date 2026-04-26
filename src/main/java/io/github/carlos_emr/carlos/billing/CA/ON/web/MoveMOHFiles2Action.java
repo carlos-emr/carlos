@@ -30,13 +30,25 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.List;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ServletActionContext;
 import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billing.CA.ON.util.EDTFolder;
+import io.github.carlos_emr.carlos.billings.ca.on.data.ViewMOHFilesViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.util.FileSortByDate;
+import io.github.carlos_emr.carlos.util.zip;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -165,7 +177,110 @@ public class MoveMOHFiles2Action extends ActionSupport {
         WebUtils.addErrorMessage(request.getSession(), errors.toString());
         WebUtils.addInfoMessage(request.getSession(), messages.toString());
 
+        // Build the view model for the rendering JSP. The page is rendered both
+        // on direct GET (folder listing) and after the POST that archives files,
+        // so the assembler runs unconditionally before we forward.
+        request.setAttribute("mohModel", buildViewModel(folderParam));
+        request.setAttribute("__roleName", buildRoleName());
+
         return "Success";
+    }
+
+    /** Builds the {@code roleName} string the {@code <security:oscarSec>} tag wants. */
+    private String buildRoleName() {
+        Object userRole = request.getSession().getAttribute("userrole");
+        Object userId = request.getSession().getAttribute("user");
+        return String.valueOf(userRole) + "," + String.valueOf(userId);
+    }
+
+    /**
+     * Defensive fallback used by the view JSP when {@code mohModel} is missing
+     * (i.e., the JSP was reached without going through this action). The
+     * caller is responsible for the privilege check before invoking.
+     *
+     * @param req live servlet request — folder param read from this request
+     * @return view model (never null)
+     */
+    public ViewMOHFilesViewModel assembleViewModelForFallback(HttpServletRequest req) {
+        String folderParam = req.getParameter("folder");
+        // The fallback path needs a request-scoped reference for the request
+        // field used by buildViewModel; the action's no-arg field initializer
+        // already pulled the live request from ServletActionContext, so we can
+        // delegate directly.
+        return buildViewModel(folderParam);
+    }
+
+    /**
+     * Assembles the {@link ViewMOHFilesViewModel} the view JSP renders.
+     * This replicates the file-listing logic the JSP scriptlet performed
+     * (folder resolution, optional unzip, file enumeration, date sorting,
+     * URL-encoded link composition) so the JSP body becomes pure EL/JSTL.
+     *
+     * @param folderParam folder name from the request ({@code "inbox"}, {@code "outbox"}, etc.)
+     * @return populated view model (never null)
+     */
+    private ViewMOHFilesViewModel buildViewModel(String folderParam) {
+        EDTFolder folder = EDTFolder.getFolder(folderParam);
+        String folderPath = folder.getPath();
+
+        if (folderPath == null || folderPath.isEmpty()) {
+            logger.error("Unable to find the key ONEDT_{} in the properties file. Please check the value of this key or add it if it is missing.", folder.name());
+            return ViewMOHFilesViewModel.builder()
+                    .selectedFolder(folder.name())
+                    .projectHome(CarlosProperties.getInstance().getProperty("project_home", ""))
+                    .build();
+        }
+
+        // Preserved from the legacy JSP — DocumentUploadServlet reads the
+        // current folder path off the session under this key.
+        request.getSession().setAttribute("backupfilepath", folderPath);
+
+        // Optional unzip (was inline in the JSP). Errors are swallowed onto
+        // unzipMSG so each file row can render the warning suffix; we keep
+        // the same per-page semantics by storing a single message that the
+        // assembler attaches to every file entry.
+        String unzipMSG = "";
+        String zname = request.getParameter("unzipfile");
+        try {
+            if (zname != null && !zname.isEmpty()) {
+                File safeZipFile = PathValidationUtils.validatePath(zname, new File(folderPath));
+                Boolean unzipDone = zip.unzipXML(folderPath, safeZipFile.getName());
+                if (!unzipDone) {
+                    unzipMSG = "(Cannot unzip)";
+                }
+            }
+        } catch (SecurityException e) {
+            logger.warn("viewMOHFiles: path traversal attempt blocked for unzipfile parameter");
+            unzipMSG = "(Cannot unzip)";
+        } catch (Exception e) {
+            logger.error("viewMOHFiles: unzip file Unhandled exception:", e);
+            unzipMSG = "(Cannot unzip)";
+        }
+
+        File f = new File(folderPath);
+        File[] contents = f.exists() ? f.listFiles() : new File[]{};
+        if (contents == null) {
+            contents = new File[]{};
+        }
+        Arrays.sort(contents, new FileSortByDate());
+
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        List<ViewMOHFilesViewModel.FileEntry> entries = new ArrayList<>();
+        for (File current : contents) {
+            if (current.isDirectory() || current.getName().startsWith(".")) continue;
+            if (current.getName().endsWith(".sh")) continue;
+            String urlEncoded = URLEncoder.encode(current.getName(), StandardCharsets.UTF_8);
+            String date = sdf.format(new Date(current.lastModified()));
+            entries.add(new ViewMOHFilesViewModel.FileEntry(
+                    current.getName(), urlEncoded, date, unzipMSG));
+        }
+
+        return ViewMOHFilesViewModel.builder()
+                .selectedFolder(folder.name())
+                .files(entries)
+                .projectHome(CarlosProperties.getInstance().getProperty("project_home", ""))
+                .unzipMessage(unzipMSG)
+                .build();
     }
 
     /**
