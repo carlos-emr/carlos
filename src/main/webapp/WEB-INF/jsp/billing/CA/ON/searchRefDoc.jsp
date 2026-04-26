@@ -41,8 +41,7 @@
         <link href="<carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css"
               rel="stylesheet">
         <script src="<carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/library/jquery/jquery-3.7.1.min.js"></script>
-        <script src="<carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/library/DataTables/datatables.min.js"></script>
-        <!-- DataTables 1.13.4 -->
+        <script src="<carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
 
         <script>
             <c:if test="${refDocModel.showTypeInData2}">
