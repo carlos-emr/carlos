@@ -14,7 +14,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -23,60 +23,61 @@
 
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
 
-import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.apache.commons.io.IOUtils;
-import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.utility.Utility;
-import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
-import io.github.carlos_emr.carlos.commn.dao.BillingONItemDao;
-import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
-import io.github.carlos_emr.carlos.commn.model.BillingONItem;
+import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.PatientEndYearStatementBean;
+import io.github.carlos_emr.carlos.billings.ca.on.service.PatientEndYearStatementService;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
-import io.github.carlos_emr.carlos.managers.DemographicManager;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-
-import io.github.carlos_emr.OscarDocumentCreator;
-
-/**
- * @author Eugene Katyukhin
- */
+import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.PatientEndYearStatementBean;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.PatientEndYearStatementInvoiceBean;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.PatientEndYearStatementServiceBean;
 
+/**
+ * View gate for the patient end-year-statement workflow at
+ * {@code /billing/CA/ON/endYearStatement}. Three modes selected by the
+ * presence of distinct request parameters:
+ *
+ * <ul>
+ *   <li>{@code search} — resolve a unique demographic, aggregate their PAT
+ *       billings in the date range, expose {@code summary} + {@code result}
+ *       to the JSP for screen rendering.</li>
+ *   <li>{@code pdf} — read the previously-stashed session {@code summary}
+ *       and stream a JasperReports PDF back to the browser.</li>
+ *   <li>{@code demosearch} — resolve a unique demographic and expose only
+ *       the {@code summary} (no billing aggregation).</li>
+ * </ul>
+ *
+ * <p>The DAO loops, JasperReports invocation, and JDBC connection lifecycle
+ * all live in {@link PatientEndYearStatementService}; this action only
+ * parses parameters, enforces {@code _billing r}, and translates the
+ * service's typed failure outcomes into i18n action errors.</p>
+ *
+ * @since 2026-04-26 (refactor)
+ */
 public class PatientEndYearStatement2Action extends ActionSupport {
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-
-    HttpServletRequest request = ServletActionContext.getRequest();
-    HttpServletResponse response = ServletActionContext.getResponse();
 
     private static final Logger _logger = MiscUtils.getLogger();
     private static final String RES_SUCCESS = "success";
     private static final String RES_FAILURE = "failure";
+    private static final String PDF_FILENAME_BASE = "end_year_statement_report";
 
-    private DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
+    private final SecurityInfoManager securityInfoManager =
+            SpringUtils.getBean(SecurityInfoManager.class);
+    private final PatientEndYearStatementService statementService =
+            new PatientEndYearStatementService();
 
+    private final HttpServletRequest request = ServletActionContext.getRequest();
+    private final HttpServletResponse response = ServletActionContext.getResponse();
 
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -98,202 +99,113 @@ public class PatientEndYearStatement2Action extends ActionSupport {
         }
         request.setAttribute("patientNameDisplay", displayName.toString());
 
-        List<PatientEndYearStatementInvoiceBean> result = null;
-        PatientEndYearStatementBean summary = new PatientEndYearStatementBean("", "", 0, "", "", "", new Date(), new Date(), "", "");
-        if (request.getParameter("search") != null || request.getParameter("pdf") != null) {
-
-            request.setAttribute("fromDateParam", this.getFromDateParam());
-            request.setAttribute("toDateParam", this.getToDateParam());
-            Date fromDate = this.getFromDate();
-            Date toDate = this.getToDate();
-            SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd");
-
-            if (request.getParameter("search") != null) {
-                List<Demographic> demographicList = new ArrayList<Demographic>();
-                if (this.getDemographicNoParam() != null && this.getDemographicNoParam().length() > 0) {
-                    Demographic d = demographicManager.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), this.getDemographicNoParam());
-                    if (d != null) {
-                        demographicList.add(d);
-                    }
-                } else {
-                    demographicList = demographicManager.searchDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), this.getLastNameParam() + "," + this.getFirstNameParam());
-
-                }
-                if (demographicList == null || demographicList.size() == 0) {
-                    _logger.error("Failed to find patient name: " + this.getFirstNameParam() + "," + this.getLastNameParam());
-                    addActionError(getText("error.billingReport.invalidPatientName"));
-                    return RES_FAILURE;
-                }
-                if (demographicList.size() > 1) {
-                    addActionError(getText("error.billingReport.notSelectivePatientName"));
-                    _logger.error("Patient name is not selective enough: " + this.getFirstNameParam() + "," + this.getLastNameParam());
-                    return RES_FAILURE;
-                }
-                Demographic demographic = demographicList.get(0);
-                summary.setPatientNo(demographic.getDemographicNo().toString());
-                summary.setPatientName(demographic.getFormattedName());
-                summary.setHin(demographic.getHin());
-                summary.setAddress(demographic.getAddress() + " " + demographic.getCity() + " " + demographic.getProvince());
-                summary.setPhone(demographic.getPhone() + " " + demographic.getPhone2());
-                request.setAttribute("summary", summary);
-
-                double totalInvoiced = 0;
-                double totalPaid = 0;
-                int invoiceCount = 0;
-
-                BillingONCHeader1Dao hDao = SpringUtils.getBean(BillingONCHeader1Dao.class);
-                BillingONItemDao iDao = SpringUtils.getBean(BillingONItemDao.class);
-                try {
-                    for (Object[] o : hDao.findBillingsAndDemographicsByDemoIdAndDates(demographic.getDemographicNo(), "PAT", fromDate, toDate)) {
-                        BillingONCHeader1 bch = (BillingONCHeader1) o[0];
-                        Demographic d = (Demographic) o[1];
-
-                        result = new ArrayList<PatientEndYearStatementInvoiceBean>();
-
-                        double paid = bch.getPaid().doubleValue();
-                        double invoiced = bch.getTotal().doubleValue();
-                        PatientEndYearStatementInvoiceBean bean = new PatientEndYearStatementInvoiceBean(bch.getId(), bch.getBillingDate(), String.valueOf(invoiced), String.valueOf(paid));
-
-                        List<PatientEndYearStatementServiceBean> services = null;
-                        try {
-                            services = new ArrayList<PatientEndYearStatementServiceBean>();
-                            for (BillingONItem bi : iDao.findByCh1Id(bch.getId())) {
-                                String fee = Utility.toCurrency(bi.getFee());
-                                PatientEndYearStatementServiceBean serviceBean =
-                                        new PatientEndYearStatementServiceBean(bi.getServiceCode(), fee);
-                                services.add(serviceBean);
-                            }
-                        } catch (Exception e) {
-                            _logger.error("error", e);
-                            addActionError(getText("errors.billing.ca.on.database", "SQL error"));
-                            return RES_FAILURE;
-                        }
-
-                        bean.setServices(services);
-                        result.add(bean);
-                        totalInvoiced += invoiced;
-                        totalPaid += paid;
-                        invoiceCount += 1;
-                        request.setAttribute("result", result);
-                    }
-
-                    summary.setInvoiced(Utility.toCurrency(totalInvoiced));
-                    summary.setPaid(Utility.toCurrency(totalPaid));
-                    summary.setCount(Integer.toString(invoiceCount));
-                    summary.setFromDate(fromDate);
-                    summary.setToDate(toDate);
-                    request.getSession().setAttribute("summary", summary); // nosemgrep: tainted-session-from-http-request -- summary bean populated from DAO billing query results and utility-formatted totals
-                } catch (Exception e) {
-                    _logger.error("error", e);
-
-                    addActionError(getText("errors.billing.ca.on.database", "SQL error"));
-                    return RES_FAILURE;
-                }
-
-            } else if (request.getParameter("pdf") != null) {
-                summary = (PatientEndYearStatementBean) request.getSession().getAttribute("summary");
-                OscarDocumentCreator osc = new OscarDocumentCreator();
-                String docFmt = "pdf";
-
-                HashMap<String, Object> reportParams = new HashMap<String, Object>();
-                reportParams.put("patientId", summary.getPatientNo());
-                reportParams.put("patientName", summary.getPatientName());
-                reportParams.put("hin", summary.getHin());
-                reportParams.put("address", summary.getAddress());
-                reportParams.put("phone", summary.getPhone());
-                reportParams.put("fromDate", this.getFromDateParam());
-                reportParams.put("toDate", this.getToDateParam());
-                reportParams.put("invoiceCount", summary.getCount());
-                reportParams.put("totalInvoiced", summary.getInvoiced());
-                reportParams.put("totalPaid", summary.getPaid());
-                reportParams.put("fromDate", this.getFromDateParam());
-                reportParams.put("toDate", this.getToDateParam());
-                reportParams.put("SUBREPORT_DIR", "/oscar/oscarBilling/ca/on/reports/");
-
-                ServletOutputStream outputStream = null;
-                try {
-                    outputStream = response.getOutputStream();
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-
-                //open corresponding Jasper Report Definition
-                InputStream reportInstream = osc.getDocumentStream("/oscar/oscarBilling/ca/on/reports/" + "end_year_statement_report.jrxml");
-                try {
-                    //COnfigure Reponse Header
-                    cfgHeader(response, "end_year_statement_report.pdf", docFmt);
-                    //Fill document with report parameter data
-                    Connection dbConn = null;
-                    try {
-                        dbConn = DbConnectionFilter.getThreadLocalDbConnection();
-                    } catch (SQLException ex) {
-                        addActionError(getText("errors.billing.ca.on.database", "Database access error"));
-                        _logger.error("Can't get db connection", ex);
-                        return RES_FAILURE;
-                    }
-                    if (dbConn != null) {
-                        osc.fillDocumentStream(reportParams, outputStream, docFmt, reportInstream, dbConn);
-                    }
-                    return null;
-                } finally {
-                    IOUtils.closeQuietly(reportInstream);
-                }
-            }
-        } else if (request.getParameter("demosearch") != null) {
-            request.getSession().setAttribute("summary", null); // nosemgrep: tainted-session-from-http-request -- clearing session attribute with null
-
-            List<Demographic> demographicList = new ArrayList<Demographic>();
-            if (request.getParameter("demographic_no") != null && request.getParameter("demographic_no").length() > 0) {
-                Demographic d = demographicManager.getDemographic(loggedInInfo, request.getParameter("demographic_no"));
-                if (d != null) {
-                    demographicList.add(d);
-                }
-            } else {
-                demographicList = demographicManager.searchDemographic(loggedInInfo, this.getLastNameParam() + "," + this.getFirstNameParam());
-
-            }
-
-            if (demographicList == null || demographicList.size() == 0) {
-                addActionError(getText("error.billingReport.invalidPatientName"));
-                _logger.error("Failed to find patient name: " + this.getFirstNameParam() + "," + this.getLastNameParam());
-                return RES_FAILURE;
-            }
-            if (demographicList.size() > 1) {
-                addActionError(getText("error.billingReport.notSelectivePatientName"));
-                _logger.error("Patient name is not selective enough: " + this.getFirstNameParam() + "," + this.getLastNameParam());
-                return RES_FAILURE;
-            }
-            Demographic demographic = demographicList.get(0);
-            summary.setPatientNo(demographic.getChartNo());
-            summary.setPatientName(demographic.getFormattedName());
-            summary.setHin(demographic.getHin());
-            summary.setAddress(demographic.getAddress() + " " + demographic.getCity() + " " + demographic.getProvince());
-            summary.setPhone(demographic.getPhone() + " " + demographic.getPhone2());
-            request.setAttribute("summary", summary);
-        } else {
-            request.getSession().setAttribute("summary", null); // nosemgrep: tainted-session-from-http-request -- clearing session attribute with null
+        if (request.getParameter("search") != null) {
+            return handleSearch(loggedInInfo);
         }
+        if (request.getParameter("pdf") != null) {
+            return handlePdf();
+        }
+        if (request.getParameter("demosearch") != null) {
+            return handleDemoSearch(loggedInInfo);
+        }
+
+        // No mode parameter: clear any stale summary so the JSP renders the
+        // empty form. Existing behavior preserved verbatim.
+        request.getSession().setAttribute("summary", null); // nosemgrep: tainted-session-from-http-request -- clearing session attribute with null
         return RES_SUCCESS;
     }
 
-    /**
-     * Configures the response header for upload of specified mime-type
-     *
-     * @param response HttpServletResponse
-     * @param docName  String
-     * @param docType  String
-     */
-    public void cfgHeader(HttpServletResponse response, String docName,
-                          String docType) {
-        String mimeType = "application/octet-stream";
-        if (docType.equals("pdf")) {
-            mimeType = "application/pdf";
-        } else if (docType.equals("csv")) {
-            mimeType = "application/csv";
+    private String handleSearch(LoggedInInfo loggedInInfo) {
+        request.setAttribute("fromDateParam", getFromDateParam());
+        request.setAttribute("toDateParam", getToDateParam());
+
+        Demographic demographic;
+        try {
+            demographic = statementService.findUniquePatient(
+                    loggedInInfo, getDemographicNoParam(),
+                    getFirstNameParam(), getLastNameParam());
+        } catch (PatientEndYearStatementService.Failure ex) {
+            return failWithI18n(ex);
         }
-        response.setContentType(mimeType);
-        response.setHeader("Content-Disposition",
-                "attachment;filename=" + docName + "." + docType);
+
+        PatientEndYearStatementService.Result result;
+        try {
+            result = statementService.aggregateInvoices(demographic, getFromDate(), getToDate());
+        } catch (PatientEndYearStatementService.Failure ex) {
+            return failWithI18n(ex);
+        }
+
+        request.setAttribute("summary", result.summary());
+        request.setAttribute("result", result.invoices());
+        request.getSession().setAttribute("summary", result.summary()); // nosemgrep: tainted-session-from-http-request -- summary bean populated from DAO billing query results and utility-formatted totals
+        return RES_SUCCESS;
+    }
+
+    private String handlePdf() {
+        PatientEndYearStatementBean summary =
+                (PatientEndYearStatementBean) request.getSession().getAttribute("summary");
+        if (summary == null) {
+            addActionError(getText("error.billingReport.invalidPatientName"));
+            return RES_FAILURE;
+        }
+        try {
+            statementService.writePdfResponse(
+                    response, PDF_FILENAME_BASE, summary,
+                    getFromDateParam(), getToDateParam());
+        } catch (PatientEndYearStatementService.Failure ex) {
+            return failWithI18n(ex);
+        }
+        // Bypass Struts result-rendering — the PDF body is already on the
+        // wire (header configured, output stream flushed by the service).
+        return null;
+    }
+
+    private String handleDemoSearch(LoggedInInfo loggedInInfo) {
+        request.getSession().setAttribute("summary", null); // nosemgrep: tainted-session-from-http-request -- clearing session attribute with null
+        Demographic demographic;
+        try {
+            demographic = statementService.findUniquePatient(
+                    loggedInInfo, request.getParameter("demographic_no"),
+                    getFirstNameParam(), getLastNameParam());
+        } catch (PatientEndYearStatementService.Failure ex) {
+            return failWithI18n(ex);
+        }
+        PatientEndYearStatementBean summary = new PatientEndYearStatementBean(
+                "", "", 0, "", "", "", new Date(), new Date(), "", "");
+        summary.setPatientNo(demographic.getChartNo());
+        summary.setPatientName(demographic.getFormattedName());
+        summary.setHin(demographic.getHin());
+        summary.setAddress(demographic.getAddress() + " "
+                + demographic.getCity() + " " + demographic.getProvince());
+        summary.setPhone(demographic.getPhone() + " " + demographic.getPhone2());
+        request.setAttribute("summary", summary);
+        return RES_SUCCESS;
+    }
+
+    private String failWithI18n(PatientEndYearStatementService.Failure failure) {
+        addActionError(getText(failure.reason().i18nKey()));
+        String first = getFirstNameParam();
+        String last = getLastNameParam();
+        switch (failure.reason()) {
+            case PATIENT_NOT_FOUND:
+                _logger.error("end-year-statement: lookup returned no candidates for first={}, last={}",
+                        first, last);
+                break;
+            case PATIENT_NOT_UNIQUE:
+                _logger.error("end-year-statement: lookup returned multiple candidates for first={}, last={}",
+                        first, last);
+                break;
+            case DATABASE_ERROR:
+            case IO_ERROR:
+                _logger.error("end-year-statement failure: " + failure.reason(),
+                        failure.getCause());
+                break;
+            default:
+                _logger.error("end-year-statement: unexpected reason " + failure.reason(),
+                        failure.getCause());
+                break;
+        }
+        return RES_FAILURE;
     }
 
     private String firstNameParam;
@@ -339,15 +251,7 @@ public class PatientEndYearStatement2Action extends ActionSupport {
     }
 
     public Date getFromDate() {
-        SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd");
-        Date res = null;
-        try {
-            if (fromDateParam != null && fromDateParam.length() > 0) res = df.parse(fromDateParam);
-        } catch (ParseException ex) {
-            //logger.error("Can't parse date: " + fromDateParam);
-            return null;
-        }
-        return res;
+        return parseIso(fromDateParam);
     }
 
     public String getToDateParam() {
@@ -360,13 +264,17 @@ public class PatientEndYearStatement2Action extends ActionSupport {
     }
 
     public Date getToDate() {
-        SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd");
-        Date res = null;
+        return parseIso(toDateParam);
+    }
+
+    private static Date parseIso(String value) {
+        if (value == null || value.isEmpty()) {
+            return null;
+        }
         try {
-            if (toDateParam != null && toDateParam.length() > 0) res = df.parse(toDateParam);
+            return new SimpleDateFormat("yyyy-MM-dd").parse(value);
         } catch (ParseException ex) {
             return null;
         }
-        return res;
     }
 }
