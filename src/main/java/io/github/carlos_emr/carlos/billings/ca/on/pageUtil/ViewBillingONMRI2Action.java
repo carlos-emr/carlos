@@ -14,6 +14,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONMRIViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -22,11 +23,14 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * View gate for {@code billing/CA/ON/billingONMRI.jsp}. Enforces {@code _team_billing_only}
- * {@code r} privilege before forwarding to the JSP at its
- * {@code /WEB-INF/jsp/} location. Created as part of the ON billing migration
- * to gate direct-access paths behind Struts2 actions (same pattern as
- * PR #1632 for BC billing).
+ * View gate for {@code billing/CA/ON/billingONMRI.jsp}, the "Generate OHIP
+ * File" page (Medical Records Interchange / OHIP claim diskette — not
+ * magnetic resonance imaging).
+ *
+ * <p>Enforces {@code _billing r} privilege, then assembles a
+ * {@link BillingONMRIViewModel} via {@link BillingONMRIDataAssembler}
+ * so the JSP can read pre-resolved records instead of doing 4 inline
+ * {@code SpringUtils.getBean} lookups.</p>
  *
  * @since 2026-04-13
  */
@@ -59,6 +63,9 @@ public final class ViewBillingONMRI2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
+
+        BillingONMRIViewModel model = new BillingONMRIDataAssembler().assemble(request, loggedInInfo);
+        request.setAttribute("mriModel", model);
 
         return SUCCESS;
     }
