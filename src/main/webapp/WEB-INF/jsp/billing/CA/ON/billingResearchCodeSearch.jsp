@@ -23,25 +23,26 @@
 
 --%>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingCodeSearchViewModel" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingCodeSearchViewModel" %>
 
 <%
     // ViewBillingResearchCodeSearch2Action enforces _billing r and assembles
-    // the view model with the IchppccodeDao lookup the JSP body used to perform.
-    BillingCodeSearchViewModel codeSearchModel =
-            (BillingCodeSearchViewModel) request.getAttribute("codeSearchModel");
-    if (codeSearchModel == null) {
+    // the view model with the IchppccodeDao lookup the JSP body used to
+    // perform. Defensive fallback: empty stub if forwarded here without the
+    // canonical action.
+    if (request.getAttribute("codeSearchModel") == null) {
         io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
                 "billingResearchCodeSearch.jsp reached without codeSearchModel — caller "
               + "should route through billing/CA/ON/ViewBillingResearchCodeSearch.");
-        codeSearchModel = BillingCodeSearchViewModel.builder().build();
+        request.setAttribute("codeSearchModel",
+                BillingCodeSearchViewModel.builder().build());
     }
 %>
 <html>
 <head>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
     <title>Research Code Search</title>
     <script LANGUAGE="JavaScript">
         <!--
@@ -65,7 +66,7 @@
     (ICHPPC) Code Search <font face="Arial, Helvetica, sans-serif"
                                color="#FF0000">(Maximum 3 selections)</font></font></h3>
 <form name="servicecode" id="servicecode" method="post"
-      action="<%= request.getContextPath() %>/billing/CA/ON/BillingResearchCodeUpdate">
+      action="${pageContext.request.contextPath}/billing/CA/ON/BillingResearchCodeUpdate">
     <table width="600" border="1">
 
         <tr bgcolor="#FFBC9B">
@@ -76,36 +77,33 @@
         </tr>
 
 
-        <%
-            int rowIndex = 0;
-            for (BillingCodeSearchViewModel.CodeRow __row : codeSearchModel.getRows()) {
-                String __color = (rowIndex++ % 2 == 0) ? "#FFFFFF" : "#F9E6F0";
-        %>
+        <c:forEach var="__row" items="${codeSearchModel.rows}" varStatus="__rowStatus">
+            <c:set var="__color" value="${__rowStatus.index % 2 == 0 ? '#FFFFFF' : '#F9E6F0'}"/>
 
-        <tr bgcolor="<%=__color%>">
+        <tr bgcolor="<carlos:encode value='${__color}' context='htmlAttribute'/>">
             <td width="12%"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"><input type="checkbox" name="code_<carlos:encode value='<%= __row.code() %>' context="htmlAttribute"/>"><carlos:encode value='<%= __row.code() %>' context="html"/>
+                                  size="2"><input type="checkbox" name="code_<carlos:encode value='${__row.code}' context='htmlAttribute'/>"><carlos:encode value="${__row.code}" context="html"/>
             </font></td>
             <td width="88%"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"><carlos:encode value='<%= __row.description() %>' context="html"/>
+                                  size="2"><carlos:encode value="${__row.description}" context="html"/>
             </font></td>
         </tr>
-        <% } %>
+        </c:forEach>
 
-        <% if (codeSearchModel.isNoMatch()) { %>
+        <c:if test="${codeSearchModel.noMatch}">
         <tr>
             <td colspan="2"><font face="Arial, Helvetica, sans-serif"
                                   size="2">No match found.</font></td>
         </tr>
-        <% } %>
+        </c:if>
 
-        <% if (codeSearchModel.isAutoSelect()) { %>
+        <c:if test="${codeSearchModel.autoSelect}">
         <script LANGUAGE="JavaScript">
             <!--
-            CodeAttach('<carlos:encode value='<%= codeSearchModel.getAutoSelectCode() %>' context="javaScriptBlock"/>');
+            CodeAttach('<carlos:encode value="${codeSearchModel.autoSelectCode}" context="javaScriptBlock"/>');
             -->
         </script>
-        <% } %>
+        </c:if>
     </table>
     <input type="submit" name="submit" value="Confirm"><input
         type="button" name="cancel" value="Cancel"
