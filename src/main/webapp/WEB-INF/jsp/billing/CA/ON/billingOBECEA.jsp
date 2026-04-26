@@ -1,4 +1,4 @@
-<%@ page import="io.github.carlos_emr.CarlosProperties" %><%--
+<%--
 
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
@@ -22,26 +22,23 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    billingOBECEA.jsp (view) - Ontario EDT OBEC Response Report Generator.
+    Rendered by BillingDocumentErrorReportUpload2Action on the "error" result
+    so the operator can re-upload an OBEC response file. Auth and any
+    project_home / homepath wiring is handled upstream by the action and
+    by CarlosProperties; this view is purely presentational.
+    @since 2006
+--%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
-
-<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
-<%
-    if (session.getAttribute("user") == null)
-        response.sendRedirect(request.getContextPath() + "/logoutPage");
-
-    String user_no;
-    user_no = (String) session.getAttribute("user");
-    String docdownload = oscarVariables.getProperty("project_home");
-    ;
-    session.setAttribute("homepath", docdownload);
-
-%>
 <!DOCTYPE html>
 <html>
     <head>
 
-        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
 
         <title>EDT OBEC Response Report Generator</title>
     </head>
@@ -55,16 +52,13 @@
 
         <div class="alert alert-danger">
 
-            <% 
-    java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
-    if (actionErrors != null && !actionErrors.isEmpty()) {
-%>
-    <div class="action-errors">
-        <% for (String error : actionErrors) { %>
-            <p><%= error %></p>
-        <% } %>
-    </div>
-<% } %>
+            <c:if test="${not empty actionErrors}">
+                <div class="action-errors">
+                    <c:forEach var="error" items="${actionErrors}">
+                        <p><carlos:encode value="${error}" context="html"/></p>
+                    </c:forEach>
+                </div>
+            </c:if>
         </div>
 
         <div class="card card-body bg-body-tertiary">

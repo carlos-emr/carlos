@@ -83,7 +83,7 @@
             } else if (fileType == "P" || fileType == "S") {
                 form.action = "${pageContext.request.contextPath}/servlet/io.github.carlos_emr.DocumentUploadServlet";
             } else if (fileType == "L") {
-                form.action = "${pageContext.request.contextPath}/billing/CA/ON/billingLreport.jsp";
+                form.action = "${pageContext.request.contextPath}/billing/CA/ON/billingLreport";
             } else {
                 form.action = "/<carlos:encode value='${mohModel.projectHome}' context='javaScriptAttribute'/>/oscarBilling/DocumentErrorReportUpload";
             }

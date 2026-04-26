@@ -24,21 +24,9 @@
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.BillingONPayment" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.BillingPaymentType" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao" %>
-
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-
-<%
-    BillingONPayment billPayment = (BillingONPayment) request.getAttribute("billPayment");
-%>
 
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
-<%@ page
-        import="java.util.*, io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*,io.github.carlos_emr.carlos.billing.ca.on.data.*,io.github.carlos_emr.carlos.providers.data.*,java.math.* ,io.github.carlos_emr.carlos.billing.ca.on.administration.*" %>
 
 <html>
 <head>
@@ -76,49 +64,39 @@
     </tbody>
 </table>
 <hr/>
-<%
-    if (billPayment != null) {
-        String payType = "";
-        BillingPaymentTypeDao billPayTypeDao = (BillingPaymentTypeDao) SpringUtils.getBean(BillingPaymentTypeDao.class);
-        if (billPayTypeDao != null) {
-            BillingPaymentType payTypeTmp = billPayTypeDao.find(billPayment.getPaymentTypeId());
-            if (payTypeTmp != null) {
-                payType = payTypeTmp.getPaymentType();
-            }
-        }
-%>
-<table width="100%" border="0">
-    <tr align="right">
-        <td width="86%">Date:</td>
-        <td><%=billPayment.getPaymentDateFormatted() %>
-        </td>
-    </tr>
-    <tr align="right">
-        <td width="86%">Payment type:</td>
-        <td><%=payType %>
-        </td>
-    </tr>
-    <tr align="right">
-        <td width="86%">Payment:</td>
-        <td><%=billPayment.getTotal_payment() %>
-        </td>
-    </tr>
-    <tr align="right">
-        <td width="86%">Discount:</td>
-        <td><%=billPayment.getTotal_discount() %>
-        </td>
-    </tr>
-    <tr align="right">
-        <td width="86%">Refund Credit / Overpayment:</td>
-        <td><%=billPayment.getTotal_credit()%>
-        </td>
-    </tr>
-    <tr align="right">
-        <td width="86%">Refund / Write off:</td>
-        <td><%=billPayment.getTotal_refund() %>
-        </td>
-    </tr>
-</table>
-<%} %>
+<c:if test="${not empty billPayment}">
+    <table width="100%" border="0">
+        <tr align="right">
+            <td width="86%">Date:</td>
+            <td><carlos:encode value="${billPayment.paymentDateFormatted}" context="html"/>
+            </td>
+        </tr>
+        <tr align="right">
+            <td width="86%">Payment type:</td>
+            <td><carlos:encode value="${paymentTypeName}" context="html"/>
+            </td>
+        </tr>
+        <tr align="right">
+            <td width="86%">Payment:</td>
+            <td><carlos:encode value="${billPayment.total_payment}" context="html"/>
+            </td>
+        </tr>
+        <tr align="right">
+            <td width="86%">Discount:</td>
+            <td><carlos:encode value="${billPayment.total_discount}" context="html"/>
+            </td>
+        </tr>
+        <tr align="right">
+            <td width="86%">Refund Credit / Overpayment:</td>
+            <td><carlos:encode value="${billPayment.total_credit}" context="html"/>
+            </td>
+        </tr>
+        <tr align="right">
+            <td width="86%">Refund / Write off:</td>
+            <td><carlos:encode value="${billPayment.total_refund}" context="html"/>
+            </td>
+        </tr>
+    </table>
+</c:if>
 </body>
 </html>

@@ -129,8 +129,14 @@
         </action>
         <action name="oscarBilling/DocumentErrorReportUpload" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingDocumentErrorReportUpload2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingEAreport.jsp</result>
-            <result name="outside">/WEB-INF/jsp/billing/CA/ON/billingLreport.jsp</result>
+            <!-- Chain through the BillingLreport2Action gate so the file
+                 read + XSL-name resolution happens server-side, not in the
+                 JSP body. The action enforces _admin.billing w. -->
+            <result name="outside" type="chain">billing/CA/ON/billingLreport</result>
             <result name="error">/WEB-INF/jsp/billing/CA/ON/billingOBECEA.jsp</result>
+        </action>
+        <action name="billing/CA/ON/billingLreport" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingLreport2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/ON/billingLreport.jsp</result>
         </action>
         <action name="billing/CA/BC/createBillingReportAction" class="io.github.carlos_emr.carlos.billings.ca.bc.MSP.CreateBillingReport2Action"/>
         <action name="billing/CA/BC/associateCodesAction" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.AssociateCodes2Action">
@@ -538,6 +544,10 @@
         </action>
         <action name="billing/CA/ON/ViewBillingReportCenter" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewBillingReportCenter2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingReportCenter.jsp</result>
+            <!-- admin/doctor roles bypass the report-center landing page and
+                 jump straight to the new-report dashboard, mirroring the
+                 RequestDispatcher.include the legacy JSP performed inline. -->
+            <result name="newReport" type="redirectAction">billing/CA/ON/ViewBillingONNewReport</result>
         </action>
         <action name="billing/CA/ON/ViewBillingReportControl" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewBillingReportControl2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingReportControl.jsp</result>

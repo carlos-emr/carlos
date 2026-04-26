@@ -547,6 +547,16 @@ public class BillingONPayments2Action extends ActionSupport {
             return null;
         }
         request.setAttribute("billPayment", billPayment);
+        // Pre-resolve the human-readable payment-type name so the JSP body
+        // (billingON3rdViewPayment.jsp) does not need to call
+        // BillingPaymentTypeDao via SpringUtils.getBean inline.
+        String paymentTypeName = "";
+        BillingPaymentType paymentType = billingPaymentTypeDao.find(billPayment.getPaymentTypeId());
+        if (paymentType != null && paymentType.getPaymentType() != null) {
+            paymentTypeName = paymentType.getPaymentType();
+        }
+        request.setAttribute("paymentTypeName", paymentTypeName);
+
         List<BillingItemData> itemDataList = new ArrayList<BillingItemData>();
         List<BillingOnItemPayment> itemPaymentList = billingOnItemPaymentDao.getItemsByPaymentId(billPaymentId);
         for (BillingOnItemPayment itemPayment : itemPaymentList) {
