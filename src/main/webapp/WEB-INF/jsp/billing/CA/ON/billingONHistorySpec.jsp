@@ -22,43 +22,50 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<!DOCTYPE html>
-<%@ page
-        import="java.util.*, java.sql.*, java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.db.*" %>
-<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.DateRange" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp" %>
-<%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%--
+    Ontario Billing History (service-code-filtered) popup. Posts to
+    ViewBillingONHistorySpec which builds a BillingONHistorySpecViewModel
+    via BillingONHistorySpecDataAssembler and exposes it as
+    ${historySpecModel}.
+
+    @since 2006
+--%>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingONHistorySpecViewModel" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONHistorySpecDataAssembler" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%--
+  Defensive model-resolver: ensures ${historySpecModel} is set on the
+  request even if a stray <jsp:forward> reaches this JSP without going
+  through ViewBillingONHistorySpec2Action. Re-runs the action's
+  _billing r privilege check before invoking the assembler so a
+  bypass cannot silently expose PHI.
+--%>
 <%
-    if (session.getAttribute("user") == null)
-        response.sendRedirect(request.getContextPath() + "/logout.htm");
-    String curProvider_no;
-    curProvider_no = (String) session.getAttribute("user");
-    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
-
-    String strDay = "0";
-    if (request.getParameter("day") != null) strDay = request.getParameter("day");
-
-    Calendar calendar = Calendar.getInstance();
-    String strToday = calendar.get(Calendar.YEAR) + "-" + (calendar.get(Calendar.MONTH) + 1) + "-" + calendar.get(Calendar.DATE);
-    calendar.add(Calendar.DATE, Integer.parseInt(strDay) * (-1));
-    String strStartDay = calendar.get(Calendar.YEAR) + "-" + (calendar.get(Calendar.MONTH) + 1) + "-" + calendar.get(Calendar.DATE);
-    ;
-
-    DateRange pDateRange = new DateRange(MyDateFormat.getSysDate(strStartDay), MyDateFormat.getSysDate(strToday));
-
-    String serviceCode = request.getParameter("serviceCode") != null ? request.getParameter("serviceCode") : "";
+    if (request.getAttribute("historySpecModel") == null) {
+        LoggedInInfo __loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (__loggedInInfo == null) {
+            throw new SecurityException("billingONHistorySpec.jsp fallback: missing session");
+        }
+        SecurityInfoManager __secMgr = SpringUtils.getBean(SecurityInfoManager.class);
+        if (!__secMgr.hasPrivilege(__loggedInInfo, "_billing", "r", null)) {
+            throw new SecurityException(
+                    "billingONHistorySpec.jsp fallback: missing required sec object (_billing)");
+        }
+        request.setAttribute("historySpecModel",
+                new BillingONHistorySpecDataAssembler().assemble(
+                        request.getParameter("demographic_no"),
+                        request.getParameter("demo_name"),
+                        request.getParameter("day"),
+                        request.getParameter("serviceCode")));
+    }
 %>
-
-
-<jsp:useBean id="providerBean" class="java.util.Properties"
-             scope="session"/>
+<!DOCTYPE html>
+<jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 <html>
 <head>
     <title>BILLING HISTORY</title>
@@ -78,22 +85,22 @@
     </tr>
 </table>
 
-<form method="post" name="titlesearch" action="<%= request.getContextPath() %>/billing/CA/ON/ViewBillingONHistorySpec">
+<form method="post" name="titlesearch" action="${pageContext.request.contextPath}/billing/CA/ON/ViewBillingONHistorySpec">
     <table style="width:95%; margin:auto;">
         <tr>
-            <td style="text-align:left"><carlos:encode value='<%= request.getParameter("demo_name") != null ? request.getParameter("demo_name") : "" %>' context="html"/>
-                (<carlos:encode value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "" %>' context="html"/>)
-                <%=strToday + " - " + strStartDay %>
+            <td style="text-align:left"><carlos:encode value="${historySpecModel.demoName}" context="html"/>
+                (<carlos:encode value="${historySpecModel.demographicNo}" context="html"/>)
+                <carlos:encode value="${historySpecModel.todayStr} - ${historySpecModel.startDayStr}" context="html"/>
             </td>
             <td style="text-align:right">Service Code <input type="text"
                                                              name="serviceCode"
-                                                             value="<carlos:encode value='<%= serviceCode %>' context="htmlAttribute"/>" maxlength="5"
+                                                             value="<carlos:encode value='${historySpecModel.serviceCodeFilter}' context='htmlAttribute'/>" maxlength="5"
                                                              onBlur="upCaseCtrl(this)"/> <input type="hidden" name="day"
-                                                                                                value="<carlos:encode value='<%= strDay %>' context="htmlAttribute"/>"/>
+                                                                                                value="<carlos:encode value='${historySpecModel.day}' context='htmlAttribute'/>"/>
                 <input type="hidden" name="demo_name"
-                       value="<carlos:encode value='<%= request.getParameter("demo_name") != null ? request.getParameter("demo_name") : "" %>' context="htmlAttribute"/>"/> <input
+                       value="<carlos:encode value='${historySpecModel.demoName}' context='htmlAttribute'/>"/> <input
                         type="hidden" name="demographic_no"
-                        value="<carlos:encode value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "" %>' context="htmlAttribute"/>"/> <input
+                        value="<carlos:encode value='${historySpecModel.demographicNo}' context='htmlAttribute'/>"/> <input
                         type="submit" name="submit" value="Search"/></td>
         </tr>
     </table>
@@ -112,43 +119,25 @@
     </tr>
     </thead>
     <tbody>
-        <% // new billing records
-JdbcBillingReviewImpl dbObj = new JdbcBillingReviewImpl();
-String limit = "";
-
-List aL = dbObj.getBillingHist(request.getParameter("demographic_no"), 10000000, 0, pDateRange);
-int nItems=0;
-for(int i=0; i<aL.size(); i=i+2) {
-	BillingClaimHeader1Data obj = (BillingClaimHeader1Data) aL.get(i);
-	BillingItemData itObj = (BillingItemData) aL.get(i+1);
-	String strServiceCode = itObj.getService_code();
-	if(!serviceCode.equals("")) {
-		if(strServiceCode.indexOf(serviceCode) < 0) {
-			continue;
-		}
-	}
-%>
-    <tr>
-        <td style="text-align:center"><carlos:encode value='<%= String.valueOf(obj.getId()) %>' context="html"/>
-        </td>
-        <td style="text-align:center"><carlos:encode value='<%= obj.getBilling_date() %>' context="html"/> <%--=obj.getBilling_time()--%></td>
-        <td style="text-align:center"><carlos:encode value='<%= BillingDataHlp.propBillingType.getProperty(obj.getStatus(), "") %>' context="html"/>
-        </td>
-        <td style="text-align:center"><carlos:encode value='<%= strServiceCode %>' context="html"/>
-        </td>
-        <td style="text-align:center"><carlos:encode value='<%= itObj.getDx() %>' context="html"/>
-        </td>
-        <td style="text-align:center"><carlos:encode value='<%= obj.getTotal() %>' context="html"/>
-        </td>
-    </tr>
-        <%
-	nItems++;
-}
-%>
-    <tbody>
+    <c:forEach var="row" items="${historySpecModel.rows}">
+        <tr>
+            <td style="text-align:center"><carlos:encode value="${row.invoiceNo}" context="html"/>
+            </td>
+            <td style="text-align:center"><carlos:encode value="${row.billingDate}" context="html"/></td>
+            <td style="text-align:center"><carlos:encode value="${row.billType}" context="html"/>
+            </td>
+            <td style="text-align:center"><carlos:encode value="${row.serviceCode}" context="html"/>
+            </td>
+            <td style="text-align:center"><carlos:encode value="${row.dx}" context="html"/>
+            </td>
+            <td style="text-align:center"><carlos:encode value="${row.total}" context="html"/>
+            </td>
+        </tr>
+    </c:forEach>
+    </tbody>
 
 </table>
-<br> &nbsp;<%=nItems %> Items
+<br> &nbsp;<carlos:encode value="${historySpecModel.itemCount}" context="html"/> Items
 <p>
 
 <table style="width:100%">

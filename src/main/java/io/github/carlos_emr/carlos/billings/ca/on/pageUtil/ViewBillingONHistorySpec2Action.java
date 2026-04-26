@@ -14,6 +14,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONHistorySpecViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -23,10 +24,10 @@ import org.apache.struts2.ServletActionContext;
 
 /**
  * View gate for {@code billing/CA/ON/billingONHistorySpec.jsp}. Enforces {@code _billing}
- * {@code r} privilege before forwarding to the JSP at its
- * {@code /WEB-INF/jsp/} location. Created as part of the ON billing migration
- * to gate direct-access paths behind Struts2 actions (same pattern as
- * PR #1632 for BC billing).
+ * {@code r} privilege and assembles a {@link BillingONHistorySpecViewModel}
+ * via {@link BillingONHistorySpecDataAssembler} so the JSP can render the
+ * pre-resolved billing history rows instead of doing date-range math and
+ * JDBC lookups inline.
  *
  * @since 2026-04-13
  */
@@ -42,6 +43,13 @@ public final class ViewBillingONHistorySpec2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
+
+        BillingONHistorySpecViewModel model = new BillingONHistorySpecDataAssembler().assemble(
+                request.getParameter("demographic_no"),
+                request.getParameter("demo_name"),
+                request.getParameter("day"),
+                request.getParameter("serviceCode"));
+        request.setAttribute("historySpecModel", model);
 
         return SUCCESS;
     }
