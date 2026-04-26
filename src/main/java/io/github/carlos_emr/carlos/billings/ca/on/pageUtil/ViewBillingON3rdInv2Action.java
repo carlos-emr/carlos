@@ -14,6 +14,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingON3rdInvViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -22,11 +23,11 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * View gate for {@code billing/CA/ON/billingON3rdInv.jsp}. Enforces {@code _billing}
- * {@code r} privilege before forwarding to the JSP at its
- * {@code /WEB-INF/jsp/} location. Created as part of the ON billing migration
- * to gate direct-access paths behind Struts2 actions (same pattern as
- * PR #1632 for BC billing).
+ * View gate for {@code billing/CA/ON/billingON3rdInv.jsp}, the third-party
+ * invoice print/preview. Enforces {@code _billing r} privilege and assembles
+ * a {@link BillingON3rdInvViewModel} via {@link BillingON3rdInvDataAssembler}
+ * so the JSP can read pre-resolved records instead of doing 9 inline
+ * {@code SpringUtils.getBean} lookups.
  *
  * @since 2026-04-13
  */
@@ -42,6 +43,9 @@ public final class ViewBillingON3rdInv2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
+
+        BillingON3rdInvViewModel model = new BillingON3rdInvDataAssembler().assemble(request);
+        request.setAttribute("invoiceModel", model);
 
         return SUCCESS;
     }
