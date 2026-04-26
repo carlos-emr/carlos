@@ -137,7 +137,7 @@ public class UtilDateUtilities {
 
         // If as of date is before birth, return "Not born"
         if (pointInTime.before(DOB)) {
-            return ResourceBundle.getBundle("oscarResources").getString("global.notBorn");
+            return ResourceBundle.getBundle("oscarResources", Locale.getDefault()).getString("global.notBorn");
         }
 
         GregorianCalendar now = new GregorianCalendar();
@@ -153,15 +153,15 @@ public class UtilDateUtilities {
         int birthDay = birthDate.get(5);
 
         int ageInYears = curYear - birthYear;
-        String result = ageInYears + " " + ResourceBundle.getBundle("oscarResources_en").getString("global.years");
+        String result = ageInYears + " " + ResourceBundle.getBundle("oscarResources", Locale.getDefault()).getString("global.years");
 
 
         if (curMonth > birthMonth || curMonth == birthMonth && curDay >= birthDay) {
             ageInYears = curYear - birthYear;
-            result = ageInYears + " " + ResourceBundle.getBundle("oscarResources_en").getString("global.years");
+            result = ageInYears + " " + ResourceBundle.getBundle("oscarResources", Locale.getDefault()).getString("global.years");
         } else {
             ageInYears = curYear - birthYear - 1;
-            result = ageInYears + " " + ResourceBundle.getBundle("oscarResources_en").getString("global.years");
+            result = ageInYears + " " + ResourceBundle.getBundle("oscarResources", Locale.getDefault()).getString("global.years");
         }
         if (ageInYears < 2) {
             int yearDiff = curYear - birthYear;
@@ -174,11 +174,11 @@ public class UtilDateUtilities {
                 ageInDays = now.get(Calendar.DAY_OF_YEAR) - birthDate.get(Calendar.DAY_OF_YEAR);
             }
             if (ageInDays / 7 > 9) {
-                result = ageInDays / 30 + " " + ResourceBundle.getBundle("oscarResources_en").getString("global.months");
+                result = ageInDays / 30 + " " + ResourceBundle.getBundle("oscarResources", Locale.getDefault()).getString("global.months");
             } else if (ageInDays >= 14) {
-                result = ageInDays / 7 + " " + ResourceBundle.getBundle("oscarResources_en").getString("global.weeks");
+                result = ageInDays / 7 + " " + ResourceBundle.getBundle("oscarResources", Locale.getDefault()).getString("global.weeks");
             } else {
-                result = ageInDays + " " + ResourceBundle.getBundle("oscarResources_en").getString("global.days");
+                result = ageInDays + " " + ResourceBundle.getBundle("oscarResources", Locale.getDefault()).getString("global.days");
             }
         }
         return result;
