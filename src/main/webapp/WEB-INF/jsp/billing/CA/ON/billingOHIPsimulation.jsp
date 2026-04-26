@@ -213,7 +213,13 @@
 
 <script type="text/javascript">
 
-    registerFormSubmit('serviceform', 'dynamic-content');
+    // registerFormSubmit is defined on the administration/index.jsp parent
+    // page where this view is normally loaded into a dynamic-content area.
+    // Guard for standalone loads (direct URL) so a missing wrapper doesn't
+    // throw a ReferenceError on every render.
+    if (typeof registerFormSubmit === 'function') {
+        registerFormSubmit('serviceform', 'dynamic-content');
+    }
 
     flatpickr("#xml_vdate", {dateFormat: "Y-m-d", allowInput: true});
     flatpickr("#xml_appointment_date", {dateFormat: "Y-m-d", allowInput: true});
