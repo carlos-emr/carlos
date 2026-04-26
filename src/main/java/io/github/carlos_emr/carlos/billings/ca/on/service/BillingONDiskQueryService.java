@@ -26,7 +26,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingBatchHeaderData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDiskNameData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Query-side counterpart to {@link BillingONClaimPersistenceService} —
@@ -47,9 +46,15 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
 public class BillingONDiskQueryService {
 
-    private final BillingONHeaderDao headerDao = SpringUtils.getBean(BillingONHeaderDao.class);
-    private final BillingONDiskNameDao diskNameDao = SpringUtils.getBean(BillingONDiskNameDao.class);
-    private final BillingONFilenameDao filenameDao = SpringUtils.getBean(BillingONFilenameDao.class);
+    private final BillingONHeaderDao headerDao;
+    private final BillingONDiskNameDao diskNameDao;
+    private final BillingONFilenameDao filenameDao;
+
+    public BillingONDiskQueryService(BillingONHeaderDao headerDao, BillingONDiskNameDao diskNameDao, BillingONFilenameDao filenameDao) {
+        this.headerDao = headerDao;
+        this.diskNameDao = diskNameDao;
+        this.filenameDao = filenameDao;
+    }
 
     private final SimpleDateFormat dateformatter = new SimpleDateFormat("yyyy-MM-dd");
     private final SimpleDateFormat tsFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");

@@ -70,14 +70,23 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 @org.springframework.transaction.annotation.Transactional
 public class BillingONClaimPersistenceService {
     private static final Logger _logger = MiscUtils.getLogger();
-    private BillingONHeaderDao dao = SpringUtils.getBean(BillingONHeaderDao.class);
-    private BillingONCHeader1Dao cheaderDao = SpringUtils.getBean(BillingONCHeader1Dao.class);
-    private BillingONItemDao itemDao = SpringUtils.getBean(BillingONItemDao.class);
-    private BillingONExtDao extDao = (BillingONExtDao) SpringUtils.getBean(BillingONExtDao.class);
-    private BillingONDiskNameDao diskNameDao = SpringUtils.getBean(BillingONDiskNameDao.class);
-    private BillingONFilenameDao filenameDao = SpringUtils.getBean(BillingONFilenameDao.class);
-    private BillingONRepoDao repoDao = SpringUtils.getBean(BillingONRepoDao.class);
+    private final BillingONHeaderDao dao;
+    private final BillingONCHeader1Dao cheaderDao;
+    private final BillingONItemDao itemDao;
+    private final BillingONExtDao extDao;
+    private final BillingONDiskNameDao diskNameDao;
+    private final BillingONFilenameDao filenameDao;
+    private final BillingONRepoDao repoDao;
 
+    public BillingONClaimPersistenceService(BillingONHeaderDao dao, BillingONCHeader1Dao cheaderDao, BillingONItemDao itemDao, BillingONExtDao extDao, BillingONDiskNameDao diskNameDao, BillingONFilenameDao filenameDao, BillingONRepoDao repoDao) {
+        this.dao = dao;
+        this.cheaderDao = cheaderDao;
+        this.itemDao = itemDao;
+        this.extDao = extDao;
+        this.diskNameDao = diskNameDao;
+        this.filenameDao = filenameDao;
+        this.repoDao = repoDao;
+    }
 
     SimpleDateFormat dateformatter = new SimpleDateFormat("yyyy-MM-dd");
     SimpleDateFormat timeFormatter = new SimpleDateFormat("HH:mm:ss");

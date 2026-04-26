@@ -75,12 +75,20 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 public class BillingONCorrectionPersistenceService {
     BillingONAuditLogService auditLog = SpringUtils.getBean(BillingONAuditLogService.class);
 
-    private BillingONCHeader1Dao billingHeaderDao = SpringUtils.getBean(BillingONCHeader1Dao.class);
+    private final BillingONCHeader1Dao billingHeaderDao;
     //private BillingONRepoDao billingRepoDao = SpringUtils.getBean(BillingONRepoDao.class);
-    private BillingONItemDao billingItemDao = SpringUtils.getBean(BillingONItemDao.class);
-    private BillingONEAReportDao billingEaReportDao = SpringUtils.getBean(BillingONEAReportDao.class);
-    private RaDetailDao raDetailDao = SpringUtils.getBean(RaDetailDao.class);
-    private BillingOnItemPaymentDao itemPaymentDao = SpringUtils.getBean(BillingOnItemPaymentDao.class);
+    private final BillingONItemDao billingItemDao;
+    private final BillingONEAReportDao billingEaReportDao;
+    private final RaDetailDao raDetailDao;
+    private final BillingOnItemPaymentDao itemPaymentDao;
+
+    public BillingONCorrectionPersistenceService(BillingONCHeader1Dao billingHeaderDao, BillingONItemDao billingItemDao, BillingONEAReportDao billingEaReportDao, RaDetailDao raDetailDao, BillingOnItemPaymentDao itemPaymentDao) {
+        this.billingHeaderDao = billingHeaderDao;
+        this.billingItemDao = billingItemDao;
+        this.billingEaReportDao = billingEaReportDao;
+        this.raDetailDao = raDetailDao;
+        this.itemPaymentDao = itemPaymentDao;
+    }
 
     private SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd");
     private SimpleDateFormat timeFormatter = new SimpleDateFormat("HH:mm:ss");

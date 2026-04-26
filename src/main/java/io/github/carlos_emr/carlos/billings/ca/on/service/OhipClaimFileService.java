@@ -122,10 +122,36 @@ public class OhipClaimFileService {
     private BillingClaimHeader1Data ch1Obj = null;
     private BillingItemData itemObj = null;
     private Properties propBillingNo = null;
-    private DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
-    private BillingONCHeader1Dao cheaderDao = SpringUtils.getBean(BillingONCHeader1Dao.class);
-    private BillingONHeaderDao headerDao = SpringUtils.getBean(BillingONHeaderDao.class);
-    private BillingONFilenameDao filenameDao = SpringUtils.getBean(BillingONFilenameDao.class);
+    private final DemographicManager demographicManager;
+    private final BillingONCHeader1Dao cheaderDao;
+    private final BillingONHeaderDao headerDao;
+    private final BillingONFilenameDao filenameDao;
+
+    public OhipClaimFileService(DemographicManager demographicManager,
+                                BillingONCHeader1Dao cheaderDao,
+                                BillingONHeaderDao headerDao,
+                                BillingONFilenameDao filenameDao) {
+        this.demographicManager = demographicManager;
+        this.cheaderDao = cheaderDao;
+        this.headerDao = headerDao;
+        this.filenameDao = filenameDao;
+
+        // Initialization previously done in the no-arg constructor — folded
+        // in here so the prototype's per-instance state is fully built by
+        // Spring before any setter is called.
+        formatter = new SimpleDateFormat("yyyyMMdd"); // yyyyMMddHmm");
+        today = new java.util.Date();
+        output = formatter.format(today);
+
+        // Multisite: pre-cache site short names for the disk filename builders.
+        clinicShortName = new HashMap<String, String>();
+        SiteDao siteDao = SpringUtils.getBean(SiteDao.class);
+        List<Site> sites = siteDao.getAllSites();
+        for (Site s : sites) {
+            clinicShortName.put(s.getName(), s.getShortName());
+        }
+    }
+
     private String batchHeader;
     private BigDecimal bdFee = new BigDecimal((double) 0).setScale(2, BigDecimal.ROUND_HALF_UP);
     private BigDecimal BigTotal = new BigDecimal((double) 0).setScale(2, BigDecimal.ROUND_HALF_UP);
@@ -182,19 +208,6 @@ public class OhipClaimFileService {
         return "popupPage(" + w + "," + h + "," + APOS + url + APOS + ");return false;";
     }
 
-    public OhipClaimFileService() {
-        formatter = new SimpleDateFormat("yyyyMMdd"); // yyyyMMddHmm");
-        today = new java.util.Date();
-        output = formatter.format(today);
-
-        //multisite, get site short name
-        clinicShortName = new HashMap<String, String>();
-        SiteDao siteDao = (SiteDao) SpringUtils.getBean(SiteDao.class);
-        List<Site> sites = siteDao.getAllSites();
-        for (Site s : sites) {
-            clinicShortName.put(s.getName(), s.getShortName());
-        }
-    }
 
     public BigDecimal getBigTotal() {
         return BigTotal;
