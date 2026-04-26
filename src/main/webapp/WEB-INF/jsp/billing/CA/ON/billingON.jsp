@@ -104,7 +104,7 @@
             throw new SecurityException("billingON.jsp fallback: missing required sec object (_billing)");
         }
         request.setAttribute("formModel",
-                new BillingONFormDataAssembler().assemble(loggedInInfo, request));
+                new BillingONFormDataAssembler().assemble(request, loggedInInfo));
     }
 %>
 

@@ -73,7 +73,7 @@
             throw new SecurityException("billingONCorrection.jsp fallback: missing required sec object (_billing)");
         }
         request.setAttribute("correctionModel",
-                new BillingONCorrectionDataAssembler().assemble(__fallbackLii, request));
+                new BillingONCorrectionDataAssembler().assemble(request, __fallbackLii));
     }
 %>
 
@@ -939,8 +939,19 @@
         }
 
         document.addEventListener('DOMContentLoaded', function () {
-            parent.parent.resizeIframe(document.documentElement.scrollHeight);
-
+            // The page is normally embedded two iframes deep inside the EMR
+            // chrome; resizeIframe lives on the outer wrapper and tells it
+            // how tall to grow. When the page is opened standalone (direct
+            // URL, popup, etc.) parent.parent === window, so guard the
+            // call so we don't throw a TypeError on every load.
+            try {
+                if (window.parent && window.parent.parent
+                        && typeof window.parent.parent.resizeIframe === 'function') {
+                    window.parent.parent.resizeIframe(document.documentElement.scrollHeight);
+                }
+            } catch (e) {
+                // Cross-origin or detached frame — nothing to size.
+            }
         });
     </script>
 

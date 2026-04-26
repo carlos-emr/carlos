@@ -315,7 +315,17 @@
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         flatpickr('#BillDate', {dateFormat: "Y-m-d", allowInput: true});
-        parent.parent.resizeIframe(document.documentElement.scrollHeight + 300);
+        // Guard for standalone loads where the EMR-chrome resizeIframe
+        // wrapper isn't on parent.parent — see billingONCorrection.jsp
+        // for the same pattern.
+        try {
+            if (window.parent && window.parent.parent
+                    && typeof window.parent.parent.resizeIframe === 'function') {
+                window.parent.parent.resizeIframe(document.documentElement.scrollHeight + 300);
+            }
+        } catch (e) {
+            // Cross-origin or detached frame — nothing to size.
+        }
     });
 
 </script>
