@@ -1,6 +1,5 @@
 <%--
 
-
     Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
@@ -21,55 +20,14 @@
     Centre for Research on Inner City Health, St. Michael's Hospital,
     Toronto, Ontario, Canada
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingEditWithApptNoViewModel" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingEditWithApptNoDataAssembler" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-
-<%--
-  Defensive model-resolver: ensures ${editApptModel} is set on the request
-  even on the unlikely path where this JSP is reached without going through
-  BillingEditWithApptNo2Action (e.g., a stray <jsp:forward> from an
-  unguarded entry). The action's own _billing w privilege check is
-  duplicated here for parity: without it a future bypass would silently
-  render PHI on an unauthenticated request. Mirrors billingON.jsp.
---%>
-<%
-    if (request.getAttribute("editApptModel") == null) {
-        MiscUtils.getLogger().warn(
-                "billingEditWithApptNo.jsp reached without editApptModel — re-running assembler defensively. "
-                        + "Caller should route through billing/CA/ON/BillingEditWithApptNo.");
-        LoggedInInfo __fallbackLii = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (__fallbackLii == null) {
-            throw new SecurityException("billingEditWithApptNo.jsp fallback: missing session");
-        }
-        SecurityInfoManager __secMgr;
-        try {
-            __secMgr = SpringUtils.getBean(SecurityInfoManager.class);
-        } catch (RuntimeException __springEx) {
-            MiscUtils.getLogger().error(
-                    "billingEditWithApptNo.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
-            throw new SecurityException(
-                    "billingEditWithApptNo.jsp fallback: privilege check unavailable", __springEx);
-        }
-        if (!__secMgr.hasPrivilege(__fallbackLii, "_billing", "w", null)) {
-            throw new SecurityException("billingEditWithApptNo.jsp fallback: missing required sec object (_billing)");
-        }
-        BillingEditWithApptNoViewModel __fallbackModel = new BillingEditWithApptNoDataAssembler().assemble(request, loggedInInfo);
-        request.setAttribute("editApptModel", __fallbackModel);
-    }
-%>
 
 <c:choose>
 <c:when test="${editApptModel.billedItemBlocked}">
@@ -80,7 +38,6 @@
              onClick="window.close()"></form>
 </c:when>
 <c:otherwise>
-
 
 <form method="post" name="editBillingForm" action="/billing">
     <input type="hidden" name="billNo_old" id="billNo_old" value="${carlos:forHtmlAttribute(editApptModel.billNo)}"/>
@@ -106,7 +63,6 @@
     <input type="hidden" name="xml_visittype" id="xml_visittype" value="${carlos:forHtmlAttribute(editApptModel.visitType)}"/>
     <input type="hidden" name="xml_location" id="xml_location" value="${carlos:forHtmlAttribute(editApptModel.location)}"/>
     <input type="hidden" name="xml_vdate" id="xml_vdate" value="${carlos:forHtmlAttribute(editApptModel.visitDate)}"/>
-
 
     <input type="hidden" name="checkFlag" id="checkFlag"/>
     <input type="hidden" name="rfcheck" id="rfcheck"/>

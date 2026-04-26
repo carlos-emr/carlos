@@ -16,7 +16,6 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
@@ -26,43 +25,8 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.GenRADescViewModel" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.GenRADescDataAssembler" %>
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
-
-<%--
-  Defensive model-resolver: ensures ${raDescModel} is set on the request
-  even on the unlikely path where this JSP is reached without going through
-  ViewGenRADesc2Action. The action's own _billing w privilege check is
-  duplicated here for parity: without it a future bypass would silently run
-  the full PHI-touching assembler on an unauthenticated request. (The
-  action's POST-only enforcement is not duplicated; the assembler itself
-  is read-mostly when no submitFrm parameter is present.)
---%>
-<%
-    if (request.getAttribute("raDescModel") == null) {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null) {
-            throw new SecurityException("genRADesc.jsp fallback: missing session");
-        }
-        io.github.carlos_emr.carlos.managers.SecurityInfoManager __secMgr;
-        try {
-            __secMgr = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
-        } catch (RuntimeException __springEx) {
-            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
-                    "genRADesc.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
-            throw new SecurityException("genRADesc.jsp fallback: privilege check unavailable", __springEx);
-        }
-        if (!__secMgr.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
-            throw new SecurityException("genRADesc.jsp fallback: missing required sec object (_billing)");
-        }
-        request.setAttribute("raDescModel",
-                new GenRADescDataAssembler().assemble(request, loggedInInfo));
-    }
-%>
 
 <html>
 <head>

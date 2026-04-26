@@ -23,7 +23,6 @@
     Hamilton
     Ontario, Canada
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
@@ -34,52 +33,6 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
-
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingONPaymentViewModel" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONPaymentDataAssembler" %>
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-
-<%--
-  Defensive model-resolver: ensures ${paymentModel} is set on the request even
-  on the unlikely path where this JSP is reached without going through
-  BillingONPayment2Action. The action's own _tasks r privilege check is
-  duplicated here for parity. Mirrors the pattern in billingON.jsp.
---%>
-<%
-    if (request.getAttribute("paymentModel") == null) {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null) {
-            response.sendRedirect(request.getContextPath() + "/logoutPage");
-            return;
-        }
-        io.github.carlos_emr.carlos.managers.SecurityInfoManager __secMgr;
-        try {
-            __secMgr = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
-        } catch (RuntimeException __springEx) {
-            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
-                    "billingONPayment.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
-            throw new SecurityException("billingONPayment.jsp fallback: privilege check unavailable", __springEx);
-        }
-        if (!__secMgr.hasPrivilege(loggedInInfo, "_tasks", "r", null)) {
-            throw new SecurityException("billingONPayment.jsp fallback: missing required sec object (_tasks)");
-        }
-        boolean __isTeamBillingOnly = __secMgr.hasPrivilege(loggedInInfo, "_team_billing_only", "r", null);
-        boolean __isThisProviderOnly = __secMgr.hasPrivilege(loggedInInfo, "_admin.invoices", "r", null)
-                && !__secMgr.hasPrivilege(loggedInInfo, "_admin", "r", null)
-                && !__secMgr.hasPrivilege(loggedInInfo, "_admin.billing", "r", null);
-        try {
-            request.setAttribute("paymentModel", new BillingONPaymentDataAssembler().assemble(
-                    request, loggedInInfo,
-                    __isThisProviderOnly, __isTeamBillingOnly));
-        } catch (SecurityException __secEx) {
-            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
-                    "billingONPayment.jsp fallback: redirecting to noRights — " + __secEx.getMessage());
-            response.sendRedirect(request.getContextPath() + "/noRights.html");
-            return;
-        }
-    }
-%>
 
 <html>
 <head>
@@ -117,7 +70,6 @@
 <body>
 <h3><fmt:message key="admin.admin.paymentReceived"/></h3>
 
-
 <div class="container-fluid">
     <span class="float-end"><carlos:encode value="${paymentModel.today}" context="html"/></span>
 
@@ -141,7 +93,6 @@
                     </c:forEach>
                 </select>
             </div>
-
 
             <div class="col-md-2">
                 <fmt:message key="oscar.billing.on.paymentReceived.startDate"/><br>
@@ -170,7 +121,6 @@
             </div>
 
     </div>
-
 
     <div class="row">
         <h4><fmt:message key="oscar.billing.on.paymentReceived.raBillingReport"/></h4>

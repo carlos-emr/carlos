@@ -16,61 +16,24 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingONDisplayViewModel" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONDisplayDataAssembler" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%--
-  Defensive model-resolver: ensures ${displayModel} is set on the request even
-  on the unlikely path where this JSP is reached without going through
-  ViewBillingONDisplay2Action. Duplicates the action's _billing r privilege
-  check so a bypass cannot silently run the assembler on an unauthenticated
-  request.
---%>
 <%
     if (session.getAttribute("user") == null) {
         response.sendRedirect(request.getContextPath() + "/logout.htm");
         return;
     }
-    if (request.getAttribute("displayModel") == null) {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null) {
-            throw new SecurityException("billingONDisplay.jsp fallback: missing session");
-        }
-        SecurityInfoManager __secMgr;
-        try {
-            __secMgr = SpringUtils.getBean(SecurityInfoManager.class);
-        } catch (RuntimeException __springEx) {
-            MiscUtils.getLogger().error(
-                    "billingONDisplay.jsp fallback: SecurityInfoManager bean lookup failed",
-                    __springEx);
-            throw new SecurityException(
-                    "billingONDisplay.jsp fallback: privilege check unavailable", __springEx);
-        }
-        if (!__secMgr.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
-            throw new SecurityException(
-                    "billingONDisplay.jsp fallback: missing required sec object (_billing)");
-        }
-        BillingONDisplayViewModel __fallbackModel =
-                new BillingONDisplayDataAssembler().assemble(request, loggedInInfo);
-        request.setAttribute("displayModel", __fallbackModel);
-    }
-%>
+    %>
 
 <html>
     <head>
@@ -107,7 +70,6 @@
                     return remote;
                 }
             }
-
 
             var awnd = null;
 

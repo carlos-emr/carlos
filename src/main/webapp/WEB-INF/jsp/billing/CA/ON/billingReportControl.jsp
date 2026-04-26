@@ -16,7 +16,6 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
@@ -25,25 +24,11 @@
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingReportControlViewModel" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingReportControlDataAssembler" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%
     // Defensive top-of-page model resolver: callers that forward into this JSP
     // directly (without going through ViewBillingReportControl2Action) get the
     // privilege check + assembler re-run inline so the body can stay 100% EL.
-    if (request.getAttribute("billingReportControlModel") == null) {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        SecurityInfoManager sec = SpringUtils.getBean(SecurityInfoManager.class);
-        if (!sec.hasPrivilege(loggedInInfo, "_report", "r", null)) {
-            throw new SecurityException("missing required sec object (_report)");
-        }
-        request.setAttribute("billingReportControlModel",
-                new BillingReportControlDataAssembler().assemble(request, loggedInInfo));
-    }
-%>
+    %>
 <html>
 <head>
     <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>

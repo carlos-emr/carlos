@@ -31,25 +31,6 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingReportFragmentViewModel" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingReportFragmentDataAssembler" %>
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-
-<%--
-  Fragment-local model resolver: this JSPF is statically included from
-  billingReportControl.jsp; the parent's privilege check (_report r) gates
-  access. The legacy scriptlet wrote "failed!!!" when the unsettled-bill
-  list was null; our assembler returns an empty list instead, so we render
-  the failure marker only when the list is empty (preserving the legacy
-  user-visible behavior).
---%>
-<%
-    if (request.getAttribute("billingReportFragmentModel") == null) {
-        request.setAttribute("billingReportFragmentModel",
-                new BillingReportFragmentDataAssembler().assemble(request,
-                        LoggedInInfo.getLoggedInInfoFromSession(request), "unsettled"));
-    }
-%>
 
 <table width="100%" border="2" valign="top">
 <c:choose>

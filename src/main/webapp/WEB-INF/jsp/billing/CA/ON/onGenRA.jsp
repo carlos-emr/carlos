@@ -17,7 +17,6 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
@@ -27,27 +26,13 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.OnGenRAViewModel" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.OnGenRADataAssembler" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <jsp:useBean id="documentBean" class="io.github.carlos_emr.DocumentBean" scope="request"/>
 <%
     // Defensive top-of-page model resolver. The canonical entrypoint is
     // billing/CA/ON/ViewOnGenRA which assembles the model up front; any
     // forward that lands here directly gets the privilege check + assembler
     // re-run inline so the body can stay 100% EL.
-    if (request.getAttribute("onGenRAModel") == null) {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        SecurityInfoManager sec = SpringUtils.getBean(SecurityInfoManager.class);
-        if (!sec.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
-        }
-        request.setAttribute("onGenRAModel",
-                new OnGenRADataAssembler().assemble(request, loggedInInfo));
-    }
-%>
+    %>
 <fmt:setBundle basename="oscarResources"/>
 <html>
 <head>
@@ -58,7 +43,6 @@
     <script language="JavaScript">
         <!--
         var remote = null;
-
 
         function rs(n, u, w, h, x) {
             args = "width=" + w + ",height=" + h + ",resizable=yes,scrollbars=yes,status=0,top=60,left=30";

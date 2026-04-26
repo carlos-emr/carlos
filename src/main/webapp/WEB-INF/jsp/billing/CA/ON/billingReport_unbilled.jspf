@@ -1,20 +1,5 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingReportFragmentViewModel" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingReportFragmentDataAssembler" %>
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%--
-  Defensive lazy-loader: only assembles the fragment view model when reached
-  without it. The parent billingReportControl.jsp passes reportAction=unbilled
-  on the request; the assembler picks the unbilled branch from there.
---%>
-<%
-    if (request.getAttribute("billingReportFragmentModel") == null) {
-        request.setAttribute("billingReportFragmentModel",
-                new BillingReportFragmentDataAssembler().assemble(request,
-                        LoggedInInfo.getLoggedInInfoFromSession(request), "unbilled"));
-    }
-%>
 <table width="100%" border="2" valign="top">
     <tr bgcolor="#CCCCFF">
         <th width="20%"><b><font size="2" face="Arial, Helvetica, sans-serif">SERVICE DATE</font></b></th>

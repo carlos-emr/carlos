@@ -16,7 +16,6 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
@@ -26,41 +25,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingShortcutPg2ViewModel" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingShortcutPg2DataAssembler" %>
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
-
-<%--
-  Defensive model-resolver: ensures ${shortcutPg2Model} is set on the request
-  even on the unlikely path where this JSP is reached without going through
-  BillingShortcutPg2Save2Action. The action's own _billing w privilege check
-  is duplicated here for parity: without it a future bypass would silently
-  run the full PHI-touching assembler (and persist bills) on an
-  unauthenticated request.
---%>
-<%
-    if (request.getAttribute("shortcutPg2Model") == null) {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null) {
-            throw new SecurityException("billingShortcutPg2.jsp fallback: missing session");
-        }
-        io.github.carlos_emr.carlos.managers.SecurityInfoManager __secMgr;
-        try {
-            __secMgr = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
-        } catch (RuntimeException __springEx) {
-            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
-                    "billingShortcutPg2.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
-            throw new SecurityException("billingShortcutPg2.jsp fallback: privilege check unavailable", __springEx);
-        }
-        if (!__secMgr.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
-            throw new SecurityException("billingShortcutPg2.jsp fallback: missing required sec object (_billing)");
-        }
-        request.setAttribute("shortcutPg2Model",
-                new BillingShortcutPg2DataAssembler().assemble(request, loggedInInfo));
-    }
-%>
 
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -196,7 +161,6 @@
                                 </tr>
                             </table>
 
-
                         </td>
                     </tr>
                 </table>
@@ -229,7 +193,6 @@
                 </table>
             </td>
         </tr>
-
 
         <%-- Hidden-input echo loop — preserves every request parameter so
              a self-post round-trip retains form state. The assembler captures

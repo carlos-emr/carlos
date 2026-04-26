@@ -31,22 +31,6 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingReportFragmentViewModel" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingReportFragmentDataAssembler" %>
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-
-<%--
-  Fragment-local model resolver: this JSPF is statically included from
-  billingReportControl.jsp; the parent's privilege check (_report r) gates
-  access. We assemble the billob row list lazily here.
---%>
-<%
-    if (request.getAttribute("billingReportFragmentModel") == null) {
-        request.setAttribute("billingReportFragmentModel",
-                new BillingReportFragmentDataAssembler().assemble(request,
-                        LoggedInInfo.getLoggedInInfoFromSession(request), "billob"));
-    }
-%>
 
 <table width="100%" border="2" cellpadding="0" cellspacing="0">
 <c:choose>

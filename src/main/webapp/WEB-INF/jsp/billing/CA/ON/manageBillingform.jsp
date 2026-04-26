@@ -16,20 +16,12 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
 <!DOCTYPE html>
-<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.CtlDiagCodeDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServicePremiumDao" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.ManageBillingformViewModel" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.ManageBillingformDataAssembler" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -37,39 +29,6 @@
 
 <%@ include file="/WEB-INF/jsp/admin/dbconnection.jsp" %>
 
-<%--
-  Defensive model-resolver: ensures ${manageBillingformModel} is set on the
-  request even on the unlikely path where this JSP is reached without going
-  through ManageBillingform2Action. Re-runs the action's _admin.billing w
-  privilege check for parity, and exposes the legacy DAO locals
-  (ctlBillingServiceDao, ctlDiagCodeDao, ctlBillingServicePremiumDao) to the
-  unmigrated manageBillingform_add.jspf fragment which still reads them in
-  scriptlet bodies (out of scope for this refactor pass).
---%>
-<%
-    CtlBillingServiceDao ctlBillingServiceDao = SpringUtils.getBean(CtlBillingServiceDao.class);
-    CtlDiagCodeDao ctlDiagCodeDao = SpringUtils.getBean(CtlDiagCodeDao.class);
-    CtlBillingServicePremiumDao ctlBillingServicePremiumDao = SpringUtils.getBean(CtlBillingServicePremiumDao.class);
-    if (request.getAttribute("manageBillingformModel") == null) {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null) {
-            throw new SecurityException("manageBillingform.jsp fallback: missing session");
-        }
-        io.github.carlos_emr.carlos.managers.SecurityInfoManager __secMgr;
-        try {
-            __secMgr = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
-        } catch (RuntimeException __springEx) {
-            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
-                    "manageBillingform.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
-            throw new SecurityException("manageBillingform.jsp fallback: privilege check unavailable", __springEx);
-        }
-        if (!__secMgr.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
-            throw new SecurityException("manageBillingform.jsp fallback: missing required sec object (_admin.billing)");
-        }
-        request.setAttribute("manageBillingformModel",
-                new ManageBillingformDataAssembler().assemble(request, loggedInInfo));
-    }
-%>
 <html>
     <head>
         <title><fmt:message key="billing.manageBillingform.title"/></title>

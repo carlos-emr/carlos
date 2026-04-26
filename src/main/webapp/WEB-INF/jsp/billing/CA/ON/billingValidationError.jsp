@@ -38,7 +38,6 @@
      null-coalesces before delegating to OWASP), declaring `e` keeps the
      taglib surface uniform across new JSPs and enables direct e:forXxx use
      for any future inline encoding. --%>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     // Pull the exception message defensively — three sources in priority order:

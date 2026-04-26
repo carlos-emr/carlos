@@ -16,34 +16,18 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
 <!DOCTYPE html>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingONStatusViewModel" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONStatusDataAssembler" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%--
-  Defensive model-resolver: ensures ${statusModel} is set on the request even
-  on the unlikely path where this JSP is reached without going through
-  ViewBillingONStatus2Action (e.g., a stray <jsp:forward> from a legacy
-  scheduling result, BillingInvoice listSuccess, etc.). The action's own
-  _billing r privilege check is duplicated here for parity: without it a
-  bypass would silently run the full PHI-touching assembler on an
-  unauthenticated request.
---%>
 <%
     response.setHeader("Pragma", "no-cache"); //HTTP 1.0
     response.setHeader("Cache-Control", "no-cache"); //HTTP 1.1
@@ -52,30 +36,7 @@
     response.setHeader("Cache-Control", "no-store"); // HTTP 1.1
     response.setHeader("Cache-Control", "max-stale=0"); // HTTP 1.1
 
-    if (request.getAttribute("statusModel") == null) {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null) {
-            throw new SecurityException("billingONStatus.jsp fallback: missing session");
-        }
-        SecurityInfoManager __secMgr;
-        try {
-            __secMgr = SpringUtils.getBean(SecurityInfoManager.class);
-        } catch (RuntimeException __springEx) {
-            MiscUtils.getLogger().error(
-                    "billingONStatus.jsp fallback: SecurityInfoManager bean lookup failed",
-                    __springEx);
-            throw new SecurityException(
-                    "billingONStatus.jsp fallback: privilege check unavailable", __springEx);
-        }
-        if (!__secMgr.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
-            throw new SecurityException(
-                    "billingONStatus.jsp fallback: missing required sec object (_billing)");
-        }
-        BillingONStatusViewModel __fallbackModel =
-                new BillingONStatusDataAssembler().assemble(request, loggedInInfo);
-        request.setAttribute("statusModel", __fallbackModel);
-    }
-%>
+    %>
 
 <html>
     <head>
@@ -232,7 +193,6 @@
                     group[i].checked = !isChecked;
                 isChecked = !isChecked;
             }
-
 
             updateSort = function (name) {
                 var sortName = document.getElementById("sortName").value;

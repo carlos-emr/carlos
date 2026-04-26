@@ -16,7 +16,6 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
@@ -28,40 +27,6 @@
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingOHIPSimulationViewModel" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOHIPSimulationDataAssembler" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%--
-  Defensive model-resolver: ensures ${simulationModel} is set on the
-  request even if a stray <jsp:forward> reaches this JSP without going
-  through ViewBillingOHIPsimulation2Action. Re-runs the action's
-  privilege check + privacy filter resolution + assembler.
---%>
-<%
-    if (request.getAttribute("simulationModel") == null) {
-        LoggedInInfo __loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (__loggedInInfo == null) {
-            throw new SecurityException("billingOHIPsimulation.jsp fallback: missing session");
-        }
-        SecurityInfoManager __secMgr = SpringUtils.getBean(SecurityInfoManager.class);
-        if (!__secMgr.hasPrivilege(__loggedInInfo, "_billing", "r", null)) {
-            throw new SecurityException(
-                    "billingOHIPsimulation.jsp fallback: missing required sec object (_billing)");
-        }
-        boolean __teamBilling = __secMgr.hasPrivilege(
-                __loggedInInfo, "_team_billing_only", "r", null);
-        boolean __siteAccess = __secMgr.hasPrivilege(
-                __loggedInInfo, "_site_access_privacy", "r", null);
-        boolean __teamAccess = __secMgr.hasPrivilege(
-                __loggedInInfo, "_team_access_privacy", "r", null);
-        request.setAttribute("simulationModel",
-                new BillingOHIPSimulationDataAssembler().assemble(
-                        request, __loggedInInfo, __teamBilling, __siteAccess,
-                        __teamAccess));
-    }
-%>
 <html>
 <jsp:useBean id="SxmlMisc" class="io.github.carlos_emr.SxmlMisc" scope="session"/>
 
@@ -71,13 +36,11 @@
     <link href="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.css" rel="stylesheet">
     <script src="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.js"></script>
 
-
     <script type="text/javascript" language="JavaScript">
         <!--
         function openBrWindow(theURL, winName, features) {
             window.open(theURL, winName, features);
         }
-
 
         function checkData() {
             var b = true;
@@ -134,12 +97,10 @@
             </button>
             <br/>
 
-
             <input type="hidden" name="monthCode" value="<carlos:encode value='${simulationModel.monthCode}' context='htmlAttribute'/>">
             <input type="hidden" name="verCode" value="V03">
             <input type="hidden" name="curUser" value="<carlos:encode value='${simulationModel.userNo}' context='htmlAttribute'/>">
             <input type="hidden" name="curDate" value="<carlos:encode value='${simulationModel.nowDate}' context='htmlAttribute'/>">
-
 
             <div class="col-md-12" style="margin:4px;">
 
@@ -170,7 +131,6 @@
                     </div>
                 </div>
 
-
                 <div class="col-md-2">
                     To:<br>
                     <div class="input-group">
@@ -194,13 +154,11 @@
                     </button>
                 </div>
 
-
             </div> <!--span12-->
 
             <div class="col-md-11">
 
                 <br>
-
 
             </div><!--span12-->
 
@@ -235,7 +193,6 @@
             }
         }
     }
-
 
     document.querySelectorAll(".xlink").forEach(function (el) {
         el.addEventListener('click', function (e) {

@@ -16,7 +16,6 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
@@ -25,8 +24,6 @@
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingCodeUpdateViewModel" %>
-
 <%
     // BillingCodeUpdate2Action enforces _billing w + POST and assembles the
     // view model. The assembler does either:
@@ -34,14 +31,7 @@
     //   - Update-mode:  persists a single BillingService description edit
     // Defensive fallback: if a caller forwards here without going through the
     // action, render an empty model — never re-trigger the persist mutation.
-    if (request.getAttribute("codeUpdateModel") == null) {
-        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
-                "billingCodeUpdate.jsp reached without codeUpdateModel — caller "
-              + "should route through billing/CA/ON/BillingCodeUpdate.");
-        request.setAttribute("codeUpdateModel",
-                BillingCodeUpdateViewModel.builder().build());
-    }
-%>
+    %>
 <html>
 <head>
     <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>

@@ -31,23 +31,6 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingReportFragmentViewModel" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingReportFragmentDataAssembler" %>
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-
-<%--
-  Fragment-local model resolver: this JSPF is statically included from
-  billingReportControl.jsp; the parent's privilege check (_report r) gates
-  access. We assemble the fragment's row list here lazily so the parent
-  doesn't need to know about which fragment it includes.
---%>
-<%
-    if (request.getAttribute("billingReportFragmentModel") == null) {
-        request.setAttribute("billingReportFragmentModel",
-                new BillingReportFragmentDataAssembler().assemble(request,
-                        LoggedInInfo.getLoggedInInfoFromSession(request), "billed"));
-    }
-%>
 
 <table width="100%" border="2" valign="top">
 <c:choose>

@@ -23,57 +23,16 @@
     Hamilton
     Ontario, Canada
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.carlos.billing.CA.ON.web.BatchBillingDataAssembler" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BatchBillingViewModel" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
-
-<%--
-  Defensive model-resolver: ensures ${batchModel} is set on the request
-  even on the unlikely path where this JSP is reached without going through
-  BatchBill2Action.execute() (e.g., a stray <jsp:forward> from an unguarded
-  entry). The action's own _billing w privilege check is duplicated here
-  for parity: without it a future bypass would silently render PHI on an
-  unauthenticated request. Mirrors billingON.jsp.
---%>
-<%
-    if (request.getAttribute("batchModel") == null) {
-        MiscUtils.getLogger().warn(
-                "batchBilling.jsp reached without batchModel — re-running assembler defensively. "
-                        + "Caller should route through billing/CA/ON/BatchBill.");
-        LoggedInInfo __fallbackLii = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (__fallbackLii == null) {
-            throw new SecurityException("batchBilling.jsp fallback: missing session");
-        }
-        SecurityInfoManager __secMgr;
-        try {
-            __secMgr = SpringUtils.getBean(SecurityInfoManager.class);
-        } catch (RuntimeException __springEx) {
-            MiscUtils.getLogger().error(
-                    "batchBilling.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
-            throw new SecurityException(
-                    "batchBilling.jsp fallback: privilege check unavailable", __springEx);
-        }
-        if (!__secMgr.hasPrivilege(__fallbackLii, "_billing", "w", null)) {
-            throw new SecurityException("batchBilling.jsp fallback: missing required sec object (_billing)");
-        }
-        BatchBillingViewModel __fallbackModel = new BatchBillingDataAssembler().assemble(request);
-        request.setAttribute("batchModel", __fallbackModel);
-    }
-%>
 
 <html>
 <head>
@@ -101,7 +60,6 @@
             element.value = val;
             document.forms["serviceform"].submit();
         }
-
 
         var selected = false;
 
@@ -208,9 +166,7 @@
             </div>
     </div><!--row well-->
 
-
     <div class="row">
-
 
         <input type="hidden" name="verCode"
                value="V03"> <input type="hidden" name="curUser"
@@ -218,7 +174,6 @@
                                                                 value="${carlos:forHtmlAttribute(batchModel.nowDate)}"> <input type="hidden"
                                                                                              name="curTime"
                                                                                              value="${carlos:forHtmlAttribute(batchModel.nowTime)}">
-
 
         <c:choose>
         <c:when test="${batchModel.rowsAvailable}">

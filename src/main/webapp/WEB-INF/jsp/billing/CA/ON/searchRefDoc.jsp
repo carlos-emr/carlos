@@ -22,7 +22,6 @@
     Hamilton
     Ontario, Canada
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
@@ -31,44 +30,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.SearchRefDocViewModel" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.web.ViewSearchRefDoc2Action" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <fmt:setBundle basename="oscarResources"/>
-<%--
-  Defensive model-resolver: ensures the refDocModel attribute is set on the
-  request even if this JSP is reached without going through
-  ViewSearchRefDoc2Action. Re-runs the _billing r privilege check for parity.
---%>
-<%
-    if (request.getAttribute("refDocModel") == null) {
-        if (session.getAttribute("user") == null) {
-            response.sendRedirect(request.getContextPath() + "/logoutPage");
-            return;
-        }
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null) {
-            response.sendRedirect(request.getContextPath() + "/logoutPage");
-            return;
-        }
-        SecurityInfoManager __secMgr;
-        try {
-            __secMgr = SpringUtils.getBean(SecurityInfoManager.class);
-        } catch (RuntimeException __springEx) {
-            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
-                    "searchRefDoc.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
-            throw new SecurityException("searchRefDoc.jsp fallback: privilege check unavailable", __springEx);
-        }
-        if (!__secMgr.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
-            throw new SecurityException("searchRefDoc.jsp fallback: missing required sec object (_billing)");
-        }
-        request.setAttribute("refDocModel", new ViewSearchRefDoc2Action().assembleViewModel(request));
-    }
-%>
-
-
 <!DOCTYPE html>
 <html>
     <head>

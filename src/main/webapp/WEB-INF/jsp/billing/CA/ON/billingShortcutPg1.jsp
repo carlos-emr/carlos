@@ -16,7 +16,6 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
@@ -28,47 +27,6 @@
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingShortcutPg1ViewModel" %>
-<%--
-    Defensive model-resolver: ensures ${shortcutPg1Model} is set on the
-    request even on the unlikely path where this JSP is reached without going
-    through ViewBillingShortcutPg12Action (e.g. a stray <jsp:forward>). The
-    action's _billing r privilege check is duplicated here for parity:
-    without it a future bypass would silently run the full PHI-touching
-    assembler on an unauthenticated request. Mirrors billingON.jsp.
---%>
-<%
-    if (request.getAttribute("shortcutPg1Model") == null) {
-        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
-                "billingShortcutPg1.jsp reached without shortcutPg1Model — using empty fallback. "
-                + "Caller should route through billing/CA/ON/billingShortcutPg1View.");
-        io.github.carlos_emr.carlos.utility.LoggedInInfo __fallbackLii =
-                io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (__fallbackLii == null) {
-            throw new SecurityException("billingShortcutPg1.jsp fallback: missing session");
-        }
-        io.github.carlos_emr.carlos.managers.SecurityInfoManager __secMgr;
-        try {
-            __secMgr = io.github.carlos_emr.carlos.utility.SpringUtils
-                    .getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
-        } catch (RuntimeException __springEx) {
-            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
-                    "billingShortcutPg1.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
-            throw new SecurityException("billingShortcutPg1.jsp fallback: privilege check unavailable", __springEx);
-        }
-        if (!__secMgr.hasPrivilege(__fallbackLii, "_billing", "r", null)) {
-            throw new SecurityException("billingShortcutPg1.jsp fallback: missing required sec object (_billing)");
-        }
-        String __userProviderNo = __fallbackLii.getLoggedInProviderNo();
-        if (__userProviderNo == null) {
-            __userProviderNo = "";
-        }
-        BillingShortcutPg1ViewModel __fallbackModel =
-                new io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingShortcutPg1DataAssembler()
-                        .assemble(request, __userProviderNo);
-        request.setAttribute("shortcutPg1Model", __fallbackModel);
-    }
-%>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
@@ -107,7 +65,6 @@
             });
             return !needsSli || jQuery("select[name='xml_slicode']").get(0).selectedIndex != 0;
         }
-
 
         function gotoBillingOB() {
             if (self.location.href.lastIndexOf("?") > 0) {
@@ -394,7 +351,6 @@
     </table>
 </div>
 
-
 <form method="post" name="titlesearch" action="${ctx}/billing/CA/ON/BillingShortcutPg2Save"
       onsubmit="return onNext();">
     <table border="0" cellpadding="0" cellspacing="2" width="100%"
@@ -657,7 +613,6 @@
                                 </tr>
                             </table>
 
-
                         </td>
                     </tr>
                 </table>
@@ -666,7 +621,6 @@
         </tr>
         <tr>
             <td>
-
 
                 <table width="100%" border="0" cellspacing="0" cellpadding="0"
                        height="137">
@@ -759,7 +713,6 @@
                                 </c:forEach>
                             </table>
 
-
                         </td>
                         <td width="33%" valign="top">
 
@@ -804,11 +757,9 @@
                                 </c:forEach>
                             </table>
 
-
                         </td>
                     </tr>
                 </table>
-
 
             </td>
         </tr>
@@ -840,7 +791,6 @@
 
     </table>
 </form>
-
 
 <br/>
 <%-- Both branches now iterate the unified billingHistory + billingHistoryDetails

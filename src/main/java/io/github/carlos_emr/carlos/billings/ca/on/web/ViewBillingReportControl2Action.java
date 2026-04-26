@@ -15,6 +15,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReportControlViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReportFragmentViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -22,6 +23,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingReportControlDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingReportFragmentDataAssembler;
 
 /**
  * View gate for {@code billing/CA/ON/billingReportControl.jsp}. Enforces {@code _report}
@@ -54,6 +56,14 @@ public final class ViewBillingReportControl2Action extends ActionSupport {
         BillingReportControlViewModel model =
                 new BillingReportControlDataAssembler().assemble(request, loggedInInfo);
         request.setAttribute("billingReportControlModel", model);
+
+        // Pre-assemble the fragment view model the included JSPFs render. The
+        // assembler returns an empty model when reportAction is null/unknown,
+        // so the parent JSP's c:choose fall-through still works correctly.
+        BillingReportFragmentViewModel fragmentModel =
+                new BillingReportFragmentDataAssembler().assemble(
+                        request, loggedInInfo, model.getReportAction());
+        request.setAttribute("billingReportFragmentModel", fragmentModel);
 
         return SUCCESS;
     }

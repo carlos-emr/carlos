@@ -22,7 +22,6 @@
     Hamilton
     Ontario, Canada
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
@@ -33,45 +32,9 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingON3rdPaymentsViewModel" %>
-<%@ page import="io.github.carlos_emr.carlos.billing.CA.ON.web.BillingONPayments2Action" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <fmt:setBundle basename="oscarResources"/>
-<%--
-  Defensive model-resolver: ensures the paymentsViewModel attribute is set on
-  the request even on entry paths that bypass BillingONPayments2Action (e.g.
-  the simpler ViewBillingON3rdPayments2Action gate). Re-runs the _billing r
-  privilege check for parity.
---%>
 <%
-    if (request.getAttribute("paymentsViewModel") == null) {
-        if (session.getAttribute("user") == null) {
-            response.sendRedirect(request.getContextPath() + "/logoutPage");
-            return;
-        }
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null) {
-            response.sendRedirect(request.getContextPath() + "/logoutPage");
-            return;
-        }
-        SecurityInfoManager __secMgr;
-        try {
-            __secMgr = SpringUtils.getBean(SecurityInfoManager.class);
-        } catch (RuntimeException __springEx) {
-            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
-                    "billingON3rdPayments.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
-            throw new SecurityException("billingON3rdPayments.jsp fallback: privilege check unavailable", __springEx);
-        }
-        if (!__secMgr.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
-            throw new SecurityException("billingON3rdPayments.jsp fallback: missing required sec object (_billing)");
-        }
-        // Re-running the full BillingONPayments2Action.listPayments() in the
-        // fallback fully populates itemDataList/paymentsList/paymentsViewModel.
-        new BillingONPayments2Action().listPayments();
-    }
-    if (request.getAttribute("__roleName3rd") == null) {
+        if (request.getAttribute("__roleName3rd") == null) {
         Object userRole = session.getAttribute("userrole");
         Object userId = session.getAttribute("user");
         request.setAttribute("__roleName3rd", String.valueOf(userRole) + "," + String.valueOf(userId));
@@ -187,7 +150,6 @@
             }
         }
 
-
         function validatePaymentNumberic(idx) {
             var oldVal = "0.00";
             var val = document.getElementById("payment" + idx).value;
@@ -205,7 +167,6 @@
             }
             oldVal = val;
         }
-
 
         function validateDiscountNumberic(idx) {
             var oldVal = "0.00";

@@ -16,7 +16,6 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
@@ -25,21 +24,12 @@
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingCodeSearchViewModel" %>
-
 <%
     // ViewBillingCodeSearch2Action enforces _billing r and assembles the
     // view model with the BillingServiceDao lookup + nameF validation
     // the JSP body used to perform inline. Defensive fallback: empty stub
     // if forwarded here without the canonical action.
-    if (request.getAttribute("codeSearchModel") == null) {
-        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
-                "billingCodeSearch.jsp reached without codeSearchModel — caller "
-              + "should route through billing/CA/ON/ViewBillingCodeSearch.");
-        request.setAttribute("codeSearchModel",
-                BillingCodeSearchViewModel.builder().build());
-    }
-%>
+    %>
 <html>
 <head>
     <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>

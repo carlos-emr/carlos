@@ -16,7 +16,6 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
@@ -27,7 +26,6 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDigSearchViewModel" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%
@@ -35,14 +33,7 @@
     // view model with the DiagnosticCodeDao lookups + name2 JS-path
     // parsing the JSP body used to perform inline. Defensive fallback:
     // empty stub if forwarded here without the canonical action.
-    if (request.getAttribute("digSearchModel") == null) {
-        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
-                "billingDigSearch.jsp reached without digSearchModel — caller "
-              + "should route through billing/CA/ON/ViewBillingDigSearch.");
-        request.setAttribute("digSearchModel",
-                BillingDigSearchViewModel.builder().build());
-    }
-%>
+    %>
 
 <html>
     <head>

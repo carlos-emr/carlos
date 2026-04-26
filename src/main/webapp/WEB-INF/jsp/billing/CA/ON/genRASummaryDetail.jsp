@@ -16,7 +16,6 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
@@ -26,39 +25,6 @@
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.GenRASummaryViewModel" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.GenRASummaryDataAssembler" %>
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-
-<%--
-  Defensive model-resolver: ensures ${raSummaryModel} is set on the request
-  even on the unlikely path where this JSP is reached without going through
-  ViewGenRASummaryDetail2Action. Shares the GenRASummaryDataAssembler with
-  genRASummary.jsp — the two pages render the same model.
---%>
-<%
-    if (request.getAttribute("raSummaryModel") == null) {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null) {
-            throw new SecurityException("genRASummaryDetail.jsp fallback: missing session");
-        }
-        io.github.carlos_emr.carlos.managers.SecurityInfoManager __secMgr;
-        try {
-            __secMgr = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
-        } catch (RuntimeException __springEx) {
-            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
-                    "genRASummaryDetail.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
-            throw new SecurityException("genRASummaryDetail.jsp fallback: privilege check unavailable", __springEx);
-        }
-        if (!__secMgr.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
-            throw new SecurityException("genRASummaryDetail.jsp fallback: missing required sec object (_billing)");
-        }
-        request.setAttribute("raSummaryModel",
-                new GenRASummaryDataAssembler().assemble(request, loggedInInfo));
-    }
-%>
-
 <html>
 <head>
     <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>

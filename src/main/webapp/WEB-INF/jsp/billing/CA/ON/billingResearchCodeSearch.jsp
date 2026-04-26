@@ -16,7 +16,6 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
@@ -25,21 +24,12 @@
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingCodeSearchViewModel" %>
-
 <%
     // ViewBillingResearchCodeSearch2Action enforces _billing r and assembles
     // the view model with the IchppccodeDao lookup the JSP body used to
     // perform. Defensive fallback: empty stub if forwarded here without the
     // canonical action.
-    if (request.getAttribute("codeSearchModel") == null) {
-        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
-                "billingResearchCodeSearch.jsp reached without codeSearchModel — caller "
-              + "should route through billing/CA/ON/ViewBillingResearchCodeSearch.");
-        request.setAttribute("codeSearchModel",
-                BillingCodeSearchViewModel.builder().build());
-    }
-%>
+    %>
 <html>
 <head>
     <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
@@ -61,7 +51,6 @@
 
 <body bgcolor="#FFFFFF" text="#000000">
 
-
 <h3><font face="Arial, Helvetica, sans-serif">Research
     (ICHPPC) Code Search <font face="Arial, Helvetica, sans-serif"
                                color="#FF0000">(Maximum 3 selections)</font></font></h3>
@@ -75,7 +64,6 @@
             <td width="88%"><b><font face="Arial, Helvetica, sans-serif"
                                      size="2">Description</font></b></td>
         </tr>
-
 
         <c:forEach var="__row" items="${codeSearchModel.rows}" varStatus="__rowStatus">
             <c:set var="__color" value="${__rowStatus.index % 2 == 0 ? '#FFFFFF' : '#F9E6F0'}"/>

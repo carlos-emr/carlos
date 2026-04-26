@@ -16,7 +16,6 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
@@ -26,43 +25,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.OnAddEdit3rdAddrViewModel" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.web.OnAddEdit3rdAddr2Action" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <fmt:setBundle basename="oscarResources"/>
-<%--
-  Defensive model-resolver: ensures ${addrModel} is set on the request even on
-  the unlikely path where this JSP is reached without going through
-  OnAddEdit3rdAddr2Action. Re-runs the _billing w privilege check for parity.
---%>
-<%
-    if (request.getAttribute("addrModel") == null) {
-        if (session.getAttribute("user") == null) {
-            response.sendRedirect(request.getContextPath() + "/logoutPage");
-            return;
-        }
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null) {
-            response.sendRedirect(request.getContextPath() + "/logoutPage");
-            return;
-        }
-        SecurityInfoManager __secMgr;
-        try {
-            __secMgr = SpringUtils.getBean(SecurityInfoManager.class);
-        } catch (RuntimeException __springEx) {
-            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
-                    "onAddEdit3rdAddr.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
-            throw new SecurityException("onAddEdit3rdAddr.jsp fallback: privilege check unavailable", __springEx);
-        }
-        if (!__secMgr.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
-            throw new SecurityException("onAddEdit3rdAddr.jsp fallback: missing required sec object (_billing)");
-        }
-        request.setAttribute("addrModel", new OnAddEdit3rdAddr2Action().assembleViewModel(request));
-    }
-%>
-
 <html>
     <head>
         <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>

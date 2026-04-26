@@ -22,50 +22,16 @@
     Hamilton
     Ontario, Canada
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
 
-
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.ManageBillingformBilltypeViewModel" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.ManageBillingformBilltypeDataAssembler" %>
 <fmt:setBundle basename="oscarResources"/>
-
-<%--
-  Defensive model-resolver: ensures ${billtypeModel} is set on the request even
-  when this fragment is reached without going through
-  ManageBillingformBilltype2Action. The action's _admin.billing w privilege
-  check is duplicated here for parity.
---%>
-<%
-    if (request.getAttribute("billtypeModel") == null) {
-        io.github.carlos_emr.carlos.utility.LoggedInInfo loggedInInfo =
-                io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null) {
-            throw new SecurityException("manageBillingform_billtype.jsp fallback: missing session");
-        }
-        io.github.carlos_emr.carlos.managers.SecurityInfoManager __secMgr;
-        try {
-            __secMgr = io.github.carlos_emr.carlos.utility.SpringUtils.getBean(
-                    io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
-        } catch (RuntimeException __springEx) {
-            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
-                    "manageBillingform_billtype.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
-            throw new SecurityException("manageBillingform_billtype.jsp fallback: privilege check unavailable", __springEx);
-        }
-        if (!__secMgr.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
-            throw new SecurityException("manageBillingform_billtype.jsp fallback: missing required sec object (_admin.billing)");
-        }
-        request.setAttribute("billtypeModel",
-                new ManageBillingformBilltypeDataAssembler().assemble(request, loggedInInfo));
-    }
-%>
 
 <table width=95%>
     <tr>

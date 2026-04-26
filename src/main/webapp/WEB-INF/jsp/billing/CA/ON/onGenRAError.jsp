@@ -16,7 +16,6 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
@@ -25,27 +24,11 @@
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.OnGenRAErrorViewModel" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.OnGenRAErrorDataAssembler" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%
     // Defensive top-of-page model resolver. The canonical entrypoint is
     // billing/CA/ON/ViewOnGenRAError; any direct forward gets the privilege
     // check + assembler re-run inline so the body can stay 100% EL.
-    if (request.getAttribute("onGenRAErrorModel") == null) {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        SecurityInfoManager sec = SpringUtils.getBean(SecurityInfoManager.class);
-        if (!sec.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
-        }
-        request.setAttribute("onGenRAErrorModel",
-                new OnGenRAErrorDataAssembler().assemble(
-                        request.getParameter("rano"),
-                        request.getParameter("proNo")));
-    }
-%>
+    %>
 <c:if test="${onGenRAErrorModel.valid}">
 <html>
 <head>

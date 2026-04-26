@@ -17,7 +17,6 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
@@ -28,45 +27,14 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.AddEditServiceCodeViewModel" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.AddEditServiceCodeDataAssembler" %>
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%--
-  Defensive model-resolver: ensures ${addEditModel} is set on the request
-  even on the unlikely path where this JSP is reached without going through
-  AddEditServiceCode2Action. The action's own _admin.billing w privilege
-  check is duplicated here for parity: without it a future bypass would
-  silently run the full DAO-touching assembler on an unauthenticated
-  request. Also enforces the legacy unauthenticated-session redirect.
---%>
 <%
     if (session.getAttribute("user") == null) {
         response.sendRedirect(request.getContextPath() + "/logoutPage");
         return;
     }
-    if (request.getAttribute("addEditModel") == null) {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null) {
-            throw new SecurityException("addEditServiceCode.jsp fallback: missing session");
-        }
-        io.github.carlos_emr.carlos.managers.SecurityInfoManager __secMgr;
-        try {
-            __secMgr = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
-        } catch (RuntimeException __springEx) {
-            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
-                    "addEditServiceCode.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
-            throw new SecurityException("addEditServiceCode.jsp fallback: privilege check unavailable", __springEx);
-        }
-        if (!__secMgr.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
-            throw new SecurityException("addEditServiceCode.jsp fallback: missing required sec object (_admin.billing)");
-        }
-        request.setAttribute("addEditModel",
-                new AddEditServiceCodeDataAssembler().assemble(request, loggedInInfo));
-    }
-%>
+    %>
 
 <html>
     <head>
@@ -184,7 +152,6 @@
                 ctrl.value = ctrl.value.toUpperCase();
             }
 
-
             function fetchBillService(billno) {
                 document.getElementById('action').value = "single" + billno;
                 var frm = document.getElementById("baseurl");
@@ -217,7 +184,6 @@
     <body onLoad="setfocus()">
     <h3><fmt:message key="admin.admin.manageBillingServiceCode"/></h3>
 
-
     <div class="container-fluid card card-body bg-body-tertiary">
 
         <div class="alert alert-<carlos:encode value="${addEditModel.alert}" context="htmlAttribute"/>">
@@ -248,7 +214,6 @@
                 </select>
                 </c:if>
             </div>
-
 
             <div class="col-md-10">
                 Description <small>50 Characters</small><br>
@@ -302,11 +267,9 @@
                 </div>
             </div>
 
-
             <div class="col-md-10">
                 <input type="checkbox" name="sliFlag" id="sliFlag" value="true" <c:if test="${addEditModel.sliFlagChecked}">checked</c:if>> Requires SLI Code
             </div>
-
 
             <div class="col-md-10">
                 <br>

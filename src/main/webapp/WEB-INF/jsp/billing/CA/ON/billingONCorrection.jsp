@@ -17,15 +17,11 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONCorrectionDataAssembler" %>
 <%-- errorPage routes JSP-render exceptions to errorpage.jsp, which calls
      ErrorPageLogger.logIfPresent so a render-time NPE doesn't disappear
      into a generic CARLOS Error 500 with no stack trace in catalina.out.
@@ -37,45 +33,8 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
-
-<%--
-  Defensive model-resolver: ensures ${correctionModel} is set on the request
-  even on the unlikely path where this JSP is reached without going through
-  BillingCorrection2Action (e.g., a stray <jsp:forward> from an unguarded
-  entry). The action's own _billing privilege check is duplicated here for
-  parity: without it a future bypass would silently run the full
-  PHI-touching assembler on an unauthenticated request. Mirrors billingON.jsp.
---%>
-<%
-    if (request.getAttribute("correctionModel") == null) {
-        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
-                "billingONCorrection.jsp reached without correctionModel — re-running assembler defensively. "
-                + "Caller should route through billing/CA/ON/BillingONCorrection.");
-        LoggedInInfo __fallbackLii = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (__fallbackLii == null) {
-            throw new SecurityException("billingONCorrection.jsp fallback: missing session");
-        }
-        io.github.carlos_emr.carlos.managers.SecurityInfoManager __secMgr;
-        try {
-            __secMgr = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
-        } catch (RuntimeException __springEx) {
-            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
-                    "billingONCorrection.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
-            throw new SecurityException("billingONCorrection.jsp fallback: privilege check unavailable", __springEx);
-        }
-        // BillingCorrection2Action enforces _billing w (mutation gate); on the
-        // fallback render path no mutation occurs from the JSP itself, so r is
-        // sufficient.
-        if (!__secMgr.hasPrivilege(__fallbackLii, "_billing", "r", null)) {
-            throw new SecurityException("billingONCorrection.jsp fallback: missing required sec object (_billing)");
-        }
-        request.setAttribute("correctionModel",
-                new BillingONCorrectionDataAssembler().assemble(request, __fallbackLii));
-    }
-%>
 
 <html>
     <head>
@@ -111,7 +70,6 @@
                     return remote;
                 }
             }
-
 
             var awnd = null;
 
@@ -209,7 +167,6 @@
                     }
                 }*/
 
-
                 var billingDate = document.getElementById("xml_appointment_date").value;
                 var billingDt = parseDate(billingDate);
                 if (billingDt != null) {
@@ -218,7 +175,6 @@
                         return false;
                     }
                 }
-
 
                 return true;
             }
@@ -386,7 +342,6 @@
                            required>
                 </div>
 
-
                 <div class="col-md-2">
                     OHIP Claim No <br>
                     <input type="text" name="claim_no" value="${carlos:forHtmlAttribute(correctionModel.claimNo)}" class="col-md-2">
@@ -400,7 +355,6 @@
             </form>
         </div><!-- /well -->
 
-
         <!-- RA error -->
         <c:set var="__bFlag" value="${correctionModel.billLoaded or correctionModel.billNoErr or not empty correctionModel.billingNo}"/>
         <c:if test="${__bFlag and not empty correctionModel.errorReportEntries}">
@@ -413,7 +367,6 @@
             </c:forEach>
         </table>
         </c:if>
-
 
         <%-- Form posts to UpdateBillingONCorrection2Action (POST-only).
              The legacy URL was /BillingONCorrection with a hidden
@@ -559,7 +512,6 @@
                         </option>
                         <option value="US-WY" ${__hc eq 'US-WY' ? 'selected' : ''}>US-WY-Wyoming</option>
                     </select>
-
 
                     <fmt:message key="billing.billingCorrection.formManualReview"/>: <input type="checkbox"
                                                                                              name="m_review"
@@ -716,7 +668,6 @@
                             </c:choose>
                         </select><br>
 
-
                         <c:set var="__sli" value="${correctionModel.sliCode}"/>
                         <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode"/>: <br>
                         <select name="xml_slicode">
@@ -736,7 +687,6 @@
                 </div><!-- col-md-10 -->
             </div>
             <!--well-->
-
 
             <div class="row card card-body bg-body-tertiary">
 
@@ -809,7 +759,6 @@
                 </table>
             </div>
 
-
             <div class="row card card-body bg-body-tertiary">
                 <div class="col-md-10">
 
@@ -865,7 +814,6 @@
                        class="btn btn-secondary">Settle All</a>
                     </c:if>
 
-
                     <br><br>
 
                     <div class="row">
@@ -905,7 +853,6 @@
                 </div>
             </div>
 
-
             <div id="thirdPartyPymnt" style="${correctionModel.thirdParty ? '' : 'display:none'}">
                 ${correctionModel.htmlPaid}
             </div>
@@ -914,13 +861,11 @@
     </div>
     <div>
 
-
         <c:if test="${correctionModel.dueDateAvailable}">
         <script>
             flatpickr("#invoiceDueDate", {dateFormat: "Y-m-d", allowInput: true});
         </script>
         </c:if>
-
 
     </div>
     </body>

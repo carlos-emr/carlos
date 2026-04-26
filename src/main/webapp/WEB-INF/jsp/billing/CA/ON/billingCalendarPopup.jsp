@@ -16,7 +16,6 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
@@ -26,32 +25,11 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingCalendarPopupViewModel" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingCalendarPopupDataAssembler" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%
     // Defensive top-of-page model resolver. The canonical entrypoint is
     // billing/CA/ON/ViewBillingCalendarPopup; any direct forward gets the
     // privilege check + assembler re-run inline so the body can stay 100% EL.
-    if (request.getAttribute("billingCalendarPopupModel") == null) {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        SecurityInfoManager sec = SpringUtils.getBean(SecurityInfoManager.class);
-        boolean allowed = sec.hasPrivilege(loggedInInfo, "_billing", "r", null)
-                || sec.hasPrivilege(loggedInInfo, "_report", "r", null)
-                || sec.hasPrivilege(loggedInInfo, "_tickler", "r", null);
-        if (!allowed) {
-            throw new SecurityException("missing required sec object (_billing | _report | _tickler)");
-        }
-        request.setAttribute("billingCalendarPopupModel",
-                new BillingCalendarPopupDataAssembler().assemble(
-                        request.getParameter("year"),
-                        request.getParameter("month"),
-                        request.getParameter("delta"),
-                        request.getParameter("type")));
-    }
-%>
+    %>
 <fmt:setBundle basename="oscarResources"/>
 <html>
 <head>
@@ -114,7 +92,6 @@
         </th>
     </tr>
 </table>
-
 
 <table width="100%" border="1" cellspacing="0" cellpadding="2"
        bgcolor="silver">

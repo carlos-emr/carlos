@@ -16,116 +16,20 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
 <!DOCTYPE html>
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"%>
-
-<%@page import="java.util.*,java.net.*,java.sql.*" %>
-<%@page import="io.github.carlos_emr.*" %>
-<%@page import="io.github.carlos_emr.carlos.util.*" %>
-<%@page import="io.github.carlos_emr.carlos.appt.*" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.*" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.*" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONFormDataAssembler" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.bc.decisionSupport.BillingGuidelines" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.CSSStylesDAO" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.CssStyle" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ClinicNbr" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingTypeDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.CtlBillingType" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.CtlBillingService" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServicePremiumDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.CtlBillingServicePremium" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.CtlDiagCode" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.DxresearchDAO" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Dxresearch" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@page import="io.github.carlos_emr.carlos.decisionSupport.model.DSConsequence" %>
-<%@page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-
-<%@page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
-<%@page import="io.github.carlos_emr.carlos.billing.CA.filters.CodeFilterManager" %>
-
-<%--
-  Defensive model-resolver: ensures ${formModel} is set on the request even on
-  the unlikely path where this JSP is reached without going through
-  ViewBillingON2Action (e.g., a stray <jsp:forward> from an unguarded entry).
-  The action's own _billing r privilege check is duplicated here for parity:
-  without it a future bypass would silently run the full PHI-touching
-  assembler on an unauthenticated request.
---%>
-<%
-    if (request.getAttribute("formModel") == null) {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null) {
-            throw new SecurityException("billingON.jsp fallback: missing session");
-        }
-        io.github.carlos_emr.carlos.managers.SecurityInfoManager __secMgr;
-        try {
-            __secMgr = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
-        } catch (RuntimeException __springEx) {
-            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
-                    "billingON.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
-            throw new SecurityException("billingON.jsp fallback: privilege check unavailable", __springEx);
-        }
-        if (!__secMgr.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
-            throw new SecurityException("billingON.jsp fallback: missing required sec object (_billing)");
-        }
-        request.setAttribute("formModel",
-                new BillingONFormDataAssembler().assemble(request, loggedInInfo));
-    }
-%>
-
-
-<%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@page import="org.apache.commons.lang3.StringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ProviderPreferenceDao" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="io.github.carlos_emr.carlos.appt.JdbcApptImpl" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.*" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingSiteIdPrep" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
-<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
-<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="io.github.carlos_emr.SxmlMisc" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html>
 <head>
     <title><fmt:message key="oscar.billing.ca.on.billingON.title"/></title>
@@ -133,7 +37,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="${ pageContext.request.contextPath }/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
     <link href="${ pageContext.request.contextPath }/css/fontawesome-all.min.css" rel="stylesheet" type="text/css">
-
 
     <style type="text/css">
         <!--
@@ -639,7 +542,6 @@
             }
         }
 
-
         function callChangeCodeDesc() {
             setTimeout("changeCodeDesc();", 10);
         }
@@ -697,7 +599,6 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
             }
             </c:forEach>
         }
-
 
         //-->
     </script>

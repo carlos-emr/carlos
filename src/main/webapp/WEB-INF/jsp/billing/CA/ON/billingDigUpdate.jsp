@@ -16,7 +16,6 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
@@ -25,19 +24,13 @@
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDigUpdateViewModel" %>
-
 <%
     // BillingDigUpdate2Action enforces _billing w + POST. The assembler
     // already ran the DiagnosticCodeDao.merge mutation; this JSP just
     // shows the success/error banner. Defensive fallback: if a caller forwards
     // here without going through the action, show the error banner — never
     // re-trigger the mutation.
-    if (request.getAttribute("digUpdateModel") == null) {
-        request.setAttribute("digUpdateModel",
-                BillingDigUpdateViewModel.builder().error(true).build());
-    }
-%>
+    %>
 <html>
 <head>
     <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>

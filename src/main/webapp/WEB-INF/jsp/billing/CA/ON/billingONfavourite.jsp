@@ -16,7 +16,6 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
@@ -26,32 +25,6 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingONFavouriteViewModel" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONFavouriteDataAssembler" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%--
-  Defensive model-resolver: ensures ${favouriteModel} is set on the
-  request even if a stray <jsp:forward> reaches this JSP without going
-  through ViewBillingONFavourite2Action. Re-runs the action's _billing
-  r privilege check before invoking the assembler.
---%>
-<%
-    if (request.getAttribute("favouriteModel") == null) {
-        LoggedInInfo __loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (__loggedInInfo == null) {
-            throw new SecurityException("billingONfavourite.jsp fallback: missing session");
-        }
-        SecurityInfoManager __secMgr = SpringUtils.getBean(SecurityInfoManager.class);
-        if (!__secMgr.hasPrivilege(__loggedInInfo, "_billing", "r", null)) {
-            throw new SecurityException(
-                    "billingONfavourite.jsp fallback: missing required sec object (_billing)");
-        }
-        request.setAttribute("favouriteModel",
-                new BillingONFavouriteDataAssembler().assemble(request, __loggedInInfo));
-    }
-%>
 <!DOCTYPE html>
 <fmt:setBundle basename="oscarResources"/>
 

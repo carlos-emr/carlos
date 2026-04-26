@@ -16,7 +16,6 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
@@ -42,34 +41,6 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingONHistoryViewModel" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONHistoryDataAssembler" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%--
-  Defensive model-resolver: ensures ${historyModel} is set on the request
-  even on the unlikely path where this JSP is reached without going
-  through ViewBillingONHistory2Action. Re-runs the action's _billing r
-  privilege check before invoking the assembler so a bypass cannot
-  silently expose PHI.
---%>
-<%
-    if (request.getAttribute("historyModel") == null) {
-        LoggedInInfo __loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (__loggedInInfo == null) {
-            throw new SecurityException("billingONHistory.jsp fallback: missing session");
-        }
-        SecurityInfoManager __secMgr = SpringUtils.getBean(SecurityInfoManager.class);
-        if (!__secMgr.hasPrivilege(__loggedInInfo, "_billing", "r", null)) {
-            throw new SecurityException(
-                    "billingONHistory.jsp fallback: missing required sec object (_billing)");
-        }
-        request.setAttribute("historyModel",
-                new BillingONHistoryDataAssembler()
-                        .assemble(__loggedInInfo, request.getParameter("demographic_no")));
-    }
-%>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 <!DOCTYPE html>
 <fmt:message var="msgOnUnbilledText" key="provider.appointmentProviderAdminDay.onUnbilled"/>

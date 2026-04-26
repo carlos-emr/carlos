@@ -17,7 +17,6 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
@@ -28,34 +27,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingONEditPrivateCodeViewModel" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONEditPrivateCodeDataAssembler" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%--
-  Defensive model-resolver: ensures ${privateCodeModel} is set on the
-  request even if a stray <jsp:forward> reaches this JSP without going
-  through ViewBillingONEditPrivateCode2Action. Re-runs the action's
-  _admin.billing w privilege check before invoking the assembler.
---%>
-<%
-    if (request.getAttribute("privateCodeModel") == null) {
-        LoggedInInfo __loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (__loggedInInfo == null) {
-            throw new SecurityException("billingONEditPrivateCode.jsp fallback: missing session");
-        }
-        SecurityInfoManager __secMgr = SpringUtils.getBean(SecurityInfoManager.class);
-        if (!__secMgr.hasPrivilege(__loggedInInfo, "_admin.billing", "w", null)) {
-            throw new SecurityException(
-                    "billingONEditPrivateCode.jsp fallback: missing required sec object (_admin.billing)");
-        }
-        request.setAttribute("privateCodeModel",
-                new BillingONEditPrivateCodeDataAssembler().assemble(request, loggedInInfo));
-    }
-%>
 <fmt:setBundle basename="oscarResources"/>
-
 
 <!DOCTYPE html>
 <html>
@@ -65,7 +37,6 @@
         <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
         <link href="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.css" rel="stylesheet">
         <link href="${pageContext.request.contextPath}/css/fontawesome-all.min.css" rel="stylesheet">
-
 
         <script language="JavaScript">
 
@@ -164,7 +135,6 @@
                 }
             }
 
-
             //-->
 
         </script>
@@ -174,7 +144,6 @@
     <h3><fmt:message key="admin.admin.managePrivBillingCode"/></h3>
 
     <div class="container-fluid">
-
 
         <div class="card card-body bg-body-tertiary">
             <form method="post" name="baseur0" action="${pageContext.request.contextPath}/billing/CA/ON/ViewBillingONEditPrivateCode" class="d-flex flex-wrap align-items-center gap-2">
@@ -233,7 +202,6 @@
                            value="" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" readonly>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
-
 
                 <br>
                 <input class="btn btn-secondary" type="submit" name="submit" value="Delete" onclick="javascript:return onDelete();">

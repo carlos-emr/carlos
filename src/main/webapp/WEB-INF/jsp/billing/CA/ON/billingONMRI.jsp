@@ -17,7 +17,6 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
@@ -28,43 +27,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingONMRIViewModel" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONMRIDataAssembler" %>
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <fmt:setBundle basename="oscarResources"/>
-
-<%--
-  Defensive model-resolver: ensures ${mriModel} is set on the request even on
-  the unlikely path where this JSP is reached without going through
-  ViewBillingONMRI2Action. The action's own _billing r privilege check is
-  duplicated here for parity: without it a future bypass would silently run
-  the full DAO-touching assembler on an unauthenticated request. Mirrors the
-  pattern in billingON.jsp.
---%>
-<%
-    if (request.getAttribute("mriModel") == null) {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null) {
-            throw new SecurityException("billingONMRI.jsp fallback: missing session");
-        }
-        io.github.carlos_emr.carlos.managers.SecurityInfoManager __secMgr;
-        try {
-            __secMgr = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
-        } catch (RuntimeException __springEx) {
-            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
-                    "billingONMRI.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
-            throw new SecurityException("billingONMRI.jsp fallback: privilege check unavailable", __springEx);
-        }
-        if (!__secMgr.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
-            throw new SecurityException("billingONMRI.jsp fallback: missing required sec object (_billing)");
-        }
-        request.setAttribute("mriModel",
-                new BillingONMRIDataAssembler().assemble(request, loggedInInfo));
-        request.getSession().setAttribute("ohipdownload",
-                io.github.carlos_emr.CarlosProperties.getInstance().getProperty("HOME_DIR"));
-    }
-%>
 
 <html>
 <head>
@@ -169,7 +132,6 @@
             </ul>
         </div>
 
-
         <form name="form1" method="post" action="${pageContext.request.contextPath}/billing/CA/ON/ViewOngenreport" onsubmit="return checkSubmit();">
 
             <div class="col-md-4">
@@ -197,7 +159,6 @@
             <input type="hidden" name="verCode" value="V03">
             <input type="hidden" name="curUser" value="<carlos:encode value="${mriModel.userProviderNo}" context="htmlAttribute"/>">
             <input type="hidden" name="curDate" value="<carlos:encode value="${mriModel.currentTimestamp}" context="htmlAttribute"/>">
-
 
             <div class="col-md-4">
                 <label>Service Date Start:</label>
@@ -228,9 +189,7 @@
             </div>
         </form>
 
-
     </div><!--row well-->
-
 
     <table class="table ">
         <thead>

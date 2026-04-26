@@ -22,15 +22,12 @@
     Hamilton
     Ontario, Canada
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.EditBillingPaymentTypeViewModel" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.EditBillingPaymentTypeDataAssembler" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
@@ -42,37 +39,6 @@
         font-family: Verdana;
     }
 </style>
-
-<%--
-  Defensive model-resolver: ensures ${paymentTypeModel} is set on the request
-  even when this JSP is reached without going through
-  EditBillingPaymentType2Action. Re-runs the action's _admin.billing w
-  privilege check for parity.
---%>
-<%
-    if (request.getAttribute("paymentTypeModel") == null) {
-        io.github.carlos_emr.carlos.utility.LoggedInInfo loggedInInfo =
-                io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null) {
-            throw new SecurityException("editBillingPaymentType.jsp fallback: missing session");
-        }
-        io.github.carlos_emr.carlos.managers.SecurityInfoManager __secMgr;
-        try {
-            __secMgr = io.github.carlos_emr.carlos.utility.SpringUtils.getBean(
-                    io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
-        } catch (RuntimeException __springEx) {
-            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
-                    "editBillingPaymentType.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
-            throw new SecurityException("editBillingPaymentType.jsp fallback: privilege check unavailable", __springEx);
-        }
-        if (!__secMgr.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
-            throw new SecurityException("editBillingPaymentType.jsp fallback: missing required sec object (_admin.billing)");
-        }
-        request.setAttribute("paymentTypeModel",
-                new EditBillingPaymentTypeDataAssembler().assemble(request, loggedInInfo));
-    }
-%>
-
 
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">

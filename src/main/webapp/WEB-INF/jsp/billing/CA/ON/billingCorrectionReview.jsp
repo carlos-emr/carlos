@@ -16,64 +16,16 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.BillingBean" %>
-<%@ page import="io.github.carlos_emr.BillingDataBean" %>
-<%@ page import="io.github.carlos_emr.BillingPatientDataBean" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingCorrectionReviewViewModel" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingCorrectionReviewDataAssembler" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
-
-<%--
-  Defensive model-resolver: ensures ${reviewModel} is set on the request
-  even on the unlikely path where this JSP is reached without going through
-  BillingCorrectionReview2Action (e.g., a stray <jsp:forward> from an
-  unguarded entry). The action's _billing w privilege check is duplicated
-  here for parity: without it a future bypass would silently render PHI
-  from session beans on an unauthenticated request. Mirrors billingON.jsp.
---%>
-<%
-    if (request.getAttribute("reviewModel") == null) {
-        MiscUtils.getLogger().warn(
-                "billingCorrectionReview.jsp reached without reviewModel — re-running assembler defensively. "
-                        + "Caller should route through billing/CA/ON/BillingCorrectionReview.");
-        LoggedInInfo __fallbackLii = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (__fallbackLii == null) {
-            throw new SecurityException("billingCorrectionReview.jsp fallback: missing session");
-        }
-        SecurityInfoManager __secMgr;
-        try {
-            __secMgr = SpringUtils.getBean(SecurityInfoManager.class);
-        } catch (RuntimeException __springEx) {
-            MiscUtils.getLogger().error(
-                    "billingCorrectionReview.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
-            throw new SecurityException(
-                    "billingCorrectionReview.jsp fallback: privilege check unavailable", __springEx);
-        }
-        if (!__secMgr.hasPrivilege(__fallbackLii, "_billing", "w", null)) {
-            throw new SecurityException("billingCorrectionReview.jsp fallback: missing required sec object (_billing)");
-        }
-        BillingBean __billing = (BillingBean) request.getSession().getAttribute("billing");
-        BillingDataBean __bdb = (BillingDataBean) request.getSession().getAttribute("billingDataBean");
-        BillingPatientDataBean __bpdb = (BillingPatientDataBean) request.getSession().getAttribute("billingPatientDataBean");
-        BillingCorrectionReviewViewModel __fallbackModel = new BillingCorrectionReviewDataAssembler()
-                .assemble(__billing, __bdb, __bpdb);
-        request.setAttribute("reviewModel", __fallbackModel);
-    }
-%>
 
 <html>
     <head>

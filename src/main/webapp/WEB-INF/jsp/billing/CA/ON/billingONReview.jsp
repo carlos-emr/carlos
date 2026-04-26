@@ -16,7 +16,6 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
@@ -28,44 +27,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingONReviewViewModel" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONReviewDataAssembler" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <fmt:setBundle basename="oscarResources"/>
-
-<%--
-  Defensive model-resolver: ensures ${reviewModel} is set on the request even
-  on the unlikely path where this JSP is reached without going through
-  ViewBillingONReview2Action (e.g., a stray <jsp:forward> from an unguarded
-  entry). The action's own _billing w privilege check is duplicated here for
-  parity: without it a future bypass would silently run the full PHI-touching
-  assembler on an unauthenticated request.
---%>
-<%
-    if (request.getAttribute("reviewModel") == null) {
-        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
-                "billingONReview.jsp reached without reviewModel - using defensive fallback. "
-                + "Caller should route through billing/CA/ON/ViewBillingONReview.");
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null) {
-            throw new SecurityException("billingONReview.jsp fallback: missing session");
-        }
-        io.github.carlos_emr.carlos.managers.SecurityInfoManager __secMgr;
-        try {
-            __secMgr = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
-        } catch (RuntimeException __springEx) {
-            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
-                    "billingONReview.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
-            throw new SecurityException("billingONReview.jsp fallback: privilege check unavailable", __springEx);
-        }
-        if (!__secMgr.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
-            throw new SecurityException("billingONReview.jsp fallback: missing required sec object (_billing)");
-        }
-        request.setAttribute("reviewModel",
-                new BillingONReviewDataAssembler().assemble(request, loggedInInfo));
-    }
-%>
 
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <c:set var="reviewModel" value="${reviewModel}" scope="page"/>
@@ -144,7 +106,6 @@
             oldVal = val;
         }
 
-
         function validateDiscountNumberic(idx) {
             var oldVal = "0.00";
             var val = document.getElementById("discount_" + idx).value;
@@ -178,7 +139,6 @@
             }
             oldVal = val;
         }
-
 
         function updateElement(eId, data) {
             document.getElementById(eId).value = data;
@@ -241,7 +201,6 @@
                 return true;
             }
 
-
             for (var idx = 0; idx < payMethods.length; ++idx) {
                 if (payMethods[idx].checked) {
                     checkedMethod = true;
@@ -294,7 +253,6 @@
             margin-left: 1px;
         }
 
-
         div.dxBox h3 {
             background-color: silver;
             font-size: 10pt;
@@ -305,7 +263,6 @@
             margin-bottom: 0px;
             padding-bottom: 0px;
         }
-
 
         div.dxBox form {
             margin-top: 0px;
@@ -320,7 +277,6 @@
             margin-bottom: 0px;
             padding-bottom: 0px;
         }
-
 
         .border1, .border1 th, .border1 td {
             border: 1px solid lightgray
@@ -449,7 +405,6 @@
                                     </c:if>
                                 </tr>
                             </table>
-
 
                         </td>
                     </tr>
@@ -776,7 +731,6 @@
 
 </form>
 
-
 <script language="JavaScript">
     function calculatePayment() {
         var payment = 0.00;
@@ -860,7 +814,6 @@
         return ret;
     }
 
-
     function getNewCurrentDxCodeList(origRequest) {
         var url = ctx + "/oscarResearch/oscarDxResearch/ViewCurrentCodeList";
         var ran_number = Math.round(Math.random() * 1000000);
@@ -880,7 +833,6 @@
         });
     }
 </script>
-
 
 <oscar:oscarPropertiesCheck property="DX_QUICK_LIST_BILLING_REVIEW" value="yes">
 

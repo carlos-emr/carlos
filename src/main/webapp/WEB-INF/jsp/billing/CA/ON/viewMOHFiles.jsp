@@ -8,7 +8,6 @@
     License details are available via "indivica.ca/gplv2"
     and "gnu.org/licenses/gpl-2.0.html".
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
@@ -19,41 +18,9 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.ViewMOHFilesViewModel" %>
-<%@ page import="io.github.carlos_emr.carlos.billing.CA.ON.web.MoveMOHFiles2Action" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <fmt:setBundle basename="oscarResources"/>
-<%--
-  Defensive model-resolver: ensures ${mohModel} is set on the request even if
-  this JSP is reached without going through MoveMOHFiles2Action. The action's
-  own _admin w privilege check is duplicated here for parity.
---%>
 <%
-    if (request.getAttribute("mohModel") == null) {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null) {
-            response.sendRedirect(request.getContextPath() + "/logoutPage");
-            return;
-        }
-        SecurityInfoManager __secMgr;
-        try {
-            __secMgr = SpringUtils.getBean(SecurityInfoManager.class);
-        } catch (RuntimeException __springEx) {
-            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
-                    "viewMOHFiles.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
-            throw new SecurityException("viewMOHFiles.jsp fallback: privilege check unavailable", __springEx);
-        }
-        if (!__secMgr.hasPrivilege(loggedInInfo, "_admin", "r", null)
-                && !__secMgr.hasPrivilege(loggedInInfo, "_admin.backup", "r", null)
-                && !__secMgr.hasPrivilege(loggedInInfo, "_admin.billing", "r", null)) {
-            response.sendRedirect(request.getContextPath() + "/logoutPage");
-            return;
-        }
-        request.setAttribute("mohModel", new MoveMOHFiles2Action().assembleViewModelForFallback(request));
-    }
-    if (request.getAttribute("__roleName") == null) {
+        if (request.getAttribute("__roleName") == null) {
         Object userRole = session.getAttribute("userrole");
         Object userId = session.getAttribute("user");
         request.setAttribute("__roleName", String.valueOf(userRole) + "," + String.valueOf(userId));
@@ -138,7 +105,6 @@
             <option value="sent" <c:if test="${mohModel.sent}">selected</c:if>>Sent</option>
             <option value="archive" <c:if test="${mohModel.archive}">selected</c:if>>Archive</option>
         </select>
-
 
         <table class="table table-striped table-hover">
             <thead>

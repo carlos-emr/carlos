@@ -16,7 +16,6 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
@@ -33,37 +32,6 @@
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingONHistorySpecViewModel" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONHistorySpecDataAssembler" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%--
-  Defensive model-resolver: ensures ${historySpecModel} is set on the
-  request even if a stray <jsp:forward> reaches this JSP without going
-  through ViewBillingONHistorySpec2Action. Re-runs the action's
-  _billing r privilege check before invoking the assembler so a
-  bypass cannot silently expose PHI.
---%>
-<%
-    if (request.getAttribute("historySpecModel") == null) {
-        LoggedInInfo __loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (__loggedInInfo == null) {
-            throw new SecurityException("billingONHistorySpec.jsp fallback: missing session");
-        }
-        SecurityInfoManager __secMgr = SpringUtils.getBean(SecurityInfoManager.class);
-        if (!__secMgr.hasPrivilege(__loggedInInfo, "_billing", "r", null)) {
-            throw new SecurityException(
-                    "billingONHistorySpec.jsp fallback: missing required sec object (_billing)");
-        }
-        request.setAttribute("historySpecModel",
-                new BillingONHistorySpecDataAssembler().assemble(
-                        request.getParameter("demographic_no"),
-                        request.getParameter("demo_name"),
-                        request.getParameter("day"),
-                        request.getParameter("serviceCode")));
-    }
-%>
 <!DOCTYPE html>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 <html>
@@ -106,7 +74,6 @@
     </table>
 </form>
 
-
 <table style="width:95%; margin:auto;" class="table table-striped table-sm">
     <thead>
     <tr class="myYellow">
@@ -146,7 +113,6 @@
             the Window</a></td>
     </tr>
 </table>
-
 
 </body>
 </html>
