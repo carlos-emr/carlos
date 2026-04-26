@@ -28,112 +28,67 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<!--
-*
-* Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved. *
-* This software is published under the GPL GNU General Public License.
-* This program is free software; you can redistribute it and/or
-* modify it under the terms of the GNU General Public License
-* as published by the Free Software Foundation; either version 2
-* of the License, or (at your option) any later version. *
-* This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details. * * You should have received a copy of the GNU General Public License
-* along with this program; if not, write to the Free Software
-* Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. *
-*
-* Yi Li
-*/
--->
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ page import="java.math.*,java.util.*,java.sql.*,io.github.carlos_emr.*,java.net.*,java.text.*"
-         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Site,io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Provider,io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.BillingONPayment,io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.BillingPaymentType" %>
-<%@page import="java.text.SimpleDateFormat,java.text.NumberFormat" %>
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="org.springframework.web.context.WebApplicationContext" %>
-
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONExtDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.BillingONExt" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingOnItemPaymentDao" %>
-<%@page import="io.github.carlos_emr.carlos.billing.CA.ON.model.*" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData" %>
-<%@page import="java.math.BigDecimal" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.BillingPaymentType" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingON3rdPaymentsViewModel" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.CA.ON.web.BillingONPayments2Action" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<fmt:setBundle basename="oscarResources"/>
+<%--
+  Defensive model-resolver: ensures the paymentsViewModel attribute is set on
+  the request even on entry paths that bypass BillingONPayments2Action (e.g.
+  the simpler ViewBillingON3rdPayments2Action gate). Re-runs the _billing r
+  privilege check for parity.
+--%>
 <%
-    List<String> errors = new ArrayList<String>();
-    String datetime = new SimpleDateFormat("yyyy-MM-dd").format(Calendar.getInstance().getTime());
-
-    boolean bMultisites = IsPropertiesOn.isMultisitesEnable();
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
-    String providerNo = (String) session.getAttribute("user");
-
-    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
-    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
-
-    boolean isTeamBillingOnly = false;
-    boolean isSiteAccessPrivacy = false;
-    boolean isTeamAccessPrivacy = false;
-
-    boolean isMultiSiteProvider = true;
-    List<String> mgrSites = new ArrayList<String>();
-    List<BillingItemData> items = (List<BillingItemData>) request.getAttribute("itemDataList");
-    List<BillingONPayment> paymentLists = (List<BillingONPayment>) request.getAttribute("paymentsList");
-%>
-<security:oscarSec objectName="_team_billing_only" roleName="<%= roleName$ %>" rights="r" reverse="false">
-    <% isTeamBillingOnly = true; %>
-</security:oscarSec>
-<security:oscarSec objectName="_site_access_privacy" roleName="<%=roleName$%>" rights="r" reverse="false">
-    <%isSiteAccessPrivacy = true; %>
-</security:oscarSec>
-<security:oscarSec objectName="_team_access_privacy" roleName="<%=roleName$%>" rights="r" reverse="false">
-    <%isTeamAccessPrivacy = true; %>
-</security:oscarSec>
-<%
-    /* suppose that access is controlled by containing billingONCorrection.jsp page
-    List<Site> providerSites = null;
-    if(isSiteAccessPrivacy) {
-        SiteDao siteDao = (SiteDao)WebApplicationContextUtils.getWebApplicationContext(application).getBean(SiteDao.class);
-        providerSites = siteDao.getActiveSitesByProviderNo(providerNo);
+    if (request.getAttribute("paymentsViewModel") == null) {
+        if (session.getAttribute("user") == null) {
+            response.sendRedirect(request.getContextPath() + "/logoutPage");
+            return;
+        }
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            response.sendRedirect(request.getContextPath() + "/logoutPage");
+            return;
+        }
+        SecurityInfoManager __secMgr;
+        try {
+            __secMgr = SpringUtils.getBean(SecurityInfoManager.class);
+        } catch (RuntimeException __springEx) {
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
+                    "billingON3rdPayments.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
+            throw new SecurityException("billingON3rdPayments.jsp fallback: privilege check unavailable", __springEx);
+        }
+        if (!__secMgr.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
+            throw new SecurityException("billingON3rdPayments.jsp fallback: missing required sec object (_billing)");
+        }
+        // Re-running the full BillingONPayments2Action.listPayments() in the
+        // fallback fully populates itemDataList/paymentsList/paymentsViewModel.
+        new BillingONPayments2Action().listPayments();
     }
-    List<Provider> teamProviders = null;
-    if(isTeamBillingOnly || isTeamAccessPrivacy) {
-        ProviderDao providerDao = (ProviderDao)WebApplicationContextUtils.getWebApplicationContext(application).getBean(ProviderDao.class);
-         teamProviders = providerDao.getActiveTeamProviders(providerNo);
+    if (request.getAttribute("__roleName3rd") == null) {
+        Object userRole = session.getAttribute("userrole");
+        Object userId = session.getAttribute("user");
+        request.setAttribute("__roleName3rd", String.valueOf(userRole) + "," + String.valueOf(userId));
     }
-    */
-    NumberFormat currency = NumberFormat.getCurrencyInstance();
-    BigDecimal paymentParam = BigDecimal.valueOf(0);
-
-    String billingNo = request.getParameter("billingNo");
-    if (billingNo == null) errors.add("Wrong parameters");
-
 %>
 
 <html>
 <head>
     <link rel="stylesheet" type="text/css" media="all"
-          href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
+          href="${pageContext.request.contextPath}/share/calendar/calendar.css" title="win2k-cold-1"/>
 
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/share/calendar/calendar.js"></script>
     <script type="text/javascript"
-            src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
-    <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
-    <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
+            src="${pageContext.request.contextPath}/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/share/calendar/calendar-setup.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
     <script type="text/javascript">
 
         function popupPage(vheight, vwidth, varpage) {
@@ -149,7 +104,7 @@
         }
 
         function onViewPayment(id) {
-            popupPage(500, 500, "<%=request.getContextPath()%>/billing/CA/ON/billingON3rdPayments?method=viewPayment_ext&billPaymentId=" + id);
+            popupPage(500, 500, "${pageContext.request.contextPath}/billing/CA/ON/billingON3rdPayments?method=viewPayment_ext&billPaymentId=" + id);
         }
 
         function clickSaveAndSettle() {
@@ -163,7 +118,7 @@
 
             if (validInput) {
                 jQuery.ajax({
-                    url: "<%=request.getContextPath()%>/billing/CA/ON/billingON3rdPayments",
+                    url: "${pageContext.request.contextPath}/billing/CA/ON/billingON3rdPayments",
                     type: "POST",
                     async: false,
                     timeout: 30000,
@@ -199,7 +154,7 @@
             if (validInput) {
                 // document.forms['editPayment'].submit();
                 jQuery.ajax({
-                    url: "<%=request.getContextPath()%>/billing/CA/ON/billingON3rdPayments",
+                    url: "${pageContext.request.contextPath}/billing/CA/ON/billingON3rdPayments",
                     type: "POST",
                     async: false,
                     timeout: 30000,
@@ -273,13 +228,13 @@
     </script>
     <title><fmt:message key="admin.admin.editBillPaymentList"/></title>
 </head>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="w">
+<security:oscarSec roleName="${__roleName3rd}" objectName="_billing" rights="w">
 <body bgcolor="ivory" text="#000000" topmargin="0" leftmargin="0" rightmargin="0">
 
 <c:if test="${not empty paymentTypeList}">
     <form name="editPayment" id="editPayment" method="POST" action="">
         <input type="hidden" name="method" value="savePayment"/>
-        <input type="hidden" name="billingNo" value="<carlos:encode value='<%= billingNo %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="billingNo" value="<carlos:encode value='${paymentsViewModel.billingNo}' context='htmlAttribute'/>"/>
         <input type="hidden" name="id" id="paymentId" value=""/>
         <table border=0 cellspacing=0 cellpadding=0 width="100%">
             <tr bgcolor="#CCCCFF">
@@ -288,91 +243,70 @@
         </table>
 
         <table BORDER="3" CELLPADDING="0" CELLSPACING="0" WIDTH="100%" BGCOLOR="#C0C0C0">
-            <%
-                BigDecimal totalTotal = BigDecimal.ZERO;
-
-                for (int i = 0; i < items.size(); i++) {
-                    BillingItemData billItemData = items.get(i);
-                    BigDecimal itemTotal = new BigDecimal(billItemData.getFee()).setScale(2, BigDecimal.ROUND_HALF_UP);
-                    BigDecimal itemPaid = new BigDecimal(billItemData.getPaid()).setScale(2, BigDecimal.ROUND_HALF_UP);
-                    BigDecimal itemDiscount = new BigDecimal(billItemData.getDiscount()).setScale(2, BigDecimal.ROUND_HALF_UP);
-                    BigDecimal itemCredit = new BigDecimal(billItemData.getCredit()).setScale(2, BigDecimal.ROUND_HALF_UP);
-                    BigDecimal itemBalance = itemTotal.subtract(itemPaid).subtract(itemDiscount).add(itemCredit);
-                    BigDecimal realPaid = itemPaid.subtract(itemCredit);
-                    totalTotal = new BigDecimal(totalTotal.intValue() + itemTotal.intValue());
-
-                    String realPaidSign = "";
-                    if (realPaid.compareTo(BigDecimal.ZERO) == -1) {
-                        realPaidSign = "-";
-                    }
-                    String sign = "";
-                    if (itemBalance.compareTo(BigDecimal.ZERO) == -1) {
-                        sign = "-";
-                    }
-            %>
-            <tr id="itemPayment<%=billItemData.getId() %>" BGCOLOR="#EEEEFF">
-                <td width="30%">
-                    <div align="right">
-                        <select id="sel<%=i%>" name="sel<%=i%>" onchange="setStatus(this.selectedIndex,<%=i %>);">
-                            <option value="payment">Payment</option>
-                            <option value="credit">Refund Credit / Overpayment</option>
-                            <option value="refund">Refund / Write off</option>
-                        </select>
-                    </div>
-                </td>
-                <td width="70%" align="left">
-                    <input type="text" name="payment<%=i %>" id="payment<%=i %>" value="0.00" WIDTH="8" HEIGHT="20"
-                           border="0" hspace="2" maxlength="50" onchange="validatePaymentNumberic(<%=i %>)"/>
-                    Discount <input type="text" id="discount<%=i%>" name="discount<%=i %>" value="0.00"
-                                    onchange="validateDiscountNumberic(<%=i %>)">
-                </td>
-            </tr>
-            <tr BGCOLOR="#EEEEFF">
-                <td>
-                    <div></div>
-                </td>
-                <td align="left">
-                    Service Code:&nbsp;<b><%=billItemData.getService_code()%>&nbsp;$<%=billItemData.getFee() %>&nbsp;
-                    Paid:&nbsp;<%=realPaidSign %><%=currency.format(realPaid) %>&nbsp;
-                    Balance:&nbsp;<%=sign %><%=currency.format(itemBalance) %>
-                </b>
-                    <input type="hidden" name="itemId<%=i %>" value="<%=billItemData.getId()%>"/>
-                </td>
-            </tr>
-            <%if (i == (items.size() - 1)) {%>
-            <tr BGCOLOR="#EEEEFF">
-                <td>
-                    <div align="right"><font face="arial">Payment Type:</font></div>
-                </td>
-                <td align="left">
-                    <table width="100%">
-                        <c:forEach var="billingPaymentType" items="${paymentTypeList}" varStatus="ttr">
-                            <c:if test="${ttr.index % 2 == 0}">
-                                <tr>
-                            </c:if>
-                            <td width="50%">
-                                <input type="radio" name="paymentType"
-                                    id="paymentType${billingPaymentType.id}"
-                                    value="${billingPaymentType.id}" ${ttr.index == 0 ? "checked" : ""}/>
-                                ${carlos:forHtml(billingPaymentType.paymentType)}
-                            </td>
-                            <c:if test="${ttr.index % 2 != 0}">
-                                </tr>
-                            </c:if>
-                        </c:forEach>
-                    </table>
-                </td>
-            </tr>
-            <%} %>
-            <%} %>
+            <c:forEach var="rowItem" items="${paymentsViewModel.items}" varStatus="itr">
+                <tr id="itemPayment<carlos:encode value='${rowItem.id}' context='htmlAttribute'/>" BGCOLOR="#EEEEFF">
+                    <td width="30%">
+                        <div align="right">
+                            <select id="sel${itr.index}" name="sel${itr.index}" onchange="setStatus(this.selectedIndex,${itr.index});">
+                                <option value="payment">Payment</option>
+                                <option value="credit">Refund Credit / Overpayment</option>
+                                <option value="refund">Refund / Write off</option>
+                            </select>
+                        </div>
+                    </td>
+                    <td width="70%" align="left">
+                        <input type="text" name="payment${itr.index}" id="payment${itr.index}" value="0.00" WIDTH="8" HEIGHT="20"
+                               border="0" hspace="2" maxlength="50" onchange="validatePaymentNumberic(${itr.index})"/>
+                        Discount <input type="text" id="discount${itr.index}" name="discount${itr.index}" value="0.00"
+                                        onchange="validateDiscountNumberic(${itr.index})">
+                    </td>
+                </tr>
+                <tr BGCOLOR="#EEEEFF">
+                    <td>
+                        <div></div>
+                    </td>
+                    <td align="left">
+                        Service Code:&nbsp;<b><carlos:encode value='${rowItem.serviceCode}' context='html'/>&nbsp;$<carlos:encode value='${rowItem.fee}' context='html'/>&nbsp;
+                        Paid:&nbsp;<carlos:encode value='${rowItem.realPaidDisplay}' context='html'/>&nbsp;
+                        Balance:&nbsp;<carlos:encode value='${rowItem.balanceDisplay}' context='html'/>
+                        </b>
+                        <input type="hidden" name="itemId${itr.index}" value="<carlos:encode value='${rowItem.id}' context='htmlAttribute'/>"/>
+                    </td>
+                </tr>
+                <c:if test="${itr.last}">
+                    <tr BGCOLOR="#EEEEFF">
+                        <td>
+                            <div align="right"><font face="arial">Payment Type:</font></div>
+                        </td>
+                        <td align="left">
+                            <table width="100%">
+                                <c:forEach var="billingPaymentType" items="${paymentTypeList}" varStatus="ttr">
+                                    <c:if test="${ttr.index % 2 == 0}">
+                                        <tr>
+                                    </c:if>
+                                    <td width="50%">
+                                        <input type="radio" name="paymentType"
+                                            id="paymentType${billingPaymentType.id}"
+                                            value="${billingPaymentType.id}" ${ttr.index == 0 ? "checked" : ""}/>
+                                        ${carlos:forHtml(billingPaymentType.paymentType)}
+                                    </td>
+                                    <c:if test="${ttr.index % 2 != 0}">
+                                        </tr>
+                                    </c:if>
+                                </c:forEach>
+                            </table>
+                        </td>
+                    </tr>
+                </c:if>
+            </c:forEach>
         </table>
 
         <table border="0" cellpadding="0" cellspacing="0" width="100%">
             <tr bgcolor="#CCCCFF">
                 <td nowrap align="center">
                     <input type="text" name="paymentDate" id="paymentDate" onDblClick="calToday(this)" size="10"
-                           value="<%=datetime%>">
-                    <a id="btn_date"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
+                           value="<carlos:encode value='${paymentsViewModel.today}' context='htmlAttribute'/>">
+                    <a id="btn_date"><img title="Calendar" src="${pageContext.request.contextPath}/images/cal.gif" alt="Calendar" border="0"/></a>
                     <input type="button" id="saveBtn" name="submitBtn" value="    Save  "
                            onClick="checkInput(); return false;"/>
                     <input type="button" id="saveAndSettleBtn" value="Save & settle"
@@ -380,48 +314,10 @@
                 </td>
             </tr>
         </table>
-        <input type="hidden" name="size" value="<%=items.size() %>">
+        <input type="hidden" name="size" value="${paymentsViewModel.itemCount}">
     </form>
 </c:if>
 </security:oscarSec>
-
-<% BillingPaymentTypeDao paymentTypeDao = (BillingPaymentTypeDao) SpringUtils.getBean(BillingPaymentTypeDao.class);
-    ;
-    BigDecimal sum = BigDecimal.valueOf(0);
-    BigDecimal balance = BigDecimal.valueOf(0);
-    int index = 0;
-    List<BigDecimal> balances = new ArrayList<BigDecimal>();
-    List<String> types = new ArrayList<String>();
-    if (paymentLists != null && paymentLists.size() > 0) {
-        BigDecimal total = paymentLists.get(0).getBillingONCheader1().getTotal();
-        BigDecimal sumOfPay = BigDecimal.ZERO;
-        BigDecimal sumOfDiscount = BigDecimal.ZERO;
-        BigDecimal sumOfRefund = BigDecimal.ZERO;
-        BigDecimal sumOfCredit = BigDecimal.ZERO;
-        for (int i = 0; i < paymentLists.size(); i++) {
-            balance = BigDecimal.ZERO;
-            sumOfPay = sumOfPay.add(paymentLists.get(i).getTotal_payment());
-            sumOfDiscount = sumOfDiscount.add(paymentLists.get(i).getTotal_discount());
-            sumOfRefund = sumOfRefund.add(paymentLists.get(i).getTotal_refund());
-            sumOfCredit = sumOfCredit.add(paymentLists.get(i).getTotal_credit());
-            balance = total.subtract(sumOfPay).subtract(sumOfDiscount).add(sumOfCredit);
-            balances.add(balance);
-
-            String paymentType = "";
-            int paymentTypeId = paymentLists.get(i).getPaymentTypeId();
-            if (paymentTypeId > 0) {
-
-                BillingPaymentType ptype = paymentTypeDao.find(paymentTypeId);
-                paymentType = ptype.getPaymentType();
-            }
-            if (paymentType == null)
-                paymentType = "";
-            types.add(paymentType);
-        }
-    }
-    sum = (BigDecimal) request.getAttribute("totalInvoiced");
-    balance = (BigDecimal) request.getAttribute("balance");
-%>
 
 <table border=0 cellspacing=0 cellpadding=0 width="100%">
     <tr bgcolor="#CCCCFF">
@@ -443,64 +339,44 @@
         </tr>
         </thead>
         <tbody>
-        <c:if test="${not empty paymentsList}">
-            <c:forEach var="displayPayment" items="${paymentsList}" varStatus="ctr">
-                <tr>
-                    <td>${ctr.index + 1}</td>
-                    <td>${carlos:forHtml(displayPayment.total_payment)}</td>
-                    <td>${types[ctr.index]}</td>
-                    <td>${carlos:forHtml(displayPayment.paymentDateFormatted)}</td>
-                    <td>${carlos:forHtml(displayPayment.total_discount)}</td>
-                    <td>${carlos:forHtml(displayPayment.total_credit)}</td>
-                    <td>${carlos:forHtml(displayPayment.total_refund)}</td>
-                    <td>
-                        <c:choose>
-                            <c:when test="${balances[ctr.index] < 0}">
-                                -${currency.format(balances[ctr.index])}
-                            </c:when>
-                            <c:otherwise>
-                                ${currency.format(balances[ctr.index])}
-                            </c:otherwise>
-                        </c:choose>
-                    </td>
-                    <td>
-                        <a href="javascript:onViewPayment('${carlos:forJavaScript(displayPayment.id)}')" >view</a>
-                    </td>
-                </tr>
-            </c:forEach>
-        </c:if>
+        <c:forEach var="payRow" items="${paymentsViewModel.payments}" varStatus="ctr">
+            <tr>
+                <td>${ctr.index + 1}</td>
+                <td><carlos:encode value='${payRow.totalPayment}' context='html'/></td>
+                <td><carlos:encode value='${payRow.paymentTypeName}' context='html'/></td>
+                <td><carlos:encode value='${payRow.paymentDateFormatted}' context='html'/></td>
+                <td><carlos:encode value='${payRow.totalDiscount}' context='html'/></td>
+                <td><carlos:encode value='${payRow.totalCredit}' context='html'/></td>
+                <td><carlos:encode value='${payRow.totalRefund}' context='html'/></td>
+                <td><carlos:encode value='${payRow.balanceDisplay}' context='html'/></td>
+                <td>
+                    <a href="javascript:onViewPayment('<carlos:encode value="${payRow.id}" context="javaScript"/>')" >view</a>
+                </td>
+            </tr>
+        </c:forEach>
         <tr>
             <td/>
             <td/>
             <td><b>Total:</b></td>
-            <td><b><%= currency.format(sum) %>
-            </b>
-                    <%if (balance.compareTo(BigDecimal.ZERO) == -1) { %>
+            <td><b><carlos:encode value='${paymentsViewModel.totalDisplay}' context='html'/></b></td>
+        </tr>
         <tr>
             <td/>
             <td/>
             <td><b>Balance:</b></td>
-            <td><b><%= "-" + currency.format(balance) %>
-            </b>
-                    <%} else { %>
-        <tr>
-            <td/>
-            <td/>
-            <td><b>Balance:</b></td>
-            <td><b><%= currency.format(balance) %>
-            </b>
-                    <%} %>
+            <td><b><carlos:encode value='${paymentsViewModel.balanceDisplay}' context='html'/></b></td>
+        </tr>
         </tbody>
     </table>
 </table>
 
-<% for (String error : errors) { %>
-Error: <%= error %><br>
-<% } %>
+<c:forEach var="errMsg" items="${paymentsViewModel.errors}">
+    Error: <carlos:encode value='${errMsg}' context='html'/><br>
+</c:forEach>
 
 </body>
 </html>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="w">
+<security:oscarSec roleName="${__roleName3rd}" objectName="_billing" rights="w">
     <script type="text/javascript">
         Calendar.setup({
             inputField: "paymentDate",

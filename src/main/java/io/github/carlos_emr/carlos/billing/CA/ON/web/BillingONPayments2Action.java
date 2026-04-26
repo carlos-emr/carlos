@@ -62,6 +62,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingON3rdPaymentsViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBilling3rdPartImpl;
 
 
@@ -176,8 +177,131 @@ public class BillingONPayments2Action extends ActionSupport {
         List<BillingPaymentType> paymentTypes = billingPaymentTypeDao.findAll();
         request.setAttribute("paymentTypeList", paymentTypes);
 
+        request.setAttribute("paymentsViewModel",
+                buildPaymentsViewModel(billingNo, itemDataList, paymentLists, total, balance, java.util.Collections.emptyList()));
+
         return SUCCESS;
     }
+
+    /**
+     * Assembles the BillingON3rdPaymentsViewModel that the JSP renders. Public
+     * so the defensive JSP fallback can invoke it directly when the action
+     * chain wasn't traversed.
+     *
+     * <p>Replicates the per-item arithmetic the legacy JSP scriptlet ran
+     * inline (fee/paid/discount/credit → balance, paid sign, balance sign)
+     * and the per-payment total/balance computation.</p>
+     *
+     * @param billingNo billing-record id (echoed back in the form)
+     * @param itemDataList per-item data (already loaded)
+     * @param paymentLists existing payment rows (already loaded)
+     * @param total invoice total (BigDecimal, may be null)
+     * @param balance overall balance (BigDecimal, may be null)
+     * @param errors validation errors to surface at the bottom of the page
+     * @return populated view model (never null)
+     */
+    public BillingON3rdPaymentsViewModel buildPaymentsViewModel(
+            Integer billingNo,
+            List<BillingItemData> itemDataList,
+            List<BillingONPayment> paymentLists,
+            BigDecimal total,
+            BigDecimal balance,
+            List<String> errors) {
+
+        NumberFormat currency = NumberFormat.getCurrencyInstance();
+
+        // Per-item summary rows
+        List<BillingON3rdPaymentsViewModel.ItemSummary> items = new ArrayList<>();
+        if (itemDataList != null) {
+            for (BillingItemData billItemData : itemDataList) {
+                BigDecimal itemTotal = parseDec(billItemData.getFee()).setScale(2, java.math.RoundingMode.HALF_UP);
+                BigDecimal itemPaid = parseDec(billItemData.getPaid()).setScale(2, java.math.RoundingMode.HALF_UP);
+                BigDecimal itemDiscount = parseDec(billItemData.getDiscount()).setScale(2, java.math.RoundingMode.HALF_UP);
+                BigDecimal itemCredit = parseDec(billItemData.getCredit()).setScale(2, java.math.RoundingMode.HALF_UP);
+                BigDecimal itemBalance = itemTotal.subtract(itemPaid).subtract(itemDiscount).add(itemCredit);
+                BigDecimal realPaid = itemPaid.subtract(itemCredit);
+
+                String realPaidSign = realPaid.compareTo(BigDecimal.ZERO) < 0 ? "-" : "";
+                String balanceSign = itemBalance.compareTo(BigDecimal.ZERO) < 0 ? "-" : "";
+
+                items.add(new BillingON3rdPaymentsViewModel.ItemSummary(
+                        nullToEmpty(billItemData.getId()),
+                        nullToEmpty(billItemData.getService_code()),
+                        nullToEmpty(billItemData.getFee()),
+                        realPaidSign + currency.format(realPaid),
+                        balanceSign + currency.format(itemBalance)));
+            }
+        }
+
+        // Existing payment rows
+        List<BillingON3rdPaymentsViewModel.PaymentRow> paymentRows = new ArrayList<>();
+        BigDecimal sumOfPay = BigDecimal.ZERO;
+        BigDecimal sumOfDiscount = BigDecimal.ZERO;
+        BigDecimal sumOfCredit = BigDecimal.ZERO;
+        BigDecimal headerTotal = total;
+        if (paymentLists != null && !paymentLists.isEmpty() && headerTotal == null) {
+            headerTotal = paymentLists.get(0).getBillingONCheader1().getTotal();
+        }
+        if (paymentLists != null) {
+            for (BillingONPayment pmt : paymentLists) {
+                sumOfPay = sumOfPay.add(pmt.getTotal_payment());
+                sumOfDiscount = sumOfDiscount.add(pmt.getTotal_discount());
+                sumOfCredit = sumOfCredit.add(pmt.getTotal_credit());
+                BigDecimal rowBalance = headerTotal == null
+                        ? BigDecimal.ZERO
+                        : headerTotal.subtract(sumOfPay).subtract(sumOfDiscount).add(sumOfCredit);
+                String rowBalSign = rowBalance.compareTo(BigDecimal.ZERO) < 0 ? "-" : "";
+
+                String paymentTypeName = "";
+                int paymentTypeId = pmt.getPaymentTypeId();
+                if (paymentTypeId > 0) {
+                    BillingPaymentType ptype = billingPaymentTypeDao.find(paymentTypeId);
+                    if (ptype != null && ptype.getPaymentType() != null) {
+                        paymentTypeName = ptype.getPaymentType();
+                    }
+                }
+
+                paymentRows.add(new BillingON3rdPaymentsViewModel.PaymentRow(
+                        String.valueOf(pmt.getId()),
+                        String.valueOf(pmt.getTotal_payment()),
+                        paymentTypeName,
+                        pmt.getPaymentDateFormatted(),
+                        String.valueOf(pmt.getTotal_discount()),
+                        String.valueOf(pmt.getTotal_credit()),
+                        String.valueOf(pmt.getTotal_refund()),
+                        rowBalSign + currency.format(rowBalance)));
+            }
+        }
+
+        BigDecimal totalForDisplay = total == null ? BigDecimal.ZERO : total;
+        BigDecimal balanceForDisplay = balance == null ? BigDecimal.ZERO : balance;
+        String totalDisplay = currency.format(totalForDisplay);
+        String balanceDisplay = balanceForDisplay.compareTo(BigDecimal.ZERO) < 0
+                ? "-" + currency.format(balanceForDisplay)
+                : currency.format(balanceForDisplay);
+
+        return BillingON3rdPaymentsViewModel.builder()
+                .today(new SimpleDateFormat("yyyy-MM-dd").format(new Date()))
+                .billingNo(billingNo == null ? "" : String.valueOf(billingNo))
+                .itemCount(itemDataList == null ? 0 : itemDataList.size())
+                .items(items)
+                .payments(paymentRows)
+                .totalDisplay(totalDisplay)
+                .balanceDisplay(balanceDisplay)
+                .errors(errors == null ? java.util.Collections.emptyList() : errors)
+                .build();
+    }
+
+    private static BigDecimal parseDec(String s) {
+        if (s == null || s.isEmpty()) return BigDecimal.ZERO;
+        try {
+            return new BigDecimal(s);
+        } catch (NumberFormatException e) {
+            return BigDecimal.ZERO;
+        }
+    }
+
+    private static String nullToEmpty(String s) { return s == null ? "" : s; }
 
     public String savePayment() throws ParseException {
 
