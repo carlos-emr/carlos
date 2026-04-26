@@ -31,9 +31,5 @@ RUN chmod 755 /scripts
 RUN dos2unix /docker-entrypoint-initdb.d/populate_db.sh
 RUN dos2unix /database/mysql/*.sh
 
-# Pre-create required directories for initialization and assign ownership to the mysql user
-RUN mkdir -p /var/lib/OscarDocument/oscar/eform/images/ && \
-    chown -R mysql:mysql /var/lib/OscarDocument
-
 # Ports
 EXPOSE 3306
