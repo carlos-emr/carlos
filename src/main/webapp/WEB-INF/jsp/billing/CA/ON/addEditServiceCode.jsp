@@ -24,41 +24,60 @@
 
 --%>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@page import="java.util.Map" %>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.AddEditServiceCodeViewModel" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.AddEditServiceCodeDataAssembler" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <fmt:setBundle basename="oscarResources"/>
 
+<%--
+  Defensive model-resolver: ensures ${addEditModel} is set on the request
+  even on the unlikely path where this JSP is reached without going through
+  AddEditServiceCode2Action. The action's own _admin.billing w privilege
+  check is duplicated here for parity: without it a future bypass would
+  silently run the full DAO-touching assembler on an unauthenticated
+  request. Also enforces the legacy unauthenticated-session redirect.
+--%>
 <%
     if (session.getAttribute("user") == null) {
         response.sendRedirect(request.getContextPath() + "/logoutPage");
         return;
     }
-    // AddEditServiceCode2Action enforces _admin.billing w + POST-on-mutation
-    // and assembles the view model with the 4 DAO lookups + the persist /
-    // merge mutations the legacy JSP body used to perform inline.
-    AddEditServiceCodeViewModel addEditModel =
-            (AddEditServiceCodeViewModel) request.getAttribute("addEditModel");
-    if (addEditModel == null) {
-        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
-                "addEditServiceCode.jsp reached without addEditModel — caller "
-              + "should route through billing/CA/ON/AddEditServiceCode.");
-        addEditModel = AddEditServiceCodeViewModel.builder().build();
+    if (request.getAttribute("addEditModel") == null) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("addEditServiceCode.jsp fallback: missing session");
+        }
+        io.github.carlos_emr.carlos.managers.SecurityInfoManager __secMgr;
+        try {
+            __secMgr = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+        } catch (RuntimeException __springEx) {
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
+                    "addEditServiceCode.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
+            throw new SecurityException("addEditServiceCode.jsp fallback: privilege check unavailable", __springEx);
+        }
+        if (!__secMgr.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
+            throw new SecurityException("addEditServiceCode.jsp fallback: missing required sec object (_admin.billing)");
+        }
+        request.setAttribute("addEditModel",
+                new AddEditServiceCodeDataAssembler().assemble(request));
     }
 %>
 
 <html>
     <head>
         <title><fmt:message key="admin.admin.manageBillingServiceCode"/></title>
-        <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
-        <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
-        <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
+        <script type="text/javascript" src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+        <script src="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.js"></script>
 
-        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
-        <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet">
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+        <link href="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
 
         <script type="text/javascript">
 
@@ -205,37 +224,35 @@
             <%-- The assembler builds the message with HTML escape on the user-controlled
                  service-code value (via SafeEncode.forHtml) — render raw so the trailing
                  "<br>" + prompt text remains visible. Same as the legacy JSP. --%>
-            <%= addEditModel.getMessage() %>
+            ${addEditModel.message}
         </div>
 
-        <form method="post" id="baseurl" name="baseurl" action="<%= request.getContextPath() %>/billing/CA/ON/AddEditServiceCode">
+        <form method="post" id="baseurl" name="baseurl" action="${pageContext.request.contextPath}/billing/CA/ON/AddEditServiceCode">
 
             <div class="col-md-10">
                 Service Code <small>5 Characters, e.g. A001A</small><br>
                 <div class="input-group">
-                    <input type="text" name="service_code" value="<carlos:encode value='<%= addEditModel.getProp("service_code", "") %>' context="htmlAttribute"/>"
+                    <input type="text" name="service_code" value="<carlos:encode value="${addEditModel.prop['service_code']}" context="htmlAttribute"/>"
                            class="col-md-2" maxlength='5' onblur="upCaseCtrl(this)"/>
                     <button class="btn btn-primary" type="submit" name="submitFrm" value="Search"
                             onclick="javascript:return onSearch();">Search
                     </button>
                 </div>
                 <br/>
-                <% if (addEditModel.getCodes().size() > 1) { %>
+                <c:if test="${fn:length(addEditModel.codes) > 1}">
                 Edit Entry<br>
                 <select name="billingservice_no" onchange="fetchBillService(this.options[this.selectedIndex].value);">
-                    <% for (Map.Entry<String, String> __c : addEditModel.getCodes().entrySet()) {
-                            String __sel = addEditModel.getProp("billingservice_date", "").equalsIgnoreCase(__c.getKey()) ? "selected" : "";
-                    %>
-                    <option value="<carlos:encode value='<%= __c.getValue() %>' context="htmlAttribute"/>" <%= __sel %>><carlos:encode value='<%= __c.getKey() %>' context="html"/></option>
-                    <% } %>
+                    <c:forEach var="__c" items="${addEditModel.codes}">
+                    <option value="<carlos:encode value='${__c.value}' context='htmlAttribute'/>" <c:if test="${addEditModel.prop['billingservice_date'] == __c.key}">selected</c:if>><carlos:encode value="${__c.key}" context="html"/></option>
+                    </c:forEach>
                 </select>
-                <% } %>
+                </c:if>
             </div>
 
 
             <div class="col-md-10">
                 Description <small>50 Characters</small><br>
-                <textarea name="description" class="form-control"><carlos:encode value='<%= addEditModel.getProp("description", "") %>' context="html"/></textarea>
+                <textarea name="description" class="form-control"><carlos:encode value="${addEditModel.prop['description']}" context="html"/></textarea>
             </div>
 
             <div class="col-md-10">
@@ -243,11 +260,9 @@
                 <select id="servicecode_style" name="servicecode_style" class="form-select"
                         onchange="displayStyleText(this.options[this.selectedIndex].value);" title="CSS Style Viewer">
                     <option value="-1,None">None</option>
-                    <% for (AddEditServiceCodeViewModel.CssStyleEntry __cs : addEditModel.getCssStyles()) {
-                            String __sel = addEditModel.getProp("displaystyle", "").equals(__cs.id()) ? "selected" : "";
-                    %>
-                    <option value="<carlos:encode value='<%= __cs.id() + "," + __cs.style() %>' context="htmlAttribute"/>" <%= __sel %>><carlos:encode value='<%= __cs.name() %>' context="html"/></option>
-                    <% } %>
+                    <c:forEach var="__cs" items="${addEditModel.cssStyles}">
+                    <option value="<carlos:encode value='${__cs.id}' context='htmlAttribute'/>,<carlos:encode value='${__cs.style}' context='htmlAttribute'/>" <c:if test="${addEditModel.prop['displaystyle'] == __cs.id}">selected</c:if>><carlos:encode value="${__cs.name}" context="html"/></option>
+                    </c:forEach>
                 </select>
                 <br>
                 <textarea id="displayStyle" readonly="readonly" class="form-control"></textarea>
@@ -255,23 +270,23 @@
 
             <div class="col-md-2">
                 Fee <small> e.g. 18.20</small><br>
-                <input type="text" name="value" value="<carlos:encode value='<%= addEditModel.getProp("value", "") %>' context="htmlAttribute"/>" size='8' maxlength='8'
+                <input type="text" name="value" value="<carlos:encode value="${addEditModel.prop['value']}" context="htmlAttribute"/>" size='8' maxlength='8'
                        pattern="\d+(\.\d{2})?"><br/>
             </div>
 
             <div class="col-md-6">
                 Percentage <small> e.g. 0.20</small><br>
-                <input type="text" name="percentage" value="<carlos:encode value='<%= addEditModel.getProp("percentage", "") %>' context="htmlAttribute"/>" size='8'
+                <input type="text" name="percentage" value="<carlos:encode value="${addEditModel.prop['percentage']}" context="htmlAttribute"/>" size='8'
                        maxlength='8'>
-                min.<input type="text" name="min" value="<carlos:encode value='<%= addEditModel.getProp("min", "") %>' context="htmlAttribute"/>" size='7' maxlength='8'>
-                max.<input type="text" name="max" value="<carlos:encode value='<%= addEditModel.getProp("max", "") %>' context="htmlAttribute"/>" size='7' maxlength='8'>
+                min.<input type="text" name="min" value="<carlos:encode value="${addEditModel.prop['min']}" context="htmlAttribute"/>" size='7' maxlength='8'>
+                max.<input type="text" name="max" value="<carlos:encode value="${addEditModel.prop['max']}" context="htmlAttribute"/>" size='7' maxlength='8'>
             </div>
 
             <div class="col-md-2">
                 <label>Issued Date</label>
                 <div class="input-group">
                     <input type="text" name="billingservice_date" id="billingservice_date"
-                           class="form-control" value="<carlos:encode value='<%= addEditModel.getProp("billingservice_date", "") %>' context="htmlAttribute"/>"
+                           class="form-control" value="<carlos:encode value="${addEditModel.prop['billingservice_date']}" context="htmlAttribute"/>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -281,7 +296,7 @@
                 <label>Termination Date</label>
                 <div class="input-group">
                     <input type="text" name="termination_date" id="termination_date"
-                           class="form-control" value="<carlos:encode value='<%= addEditModel.getProp("termination_date", "9999-12-31") %>' context="htmlAttribute"/>"
+                           class="form-control" value="<carlos:encode value="${addEditModel.terminationDateOrDefault}" context="htmlAttribute"/>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -289,11 +304,7 @@
 
 
             <div class="col-md-10">
-                <%
-                    String sliFlagValue = addEditModel.getProp("sliFlag", "0");
-                    sliFlagValue = sliFlagValue.equals("1") || sliFlagValue.equals("true") ? "checked" : "";
-                %>
-                <input type="checkbox" name="sliFlag" id="sliFlag" value="true" <%=sliFlagValue%>> Requires SLI Code
+                <input type="checkbox" name="sliFlag" id="sliFlag" value="true" <c:if test="${addEditModel.sliFlagChecked}">checked</c:if>> Requires SLI Code
             </div>
 
 
@@ -305,11 +316,11 @@
                        value="<fmt:message key="admin.resourcebaseurl.btnSave"/>"
                        onclick="document.getElementById('action').value='<carlos:encode value="${addEditModel.action}" context="javaScript"/>';return onSave();">
 
-                <% if (!addEditModel.getAction2().isEmpty()) { %>
+                <c:if test="${not empty addEditModel.action2}">
                 <input class="btn btn-secondary" type="submit" name="submitFrm"
                        value="<fmt:message key="admin.resourcebaseurl.btnAdd"/>"
                        onclick="document.getElementById('action').value='<carlos:encode value="${addEditModel.action2}" context="javaScript"/>';return onSave();">
-                <% } %>
+                </c:if>
             </div>
 
         </form>

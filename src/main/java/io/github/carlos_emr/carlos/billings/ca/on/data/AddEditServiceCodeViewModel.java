@@ -73,6 +73,23 @@ public final class AddEditServiceCodeViewModel {
     public Map<String, String> getCodes() { return Collections.unmodifiableMap(codes); }
     public List<CssStyleEntry> getCssStyles() { return cssStyles; }
 
+    /** Pre-computed sliFlag checkbox state for the JSP. The legacy scriptlet
+     *  inspected the {@code sliFlag} property (string "1" / "true" / other)
+     *  and emitted the literal {@code checked} HTML attribute. Surfacing it
+     *  as a boolean lets the JSP render a {@code c:if} instead. */
+    public boolean isSliFlagChecked() {
+        String v = prop.getProperty("sliFlag", "0");
+        return "1".equals(v) || "true".equalsIgnoreCase(v);
+    }
+
+    /** Returns the {@code termination_date} property value with the
+     *  legacy default {@code 9999-12-31} when missing/blank. The JSP
+     *  uses this directly so it doesn't have to reproduce the default. */
+    public String getTerminationDateOrDefault() {
+        String v = prop.getProperty("termination_date");
+        return v == null || v.isEmpty() ? "9999-12-31" : v;
+    }
+
     public static final class Builder {
         private String alert;
         private String message;
