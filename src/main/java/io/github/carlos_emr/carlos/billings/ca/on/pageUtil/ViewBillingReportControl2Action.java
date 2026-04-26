@@ -14,6 +14,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReportControlViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -27,6 +28,12 @@ import org.apache.struts2.ServletActionContext;
  * {@code /WEB-INF/jsp/} location. Created as part of the ON billing migration
  * to gate direct-access paths behind Struts2 actions (same pattern as
  * PR #1632 for BC billing).
+ *
+ * <p>Also assembles the {@link BillingReportControlViewModel} the JSP renders
+ * (parameter echoes, provider-dropdown options, calendar-popup year/month
+ * defaults). The view model is exposed as request attribute
+ * {@code billingReportControlModel}; the JSP body became 100% EL on
+ * 2026-04-25.</p>
  *
  * @since 2026-04-13
  */
@@ -42,6 +49,10 @@ public final class ViewBillingReportControl2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
             throw new SecurityException("missing required sec object (_report)");
         }
+
+        BillingReportControlViewModel model =
+                new BillingReportControlDataAssembler().assemble(request);
+        request.setAttribute("billingReportControlModel", model);
 
         return SUCCESS;
     }
