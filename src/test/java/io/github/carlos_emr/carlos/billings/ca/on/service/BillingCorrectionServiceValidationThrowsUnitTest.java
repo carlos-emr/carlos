@@ -11,7 +11,7 @@
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingValidationException;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;

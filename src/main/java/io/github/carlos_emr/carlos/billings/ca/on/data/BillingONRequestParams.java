@@ -10,7 +10,7 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
+package io.github.carlos_emr.carlos.billings.ca.on.data;
 
 /**
  * Small parsing helpers shared by the Ontario billing assemblers

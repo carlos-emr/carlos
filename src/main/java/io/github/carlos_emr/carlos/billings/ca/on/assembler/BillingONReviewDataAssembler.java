@@ -52,8 +52,8 @@ import io.github.carlos_emr.carlos.prescript.data.RxProviderData;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONRequestParams;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONReviewValidator;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONRequestParams;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingONReviewValidator;
 import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingReviewPrep;
 
 /**

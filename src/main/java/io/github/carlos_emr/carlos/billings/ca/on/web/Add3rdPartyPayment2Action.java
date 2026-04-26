@@ -22,7 +22,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONCorrectionDataAssembler;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingValidationException;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionService;
 
 /**

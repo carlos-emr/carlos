@@ -43,7 +43,7 @@ public final class BillingONReviewViewModel {
     private final String dxCode;
     private final String dxDesc;
 
-    private final java.util.List<io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONReviewValidator.Message> validationMessages;
+    private final java.util.List<io.github.carlos_emr.carlos.billings.ca.on.validator.BillingONReviewValidator.Message> validationMessages;
     private final boolean codeValid;
 
     private final java.util.Map<String, ProviderName> providerNameLookup;
@@ -267,7 +267,7 @@ public final class BillingONReviewViewModel {
     public String getWarningMessage() { return messages.warningMessage(); }
     /** Alias of {@link #getMessages()} (legacy). */
     public BillingValidationMessages getValidationMessagesAggregate() { return messages; }
-    public java.util.List<io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONReviewValidator.Message> getValidationMessages() {
+    public java.util.List<io.github.carlos_emr.carlos.billings.ca.on.validator.BillingONReviewValidator.Message> getValidationMessages() {
         return validationMessages;
     }
     public boolean isCodeValid() { return codeValid; }
@@ -347,7 +347,7 @@ public final class BillingONReviewViewModel {
         private String errorFlag = "";
         private String errorMessage = "";
         private String warningMessage = "";
-        private java.util.List<io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONReviewValidator.Message> validationMessages;
+        private java.util.List<io.github.carlos_emr.carlos.billings.ca.on.validator.BillingONReviewValidator.Message> validationMessages;
         private boolean codeValid = true;
         private java.util.Map<String, ProviderName> providerNameLookup;
 
@@ -390,7 +390,7 @@ public final class BillingONReviewViewModel {
         private java.util.List<ParamPair> allRequestParams;
         private String loggedInUserNo = "";
 
-        public Builder validationMessages(java.util.List<io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONReviewValidator.Message> v) {
+        public Builder validationMessages(java.util.List<io.github.carlos_emr.carlos.billings.ca.on.validator.BillingONReviewValidator.Message> v) {
             this.validationMessages = v == null ? null : java.util.List.copyOf(v); return this;
         }
         public Builder codeValid(boolean v) { this.codeValid = v; return this; }

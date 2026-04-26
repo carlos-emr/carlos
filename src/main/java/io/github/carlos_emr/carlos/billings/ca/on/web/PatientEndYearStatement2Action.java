@@ -30,7 +30,7 @@ import java.util.Date;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.PatientEndYearStatementBean;
+import io.github.carlos_emr.carlos.billings.ca.on.data.PatientEndYearStatementBean;
 import io.github.carlos_emr.carlos.billings.ca.on.service.PatientEndYearStatementService;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;

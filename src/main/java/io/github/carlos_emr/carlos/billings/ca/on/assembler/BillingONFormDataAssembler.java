@@ -49,8 +49,7 @@ import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONRequestParams;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingSiteIdPrep;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONRequestParams;
 
 /**
  * Orchestrator that assembles the {@link BillingONFormViewModel} from

@@ -32,8 +32,8 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONReviewDxPersister;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONReviewValidator;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONReviewDxPersister;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingONReviewValidator;
 import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingReviewPrep;
 
 /**

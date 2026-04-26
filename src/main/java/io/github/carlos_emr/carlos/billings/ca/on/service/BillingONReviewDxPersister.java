@@ -10,12 +10,13 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
+package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.util.Date;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
 import io.github.carlos_emr.carlos.commn.model.Dxresearch;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;

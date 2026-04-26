@@ -44,7 +44,6 @@ import java.math.BigDecimal;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.ListIterator;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingSessionUtils;
 
 /**
  * Struts 2Action for Ontario billing correction submission.

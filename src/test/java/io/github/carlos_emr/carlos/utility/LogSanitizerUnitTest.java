@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 /**
  * Unit tests for {@link LogSanitizer}.
  *
@@ -343,7 +344,7 @@ class LogSanitizerUnitTest {
     /**
      * Tests for {@link LogSanitizer#sanitizeForDisplay(String)} — the
      * variant used in user-facing {@link io.github.carlos_emr.carlos
-     * .billings.ca.on.pageUtil.BillingValidationException} messages.
+     * .billings.ca.on.validator.BillingValidationException} messages.
      *
      * <p>Contract distinguishing it from {@code sanitize(...)}:
      * <ul>

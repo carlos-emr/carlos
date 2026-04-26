@@ -24,9 +24,9 @@ import java.util.List;
 
 import io.github.carlos_emr.OscarDocumentCreator;
 import io.github.carlos_emr.carlos.PMmodule.utility.Utility;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.PatientEndYearStatementBean;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.PatientEndYearStatementInvoiceBean;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.PatientEndYearStatementServiceBean;
+import io.github.carlos_emr.carlos.billings.ca.on.data.PatientEndYearStatementBean;
+import io.github.carlos_emr.carlos.billings.ca.on.data.PatientEndYearStatementInvoiceBean;
+import io.github.carlos_emr.carlos.billings.ca.on.data.PatientEndYearStatementServiceBean;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONItemDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;

@@ -10,7 +10,7 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
+package io.github.carlos_emr.carlos.billings.ca.on.validator;
 
 import java.util.ArrayList;
 import java.util.Calendar;

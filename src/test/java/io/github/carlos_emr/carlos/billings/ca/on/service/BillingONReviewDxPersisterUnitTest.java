@@ -10,10 +10,11 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
+package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.util.List;
 
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
 import io.github.carlos_emr.carlos.commn.model.Dxresearch;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -55,7 +56,7 @@ import static org.mockito.Mockito.verify;
 class BillingONReviewDxPersisterUnitTest extends CarlosUnitTestBase {
 
     private static final String LOGGER_NAME =
-            "io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONReviewDxPersister";
+            "io.github.carlos_emr.carlos.billings.ca.on.service.BillingONReviewDxPersister";
 
     @Mock
     private DxresearchDAO dxresearchDAO;
