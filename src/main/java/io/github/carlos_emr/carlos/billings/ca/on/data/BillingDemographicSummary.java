@@ -47,9 +47,11 @@ public record BillingDemographicSummary(
         String dobMm,
         String dobDd) {
 
-    /** Empty / no-patient default. */
+    /** Empty / no-patient default. {@code hcType} defaults to {@code "ON"}
+     *  to match the legacy JSP scriptlet behaviour: any empty/short hcType
+     *  falls back to "ON" regardless of whether a demographic was loaded. */
     public static final BillingDemographicSummary EMPTY =
-            new BillingDemographicSummary("", "", "", "", "", "", "", "", "", "");
+            new BillingDemographicSummary("", "", "", "", "", "ON", "", "", "", "");
 
     /**
      * Compact constructor coalesces nulls to empty so consumers don't render

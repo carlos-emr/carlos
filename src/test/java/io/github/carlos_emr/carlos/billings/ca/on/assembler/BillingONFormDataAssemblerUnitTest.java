@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.commn.dao.ProviderPreferenceDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.billing.CA.filters.CodeFilterManager;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -90,7 +91,12 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
         CtlBillingTypeDao ctlBillingTypeDao = Mockito.mock(CtlBillingTypeDao.class);
         DiagnosticCodeDao diagnosticCodeDao = Mockito.mock(DiagnosticCodeDao.class);
 
-        // BillingONLookupService's constructor pulls a slew of additional DAOs.
+        // BillingONLookupService is reached via SpringUtils.getBean at
+        // BillingONFormDataAssembler:406 for the favourites dropdown lookup.
+        // Mock the service directly — registering its inner DAOs has no
+        // effect because the SpringUtils intercept looks the bean up in the
+        // mock registry and never constructs it.
+        BillingONLookupService billingONLookupService = Mockito.mock(BillingONLookupService.class);
         OscarAppointmentDao oscarAppointmentDao = Mockito.mock(OscarAppointmentDao.class);
         ClinicLocationDao clinicLocationDao = Mockito.mock(ClinicLocationDao.class);
         BillingPaymentTypeDao billingPaymentTypeDao = Mockito.mock(BillingPaymentTypeDao.class);
@@ -139,6 +145,9 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
         registerMock(EncounterFormDao.class, encounterFormDao);
         registerMock(io.github.carlos_emr.carlos.commn.dao.SiteDao.class, siteDao);
         registerMock(io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao.class, clinicNbrDao);
+        registerMock(BillingONLookupService.class, billingONLookupService);
+
+        when(billingONLookupService.getBillingFavouriteList()).thenReturn(Collections.emptyList());
 
         // Default empty returns so the assembler doesn't NPE on any path.
         when(demographicManager.getDemographic(any(), anyString())).thenReturn(null);

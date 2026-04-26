@@ -31,8 +31,10 @@ import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONReviewDxPersister;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONServiceCodeService;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingONReviewValidator;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewPrep;
 
@@ -64,6 +66,23 @@ class BillingONReviewDataAssemblerUnitTest extends CarlosUnitTestBase {
     void setUp() {
         mockitoCloseable = MockitoAnnotations.openMocks(this);
         when(reviewPrep.getDxDescription(any())).thenReturn("Essential, benign hypertension");
+        // The assembler unconditionally indexes into the result of these
+        // two methods at lines 332-334; default null Mockito return NPEs.
+        // Empty 3-slot arrays exercise the no-service-code path.
+        @SuppressWarnings("unchecked")
+        java.util.ArrayList<String>[] emptyVec = new java.util.ArrayList[]{
+                new java.util.ArrayList<String>(),
+                new java.util.ArrayList<String>(),
+                new java.util.ArrayList<String>()};
+        when(reviewPrep.getRequestFormCodeVec(any(), any(), any(), any())).thenReturn(emptyVec);
+        when(reviewPrep.getRequestCodeVec(any(), any(), any(), any(), anyInt())).thenReturn(emptyVec);
+
+        // Reached via SpringUtils.getBean at BillingONReviewDataAssembler:370
+        // for the dx-code description lookup; empty Properties suffices.
+        BillingONServiceCodeService serviceCodeService = Mockito.mock(BillingONServiceCodeService.class);
+        when(serviceCodeService.getCodeDescByNames(any())).thenReturn(new java.util.Properties());
+        registerMock(BillingONServiceCodeService.class, serviceCodeService);
+
         BillingONReviewValidator stubValidator = Mockito.mock(BillingONReviewValidator.class);
         when(stubValidator.validate(any(), any(), any())).thenReturn(
                 new BillingONReviewValidator.Result(java.util.Collections.emptyList(), true));
