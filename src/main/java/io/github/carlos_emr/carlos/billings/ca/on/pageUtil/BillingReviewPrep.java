@@ -215,9 +215,13 @@ public class BillingReviewPrep {
         ret[2] = new Vector<String>();
 
         for (int i = 0; i < numItem; i++) {
-            if ("".equals(requestData.getParameter(paramNameCode + i)))
-                continue;
-            ret[0].add(requestData.getParameter(paramNameCode + i));
+            // Skip both null (param absent from form) and "" (param sent
+            // empty). The legacy code only checked "" via "".equals(...),
+            // which returns false for null and let null leak into the
+            // returned Vector — TreeMap.put downstream then NPE'd.
+            String code = requestData.getParameter(paramNameCode + i);
+            if (code == null || code.isEmpty()) continue;
+            ret[0].add(code);
             ret[1].add(defaultParamValue(requestData.getParameter(paramNameUnit
                     + i)));
             ret[2].add(defaultParamValue(requestData.getParameter(paramNameAt
