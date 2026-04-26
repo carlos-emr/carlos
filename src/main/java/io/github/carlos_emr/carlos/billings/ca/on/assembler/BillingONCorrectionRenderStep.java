@@ -77,7 +77,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.Billing3rdPartPrep;
  *
  * @since 2026-04-25
  */
-public final class BillingONCorrectionRenderContextComposer {
+final class BillingONCorrectionRenderStep {
 
     // First-party "Paid/Refund" form-input HTML, identical bytes to the
     // legacy inline JSP scriptlet so the rendered output and the form's
@@ -107,7 +107,7 @@ public final class BillingONCorrectionRenderContextComposer {
     private final ClinicLocationDao clinicLocationDao;
     private final ClinicNbrDao clinicNbrDao;
 
-    BillingONCorrectionRenderContextComposer(SecurityInfoManager securityInfoManager,
+    BillingONCorrectionRenderStep(SecurityInfoManager securityInfoManager,
                                              BillingServiceDao billingServiceDao,
                                              BillingONService billingONService,
                                              BillingONExtDao bExtDao,

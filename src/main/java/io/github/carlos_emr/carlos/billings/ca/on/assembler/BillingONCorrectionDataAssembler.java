@@ -96,7 +96,7 @@ public final class BillingONCorrectionDataAssembler {
     private final BillingONCHeader1Dao bCh1Dao;
     private final RaDetailDao raDetailDao;
     private final ProfessionalSpecialistDao professionalSpecialistDao;
-    private final BillingONCorrectionRenderContextComposer renderContextComposer;
+    private final BillingONCorrectionRenderStep renderContextComposer;
 
     /**
      * Production constructor used by Struts; resolves dependencies from the
@@ -167,7 +167,7 @@ public final class BillingONCorrectionDataAssembler {
         this.bCh1Dao = bCh1Dao;
         this.raDetailDao = raDetailDao;
         this.professionalSpecialistDao = professionalSpecialistDao;
-        this.renderContextComposer = new BillingONCorrectionRenderContextComposer(
+        this.renderContextComposer = new BillingONCorrectionRenderStep(
                 securityInfoManager,
                 billingServiceDao,
                 billingONService,

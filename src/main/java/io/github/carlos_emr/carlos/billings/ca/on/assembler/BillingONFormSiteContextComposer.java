@@ -59,7 +59,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  *
  * @since 2026-04-26
  */
-public final class BillingONFormSiteContextComposer {
+final class BillingONFormSiteContextComposer {
 
     private final SiteDao siteDao;
     private final OscarAppointmentDao oscarAppointmentDao;

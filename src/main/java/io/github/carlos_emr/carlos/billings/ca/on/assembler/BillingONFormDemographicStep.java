@@ -34,12 +34,12 @@ import static io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONForm
  *
  * @since 2026-04-25
  */
-public final class BillingONFormDemographicLoader {
+final class BillingONFormDemographicStep {
 
     private final DemographicManager demographicManager;
     private final ProfessionalSpecialistDao professionalSpecialistDao;
 
-    BillingONFormDemographicLoader(DemographicManager demographicManager,
+    BillingONFormDemographicStep(DemographicManager demographicManager,
                                    ProfessionalSpecialistDao professionalSpecialistDao) {
         this.demographicManager = demographicManager;
         this.professionalSpecialistDao = professionalSpecialistDao;

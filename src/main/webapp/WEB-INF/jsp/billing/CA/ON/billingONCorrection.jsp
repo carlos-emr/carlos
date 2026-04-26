@@ -31,7 +31,6 @@
      into a generic CARLOS Error 500 with no stack trace in catalina.out.
      Without this directive, a throw inside the scriptlet body or any
      <jsp:include> would fall through to the container default. --%>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONCorrectionRenderContextComposer" %>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
@@ -754,7 +753,7 @@
 
                     <tbody>
                     <%-- Per-row line-item table; correctionModel.billItems is
-                         pre-resolved by BillingONCorrectionRenderContextComposer.
+                         pre-resolved by BillingONCorrectionRenderStep.
                          Display at least MAXRECORDS (6) rows; pad with empty
                          rows if fewer items exist. --%>
                     <c:if test="${__bFlag and correctionModel.multiSiteProvider and not empty correctionModel.billItems}">

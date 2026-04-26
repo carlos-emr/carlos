@@ -62,7 +62,7 @@ import static io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONForm
  *
  * @since 2026-04-25
  */
-public final class BillingONFormServiceGridComposer {
+final class BillingONFormServiceGridStep {
 
     /**
      * Whitelist for {@code displayStyle} values rendered into a service-grid
@@ -81,7 +81,7 @@ public final class BillingONFormServiceGridComposer {
     private final CtlBillingTypeDao ctlBillingTypeDao;
     private final DiagnosticCodeDao diagnosticCodeDao;
 
-    BillingONFormServiceGridComposer(CtlBillingServiceDao ctlBillingServiceDao,
+    BillingONFormServiceGridStep(CtlBillingServiceDao ctlBillingServiceDao,
                                      BillingServiceDao billingServiceDao,
                                      CtlBillingServicePremiumDao ctlBillingServicePremiumDao,
                                      CSSStylesDAO cssStylesDAO,

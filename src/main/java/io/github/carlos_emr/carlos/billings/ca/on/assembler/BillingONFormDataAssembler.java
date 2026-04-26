@@ -59,14 +59,14 @@ import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingSiteIdPrep;
  *
  * <p>Composer breakdown:</p>
  * <ul>
- *   <li>{@link BillingONFormDemographicLoader} — demographic, age,
+ *   <li>{@link BillingONFormDemographicStep} — demographic, age,
  *       referral doctor, validation messages</li>
- *   <li>{@link BillingONFormDroolsRecommender} — Drools billing
+ *   <li>the inlined {@link #recommendBillingGuidelines} step — Drools billing
  *       guidelines</li>
- *   <li>{@link BillingONFormBillFormResolver} — {@code ctlBillForm}
+ *   <li>{@link BillingONFormBillFormStep} — {@code ctlBillForm}
  *       priority chain (curBillForm → roster → preference → group →
  *       default)</li>
- *   <li>{@link BillingONFormServiceGridComposer} — service-code grid +
+ *   <li>{@link BillingONFormServiceGridStep} — service-code grid +
  *       billing-form menu + dx codes by type (the ~120-line block in
  *       the legacy implementation)</li>
  * </ul>
@@ -91,11 +91,10 @@ public final class BillingONFormDataAssembler {
     private final UserPropertyDAO userPropertyDao;
     private final ProviderDao providerDao;
 
-    // Composers — built once per assembler instance.
-    private final BillingONFormDemographicLoader demographicLoader;
-    private final BillingONFormDroolsRecommender droolsRecommender;
-    private final BillingONFormBillFormResolver billFormResolver;
-    private final BillingONFormServiceGridComposer serviceGridComposer;
+    // Inner steps — built once per assembler instance.
+    private final BillingONFormDemographicStep demographicLoader;
+    private final BillingONFormBillFormStep billFormResolver;
+    private final BillingONFormServiceGridStep serviceGridComposer;
     private final BillingONFormSiteContextComposer siteContextComposer;
 
     /**
@@ -166,13 +165,12 @@ public final class BillingONFormDataAssembler {
         this.userPropertyDao = userPropertyDao;
         this.providerDao = providerDao;
 
-        // The remaining DAOs flow into the composers and aren't held here.
-        this.demographicLoader = new BillingONFormDemographicLoader(
+        // The remaining DAOs flow into the inner steps and aren't held here.
+        this.demographicLoader = new BillingONFormDemographicStep(
                 demographicManager, professionalSpecialistDao);
-        this.droolsRecommender = new BillingONFormDroolsRecommender();
-        this.billFormResolver = new BillingONFormBillFormResolver(
+        this.billFormResolver = new BillingONFormBillFormStep(
                 ctlBillingServiceDao, providerPreferenceDao, myGroupDao);
-        this.serviceGridComposer = new BillingONFormServiceGridComposer(
+        this.serviceGridComposer = new BillingONFormServiceGridStep(
                 ctlBillingServiceDao, billingServiceDao, ctlBillingServicePremiumDao,
                 cssStylesDao, codeFilterManager, ctlBillingTypeDao, diagnosticCodeDao);
         this.siteContextComposer = new BillingONFormSiteContextComposer(
@@ -298,7 +296,7 @@ public final class BillingONFormDataAssembler {
 
         // ---- demographic + age + referral + validation messages ----
 
-        BillingONFormDemographicLoader.LoadedDemographic loaded =
+        BillingONFormDemographicStep.LoadedDemographic loaded =
                 demographicLoader.load(b, loggedInInfo, demoNo);
         Demographic demo = loaded.demo();
         String rosterStatus = loaded.rosterStatus();
@@ -313,7 +311,7 @@ public final class BillingONFormDataAssembler {
                 .patientDxMatchCode(patientDxMatchCode);
 
         // ---- Drools billing recommendations ----
-        droolsRecommender.recommend(b, loggedInInfo, demoNo, userNo);
+        recommendBillingGuidelines(b, loggedInInfo, demoNo, userNo);
 
         // ---- billing history (drives default dx + visitType resolution below) ----
         List<BillingONFormViewModel.BillingHistoryEntry> history = loadBillingHistory(demoNo);
@@ -356,7 +354,7 @@ public final class BillingONFormDataAssembler {
                 .xmlVisitType(nullToEmpty(xmlVisitType));
 
         // ---- ctlBillForm priority-chain resolution ----
-        BillingONFormBillFormResolver.ResolvedBillForm resolved = billFormResolver.resolve(
+        BillingONFormBillFormStep.ResolvedBillForm resolved = billFormResolver.resolve(
                 b, request, visitType, rosterStatus, providerNo, userNo, apptProviderNo);
         String ctlBillForm = resolved.ctlBillForm();
 
@@ -760,6 +758,40 @@ public final class BillingONFormDataAssembler {
                     e.getClass().getSimpleName());
             return new AgeResult(0, true);
         }
+    }
+
+    /**
+     * Inlined Drools billing-guidelines step (formerly the
+     * {@code BillingONFormDroolsRecommender} composer — collapsed inline
+     * because it was used by exactly one assembler and not reusable per
+     * the package's scope contract). Catches broad {@code Exception} because
+     * Drools rule compilation can throw {@code RuntimeException},
+     * {@code KieBaseException}, or {@code OutOfMemoryError}-adjacent shapes;
+     * the form must still render if the rule cache is corrupted.
+     */
+    private void recommendBillingGuidelines(BillingONFormViewModel.Builder b,
+                                             LoggedInInfo loggedInInfo,
+                                             String demoNo,
+                                             String userNo) {
+        StringBuilder recommendations = new StringBuilder();
+        try {
+            List<io.github.carlos_emr.carlos.decisionSupport.model.DSConsequence> consequences =
+                    io.github.carlos_emr.carlos.billings.ca.bc.decisionSupport.BillingGuidelines
+                            .getInstance()
+                            .evaluateAndGetConsequences(loggedInInfo, demoNo, userNo);
+            for (io.github.carlos_emr.carlos.decisionSupport.model.DSConsequence dscon : consequences) {
+                if (dscon.getConsequenceStrength()
+                        == io.github.carlos_emr.carlos.decisionSupport.model.DSConsequence.ConsequenceStrength.warning) {
+                    recommendations.append(io.github.carlos_emr.carlos.utility.SafeEncode
+                            .forHtml(dscon.getText())).append("<br/>");
+                }
+            }
+        } catch (Exception e) {
+            MiscUtils.getLogger().error(
+                    "Drools billing-guidelines evaluation failed for demo={} provider={}",
+                    LogSanitizer.sanitize(demoNo), userNo, e);
+        }
+        b.billingRecommendations(recommendations.toString());
     }
 
     /**

@@ -45,13 +45,13 @@ import io.github.carlos_emr.CarlosProperties;
  *
  * @since 2026-04-25
  */
-public final class BillingONFormBillFormResolver {
+final class BillingONFormBillFormStep {
 
     private final CtlBillingServiceDao ctlBillingServiceDao;
     private final ProviderPreferenceDao providerPreferenceDao;
     private final MyGroupDao myGroupDao;
 
-    BillingONFormBillFormResolver(CtlBillingServiceDao ctlBillingServiceDao,
+    BillingONFormBillFormStep(CtlBillingServiceDao ctlBillingServiceDao,
                                   ProviderPreferenceDao providerPreferenceDao,
                                   MyGroupDao myGroupDao) {
         this.ctlBillingServiceDao = ctlBillingServiceDao;
