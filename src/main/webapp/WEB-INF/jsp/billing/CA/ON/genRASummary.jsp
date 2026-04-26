@@ -23,36 +23,28 @@
 
 --%>
 
-<%@ page
-        import="java.math.*, java.util.*, java.io.*, java.sql.*, java.net.*,io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.MyDateFormat,io.github.carlos_emr.carlos.db.*"
-        errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ include file="/WEB-INF/jsp/admin/dbconnection.jsp" %>
-
-<jsp:useBean id="billingLocalInvNoBean" class="java.util.Properties" scope="page"/>
-
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.RaHeader" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.RaHeaderDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.RaDetail" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.RaDetailDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Billing" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%
-    RaHeaderDao dao = SpringUtils.getBean(RaHeaderDao.class);
-    RaDetailDao raDetailDao = SpringUtils.getBean(RaDetailDao.class);
-    ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
-    BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
-%>
-
-
-<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
-<%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.GenRASummaryViewModel" %>
+
+<%
+    // ViewGenRASummary2Action enforces _billing w + POST-only and assembles
+    // the view model with the 5 DAO lookups + RA-detail iteration + RA-header
+    // content merge the legacy JSP body used to perform inline.
+    GenRASummaryViewModel raSummaryModel =
+            (GenRASummaryViewModel) request.getAttribute("raSummaryModel");
+    if (raSummaryModel == null) {
+        // Defensive fallback: any caller that forwards directly here gets a
+        // safe stub render. The canonical entrypoint is
+        // billing/CA/ON/ViewGenRASummary.
+        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
+                "genRASummary.jsp reached without raSummaryModel — caller should "
+              + "route through billing/CA/ON/ViewGenRASummary.");
+        raSummaryModel = GenRASummaryViewModel.builder().build();
+    }
+%>
+
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -73,652 +65,83 @@
                                  onClick='window.close()'></th>
     </tr>
 </table>
-<%
-    String nowDate = UtilDateUtilities.DateToString(new java.util.Date(), "yyyy/MM/dd");
-
-    String raNo = "", flag = "", plast = "", pfirst = "", pohipno = "", proNo = "";
-    String filepath = "", filename = "", header = "", headerCount = "", total = "", paymentdate = "", payable = "", totalStatus = "", deposit = ""; //request.getParameter("filename");
-    String transactiontype = "", providerno = "", specialty = "", account = "", patient_last = "", patient_first = "", provincecode = "", hin = "", ver = "", billtype = "", location = "";
-    String servicedate = "", serviceno = "", servicecode = "", amountsubmit = "", amountpay = "", amountpaysign = "", explain = "", error = "";
-    String proFirst = "", proLast = "", demoFirst = "", demoLast = "", apptDate = "", apptTime = "", checkAccount = "", proName = "";
-    String sqlRACO = "", sqlRAOB = "", OBflag = "0", COflag = "0", amountOB = "", amountCO = "";
-    String demo_name = "", demo_hin = "", demo_docname = "", providerOhipNo = "";
-    int accountno = 0;
-
-    raNo = request.getParameter("rano");
-
-// set localClinic record bean
-    billingLocalInvNoBean = new Properties();
-    String localClinicNo = oscarVariables.getProperty("clinic_no");
-
-    RaHeader rh = dao.find(Integer.parseInt(raNo));
-    if (rh != null && !rh.getStatus().equals("D")) {
-        filename = rh.getFilename();
-    }
-
-    filepath = oscarVariables.getProperty("DOCUMENT_DIR").trim(); //"/usr/local/OscarDocument/" + url +"/document/";
-    FileInputStream file = new FileInputStream(filepath + filename);
-    InputStreamReader reader = new InputStreamReader(file);
-    BufferedReader input = new BufferedReader(reader);
-    String nextline;
-
-    while ((nextline = input.readLine()) != null) {
-        header = nextline.substring(0, 1);
-
-        if (header.compareTo("H") == 0) {
-            headerCount = nextline.substring(2, 3);
-
-            if (headerCount.compareTo("4") == 0) {
-                account = nextline.substring(23, 31);
-                location = nextline.substring(69, 73);
-
-                String validnum = "0123456789- ";
-                boolean valid = true;
-                for (int i = 0; i < account.length(); i++) {
-                    char c = account.charAt(i);
-                    if (validnum.indexOf(c) == -1) {
-                        valid = false;
-                        break;
-                    }
-                }
-
-                if (account.trim().length() == 0) account = "0";
-
-                if (valid) {
-                    accountno = Integer.parseInt(account.trim());
-                    account = String.valueOf(accountno);
-                }
-                // add a bean
-                if (location.equals(localClinicNo)) {
-                    billingLocalInvNoBean.setProperty(account, localClinicNo);
-                }
-            }
-        }
-    }
-
-// sqlOBfee = "select distinct billing_no from radetail where raheader_no='"+raNo+"' and (service_code='P006A' or service_code='P020A' or service_code='P022A' or service_code='P028A' or service_code='P023A' or service_code='P007A' or service_code='P008B' or service_code='P018B' or service_code='E502A' or service_code='C989A' or service_code='E409A' or service_code='E410A' or service_code='E411A' or service_code='H001A')";
-
-    ArrayList OBbilling_no = new ArrayList();
-    ArrayList CObilling_no = new ArrayList();
-
-    for (Integer i : raDetailDao.search_raob(Integer.parseInt(raNo))) {
-        OBbilling_no.add(i.toString());
-    }
-
-    for (Integer i : raDetailDao.search_racolposcopy(Integer.parseInt(raNo))) {
-        CObilling_no.add(i.toString());
-    }
-
-
-    Properties propProvierName = new Properties();
-
-    for (Provider p : providerDao.getActiveProviders()) {
-        if (p.getOhipNo() != null) {
-            propProvierName.setProperty(("no_" + p.getProviderNo()), (p.getLastName() + "," + p.getFirstName()));
-            propProvierName.setProperty(p.getOhipNo(), (p.getLastName() + "," + p.getFirstName()));
-        }
-    }
-
-
-    BigDecimal bdCFee = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
-    BigDecimal bdPFee = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
-    BigDecimal bdOFee = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
-    BigDecimal bdCOFee = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
-
-    BigDecimal bdFee = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
-    BigDecimal bdHFee = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
-    BigDecimal BigTotal = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
-    BigDecimal BigCTotal = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
-    BigDecimal BigPTotal = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
-    BigDecimal BigOTotal = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
-    BigDecimal BigCOTotal = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
-    BigDecimal BigLTotal = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
-    BigDecimal BigHTotal = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
-    BigDecimal bdOBFee = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
-    BigDecimal BigOBTotal = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
-    double dHFee = 0.00;
-    double dFee = 0.00;
-    double dCOFee = 0.00;
-    double dOBFee = 0.00;
-    double dCFee = 0.00;
-    double dPFee = 0.00;
-    double dOFee = 0.00;
-
-    double dLocalHFee = 0.00;
-    BigDecimal bdLocalHFee = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
-    BigDecimal BigLocalHTotal = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
-    String localServiceDate = "";
-
-    proNo = request.getParameter("proNo");
-    if (raNo.compareTo("") == 0 || raNo == null) {
-        flag = "0";
-        return;
-    } else {
-%>
 
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <tr bgcolor="#333333">
         <th align='CENTRE' nowrap>
-            <form action="<%= request.getContextPath() %>/billing/CA/ON/ViewGenRASummary"><input type="hidden"
-                                                   name="rano" value="<carlos:encode value='<%= raNo %>' context="htmlAttribute"/>"> <select name="proNo">
-                <!--option value="all"  <%--=proNo.equals("all")?"selected":""--%>>All Providers</option-->
-
-                <%
-
-                    for (Object[] res : raDetailDao.search_raprovider(Integer.parseInt(raNo))) {
-                        RaDetail rad = (RaDetail) res[0];
-                        Provider prov = (Provider) res[1];
-
-                        pohipno = rad.getProviderOhipNo();
-                        plast = prov.getLastName();
-                        pfirst = prov.getFirstName();
-
-                %>
-                <option value="<carlos:encode value='<%= pohipno %>' context="htmlAttribute"/>"<%=
-                        pohipno != null && pohipno.equals(proNo) ? " selected=\"selected\"" : ""
-                %>><carlos:encode value='<%= plast %>' context="html"/>,<carlos:encode value='<%= pfirst %>' context="html"/></option>
-                <% } %>
-            </select> <input type="submit" name="submit" value="Generate"> <a
-                    href="<%= request.getContextPath() %>/billing/CA/ON/ViewGenRASummaryDetail?rano=<carlos:encode value='<%= raNo %>' context="uriComponent"/>&proNo=">Detail</a></form>
+            <form action="<%= request.getContextPath() %>/billing/CA/ON/ViewGenRASummary" method="post">
+                <input type="hidden" name="rano" value="<carlos:encode value="${raSummaryModel.raNo}" context="htmlAttribute"/>">
+                <select name="proNo">
+                    <% for (GenRASummaryViewModel.ProviderOption __opt : raSummaryModel.getProviderOptions()) {
+                            String __sel = __opt.selected() ? " selected=\"selected\"" : "";
+                    %>
+                    <option value="<carlos:encode value='<%= __opt.ohipNo() %>' context="htmlAttribute"/>"<%= __sel %>><carlos:encode value='<%= __opt.displayName() %>' context="html"/></option>
+                    <% } %>
+                </select>
+                <input type="submit" name="submit" value="Generate">
+                <a href="<%= request.getContextPath() %>/billing/CA/ON/ViewGenRASummaryDetail?rano=<carlos:encode value="${raSummaryModel.raNo}" context="uriComponent"/>&proNo=">Detail</a>
+            </form>
         </th>
     </tr>
 </table>
 
-<%
-    if (proNo == null || proNo.compareTo("") == 0 || proNo.compareTo("all") == 0) {
-%>
 <table width="100%" border="1" cellspacing="0" cellpadding="0"
        bgcolor="#EFEFEF">
-    <form>
-        <tr>
-            <td width="7%" height="16">Billing No</td>
-            <td width="14%" height="16">Provider</td>
-            <td width="15%" height="16">Patient</td>
-            <td width="7%" height="16">HIN</td>
-            <td width="10%" height="16">Service Date</td>
-            <td width="7%" height="16">Service Code</td>
-            <!-- <td width="8%" height="16">Count</td> -->
-            <td width="7%" height="16" align=right>Invoiced</td>
-            <td width="7%" height="16" align=right>Paid</td>
-            <td width="7%" height="16" align=right>Clinic Pay</td>
-            <td width="7%" height="16" align=right>Hospital Pay</td>
-            <td width="7%" height="16" align=right>OB</td>
-            <td width="5%" height="16" align=right>Error</td>
-        </tr>
-
-            <%
-	for(RaDetail rad:raDetailDao.search_rasummary_dt(Integer.parseInt(raNo),"%")) {
-		account = String.valueOf(rad.getBillingNo());
-		location = "";  
-		demo_name = "";
-		demo_docname = "";
-		demo_hin = rad.getHin() != null? rad.getHin() : "";
-		Billing b = billingDao.find(Integer.parseInt(account));
-		if(b != null) {
-			demo_name = b.getDemographicName();
-			if (b.getHin() != null) {
-				if (!(b.getHin()).startsWith(demo_hin)) {
-					demo_hin = "";
-					demo_name ="";
-				}
-			} else {
-				demo_hin = "";
-				demo_name ="";
-			}
-			location = b.getVisitType();
-			localServiceDate = ConversionUtils.toDateString(b.getBillingDate());
-			localServiceDate = localServiceDate.replaceAll("-*", "");
-			demo_docname = propProvierName.getProperty(("no_" + b.getProviderNo()), "");
-		}
-        providerOhipNo = rad.getProviderOhipNo();
-		proName = propProvierName.getProperty(providerOhipNo);
-		servicecode = rad.getServiceCode();
-		servicedate = rad.getServiceDate();
-		serviceno = rad.getServiceCount();
-		explain = rad.getErrorCode();
-		amountsubmit =rad.getAmountClaim();
-		amountpay = rad.getAmountPay();
-
-		//OBflag="0";
-		// get claim/pay amount
-		dCFee = Double.parseDouble(amountsubmit);
-		bdCFee = new BigDecimal(dCFee).setScale(2, BigDecimal.ROUND_HALF_UP);
-		BigCTotal = BigCTotal.add(bdCFee);
-
-		dPFee = Double.parseDouble(amountpay);
-		bdPFee = new BigDecimal(dPFee).setScale(2, BigDecimal.ROUND_HALF_UP);
-		BigPTotal = BigPTotal.add(bdPFee);
-
-		OBflag="0";
-		COflag="0";
-		// set flag
-		for (int i=0; i<OBbilling_no.size(); i++){
-			sqlRAOB = (String)OBbilling_no.get(i);
-			if(sqlRAOB.compareTo(account)==0) {
-				OBflag = "1";
-				break;
-			}
-		}
-		for (int j=0; j<CObilling_no.size(); j++){
-			sqlRACO = (String)CObilling_no.get(j);
-			if(sqlRACO.compareTo(account)==0) {
-				COflag = "1";
-				break;
-			}
-		}
-      	    
-		if(OBflag.equals("1")) {
-			amountOB=amountpay;
-			dOBFee = Double.parseDouble(amountOB);
-			bdOBFee = new BigDecimal(dOBFee).setScale(2, BigDecimal.ROUND_HALF_UP);
-			BigOBTotal = BigOBTotal.add(bdOBFee);
-		} else {
-			amountOB="N/A";
-		} 
-
-		if(COflag.equals("1")) {
-			amountCO=amountpay;
-			dCOFee = Double.parseDouble(amountCO);
-			bdCOFee = new BigDecimal(dCOFee).setScale(2, BigDecimal.ROUND_HALF_UP);
-			BigCOTotal = BigCOTotal.add(bdCOFee);
-		} else {
-			amountCO="N/A";
-		} 
-
-
-		if (explain.compareTo("") == 0 || explain == null){
-			explain = "**";
-		}
-
-		if (location.compareTo("02") == 0) { // hospital
-			dHFee = Double.parseDouble(amountpay);
-			bdHFee = new BigDecimal(dHFee).setScale(2, BigDecimal.ROUND_HALF_UP);
-			BigHTotal = BigHTotal.add(bdHFee);
-
-			// is local for hospital
-			if (demo_hin.length() > 1 && servicedate.equals(localServiceDate)) {
-				BigLocalHTotal = BigLocalHTotal.add(bdHFee);
-			}
-%>
-
-        <tr>
-            <td height="16"><carlos:encode value='<%= account %>' context="html"/>
-            </td>
-            <td height="16"><carlos:encode value='<%= demo_docname %>' context="html"/>
-            </td>
-            <td height="16"><carlos:encode value='<%= demo_name %>' context="html"/>
-            </td>
-            <td height="16"><carlos:encode value='<%= demo_hin %>' context="html"/>
-            </td>
-            <td height="16"><carlos:encode value='<%= servicedate %>' context="html"/>
-            </td>
-            <td height="16"><carlos:encode value='<%= servicecode %>' context="html"/>
-            </td>
-            <!-- <td width="8%" height="16"><carlos:encode value='<%= serviceno %>' context="html"/></td>-->
-            <td height="16" align=right><carlos:encode value='<%= amountsubmit %>' context="html"/>
-            </td>
-            <td height="16" align=right><carlos:encode value='<%= amountpay %>' context="html"/>
-            </td>
-            <td height="16" align=right>N/A</td>
-            <td height="16" align=right><carlos:encode value='<%= amountpay %>' context="html"/>
-            </td>
-            <td height="16" align=right><carlos:encode value='<%= amountOB %>' context="html"/>
-            </td>
-            <td height="16" align=right><carlos:encode value='<%= explain %>' context="html"/>
-            </td>
-        </tr>
-
-
-            <%
-		} else { // clinic && local clinic   providerOhipNo
-                    
-			if (location.compareTo("00") == 0 && wasBilledLocal(account,providerOhipNo,servicedate,servicecode)){ //billingLocalInvNoBean.getProperty(account, "").equals(localClinicNo)) {
-				dFee = Double.parseDouble(amountpay);
-				bdFee = new BigDecimal(dFee).setScale(2, BigDecimal.ROUND_HALF_UP);
-				BigTotal = BigTotal.add(bdFee);
-%>
-        <tr>
-            <td height="16"><carlos:encode value='<%= account %>' context="html"/>
-            </td>
-            <td height="16"><carlos:encode value='<%= demo_docname %>' context="html"/>
-            </td>
-            <td height="16"><carlos:encode value='<%= demo_name %>' context="html"/>
-            </td>
-            <td height="16"><carlos:encode value='<%= demo_hin %>' context="html"/>
-            </td>
-            <td height="16"><carlos:encode value='<%= servicedate %>' context="html"/>
-            </td>
-            <td height="16"><carlos:encode value='<%= servicecode %>' context="html"/>
-            </td>
-            <!-- <td width="8%" height="16"><carlos:encode value='<%= serviceno %>' context="html"/></td>-->
-            <td height="16" align=right><carlos:encode value='<%= amountsubmit %>' context="html"/>
-            </td>
-            <td height="16" align=right><carlos:encode value='<%= amountpay %>' context="html"/>
-            </td>
-            <td height="16" align=right><carlos:encode value='<%= amountpay %>' context="html"/>
-            </td>
-            <td height="16" align=right>N/A</td>
-            <td height="16" align=right><carlos:encode value='<%= amountOB %>' context="html"/>
-            </td>
-            <td height="16" align=right><carlos:encode value='<%= explain %>' context="html"/>
-            </td>
-        </tr>
-
-            <%
-			} else { // other fee
-				dOFee = Double.parseDouble(amountpay);
-				bdOFee = new BigDecimal(dOFee).setScale(2, BigDecimal.ROUND_HALF_UP);
-				BigOTotal = BigOTotal.add(bdOFee);
-%>
-        <tr>
-            <td height="16"><carlos:encode value='<%= account %>' context="html"/>
-            </td>
-            <td height="16"><carlos:encode value='<%= demo_docname %>' context="html"/>
-            </td>
-            <td height="16"><carlos:encode value='<%= demo_name %>' context="html"/>
-            </td>
-            <td height="16"><carlos:encode value='<%= demo_hin %>' context="html"/>
-            </td>
-            <td height="16"><carlos:encode value='<%= servicedate %>' context="html"/>
-            </td>
-            <td height="16"><carlos:encode value='<%= servicecode %>' context="html"/>
-            </td>
-            <!-- <td width="8%" height="16"><carlos:encode value='<%= serviceno %>' context="html"/></td>-->
-            <td height="16" align=right><carlos:encode value='<%= amountsubmit %>' context="html"/>
-            </td>
-            <td height="16" align=right><carlos:encode value='<%= amountpay %>' context="html"/>
-            </td>
-            <td height="16" align=right>N/A</td>
-            <td height="16" align=right>N/A</td>
-            <td height="16" align=right><carlos:encode value='<%= amountOB %>' context="html"/>
-            </td>
-            <td height="16" align=right><carlos:encode value='<%= explain %>' context="html"/>
-            </td>
-        </tr>
-            <%
-			}
-		}
-	}	 
-} else { // raNo for all providers
-%>
-
-        <table width="100%" border="1" cellspacing="0" cellpadding="0"
-               bgcolor="#EFEFEF">
-            <tr>
-                <td width="7%" height="16">Billing No</td>
-                <td width="14%" height="16">Provider</td>
-                <td width="15%" height="16">Patient</td>
-                <td width="7%" height="16">HIN</td>
-                <td width="10%" height="16">Service Date</td>
-                <td width="7%" height="16">Service Code</td>
-                <!-- <td width="8%" height="16">Count</td> -->
-                <td width="7%" height="16" align=right>Invoiced</td>
-                <td width="7%" height="16" align=right>Paid</td>
-                <td width="7%" height="16" align=right>Clinic Pay</td>
-                <td width="7%" height="16" align=right>Hospital Pay</td>
-                <td width="7%" height="16" align=right>OB</td>
-                <td width="5%" height="16" align=right>Error</td>
-            </tr>
-
-            <%
-                for (RaDetail rad : raDetailDao.search_rasummary_dt(Integer.parseInt(raNo), proNo + "%")) {
-                    account = String.valueOf(rad.getBillingNo());
-                    location = "";
-                    demo_name = "";
-                    demo_docname = "";
-                    demo_hin = rad.getHin() != null ? rad.getHin() : "";
-
-                    Billing b = billingDao.find(Integer.parseInt(account));
-
-                    if (b != null) {
-                        demo_name = b.getDemographicName();
-                        if (b.getHin() != null) {
-                            if (!(b.getHin()).startsWith(demo_hin)) {
-                                demo_hin = "";
-                                demo_name = "";
-                            }
-                        } else {
-                            demo_hin = "";
-                            demo_name = "";
-                        }
-                        location = b.getVisitType();
-                        localServiceDate = ConversionUtils.toDateString(b.getBillingDate());
-                        localServiceDate = localServiceDate.replaceAll("-*", "");
-                        demo_docname = propProvierName.getProperty(("no_" + b.getProviderNo()), "");
-                    }
-
-                    providerOhipNo = rad.getProviderOhipNo();
-                    proName = propProvierName.getProperty(providerOhipNo);
-                    servicecode = rad.getServiceCode();
-                    servicedate = rad.getServiceDate();
-                    serviceno = rad.getServiceCount();
-                    explain = rad.getErrorCode();
-                    amountsubmit = rad.getAmountClaim();
-                    amountpay = rad.getAmountPay();
-
-                    //k     location = rsdemo.getString("visittype");
-                    dCFee = Double.parseDouble(amountsubmit);
-                    bdCFee = new BigDecimal(dCFee).setScale(2, BigDecimal.ROUND_HALF_UP);
-                    BigCTotal = BigCTotal.add(bdCFee);
-
-                    dPFee = Double.parseDouble(amountpay);
-                    bdPFee = new BigDecimal(dPFee).setScale(2, BigDecimal.ROUND_HALF_UP);
-                    BigPTotal = BigPTotal.add(bdPFee);
-                    COflag = "0";
-                    OBflag = "0";
-
-                    for (int i = 0; i < OBbilling_no.size(); i++) {
-                        sqlRAOB = (String) OBbilling_no.get(i);
-                        if (sqlRAOB.compareTo(account) == 0) {
-                            OBflag = "1";
-                            break;
-                        }
-                    }
-
-                    for (int j = 0; j < CObilling_no.size(); j++) {
-                        sqlRACO = (String) CObilling_no.get(j);
-                        if (sqlRACO.compareTo(account) == 0) {
-                            COflag = "1";
-                            break;
-                        }
-                    }
-
-                    if (OBflag.equals("1")) {
-                        amountOB = amountpay;
-                        dOBFee = Double.parseDouble(amountOB);
-                        bdOBFee = new BigDecimal(dOBFee).setScale(2, BigDecimal.ROUND_HALF_UP);
-                        BigOBTotal = BigOBTotal.add(bdOBFee);
-                    } else {
-                        amountOB = "N/A";
-                    }
-
-                    if (COflag.equals("1")) {
-                        amountCO = amountpay;
-                        dCOFee = Double.parseDouble(amountCO);
-                        bdCOFee = new BigDecimal(dCOFee).setScale(2, BigDecimal.ROUND_HALF_UP);
-                        BigCOTotal = BigCOTotal.add(bdCOFee);
-                    } else {
-                        amountCO = "N/A";
-                    }
-
-                    if (explain.compareTo("") == 0 || explain == null) {
-                        explain = "**";
-                    }
-
-                    if (location.compareTo("02") == 0) {
-                        dHFee = Double.parseDouble(amountpay);
-                        bdHFee = new BigDecimal(dHFee).setScale(2, BigDecimal.ROUND_HALF_UP);
-                        BigHTotal = BigHTotal.add(bdHFee);
-
-                        // is local for hospital
-                        if (demo_hin.length() > 1 && servicedate.equals(localServiceDate)) {
-                            BigLocalHTotal = BigLocalHTotal.add(bdHFee);
-                        }
-            %>
-            <tr>
-                <td height="16"><carlos:encode value='<%= account %>' context="html"/>
-                </td>
-                <td height="16"><carlos:encode value='<%= demo_docname %>' context="html"/>
-                </td>
-                <td height="16"><carlos:encode value='<%= demo_name %>' context="html"/>
-                </td>
-                <td height="16"><carlos:encode value='<%= demo_hin %>' context="html"/>
-                </td>
-                <td height="16"><carlos:encode value='<%= servicedate %>' context="html"/>
-                </td>
-                <td height="16"><carlos:encode value='<%= servicecode %>' context="html"/>
-                </td>
-                <!--<td width="8%" height="16"><carlos:encode value='<%= serviceno %>' context="html"/></td>-->
-                <td height="16" align=right><carlos:encode value='<%= amountsubmit %>' context="html"/>
-                </td>
-                <td height="16" align=right><carlos:encode value='<%= amountpay %>' context="html"/>
-                </td>
-                <td height="16" align=right>N/A</td>
-                <td height="16" align=right><carlos:encode value='<%= amountpay %>' context="html"/>
-                </td>
-                <td height="16" align=right><carlos:encode value='<%= amountOB %>' context="html"/>
-                </td>
-                <td height="16" align=right><carlos:encode value='<%= explain %>' context="html"/>
-                </td>
-            </tr>
-
-            <%
-            } else {
-                if (location.compareTo("00") == 0 && wasBilledLocal(account, providerOhipNo, servicedate, servicecode)) { //billingLocalInvNoBean.getProperty(account, "").equals(localClinicNo)) {
-                    dFee = Double.parseDouble(amountpay);
-                    bdFee = new BigDecimal(dFee).setScale(2, BigDecimal.ROUND_HALF_UP);
-                    BigTotal = BigTotal.add(bdFee);
-            %>
-            <tr>
-                <td height="16"><carlos:encode value='<%= account %>' context="html"/>
-                </td>
-                <td height="16"><carlos:encode value='<%= demo_docname %>' context="html"/>
-                </td>
-                <td height="16"><carlos:encode value='<%= demo_name %>' context="html"/>
-                </td>
-                <td height="16"><carlos:encode value='<%= demo_hin %>' context="html"/>
-                </td>
-                <td height="16"><carlos:encode value='<%= servicedate %>' context="html"/>
-                </td>
-                <td height="16"><carlos:encode value='<%= servicecode %>' context="html"/>
-                </td>
-                <!-- <td width="8%" height="16"><carlos:encode value='<%= serviceno %>' context="html"/></td>-->
-                <td height="16" align=right><carlos:encode value='<%= amountsubmit %>' context="html"/>
-                </td>
-                <td height="16" align=right><carlos:encode value='<%= amountpay %>' context="html"/>
-                </td>
-                <td height="16" align=right><carlos:encode value='<%= amountpay %>' context="html"/>
-                </td>
-                <td height="16" align=right>N/A</td>
-                <td height="16" align=right><carlos:encode value='<%= amountOB %>' context="html"/>
-                </td>
-                <td height="16" align=right><carlos:encode value='<%= explain %>' context="html"/>
-                </td>
-            </tr>
-
-            <%
-            } else {
-                dOFee = Double.parseDouble(amountpay);
-                bdOFee = new BigDecimal(dOFee).setScale(2, BigDecimal.ROUND_HALF_UP);
-                BigOTotal = BigOTotal.add(bdOFee);
-            %>
-            <tr>
-                <td height="16"><carlos:encode value='<%= account %>' context="html"/>
-                </td>
-                <td height="16"><carlos:encode value='<%= demo_docname %>' context="html"/>
-                </td>
-                <td height="16"><carlos:encode value='<%= demo_name %>' context="html"/>
-                </td>
-                <td height="16"><carlos:encode value='<%= demo_hin %>' context="html"/>
-                </td>
-                <td height="16"><carlos:encode value='<%= servicedate %>' context="html"/>
-                </td>
-                <td height="16"><carlos:encode value='<%= servicecode %>' context="html"/>
-                </td>
-                <!-- <td width="8%" height="16"><carlos:encode value='<%= serviceno %>' context="html"/></td>-->
-                <td height="16" align=right><carlos:encode value='<%= amountsubmit %>' context="html"/>
-                </td>
-                <td height="16" align=right><carlos:encode value='<%= amountpay %>' context="html"/>
-                </td>
-                <td height="16" align=right>N/A</td>
-                <td height="16" align=right>N/A</td>
-                <td height="16" align=right><carlos:encode value='<%= amountOB %>' context="html"/>
-                </td>
-                <td height="16" align=right><carlos:encode value='<%= explain %>' context="html"/>
-                </td>
-            </tr>
-
-            <%
-                                }
-                            }
-
-                        }
-                    }
-
-                }
-
-                BigLTotal = BigLTotal.add(BigTotal);
-//BigLTotal = BigLTotal.add(BigHTotal);
-                BigLTotal = BigLTotal.add(BigLocalHTotal);
-            %>
-            <tr bgcolor='#FFFF3E'>
-                <td height="16"></td>
-                <td height="16"></td>
-                <td height="16"></td>
-                <td height="16"></td>
-                <td height="16"></td>
-                <td height="16">Total</td>
-                <td height="16" align=right><carlos:encode value='<%= BigCTotal.toPlainString() %>' context="html"/>
-                </td>
-                <td height="16" align=right><carlos:encode value='<%= BigPTotal.toPlainString() %>' context="html"/><!-- <carlos:encode value='<%= BigOTotal.toPlainString() %>' context="html"/>--></td>
-                <td height="16" align=right><carlos:encode value='<%= BigTotal.toPlainString() %>' context="html"/><!--<carlos:encode value='<%= BigLTotal.toPlainString() %>' context="html"/>--></td>
-                <td height="16" align=right><carlos:encode value='<%= BigHTotal.toPlainString() %>' context="html"/>
-                </td>
-                <td height="16" align=right><carlos:encode value='<%= BigOBTotal.toPlainString() %>' context="html"/>
-                </td>
-                <td height="16"></td>
-            </tr>
-        </table>
-
-            <%
-String transaction="", content="", balancefwd="", xtotal="", other_total="", ob_total=""; 
-rh = dao.find(Integer.parseInt(raNo));
-if(rh != null) {
-	transaction= SxmlMisc.getXmlContent(rh.getContent(),"<xml_transaction>","</xml_transaction>");
-	balancefwd= SxmlMisc.getXmlContent(rh.getContent(),"<xml_balancefwd>","</xml_balancefwd>");
-}
-content = content + "<xml_transaction>" + transaction + "</xml_transaction>" + "<xml_balancefwd>" + balancefwd + "</xml_balancefwd>";
-content = content + "<xml_local>" + BigLTotal + "</xml_local>"+ "<xml_total>" + BigPTotal + "</xml_total>" + "<xml_other_total>" + BigOTotal + "</xml_other_total>" + "<xml_ob_total>" + BigOBTotal + "</xml_ob_total>" + "<xml_co_total>" + BigCOTotal + "</xml_co_total>";
-
-int recordAffected=0;
- 
-	 RaHeader raHeader = dao.find(Integer.parseInt(raNo));
-	 if(raHeader != null) {
-		 raHeader.setContent(content);
-		 dao.merge(raHeader);
-		recordAffected++;
-	 }
-	 
-file.close();
-reader.close();
-input.close();
-%>
+    <tr>
+        <td width="7%" height="16">Billing No</td>
+        <td width="14%" height="16">Provider</td>
+        <td width="15%" height="16">Patient</td>
+        <td width="7%" height="16">HIN</td>
+        <td width="10%" height="16">Service Date</td>
+        <td width="7%" height="16">Service Code</td>
+        <td width="7%" height="16" align=right>Invoiced</td>
+        <td width="7%" height="16" align=right>Paid</td>
+        <td width="7%" height="16" align=right>Clinic Pay</td>
+        <td width="7%" height="16" align=right>Hospital Pay</td>
+        <td width="7%" height="16" align=right>OB</td>
+        <td width="5%" height="16" align=right>Error</td>
+    </tr>
+    <% for (GenRASummaryViewModel.ReportRow __row : raSummaryModel.getRows()) {
+            // Per-category render decides which "Pay" column shows the value
+            // and which shows N/A. Mirrors the three legacy <tr> blocks.
+            String __clinicCell;
+            String __hospitalCell;
+            switch (__row.category()) {
+                case HOSPITAL -> { __clinicCell = "N/A"; __hospitalCell = __row.paidAmount(); }
+                case LOCAL_CLINIC -> { __clinicCell = __row.paidAmount(); __hospitalCell = "N/A"; }
+                default -> { __clinicCell = "N/A"; __hospitalCell = "N/A"; }
+            }
+    %>
+    <tr>
+        <td height="16"><carlos:encode value='<%= __row.billingNo() %>' context="html"/></td>
+        <td height="16"><carlos:encode value='<%= __row.providerName() %>' context="html"/></td>
+        <td height="16"><carlos:encode value='<%= __row.demoName() %>' context="html"/></td>
+        <td height="16"><carlos:encode value='<%= __row.demoHin() %>' context="html"/></td>
+        <td height="16"><carlos:encode value='<%= __row.serviceDate() %>' context="html"/></td>
+        <td height="16"><carlos:encode value='<%= __row.serviceCode() %>' context="html"/></td>
+        <td height="16" align=right><carlos:encode value='<%= __row.invoicedAmount() %>' context="html"/></td>
+        <td height="16" align=right><carlos:encode value='<%= __row.paidAmount() %>' context="html"/></td>
+        <td height="16" align=right><carlos:encode value='<%= __clinicCell %>' context="html"/></td>
+        <td height="16" align=right><carlos:encode value='<%= __hospitalCell %>' context="html"/></td>
+        <td height="16" align=right><carlos:encode value='<%= __row.obAmount() %>' context="html"/></td>
+        <td height="16" align=right><carlos:encode value='<%= __row.errorCode() %>' context="html"/></td>
+    </tr>
+    <% } %>
+    <tr bgcolor='#FFFF3E'>
+        <td height="16"></td>
+        <td height="16"></td>
+        <td height="16"></td>
+        <td height="16"></td>
+        <td height="16"></td>
+        <td height="16">Total</td>
+        <td height="16" align=right><carlos:encode value="${raSummaryModel.invoicedTotal}" context="html"/></td>
+        <td height="16" align=right><carlos:encode value="${raSummaryModel.paidTotal}" context="html"/></td>
+        <td height="16" align=right><carlos:encode value="${raSummaryModel.clinicPayTotal}" context="html"/></td>
+        <td height="16" align=right><carlos:encode value="${raSummaryModel.hospitalPayTotal}" context="html"/></td>
+        <td height="16" align=right><carlos:encode value="${raSummaryModel.obTotal}" context="html"/></td>
+        <td height="16"></td>
+    </tr>
+</table>
 
 </body>
 </html>
-<%!
-    //Before the system used the location code coming back from the ministry to find out whether the billing was billed locally or not.
-//
-//This has now stopped so we have come up with a new method.
-//For an invoice number. Does it exist for this physician with that date and billing code in the system.  If so its local if not its not!
-//
-//Not sure whether to check a if the code being billed for is applied to the same hin insurance number.  
-
-    boolean wasBilledLocal(String account, String provider, String billing_date, String code) {
-        boolean wasbilledlocal = false;
-        java.util.Date date = UtilDateUtilities.getDateFromString(billing_date, "yyyyMMdd");
-        BillingDao dao = SpringUtils.getBean(BillingDao.class);
-        wasbilledlocal = dao.findBillingsByManyThings(ConversionUtils.fromIntString(account), date, provider, code).size() >= 1;
-        return wasbilledlocal;
-    }
-%>

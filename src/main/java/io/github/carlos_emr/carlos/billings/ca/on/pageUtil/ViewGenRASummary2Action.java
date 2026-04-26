@@ -15,6 +15,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.billings.ca.on.data.GenRASummaryViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -23,15 +24,16 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * Mutation gate for {@code billing/CA/ON/genRASummary.jsp}. The JSP's scriptlet
- * performs RA header merge. Enforces {@code _billing} w privilege AND POST-only
- * before forwarding to the JSP. GET requests return 405.
- * <p>
- * Class name retains the {@code View...} prefix for consistency with sibling
- * gate actions in this migration; behavior is mutation-gate.
- * Pattern matches the POST-only intent already documented by
- * {@code HttpMethodGuardFilter} for similar reconciliation JSPs
- * (ongenreport, gensimulation).
+ * Mutation gate for {@code billing/CA/ON/genRASummary.jsp}, the OHIP RA
+ * payment-summary report.
+ *
+ * <p>Enforces {@code _billing w} privilege AND POST-only (the JSP-era
+ * scriptlet performed RA-header merge during render — still mutation-on-render,
+ * just hoisted into {@link GenRASummaryDataAssembler}).</p>
+ *
+ * <p>The assembler call replaces the 5 inline {@code SpringUtils.getBean}
+ * lookups (RaHeaderDao, RaDetailDao, ProviderDao, BillingDao + duplicate)
+ * the JSP used to perform.</p>
  *
  * @since 2026-04-13
  */
@@ -53,6 +55,9 @@ public final class ViewGenRASummary2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
+
+        GenRASummaryViewModel model = new GenRASummaryDataAssembler().assemble(request);
+        request.setAttribute("raSummaryModel", model);
 
         return SUCCESS;
     }
