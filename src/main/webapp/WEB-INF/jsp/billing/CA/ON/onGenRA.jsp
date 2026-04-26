@@ -23,67 +23,37 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%
-    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
-    boolean isTeamBillingOnly = false;
-    boolean isSiteAccessPrivacy = false;
-    boolean isTeamAccessPrivacy = false;
-%>
-<security:oscarSec objectName="_team_billing_only" roleName="<%=roleName$ %>" rights="r" reverse="false">
-    <% isTeamBillingOnly = true; %>
-</security:oscarSec>
-<security:oscarSec objectName="_site_access_privacy" roleName="<%=roleName$%>" rights="r" reverse="false">
-    <%isSiteAccessPrivacy = true; %>
-</security:oscarSec>
-<security:oscarSec objectName="_team_access_privacy" roleName="<%=roleName$%>" rights="r" reverse="false">
-    <%isTeamAccessPrivacy = true; %>
-</security:oscarSec>
-
-<%@ page import="java.io.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, java.util.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
-<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingRAImpl" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.OnGenRAViewModel" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.OnGenRADataAssembler" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <jsp:useBean id="documentBean" class="io.github.carlos_emr.DocumentBean" scope="request"/>
-
 <%
-    JdbcBillingRAImpl dbObj = new JdbcBillingRAImpl();
-    Properties propRt = new Properties();
-
-    String nowDate = "";
-
-    String filepath = "", filename = "", header = "", headerCount = "", total = "", paymentdate = "", payable = "", totalStatus = "", deposit = ""; //request.getParameter("filename");
-    String transactiontype = "", providerno = "", specialty = "", account = "", patient_last = "", patient_first = "", provincecode = "", newhin = "", hin = "", ver = "", billtype = "", location = "";
-    String servicedate = "", serviceno = "", servicecode = "", amountsubmit = "", amountpay = "", amountpaysign = "", explain = "", error = "";
-    String proFirst = "", proLast = "", demoFirst = "", demoLast = "", apptDate = "", apptTime = "", checkAccount = "", strcount = "", strtCount = "";
-    String balancefwd = "", abf_ca = "", abf_ad = "", abf_re = "", abf_de = "";
-    String transaction = "", trans_code = "", cheque_indicator = "", trans_date = "", trans_amount = "", trans_message = "";
-    String message = "", message_txt = "";
-    String xml_ra = "";
-
-    int accountno = 0, totalsum = 0, txFlag = 0, recFlag = 0, flag = 0, payFlag = 0, count = 0, tCount = 0, amountPaySum = 0, amountSubmitSum = 0;
-    String raNo = "";
-
-    ResultSet rslocal;
-    filename = documentBean.getFilename();
-
-    if (!filename.equals("")) {
-
-        CarlosProperties props = CarlosProperties.getInstance();
-        filepath = props.getProperty("DOCUMENT_DIR", "").trim(); //"/usr/local/OscarDocument/" + url +"/document/";
-        dbObj.importRAFile(filepath + filename);
+    // Defensive top-of-page model resolver. The canonical entrypoint is
+    // billing/CA/ON/ViewOnGenRA which assembles the model up front; any
+    // forward that lands here directly gets the privilege check + assembler
+    // re-run inline so the body can stay 100% EL.
+    if (request.getAttribute("onGenRAModel") == null) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        SecurityInfoManager sec = SpringUtils.getBean(SecurityInfoManager.class);
+        if (!sec.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+        request.setAttribute("onGenRAModel",
+                new OnGenRADataAssembler().assemble(request));
     }
 %>
-
-
+<fmt:setBundle basename="oscarResources"/>
 <html>
 <head>
     <title><fmt:message key="admin.admin.btnBillingReconciliation"/></title>
-    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
 
     <script language="JavaScript">
         <!--
@@ -159,63 +129,35 @@
         </tr>
         </thead>
         <tbody>
-        <%
-
-            List aL;
-
-            if (isTeamBillingOnly || isTeamAccessPrivacy) {
-                aL = dbObj.getTeamRahd("D", (String) session.getAttribute("user"));
-            } else if (isSiteAccessPrivacy) {
-                aL = dbObj.getSiteRahd("D", (String) session.getAttribute("user"));
-            } else {
-                aL = dbObj.getAllRahd("D");
-            }
-
-            for (int i = 0; i < aL.size(); i++) {
-                Properties pro = (Properties) aL.get(i);
-                raNo = pro.getProperty("raheader_no");
-                nowDate = pro.getProperty("readdate");
-                paymentdate = pro.getProperty("paymentdate");
-                payable = pro.getProperty("payable");
-                strcount = pro.getProperty("claims");
-                strtCount = pro.getProperty("records");
-                total = pro.getProperty("totalamount");
-                String status = pro.getProperty("status");
-        %>
-
-        <tr <%=i % 2 == 0 ? "class='myGreen'" : "class='myIvory'"%>>
-            <td><%=nowDate%>
-            </td>
-            <td align="center"><%=paymentdate%>
-            </td>
-            <td><%=payable%>
-            </td>
-            <td align="center"><%=strcount%>/<%=strtCount%>
-            </td>
-            <td align="right"><%=total%>
-            </td>
-            <td align="center"><a
-                    href="<%= request.getContextPath() %>/billing/CA/ON/ViewOnGenRAError?rano=<%=raNo%>&proNo="
-                    target="_blank">Error</a> | <a href="#" onclick="postTo('<%= request.getContextPath() %>/billing/CA/ON/ViewOnGenRASummary','<%=raNo%>','_blank');return false;">Summary</a>|
-                    <a href="#" onclick="postTo('<%= request.getContextPath() %>/billing/CA/ON/ViewGenRADesc','<%=raNo%>','_blank');return false;">Report</a></td>
-            <td><%
-                String ctxPath = request.getContextPath();
-                String settleUrl = ctxPath + "/billing/CA/ON/ViewOnGenRAsettle";
-                String settle35Url = ctxPath + "/billing/CA/ON/ViewOnGenRAsettle35";
-                if (status.compareTo("N") == 0) {
-            %>
-                <a href="#" onclick="checkReconcile('<%=settleUrl%>','<%=raNo%>')">Settle</a>
-                <a href="#" onclick="checkReconcile('<%=settle35Url%>','<%=raNo%>')">S35</a>
-            <% } else if (status.compareTo("S") == 0) { %>
-                <a href="#" onclick="checkReconcile('<%=settle35Url%>','<%=raNo%>')">S35</a>
-            <% } else { %>
-                Processed
-            <% } %>
-            </td>
-        </tr>
-        <%
-            }
-        %>
+        <c:forEach var="row" items="${onGenRAModel.rows}" varStatus="rs">
+            <tr class="${rs.index % 2 == 0 ? 'myGreen' : 'myIvory'}">
+                <td><carlos:encode value="${row.readDate}" context="html"/></td>
+                <td align="center"><carlos:encode value="${row.paymentDate}" context="html"/></td>
+                <td><carlos:encode value="${row.payable}" context="html"/></td>
+                <td align="center"><carlos:encode value="${row.claimsCount}" context="html"/>/<carlos:encode value="${row.recordsCount}" context="html"/></td>
+                <td align="right"><carlos:encode value="${row.total}" context="html"/></td>
+                <td align="center">
+                    <a href="${pageContext.request.contextPath}/billing/CA/ON/ViewOnGenRAError?rano=<carlos:encode value='${row.raNo}' context='uriComponent'/>&proNo="
+                       target="_blank">Error</a>
+                    | <a href="#" onclick="postTo('${pageContext.request.contextPath}/billing/CA/ON/ViewOnGenRASummary','<carlos:encode value="${row.raNo}" context="javaScript"/>','_blank');return false;">Summary</a>
+                    | <a href="#" onclick="postTo('${pageContext.request.contextPath}/billing/CA/ON/ViewGenRADesc','<carlos:encode value="${row.raNo}" context="javaScript"/>','_blank');return false;">Report</a>
+                </td>
+                <td>
+                    <c:choose>
+                        <c:when test="${row.status == 'N'}">
+                            <a href="#" onclick="checkReconcile('${pageContext.request.contextPath}/billing/CA/ON/ViewOnGenRAsettle','<carlos:encode value="${row.raNo}" context="javaScript"/>')">Settle</a>
+                            <a href="#" onclick="checkReconcile('${pageContext.request.contextPath}/billing/CA/ON/ViewOnGenRAsettle35','<carlos:encode value="${row.raNo}" context="javaScript"/>')">S35</a>
+                        </c:when>
+                        <c:when test="${row.status == 'S'}">
+                            <a href="#" onclick="checkReconcile('${pageContext.request.contextPath}/billing/CA/ON/ViewOnGenRAsettle35','<carlos:encode value="${row.raNo}" context="javaScript"/>')">S35</a>
+                        </c:when>
+                        <c:otherwise>
+                            Processed
+                        </c:otherwise>
+                    </c:choose>
+                </td>
+            </tr>
+        </c:forEach>
         </tbody>
     </table>
 </div>
