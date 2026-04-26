@@ -31,5 +31,8 @@ RUN chmod 755 /scripts
 RUN dos2unix /docker-entrypoint-initdb.d/populate_db.sh
 RUN dos2unix /database/mysql/*.sh
 
+# Create required directories for MariaDB init and set permissions
+RUN mkdir -p /var/lib/OscarDocument && chown -R mysql:mysql /var/lib/OscarDocument
+
 # Ports
 EXPOSE 3306
