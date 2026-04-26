@@ -285,7 +285,7 @@
                                         selected = " selected=\"selected\" ";
                                     }
                             %>
-                            <option value="<%= Encode.forHtmlAttribute(provider.getProviderNo()) %>" <%= selected %>><%= Encode.forHtml(provider.getFormattedName()) %>
+                            <option value="<%= SafeEncode.forHtmlAttribute(provider.getProviderNo()) %>" <%= selected %>><%= SafeEncode.forHtml(provider.getFormattedName()) %>
                             </option>
                             <%
                                 }
@@ -362,7 +362,7 @@
                                         selected = " selected=\"selected\" ";
                                     }
                             %>
-                            <option value="<%= Encode.forHtmlAttribute(String.valueOf(c.getCode())) %>" <%=selected%>><%= Encode.forHtml(String.valueOf(c.getCode())) %> - <%= Encode.forHtml(c.getDescription()) %>
+                            <option value="<%= SafeEncode.forHtmlAttribute(String.valueOf(c.getCode())) %>" <%=selected%>><%= SafeEncode.forHtml(String.valueOf(c.getCode())) %> - <%= SafeEncode.forHtml(c.getDescription()) %>
                             </option>
                             <%
                                 }
@@ -414,12 +414,12 @@
                                 NextAppointmentSearchResult result = results.get(x);
                         %>
                         <tr
-                         onclick="selectSlot('<%= Encode.forJavaScript(result.getProviderNo()) %>','<%= result.getYear() %>','<%= result.getMonth() %>','<%= result.getDay() %>','<%= Encode.forJavaScript(result.getStartTime()) %>','<%= Encode.forJavaScript(result.getEndTime()) %>','<%= result.getDuration() %>');">
+                         onclick="selectSlot('<%= SafeEncode.forJavaScript(result.getProviderNo()) %>','<%= result.getYear() %>','<%= result.getMonth() %>','<%= result.getDay() %>','<%= SafeEncode.forJavaScript(result.getStartTime()) %>','<%= SafeEncode.forJavaScript(result.getEndTime()) %>','<%= result.getDuration() %>');">
                             <td><%= dayFormatter.format(result.getDate()) %>
                             </td>
                             <td><%= timeFormatter.format(result.getDate()) %>
                             </td>
-                            <td><%= Encode.forHtml(result.getProvider().getFormattedName()) %>
+                            <td><%= SafeEncode.forHtml(result.getProvider().getFormattedName()) %>
                             </td>
                         </tr>
                         <% } %>
