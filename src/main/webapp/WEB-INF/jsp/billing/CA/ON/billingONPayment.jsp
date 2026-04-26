@@ -70,7 +70,7 @@
                 && !__secMgr.hasPrivilege(loggedInInfo, "_admin.billing", "r", null);
         try {
             request.setAttribute("paymentModel", new BillingONPaymentDataAssembler().assemble(
-                    request, loggedInInfo.getLoggedInProviderNo(),
+                    request, loggedInInfo,
                     __isThisProviderOnly, __isTeamBillingOnly));
         } catch (SecurityException __secEx) {
             io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(

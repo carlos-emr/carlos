@@ -21,7 +21,7 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-package io.github.carlos_emr.carlos.billings.ca.on.data;
+package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -46,6 +46,10 @@ import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONHeaderDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONDiskName;
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONFilename;
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONHeader;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingBatchHeaderData;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
+import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONItemDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
@@ -65,7 +69,32 @@ import io.github.carlos_emr.carlos.providers.data.ProviderBillCenter;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import org.owasp.encoder.Encode;
 
-public class JdbcBillingCreateBillingFile {
+/**
+ * OHIP claim-file generator for the ON billing module. Writes the
+ * fixed-width MOH-format claim file (text disk image) plus a parallel
+ * HTML preview / record of every claim, item, and reciprocal row in a
+ * batch. Persists the {@code billing_on_header} batch summary, the
+ * {@code billing_on_filename} disk-creation log entry, and updates each
+ * {@code billing_on_cheader1} status as it iterates.
+ *
+ * <p>Side-effect heavy by nature: file I/O, multiple DAO writes,
+ * audit-trail emission. Strictly belongs in {@code service/} per the
+ * package-info contract — replaces the legacy
+ * {@code JdbcBillingCreateBillingFile} that lived in {@code data/}.</p>
+ *
+ * <p>Used by:</p>
+ * <ul>
+ *   <li>{@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOHIPSimulationDataAssembler}
+ *       — dry-run preview ({@code eFlag="0"}).</li>
+ *   <li>{@link OnBillingDiskService} — actual disk creation /
+ *       regeneration ({@code eFlag="1"}).</li>
+ *   <li>{@code ViewOngenreport2Action} / {@code ViewOnregenreport2Action}
+ *       — gate actions for the two report-generation pages.</li>
+ * </ul>
+ *
+ * @since 2026-04-26
+ */
+public class OhipClaimFileService {
 
     private static final Logger _logger = MiscUtils.getLogger();
 
@@ -134,7 +163,7 @@ public class JdbcBillingCreateBillingFile {
         return "popupPage(" + w + "," + h + "," + APOS + url + APOS + ");return false;";
     }
 
-    public JdbcBillingCreateBillingFile() {
+    public OhipClaimFileService() {
         formatter = new SimpleDateFormat("yyyyMMdd"); // yyyyMMddHmm");
         today = new java.util.Date();
         output = formatter.format(today);

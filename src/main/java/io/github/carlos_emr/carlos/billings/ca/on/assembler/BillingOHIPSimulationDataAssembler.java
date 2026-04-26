@@ -24,7 +24,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingBatchHeaderData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingOHIPSimulationViewModel;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingCreateBillingFile;
+import io.github.carlos_emr.carlos.billings.ca.on.service.OhipClaimFileService;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil;
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -40,7 +40,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingReviewPrep;
  * <p>Owns the form-defaulting logic (provider, date range, multisite flag,
  * health-office lookup) and the "Create Report" mutation branch the legacy
  * JSP performed inline. The Create Report path runs
- * {@link JdbcBillingCreateBillingFile} with {@code eFlag="0"} (dry run);
+ * {@link OhipClaimFileService} with {@code eFlag="0"} (dry run);
  * the resulting HTML preview is exposed to the JSP via the model's
  * {@code previewHtml} property.</p>
  *
@@ -160,7 +160,7 @@ public final class BillingOHIPSimulationDataAssembler {
             groupNo = "0000";
         }
 
-        JdbcBillingCreateBillingFile dbObj = new JdbcBillingCreateBillingFile();
+        OhipClaimFileService dbObj = new OhipClaimFileService();
         dbObj.setContextPath(request.getContextPath());
         dbObj.setEFlag("0");
         dbObj.setDateRange(dateRange);
@@ -234,7 +234,7 @@ public final class BillingOHIPSimulationDataAssembler {
                 groupNo = "0000";
             }
 
-            JdbcBillingCreateBillingFile dbObj = new JdbcBillingCreateBillingFile();
+            OhipClaimFileService dbObj = new OhipClaimFileService();
             dbObj.setContextPath(request.getContextPath());
             dbObj.setEFlag("0");
             dbObj.setDateRange(dateRange);

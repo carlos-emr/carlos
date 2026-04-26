@@ -27,7 +27,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.OnBillingDiskService;
 /**
  * Mutation gate for {@code billing/CA/ON/ongenreport.jsp}. The legacy JSP
  * iterated providers (solo + group), used {@link BillingDiskCreatePrep} +
- * {@link io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingCreateBillingFile}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.service.OhipClaimFileService}
  * to write the MOH disk/billing files, then {@code <jsp:forward>}'d to
  * {@code ViewBillingONMRI}. The full disk-creation pass now lives in
  * {@link OnBillingDiskService#generateNewDisk}; this action enforces

@@ -56,11 +56,10 @@
                 __loggedInInfo, "_site_access_privacy", "r", null);
         boolean __teamAccess = __secMgr.hasPrivilege(
                 __loggedInInfo, "_team_access_privacy", "r", null);
-        String __userNo = (String) session.getAttribute("user");
         request.setAttribute("simulationModel",
                 new BillingOHIPSimulationDataAssembler().assemble(
                         request, __loggedInInfo, __teamBilling, __siteAccess,
-                        __teamAccess, __userNo));
+                        __teamAccess));
     }
 %>
 <html>

@@ -26,7 +26,6 @@ import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingClaimImpl;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingCreateBillingFile;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.providers.data.ProviderBillCenter;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -41,7 +40,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingDiskCreatePrep
  * {@code ongenreport.jsp} (new disk for current period) and
  * {@code onregenreport.jsp} (regenerate an existing disk by id). Both pages
  * iterated providers, used {@link BillingDiskCreatePrep} +
- * {@link JdbcBillingCreateBillingFile} to write OHIP/HTML disk files, and
+ * {@link OhipClaimFileService} to write OHIP/HTML disk files, and
  * {@code <jsp:forward>}'d to {@code ViewBillingONMRI}.
  *
  * @since 2026-04-26
@@ -126,7 +125,7 @@ public final class OnBillingDiskService {
                     defaultMOH);
             int headerId = prep.updateBatchHeader(dataProvider, diskId, resolvedMoh, "1",
                     currentUser);
-            JdbcBillingCreateBillingFile objFile = newFileWriter(request, dateRange,
+            OhipClaimFileService objFile = newFileWriter(request, dateRange,
                     dataProvider.getProviderNo(),
                     prep.getOhipfilename(Integer.parseInt(diskId)),
                     prep.getHtmlfilename(Integer.parseInt(diskId), dataProvider.getProviderNo()));
@@ -171,7 +170,7 @@ public final class OnBillingDiskService {
             int diskId = prep.createNewSoloDiskName(dataProvider.getProviderNo(), currentUser);
             int headerId = createSoloHeader(prep, dataProvider, diskId, oriBillCenter, mohOffice,
                     currentUser);
-            JdbcBillingCreateBillingFile objFile = newFileWriter(request, dateRange,
+            OhipClaimFileService objFile = newFileWriter(request, dateRange,
                     dataProvider.getProviderNo(),
                     prep.getOhipfilename(diskId),
                     prep.getHtmlfilename(diskId, dataProvider.getProviderNo()));
@@ -217,7 +216,7 @@ public final class OnBillingDiskService {
                     loggedInInfo, request, dateRange, mohOffice, useProviderMOH, currentUser,
                     oriBillCenter);
             if (aggregatedClaim != null) {
-                JdbcBillingCreateBillingFile finalize = new JdbcBillingCreateBillingFile();
+                OhipClaimFileService finalize = new OhipClaimFileService();
                 finalize.setContextPath(request.getContextPath());
                 finalize.setOhipFilename(prep.getOhipfilename(diskId));
                 finalize.writeFile(aggregatedClaim);
@@ -236,7 +235,7 @@ public final class OnBillingDiskService {
         for (int i = 0; i < grpProviders.size(); i++) {
             BillingProviderData dataProvider = grpProviders.get(i);
             if (!groupNo.equals(dataProvider.getBillingGroupNo())) continue;
-            JdbcBillingCreateBillingFile objFile = newFileWriter(request, dateRange,
+            OhipClaimFileService objFile = newFileWriter(request, dateRange,
                     dataProvider.getProviderNo(),
                     prep.getOhipfilename(diskId),
                     prep.getHtmlfilename(diskId, dataProvider.getProviderNo()));
@@ -260,7 +259,7 @@ public final class OnBillingDiskService {
         int diskId = prep.createNewSoloDiskName(dataProvider.getProviderNo(), currentUser);
         int headerId = prep.createBatchHeader(dataProvider, "" + diskId, mohOffice, "1",
                 currentUser);
-        JdbcBillingCreateBillingFile objFile = newFileWriter(request, dateRange,
+        OhipClaimFileService objFile = newFileWriter(request, dateRange,
                 dataProvider.getProviderNo(),
                 prep.getOhipfilename(diskId),
                 prep.getHtmlfilename(diskId, dataProvider.getProviderNo()));
@@ -277,10 +276,10 @@ public final class OnBillingDiskService {
                                       DateRange dateRange, String mohOffice, String diskId,
                                       String currentUser) {
         StringBuilder value = new StringBuilder();
-        JdbcBillingCreateBillingFile lastWriter = null;
+        OhipClaimFileService lastWriter = null;
         for (int i = 0; i < lProvider.size(); i++) {
             BillingProviderData dataProvider = lProvider.get(i);
-            JdbcBillingCreateBillingFile objFile = newFileWriter(request, dateRange,
+            OhipClaimFileService objFile = newFileWriter(request, dateRange,
                     dataProvider.getProviderNo(),
                     prep.getOhipfilename(Integer.parseInt(diskId)),
                     prep.getHtmlfilename(Integer.parseInt(diskId), dataProvider.getProviderNo()));
@@ -326,12 +325,12 @@ public final class OnBillingDiskService {
         return (billCenter != null && billCenter.length() == 1) ? billCenter : defaultMOH;
     }
 
-    private static JdbcBillingCreateBillingFile newFileWriter(HttpServletRequest request,
+    private static OhipClaimFileService newFileWriter(HttpServletRequest request,
                                                                DateRange dateRange,
                                                                String providerNo,
                                                                String ohipFilename,
                                                                String htmlFilename) {
-        JdbcBillingCreateBillingFile objFile = new JdbcBillingCreateBillingFile();
+        OhipClaimFileService objFile = new OhipClaimFileService();
         objFile.setContextPath(request.getContextPath());
         objFile.setDateRange(dateRange);
         objFile.setProviderNo(providerNo);

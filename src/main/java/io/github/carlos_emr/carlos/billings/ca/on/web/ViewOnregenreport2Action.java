@@ -28,7 +28,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.OnBillingDiskService;
  * Mutation gate for {@code billing/CA/ON/onregenreport.jsp}. The legacy JSP
  * regenerated an existing MOH disk (keyed by {@code diskId}) by calling
  * {@link BillingDiskCreatePrep} and
- * {@link io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingCreateBillingFile}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.service.OhipClaimFileService}
  * to rewrite the OHIP claim file + HTML preview, then forwarded to
  * {@code ViewBillingONMRI}. The regeneration logic now lives in
  * {@link OnBillingDiskService#regenerateDisk}; this action enforces
