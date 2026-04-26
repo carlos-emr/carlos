@@ -14,6 +14,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import io.github.carlos_emr.carlos.billings.ca.on.data.ManageBillingformBilltypeViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -28,11 +29,29 @@ import org.apache.struts2.ServletActionContext;
  * to gate direct-access paths behind Struts2 actions (same pattern as
  * PR #1632 for BC billing).
  *
+ * <p>Also assembles the {@link ManageBillingformBilltypeViewModel} on the
+ * request as {@code billtypeModel} so the JSP body can render in pure EL
+ * (drained from 15 scriptlets in the round-2 billing-form refactor).</p>
+ *
  * @since 2026-04-13
  */
 public final class ManageBillingformBilltype2Action extends ActionSupport {
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final SecurityInfoManager securityInfoManager;
+    private final ManageBillingformBilltypeDataAssembler assembler;
+
+    /** Production constructor used by Struts2's Spring object factory. */
+    public ManageBillingformBilltype2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class),
+             new ManageBillingformBilltypeDataAssembler());
+    }
+
+    /** Test-friendly constructor — call with mocks. Package-private. */
+    ManageBillingformBilltype2Action(SecurityInfoManager securityInfoManager,
+                                     ManageBillingformBilltypeDataAssembler assembler) {
+        this.securityInfoManager = securityInfoManager;
+        this.assembler = assembler;
+    }
 
     @Override
     public String execute() throws Exception {
@@ -43,6 +62,7 @@ public final class ManageBillingformBilltype2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin.billing)");
         }
 
+        request.setAttribute("billtypeModel", assembler.assemble(request));
         return SUCCESS;
     }
 }

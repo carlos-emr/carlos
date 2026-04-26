@@ -30,35 +30,48 @@
 --%>
 
 
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ page import="java.math.*, java.util.*, java.io.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.CtlBillingType" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingTypeDao" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.ManageBillingformBilltypeViewModel" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ManageBillingformBilltypeDataAssembler" %>
+<fmt:setBundle basename="oscarResources"/>
+
+<%--
+  Defensive model-resolver: ensures ${billtypeModel} is set on the request even
+  when this fragment is reached without going through
+  ManageBillingformBilltype2Action. The action's _admin.billing w privilege
+  check is duplicated here for parity.
+--%>
 <%
-    CtlBillingTypeDao ctlBillingTypeDao = SpringUtils.getBean(CtlBillingTypeDao.class);
-%>
-
-
-<%
-    String type_id = "", type_name = "", billtype = "no";
-    type_id = request.getParameter("type_id");
-    type_name = request.getParameter("type_name");
-
-    for (CtlBillingType cbt : ctlBillingTypeDao.findByServiceType(type_id)) {
-        billtype = cbt.getBillType();
+    if (request.getAttribute("billtypeModel") == null) {
+        io.github.carlos_emr.carlos.utility.LoggedInInfo loggedInInfo =
+                io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("manageBillingform_billtype.jsp fallback: missing session");
+        }
+        io.github.carlos_emr.carlos.managers.SecurityInfoManager __secMgr;
+        try {
+            __secMgr = io.github.carlos_emr.carlos.utility.SpringUtils.getBean(
+                    io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+        } catch (RuntimeException __springEx) {
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
+                    "manageBillingform_billtype.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
+            throw new SecurityException("manageBillingform_billtype.jsp fallback: privilege check unavailable", __springEx);
+        }
+        if (!__secMgr.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
+            throw new SecurityException("manageBillingform_billtype.jsp fallback: missing required sec object (_admin.billing)");
+        }
+        request.setAttribute("billtypeModel",
+                new ManageBillingformBilltypeDataAssembler().assemble(request));
     }
-
 %>
 
 <table width=95%>
     <tr>
-        <td class="black" width="15%"><carlos:encode value='<%= type_id %>' context="html"/>
+        <td class="black" width="15%"><carlos:encode value='${billtypeModel.typeId}' context="html"/>
         </td>
-        <td class="black" height="30"><carlos:encode value='<%= type_name %>' context="html"/>
+        <td class="black" height="30"><carlos:encode value='${billtypeModel.typeName}' context="html"/>
         </td>
     </tr>
     <tr>
@@ -67,32 +80,32 @@
             <p>&nbsp;<br>
                 <fmt:message key="billing.manageBillingform_add.formDefaultBillType"/>
                 :<br>
-                <input type="hidden" name="bill_servicetype" value="<carlos:encode value='<%= type_id %>' context="htmlAttribute"/>">
-                <input type="hidden" name="billtype_old" value="<carlos:encode value='<%= billtype %>' context="htmlAttribute"/>">
+                <input type="hidden" name="bill_servicetype" value="<carlos:encode value='${billtypeModel.typeId}' context="htmlAttribute"/>">
+                <input type="hidden" name="billtype_old" value="<carlos:encode value='${billtypeModel.billType}' context="htmlAttribute"/>">
                 <select name="billtype_new">
-                    <option value="no" <%=billtype.equals("no") ? "selected" : ""%>>--
+                    <option value="no" <c:if test="${billtypeModel.billType eq 'no'}">selected</c:if>>--
                         no --
                     </option>
-                    <option value="ODP" <%=billtype.equals("ODP") ? "selected" : ""%>>Bill
+                    <option value="ODP" <c:if test="${billtypeModel.billType eq 'ODP'}">selected</c:if>>Bill
                         OHIP
                     </option>
-                    <option value="WCB" <%=billtype.equals("WCB") ? "selected" : ""%>>WSIB</option>
-                    <option value="NOT" <%=billtype.equals("NOT") ? "selected" : ""%>>Do
+                    <option value="WCB" <c:if test="${billtypeModel.billType eq 'WCB'}">selected</c:if>>WSIB</option>
+                    <option value="NOT" <c:if test="${billtypeModel.billType eq 'NOT'}">selected</c:if>>Do
                         Not Bill
                     </option>
-                    <option value="IFH" <%=billtype.equals("IFH") ? "selected" : ""%>>IFH</option>
-                    <option value="PAT" <%=billtype.equals("PAT") ? "selected" : ""%>>3rd
+                    <option value="IFH" <c:if test="${billtypeModel.billType eq 'IFH'}">selected</c:if>>IFH</option>
+                    <option value="PAT" <c:if test="${billtypeModel.billType eq 'PAT'}">selected</c:if>>3rd
                         Party
                     </option>
-                    <option value="OCF" <%=billtype.equals("OCF") ? "selected" : ""%>>-OCF</option>
-                    <option value="ODS" <%=billtype.equals("ODS") ? "selected" : ""%>>-ODSP</option>
-                    <option value="CPP" <%=billtype.equals("CPP") ? "selected" : ""%>>-CPP</option>
-                    <option value="STD" <%=billtype.equals("STD") ? "selected" : ""%>>-STD/LTD</option>
+                    <option value="OCF" <c:if test="${billtypeModel.billType eq 'OCF'}">selected</c:if>>-OCF</option>
+                    <option value="ODS" <c:if test="${billtypeModel.billType eq 'ODS'}">selected</c:if>>-ODSP</option>
+                    <option value="CPP" <c:if test="${billtypeModel.billType eq 'CPP'}">selected</c:if>>-CPP</option>
+                    <option value="STD" <c:if test="${billtypeModel.billType eq 'STD'}">selected</c:if>>-STD/LTD</option>
                 </select> <input type="button" value="Change"
                                  onclick="manageBillType(bill_servicetype.value, billtype_old.value, billtype_new.value);"><br>
             </p>
             <p><input type="button" value="Delete Billing Form"
-                      onclick="onUnbilled('<carlos:encode value='<%= type_id %>' context="javaScriptAttribute"/>');">
+                      onclick="onUnbilled('<carlos:encode value='${billtypeModel.typeId}' context="javaScriptAttribute"/>');">
             <p><input type="button" value="Cancel"
                       onclick="showManageType(false);"></p>
         </td>
