@@ -15,6 +15,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingEditWithApptNoViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -23,9 +24,15 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * Mutation gate for {@code billing/CA/ON/billingEditWithApptNo.jsp}. Enforces {@code _billing}
- * w privilege AND POST-only before forwarding to the JSP. GET requests return
- * 405 Method Not Allowed.
+ * Mutation gate for {@code billing/CA/ON/billingEditWithApptNo.jsp}. Enforces
+ * {@code _billing} w privilege AND POST-only before forwarding to the JSP.
+ * GET requests return 405 Method Not Allowed.
+ *
+ * <p>Also assembles a {@link BillingEditWithApptNoViewModel} via
+ * {@link BillingEditWithApptNoDataAssembler}, exposing it to the JSP as
+ * request attribute {@code editApptModel}. This drains the JSP body of
+ * the scriptlet that pulled bill / item state inline and computed the
+ * per-line-item hidden-field projection.</p>
  *
  * @since 2026-04-13
  */
@@ -47,6 +54,9 @@ public final class BillingEditWithApptNo2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
+
+        BillingEditWithApptNoViewModel model = new BillingEditWithApptNoDataAssembler().assemble(request);
+        request.setAttribute("editApptModel", model);
 
         return SUCCESS;
     }
