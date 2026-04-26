@@ -56,7 +56,7 @@ public final class BillingEditWithApptNo2Action extends ActionSupport {
             return NONE;
         }
 
-        BillingEditWithApptNoViewModel model = new BillingEditWithApptNoDataAssembler().assemble(request);
+        BillingEditWithApptNoViewModel model = new BillingEditWithApptNoDataAssembler().assemble(request, loggedInInfo);
         request.setAttribute("editApptModel", model);
 
         return SUCCESS;

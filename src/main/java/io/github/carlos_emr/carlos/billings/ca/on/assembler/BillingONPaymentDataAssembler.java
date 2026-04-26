@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.commn.model.RaDetail;
 import io.github.carlos_emr.carlos.commn.service.BillingONService;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.utility.LocaleUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.web.BillingONPayment2Action;
@@ -128,9 +129,10 @@ public final class BillingONPaymentDataAssembler {
      *         translate this exception as needed
      */
     public BillingONPaymentViewModel assemble(HttpServletRequest request,
-                                              String curProviderNo,
+                                              LoggedInInfo loggedInInfo,
                                               boolean isThisProviderOnly,
                                               boolean isTeamBillingOnly) {
+        String curProviderNo = loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo();
         Locale locale = request.getLocale();
         Calendar cal = Calendar.getInstance();
         String today = DateUtils.formatDate(cal, locale);

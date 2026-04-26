@@ -57,9 +57,8 @@
         if (!__secMgr.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("billingShortcutPg2.jsp fallback: missing required sec object (_billing)");
         }
-        String __userNo = (String) request.getSession().getAttribute("user");
         request.setAttribute("shortcutPg2Model",
-                new BillingShortcutPg2DataAssembler().assemble(request, __userNo));
+                new BillingShortcutPg2DataAssembler().assemble(request, loggedInInfo));
     }
 %>
 

@@ -93,7 +93,7 @@ public final class Add3rdPartyPayment2Action extends ActionSupport {
 
         // Build the view model up front so re-render results see a populated
         // correctionModel (mirrors UpdateBillingONCorrection2Action).
-        request.setAttribute("correctionModel", assembler.assemble(loggedInInfo, request));
+        request.setAttribute("correctionModel", assembler.assemble(request, loggedInInfo));
 
         return service.addThirdPartyPayment(loggedInInfo, request);
     }

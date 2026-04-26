@@ -17,6 +17,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.carlos.billings.ca.on.data.ManageBillingformBilltypeViewModel;
 import io.github.carlos_emr.carlos.commn.dao.CtlBillingTypeDao;
 import io.github.carlos_emr.carlos.commn.model.CtlBillingType;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
@@ -49,7 +50,7 @@ public final class ManageBillingformBilltypeDataAssembler {
      * @param request live request — supplies {@code type_id} and {@code type_name}
      * @return populated view model with {@code billType="no"} when none persisted
      */
-    public ManageBillingformBilltypeViewModel assemble(HttpServletRequest request) {
+    public ManageBillingformBilltypeViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
         String typeId = request.getParameter("type_id");
         String typeName = request.getParameter("type_name");
         String billType = "no";

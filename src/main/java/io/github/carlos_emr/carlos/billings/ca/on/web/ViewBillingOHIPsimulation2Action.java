@@ -72,10 +72,9 @@ public final class ViewBillingOHIPsimulation2Action extends ActionSupport {
         boolean teamAccessPrivacy = securityInfoManager.hasPrivilege(
                 loggedInInfo, "_team_access_privacy", "r", null);
 
-        String userNo = (String) request.getSession().getAttribute("user");
         BillingOHIPSimulationViewModel model = new BillingOHIPSimulationDataAssembler()
                 .assemble(request, loggedInInfo, teamBillingOnly,
-                        siteAccessPrivacy, teamAccessPrivacy, userNo);
+                        siteAccessPrivacy, teamAccessPrivacy);
         request.setAttribute("simulationModel", model);
 
         return SUCCESS;

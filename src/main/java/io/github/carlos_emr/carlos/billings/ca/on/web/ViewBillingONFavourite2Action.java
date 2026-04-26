@@ -61,9 +61,8 @@ public final class ViewBillingONFavourite2Action extends ActionSupport {
             }
         }
 
-        String userNo = (String) request.getSession().getAttribute("user");
         BillingONFavouriteViewModel model = new BillingONFavouriteDataAssembler()
-                .assemble(request, userNo);
+                .assemble(request, loggedInInfo);
         request.setAttribute("favouriteModel", model);
 
         return SUCCESS;

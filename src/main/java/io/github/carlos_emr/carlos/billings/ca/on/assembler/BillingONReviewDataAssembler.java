@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Site;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONRequestParams;
@@ -88,7 +89,7 @@ public final class BillingONReviewDataAssembler {
         this.validator = validator;
     }
 
-    public BillingONReviewViewModel assemble(HttpServletRequest request) {
+    public BillingONReviewViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
         String dxCode = nullToEmpty(request.getParameter("dxCode"));
         String demoNo = nullToEmpty(request.getParameter("demographic_no"));
 
@@ -118,11 +119,12 @@ public final class BillingONReviewDataAssembler {
         b.providerNameLookup(providerNames);
 
         populateRequestParamEchoes(request, b);
-        b.loggedInUserNo(nullToEmpty((String) request.getSession().getAttribute("user")));
+        String loggedInUserNo = loggedInInfo == null ? "" : nullToEmpty(loggedInInfo.getLoggedInProviderNo());
+        b.loggedInUserNo(loggedInUserNo);
         populateLabelFields(request, b);
         populateDemoHeader(request, b);
         populateServiceCodeAndPercRows(request, billRefDate, b, validation.codeValid());
-        populateBillingNotesAndPaymentInfo(request, b, validation.codeValid(), providerNames);
+        populateBillingNotesAndPaymentInfo(request, b, validation.codeValid(), providerNames, loggedInUserNo);
         populateAllRequestParams(request, b);
 
         return b.build();
@@ -456,7 +458,8 @@ public final class BillingONReviewDataAssembler {
     private void populateBillingNotesAndPaymentInfo(HttpServletRequest request,
                                                     BillingONReviewViewModel.Builder b,
                                                     boolean codeValid,
-                                                    Map<String, BillingONReviewViewModel.ProviderName> providerNames) {
+                                                    Map<String, BillingONReviewViewModel.ProviderName> providerNames,
+                                                    String loggedInUserNo) {
         String xmlBilltype = request.getParameter("xml_billtype");
         boolean publicPayer = xmlBilltype != null && xmlBilltype.matches("ODP.*|WCB.*|NOT.*|BON.*");
         boolean privatePayer = xmlBilltype != null && !publicPayer;
@@ -496,7 +499,7 @@ public final class BillingONReviewDataAssembler {
                 b.paymentTypes(Collections.emptyList());
             }
 
-            String clinicAddress = resolveClinicAddress(request, bMultisites);
+            String clinicAddress = resolveClinicAddress(request, bMultisites, loggedInUserNo);
             b.clinicAddress(clinicAddress);
 
             String providerNo = request.getParameter("xml_provider");
@@ -523,9 +526,9 @@ public final class BillingONReviewDataAssembler {
         }
     }
 
-    private String resolveClinicAddress(HttpServletRequest request, boolean bMultisites) {
+    private String resolveClinicAddress(HttpServletRequest request, boolean bMultisites, String loggedInUserNo) {
         try {
-            String userNo = (String) request.getSession().getAttribute("user");
+            String userNo = loggedInUserNo == null || loggedInUserNo.isEmpty() ? null : loggedInUserNo;
             RxProviderData.Provider provider = userNo == null ? null
                     : new RxProviderData().getProvider(userNo);
             String strClinicAddr;
@@ -543,8 +546,7 @@ public final class BillingONReviewDataAssembler {
             if (bMultisites) {
                 String siteName = request.getParameter("site");
                 SiteDao siteDao = SpringUtils.getBean(SiteDao.class);
-                List<Site> sites = siteDao.getActiveSitesByProviderNo(
-                        (String) request.getSession().getAttribute("user"));
+                List<Site> sites = siteDao.getActiveSitesByProviderNo(userNo);
                 Site s = ApptUtil.getSiteFromName(sites, siteName);
                 if (s == null) return strClinicAddr;
                 return s.getName() + "\n" + s.getAddress() + "\n"

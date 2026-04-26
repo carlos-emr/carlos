@@ -63,7 +63,7 @@
             throw new SecurityException("billingONReview.jsp fallback: missing required sec object (_billing)");
         }
         request.setAttribute("reviewModel",
-                new BillingONReviewDataAssembler().assemble(request));
+                new BillingONReviewDataAssembler().assemble(request, loggedInInfo));
     }
 %>
 

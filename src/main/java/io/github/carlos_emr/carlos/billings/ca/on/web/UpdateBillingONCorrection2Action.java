@@ -97,7 +97,7 @@ public final class UpdateBillingONCorrection2Action extends ActionSupport {
         // Build the view model up front so any result that forwards back to
         // billingONCorrection.jsp (success, closeReload, adminReload, loadOnly)
         // sees a populated correctionModel for EL bindings.
-        request.setAttribute("correctionModel", assembler.assemble(loggedInInfo, request));
+        request.setAttribute("correctionModel", assembler.assemble(request, loggedInInfo));
 
         return service.updateInvoice(loggedInInfo, request);
     }

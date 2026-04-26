@@ -63,7 +63,7 @@ public final class ManageBillingformBilltype2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin.billing)");
         }
 
-        request.setAttribute("billtypeModel", assembler.assemble(request));
+        request.setAttribute("billtypeModel", assembler.assemble(request, loggedInInfo));
         return SUCCESS;
     }
 }

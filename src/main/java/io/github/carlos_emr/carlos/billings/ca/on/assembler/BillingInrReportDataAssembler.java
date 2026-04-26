@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao;
 import io.github.carlos_emr.carlos.commn.model.ClinicLocation;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
@@ -65,7 +66,9 @@ public final class BillingInrReportDataAssembler {
         this.clinicLocationDao = clinicLocationDao;
     }
 
-    public BillingInrReportViewModel assemble(HttpServletRequest request, String userNo) {
+    public BillingInrReportViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
+        String userNo = loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null
+                ? "" : loggedInInfo.getLoggedInProviderNo();
         String providerView = request.getParameter("provider_no");
         if (providerView == null) {
             providerView = "";

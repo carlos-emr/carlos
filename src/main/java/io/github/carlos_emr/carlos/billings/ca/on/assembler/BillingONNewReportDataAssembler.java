@@ -33,6 +33,7 @@ import io.github.carlos_emr.carlos.commn.dao.SiteDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Site;
 import io.github.carlos_emr.carlos.login.DBHelp;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -77,9 +78,9 @@ public final class BillingONNewReportDataAssembler {
         this.siteDao = siteDao;
     }
 
-    public BillingONNewReportViewModel assemble(HttpServletRequest request) {
+    public BillingONNewReportViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
         boolean multisites = IsPropertiesOn.isMultisitesEnable();
-        String currentUser = (String) request.getSession().getAttribute("user");
+        String currentUser = loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo();
         String contextPath = request.getContextPath();
 
         String providerView = nullToDefault(request.getParameter("providerview"), "all");

@@ -64,7 +64,7 @@
             throw new SecurityException("addEditServiceCode.jsp fallback: missing required sec object (_admin.billing)");
         }
         request.setAttribute("addEditModel",
-                new AddEditServiceCodeDataAssembler().assemble(request));
+                new AddEditServiceCodeDataAssembler().assemble(request, loggedInInfo));
     }
 %>
 

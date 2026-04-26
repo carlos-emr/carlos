@@ -113,7 +113,7 @@ public class BillingCorrection2Action extends ActionSupport {
         }
 
         // Build the view model and render the form.
-        request.setAttribute("correctionModel", assembler.assemble(loggedInInfo, request));
+        request.setAttribute("correctionModel", assembler.assemble(request, loggedInInfo));
         return SUCCESS;
     }
 }

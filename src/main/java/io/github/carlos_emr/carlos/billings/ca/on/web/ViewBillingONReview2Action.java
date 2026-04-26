@@ -100,7 +100,7 @@ public final class ViewBillingONReview2Action extends ActionSupport {
         // standard error path rather than producing a misleadingly successful
         // review render with the patient unchanged in the registry.
         dxPersister.persistIfRequested(request, userNo);
-        this.reviewModel = assembler.assemble(request);
+        this.reviewModel = assembler.assemble(request, loggedInInfo);
         request.setAttribute("reviewModel", this.reviewModel);
 
         return SUCCESS;

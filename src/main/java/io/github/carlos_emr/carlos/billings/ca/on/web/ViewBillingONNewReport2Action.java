@@ -66,7 +66,7 @@ public final class ViewBillingONNewReport2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        model = new BillingONNewReportDataAssembler().assemble(request);
+        model = new BillingONNewReportDataAssembler().assemble(request, loggedInInfo);
         request.setAttribute("model", model);
 
         return SUCCESS;

@@ -46,7 +46,7 @@ public final class ViewBillingONEditPrivateCode2Action extends ActionSupport {
         }
 
         BillingONEditPrivateCodeViewModel model = new BillingONEditPrivateCodeDataAssembler()
-                .assemble(request);
+                .assemble(request, loggedInInfo);
         request.setAttribute("privateCodeModel", model);
 
         return SUCCESS;

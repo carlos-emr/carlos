@@ -62,9 +62,8 @@ public final class BillingShortcutPg2Save2Action extends ActionSupport {
             return "backToEdit";
         }
 
-        String userNo = (String) request.getSession().getAttribute("user");
         BillingShortcutPg2ViewModel model = new BillingShortcutPg2DataAssembler()
-                .assemble(request, userNo);
+                .assemble(request, loggedInInfo);
         request.setAttribute("shortcutPg2Model", model);
 
         return SUCCESS;

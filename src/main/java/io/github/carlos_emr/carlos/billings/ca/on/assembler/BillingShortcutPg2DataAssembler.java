@@ -40,6 +40,7 @@ import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingSavePrep;
@@ -109,7 +110,9 @@ public final class BillingShortcutPg2DataAssembler {
      * @return populated view model. The {@code postSaveAction} field tells the
      *         JSP what to render after the form body (close popup, redirect).
      */
-    public BillingShortcutPg2ViewModel assemble(HttpServletRequest request, String userNo) {
+    public BillingShortcutPg2ViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
+        String userNo = loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null
+                ? "" : loggedInInfo.getLoggedInProviderNo();
         BillingShortcutPg2ViewModel.Builder b = BillingShortcutPg2ViewModel.builder();
 
         Provider provider = providerDao.getProvider(request.getParameter("xml_provider"));

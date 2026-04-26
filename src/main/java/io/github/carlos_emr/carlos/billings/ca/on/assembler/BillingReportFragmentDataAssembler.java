@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReportFragmentView
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
@@ -74,7 +75,7 @@ public final class BillingReportFragmentDataAssembler {
      * @param reportAction one of "billed" / "unsettled" / "billob" / "flu"
      * @return populated view model
      */
-    public BillingReportFragmentViewModel assemble(HttpServletRequest request, String reportAction) {
+    public BillingReportFragmentViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo, String reportAction) {
         BillingReportFragmentViewModel.Builder b = BillingReportFragmentViewModel.builder();
         if (reportAction == null) return b.build();
 

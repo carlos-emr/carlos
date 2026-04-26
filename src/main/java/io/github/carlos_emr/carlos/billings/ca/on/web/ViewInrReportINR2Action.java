@@ -46,9 +46,8 @@ public final class ViewInrReportINR2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        String userNo = (String) request.getSession().getAttribute("user");
         BillingInrReportViewModel model = new BillingInrReportDataAssembler()
-                .assemble(request, userNo);
+                .assemble(request, loggedInInfo);
         request.setAttribute("reportInrModel", model);
 
         return SUCCESS;

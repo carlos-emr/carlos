@@ -55,7 +55,7 @@
             throw new SecurityException("genRASummaryDetail.jsp fallback: missing required sec object (_billing)");
         }
         request.setAttribute("raSummaryModel",
-                new GenRASummaryDataAssembler().assemble(request));
+                new GenRASummaryDataAssembler().assemble(request, loggedInInfo));
     }
 %>
 

@@ -103,7 +103,7 @@ public final class ViewBillingON2Action extends ActionSupport {
      * just succeeded.
      */
     private BillingONFormViewModel buildModel(LoggedInInfo loggedInInfo, HttpServletRequest request) {
-        return assembler.assemble(loggedInInfo, request);
+        return assembler.assemble(request, loggedInInfo);
     }
 
     public BillingONFormViewModel getModel() {

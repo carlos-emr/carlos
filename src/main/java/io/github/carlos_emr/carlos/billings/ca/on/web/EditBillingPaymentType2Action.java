@@ -68,7 +68,7 @@ public final class EditBillingPaymentType2Action extends ActionSupport {
             return NONE;
         }
 
-        request.setAttribute("paymentTypeModel", assembler.assemble(request));
+        request.setAttribute("paymentTypeModel", assembler.assemble(request, loggedInInfo));
         return SUCCESS;
     }
 }

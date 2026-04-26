@@ -310,24 +310,35 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
 
     @Override
     public List<BillingONExt> getBillingExtItems(String billingNo) {
+        Integer billingId = parseBillingNo(billingNo);
+        if (billingId == null) {
+            return java.util.Collections.emptyList();
+        }
         Query query = entityManager
                 .createQuery("select ext from BillingONExt ext where ext.billingNo = ?1 and ext.status='1' ");
-        try {
-            query.setParameter(1, Integer.parseInt(billingNo));
-            return query.getResultList();
-        } catch (Exception e) {
-            return null;
-        }
+        query.setParameter(1, billingId);
+        return query.getResultList();
     }
 
     @Override
     public List<BillingONExt> getInactiveBillingExtItems(String billingNo) {
+        Integer billingId = parseBillingNo(billingNo);
+        if (billingId == null) {
+            return java.util.Collections.emptyList();
+        }
         Query query = entityManager
                 .createQuery("select ext from BillingONExt ext where ext.billingNo = ?1 and ext.status='0' ");
+        query.setParameter(1, billingId);
+        return query.getResultList();
+    }
+
+    private static Integer parseBillingNo(String billingNo) {
+        if (billingNo == null || billingNo.isEmpty()) {
+            return null;
+        }
         try {
-            query.setParameter(1, Integer.parseInt(billingNo));
-            return query.getResultList();
-        } catch (Exception e) {
+            return Integer.parseInt(billingNo);
+        } catch (NumberFormatException e) {
             return null;
         }
     }

@@ -29,6 +29,7 @@ import io.github.carlos_emr.carlos.commn.dao.CSSStylesDAO;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.commn.model.CssStyle;
 import io.github.carlos_emr.carlos.util.StringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -78,7 +79,7 @@ public final class AddEditServiceCodeDataAssembler {
      * Build the admin-page view model and, when applicable, persist
      * the user's add/edit submission.
      */
-    public AddEditServiceCodeViewModel assemble(HttpServletRequest request) {
+    public AddEditServiceCodeViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
         State state = new State();
         String submitFrm = request.getParameter("submitFrm");
 

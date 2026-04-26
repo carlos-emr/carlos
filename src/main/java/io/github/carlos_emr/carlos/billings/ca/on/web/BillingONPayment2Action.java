@@ -75,7 +75,7 @@ public final class BillingONPayment2Action extends ActionSupport {
 
         try {
             BillingONPaymentViewModel model = new BillingONPaymentDataAssembler().assemble(
-                    request, loggedInInfo.getLoggedInProviderNo(),
+                    request, loggedInInfo,
                     isThisProviderOnly, isTeamBillingOnly);
             request.setAttribute("paymentModel", model);
         } catch (SecurityException secEx) {

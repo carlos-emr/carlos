@@ -21,6 +21,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONEditPrivateCodeViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingCodeImpl;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 
@@ -55,7 +56,7 @@ public final class BillingONEditPrivateCodeDataAssembler {
     private static final String VERB_ADDED = "added";
 
     /** Build the view model. Mirrors all four legacy submit modes. */
-    public BillingONEditPrivateCodeViewModel assemble(HttpServletRequest request) {
+    public BillingONEditPrivateCodeViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
         JdbcBillingCodeImpl dbObj = new JdbcBillingCodeImpl();
         Map<String, String> formFields = new HashMap<>();
         String msg = SUFFIX_TYPE_TO_SEARCH;

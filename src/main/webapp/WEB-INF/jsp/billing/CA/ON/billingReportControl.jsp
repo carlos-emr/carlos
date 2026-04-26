@@ -41,7 +41,7 @@
             throw new SecurityException("missing required sec object (_report)");
         }
         request.setAttribute("billingReportControlModel",
-                new BillingReportControlDataAssembler().assemble(request));
+                new BillingReportControlDataAssembler().assemble(request, loggedInInfo));
     }
 %>
 <html>

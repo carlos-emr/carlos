@@ -15,6 +15,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.assembler;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.billings.ca.on.data.EditBillingPaymentTypeViewModel;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 /**
  * Assembles a {@link EditBillingPaymentTypeViewModel} for
@@ -34,7 +35,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.EditBillingPaymentTypeVie
  */
 public final class EditBillingPaymentTypeDataAssembler {
 
-    public EditBillingPaymentTypeViewModel assemble(HttpServletRequest request) {
+    public EditBillingPaymentTypeViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
         String id = request.getParameter("id");
         String type = request.getParameter("type");
         boolean modify = id != null && type != null;

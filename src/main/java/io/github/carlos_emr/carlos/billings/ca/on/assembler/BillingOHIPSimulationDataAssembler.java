@@ -63,8 +63,9 @@ public final class BillingOHIPSimulationDataAssembler {
                                                    LoggedInInfo loggedInInfo,
                                                    boolean teamBillingOnly,
                                                    boolean siteAccessPrivacy,
-                                                   boolean teamAccessPrivacy,
-                                                   String userNo) {
+                                                   boolean teamAccessPrivacy) {
+        String userNo = loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null
+                ? "" : loggedInInfo.getLoggedInProviderNo();
         boolean bMultisites = IsPropertiesOn.isMultisitesEnable();
 
         GregorianCalendar now = new GregorianCalendar();

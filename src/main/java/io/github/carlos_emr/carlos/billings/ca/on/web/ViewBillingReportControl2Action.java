@@ -52,7 +52,7 @@ public final class ViewBillingReportControl2Action extends ActionSupport {
         }
 
         BillingReportControlViewModel model =
-                new BillingReportControlDataAssembler().assemble(request);
+                new BillingReportControlDataAssembler().assemble(request, loggedInInfo);
         request.setAttribute("billingReportControlModel", model);
 
         return SUCCESS;

@@ -80,7 +80,7 @@ class BillingONReviewDataAssemblerUnitTest extends CarlosUnitTestBase {
     void shouldExposeDxDescription_fromBillingReviewPrep() {
         request.setParameter("dxCode", "401");
 
-        BillingONReviewViewModel m = assembler.assemble(request);
+        BillingONReviewViewModel m = assembler.assemble(request, null);
         assertThat(m.getDxCode()).isEqualTo("401");
         assertThat(m.getDxDesc()).isEqualTo("Essential, benign hypertension");
     }
@@ -100,7 +100,7 @@ class BillingONReviewDataAssemblerUnitTest extends CarlosUnitTestBase {
         when(demographicDao.getDemographic("1")).thenReturn(demo);
         request.setParameter("demographic_no", "1");
 
-        BillingONReviewViewModel m = assembler.assemble(request);
+        BillingONReviewViewModel m = assembler.assemble(request, null);
 
         assertThat(m.getErrorFlag()).isEqualTo("1");
         assertThat(m.getErrorMessage()).contains("does not have a valid DOB");
@@ -121,7 +121,7 @@ class BillingONReviewDataAssemblerUnitTest extends CarlosUnitTestBase {
         when(demographicDao.getDemographic("1")).thenReturn(demo);
         request.setParameter("demographic_no", "1");
 
-        BillingONReviewViewModel m = assembler.assemble(request);
+        BillingONReviewViewModel m = assembler.assemble(request, null);
 
         assertThat(m.getWarningMessage()).contains("does not have a HIN");
     }
@@ -141,7 +141,7 @@ class BillingONReviewDataAssemblerUnitTest extends CarlosUnitTestBase {
         when(demographicDao.getDemographic("1")).thenReturn(demo);
         request.setParameter("demographic_no", "1");
 
-        BillingONReviewViewModel m = assembler.assemble(request);
+        BillingONReviewViewModel m = assembler.assemble(request, null);
 
         assertThat(m.getErrorFlag()).isEqualTo("1");
         assertThat(m.getErrorMessage()).contains("does not have a HIN");
@@ -155,7 +155,7 @@ class BillingONReviewDataAssemblerUnitTest extends CarlosUnitTestBase {
         when(providerDao.getProvider("999998")).thenReturn(p);
         request.setParameter("xml_provider", "999998");
 
-        BillingONReviewViewModel m = assembler.assemble(request);
+        BillingONReviewViewModel m = assembler.assemble(request, null);
 
         assertThat(m.getProviderOhip()).isEqualTo("OHIP1");
         assertThat(m.getProviderRma()).isEqualTo("RMA1");
@@ -172,7 +172,7 @@ class BillingONReviewDataAssemblerUnitTest extends CarlosUnitTestBase {
         when(providerDao.getProvider("999998")).thenReturn(p);
         request.setParameter("xml_provider", "999998|OHIP1");
 
-        BillingONReviewViewModel m = assembler.assemble(request);
+        BillingONReviewViewModel m = assembler.assemble(request, null);
 
         assertThat(m.getProviderOhip()).isEqualTo("OHIP1");
         assertThat(m.getProviderRma()).isEqualTo("RMA1");
@@ -186,7 +186,7 @@ class BillingONReviewDataAssemblerUnitTest extends CarlosUnitTestBase {
         when(providerDao.getProvider("888888")).thenReturn(p);
         request.setParameter("providerview", "888888");
 
-        BillingONReviewViewModel m = assembler.assemble(request);
+        BillingONReviewViewModel m = assembler.assemble(request, null);
 
         assertThat(m.getProviderView()).isEqualTo("888888");
         assertThat(m.getProviderOhip()).isEqualTo("OHIP1");

@@ -23,6 +23,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReportControlViewM
 import io.github.carlos_emr.carlos.commn.dao.ReportProviderDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ReportProvider;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
@@ -55,7 +56,7 @@ public final class BillingReportControlDataAssembler {
      *                {@code providerview}, {@code xml_vdate},
      *                {@code xml_appointment_date}
      */
-    public BillingReportControlViewModel assemble(HttpServletRequest request) {
+    public BillingReportControlViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
         BillingReportControlViewModel.Builder b = BillingReportControlViewModel.builder();
 
         String reportAction = request.getParameter("reportAction");

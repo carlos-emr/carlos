@@ -45,7 +45,7 @@ public final class ViewBillingON3rdInv2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        BillingON3rdInvViewModel model = new BillingON3rdInvDataAssembler().assemble(request);
+        BillingON3rdInvViewModel model = new BillingON3rdInvDataAssembler().assemble(request, loggedInInfo);
         request.setAttribute("invoiceModel", model);
 
         return SUCCESS;

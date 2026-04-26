@@ -53,8 +53,7 @@ public class JdbcBilling3rdPartImpl {
 
     public Properties get3rdPartBillProp(String invNo) {
         Properties retval = new Properties();
-        List<BillingONExt> billingExts = extDao.getBillingExtItems(invNo);
-        for (BillingONExt b : billingExts) {
+        for (BillingONExt b : extDao.getBillingExtItems(invNo)) {
             retval.setProperty(StringUtils.trimToEmpty(b.getKeyVal()), StringUtils.trimToEmpty(b.getValue()));
         }
         return retval;
@@ -62,8 +61,7 @@ public class JdbcBilling3rdPartImpl {
 
     public Properties get3rdPartBillPropInactive(String invNo) {
         Properties retval = new Properties();
-        List<BillingONExt> billingExts = extDao.getInactiveBillingExtItems(invNo);
-        for (BillingONExt b : billingExts) {
+        for (BillingONExt b : extDao.getInactiveBillingExtItems(invNo)) {
             retval.setProperty(b.getKeyVal(), b.getValue());
         }
         return retval;

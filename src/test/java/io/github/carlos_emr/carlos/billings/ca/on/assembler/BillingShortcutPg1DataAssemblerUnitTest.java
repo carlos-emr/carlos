@@ -29,6 +29,7 @@ import io.github.carlos_emr.carlos.commn.model.ClinicLocation;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,8 +43,8 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingShortcutPg12Action;
 
 /**
  * Unit tests for {@link BillingShortcutPg1DataAssembler}.
@@ -81,6 +82,7 @@ class BillingShortcutPg1DataAssemblerUnitTest extends CarlosUnitTestBase {
 
     private BillingShortcutPg1DataAssembler assembler;
     private MockHttpServletRequest request;
+    private LoggedInInfo loggedInInfo;
     private AutoCloseable mockitoCloseable;
 
     @BeforeEach
@@ -104,6 +106,8 @@ class BillingShortcutPg1DataAssemblerUnitTest extends CarlosUnitTestBase {
                 () -> billingReviewImpl);
 
         request = new MockHttpServletRequest();
+        loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
     }
 
     @AfterEach
@@ -116,7 +120,7 @@ class BillingShortcutPg1DataAssemblerUnitTest extends CarlosUnitTestBase {
         request.setParameter("demographic_no", "1");
         when(demographicDao.getDemographic("1")).thenReturn(null);
 
-        BillingShortcutPg1ViewModel m = assembler.assemble(request, "999998");
+        BillingShortcutPg1ViewModel m = assembler.assemble(request, loggedInInfo);
 
         // The assembler is the hospital-billing shortcut, so visit type 02 is forced
         // unless an xml_visittype param overrides it.
@@ -129,14 +133,14 @@ class BillingShortcutPg1DataAssemblerUnitTest extends CarlosUnitTestBase {
         request.setParameter("xml_visittype", "00");
         when(demographicDao.getDemographic("1")).thenReturn(null);
 
-        BillingShortcutPg1ViewModel m = assembler.assemble(request, "999998");
+        BillingShortcutPg1ViewModel m = assembler.assemble(request, loggedInInfo);
         assertThat(m.getVisitType()).isEqualTo("00");
     }
 
     @Test
     void shouldNotNpe_whenDemographicMissing() {
         when(demographicDao.getDemographic(any())).thenReturn(null);
-        BillingShortcutPg1ViewModel m = assembler.assemble(request, "999998");
+        BillingShortcutPg1ViewModel m = assembler.assemble(request, loggedInInfo);
         assertThat(m).isNotNull();
         assertThat(m.getDemoFirst()).isEmpty();
         assertThat(m.getDemoLast()).isEmpty();
@@ -158,7 +162,7 @@ class BillingShortcutPg1DataAssemblerUnitTest extends CarlosUnitTestBase {
         when(demographicDao.getDemographic("1")).thenReturn(demo);
         request.setParameter("demographic_no", "1");
 
-        BillingShortcutPg1ViewModel m = assembler.assemble(request, "999998");
+        BillingShortcutPg1ViewModel m = assembler.assemble(request, loggedInInfo);
 
         assertThat(m.getErrorFlag()).isEqualTo("1");
         assertThat(m.getErrorMessage()).contains("does not have a valid DOB");
@@ -176,7 +180,7 @@ class BillingShortcutPg1DataAssemblerUnitTest extends CarlosUnitTestBase {
         when(demographicDao.getDemographic("1")).thenReturn(demo);
         request.setParameter("demographic_no", "1");
 
-        BillingShortcutPg1ViewModel m = assembler.assemble(request, "999998");
+        BillingShortcutPg1ViewModel m = assembler.assemble(request, loggedInInfo);
         assertThat(m.getDemoSex()).isEqualTo("1");
         assertThat(m.getDemoDob()).isEqualTo("19850615");
     }
@@ -193,7 +197,7 @@ class BillingShortcutPg1DataAssemblerUnitTest extends CarlosUnitTestBase {
         when(demographicDao.getDemographic("1")).thenReturn(demo);
         request.setParameter("demographic_no", "1");
 
-        BillingShortcutPg1ViewModel m = assembler.assemble(request, "999998");
+        BillingShortcutPg1ViewModel m = assembler.assemble(request, loggedInInfo);
         assertThat(m.getDemoHcType()).isEqualTo("ON");
         assertThat(m.getDemoSex()).isEqualTo("2");
     }
@@ -206,7 +210,7 @@ class BillingShortcutPg1DataAssemblerUnitTest extends CarlosUnitTestBase {
         p.setProviderNo("999998");
         when(providerDao.getDoctorsWithOhip()).thenReturn(List.of(p));
 
-        BillingShortcutPg1ViewModel m = assembler.assemble(request, "999998");
+        BillingShortcutPg1ViewModel m = assembler.assemble(request, loggedInInfo);
 
         assertThat(m.getProviders()).hasSize(1);
         assertThat(m.getProviders().get(0).getProperty("last_name")).isEqualTo("Doe");
@@ -221,7 +225,7 @@ class BillingShortcutPg1DataAssemblerUnitTest extends CarlosUnitTestBase {
         loc.setClinicLocationNo("1000");
         when(clinicLocationDao.findAll()).thenReturn(List.of(loc));
 
-        BillingShortcutPg1ViewModel m = assembler.assemble(request, "999998");
+        BillingShortcutPg1ViewModel m = assembler.assemble(request, loggedInInfo);
 
         assertThat(m.getClinicLocations()).hasSize(1);
         assertThat(m.getClinicLocations().get(0).getProperty("clinic_location_name")).isEqualTo("Main Clinic");
@@ -231,14 +235,14 @@ class BillingShortcutPg1DataAssemblerUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldEchoDxCodeFromRequestParam_whenProvided() {
         request.setParameter("dxCode", "401");
-        BillingShortcutPg1ViewModel m = assembler.assemble(request, "999998");
+        BillingShortcutPg1ViewModel m = assembler.assemble(request, loggedInInfo);
         assertThat(m.getDxCode()).isEqualTo("401");
     }
 
     @Test
     void shouldUseProviderViewParam_overUserProviderNo_whenXmlProviderProvided() {
         request.setParameter("xml_provider", "111111");
-        BillingShortcutPg1ViewModel m = assembler.assemble(request, "999998");
+        BillingShortcutPg1ViewModel m = assembler.assemble(request, loggedInInfo);
         assertThat(m.getProviderView()).isEqualTo("111111");
     }
 
@@ -252,7 +256,7 @@ class BillingShortcutPg1DataAssemblerUnitTest extends CarlosUnitTestBase {
     void shouldStripPipeSuffix_fromXmlProvider() {
         request.setParameter("xml_provider", "111111|OHIP1234");
 
-        BillingShortcutPg1ViewModel m = assembler.assemble(request, "999998");
+        BillingShortcutPg1ViewModel m = assembler.assemble(request, loggedInInfo);
 
         assertThat(m.getProviderView()).isEqualTo("111111");
     }
@@ -268,7 +272,7 @@ class BillingShortcutPg1DataAssemblerUnitTest extends CarlosUnitTestBase {
         request.setParameter("xml_provider", "");
         request.setParameter("providerview", "111111");
 
-        BillingShortcutPg1ViewModel m = assembler.assemble(request, "999998");
+        BillingShortcutPg1ViewModel m = assembler.assemble(request, loggedInInfo);
 
         assertThat(m.getProviderView()).isEqualTo("111111");
     }
@@ -280,7 +284,7 @@ class BillingShortcutPg1DataAssemblerUnitTest extends CarlosUnitTestBase {
      */
     @Test
     void shouldFallBackToUserProviderNo_whenBothParamsAbsent() {
-        BillingShortcutPg1ViewModel m = assembler.assemble(request, "999998");
+        BillingShortcutPg1ViewModel m = assembler.assemble(request, loggedInInfo);
 
         assertThat(m.getProviderView()).isEqualTo("999998");
     }

@@ -98,7 +98,7 @@ class Add3rdPartyPayment2ActionUnitTest extends CarlosUnitTestBase {
 
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(true);
-        when(mockAssembler.assemble(any(LoggedInInfo.class), any(HttpServletRequest.class)))
+        when(mockAssembler.assemble(any(HttpServletRequest.class), any(LoggedInInfo.class)))
                 .thenReturn(BillingONCorrectionViewModel.builder().build());
     }
 

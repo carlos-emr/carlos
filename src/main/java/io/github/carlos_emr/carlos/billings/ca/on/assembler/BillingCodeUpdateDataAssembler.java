@@ -19,6 +19,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCodeUpdateViewModel;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
@@ -62,7 +63,7 @@ public final class BillingCodeUpdateDataAssembler {
      * @return populated view model. {@link BillingCodeUpdateViewModel#getMode()}
      *         tells the JSP which client-side script branch to emit.
      */
-    public BillingCodeUpdateViewModel assemble(HttpServletRequest request) {
+    public BillingCodeUpdateViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
         String update = request.getParameter("update");
         String nameFSafe = validateNameF(request.getParameter("nameF"));
         if ("Confirm".equals(update)) {

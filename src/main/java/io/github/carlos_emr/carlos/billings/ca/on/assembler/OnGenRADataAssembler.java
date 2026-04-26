@@ -58,7 +58,7 @@ public final class OnGenRADataAssembler {
      *                triggers an RA file import) and the session attribute
      *                {@code user} which selects the privacy-filtered list.
      */
-    public OnGenRAViewModel assemble(HttpServletRequest request) {
+    public OnGenRAViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
         // Optional file-import side-effect — preserves the legacy JSP
         // contract where the JSP would import an RA file when the
         // request-scope {@code documentBean} carried a filename.
@@ -76,7 +76,6 @@ public final class OnGenRADataAssembler {
             }
         }
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         boolean isTeamBillingOnly = securityInfoManager.hasPrivilege(
                 loggedInInfo, "_team_billing_only", "r", null);
         boolean isTeamAccessPrivacy = securityInfoManager.hasPrivilege(
@@ -84,7 +83,7 @@ public final class OnGenRADataAssembler {
         boolean isSiteAccessPrivacy = securityInfoManager.hasPrivilege(
                 loggedInInfo, "_site_access_privacy", "r", null);
 
-        String user = (String) request.getSession().getAttribute("user");
+        String user = loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo();
         JdbcBillingRAImpl dbObj = new JdbcBillingRAImpl();
 
         List<Properties> raList;

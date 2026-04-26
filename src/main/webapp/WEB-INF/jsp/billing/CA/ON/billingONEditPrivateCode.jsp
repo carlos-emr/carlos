@@ -51,7 +51,7 @@
                     "billingONEditPrivateCode.jsp fallback: missing required sec object (_admin.billing)");
         }
         request.setAttribute("privateCodeModel",
-                new BillingONEditPrivateCodeDataAssembler().assemble(request));
+                new BillingONEditPrivateCodeDataAssembler().assemble(request, loggedInInfo));
     }
 %>
 <fmt:setBundle basename="oscarResources"/>

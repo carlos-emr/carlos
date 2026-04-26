@@ -68,7 +68,7 @@ public final class ViewOnGenRA2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        OnGenRAViewModel model = new OnGenRADataAssembler().assemble(request);
+        OnGenRAViewModel model = new OnGenRADataAssembler().assemble(request, loggedInInfo);
         request.setAttribute("onGenRAModel", model);
 
         return SUCCESS;

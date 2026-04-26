@@ -58,7 +58,7 @@
             throw new SecurityException("billingON3rdInv.jsp fallback: missing required sec object (_billing)");
         }
         request.setAttribute("invoiceModel",
-                new BillingON3rdInvDataAssembler().assemble(request));
+                new BillingON3rdInvDataAssembler().assemble(request, loggedInInfo));
     }
 %>
 

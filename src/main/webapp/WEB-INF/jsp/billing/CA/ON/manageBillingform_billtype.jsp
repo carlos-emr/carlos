@@ -63,7 +63,7 @@
             throw new SecurityException("manageBillingform_billtype.jsp fallback: missing required sec object (_admin.billing)");
         }
         request.setAttribute("billtypeModel",
-                new ManageBillingformBilltypeDataAssembler().assemble(request));
+                new ManageBillingformBilltypeDataAssembler().assemble(request, loggedInInfo));
     }
 %>
 

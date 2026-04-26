@@ -161,7 +161,7 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
         request.setParameter("billForm", "GP");
 
         BillingONFormDataAssembler assembler = new BillingONFormDataAssembler();
-        BillingONFormViewModel model = assembler.assemble(loggedInInfo, request);
+        BillingONFormViewModel model = assembler.assemble(request, loggedInInfo);
 
         assertThat(model).isNotNull();
         assertThat(model.getUserNo()).isEqualTo("999998");
@@ -177,7 +177,7 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
         request.setParameter("billForm", "GP");
 
         BillingONFormDataAssembler assembler = new BillingONFormDataAssembler();
-        BillingONFormViewModel model = assembler.assemble(loggedInInfo, request);
+        BillingONFormViewModel model = assembler.assemble(request, loggedInInfo);
 
         assertThat(model.getDemoHcType()).isEqualTo("ON");
     }
@@ -190,7 +190,7 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
         request.setParameter("billForm", "GP");
 
         BillingONFormDataAssembler assembler = new BillingONFormDataAssembler();
-        BillingONFormViewModel model = assembler.assemble(loggedInInfo, request);
+        BillingONFormViewModel model = assembler.assemble(request, loggedInInfo);
 
         assertThat(model.getErrorFlag()).isEqualTo("1");
         assertThat(model.getErrorMsg()).contains("does not have a valid DOB");
@@ -205,7 +205,7 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
         request.setParameter("billForm", "GP");
 
         BillingONFormDataAssembler assembler = new BillingONFormDataAssembler();
-        BillingONFormViewModel model = assembler.assemble(loggedInInfo, request);
+        BillingONFormViewModel model = assembler.assemble(request, loggedInInfo);
 
         // The pipe is stripped — JSP's behaviour preserved.
         assertThat(model.getProviderView()).isEqualTo("111111");
@@ -223,7 +223,7 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
         request.setParameter("billForm", "GP");
 
         BillingONFormDataAssembler assembler = new BillingONFormDataAssembler();
-        BillingONFormViewModel model = assembler.assemble(loggedInInfo, request);
+        BillingONFormViewModel model = assembler.assemble(request, loggedInInfo);
 
         assertThat(model.getProviderNo()).isEqualTo("999998");
     }
@@ -237,7 +237,7 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
         request.setParameter("billForm", "GP");
 
         BillingONFormDataAssembler assembler = new BillingONFormDataAssembler();
-        BillingONFormViewModel model = assembler.assemble(loggedInInfo, request);
+        BillingONFormViewModel model = assembler.assemble(request, loggedInInfo);
 
         assertThat(model.getProviderNo()).isEqualTo("111111");
     }
@@ -251,7 +251,7 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
         request.setParameter("billForm", "GP");
 
         BillingONFormDataAssembler assembler = new BillingONFormDataAssembler();
-        BillingONFormViewModel model = assembler.assemble(loggedInInfo, request);
+        BillingONFormViewModel model = assembler.assemble(request, loggedInInfo);
 
         assertThat(model.getProviderNo()).isEqualTo("222222");
     }

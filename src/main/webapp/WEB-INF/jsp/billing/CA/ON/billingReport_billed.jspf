@@ -33,6 +33,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingReportFragmentViewModel" %>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingReportFragmentDataAssembler" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 
 <%--
   Fragment-local model resolver: this JSPF is statically included from
@@ -43,7 +44,8 @@
 <%
     if (request.getAttribute("billingReportFragmentModel") == null) {
         request.setAttribute("billingReportFragmentModel",
-                new BillingReportFragmentDataAssembler().assemble(request, "billed"));
+                new BillingReportFragmentDataAssembler().assemble(request,
+                        LoggedInInfo.getLoggedInInfoFromSession(request), "billed"));
     }
 %>
 

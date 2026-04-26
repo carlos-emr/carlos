@@ -55,7 +55,7 @@ public final class BillingCodeUpdate2Action extends ActionSupport {
             return NONE;
         }
 
-        BillingCodeUpdateViewModel model = new BillingCodeUpdateDataAssembler().assemble(request);
+        BillingCodeUpdateViewModel model = new BillingCodeUpdateDataAssembler().assemble(request, loggedInInfo);
         request.setAttribute("codeUpdateModel", model);
 
         return SUCCESS;

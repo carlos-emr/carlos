@@ -86,12 +86,7 @@ public final class ViewBillingShortcutPg12Action extends ActionSupport {
             return NONE;
         }
 
-        String userProviderNo = loggedInInfo.getLoggedInProviderNo();
-        if (userProviderNo == null) {
-            userProviderNo = "";
-        }
-
-        this.shortcutPg1Model = assembler.assemble(request, userProviderNo);
+        this.shortcutPg1Model = assembler.assemble(request, loggedInInfo);
         request.setAttribute("shortcutPg1Model", this.shortcutPg1Model);
         return SUCCESS;
     }

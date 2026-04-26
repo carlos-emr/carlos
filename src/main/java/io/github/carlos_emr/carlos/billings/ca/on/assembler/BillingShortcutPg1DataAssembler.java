@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONRequestParams;
@@ -157,7 +158,9 @@ public final class BillingShortcutPg1DataAssembler {
         this.billingReviewImplFactory = billingReviewImplFactory;
     }
 
-    public BillingShortcutPg1ViewModel assemble(HttpServletRequest request, String userProviderNo) {
+    public BillingShortcutPg1ViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
+        String userProviderNo = loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null
+                ? "" : loggedInInfo.getLoggedInProviderNo();
         CarlosProperties props = CarlosProperties.getInstance();
         // Hospital-billing only: the original code carried a `hospitalBilling`
         // boolean toggle but it was hardcoded to true and never reassigned, so

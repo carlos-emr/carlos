@@ -57,7 +57,7 @@ public final class ViewGenRASummary2Action extends ActionSupport {
             return NONE;
         }
 
-        GenRASummaryViewModel model = new GenRASummaryDataAssembler().assemble(request);
+        GenRASummaryViewModel model = new GenRASummaryDataAssembler().assemble(request, loggedInInfo);
         request.setAttribute("raSummaryModel", model);
 
         return SUCCESS;

@@ -83,7 +83,7 @@ public final class AddEditServiceCode2Action extends ActionSupport {
             return NONE;
         }
 
-        AddEditServiceCodeViewModel model = new AddEditServiceCodeDataAssembler().assemble(request);
+        AddEditServiceCodeViewModel model = new AddEditServiceCodeDataAssembler().assemble(request, loggedInInfo);
         request.setAttribute("addEditModel", model);
 
         return SUCCESS;

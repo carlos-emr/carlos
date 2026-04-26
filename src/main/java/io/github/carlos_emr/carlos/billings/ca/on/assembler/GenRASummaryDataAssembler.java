@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.commn.model.RaDetail;
 import io.github.carlos_emr.carlos.commn.model.RaHeader;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
@@ -85,7 +86,7 @@ public final class GenRASummaryDataAssembler {
      * @return populated view model. Returns an empty stub when the RA header
      *         is missing or marked deleted.
      */
-    public GenRASummaryViewModel assemble(HttpServletRequest request) {
+    public GenRASummaryViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
         String raNoStr = request.getParameter("rano");
         Integer raNo = parseInt(raNoStr);
 

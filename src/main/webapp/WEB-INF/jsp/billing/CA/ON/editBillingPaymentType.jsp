@@ -69,7 +69,7 @@
             throw new SecurityException("editBillingPaymentType.jsp fallback: missing required sec object (_admin.billing)");
         }
         request.setAttribute("paymentTypeModel",
-                new EditBillingPaymentTypeDataAssembler().assemble(request));
+                new EditBillingPaymentTypeDataAssembler().assemble(request, loggedInInfo));
     }
 %>
 

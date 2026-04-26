@@ -45,7 +45,7 @@
             throw new SecurityException("missing required sec object (_billing)");
         }
         request.setAttribute("onGenRAModel",
-                new OnGenRADataAssembler().assemble(request));
+                new OnGenRADataAssembler().assemble(request, loggedInInfo));
     }
 %>
 <fmt:setBundle basename="oscarResources"/>

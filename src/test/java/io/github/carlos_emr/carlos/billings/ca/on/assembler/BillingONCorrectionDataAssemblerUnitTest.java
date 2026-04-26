@@ -100,7 +100,7 @@ class BillingONCorrectionDataAssemblerUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldReturnEmptyModel_whenLoggedInInfoIsNull() {
-        BillingONCorrectionViewModel m = assembler.assemble(null, request);
+        BillingONCorrectionViewModel m = assembler.assemble(request, null);
 
         assertThat(m).isNotNull();
         assertThat(m.getUserProviderNo()).isEmpty();
@@ -146,7 +146,7 @@ class BillingONCorrectionDataAssemblerUnitTest extends CarlosUnitTestBase {
         teamProvider.setProviderNo("777777");
         when(providerDao.getBillableProvidersOnTeam(userProvider)).thenReturn(List.of(teamProvider));
 
-        BillingONCorrectionViewModel m = assembler.assemble(loggedInInfo, request);
+        BillingONCorrectionViewModel m = assembler.assemble(request, loggedInInfo);
 
         assertThat(m.getUserProviderNo()).isEqualTo("999998");
         assertThat(m.getUserFirstName()).isEqualTo("doctor");
@@ -167,7 +167,7 @@ class BillingONCorrectionDataAssemblerUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_team_access_privacy"), eq("r"), isNull())).thenReturn(false);
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_team_billing_only"), eq("r"), isNull())).thenReturn(false);
 
-        BillingONCorrectionViewModel m = assembler.assemble(loggedInInfo, request);
+        BillingONCorrectionViewModel m = assembler.assemble(request, loggedInInfo);
 
         assertThat(m.getProviderAccessList()).isEmpty();
         Mockito.verify(providerSiteDao, Mockito.never()).findByProviderNo(any());
@@ -186,7 +186,7 @@ class BillingONCorrectionDataAssemblerUnitTest extends CarlosUnitTestBase {
         site.setName("Main Site");
         when(siteDao.getActiveSitesByProviderNo("999998")).thenReturn(List.of(site));
 
-        BillingONCorrectionViewModel m = assembler.assemble(loggedInInfo, request);
+        BillingONCorrectionViewModel m = assembler.assemble(request, loggedInInfo);
 
         assertThat(m.getMgrSites()).isNotNull();
     }
@@ -204,7 +204,7 @@ class BillingONCorrectionDataAssemblerUnitTest extends CarlosUnitTestBase {
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
         when(providerDao.getProvider(any())).thenReturn(new Provider());
 
-        BillingONCorrectionViewModel m = assembler.assemble(loggedInInfo, request);
+        BillingONCorrectionViewModel m = assembler.assemble(request, loggedInInfo);
 
         assertThat(m.isBillLoaded()).isFalse();
         assertThat(m.isBillNoErr()).isFalse();
@@ -232,7 +232,7 @@ class BillingONCorrectionDataAssemblerUnitTest extends CarlosUnitTestBase {
         // Integer args, so stubbing find(int) here would never match.
         when(bCh1Dao.find((Object) Integer.valueOf(12345))).thenReturn(bCh1);
 
-        BillingONCorrectionViewModel m = assembler.assemble(loggedInInfo, request);
+        BillingONCorrectionViewModel m = assembler.assemble(request, loggedInInfo);
 
         assertThat(m.getBillingNo()).isEqualTo("12345");
         assertThat(m.isBillLoaded()).isTrue();
@@ -245,7 +245,7 @@ class BillingONCorrectionDataAssemblerUnitTest extends CarlosUnitTestBase {
 
         request.setParameter("billing_no", "not-a-number");
 
-        BillingONCorrectionViewModel m = assembler.assemble(loggedInInfo, request);
+        BillingONCorrectionViewModel m = assembler.assemble(request, loggedInInfo);
 
         assertThat(m.isBillNoErr()).isTrue();
         assertThat(m.isBillLoaded()).isFalse();
@@ -259,7 +259,7 @@ class BillingONCorrectionDataAssemblerUnitTest extends CarlosUnitTestBase {
         request.setParameter("billing_no", "99999");
         when(bCh1Dao.find((Object) Integer.valueOf(99999))).thenReturn(null);
 
-        BillingONCorrectionViewModel m = assembler.assemble(loggedInInfo, request);
+        BillingONCorrectionViewModel m = assembler.assemble(request, loggedInInfo);
 
         assertThat(m.isBillNoErr()).isTrue();
         assertThat(m.isBillLoaded()).isFalse();
@@ -297,7 +297,7 @@ class BillingONCorrectionDataAssemblerUnitTest extends CarlosUnitTestBase {
         // Integer args, so stubbing find(int) here would never match.
         when(bCh1Dao.find((Object) Integer.valueOf(12345))).thenReturn(bCh1);
 
-        BillingONCorrectionViewModel m = assembler.assemble(loggedInInfo, request);
+        BillingONCorrectionViewModel m = assembler.assemble(request, loggedInInfo);
 
         assertThat(m.isBillLoaded()).isTrue();
         assertThat(m.isMultiSiteProvider()).isFalse();

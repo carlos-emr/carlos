@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.commn.model.Site;
 import io.github.carlos_emr.carlos.commn.service.BillingONService;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.utility.LocaleUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.Billing3rdPartPrep;
@@ -115,7 +116,7 @@ public final class BillingON3rdInvDataAssembler {
      *         is false when {@code billingNo} is missing or doesn't resolve;
      *         the JSP renders a stub header + "N/A" placeholders in that case.
      */
-    public BillingON3rdInvViewModel assemble(HttpServletRequest request) {
+    public BillingON3rdInvViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
         Locale locale = request.getLocale();
         String invoiceNoStr = request.getParameter("billingNo");
         Integer invoiceNo = null;

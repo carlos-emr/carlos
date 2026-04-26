@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.commn.dao.BillingONItemDao;
 import io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
@@ -51,7 +52,7 @@ public final class BillingEditWithApptNoDataAssembler {
      *                appointment_date / start_time parameters
      * @return populated view model
      */
-    public BillingEditWithApptNoViewModel assemble(HttpServletRequest request) {
+    public BillingEditWithApptNoViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
         BillingEditWithApptNoViewModel.Builder b = BillingEditWithApptNoViewModel.builder();
 
         String appointmentNo = request.getParameter("appointment_no");

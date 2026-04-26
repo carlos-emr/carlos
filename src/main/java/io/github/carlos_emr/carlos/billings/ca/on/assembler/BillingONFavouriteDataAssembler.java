@@ -22,6 +22,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONFavouriteViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 /**
@@ -50,7 +51,9 @@ public final class BillingONFavouriteDataAssembler {
     private static final String VERB_ADDED = "added";
 
     /** Build the view model for both GET (no submit) and POST (form-mutating) paths. */
-    public BillingONFavouriteViewModel assemble(HttpServletRequest request, String userNo) {
+    public BillingONFavouriteViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
+        String userNo = loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null
+                ? "" : loggedInInfo.getLoggedInProviderNo();
         JdbcBillingPageUtil dbObj = new JdbcBillingPageUtil();
         Map<String, String> formFields = new HashMap<>();
         String msg = SUFFIX_TYPE_TO_SEARCH;

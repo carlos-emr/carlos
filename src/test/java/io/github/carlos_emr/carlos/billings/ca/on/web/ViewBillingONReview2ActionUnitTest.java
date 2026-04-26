@@ -106,7 +106,7 @@ class ViewBillingONReview2ActionUnitTest extends CarlosUnitTestBase {
         try (MockedConstruction<BillingONReviewDxPersister> persisterIgnored = mockConstruction(BillingONReviewDxPersister.class);
              MockedConstruction<BillingONReviewDataAssembler> ignored = mockConstruction(
                 BillingONReviewDataAssembler.class,
-                (mock, ctx) -> when(mock.assemble(any())).thenReturn(STUB_MODEL))) {
+                (mock, ctx) -> when(mock.assemble(any(), any())).thenReturn(STUB_MODEL))) {
             ViewBillingONReview2Action action = new ViewBillingONReview2Action();
             assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
             assertThat(action.getReviewModel()).isSameAs(STUB_MODEL);
@@ -169,7 +169,7 @@ class ViewBillingONReview2ActionUnitTest extends CarlosUnitTestBase {
         try (MockedConstruction<BillingONReviewDxPersister> persisterIgnored = mockConstruction(BillingONReviewDxPersister.class);
              MockedConstruction<BillingONReviewDataAssembler> ignored = mockConstruction(
                 BillingONReviewDataAssembler.class,
-                (mock, ctx) -> when(mock.assemble(any())).thenReturn(STUB_MODEL))) {
+                (mock, ctx) -> when(mock.assemble(any(), any())).thenReturn(STUB_MODEL))) {
             ViewBillingONReview2Action action = new ViewBillingONReview2Action();
             action.execute();
             assertThat(mockRequest.getAttribute("reviewModel")).isSameAs(STUB_MODEL);
@@ -189,7 +189,7 @@ class ViewBillingONReview2ActionUnitTest extends CarlosUnitTestBase {
         try (MockedConstruction<BillingONReviewDxPersister> persisterMock = mockConstruction(BillingONReviewDxPersister.class);
              MockedConstruction<BillingONReviewDataAssembler> assemblerMock = mockConstruction(
                 BillingONReviewDataAssembler.class,
-                (mock, ctx) -> when(mock.assemble(any())).thenReturn(STUB_MODEL))) {
+                (mock, ctx) -> when(mock.assemble(any(), any())).thenReturn(STUB_MODEL))) {
             ViewBillingONReview2Action action = new ViewBillingONReview2Action();
             action.execute();
 
@@ -200,7 +200,7 @@ class ViewBillingONReview2ActionUnitTest extends CarlosUnitTestBase {
             BillingONReviewDataAssembler assembler = assemblerMock.constructed().get(0);
             org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(persister, assembler);
             inOrder.verify(persister).persistIfRequested(any(), any());
-            inOrder.verify(assembler).assemble(any());
+            inOrder.verify(assembler).assemble(any(), any());
         }
     }
 }

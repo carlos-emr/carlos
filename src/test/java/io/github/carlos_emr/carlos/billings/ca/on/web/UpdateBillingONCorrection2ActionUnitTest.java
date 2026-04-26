@@ -99,7 +99,7 @@ class UpdateBillingONCorrection2ActionUnitTest extends CarlosUnitTestBase {
 
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(true);
-        when(mockAssembler.assemble(any(LoggedInInfo.class), any(HttpServletRequest.class)))
+        when(mockAssembler.assemble(any(HttpServletRequest.class), any(LoggedInInfo.class)))
                 .thenReturn(BillingONCorrectionViewModel.builder().build());
     }
 
@@ -123,7 +123,7 @@ class UpdateBillingONCorrection2ActionUnitTest extends CarlosUnitTestBase {
         String result = newAction().execute();
 
         assertThat(result).isEqualTo("submitClose");
-        verify(mockAssembler).assemble(eq(mockLoggedInInfo), eq(mockRequest));
+        verify(mockAssembler).assemble(eq(mockRequest), eq(mockLoggedInInfo));
         verify(mockService).updateInvoice(eq(mockLoggedInInfo), eq(mockRequest));
         assertThat(mockRequest.getAttribute("correctionModel")).isNotNull();
     }

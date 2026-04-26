@@ -48,9 +48,8 @@
             throw new SecurityException(
                     "billingONfavourite.jsp fallback: missing required sec object (_billing)");
         }
-        String __userNo = (String) session.getAttribute("user");
         request.setAttribute("favouriteModel",
-                new BillingONFavouriteDataAssembler().assemble(request, __userNo));
+                new BillingONFavouriteDataAssembler().assemble(request, __loggedInInfo));
     }
 %>
 <!DOCTYPE html>

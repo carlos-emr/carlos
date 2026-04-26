@@ -184,7 +184,7 @@ public final class BillingONFormDataAssembler {
      * equivalent to the pre-refactor page.
      */
     @SuppressWarnings("deprecation")
-    public BillingONFormViewModel assemble(LoggedInInfo loggedInInfo, HttpServletRequest request) {
+    public BillingONFormViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
         CarlosProperties oscarVars = CarlosProperties.getInstance();
         BillingONFormViewModel.Builder b = BillingONFormViewModel.builder();
 

@@ -66,7 +66,7 @@
         if (!__secMgr.hasPrivilege(__fallbackLii, "_billing", "w", null)) {
             throw new SecurityException("billingEditWithApptNo.jsp fallback: missing required sec object (_billing)");
         }
-        BillingEditWithApptNoViewModel __fallbackModel = new BillingEditWithApptNoDataAssembler().assemble(request);
+        BillingEditWithApptNoViewModel __fallbackModel = new BillingEditWithApptNoDataAssembler().assemble(request, loggedInInfo);
         request.setAttribute("editApptModel", __fallbackModel);
     }
 %>

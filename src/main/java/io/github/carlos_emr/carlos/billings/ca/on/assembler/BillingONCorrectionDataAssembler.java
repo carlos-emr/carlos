@@ -186,7 +186,7 @@ public final class BillingONCorrectionDataAssembler {
      * flags, multisite list) and, if {@code billing_no}/{@code claim_no} is
      * present on the request, the bill-record fields too.
      */
-    public BillingONCorrectionViewModel assemble(LoggedInInfo loggedInInfo, HttpServletRequest request) {
+    public BillingONCorrectionViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
         String providerNo = loggedInInfo != null && loggedInInfo.getLoggedInProviderNo() != null
                 ? loggedInInfo.getLoggedInProviderNo()
                 : "";

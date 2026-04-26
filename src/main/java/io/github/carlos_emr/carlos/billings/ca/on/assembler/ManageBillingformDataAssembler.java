@@ -27,6 +27,7 @@ import io.github.carlos_emr.carlos.commn.dao.CtlDiagCodeDao;
 import io.github.carlos_emr.carlos.commn.model.CtlBillingService;
 import io.github.carlos_emr.carlos.commn.model.CtlBillingServicePremium;
 import io.github.carlos_emr.carlos.commn.model.CtlDiagCode;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
@@ -72,7 +73,7 @@ public final class ManageBillingformDataAssembler {
      *                {@code reportAction}, and {@code errorMessage}
      * @return populated view model
      */
-    public ManageBillingformViewModel assemble(HttpServletRequest request) {
+    public ManageBillingformViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
         ManageBillingformViewModel.Builder b = ManageBillingformViewModel.builder();
 
         String defaultView = CarlosProperties.getInstance().getProperty("default_view", "");
