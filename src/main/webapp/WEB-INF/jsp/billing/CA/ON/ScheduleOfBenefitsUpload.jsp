@@ -29,27 +29,18 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-
-<%
-
-    //int demographic_no = Integer.parseInt(request.getParameter("demographic_no"));
-    String demographic_no = request.getParameter("demographic_no");
-
-    List warnings = (List) request.getAttribute("warnings");
-%>
-
-<%@ page import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<fmt:setBundle basename="oscarResources"/>
-
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <html>
 
     <head>
         <title><fmt:message key="admin.admin.scheduleOfBenefits"/></title>
-        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
 
         <script type="text/javascript" LANGUAGE="JavaScript">
 
@@ -121,37 +112,39 @@
 
             <div>
                 2. Browse & find file:
-                <% if (warnings == null) { %>
-                <form
-                        action="${pageContext.request.contextPath}/billing/CA/ON/benefitScheduleUpload" method="POST"
-                        enctype="multipart/form-data" onsubmit="return checkForm();">
-                    <input type="file" name="importFile" value="/root/apr05sob.001">
-                    <input class="btn btn-primary" type="submit" name="Submit" value="Import">
-                    <div>
-                        <input type="checkbox" name="showChangedCodes" value="on" checked tabindex="1"/><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.showCodesChangedPrices"/><br>
-                        <input type="checkbox" name="showNewCodes" value="on" tabindex="2"/><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.showNewCodes"/><br>
-                        <input type="checkbox" name="forceUpdate" value="on" tabindex="3"/><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.forceUpdate"/><br>
-                        <input type="checkbox" name="updateAssistantFees" onclick="toggleAssistantInput(this);"
-                               value="on" tabindex="5"/><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.updateAssistantFees"/><span
-                            id="updateAssistantInput" style="display:none;"><input type="text"
-                                                                                   name="updateAssistantFeesValue"
-                                                                                   id="updateAssistantFeesValue"
-                                                                                   size="7" maxlength="8"
-                                                                                   style="margin-left:30px;"
-                                                                                   tabindex="7"/></span><br/>
-                        <input type="checkbox" name="updateAnaesthetistFees" onclick="toggleAnaesthetistInput(this);"
-                               value="on" tabindex="6"/><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.updateAnaesthetistFees"/><span
-                            id="updateAnaesthetistInput" style="display:none;"><input type="text"
-                                                                                      name="updateAnaesthetistFeesValue"
-                                                                                      id="updateAnaesthetistFeesValue"
-                                                                                      size="7" maxlength="8"
-                                                                                      style="margin-left:8px;"
-                                                                                      tabindex="8"/></span>
-                    </div>
-                </form>
-                <% } else { %>
-                <a href="<%= request.getContextPath() %>/billing/CA/ON/benefitScheduleUpload">Try again</a>
-                <%}%>
+                <c:choose>
+                    <c:when test="${empty warnings}">
+                        <form action="${pageContext.request.contextPath}/billing/CA/ON/benefitScheduleUpload"
+                              method="POST" enctype="multipart/form-data" onsubmit="return checkForm();">
+                            <input type="file" name="importFile" value="/root/apr05sob.001">
+                            <input class="btn btn-primary" type="submit" name="Submit" value="Import">
+                            <div>
+                                <input type="checkbox" name="showChangedCodes" value="on" checked tabindex="1"/><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.showCodesChangedPrices"/><br>
+                                <input type="checkbox" name="showNewCodes" value="on" tabindex="2"/><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.showNewCodes"/><br>
+                                <input type="checkbox" name="forceUpdate" value="on" tabindex="3"/><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.forceUpdate"/><br>
+                                <input type="checkbox" name="updateAssistantFees" onclick="toggleAssistantInput(this);"
+                                       value="on" tabindex="5"/><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.updateAssistantFees"/><span
+                                        id="updateAssistantInput" style="display:none;"><input type="text"
+                                                                                               name="updateAssistantFeesValue"
+                                                                                               id="updateAssistantFeesValue"
+                                                                                               size="7" maxlength="8"
+                                                                                               style="margin-left:30px;"
+                                                                                               tabindex="7"/></span><br/>
+                                <input type="checkbox" name="updateAnaesthetistFees" onclick="toggleAnaesthetistInput(this);"
+                                       value="on" tabindex="6"/><fmt:message key="oscar.billing.CA.ON.billingON.sobUpload.updateAnaesthetistFees"/><span
+                                        id="updateAnaesthetistInput" style="display:none;"><input type="text"
+                                                                                                  name="updateAnaesthetistFeesValue"
+                                                                                                  id="updateAnaesthetistFeesValue"
+                                                                                                  size="7" maxlength="8"
+                                                                                                  style="margin-left:8px;"
+                                                                                                  tabindex="8"/></span>
+                            </div>
+                        </form>
+                    </c:when>
+                    <c:otherwise>
+                        <a href="${pageContext.request.contextPath}/billing/CA/ON/benefitScheduleUpload">Try again</a>
+                    </c:otherwise>
+                </c:choose>
             </div><!--#2-->
 
             <div>
@@ -159,83 +152,71 @@
             </div><!--#3-->
 
             <br>
-            <%
-                String outcome = (String) request.getAttribute("outcome");
-                if (outcome != null && outcome.equals("success")) { %>
-            <div class="alert alert-success">SOB File Successfully Uploaded</div>
-            <%} else if (outcome != null && outcome.equals("exception")) { %>
-            <div class="alert alert-danger">There was a problem uploading this SOB file</div>
-            <%} else if (outcome != null && outcome.equals("uploadedPreviously")) { %>
-            <div class="alert ">This file has already been processed</div>
-            <%}%>
+            <c:choose>
+                <c:when test="${outcome == 'success'}">
+                    <div class="alert alert-success">SOB File Successfully Uploaded</div>
+                </c:when>
+                <c:when test="${outcome == 'exception'}">
+                    <div class="alert alert-danger">There was a problem uploading this SOB file</div>
+                </c:when>
+                <c:when test="${outcome == 'uploadedPreviously'}">
+                    <div class="alert ">This file has already been processed</div>
+                </c:when>
+            </c:choose>
 
 
-            <% if (warnings != null && outcome.equals("success")) { %>
-            <div>
-                4. Click "Update" checkbox to select All<br>
+            <c:if test="${not empty warnings and outcome == 'success'}">
+                <div>
+                    4. Click "Update" checkbox to select All<br>
 
-                <form action="${pageContext.request.contextPath}/billing/CA/ON/benefitScheduleChange" method="POST"
-                        id="sbForm">
-                    <table class="table table-striped  table-sm">
-                        <tr>
-                            <th nowrap><oscar:oscarPropertiesCheck property="SOB_CHECKALL"
-                                                                   value="yes">
-                                <input type="checkbox" name="checkAll2"
-                                       onclick="checkAll('sbForm')" id="checkA"/>
-                            </oscar:oscarPropertiesCheck> Update
-                            </th>
-                            <th>Fee Code</th>
-                            <th>Current Price</th>
-                            <th>New Price</th>
-                            <th>Diff</th>
-                            <th>Description</th>
-                            <th>Effective Date</th>
-                            <th>Termination Date</th>
-                        </tr>
-                        <% for (int i = 0; i < warnings.size(); i++) {
-                            Hashtable h = (Hashtable) warnings.get(i);
+                    <form action="${pageContext.request.contextPath}/billing/CA/ON/benefitScheduleChange" method="POST"
+                            id="sbForm">
+                        <table class="table table-striped  table-sm">
+                            <tr>
+                                <th nowrap><oscar:oscarPropertiesCheck property="SOB_CHECKALL"
+                                                                       value="yes">
+                                    <input type="checkbox" name="checkAll2"
+                                           onclick="checkAll('sbForm')" id="checkA"/>
+                                </oscar:oscarPropertiesCheck> Update
+                                </th>
+                                <th>Fee Code</th>
+                                <th>Current Price</th>
+                                <th>New Price</th>
+                                <th>Diff</th>
+                                <th>Description</th>
+                                <th>Effective Date</th>
+                                <th>Termination Date</th>
+                            </tr>
+                            <c:forEach var="h" items="${warnings}">
+                                <tr>
+                                    <td><input type="checkbox" name="change"
+                                               value="<carlos:encode value='${h.feeCode}|${h.newprice}|${h.effectiveDate}|${h.terminactionDate}|${h.description}' context='htmlAttribute'/>"/>
+                                    </td>
+                                    <td><carlos:encode value='${h.feeCode}' context='html'/></td>
+                                    <td><carlos:encode value='${h.oldprice}' context='html'/></td>
+                                    <td><carlos:encode value='${h.newprice}' context='html'/></td>
+                                    <td><carlos:encode value='${h.diff}' context='html'/></td>
+                                    <td title="<carlos:encode value='${h.prices}' context='htmlAttribute'/>"><carlos:encode value='${h.description}' context='html'/></td>
+                                    <td><carlos:encode value='${h.effectiveDate}' context='html'/></td>
+                                    <td><carlos:encode value='${h.terminactionDate}' context='html'/></td>
+                                </tr>
+                            </c:forEach>
+                        </table>
+                        <input class="btn btn-primary" type="submit" value="Update Billing Code Prices">
+                    </form>
 
-
-                        %>
-                        <tr>
-                            <td><input type="checkbox" name="change"
-                                       value="<%=h.get("feeCode")%>|<%=h.get("newprice")%>|<%=h.get("effectiveDate")%>|<%=h.get("terminactionDate")%>|<%=h.get("description")%>"/>
-                            </td>
-                            <td><%=h.get("feeCode")%>
-                            </td>
-                            <td><%=h.get("oldprice")%>
-                            </td>
-                            <td><%=h.get("newprice")%>
-                            </td>
-                            <td><%=h.get("diff")%>
-                            </td>
-                            <td title="<%=h.get("prices")%>"><%=h.get("description")%>
-                            </td>
-                            <td><%=h.get("effectiveDate")%>
-                            </td>
-                            <td><%=h.get("terminactionDate")%>
-                            </td>
-                        </tr>
-                        <%}%>
-                    </table>
-                    <input class="btn btn-primary" type="submit" value="Update Billing Code Prices">
-                </form>
-
-                5. Click "Update Billing Code Prices"
-            </div><!--#4-->
-            <% } %>
+                    5. Click "Update Billing Code Prices"
+                </div><!--#4-->
+            </c:if>
 
 
-            <% List l = (List) request.getAttribute("changes");
-                if (l != null) { %>
-            <ul>
-                <% for (int i = 0; i < l.size(); i++) {
-                    Hashtable h = (Hashtable) l.get(i); %>
-                <li><%=h.get("code")%> value updated to : <%=h.get("value")%>
-                </li>
-                <%}%>
-            </ul>
-            <% }%>
+            <c:if test="${not empty changes}">
+                <ul>
+                    <c:forEach var="h" items="${changes}">
+                        <li><carlos:encode value='${h.code}' context='html'/> value updated to : <carlos:encode value='${h.value}' context='html'/></li>
+                    </c:forEach>
+                </ul>
+            </c:if>
 
 
         </div><!--main well-->
