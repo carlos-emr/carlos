@@ -31,13 +31,16 @@ import java.util.ArrayList;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 @org.springframework.stereotype.Service
 @org.springframework.context.annotation.Lazy
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
 public class BillingRAPrep {
     private static final Logger _logger = MiscUtils.getLogger();
-    BillingONRemittanceAdviceService dbObj = SpringUtils.getBean(BillingONRemittanceAdviceService.class);
+    private final BillingONRemittanceAdviceService dbObj;
+
+    BillingRAPrep(BillingONRemittanceAdviceService dbObj) {
+        this.dbObj = dbObj;
+    }
 
     // ret - ArrayList = || ||
     public List getProviderListFromRAReport(String raNo) {

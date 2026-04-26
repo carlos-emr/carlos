@@ -36,7 +36,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReviewCodeItem;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReviewPercItem;
 import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
 import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 @org.springframework.stereotype.Service
 @org.springframework.context.annotation.Lazy
@@ -44,7 +43,20 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 public class BillingReviewPrep {
     private static final Logger _logger = MiscUtils.getLogger();
 
-    BillingONClaimQueryService dbObj = SpringUtils.getBean(BillingONClaimQueryService.class);
+    private final BillingONClaimQueryService dbObj;
+    private final BillingONDiskQueryService diskQueryService;
+    private final BillingONLookupService lookupService;
+    private final DiagnosticCodeDao diagnosticCodeDao;
+
+    BillingReviewPrep(BillingONClaimQueryService dbObj,
+                      BillingONDiskQueryService diskQueryService,
+                      BillingONLookupService lookupService,
+                      DiagnosticCodeDao diagnosticCodeDao) {
+        this.dbObj = dbObj;
+        this.diskQueryService = diskQueryService;
+        this.lookupService = lookupService;
+        this.diagnosticCodeDao = diagnosticCodeDao;
+    }
 
     public ArrayList getServiceCodeReviewVec(ArrayList vecCode, ArrayList vecUnit,
                                           ArrayList vecAt, String billReferalDate) {
@@ -258,28 +270,20 @@ public class BillingReviewPrep {
     }
 
     public List getMRIList(String sDate, String eDate, String status) {
-        BillingONDiskQueryService dbObj = SpringUtils.getBean(BillingONDiskQueryService.class);
-        List ret = dbObj.getMRIList(sDate, eDate, status);
-        return ret;
+        return diskQueryService.getMRIList(sDate, eDate, status);
     }
 
     // ret - ArrayList = || ||
     public List getProviderBillingStr() {
-        BillingONLookupService dbObj = SpringUtils.getBean(BillingONLookupService.class);
-        List ret = dbObj.getCurProviderStr();
-        return ret;
+        return lookupService.getCurProviderStr();
     }
 
     public List getTeamProviderBillingStr(String provider_no) {
-        BillingONLookupService dbObj = SpringUtils.getBean(BillingONLookupService.class);
-        List ret = dbObj.getCurTeamProviderStr(provider_no);
-        return ret;
+        return lookupService.getCurTeamProviderStr(provider_no);
     }
 
     public List getSiteProviderBillingStr(String provider_no) {
-        BillingONLookupService dbObj = SpringUtils.getBean(BillingONLookupService.class);
-        List ret = dbObj.getCurSiteProviderStr(provider_no);
-        return ret;
+        return lookupService.getCurSiteProviderStr(provider_no);
     }
 
     // default value to 1 if it is empty
@@ -298,9 +302,8 @@ public class BillingReviewPrep {
      * returning the last hit when multiple rows share the same code.
      */
     public String getDxDescription(String val) {
-        DiagnosticCodeDao dao = SpringUtils.getBean(DiagnosticCodeDao.class);
         String ret = "";
-        for (DiagnosticCode dcode : dao.findByDiagnosticCode(val)) {
+        for (DiagnosticCode dcode : diagnosticCodeDao.findByDiagnosticCode(val)) {
             ret = dcode.getDescription();
         }
         return ret;

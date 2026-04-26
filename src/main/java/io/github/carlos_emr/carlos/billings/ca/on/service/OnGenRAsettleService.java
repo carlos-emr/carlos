@@ -21,7 +21,6 @@ import io.github.carlos_emr.carlos.commn.dao.RaDetailDao;
 import io.github.carlos_emr.carlos.commn.dao.RaHeaderDao;
 import io.github.carlos_emr.carlos.commn.model.RaDetail;
 import io.github.carlos_emr.carlos.commn.model.RaHeader;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * Mutation service for the two RA settlement popups —
  * {@code onGenRAsettle.jsp} (settle all non-error bills, mark RA header
@@ -61,10 +60,12 @@ public class OnGenRAsettleService {
 
     private final RaHeaderDao raHeaderDao;
     private final RaDetailDao raDetailDao;
+    private final BillingRAPrep billingRAPrep;
 
-    OnGenRAsettleService(RaHeaderDao raHeaderDao, RaDetailDao raDetailDao) {
+    OnGenRAsettleService(RaHeaderDao raHeaderDao, RaDetailDao raDetailDao, BillingRAPrep billingRAPrep) {
         this.raHeaderDao = raHeaderDao;
         this.raDetailDao = raDetailDao;
+        this.billingRAPrep = billingRAPrep;
     }
 
     /**
@@ -118,9 +119,8 @@ public class OnGenRAsettleService {
             }
         }
 
-        BillingRAPrep prep = SpringUtils.getBean(BillingRAPrep.class);
         for (String account : noErrorBills) {
-            prep.updateBillingStatus(account, "S");
+            billingRAPrep.updateBillingStatus(account, "S");
         }
 
         RaHeader raHeader = raHeaderDao.find(raNo);

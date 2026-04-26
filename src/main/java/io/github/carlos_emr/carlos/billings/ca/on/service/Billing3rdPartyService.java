@@ -38,7 +38,6 @@ import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONExt;
 import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 
@@ -63,13 +62,14 @@ public class Billing3rdPartyService {
 
     private final ClinicDAO clinicDao;
     private final Billing3rdPartyAddressDao dao;
-    BillingONExtDao extDao = (BillingONExtDao) SpringUtils.getBean(BillingONExtDao.class);
+    private final BillingONExtDao extDao;
     private final BillingPaymentTypeDao typeDao;
 
     /** Test-friendly constructor — package-private, takes DAO mocks directly. */
-    Billing3rdPartyService(ClinicDAO clinicDao, Billing3rdPartyAddressDao dao, BillingPaymentTypeDao typeDao) {
+    Billing3rdPartyService(ClinicDAO clinicDao, Billing3rdPartyAddressDao dao, BillingONExtDao extDao, BillingPaymentTypeDao typeDao) {
         this.clinicDao = clinicDao;
         this.dao = dao;
+        this.extDao = extDao;
         this.typeDao = typeDao;
     }
 

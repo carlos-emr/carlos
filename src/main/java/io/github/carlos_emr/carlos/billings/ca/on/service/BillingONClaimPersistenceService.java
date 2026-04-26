@@ -61,7 +61,6 @@ import io.github.carlos_emr.carlos.commn.model.BillingOnItemPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingOnTransaction;
 import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
@@ -77,8 +76,22 @@ public class BillingONClaimPersistenceService {
     private final BillingONDiskNameDao diskNameDao;
     private final BillingONFilenameDao filenameDao;
     private final BillingONRepoDao repoDao;
+    private final BillingOnItemPaymentDao billOnItemPaymentDao;
+    private final BillingOnTransactionDao billTransDao;
+    private final BillingONPaymentDao billingONPaymentDao;
+    private final BillingPaymentTypeDao billingPaymentTypeDao;
 
-    public BillingONClaimPersistenceService(BillingONHeaderDao dao, BillingONCHeader1Dao cheaderDao, BillingONItemDao itemDao, BillingONExtDao extDao, BillingONDiskNameDao diskNameDao, BillingONFilenameDao filenameDao, BillingONRepoDao repoDao) {
+    public BillingONClaimPersistenceService(BillingONHeaderDao dao,
+                                            BillingONCHeader1Dao cheaderDao,
+                                            BillingONItemDao itemDao,
+                                            BillingONExtDao extDao,
+                                            BillingONDiskNameDao diskNameDao,
+                                            BillingONFilenameDao filenameDao,
+                                            BillingONRepoDao repoDao,
+                                            BillingOnItemPaymentDao billOnItemPaymentDao,
+                                            BillingOnTransactionDao billTransDao,
+                                            BillingONPaymentDao billingONPaymentDao,
+                                            BillingPaymentTypeDao billingPaymentTypeDao) {
         this.dao = dao;
         this.cheaderDao = cheaderDao;
         this.itemDao = itemDao;
@@ -86,6 +99,10 @@ public class BillingONClaimPersistenceService {
         this.diskNameDao = diskNameDao;
         this.filenameDao = filenameDao;
         this.repoDao = repoDao;
+        this.billOnItemPaymentDao = billOnItemPaymentDao;
+        this.billTransDao = billTransDao;
+        this.billingONPaymentDao = billingONPaymentDao;
+        this.billingPaymentTypeDao = billingPaymentTypeDao;
     }
 
     SimpleDateFormat dateformatter = new SimpleDateFormat("yyyy-MM-dd");
@@ -222,7 +239,6 @@ public class BillingONClaimPersistenceService {
         int retval = 0;
         BillingOnItemPayment billOnItemPayment = null;
         Timestamp ts = new Timestamp(new Date().getTime());
-        BillingOnItemPaymentDao billOnItemPaymentDao = (BillingOnItemPaymentDao) SpringUtils.getBean(BillingOnItemPaymentDao.class);
         for (int i = 0; i < lVal.size(); i++) {
             BillingItemData val = (BillingItemData) lVal.get(i);
             billOnItemPayment = new BillingOnItemPayment();
@@ -258,7 +274,6 @@ public class BillingONClaimPersistenceService {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
         Timestamp updateTs = new Timestamp(new Date().getTime());
         BillingOnTransaction billTrans = null;
-        BillingOnTransactionDao billTransDao = (BillingOnTransactionDao) SpringUtils.getBean(BillingOnTransactionDao.class);
         for (BillingItemData billItem : billItemList) {
             billTrans = new BillingOnTransaction();
             billTrans.setActionType(BillingDataHlp.ACTION_TYPE.C.name());
@@ -323,7 +338,6 @@ public class BillingONClaimPersistenceService {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
         Timestamp updateTs = new Timestamp(new Date().getTime());
         BillingOnTransaction billTrans = null;
-        BillingOnTransactionDao billTransDao = (BillingOnTransactionDao) SpringUtils.getBean(BillingOnTransactionDao.class);
         for (BillingItemData billItem : billItemList) {
             billTrans = new BillingOnTransaction();
             billTrans.setActionType(BillingDataHlp.ACTION_TYPE.C.name());
@@ -406,8 +420,6 @@ public class BillingONClaimPersistenceService {
         }
 
         if (paymentSumParam != null) {
-            BillingONPaymentDao billingONPaymentDao = (BillingONPaymentDao) SpringUtils.getBean(BillingONPaymentDao.class);
-            BillingPaymentTypeDao billingPaymentTypeDao = (BillingPaymentTypeDao) SpringUtils.getBean(BillingPaymentTypeDao.class);
             BillingONCHeader1 ch1 = cheaderDao.find(id);
             Date paymentDate = null;
             try {
@@ -468,7 +480,6 @@ public class BillingONClaimPersistenceService {
         String dateTime = UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss");
         mVal.put("payDate", dateTime);
 
-        BillingONPaymentDao billingONPaymentDao = SpringUtils.getBean(BillingONPaymentDao.class);
         BillingONPayment newPayment = new BillingONPayment();
         BillingONCHeader1 ch1 = cheaderDao.find(id);
         newPayment.setBillingOnCheader1(ch1);

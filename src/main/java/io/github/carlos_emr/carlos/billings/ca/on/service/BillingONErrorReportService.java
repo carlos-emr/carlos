@@ -30,7 +30,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingErrorRepData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData;
 import io.github.carlos_emr.carlos.commn.dao.BillingONEAReportDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONEAReport;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
@@ -60,8 +59,7 @@ public class BillingONErrorReportService {
 
     public List<BillingErrorRepData> getErrorRecords(BillingProviderData val, String fromDate, String toDate, String filename) {
         List<BillingErrorRepData> retval = new ArrayList<BillingErrorRepData>();
-        BillingONEAReportDao dao = SpringUtils.getBean(BillingONEAReportDao.class);
-        for (BillingONEAReport r : dao.findByMagic(val.getOhipNo(), val.getBillingGroupNo(), val.getSpecialtyCode(), ConversionUtils.fromDateString(fromDate), ConversionUtils.fromDateString(toDate), filename)) {
+        for (BillingONEAReport r : billingONEARReportDao.findByMagic(val.getOhipNo(), val.getBillingGroupNo(), val.getSpecialtyCode(), ConversionUtils.fromDateString(fromDate), ConversionUtils.fromDateString(toDate), filename)) {
             toReportData(retval, r);
         }
         return retval;
@@ -102,8 +100,7 @@ public class BillingONErrorReportService {
             return retval;
         }
 
-        BillingONEAReportDao dao = SpringUtils.getBean(BillingONEAReportDao.class);
-        for (BillingONEAReport r : dao.findByMagic(list, ConversionUtils.fromDateString(fromDate), ConversionUtils.fromDateString(toDate), filename)) {
+        for (BillingONEAReport r : billingONEARReportDao.findByMagic(list, ConversionUtils.fromDateString(fromDate), ConversionUtils.fromDateString(toDate), filename)) {
             toReportData(retval, r);
         }
 

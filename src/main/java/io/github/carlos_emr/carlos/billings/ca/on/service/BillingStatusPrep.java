@@ -29,7 +29,6 @@ import io.github.carlos_emr.carlos.util.LabelValueBean;
 import java.util.ArrayList;
 import java.util.List;
 
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 @org.springframework.stereotype.Service
 @org.springframework.context.annotation.Lazy
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
@@ -40,13 +39,14 @@ public class BillingStatusPrep {
     private static final String ANY_BILLING_FORM = "---";
     public static final String ANY_VISIT_LOCATION = "0000";
 
-    // BillingONRemittanceAdviceService dbObj = SpringUtils.getBean(BillingONRemittanceAdviceService.class);
+    private final BillingONClaimQueryService bObj;
 
+    BillingStatusPrep(BillingONClaimQueryService bObj) {
+        this.bObj = bObj;
+    }
 
     public List<BillingClaimHeader1Data> getBills(String[] billTypes, String statusType, String providerNo, String startDate, String endDate,
                                                   String demoNo, String visitLocation, String paymentStartDate, String paymentEndDate) {
-        BillingONClaimQueryService bObj = SpringUtils.getBean(BillingONClaimQueryService.class);
-
         billTypes = billTypes == null || billTypes.length == 0 ? null : billTypes;
         statusType = statusType == null || statusType.length() == 0 || statusType.equals(ANY_STATUS_TYPE) ? null : statusType;
         providerNo = providerNo == null || providerNo.length() == 0 || providerNo.equals(ANY_PROVIDER) ? null : providerNo;
@@ -69,7 +69,6 @@ public class BillingStatusPrep {
     public List<BillingClaimHeader1Data> getBillsWithSorting(String[] billType, String statusType, String providerNo, String startDate, String endDate,
                                                              String demoNo, String serviceCodeParams, String dx, String visitType, String billingForm, String visitLocation, String sortName, String sortOrder,
                                                              String paymentStartDate, String paymentEndDate, String claimNo) {
-        BillingONClaimQueryService bObj = SpringUtils.getBean(BillingONClaimQueryService.class);
         billType = billType == null || billType.length == 0 ? null : billType;
         statusType = statusType == null || statusType.length() == 0 || statusType.equals(ANY_STATUS_TYPE) ? null : statusType;
         providerNo = providerNo == null || providerNo.length() == 0 || providerNo.equals(ANY_PROVIDER) ? null : providerNo;
@@ -95,7 +94,6 @@ public class BillingStatusPrep {
 
 
     public List<LabelValueBean> listBillingForms() {
-        BillingONClaimQueryService bObj = SpringUtils.getBean(BillingONClaimQueryService.class);
         List<LabelValueBean> billingFormsList = bObj.listBillingForms();
         if (billingFormsList == null) billingFormsList = new ArrayList<LabelValueBean>();
         return billingFormsList;

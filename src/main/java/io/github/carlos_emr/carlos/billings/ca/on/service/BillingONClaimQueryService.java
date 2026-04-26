@@ -33,7 +33,6 @@ import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingPercLimitDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingPercLimit;
 import io.github.carlos_emr.carlos.utility.DateRange;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 
@@ -55,24 +54,42 @@ public class BillingONClaimQueryService {
     private final BillingONExtDao extDao;
     private final BillingONPaymentDao payDao;
     private final BillingServiceDao serviceDao;
+    private final BillingOnItemPaymentDao billOnItemPaymentDao;
+    private final BillingPercLimitDao percLimitDao;
+    private final BillingPaymentTypeDao paymentTypeDao;
+    private final ProviderDao providerDao;
+    private final BillingONItemDao itemDao;
+    private final CtlBillingServiceDao ctlBillingServiceDao;
 
     /** Test-friendly constructor — package-private, takes DAO mocks directly. */
-    BillingONClaimQueryService(ClinicLocationDao clinicLocationDao, BillingONCHeader1Dao dao, BillingONExtDao extDao, BillingONPaymentDao payDao, BillingServiceDao serviceDao) {
+    BillingONClaimQueryService(ClinicLocationDao clinicLocationDao,
+                               BillingONCHeader1Dao dao,
+                               BillingONExtDao extDao,
+                               BillingONPaymentDao payDao,
+                               BillingServiceDao serviceDao,
+                               BillingOnItemPaymentDao billOnItemPaymentDao,
+                               BillingPercLimitDao percLimitDao,
+                               BillingPaymentTypeDao paymentTypeDao,
+                               ProviderDao providerDao,
+                               BillingONItemDao itemDao,
+                               CtlBillingServiceDao ctlBillingServiceDao) {
         this.clinicLocationDao = clinicLocationDao;
         this.dao = dao;
         this.extDao = extDao;
         this.payDao = payDao;
         this.serviceDao = serviceDao;
+        this.billOnItemPaymentDao = billOnItemPaymentDao;
+        this.percLimitDao = percLimitDao;
+        this.paymentTypeDao = paymentTypeDao;
+        this.providerDao = providerDao;
+        this.itemDao = itemDao;
+        this.ctlBillingServiceDao = ctlBillingServiceDao;
     }
-
-    BillingOnItemPaymentDao billOnItemPaymentDao = (BillingOnItemPaymentDao) SpringUtils.getBean(BillingOnItemPaymentDao.class);
 
     public String getCodeFee(String val, String billReferalDate) {
         String retval = null;
-        BillingServiceDao dao = SpringUtils.getBean(BillingServiceDao.class);
-
         try {
-            for (BillingService bs : dao.findByServiceCodeAndLatestDate(val, ConversionUtils.fromDateString(billReferalDate))) {
+            for (BillingService bs : serviceDao.findByServiceCodeAndLatestDate(val, ConversionUtils.fromDateString(billReferalDate))) {
                 retval = bs.getValue();
 
                 DateFormat df = new SimpleDateFormat("yyyy-MM-dd");
@@ -91,9 +108,8 @@ public class BillingONClaimQueryService {
 
     public String getPercFee(String val, String billReferalDate) {
         String retval = null;
-        BillingServiceDao dao = SpringUtils.getBean(BillingServiceDao.class);
         try {
-            for (BillingService bs : dao.findByServiceCodeAndLatestDate(val, ConversionUtils.fromDateString(billReferalDate))) {
+            for (BillingService bs : serviceDao.findByServiceCodeAndLatestDate(val, ConversionUtils.fromDateString(billReferalDate))) {
                 retval = bs.getPercentage();
             }
         } catch (Exception e) {
@@ -105,9 +121,8 @@ public class BillingONClaimQueryService {
     public String[] getPercMinMaxFee(String val, String billReferalDate) {
         String[] retval = {"", ""};
 
-        BillingPercLimitDao dao = SpringUtils.getBean(BillingPercLimitDao.class);
         try {
-            for (BillingPercLimit b : dao.findByServiceCodeAndLatestDate(val, ConversionUtils.fromDateString(billReferalDate))) {
+            for (BillingPercLimit b : percLimitDao.findByServiceCodeAndLatestDate(val, ConversionUtils.fromDateString(billReferalDate))) {
                 retval[0] = b.getMin();
                 retval[1] = b.getMax();
             }
@@ -314,14 +329,8 @@ public class BillingONClaimQueryService {
             String prevId = null;
             String prevPaid = null;
 
-            BillingONCHeader1Dao dao = SpringUtils.getBean(BillingONCHeader1Dao.class);
-            BillingONPaymentDao billingOnPaymentDao = SpringUtils.getBean(BillingONPaymentDao.class);
-            BillingONExtDao billingOnExtDao = SpringUtils.getBean(BillingONExtDao.class);
-            BillingPaymentTypeDao billingPaymentTypeDao = SpringUtils.getBean(BillingPaymentTypeDao.class);
-            ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
-
-            Integer CASH_PAYMENT_ID = billingPaymentTypeDao.findIdByName("CASH");
-            Integer DEBIT_PAYMENT_ID = billingPaymentTypeDao.findIdByName("DEBIT");
+            Integer CASH_PAYMENT_ID = paymentTypeDao.findIdByName("CASH");
+            Integer DEBIT_PAYMENT_ID = paymentTypeDao.findIdByName("DEBIT");
 
             for (Object[] o : dao.findByMagic2(Arrays.asList(billType), statusType, providerNo, ConversionUtils.fromDateString(startDate), ConversionUtils.fromDateString(endDate), ConversionUtils.fromIntString(demoNo), serviceCodes, dx, visitType, visitLocation, ConversionUtils.fromDateString(paymentStartDate), ConversionUtils.fromDateString(paymentEndDate), claimNo)) {
                 BillingONCHeader1 ch1 = (BillingONCHeader1) o[0];
@@ -368,9 +377,9 @@ public class BillingONClaimQueryService {
 
                 ch1Obj.setNumItems(Integer.parseInt(bi.getServiceCount()));
 
-                for (Integer paymentId : billingOnPaymentDao.find3rdPartyPayments(Integer.parseInt(ch1Obj.getId()))) {
+                for (Integer paymentId : payDao.find3rdPartyPayments(Integer.parseInt(ch1Obj.getId()))) {
                     //because private billing changed, we'll check via paymentTypeId in billing_on_payment
-                    BillingONPayment paymentObj = billingOnPaymentDao.find(paymentId);
+                    BillingONPayment paymentObj = payDao.find(paymentId);
                     BillingOnItemPayment boip = billOnItemPaymentDao.findByPaymentIdAndItemId(paymentId, bi.getId());
 
                     if (boip == null) {
@@ -412,10 +421,6 @@ public class BillingONClaimQueryService {
         int iRow = 0;
 
         BillingClaimHeader1Data ch1Obj = null;
-        ProviderDao providerdao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
-
-        BillingONCHeader1Dao dao = SpringUtils.getBean(BillingONCHeader1Dao.class);
-        BillingONItemDao itemDao = SpringUtils.getBean(BillingONItemDao.class);
 
         List<BillingONCHeader1> hs = null;
         if (dateRange == null) {
@@ -447,7 +452,7 @@ public class BillingONClaimQueryService {
                 ch1Obj.setFacilty_num(h.getFaciltyNum());
                 ch1Obj.setTotal(h.getTotal().toString());
 
-                Provider provider = providerdao.getProvider(h.getProviderNo());
+                Provider provider = providerDao.getProvider(h.getProviderNo());
                 ch1Obj.setLast_name(provider.getLastName());
                 ch1Obj.setFirst_name(provider.getFirstName());
 
@@ -505,9 +510,8 @@ public class BillingONClaimQueryService {
     public List<LabelValueBean> listBillingForms() {
         List<LabelValueBean> res = new ArrayList<LabelValueBean>();
 
-        CtlBillingServiceDao dao = SpringUtils.getBean(CtlBillingServiceDao.class);
         try {
-            for (Object[] o : dao.findServiceTypes()) {
+            for (Object[] o : ctlBillingServiceDao.findServiceTypes()) {
                 String servicetype = String.valueOf(o[0]);
                 String servicetypeName = String.valueOf(o[1]);
                 res.add(new LabelValueBean(servicetypeName, servicetype));
@@ -533,8 +537,7 @@ public class BillingONClaimQueryService {
         }
 
         if (billingForm != null && billingForm.length() > 0) {
-            CtlBillingServiceDao dao = SpringUtils.getBean(CtlBillingServiceDao.class);
-            for (Object code : dao.findServiceCodesByType(billingForm)) {
+            for (Object code : ctlBillingServiceDao.findServiceCodesByType(billingForm)) {
                 serviceCodeList.add(code.toString());
             }
         }
@@ -547,9 +550,6 @@ public class BillingONClaimQueryService {
         List<Object> retval = new ArrayList<Object>();
 
         BillingClaimHeader1Data ch1Obj = null;
-
-        BillingONCHeader1Dao dao = SpringUtils.getBean(BillingONCHeader1Dao.class);
-        BillingONItemDao itemDao = SpringUtils.getBean(BillingONItemDao.class);
 
         try {
             for (BillingONCHeader1 h : dao.findByAppointmentNo(ConversionUtils.fromIntString(apptNo))) {

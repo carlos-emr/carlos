@@ -29,7 +29,7 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.DateRange;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
+import org.springframework.beans.factory.ObjectFactory;
 /**
  * Shared mutation service for the two MOH disk-creation forward-shim JSPs:
  * {@code ongenreport.jsp} (new disk for current period) and
@@ -37,6 +37,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * iterated providers, used {@link BillingDiskCreatePrep} +
  * {@link OhipClaimFileService} to write OHIP/HTML disk files, and
  * {@code <jsp:forward>}'d to {@code ViewBillingONMRI}.
+ *
+ * <p>{@link OhipClaimFileService} is {@code @Scope("prototype")} — per-claim
+ * mutable state; sharing one instance across two concurrent disk generations
+ * would corrupt both. Injected as {@link ObjectFactory} so each
+ * {@link #newFileWriter} call produces a fresh instance.</p>
  *
  * @since 2026-04-26
  */
@@ -49,9 +54,18 @@ public class OnBillingDiskService {
     private static final String[] BILLING_STATUS_REGEN = new String[]{"B"};
 
     private final ProviderDao providerDao;
+    private final BillingDiskCreatePrep prep;
+    private final BillingONDiskQueryService diskQueryService;
+    private final ObjectFactory<OhipClaimFileService> ohipClaimFileFactory;
 
-    OnBillingDiskService(ProviderDao providerDao) {
+    OnBillingDiskService(ProviderDao providerDao,
+                         BillingDiskCreatePrep prep,
+                         BillingONDiskQueryService diskQueryService,
+                         ObjectFactory<OhipClaimFileService> ohipClaimFileFactory) {
         this.providerDao = providerDao;
+        this.prep = prep;
+        this.diskQueryService = diskQueryService;
+        this.ohipClaimFileFactory = ohipClaimFileFactory;
     }
 
     /**
@@ -75,7 +89,6 @@ public class OnBillingDiskService {
         boolean groupReport = isGroupProvider(provider);
 
         if ("all".equals(provider) || groupReport) {
-            BillingDiskCreatePrep prep = SpringUtils.getBean(BillingDiskCreatePrep.class);
             if (!groupReport) {
                 writeSoloDisks(prep, prep.getCurSoloProvider(), loggedInInfo, request,
                         dateRange, mohOffice, useProviderMOH, currentUser);
@@ -83,7 +96,6 @@ public class OnBillingDiskService {
             writeGroupDisks(prep, prep.getCurGrpProvider(), loggedInInfo, request,
                     dateRange, mohOffice, useProviderMOH, currentUser, groupReport, provider);
         } else {
-            BillingDiskCreatePrep prep = SpringUtils.getBean(BillingDiskCreatePrep.class);
             BillingProviderData soloProvider = prep.getProviderObj(provider);
             if (soloProvider != null && isSoloGroupNo(soloProvider.getBillingGroupNo())) {
                 writeSingleSoloDisk(prep, soloProvider, loggedInInfo, request,
@@ -105,11 +117,9 @@ public class OnBillingDiskService {
         String defaultMOH = mohOffice;
         String currentUser = (String) request.getSession().getAttribute("user");
 
-        BillingONDiskQueryService dateObj = SpringUtils.getBean(BillingONDiskQueryService.class);
-        String dateEnd = dateObj.getDiskCreateDate(diskId);
+        String dateEnd = diskQueryService.getDiskCreateDate(diskId);
         DateRange dateRange = new DateRange(null, ConversionUtils.fromDateString(dateEnd));
 
-        BillingDiskCreatePrep prep = SpringUtils.getBean(BillingDiskCreatePrep.class);
         List<BillingProviderData> lProvider = prep.getProvider(diskId);
 
         if (lProvider != null && lProvider.size() == 1
@@ -210,7 +220,7 @@ public class OnBillingDiskService {
                     loggedInInfo, request, dateRange, mohOffice, useProviderMOH, currentUser,
                     oriBillCenter);
             if (aggregatedClaim != null) {
-                OhipClaimFileService finalize = SpringUtils.getBean(OhipClaimFileService.class);
+                OhipClaimFileService finalize = ohipClaimFileFactory.getObject();
                 finalize.setContextPath(request.getContextPath());
                 finalize.setOhipFilename(prep.getOhipfilename(diskId));
                 finalize.writeFile(aggregatedClaim);
@@ -319,12 +329,12 @@ public class OnBillingDiskService {
         return (billCenter != null && billCenter.length() == 1) ? billCenter : defaultMOH;
     }
 
-    private static OhipClaimFileService newFileWriter(HttpServletRequest request,
-                                                               DateRange dateRange,
-                                                               String providerNo,
-                                                               String ohipFilename,
-                                                               String htmlFilename) {
-        OhipClaimFileService objFile = SpringUtils.getBean(OhipClaimFileService.class);
+    private OhipClaimFileService newFileWriter(HttpServletRequest request,
+                                               DateRange dateRange,
+                                               String providerNo,
+                                               String ohipFilename,
+                                               String htmlFilename) {
+        OhipClaimFileService objFile = ohipClaimFileFactory.getObject();
         objFile.setContextPath(request.getContextPath());
         objFile.setDateRange(dateRange);
         objFile.setProviderNo(providerNo);

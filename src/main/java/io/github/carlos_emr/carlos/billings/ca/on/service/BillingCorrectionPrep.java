@@ -44,7 +44,6 @@ import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.commn.model.BillingOnItemPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingOnTransaction;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
@@ -60,10 +59,41 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 public class BillingCorrectionPrep {
     private static final Logger _logger = MiscUtils.getLogger();
 
-    BillingONCorrectionPersistenceService dbObj = SpringUtils.getBean(BillingONCorrectionPersistenceService.class);
-    BillingONCHeader1Dao cheader1Dao = (BillingONCHeader1Dao) SpringUtils.getBean(BillingONCHeader1Dao.class);
-    BillingONItemDao billOnItemDao = (BillingONItemDao) SpringUtils.getBean(BillingONItemDao.class);
-    BillingONExtDao billOnExtDao = SpringUtils.getBean(BillingONExtDao.class);
+    private final BillingONCorrectionPersistenceService dbObj;
+    private final BillingONCHeader1Dao cheader1Dao;
+    private final BillingONItemDao billOnItemDao;
+    private final BillingONExtDao billOnExtDao;
+    private final BillingONLookupService lookupService;
+    private final Billing3rdPartyService thirdPartyService;
+    private final BillingONServiceCodeService serviceCodeService;
+    private final BillingONClaimPersistenceService claimPersistenceService;
+    private final BillingONClaimQueryService claimQueryService;
+    private final BillingOnTransactionDao billOnTransDao;
+    private final BillingOnItemPaymentDao billOnItemPaymentDao;
+
+    BillingCorrectionPrep(BillingONCorrectionPersistenceService dbObj,
+                          BillingONCHeader1Dao cheader1Dao,
+                          BillingONItemDao billOnItemDao,
+                          BillingONExtDao billOnExtDao,
+                          BillingONLookupService lookupService,
+                          Billing3rdPartyService thirdPartyService,
+                          BillingONServiceCodeService serviceCodeService,
+                          BillingONClaimPersistenceService claimPersistenceService,
+                          BillingONClaimQueryService claimQueryService,
+                          BillingOnTransactionDao billOnTransDao,
+                          BillingOnItemPaymentDao billOnItemPaymentDao) {
+        this.dbObj = dbObj;
+        this.cheader1Dao = cheader1Dao;
+        this.billOnItemDao = billOnItemDao;
+        this.billOnExtDao = billOnExtDao;
+        this.lookupService = lookupService;
+        this.thirdPartyService = thirdPartyService;
+        this.serviceCodeService = serviceCodeService;
+        this.claimPersistenceService = claimPersistenceService;
+        this.claimQueryService = claimQueryService;
+        this.billOnTransDao = billOnTransDao;
+        this.billOnItemPaymentDao = billOnItemPaymentDao;
+    }
 
     public List getBillingRecordObj(String id) {
         List ret = dbObj.getBillingRecordObj(id);
@@ -115,7 +145,7 @@ public class BillingCorrectionPrep {
             ch1Obj.setComment(requestData.getParameter("comment"));
 
             // provider_ohip_no update as well
-            BillingProviderData otemp = (SpringUtils.getBean(BillingONLookupService.class))
+            BillingProviderData otemp = lookupService
                     .getProviderObj(requestData.getParameter("provider_no"));
             ch1Obj.setProvider_ohip_no(otemp.getOhipNo());
             ch1Obj.setProvider_rma_no(otemp.getRmaNo());
@@ -177,21 +207,18 @@ public class BillingCorrectionPrep {
 
         if (isChangedBillingClaimHeader(ch1DataBackup, ch1Obj)) {
             // add transaction log refer to https://github.com/oscaremr/oscar/issues/233
-            BillingOnTransactionDao billTransDao = (BillingOnTransactionDao) SpringUtils
-                    .getBean(BillingOnTransactionDao.class);
             LoggedInInfo liTrans = LoggedInInfo.getLoggedInInfoFromSession(requestData);
-            BillingOnTransaction billTrans = billTransDao.getUpdateCheader1TransTemplate(ch1Obj,
+            BillingOnTransaction billTrans = billOnTransDao.getUpdateCheader1TransTemplate(ch1Obj,
                     liTrans != null ? liTrans.getLoggedInProviderNo() : null);
-            billTransDao.persist(billTrans);
+            billOnTransDao.persist(billTrans);
         }
 
         return ret;
     }
 
     public void setInactive(String key, HttpServletRequest request) {
-        Billing3rdPartyService tobj = SpringUtils.getBean(Billing3rdPartyService.class);
         String billingNo = request.getParameter("xml_billing_no");
-        tobj.updateKeyStatus(billingNo, key, Billing3rdPartyService.INACTIVE);
+        thirdPartyService.updateKeyStatus(billingNo, key, Billing3rdPartyService.INACTIVE);
     }
 
     /*
@@ -204,16 +231,15 @@ public class BillingCorrectionPrep {
 
     public boolean update3rdPartyItem(String key, HttpServletRequest request) {
         boolean ret = true;
-        Billing3rdPartyService tobj = SpringUtils.getBean(Billing3rdPartyService.class);
         String billingNo = request.getParameter("xml_billing_no");
-        if (tobj.keyExists(billingNo, key)) {
+        if (thirdPartyService.keyExists(billingNo, key)) {
             String val = request.getParameter(key);
             if (val == null && billOnExtDao.isNumberKey(key)) {
                 val = "0.00";
             }
-            ret = tobj.updateKeyValue(billingNo, key, val);
+            ret = thirdPartyService.updateKeyValue(billingNo, key, val);
         } else {
-            ret = tobj.add3rdBillExt(billingNo, request.getParameter("demoNo"),
+            ret = thirdPartyService.add3rdBillExt(billingNo, request.getParameter("demoNo"),
                     key, request.getParameter(key));
         }
         return ret;
@@ -221,11 +247,10 @@ public class BillingCorrectionPrep {
 
     public boolean update3rdPartyItem(HttpServletRequest request) {
         boolean ret = true;
-        Billing3rdPartyService tobj = SpringUtils.getBean(Billing3rdPartyService.class);
         String billingNo = request.getParameter("xml_billing_no");
-        tobj.updateKeyValue(billingNo, "payment",
+        thirdPartyService.updateKeyValue(billingNo, "payment",
                 request.getParameter("payment"));
-        tobj.updateKeyValue(billingNo, "refund", request.getParameter("refund"));
+        thirdPartyService.updateKeyValue(billingNo, "refund", request.getParameter("refund"));
         return ret;
     }
 
@@ -336,18 +361,16 @@ public class BillingCorrectionPrep {
     // billing correction
     public String getBillingCodeDesc(String codeName) {
         String ret = null;
-        BillingONServiceCodeService dbCodeObj = SpringUtils.getBean(BillingONServiceCodeService.class);
-        List descL = dbCodeObj.getBillingCodeAttr(codeName);
+        List descL = serviceCodeService.getBillingCodeAttr(codeName);
         ret = descL.size() > 1 ? (String) descL.get(1) : "Unknown";
         return ret;
     }
 
     // billing correction
     public Properties getBillingCodeDesc(List codeName) {
-        BillingONServiceCodeService dbCodeObj = SpringUtils.getBean(BillingONServiceCodeService.class);
         Properties ret = new Properties();
         for (int i = 0; i < codeName.size(); i++) {
-            List descL = dbCodeObj.getBillingCodeAttr((String) codeName.get(i));
+            List descL = serviceCodeService.getBillingCodeAttr((String) codeName.get(i));
             String desc = descL.size() > 1 ? (String) descL.get(1) : "Unknown";
             ret.setProperty((String) codeName.get(i), desc);
         }
@@ -579,8 +602,6 @@ public class BillingCorrectionPrep {
             ret = dbObj.updateBillingOneItem(oldObj);
             // add one transaction: delete a service code
             BillingONCHeader1 billCheader1 = cheader1Dao.find(Integer.parseInt(oldObj.getCh1_id()));
-            BillingOnTransactionDao billOnTransDao = (BillingOnTransactionDao) SpringUtils
-                    .getBean(BillingOnTransactionDao.class);
             BillingOnTransaction billTrans = new BillingOnTransaction();
             billTrans.setActionType(BillingDataHlp.ACTION_TYPE.D.name());
             try {
@@ -651,8 +672,6 @@ public class BillingCorrectionPrep {
 
                 if (ch1Obj.getPay_program().matches(BillingDataHlp.BILLINGMATCHSTRING_3RDPARTY)) {
                     // get which item_payments are associated to this service code
-                    BillingOnItemPaymentDao billOnItemPaymentDao = (BillingOnItemPaymentDao) SpringUtils
-                            .getBean(BillingOnItemPaymentDao.class);
                     List<BillingOnItemPayment> billOnItemPaymentList = billOnItemPaymentDao
                             .getAllByItemId(Integer.parseInt(oldObj.getId()));
 
@@ -692,8 +711,6 @@ public class BillingCorrectionPrep {
         billOnItem.setDx1(oldObj.getDx1());
         billOnItem.setDx2(oldObj.getDx2());
         billOnItem.setLastEditDT(new Date());
-        BillingONItemDao billOnItemDao = (BillingONItemDao) SpringUtils.getBean(BillingONItemDao.class);
-
         billOnItemDao.persist(billOnItem);
 
         return billOnItem;
@@ -720,8 +737,7 @@ public class BillingCorrectionPrep {
             newObj.setService_date(serviceDate);
             newObj.setDx(sDx);
             newObj.setStatus(sStatus);
-            BillingONClaimPersistenceService myObj = SpringUtils.getBean(BillingONClaimPersistenceService.class);
-            int i = myObj.addOneItemRecord(newObj);
+            int i = claimPersistenceService.addOneItemRecord(newObj);
             if (0 == i) {
                 return false;
             }
@@ -760,9 +776,7 @@ public class BillingCorrectionPrep {
     }
 
     public List getFacilty_num() {
-        BillingONLookupService dbPageObj = SpringUtils.getBean(BillingONLookupService.class);
-        List ret = dbPageObj.getFacilty_num();
-        return ret;
+        return lookupService.getFacilty_num();
     }
 
     private String sumFee(ArrayList vecFee) {
@@ -804,8 +818,7 @@ public class BillingCorrectionPrep {
                           String billReferenceDate) {
         String ret = fee;
         if (fee.length() == 0 || fee.equals(" ")) {
-            BillingONClaimQueryService dbObj = SpringUtils.getBean(BillingONClaimQueryService.class);
-            fee = dbObj.getCodeFee(codeName, billReferenceDate);
+            fee = claimQueryService.getCodeFee(codeName, billReferenceDate);
             // calculate fee
             BigDecimal bigCodeFee = new BigDecimal(fee);
             BigDecimal bigCodeUnit = new BigDecimal(unit);

@@ -47,7 +47,6 @@ import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.commn.model.BillingOnItemPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingOnTransaction;
 import io.github.carlos_emr.carlos.commn.model.RaDetail;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Persistence service for the ON billing correction workflow. Wraps every
@@ -73,21 +72,32 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 @org.springframework.context.annotation.Lazy
 @org.springframework.transaction.annotation.Transactional
 public class BillingONCorrectionPersistenceService {
-    BillingONAuditLogService auditLog = SpringUtils.getBean(BillingONAuditLogService.class);
 
     private final BillingONCHeader1Dao billingHeaderDao;
-    //private BillingONRepoDao billingRepoDao = SpringUtils.getBean(BillingONRepoDao.class);
     private final BillingONItemDao billingItemDao;
     private final BillingONEAReportDao billingEaReportDao;
     private final RaDetailDao raDetailDao;
     private final BillingOnItemPaymentDao itemPaymentDao;
+    private final BillingONExtDao billExtDao;
+    private final BillingOnTransactionDao billOnTransDao;
+    private final BillingONAuditLogService auditLog;
 
-    public BillingONCorrectionPersistenceService(BillingONCHeader1Dao billingHeaderDao, BillingONItemDao billingItemDao, BillingONEAReportDao billingEaReportDao, RaDetailDao raDetailDao, BillingOnItemPaymentDao itemPaymentDao) {
+    public BillingONCorrectionPersistenceService(BillingONCHeader1Dao billingHeaderDao,
+                                                 BillingONItemDao billingItemDao,
+                                                 BillingONEAReportDao billingEaReportDao,
+                                                 RaDetailDao raDetailDao,
+                                                 BillingOnItemPaymentDao itemPaymentDao,
+                                                 BillingONExtDao billExtDao,
+                                                 BillingOnTransactionDao billOnTransDao,
+                                                 BillingONAuditLogService auditLog) {
         this.billingHeaderDao = billingHeaderDao;
         this.billingItemDao = billingItemDao;
         this.billingEaReportDao = billingEaReportDao;
         this.raDetailDao = raDetailDao;
         this.itemPaymentDao = itemPaymentDao;
+        this.billExtDao = billExtDao;
+        this.billOnTransDao = billOnTransDao;
+        this.auditLog = auditLog;
     }
 
     private SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd");
@@ -302,7 +312,6 @@ public class BillingONCorrectionPersistenceService {
             ch1Obj.setClinic(h.getClinic());
 
             // get billTo from billing_on_ext
-            BillingONExtDao billExtDao = (BillingONExtDao) SpringUtils.getBean(BillingONExtDao.class);
             BillingONExt ext = billExtDao.getClaimExtItem(Integer.parseInt(ch1Obj.getId()), Integer.parseInt(ch1Obj.getDemographic_no()), "billTo");
             if (ext != null) {
                 ch1Obj.setBillto(ext.getValue());
@@ -442,11 +451,6 @@ public class BillingONCorrectionPersistenceService {
     }
 
     public void addInsertOneBillItemTrans(BillingClaimHeader1Data billHeader, BillingItemData billItem, String updateProviderNo) {
-        BillingOnTransactionDao billOnTransDao = (BillingOnTransactionDao) SpringUtils.getBean(BillingOnTransactionDao.class);
-        if (billOnTransDao == null) {
-            return;
-        }
-
         BillingOnTransaction billTrans = new BillingOnTransaction();
         billTrans.setActionType(BillingDataHlp.ACTION_TYPE.C.name());
         try {
@@ -494,11 +498,6 @@ public class BillingONCorrectionPersistenceService {
     }
 
     public void addUpdateOneBillItemTrans(BillingClaimHeader1Data billHeader, BillingItemData billItem, String updateProviderNo) {
-        BillingOnTransactionDao billOnTransDao = (BillingOnTransactionDao) SpringUtils.getBean(BillingOnTransactionDao.class);
-        if (billOnTransDao == null) {
-            return;
-        }
-
         BillingOnTransaction billTrans = new BillingOnTransaction();
         billTrans.setActionType(BillingDataHlp.ACTION_TYPE.U.name());
         try {

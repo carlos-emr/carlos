@@ -37,49 +37,43 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDiskNameData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 @org.springframework.stereotype.Service
 @org.springframework.context.annotation.Lazy
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
 public class BillingDiskCreatePrep {
     private static final Logger _logger = MiscUtils.getLogger();
-    BillingONClaimPersistenceService dbObj = SpringUtils.getBean(BillingONClaimPersistenceService.class);
-    BillingONDiskQueryService diskQuery = SpringUtils.getBean(BillingONDiskQueryService.class);
+    private final BillingONClaimPersistenceService dbObj;
+    private final BillingONDiskQueryService diskQuery;
+    private final BillingONLookupService lookupService;
     Properties propProOHIP = null;
 
-    public BillingDiskCreatePrep() {
-        propProOHIP = getPropProviderOHIP();
+    BillingDiskCreatePrep(BillingONClaimPersistenceService dbObj,
+                          BillingONDiskQueryService diskQuery,
+                          BillingONLookupService lookupService) {
+        this.dbObj = dbObj;
+        this.diskQuery = diskQuery;
+        this.lookupService = lookupService;
+        this.propProOHIP = lookupService.getPropProviderOHIP();
     }
 
-    public static Properties getPropProviderOHIP() {
-        Properties ret = new Properties();
-        BillingONLookupService dbObj = SpringUtils.getBean(BillingONLookupService.class);
-        ret = dbObj.getPropProviderOHIP();
-        return ret;
+    public Properties getPropProviderOHIP() {
+        return lookupService.getPropProviderOHIP();
     }
 
     public List getCurSoloProvider() {
-        BillingONLookupService dbObj = SpringUtils.getBean(BillingONLookupService.class);
-        List ret = dbObj.getCurSoloProvider();
-        return ret;
+        return lookupService.getCurSoloProvider();
     }
 
     public List getCurGrpProvider() {
-        BillingONLookupService dbObj = SpringUtils.getBean(BillingONLookupService.class);
-        List ret = dbObj.getCurGrpProvider();
-        return ret;
+        return lookupService.getCurGrpProvider();
     }
 
     public List getProvider(String diskId) {
-        BillingONLookupService dbObj = SpringUtils.getBean(BillingONLookupService.class);
-        List ret = dbObj.getProvider(diskId);
-        return ret;
+        return lookupService.getProvider(diskId);
     }
 
     public BillingProviderData getProviderObj(String providerNo) {
-        BillingONLookupService dbObj = SpringUtils.getBean(BillingONLookupService.class);
-        BillingProviderData ret = dbObj.getProviderObj(providerNo);
-        return ret;
+        return lookupService.getProviderObj(providerNo);
     }
 
     public String getOhipfilename(int diskId) {

@@ -45,7 +45,6 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.RaDetail;
 import io.github.carlos_emr.carlos.commn.model.RaHeader;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
@@ -349,8 +348,7 @@ public class BillingONRemittanceAdviceService {
 
     public List<Properties> getTeamRahd(String status, String provider_no) {
         List<Properties> ret = new ArrayList<Properties>();
-        RaHeaderDao dao = SpringUtils.getBean(RaHeaderDao.class);
-        for (RaHeader r : dao.findByHeaderDetailsAndProviderMagic(status, provider_no)) {
+        for (RaHeader r : raHeaderDao.findByHeaderDetailsAndProviderMagic(status, provider_no)) {
             Properties prop = new Properties();
             prop.setProperty("raheader_no", "" + r.getId());
             prop.setProperty("readdate", r.getReadDate());
@@ -368,8 +366,7 @@ public class BillingONRemittanceAdviceService {
 
     public List<Properties> getSiteRahd(String status, String provider_no) {
         List<Properties> ret = new ArrayList<Properties>();
-        RaHeaderDao dao = SpringUtils.getBean(RaHeaderDao.class);
-        for (RaHeader r : dao.findByStatusAndProviderMagic(status, provider_no)) {
+        for (RaHeader r : raHeaderDao.findByStatusAndProviderMagic(status, provider_no)) {
             Properties prop = new Properties();
             prop.setProperty("raheader_no", "" + r.getId());
             prop.setProperty("readdate", r.getReadDate());
@@ -396,8 +393,7 @@ public class BillingONRemittanceAdviceService {
 
     public List<Properties> getProviderListFromRAReport(String id) {
         List<Properties> ret = new ArrayList<Properties>();
-        RaHeaderDao dao = SpringUtils.getBean(RaHeaderDao.class);
-        for (Object[] o : dao.findHeadersAndProvidersById(ConversionUtils.fromIntString(id))) {
+        for (Object[] o : raHeaderDao.findHeadersAndProvidersById(ConversionUtils.fromIntString(id))) {
             RaDetail r = (RaDetail) o[0];
             Provider p = (Provider) o[1];
 
@@ -414,22 +410,19 @@ public class BillingONRemittanceAdviceService {
     public List<Properties> getRAErrorReport(String raNo, String providerOhipNo, String[] notErrorCode) {
         List<Properties> ret = new ArrayList<Properties>();
 
-        RaDetailDao dao = SpringUtils.getBean(RaDetailDao.class);
-        BillingONCHeader1Dao billingDao = SpringUtils.getBean(BillingONCHeader1Dao.class);
-
         try {
-            for (Integer billingNo : dao.findDistinctIdOhipWithError(ConversionUtils.fromIntString(raNo), providerOhipNo, Arrays.asList(notErrorCode))) {
+            for (Integer billingNo : raDetailDao.findDistinctIdOhipWithError(ConversionUtils.fromIntString(raNo), providerOhipNo, Arrays.asList(notErrorCode))) {
                 String account = "" + billingNo;
                 String demoLast = "";
                 String billingDate = "";
 
-                BillingONCHeader1 billing = billingDao.find(billingNo);
+                BillingONCHeader1 billing = cheader1Dao.find(billingNo);
                 if (billing != null) {
                     demoLast = billing.getDemographicName();
                     billingDate = ConversionUtils.toDateString(billing.getBillingDate());
                 }
 
-                for (RaDetail rr : dao.findByHeaderAndBillingNos(ConversionUtils.fromIntString(raNo), billingNo)) {
+                for (RaDetail rr : raDetailDao.findByHeaderAndBillingNos(ConversionUtils.fromIntString(raNo), billingNo)) {
                     Properties prop = new Properties();
                     String explain = rr.getErrorCode();
                     if (explain == null || explain.compareTo("") == 0) {
@@ -460,8 +453,7 @@ public class BillingONRemittanceAdviceService {
 
     public String getRAClaimNo4BillingNo(String billingNo) {
         String claim_no = "";
-        RaDetailDao dao = SpringUtils.getBean(RaDetailDao.class);
-        List<RaDetail> claims = dao.findByBillingNo(Integer.parseInt(billingNo));
+        List<RaDetail> claims = raDetailDao.findByBillingNo(Integer.parseInt(billingNo));
         for (RaDetail claim : claims) {
             claim_no = claim.getClaimNo();
         }
@@ -472,8 +464,7 @@ public class BillingONRemittanceAdviceService {
     public List<String> getRABillingNo4Code(String id, String codes) {
         Set<String> ret = new HashSet<String>();
 
-        RaDetailDao dao = SpringUtils.getBean(RaDetailDao.class);
-        for (RaDetail r : dao.findByRaHeaderNoAndServiceCodes(ConversionUtils.fromIntString(id), Arrays.asList(codes))) {
+        for (RaDetail r : raDetailDao.findByRaHeaderNoAndServiceCodes(ConversionUtils.fromIntString(id), Arrays.asList(codes))) {
             ret.add("" + r.getBillingNo());
         }
 
@@ -483,10 +474,8 @@ public class BillingONRemittanceAdviceService {
     public List<Properties> getRASummary(String id, String providerOhipNo) {
         List<Properties> ret = new ArrayList<Properties>();
 
-        RaDetailDao dao = SpringUtils.getBean(RaDetailDao.class);
-        BillingONCHeader1Dao billingDao = SpringUtils.getBean(BillingONCHeader1Dao.class);
         try {
-            for (RaDetail r : dao.findByRaHeaderNoAndProviderOhipNo(ConversionUtils.fromIntString(id), providerOhipNo)) {
+            for (RaDetail r : raDetailDao.findByRaHeaderNoAndProviderOhipNo(ConversionUtils.fromIntString(id), providerOhipNo)) {
                 String account = "" + r.getBillingNo();
                 String location = "";
                 String demo_name = "";
@@ -495,7 +484,7 @@ public class BillingONRemittanceAdviceService {
                 demo_hin = demo_hin.trim();
                 String site = "";
                 String famProviderNo = null;
-                for (Object[] o : billingDao.findBillingsAndDemographicsById(ConversionUtils.fromIntString(account))) {
+                for (Object[] o : cheader1Dao.findBillingsAndDemographicsById(ConversionUtils.fromIntString(account))) {
                     BillingONCHeader1 b = (BillingONCHeader1) o[0];
                     Demographic d = (Demographic) o[1];
 

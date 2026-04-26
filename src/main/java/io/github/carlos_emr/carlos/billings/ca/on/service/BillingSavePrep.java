@@ -39,14 +39,19 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 @org.springframework.stereotype.Service
 @org.springframework.context.annotation.Lazy
 @org.springframework.transaction.annotation.Transactional
 public class BillingSavePrep {
     private static final Logger _logger = MiscUtils.getLogger();
-    BillingONClaimPersistenceService dbObj = SpringUtils.getBean(BillingONClaimPersistenceService.class);
+    private final BillingONClaimPersistenceService dbObj;
+    private final BillingONLookupService lookupService;
     int billingId = 0;
+
+    BillingSavePrep(BillingONClaimPersistenceService dbObj, BillingONLookupService lookupService) {
+        this.dbObj = dbObj;
+        this.lookupService = lookupService;
+    }
 
     // save a billing record
     @SuppressWarnings("rawtypes")
@@ -102,14 +107,12 @@ public class BillingSavePrep {
 
     // set appt to B
     public boolean updateApptStatus(String apptNo, String status, String userNo) {
-        boolean ret = (SpringUtils.getBean(BillingONLookupService.class)).updateApptStatus(apptNo, status, userNo);
-        return ret;
+        return lookupService.updateApptStatus(apptNo, status, userNo);
     }
 
     // get appt status
     public String getApptStatus(String apptNo) {
-        String ret = (SpringUtils.getBean(BillingONLookupService.class)).getApptStatus(apptNo);
-        return ret;
+        return lookupService.getApptStatus(apptNo);
     }
 
     // ret - ArrayList claimheader1data, itemdata

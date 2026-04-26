@@ -61,7 +61,6 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.DateRange;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.providers.data.ProviderBillCenter;
@@ -97,9 +96,11 @@ import org.owasp.encoder.Encode;
  * {@code providerNo}, {@code bhObj}, the running total / record-count
  * fields, etc. — populated by setters as it incrementally builds an OHIP
  * claim file. A singleton-scoped instance shared across two concurrent
- * OHIP file generations would corrupt both files' state. Every
- * {@code SpringUtils.getBean(OhipClaimFileService.class)} therefore
- * yields a fresh proxy + target instance.</p>
+ * OHIP file generations would corrupt both files' state. Singleton
+ * collaborators must therefore inject this via
+ * {@link org.springframework.beans.factory.ObjectFactory}; each
+ * {@code factory.getObject()} call yields a fresh instance (see
+ * {@link OnBillingDiskService}).</p>
  *
  * <p><strong>{@code @Transactional} note:</strong> the two write methods
  * ({@link #updateHeader1BilledBatchId}, {@link #updateDisknameSum}) each
@@ -126,15 +127,30 @@ public class OhipClaimFileService {
     private final BillingONCHeader1Dao cheaderDao;
     private final BillingONHeaderDao headerDao;
     private final BillingONFilenameDao filenameDao;
+    private final SiteDao siteDao;
+    private final BillingONItemDao itemDao;
+    private final BillingServiceDao billingServiceDao;
+    private final BillingONDiskNameDao diskNameDao;
+    private final BillingONLookupService lookupService;
 
     public OhipClaimFileService(DemographicManager demographicManager,
                                 BillingONCHeader1Dao cheaderDao,
                                 BillingONHeaderDao headerDao,
-                                BillingONFilenameDao filenameDao) {
+                                BillingONFilenameDao filenameDao,
+                                SiteDao siteDao,
+                                BillingONItemDao itemDao,
+                                BillingServiceDao billingServiceDao,
+                                BillingONDiskNameDao diskNameDao,
+                                BillingONLookupService lookupService) {
         this.demographicManager = demographicManager;
         this.cheaderDao = cheaderDao;
         this.headerDao = headerDao;
         this.filenameDao = filenameDao;
+        this.siteDao = siteDao;
+        this.itemDao = itemDao;
+        this.billingServiceDao = billingServiceDao;
+        this.diskNameDao = diskNameDao;
+        this.lookupService = lookupService;
 
         // Initialization previously done in the no-arg constructor — folded
         // in here so the prototype's per-instance state is fully built by
@@ -145,7 +161,6 @@ public class OhipClaimFileService {
 
         // Multisite: pre-cache site short names for the disk filename builders.
         clinicShortName = new HashMap<String, String>();
-        SiteDao siteDao = SpringUtils.getBean(SiteDao.class);
         List<Site> sites = siteDao.getAllSites();
         for (Site s : sites) {
             clinicShortName.put(s.getName(), s.getShortName());
@@ -528,10 +543,7 @@ public class OhipClaimFileService {
             int proItem = 0;
             String ohipNo = "";
 
-            BillingONCHeader1Dao dao = SpringUtils.getBean(BillingONCHeader1Dao.class);
-            BillingONItemDao itemDao = SpringUtils.getBean(BillingONItemDao.class);
-
-            for (BillingONCHeader1 h : dao.findByProviderStatusAndDateRange(providerNo, Arrays.asList(status), dateRange)) {
+            for (BillingONCHeader1 h : cheaderDao.findByProviderStatusAndDateRange(providerNo, Arrays.asList(status), dateRange)) {
                 // recreate judge
                 String bNo = "" + h.getId();
                 if (propBillingNo != null && !propBillingNo.containsKey(bNo)) {
@@ -621,8 +633,7 @@ public class OhipClaimFileService {
                     fee = boi.getFee();
 
                     if (!hasSliCode) {
-                        BillingServiceDao bsd = (BillingServiceDao) SpringUtils.getBean(BillingServiceDao.class);
-                        if (bsd.codeRequiresSLI(itemObj.getService_code())) {
+                        if (billingServiceDao.codeRequiresSLI(itemObj.getService_code())) {
                             errorPartMsg = "Service code '" + itemObj.getService_code() + "' requires an SLI code. <br/>";
                         }
                     }
@@ -689,8 +700,6 @@ public class OhipClaimFileService {
 
     public void createSiteBillingFileStr(LoggedInInfo loggedInInfo, String bid, String[] statuses) {
 
-        SiteDao siteDao = (SiteDao) SpringUtils.getBean(SiteDao.class);
-
         try {
             if (!"0".equals(bid)) { // for simulation only
                 getBatchHeaderObj(bid);
@@ -701,8 +710,7 @@ public class OhipClaimFileService {
             // start here
             value = batchHeader;
 
-            BillingONCHeader1Dao dao = SpringUtils.getBean(BillingONCHeader1Dao.class);
-            for (BillingONCHeader1 b : dao.findByProviderStatusAndDateRange(providerNo, Arrays.asList(statuses), dateRange)) {
+            for (BillingONCHeader1 b : cheaderDao.findByProviderStatusAndDateRange(providerNo, Arrays.asList(statuses), dateRange)) {
                 // recreate judge
                 String bNo = "" + b.getId();
                 if (propBillingNo != null && !propBillingNo.containsKey(bNo)) {
@@ -766,7 +774,6 @@ public class OhipClaimFileService {
                 // build billing detail
                 invCount = 0;
 
-                BillingONItemDao itemDao = SpringUtils.getBean(BillingONItemDao.class);
                 for (BillingONItem i : itemDao.findByCh1Id(ConversionUtils.fromIntString(ch1Obj.getId()))) {
                     itemObj = new BillingItemData();
                     recordCount++;
@@ -885,7 +892,7 @@ public class OhipClaimFileService {
 
     private void updateDemoData(LoggedInInfo loggedInInfo, BillingClaimHeader1Data chObj) {
         // last_name,first_name,dob,hin,ver,hc_type,sex
-        List<String> vecStr = SpringUtils.getBean(BillingONLookupService.class)
+        List<String> vecStr = lookupService
                 .getPatientCurBillingDemo(loggedInInfo, chObj.getDemographic_no());
 
         //Bonus Billing (Incentives)? Block out patient data : update with patient data
@@ -909,8 +916,7 @@ public class OhipClaimFileService {
     }
 
     public void getBatchHeaderObj(String bid) {
-        BillingONHeaderDao dao = SpringUtils.getBean(BillingONHeaderDao.class);
-        BillingONHeader h = dao.find(ConversionUtils.fromIntString(bid));
+        BillingONHeader h = headerDao.find(ConversionUtils.fromIntString(bid));
         if (h != null) {
             bhObj = new BillingBatchHeaderData();
             bhObj.setId(bid);
@@ -940,8 +946,7 @@ public class OhipClaimFileService {
     }
 
     public String getOhipFilename(String id) {
-        BillingONDiskNameDao dao = SpringUtils.getBean(BillingONDiskNameDao.class);
-        BillingONDiskName n = dao.find(ConversionUtils.fromIntString(id));
+        BillingONDiskName n = diskNameDao.find(ConversionUtils.fromIntString(id));
         if (n != null) {
             return n.getOhipFilename();
         }

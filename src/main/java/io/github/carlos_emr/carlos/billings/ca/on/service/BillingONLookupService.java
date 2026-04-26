@@ -51,7 +51,6 @@ import io.github.carlos_emr.carlos.commn.model.ProviderSite;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.SxmlMisc;
 
@@ -131,8 +130,6 @@ public class BillingONLookupService {
             siteIds.add(site.getId().getSiteId());
         }
 
-        ProviderSiteDao dao = SpringUtils.getBean(ProviderSiteDao.class);
-
         String proid = "";
         String proFirst = "";
         String proLast = "";
@@ -141,7 +138,7 @@ public class BillingONLookupService {
         String billinggroup_no;
 
         try {
-            for (Provider p : dao.findActiveProvidersWithSites(provider_no)) {
+            for (Provider p : providerSiteDao.findActiveProvidersWithSites(provider_no)) {
                 proid = p.getProviderNo();
                 proLast = p.getLastName();
                 proFirst = p.getFirstName();
