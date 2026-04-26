@@ -92,6 +92,21 @@ public final class BillingShortcutPg1ViewModel {
     private final String headerTitle3;
     private final Map<String, String> propPremium;
 
+    // Round-15: data formerly loaded inline by billingShortcutPg1.jsp via
+    // SpringUtils.getBean (CtlBillingServiceDao, DiagnosticCodeDao,
+    // ClinicNbrDao, ProviderDao for comments XML). Pre-loaded here so the
+    // JSP can iterate via EL/JSTL without any DAO lookups in body code.
+    private final boolean rmaEnabled;
+    private final List<ClinicNbrEntry> clinicNbrs;
+    private final String selectedClinicNbrPrefix;
+    private final String selectedXmlPSli;
+    private final List<ServiceTypeEntry> serviceTypes;
+    private final List<DxCodeEntry> dxCodes;
+
+    public record ClinicNbrEntry(String nbrValue, String displayLabel) { }
+    public record ServiceTypeEntry(String code, String name) { }
+    public record DxCodeEntry(String code, String description) { }
+
     private BillingShortcutPg1ViewModel(Builder b) {
         this.userProviderNo = nullToEmpty(b.userProviderNo);
         this.providerView = nullToEmpty(b.providerView);
@@ -134,6 +149,12 @@ public final class BillingShortcutPg1ViewModel {
         this.headerTitle2 = nullToEmpty(b.headerTitle2);
         this.headerTitle3 = nullToEmpty(b.headerTitle3);
         this.propPremium = b.propPremium == null ? Collections.emptyMap() : Map.copyOf(b.propPremium);
+        this.rmaEnabled = b.rmaEnabled;
+        this.clinicNbrs = b.clinicNbrs == null ? Collections.emptyList() : List.copyOf(b.clinicNbrs);
+        this.selectedClinicNbrPrefix = nullToEmpty(b.selectedClinicNbrPrefix);
+        this.selectedXmlPSli = nullToEmpty(b.selectedXmlPSli);
+        this.serviceTypes = b.serviceTypes == null ? Collections.emptyList() : List.copyOf(b.serviceTypes);
+        this.dxCodes = b.dxCodes == null ? Collections.emptyList() : List.copyOf(b.dxCodes);
     }
 
     public static Builder builder() {
@@ -202,6 +223,13 @@ public final class BillingShortcutPg1ViewModel {
     public String getHeaderTitle2() { return headerTitle2; }
     public String getHeaderTitle3() { return headerTitle3; }
     public Map<String, String> getPropPremium() { return propPremium; }
+
+    public boolean isRmaEnabled() { return rmaEnabled; }
+    public List<ClinicNbrEntry> getClinicNbrs() { return clinicNbrs; }
+    public String getSelectedClinicNbrPrefix() { return selectedClinicNbrPrefix; }
+    public String getSelectedXmlPSli() { return selectedXmlPSli; }
+    public List<ServiceTypeEntry> getServiceTypes() { return serviceTypes; }
+    public List<DxCodeEntry> getDxCodes() { return dxCodes; }
 
     /**
      * Vector view of {@link #getBillingHistory()} for legacy JSP scriptlets that
@@ -321,6 +349,26 @@ public final class BillingShortcutPg1ViewModel {
         public Builder headerTitle2(String v) { this.headerTitle2 = v; return this; }
         public Builder headerTitle3(String v) { this.headerTitle3 = v; return this; }
         public Builder propPremium(Map<String, String> v) { this.propPremium = v; return this; }
+
+        private boolean rmaEnabled;
+        private List<ClinicNbrEntry> clinicNbrs;
+        private String selectedClinicNbrPrefix;
+        private String selectedXmlPSli;
+        private List<ServiceTypeEntry> serviceTypes;
+        private List<DxCodeEntry> dxCodes;
+
+        public Builder rmaEnabled(boolean v) { this.rmaEnabled = v; return this; }
+        public Builder clinicNbrs(List<ClinicNbrEntry> v) {
+            this.clinicNbrs = v == null ? null : List.copyOf(v); return this;
+        }
+        public Builder selectedClinicNbrPrefix(String v) { this.selectedClinicNbrPrefix = v; return this; }
+        public Builder selectedXmlPSli(String v) { this.selectedXmlPSli = v; return this; }
+        public Builder serviceTypes(List<ServiceTypeEntry> v) {
+            this.serviceTypes = v == null ? null : List.copyOf(v); return this;
+        }
+        public Builder dxCodes(List<DxCodeEntry> v) {
+            this.dxCodes = v == null ? null : List.copyOf(v); return this;
+        }
 
         public BillingShortcutPg1ViewModel build() {
             return new BillingShortcutPg1ViewModel(this);

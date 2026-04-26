@@ -74,6 +74,13 @@ public final class BillingShortcutPg1DataAssembler {
     private final CtlBillingServicePremiumDao ctlBillingServicePremiumDao;
     private final ClinicLocationDao clinicLocationDao;
     private final ProfessionalSpecialistDao professionalSpecialistDao;
+    // Round-15: 3 new DAOs added so the JSP no longer needs SpringUtils.getBean
+    // for the side-panel service-type list, the dx-code panel list, or the
+    // clinic-nbr dropdown. ProviderDao for the comments XML stays — it was
+    // already a field above, the JSP reuse just uses the pre-loaded value.
+    private final io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao ctlBillingServiceDao;
+    private final io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao diagnosticCodeDao;
+    private final io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao clinicNbrDao;
     private final java.util.function.Supplier<JdbcBillingReviewImpl> billingReviewImplFactory;
 
     public BillingShortcutPg1DataAssembler() {
@@ -85,6 +92,9 @@ public final class BillingShortcutPg1DataAssembler {
              SpringUtils.getBean(CtlBillingServicePremiumDao.class),
              SpringUtils.getBean(ClinicLocationDao.class),
              SpringUtils.getBean(ProfessionalSpecialistDao.class),
+             SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao.class),
+             SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao.class),
+             SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao.class),
              JdbcBillingReviewImpl::new);
     }
 
@@ -99,7 +109,23 @@ public final class BillingShortcutPg1DataAssembler {
         this(demographicDao, providerDao, billingDao, billingDetailDao,
              billingServiceDao, ctlBillingServicePremiumDao,
              clinicLocationDao, professionalSpecialistDao,
-             JdbcBillingReviewImpl::new);
+             null, null, null, JdbcBillingReviewImpl::new);
+    }
+
+    /** Test-friendly constructor that overrides the JdbcBillingReviewImpl factory. */
+    BillingShortcutPg1DataAssembler(DemographicDao demographicDao,
+                                    ProviderDao providerDao,
+                                    BillingDao billingDao,
+                                    BillingDetailDao billingDetailDao,
+                                    BillingServiceDao billingServiceDao,
+                                    CtlBillingServicePremiumDao ctlBillingServicePremiumDao,
+                                    ClinicLocationDao clinicLocationDao,
+                                    ProfessionalSpecialistDao professionalSpecialistDao,
+                                    java.util.function.Supplier<JdbcBillingReviewImpl> billingReviewImplFactory) {
+        this(demographicDao, providerDao, billingDao, billingDetailDao,
+             billingServiceDao, ctlBillingServicePremiumDao,
+             clinicLocationDao, professionalSpecialistDao,
+             null, null, null, billingReviewImplFactory);
     }
 
     BillingShortcutPg1DataAssembler(DemographicDao demographicDao,
@@ -110,6 +136,9 @@ public final class BillingShortcutPg1DataAssembler {
                                     CtlBillingServicePremiumDao ctlBillingServicePremiumDao,
                                     ClinicLocationDao clinicLocationDao,
                                     ProfessionalSpecialistDao professionalSpecialistDao,
+                                    io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao ctlBillingServiceDao,
+                                    io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao diagnosticCodeDao,
+                                    io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao clinicNbrDao,
                                     java.util.function.Supplier<JdbcBillingReviewImpl> billingReviewImplFactory) {
         this.demographicDao = demographicDao;
         this.providerDao = providerDao;
@@ -119,6 +148,9 @@ public final class BillingShortcutPg1DataAssembler {
         this.ctlBillingServicePremiumDao = ctlBillingServicePremiumDao;
         this.clinicLocationDao = clinicLocationDao;
         this.professionalSpecialistDao = professionalSpecialistDao;
+        this.ctlBillingServiceDao = ctlBillingServiceDao;
+        this.diagnosticCodeDao = diagnosticCodeDao;
+        this.clinicNbrDao = clinicNbrDao;
         this.billingReviewImplFactory = billingReviewImplFactory;
     }
 
@@ -357,6 +389,63 @@ public final class BillingShortcutPg1DataAssembler {
         // accumulated error/warning portion and the JSP keeps the i18n prefix.
         String msg = demoLoad.errorMessage + demoLoad.warningMessage;
 
+        // Round-15: pre-load the data the JSP previously fetched via inline
+        // SpringUtils.getBean — clinic_nbr dropdown, service-type side panel,
+        // dx-code panel, and the user provider's xml_p_nbr / xml_p_sli
+        // comments-XML fields. All four legacy DAO calls in
+        // billingShortcutPg1.jsp body code are replaced by these reads.
+        boolean rmaEnabled = io.github.carlos_emr.CarlosProperties.getInstance()
+                .getBooleanProperty("rma_enabled", "true");
+
+        java.util.List<BillingShortcutPg1ViewModel.ClinicNbrEntry> clinicNbrEntries = new ArrayList<>();
+        if (rmaEnabled && clinicNbrDao != null) {
+            for (io.github.carlos_emr.carlos.commn.model.ClinicNbr c : clinicNbrDao.findAll()) {
+                String value = nullToEmpty(c.getNbrValue());
+                String label = String.format("%s | %s", value, nullToEmpty(c.getNbrString()));
+                clinicNbrEntries.add(new BillingShortcutPg1ViewModel.ClinicNbrEntry(value, label));
+            }
+        }
+
+        // The user-provider's xml_p_nbr / xml_p_sli comments-XML fields drive
+        // the auto-select on the clinic-nbr / SLI dropdowns. Resolve once here.
+        String providerSearch = "none".equalsIgnoreCase(apptProviderNo)
+                ? nullToEmpty(userProviderNo) : apptProviderNo;
+        String selectedClinicNbrPrefix = "";
+        String selectedXmlPSli = "";
+        if (!providerSearch.isEmpty()) {
+            io.github.carlos_emr.carlos.commn.model.Provider pr = providerDao.getProvider(providerSearch);
+            if (pr != null) {
+                selectedClinicNbrPrefix = nullToEmpty(io.github.carlos_emr.SxmlMisc.getXmlContent(pr.getComments(), "xml_p_nbr"));
+                String sli = io.github.carlos_emr.SxmlMisc.getXmlContent(pr.getComments(), "xml_p_sli");
+                selectedXmlPSli = sli == null ? "" : sli.trim();
+            }
+        }
+
+        // Service-type side panel (all active service types).
+        java.util.List<BillingShortcutPg1ViewModel.ServiceTypeEntry> serviceTypeEntries = new ArrayList<>();
+        if (ctlBillingServiceDao != null) {
+            @SuppressWarnings("unchecked")
+            java.util.List<Object[]> rows = (java.util.List<Object[]>) ctlBillingServiceDao.findServiceTypesByStatus("A");
+            for (Object[] o : rows) {
+                if (o == null || o[1] == null) continue;
+                String code = String.valueOf(o[1]).replaceAll("[^A-Za-z0-9_-]", "_");
+                String name = o[0] == null ? "" : String.valueOf(o[0]);
+                serviceTypeEntries.add(new BillingShortcutPg1ViewModel.ServiceTypeEntry(code, name));
+            }
+        }
+
+        // Dx code panel for the selected ctlBillForm.
+        java.util.List<BillingShortcutPg1ViewModel.DxCodeEntry> dxCodeEntries = new ArrayList<>();
+        if (diagnosticCodeDao != null) {
+            for (Object[] o : diagnosticCodeDao.findDiagnosictsAndCtlDiagCodesByServiceType(ctlBillForm)) {
+                io.github.carlos_emr.carlos.commn.model.DiagnosticCode dc =
+                        (io.github.carlos_emr.carlos.commn.model.DiagnosticCode) o[0];
+                dxCodeEntries.add(new BillingShortcutPg1ViewModel.DxCodeEntry(
+                        nullToEmpty(dc.getDiagnosticCode()),
+                        nullToEmpty(dc.getDescription())));
+            }
+        }
+
         return BillingShortcutPg1ViewModel.builder()
                 .userProviderNo(userProviderNo)
                 .providerView(providerView)
@@ -399,6 +488,12 @@ public final class BillingShortcutPg1DataAssembler {
                 .headerTitle2(g2.headerTitle)
                 .headerTitle3(g3.headerTitle)
                 .propPremium(propPremium)
+                .rmaEnabled(rmaEnabled)
+                .clinicNbrs(clinicNbrEntries)
+                .selectedClinicNbrPrefix(selectedClinicNbrPrefix)
+                .selectedXmlPSli(selectedXmlPSli)
+                .serviceTypes(serviceTypeEntries)
+                .dxCodes(dxCodeEntries)
                 .build();
     }
 

@@ -156,10 +156,15 @@
 
     // Reused as a scratch variable by downstream scriptlet loops.
     Properties propT = null;
-    // Used by downstream provider lookups (clinic-number / SLI-code dropdowns)
-    // for the configured xml_provider — distinct from the user/appt providers
-    // captured in the model.
-    ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
+    // Round-15: ProviderDao + ClinicNbrDao + CtlBillingServiceDao +
+    // DiagnosticCodeDao no longer fetched in JSP body code. The assembler
+    // pre-loads everything onto the view model:
+    //   shortcutPg1Model.isRmaEnabled()                — replaces the property check
+    //   shortcutPg1Model.getClinicNbrs()                — replaces ClinicNbrDao.findAll()
+    //   shortcutPg1Model.getSelectedClinicNbrPrefix()   — replaces SxmlMisc.getXmlContent("xml_p_nbr") on provider comments
+    //   shortcutPg1Model.getSelectedXmlPSli()           — replaces SxmlMisc.getXmlContent("xml_p_sli") on provider comments
+    //   shortcutPg1Model.getServiceTypes()              — replaces CtlBillingServiceDao.findServiceTypesByStatus
+    //   shortcutPg1Model.getDxCodes()                   — replaces DiagnosticCodeDao.findDiagnosictsAndCtlDiagCodesByServiceType
 %>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
@@ -445,26 +450,17 @@
             </td>
         </tr>
 
+        <%-- Round-15: service-type panel now iterates the pre-loaded
+             shortcutPg1Model.serviceTypes list. The assembler does the
+             findServiceTypesByStatus call + sanitisation; the JSP just
+             walks the result. --%>
         <%
-            String ctlcode = "", ctlcodename = "", currentFormName = "";
+            String ctlcode, ctlcodename, currentFormName = "";
             int ctlCount = 0;
 
-            CtlBillingServiceDao cbsDao = SpringUtils.getBean(CtlBillingServiceDao.class);
-            for (Object[] o : cbsDao.findServiceTypesByStatus("A")) {
-                // Skip rows where the code column is null — String.valueOf((Object)null)
-                // returns the literal "null" string, which would emit
-                // billForm=null in the URL and id="null" in the DOM.
-                if (o == null || o[1] == null) {
-                    continue;
-                }
-                ctlcodename = o[0] == null ? "" : String.valueOf(o[0]);
-                // Sanitize the code at ingest so it's safe to embed in the URL
-                // and the on-click rewrite below. Mirrors BillingONFormDataAssembler's
-                // sanitizeIdToken: defensive against malformed ctl_billservice
-                // rows containing whitespace or other URL-significant chars.
-                // Real codes are short alphanumerics so this is a no-op in
-                // practice.
-                ctlcode = String.valueOf(o[1]).replaceAll("[^A-Za-z0-9_-]", "_");
+            for (io.github.carlos_emr.carlos.billings.ca.on.data.BillingShortcutPg1ViewModel.ServiceTypeEntry __st : shortcutPg1Model.getServiceTypes()) {
+                ctlcode = __st.code();
+                ctlcodename = __st.name();
                 ctlCount++;
                 if (ctlcode.equals(ctlBillForm)) {
                     currentFormName = ctlcodename;
@@ -492,14 +488,16 @@
                               onClick="showHideLayers('Layer2','','hide');return false">X</a></td>
         </tr>
 
+        <%-- Round-15: dx-code panel now iterates pre-loaded
+             shortcutPg1Model.dxCodes — assembler does the
+             DiagnosticCodeDao.findDiagnosictsAndCtlDiagCodesByServiceType
+             call. --%>
         <%
-            String ctldiagcode = "", ctldiagcodename = "";
+            String ctldiagcode, ctldiagcodename;
             ctlCount = 0;
-            DiagnosticCodeDao dcDao = SpringUtils.getBean(DiagnosticCodeDao.class);
-            for (Object[] o : dcDao.findDiagnosictsAndCtlDiagCodesByServiceType(ctlBillForm)) {
-                DiagnosticCode dc = (DiagnosticCode) o[0];
-                ctldiagcode = dc.getDiagnosticCode();
-                ctldiagcodename = dc.getDescription();
+            for (io.github.carlos_emr.carlos.billings.ca.on.data.BillingShortcutPg1ViewModel.DxCodeEntry __dx : shortcutPg1Model.getDxCodes()) {
+                ctldiagcode = __dx.code();
+                ctldiagcodename = __dx.description();
         %>
         <tr bgcolor=<%=ctlCount % 2 == 0 ? "#FFFFFF" : "#EEEEFF"%>>
             <td width="18%"><b><font size="-2" color="#7A388D"><a
@@ -674,18 +672,18 @@
                                         <b><%if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
                                             Clinic Nbr <% } else { %> <fmt:message key="billing.billingCorrection.formVisitType"/> <% } %></b></td>
                                     <td width="20%"><select name="xml_visittype">
-                                        <% if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
+                                        <%-- Round-15: clinic-nbr dropdown driven by pre-loaded
+                                             shortcutPg1Model.clinicNbrs (replaces ClinicNbrDao.findAll +
+                                             ProviderDao.getProvider lookup that ran inline). The
+                                             auto-select uses shortcutPg1Model.selectedClinicNbrPrefix
+                                             from the user provider's comments XML. --%>
+                                        <% if (shortcutPg1Model.isRmaEnabled()) { %>
                                         <%
-                                            ClinicNbrDao cnDao = (ClinicNbrDao) SpringUtils.getBean(ClinicNbrDao.class);
-                                            ArrayList<ClinicNbr> nbrs = cnDao.findAll();
-
-                                            String providerSearch = apptProvider_no.equalsIgnoreCase("none") ? user_no : apptProvider_no;
-                                            Provider p = providerDao.getProvider(providerSearch);
-                                            String providerNbr = SxmlMisc.getXmlContent(p.getComments(), "xml_p_nbr");
-                                            for (ClinicNbr clinic : nbrs) {
-                                                String valueString = String.format("%s | %s", clinic.getNbrValue(), clinic.getNbrString());
+                                            String __providerNbr = shortcutPg1Model.getSelectedClinicNbrPrefix();
+                                            for (io.github.carlos_emr.carlos.billings.ca.on.data.BillingShortcutPg1ViewModel.ClinicNbrEntry __c : shortcutPg1Model.getClinicNbrs()) {
+                                                String valueString = __c.displayLabel();
                                         %>
-                                        <option value="<%=valueString%>" <%=providerNbr.startsWith(clinic.getNbrValue()) ? "selected" : ""%>><%=valueString%>
+                                        <option value="<%=valueString%>" <%=__providerNbr.startsWith(__c.nbrValue()) ? "selected" : ""%>><%=valueString%>
                                         </option>
                                         <%}%>
                                         <% } else { %>
@@ -741,17 +739,16 @@
                                         %>
                                     </select></td>
                                 </tr>
+                                <%--
+                                    Round-15: SLI-code dropdown auto-select reads from
+                                    shortcutPg1Model.selectedXmlPSli (assembler pre-loaded
+                                    the user-provider's xml_p_sli comments-XML field). The
+                                    legacy `pr != null` guard is now subsumed by the
+                                    assembler's null-safety on the lookup — empty string
+                                    means no auto-select, every option renders unselected.
+                                --%>
                                 <%
-
-                                    String providerNumForQuery = null;
-                                    if (apptProvider_no.equalsIgnoreCase("none")) {
-                                        providerNumForQuery = user_no;
-                                    } else {
-                                        providerNumForQuery = apptProvider_no;
-                                    }
-                                    Provider pr = providerDao.getProvider(providerNumForQuery);
-                                    if (pr != null) {
-                                        String prComments = pr.getComments();
+                                    String prSli = shortcutPg1Model.getSelectedXmlPSli();
                                 %>
                                 <tr>
                                     <td><b><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode"/></b></td>
@@ -760,61 +757,61 @@
 
                                             <option value="<%=clinicNo%>"><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.NA"/></option>
 
-                                            <%if (SxmlMisc.getXmlContent(prComments, "xml_p_sli").trim().equals("HDS")) {%>
+                                            <%if (prSli.equals("HDS")) {%>
                                             <option selected value="HDS "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HDS"/></option>
                                             <%} else { %>
                                             <option value="HDS "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HDS"/></option>
                                             <%}%>
 
-                                            <%if (SxmlMisc.getXmlContent(prComments, "xml_p_sli").trim().equals("HED")) {%>
+                                            <%if (prSli.equals("HED")) {%>
                                             <option selected value="HED "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HED"/></option>
                                             <%} else { %>
                                             <option value="HED "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HED"/></option>
                                             <%}%>
 
-                                            <%if (SxmlMisc.getXmlContent(prComments, "xml_p_sli").trim().equals("HIP")) {%>
+                                            <%if (prSli.equals("HIP")) {%>
                                             <option selected value="HIP "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HIP"/></option>
                                             <%} else { %>
                                             <option value="HIP "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HIP"/></option>
                                             <%}%>
 
-                                            <%if (SxmlMisc.getXmlContent(prComments, "xml_p_sli").trim().equals("HOP")) {%>
+                                            <%if (prSli.equals("HOP")) {%>
                                             <option selected value="HOP "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HOP"/></option>
                                             <%} else { %>
                                             <option value="HOP "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HOP"/></option>
                                             <%}%>
 
-                                            <%if (SxmlMisc.getXmlContent(prComments, "xml_p_sli").trim().equals("HRP")) {%>
+                                            <%if (prSli.equals("HRP")) {%>
                                             <option selected value="HRP "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HRP"/></option>
                                             <%} else { %>
                                             <option value="HRP "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HRP"/></option>
                                             <%}%>
 
-                                            <%if (SxmlMisc.getXmlContent(prComments, "xml_p_sli").trim().equals("IHF")) {%>
+                                            <%if (prSli.equals("IHF")) {%>
                                             <option selected value="IHF "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.IHF"/></option>
                                             <%} else { %>
                                             <option value="IHF "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.IHF"/></option>
                                             <%}%>
 
-                                            <%if (SxmlMisc.getXmlContent(prComments, "xml_p_sli").trim().equals("OFF")) {%>
+                                            <%if (prSli.equals("OFF")) {%>
                                             <option selected value="OFF "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.OFF"/></option>
                                             <%} else { %>
                                             <option value="OFF "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.OFF"/></option>
                                             <%}%>
 
-                                            <%if (SxmlMisc.getXmlContent(prComments, "xml_p_sli").trim().equals("OTN")) {%>
+                                            <%if (prSli.equals("OTN")) {%>
                                             <option selected value="OTN "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.OTN"/></option>
                                             <%} else { %>
                                             <option value="OTN "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.OTN"/></option>
                                             <%}%>
 
-                                            <%if (SxmlMisc.getXmlContent(prComments, "xml_p_sli").trim().equals("PDF")) {%>
+                                            <%if (prSli.equals("PDF")) {%>
                                             <option selected value="PDF "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.PDF"/></option>
                                             <%} else { %>
                                             <option value="PDF "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.PDF"/></option>
                                             <%}%>
 
-                                            <%if (SxmlMisc.getXmlContent(prComments, "xml_p_sli").trim().equals("RTF")) {%>
+                                            <%if (prSli.equals("RTF")) {%>
                                             <option selected value="RTF "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.RTF"/></option>
                                             <%} else { %>
                                             <option value="RTF "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.RTF"/></option>
@@ -822,26 +819,11 @@
                                         </select>
                                     </td>
                                 </tr>
-                                <%} else {%>
-                                <tr>
-                                    <td><b><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode"/></b></td>
-                                    <td colspan="3">
-                                        <select name="xml_slicode">
-                                            <option value="<%=clinicNo%>"><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.NA"/></option>
-                                            <option value="HDS "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HDS"/></option>
-                                            <option value="HED "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HED"/></option>
-                                            <option value="HIP "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HIP"/></option>
-                                            <option value="HOP "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HOP"/></option>
-                                            <option value="HRP "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.HRP"/></option>
-                                            <option value="IHF "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.IHF"/></option>
-                                            <option value="OFF "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.OFF"/></option>
-                                            <option value="OTN "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.OTN"/></option>
-                                            <option value="PDF "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.PDF"/></option>
-                                            <option value="RTF "><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.RTF"/></option>
-                                        </select>
-                                    </td>
-                                </tr>
-                                <%} %>
+                                <%-- Round-15: removed redundant `else` branch. The auto-select
+                                     loop above produces no `selected` attributes when prSli is
+                                     empty (the empty-string default when no user-provider is
+                                     resolved), so it renders identically to the legacy "else"
+                                     fallback that omitted them entirely. --%>
                                 <tr>
                                     <td><b><fmt:message key="billing.admissiondate"/></b></td>
                                     <td>
