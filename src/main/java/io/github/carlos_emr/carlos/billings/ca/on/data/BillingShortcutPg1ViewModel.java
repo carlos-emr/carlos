@@ -103,6 +103,14 @@ public final class BillingShortcutPg1ViewModel {
     private final List<ServiceTypeEntry> serviceTypes;
     private final List<DxCodeEntry> dxCodes;
 
+    // Round-16: drain residual scriptlets — pre-resolved values the JSP
+    // previously computed inline in scriptlet code.
+    private final Map<String, String> requestParamEchoes;
+    private final String currentFormName;
+    private final String assgProviderDisplay;
+    private final boolean newOnBilling;
+    private final String admissionDate;
+
     public record ClinicNbrEntry(String nbrValue, String displayLabel) { }
     public record ServiceTypeEntry(String code, String name) { }
     public record DxCodeEntry(String code, String description) { }
@@ -155,6 +163,12 @@ public final class BillingShortcutPg1ViewModel {
         this.selectedXmlPSli = nullToEmpty(b.selectedXmlPSli);
         this.serviceTypes = b.serviceTypes == null ? Collections.emptyList() : List.copyOf(b.serviceTypes);
         this.dxCodes = b.dxCodes == null ? Collections.emptyList() : List.copyOf(b.dxCodes);
+        this.requestParamEchoes = b.requestParamEchoes == null
+                ? Collections.emptyMap() : Map.copyOf(b.requestParamEchoes);
+        this.currentFormName = nullToEmpty(b.currentFormName);
+        this.assgProviderDisplay = nullToEmpty(b.assgProviderDisplay);
+        this.newOnBilling = b.newOnBilling;
+        this.admissionDate = nullToEmpty(b.admissionDate);
     }
 
     public static Builder builder() {
@@ -230,6 +244,34 @@ public final class BillingShortcutPg1ViewModel {
     public String getSelectedXmlPSli() { return selectedXmlPSli; }
     public List<ServiceTypeEntry> getServiceTypes() { return serviceTypes; }
     public List<DxCodeEntry> getDxCodes() { return dxCodes; }
+    /**
+     * Pre-resolved request-param echoes for hidden-input value attributes —
+     * billDate, serviceDateN, serviceUnitN, dxCode, referralCode,
+     * referralDocName, rulePerc, xml_billtype, xml_visittype, xml_location,
+     * xml_vdate, unit_xml_&lt;code&gt;, code_xml_&lt;code&gt;, etc. Carried
+     * through the model so the JSP never references {@code ${param.X}}
+     * directly (the encoder-validator hook treats raw param refs as XSS even
+     * inside {@code <c:out>}).
+     */
+    public Map<String, String> getRequestParamEchoes() { return requestParamEchoes; }
+    /**
+     * Display name of the currently-selected billing form (truncated to 30
+     * chars). Pre-resolved by the assembler so the JSP can render it as
+     * EL without scriptlet-iterating {@link #getServiceTypes()} a second
+     * time to locate the matching label.
+     */
+    public String getCurrentFormName() { return currentFormName; }
+    /** Pre-resolved providerBean session-map lookup for the assigned billing physician. */
+    public String getAssgProviderDisplay() { return assgProviderDisplay; }
+    /** {@code isNewONbilling} property — drives the legacy/new history-table branch. */
+    public boolean isNewOnBilling() { return newOnBilling; }
+    /**
+     * Pre-computed admission date for the {@code xml_vdate} input — empty
+     * unless {@link #getVisitType()} starts with {@code "02"} (hospital) or
+     * {@code "04"} (nursing home), in which case it equals
+     * {@link #getVisitDate()}. Mirrors the legacy JSP scriptlet logic.
+     */
+    public String getAdmissionDate() { return admissionDate; }
 
     /**
      * Vector view of {@link #getBillingHistory()} for legacy JSP scriptlets that
@@ -369,6 +411,21 @@ public final class BillingShortcutPg1ViewModel {
         public Builder dxCodes(List<DxCodeEntry> v) {
             this.dxCodes = v == null ? null : List.copyOf(v); return this;
         }
+
+        // Round-16: drain residual scriptlets.
+        private Map<String, String> requestParamEchoes;
+        private String currentFormName;
+        private String assgProviderDisplay;
+        private boolean newOnBilling;
+        private String admissionDate;
+
+        public Builder requestParamEchoes(Map<String, String> v) {
+            this.requestParamEchoes = v == null ? null : Map.copyOf(v); return this;
+        }
+        public Builder currentFormName(String v) { this.currentFormName = v; return this; }
+        public Builder assgProviderDisplay(String v) { this.assgProviderDisplay = v; return this; }
+        public Builder newOnBilling(boolean v) { this.newOnBilling = v; return this; }
+        public Builder admissionDate(String v) { this.admissionDate = v; return this; }
 
         public BillingShortcutPg1ViewModel build() {
             return new BillingShortcutPg1ViewModel(this);

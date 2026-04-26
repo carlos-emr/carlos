@@ -446,6 +446,67 @@ public final class BillingShortcutPg1DataAssembler {
             }
         }
 
+        // Round-16: drain residual scriptlets — pre-resolve all the values
+        // the legacy JSP read inline via request.getParameter and session
+        // attribute lookup. These move the form-state preservation into the
+        // model so the JSP can use pure EL.
+        java.util.Map<String, String> echoes = new java.util.HashMap<>();
+        for (String name : new String[]{
+                "billDate", "serviceDate0", "serviceDate1", "serviceDate2",
+                "serviceDate3", "serviceDate4", "serviceUnit0", "serviceUnit1",
+                "serviceUnit2", "serviceUnit3", "serviceUnit4", "dxCode",
+                "referralCode", "referralDocName", "rulePerc", "xml_billtype",
+                "xml_visittype", "xml_location", "xml_vdate", "appointment_no",
+                "demographic_no", "demographic_name", "apptProvider_no",
+                "providerview", "appointment_date", "status", "start_time",
+                "asstProvider_no", "assgProvider_no"}) {
+            String v = request.getParameter(name);
+            if (v != null) echoes.put(name, v);
+        }
+        // Per-service-code echoes (code_xml_<code> = "checked", unit_xml_<code> = unit count).
+        for (List<Properties> grid : java.util.Arrays.asList(g1.entries, g2.entries, g3.entries)) {
+            for (Properties p : grid) {
+                String code = p.getProperty("serviceCode", "");
+                if (code.isEmpty()) continue;
+                String codeKey = "code_xml_" + code;
+                String unitKey = "unit_xml_" + code;
+                String codeVal = request.getParameter(codeKey);
+                String unitVal = request.getParameter(unitKey);
+                if (codeVal != null) echoes.put(codeKey, codeVal);
+                if (unitVal != null) echoes.put(unitKey, unitVal);
+            }
+        }
+
+        // currentFormName: the legacy JSP iterates serviceTypes and remembers
+        // the matching display name when entry.code() equals ctlBillForm.
+        // Pre-resolve once, truncated to 30 chars to match legacy display.
+        String currentFormName = "";
+        for (BillingShortcutPg1ViewModel.ServiceTypeEntry st : serviceTypeEntries) {
+            if (st.code().equals(ctlBillForm)) {
+                String name = st.name();
+                currentFormName = name.length() < 30 ? name : name.substring(0, 30);
+                break;
+            }
+        }
+
+        // assgProviderDisplay: legacy JSP looked up
+        // providerBean.getProperty(assgProvider_no, "") from the session
+        // Properties; reuse the BillingONFormDataAssembler pattern but
+        // without the 15-char truncation (the shortcut JSP renders the
+        // raw value).
+        String assgProviderDisplay = resolveAssgProviderDisplay(request, assignedProviderNo);
+
+        // isNewONbilling property: drives the legacy/new history-table
+        // branch at the bottom of billingShortcutPg1.jsp.
+        boolean isNewOnBillingFlag = "true".equals(props.getProperty("isNewONbilling", ""));
+
+        // Admission date: blank unless visit type starts with "02" or "04",
+        // in which case it equals visitDate. Matches legacy JSP scriptlet.
+        String admissionDate = "";
+        if (visitType.startsWith("02") || visitType.startsWith("04")) {
+            admissionDate = visitDate;
+        }
+
         return BillingShortcutPg1ViewModel.builder()
                 .userProviderNo(userProviderNo)
                 .providerView(providerView)
@@ -494,7 +555,41 @@ public final class BillingShortcutPg1DataAssembler {
                 .selectedXmlPSli(selectedXmlPSli)
                 .serviceTypes(serviceTypeEntries)
                 .dxCodes(dxCodeEntries)
+                .requestParamEchoes(echoes)
+                .currentFormName(currentFormName)
+                .assgProviderDisplay(assgProviderDisplay)
+                .newOnBilling(isNewOnBillingFlag)
+                .admissionDate(admissionDate)
                 .build();
+    }
+
+    /**
+     * Resolves the assigned billing physician display string the legacy JSP
+     * looked up via {@code providerBean.getProperty(assgProvider_no, "")} in
+     * session scope. Mirrors the helper in
+     * {@link BillingONFormDataAssembler} but does not truncate (the shortcut
+     * JSP renders the raw value).
+     */
+    private String resolveAssgProviderDisplay(HttpServletRequest request, String assgProviderNo) {
+        if (assgProviderNo == null || assgProviderNo.isEmpty()) return "";
+        Object sessionBean = request.getSession().getAttribute("providerBean");
+        String name = "";
+        if (sessionBean instanceof java.util.Properties props) {
+            name = props.getProperty(assgProviderNo, "");
+        }
+        if (name.isEmpty()) {
+            try {
+                Provider p = providerDao.getProvider(assgProviderNo);
+                if (p != null) {
+                    name = p.getFormattedName();
+                }
+            } catch (RuntimeException e) {
+                MiscUtils.getLogger().warn(
+                        "Shortcut: assgProvider display lookup failed for provider={}; rendering blank",
+                        LogSanitizer.sanitize(assgProviderNo), e);
+            }
+        }
+        return name == null ? "" : name;
     }
 
     private static final class ServiceCodeGroup {
