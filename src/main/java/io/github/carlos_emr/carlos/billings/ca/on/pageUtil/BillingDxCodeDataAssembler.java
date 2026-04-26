@@ -16,6 +16,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDigSearchAjaxViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDigSearchViewModel;
@@ -48,6 +50,16 @@ public final class BillingDxCodeDataAssembler {
     private static final int DESC_TRUNCATE_LEN = 32;
     private static final String EN_DASH = "–";
 
+    /**
+     * Pattern matching the legacy
+     * {@code document.forms[N].elements['x'].value} JS-path string the
+     * billing-form callers pass via the {@code name2} parameter. Captures
+     * the form index and element name. Element names may contain dots
+     * (e.g. {@code pref.default_dx_code}).
+     */
+    private static final Pattern NAME2_PATTERN = Pattern.compile(
+            "^document\\.forms\\[(\\d+)\\]\\.elements\\['([a-zA-Z0-9_.]+)'\\]\\.value$");
+
     private final DiagnosticCodeDao diagnosticCodeDao;
 
     public BillingDxCodeDataAssembler() {
@@ -68,6 +80,21 @@ public final class BillingDxCodeDataAssembler {
      * @param codedesc free-text description input
      */
     public BillingDigSearchViewModel assembleSearch(String coderange, String codedesc) {
+        return assembleSearch(coderange, codedesc, null);
+    }
+
+    /**
+     * Search dispatch with optional {@code name2} callback path. Parses
+     * the legacy {@code document.forms[N].elements['x'].value} pattern so
+     * the JSP can render targeted-write JS via EL instead of an inline
+     * scriptlet regex.
+     *
+     * @param coderange numeric-prefix dropdown value (0-9)
+     * @param codedesc free-text description input
+     * @param name2 raw JS path the billing-form caller wants the popup to
+     *              write back to; null/empty when not provided
+     */
+    public BillingDigSearchViewModel assembleSearch(String coderange, String codedesc, String name2) {
         String input = decideInput(coderange, codedesc);
         SearchClassification c = classify(input);
 
@@ -100,7 +127,31 @@ public final class BillingDxCodeDataAssembler {
                     .autoSelectCode(rows.get(0).code())
                     .autoSelectDesc(rows.get(0).description());
         }
+        applyName2(b, name2);
         return b.build();
+    }
+
+    /**
+     * Parse {@code name2} into form-index + element-name and stamp the
+     * builder. Mirrors the legacy {@code billingDigSearch.jsp} scriptlet
+     * exactly, including the truncated-warning log on parse failure.
+     */
+    private static void applyName2(BillingDigSearchViewModel.Builder b, String name2) {
+        if (name2 == null) {
+            return;
+        }
+        b.name2(name2);
+        Matcher m = NAME2_PATTERN.matcher(name2);
+        if (m.matches()) {
+            b.targetFormIdx(m.group(1));
+            b.targetElement(m.group(2));
+        } else if (!name2.isEmpty()) {
+            String truncated = name2.length() > 120 ? name2.substring(0, 120) + "..." : name2;
+            MiscUtils.getLogger().warn(
+                    "billingDigSearch.jsp: 'name2' did not match expected JS path format: {} (length={})",
+                    truncated, name2.length());
+            b.name2ParseError(true);
+        }
     }
 
     /**

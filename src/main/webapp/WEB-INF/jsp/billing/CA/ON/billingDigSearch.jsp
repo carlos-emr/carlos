@@ -24,47 +24,23 @@
 --%>
 <!DOCTYPE html>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDigSearchViewModel" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDigSearchViewModel" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%
     // ViewBillingDigSearch2Action enforces _billing r and assembles the
-    // view model with the DiagnosticCodeDao lookups the JSP body used to
-    // perform inline.
-    BillingDigSearchViewModel digSearchModel =
-            (BillingDigSearchViewModel) request.getAttribute("digSearchModel");
-    if (digSearchModel == null) {
-        MiscUtils.getLogger().warn(
+    // view model with the DiagnosticCodeDao lookups + name2 JS-path
+    // parsing the JSP body used to perform inline. Defensive fallback:
+    // empty stub if forwarded here without the canonical action.
+    if (request.getAttribute("digSearchModel") == null) {
+        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
                 "billingDigSearch.jsp reached without digSearchModel — caller "
               + "should route through billing/CA/ON/ViewBillingDigSearch.");
-        digSearchModel = BillingDigSearchViewModel.builder().build();
-    }
-
-    // Extract form index + element name from a full JS path like
-    // "document.forms[0].elements['fieldname'].value" (format used by billingON.jsp callers)
-    // Allows dots in element names (e.g. "pref.default_dx_code" from UserPreferences.jsp)
-    String name2 = request.getParameter("name2");
-    String targetFormIdx = null;
-    String targetElement = null;
-    boolean name2ParseError = false;
-    if (name2 != null) {
-        java.util.regex.Matcher m2 = java.util.regex.Pattern
-            .compile("^document\\.forms\\[(\\d+)\\]\\.elements\\['([a-zA-Z0-9_.]+)'\\]\\.value$")
-            .matcher(name2);
-        if (m2.matches()) {
-            targetFormIdx = m2.group(1);
-            targetElement = m2.group(2);
-        } else if (!name2.isEmpty()) {
-            String truncated = name2.length() > 120 ? name2.substring(0, 120) + "..." : name2;
-            MiscUtils.getLogger().warn("billingDigSearch.jsp: 'name2' did not match expected JS path format: '"
-                + truncated + "' (length=" + name2.length() + ")");
-            name2ParseError = true;
-        }
+        request.setAttribute("digSearchModel",
+                BillingDigSearchViewModel.builder().build());
     }
 %>
 
@@ -77,14 +53,18 @@
             function CodeAttach(File2) {
                 if (self.opener.callChangeCodeDesc) self.opener.callChangeCodeDesc();
 
-                <%if(targetElement != null) {%>
-                self.opener.document.forms[<%= targetFormIdx %>].elements["<carlos:encode value='<%= StringUtils.noNull(targetElement) %>' context="javaScriptBlock"/>"].value = File2.substring(0, 3);
-                <%} else if(name2ParseError) {%>
+                <c:choose>
+                    <c:when test="${digSearchModel.hasTargetElement}">
+                self.opener.document.forms[${digSearchModel.targetFormIdx}].elements["<carlos:encode value='${digSearchModel.targetElement}' context='javaScriptBlock'/>"].value = File2.substring(0, 3);
+                    </c:when>
+                    <c:when test="${digSearchModel.name2ParseError}">
                 alert("Error: Unable to transfer diagnostic code to the billing form. Please close this window and try again.");
                 return;
-                <%} else {%>
+                    </c:when>
+                    <c:otherwise>
                 self.opener.document.forms[1].xml_diagnostic_detail.value = File2;
-                <%}%>
+                    </c:otherwise>
+                </c:choose>
                 setTimeout("self.close();", 100);
             }
 
@@ -98,9 +78,9 @@
     </head>
 
     <body onLoad="setfocus()">
-    <%if(name2ParseError) {%>
+    <c:if test="${digSearchModel.name2ParseError}">
     <script>alert("Warning: The diagnostic code field reference could not be parsed. Selecting a code may not work correctly. Please close this window and try again from the billing form.");</script>
-    <%}%>
+    </c:if>
     <table style="width:100%">
         <tr>
             <th style="text-align:center; background-color:silver;"><fmt:message key="billing.billingDigSearch.msgDiagnostic"/><fmt:message key="billing.billingDigSearch.msgMaxSelections"/></th>
@@ -108,11 +88,11 @@
     </table>
 
     <form name="codesearch" id="codesearch" method="post"
-          action="<%= request.getContextPath() %>/billing/CA/ON/ViewBillingDigSearch">
-        <%if (targetElement != null || name2ParseError) {%>
+          action="${pageContext.request.contextPath}/billing/CA/ON/ViewBillingDigSearch">
+        <c:if test="${digSearchModel.showName2Echo}">
         <input type="hidden" name="name2"
-               value="<carlos:encode value='<%= name2 %>' context="htmlAttribute"/>"/>
-        <%}%>
+               value="<carlos:encode value='${digSearchModel.name2}' context='htmlAttribute'/>"/>
+        </c:if>
         <p><b><fmt:message key="billing.billingDigSearch.msgRefine"/></b><br>
             <fmt:message key="billing.billingDigSearch.msgCodeRange"/>: <select
                     name="coderange">
@@ -137,7 +117,7 @@
     </form>
 
     <form name="diagcode" id="diagcode" method="post"
-          action="<%= request.getContextPath() %>/billing/CA/ON/BillingDigUpdate">
+          action="${pageContext.request.contextPath}/billing/CA/ON/BillingDigUpdate">
         <table style="width:800px; margin:auto" class="table-striped table-sm">
             <thead>
             <tr>
@@ -146,33 +126,33 @@
             </tr>
             </thead>
             <tbody>
-            <% for (BillingDigSearchViewModel.DxRow __row : digSearchModel.getRows()) { %>
+            <c:forEach var="__row" items="${digSearchModel.rows}">
             <tr>
                 <td style="width:12%"><a
-                        href="javascript:CodeAttach('<carlos:encode value='<%= __row.code() %>' context="javaScriptAttribute"/>|<carlos:encode value='<%= __row.description() %>' context="javaScriptAttribute"/>')"><carlos:encode value='<%= __row.code() %>' context="html"/>
+                        href="javascript:CodeAttach('<carlos:encode value='${__row.code}' context='javaScriptAttribute'/>|<carlos:encode value='${__row.description}' context='javaScriptAttribute'/>')"><carlos:encode value="${__row.code}" context="html"/>
                 </a></td>
                 <td style="width:88%"><input type="text" class="form-control" style="margin-bottom: 0px;"
-                                             name="<carlos:encode value='<%= __row.code() %>' context="htmlAttribute"/>"
-                                             value="<carlos:encode value='<%= __row.description() %>' context="htmlAttribute"/>">&nbsp;<input type="submit" class="btn btn-secondary"
+                                             name="<carlos:encode value='${__row.code}' context='htmlAttribute'/>"
+                                             value="<carlos:encode value='${__row.description}' context='htmlAttribute'/>">&nbsp;<input type="submit" class="btn btn-secondary"
                                                                                  name="update"
-                                                                                 value="<fmt:message key="billing.billingDigSearch.btnUpdate"/> <carlos:encode value='<%= __row.code() %>' context="html"/>">
+                                                                                 value="<fmt:message key="billing.billingDigSearch.btnUpdate"/> <carlos:encode value='${__row.code}' context='htmlAttribute'/>">
                 </td>
             </tr>
-            <% } %>
+            </c:forEach>
 
-            <% if (digSearchModel.isNoMatch()) { %>
+            <c:if test="${digSearchModel.noMatch}">
             <tr>
                 <td colspan="2"><fmt:message key="billing.billingDigSearch.msgNoMatch"/>.</td>
             </tr>
-            <% } %>
+            </c:if>
 
-            <% if (digSearchModel.isAutoSelect()) { %>
+            <c:if test="${digSearchModel.autoSelect}">
             <script LANGUAGE="JavaScript">
                 <!--
-                CodeAttach('<carlos:encode value='<%= digSearchModel.getAutoSelectCode() %>' context="javaScript"/>|<carlos:encode value='<%= digSearchModel.getAutoSelectDesc() %>' context="javaScript"/>');
+                CodeAttach('<carlos:encode value="${digSearchModel.autoSelectCode}" context="javaScript"/>|<carlos:encode value="${digSearchModel.autoSelectDesc}" context="javaScript"/>');
                 -->
             </script>
-            <% } %>
+            </c:if>
             </tbody>
         </table>
     </form>

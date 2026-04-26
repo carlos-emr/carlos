@@ -49,7 +49,8 @@ public final class ViewBillingDigSearch2Action extends ActionSupport {
 
         BillingDigSearchViewModel model = new BillingDxCodeDataAssembler().assembleSearch(
                 request.getParameter("coderange"),
-                request.getParameter("codedesc"));
+                request.getParameter("codedesc"),
+                request.getParameter("name2"));
         request.setAttribute("digSearchModel", model);
 
         return SUCCESS;

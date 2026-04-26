@@ -34,6 +34,10 @@ public final class BillingDigSearchViewModel {
     private final boolean autoSelect;
     private final String autoSelectCode;
     private final String autoSelectDesc;
+    private final String name2;
+    private final String targetFormIdx;
+    private final String targetElement;
+    private final boolean name2ParseError;
 
     /** One row in the diagnostic-code search results. {@code description}
      *  is already trimmed (legacy JSP did this inline). */
@@ -45,6 +49,10 @@ public final class BillingDigSearchViewModel {
         this.autoSelect = b.autoSelect;
         this.autoSelectCode = b.autoSelectCode == null ? "" : b.autoSelectCode;
         this.autoSelectDesc = b.autoSelectDesc == null ? "" : b.autoSelectDesc;
+        this.name2 = b.name2 == null ? "" : b.name2;
+        this.targetFormIdx = b.targetFormIdx == null ? "" : b.targetFormIdx;
+        this.targetElement = b.targetElement == null ? "" : b.targetElement;
+        this.name2ParseError = b.name2ParseError;
     }
 
     public static Builder builder() { return new Builder(); }
@@ -55,18 +63,72 @@ public final class BillingDigSearchViewModel {
     public String getAutoSelectCode() { return autoSelectCode; }
     public String getAutoSelectDesc() { return autoSelectDesc; }
 
+    /**
+     * Raw {@code name2} request parameter, echoed verbatim into the hidden
+     * input that the search-form re-submits. Empty string when absent.
+     *
+     * @return raw value (never null)
+     */
+    public String getName2() { return name2; }
+
+    /**
+     * Form index parsed out of the legacy
+     * {@code document.forms[N].elements['x'].value} {@code name2} pattern.
+     * Empty when {@code name2} did not match the pattern.
+     */
+    public String getTargetFormIdx() { return targetFormIdx; }
+
+    /**
+     * Element name parsed out of the legacy
+     * {@code document.forms[N].elements['x'].value} {@code name2} pattern.
+     * Empty when {@code name2} did not match the pattern.
+     */
+    public String getTargetElement() { return targetElement; }
+
+    /**
+     * @return {@code true} when the assembler successfully parsed
+     *         {@link #getName2()} into ({@link #getTargetFormIdx()},
+     *         {@link #getTargetElement()}).
+     */
+    public boolean isHasTargetElement() { return !targetElement.isEmpty(); }
+
+    /**
+     * @return {@code true} when {@code name2} was supplied non-empty but
+     *         did NOT match the expected pattern. The JSP shows a JS alert
+     *         and skips the targeted-write branch when this is true.
+     */
+    public boolean isName2ParseError() { return name2ParseError; }
+
+    /**
+     * @return {@code true} when the JSP should render the hidden
+     *         {@code name2} echo input — i.e., either the parse succeeded
+     *         (so the popup form needs to round-trip the value) OR a
+     *         parse error occurred (so the user can see the error state).
+     *         Mirrors the legacy
+     *         {@code if (targetElement != null || name2ParseError)} guard.
+     */
+    public boolean isShowName2Echo() { return isHasTargetElement() || name2ParseError; }
+
     public static final class Builder {
         private List<DxRow> rows;
         private boolean noMatch;
         private boolean autoSelect;
         private String autoSelectCode;
         private String autoSelectDesc;
+        private String name2;
+        private String targetFormIdx;
+        private String targetElement;
+        private boolean name2ParseError;
 
         public Builder rows(List<DxRow> v) { this.rows = v == null ? null : List.copyOf(v); return this; }
         public Builder noMatch(boolean v) { this.noMatch = v; return this; }
         public Builder autoSelect(boolean v) { this.autoSelect = v; return this; }
         public Builder autoSelectCode(String v) { this.autoSelectCode = v; return this; }
         public Builder autoSelectDesc(String v) { this.autoSelectDesc = v; return this; }
+        public Builder name2(String v) { this.name2 = v; return this; }
+        public Builder targetFormIdx(String v) { this.targetFormIdx = v; return this; }
+        public Builder targetElement(String v) { this.targetElement = v; return this; }
+        public Builder name2ParseError(boolean v) { this.name2ParseError = v; return this; }
 
         public BillingDigSearchViewModel build() { return new BillingDigSearchViewModel(this); }
     }
