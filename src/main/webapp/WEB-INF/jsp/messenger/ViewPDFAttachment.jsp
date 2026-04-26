@@ -69,12 +69,33 @@
 --%>
 
 <%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.send.*" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.util.*" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.util.*" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
 <%@ page import="java.util.*" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
 <%@ page import="org.w3c.dom.*" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.util.Doc2PDF" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
@@ -174,7 +195,7 @@
                             %>
                             <% for ( int i = 0 ; i < attVector.size(); i++) { %>
                     <tr>
-                        <td><%= Encode.forHtml((String) attVector.get(i)) %>
+                        <td><%= SafeEncode.forHtml((String) attVector.get(i)) %>
                         </td>
                         <td>
                           <button type="submit"
@@ -189,7 +210,7 @@
                             <% }  %>
                     </table>
                         <input type="hidden" name="file_id" id="file_id"/>
-                        <input type="hidden" name="attachment" id="attachment" value="<%= Encode.forHtmlAttribute(pdfAttch) %>"/>
+                        <input type="hidden" name="attachment" id="attachment" value="<%= SafeEncode.forHtmlAttribute(pdfAttch) %>"/>
 
         </form>
     </div>

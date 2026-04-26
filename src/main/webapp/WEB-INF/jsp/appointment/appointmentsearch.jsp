@@ -46,21 +46,69 @@
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
 <%@ page import="java.text.SimpleDateFormat" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
 <%@ page import="java.util.Calendar" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
 <%@ page import="java.util.List" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
 <%@ page import="java.util.ArrayList" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
 <%@ page import="java.util.ResourceBundle" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateCodeDao" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.appointment.web.NextAppointmentSearchHelper" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.appointment.web.NextAppointmentSearchBean" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.appointment.web.NextAppointmentSearchResult" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.util.LabelValueBean" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -285,7 +333,7 @@
                                         selected = " selected=\"selected\" ";
                                     }
                             %>
-                            <option value="<%= Encode.forHtmlAttribute(provider.getProviderNo()) %>" <%= selected %>><%= Encode.forHtml(provider.getFormattedName()) %>
+                            <option value="<%= SafeEncode.forHtmlAttribute(provider.getProviderNo()) %>" <%= selected %>><%= SafeEncode.forHtml(provider.getFormattedName()) %>
                             </option>
                             <%
                                 }
@@ -362,7 +410,7 @@
                                         selected = " selected=\"selected\" ";
                                     }
                             %>
-                            <option value="<%= Encode.forHtmlAttribute(String.valueOf(c.getCode())) %>" <%=selected%>><%= Encode.forHtml(String.valueOf(c.getCode())) %> - <%= Encode.forHtml(c.getDescription()) %>
+                            <option value="<%= SafeEncode.forHtmlAttribute(String.valueOf(c.getCode())) %>" <%=selected%>><%= SafeEncode.forHtml(String.valueOf(c.getCode())) %> - <%= SafeEncode.forHtml(c.getDescription()) %>
                             </option>
                             <%
                                 }
@@ -414,12 +462,12 @@
                                 NextAppointmentSearchResult result = results.get(x);
                         %>
                         <tr
-                         onclick="selectSlot('<%= Encode.forJavaScript(result.getProviderNo()) %>','<%= result.getYear() %>','<%= result.getMonth() %>','<%= result.getDay() %>','<%= Encode.forJavaScript(result.getStartTime()) %>','<%= Encode.forJavaScript(result.getEndTime()) %>','<%= result.getDuration() %>');">
+                         onclick="selectSlot('<%= SafeEncode.forJavaScript(result.getProviderNo()) %>','<%= result.getYear() %>','<%= result.getMonth() %>','<%= result.getDay() %>','<%= SafeEncode.forJavaScript(result.getStartTime()) %>','<%= SafeEncode.forJavaScript(result.getEndTime()) %>','<%= result.getDuration() %>');">
                             <td><%= dayFormatter.format(result.getDate()) %>
                             </td>
                             <td><%= timeFormatter.format(result.getDate()) %>
                             </td>
-                            <td><%= Encode.forHtml(result.getProvider().getFormattedName()) %>
+                            <td><%= SafeEncode.forHtml(result.getProvider().getFormattedName()) %>
                             </td>
                         </tr>
                         <% } %>
