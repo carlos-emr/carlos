@@ -124,6 +124,10 @@ public class UtilDateUtilities {
         return calcAgeAtDate(DOB, new GregorianCalendar().getTime());
     }
 
+    public static String calcAge(Date DOB, Locale dlocal) {
+        return calcAgeAtDate(DOB, new GregorianCalendar().getTime(), dlocal);
+    }
+    
     /**
      * This returns the Patients Age string at a point in time.  IE. How old the patient will be right now or how old will they be on march.31 of this year.
      *
