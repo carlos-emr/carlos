@@ -36,13 +36,13 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingBatchHeaderData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDiskNameData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingClaimImpl;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimPersistenceService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class BillingDiskCreatePrep {
     private static final Logger _logger = MiscUtils.getLogger();
-    JdbcBillingClaimImpl dbObj = new JdbcBillingClaimImpl();
+    BillingONClaimPersistenceService dbObj = new BillingONClaimPersistenceService();
     Properties propProOHIP = null;
 
     public BillingDiskCreatePrep() {

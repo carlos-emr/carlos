@@ -25,7 +25,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingClaimImpl;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.providers.data.ProviderBillCenter;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -111,7 +110,7 @@ public final class OnBillingDiskService {
         String defaultMOH = mohOffice;
         String currentUser = (String) request.getSession().getAttribute("user");
 
-        JdbcBillingClaimImpl dateObj = new JdbcBillingClaimImpl();
+        BillingONClaimPersistenceService dateObj = new BillingONClaimPersistenceService();
         String dateEnd = dateObj.getDiskCreateDate(diskId);
         DateRange dateRange = new DateRange(null, ConversionUtils.fromDateString(dateEnd));
 

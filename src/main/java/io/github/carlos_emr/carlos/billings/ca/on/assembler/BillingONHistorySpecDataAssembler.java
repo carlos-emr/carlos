@@ -21,7 +21,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONHistorySpecViewModel;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimQueryService;
 import io.github.carlos_emr.carlos.utility.DateRange;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -31,7 +31,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * history popup.
  *
  * <p>Owns the date-range computation, the request-parameter echoes, and
- * the {@link JdbcBillingReviewImpl#getBillingHist} call. Mirrors the
+ * the {@link BillingONClaimQueryService#getBillingHist} call. Mirrors the
  * service-code substring filter the legacy JSP applied client-side.</p>
  *
  * @since 2026-04-25
@@ -81,7 +81,7 @@ public final class BillingONHistorySpecDataAssembler {
         List<BillingONHistorySpecViewModel.HistoryRow> rows = new ArrayList<>();
         int nItems = 0;
         try {
-            JdbcBillingReviewImpl dbObj = new JdbcBillingReviewImpl();
+            BillingONClaimQueryService dbObj = new BillingONClaimQueryService();
             @SuppressWarnings("rawtypes")
             List aL = dbObj.getBillingHist(safeDemoNo, 10000000, 0, pDateRange);
             for (int i = 0; i + 1 < aL.size(); i = i + 2) {

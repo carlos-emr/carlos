@@ -36,7 +36,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingClaimImpl" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimPersistenceService" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%
@@ -44,7 +44,7 @@
 %>
 <%
     //
-    JdbcBillingClaimImpl dbObj = new JdbcBillingClaimImpl();
+    BillingONClaimPersistenceService dbObj = new BillingONClaimPersistenceService();
     String temp = "";
     String clinic_no = request.getParameter("clinic_no");
     String clinic_ref_code = request.getParameter("xml_location");

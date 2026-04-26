@@ -52,10 +52,10 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData;
 import io.github.carlos_emr.carlos.billings.ca.on.service.Billing3rdPartyService;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingClaimImpl;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimPersistenceService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONServiceCodeService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimQueryService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONCorrectionPersistenceService;
 
 import io.github.carlos_emr.carlos.util.StringUtils;
@@ -725,7 +725,7 @@ public class BillingCorrectionPrep {
             newObj.setService_date(serviceDate);
             newObj.setDx(sDx);
             newObj.setStatus(sStatus);
-            JdbcBillingClaimImpl myObj = new JdbcBillingClaimImpl();
+            BillingONClaimPersistenceService myObj = new BillingONClaimPersistenceService();
             int i = myObj.addOneItemRecord(newObj);
             if (0 == i) {
                 return false;
@@ -809,7 +809,7 @@ public class BillingCorrectionPrep {
                           String billReferenceDate) {
         String ret = fee;
         if (fee.length() == 0 || fee.equals(" ")) {
-            JdbcBillingReviewImpl dbObj = new JdbcBillingReviewImpl();
+            BillingONClaimQueryService dbObj = new BillingONClaimQueryService();
             fee = dbObj.getCodeFee(codeName, billReferenceDate);
             // calculate fee
             BigDecimal bigCodeFee = new BigDecimal(fee);

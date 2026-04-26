@@ -21,7 +21,7 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-package io.github.carlos_emr.carlos.billings.ca.on.data;
+package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.io.BufferedReader;
 import java.io.FileInputStream;
@@ -35,6 +35,7 @@ import java.util.Properties;
 import java.util.Set;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingRAData;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.RaDetailDao;
 import io.github.carlos_emr.carlos.commn.dao.RaHeaderDao;
@@ -49,7 +50,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-public class JdbcBillingRAImpl {
+public class BillingONRemittanceAdviceService {
     private static final Logger _logger = MiscUtils.getLogger();
 
     private RaDetailDao raDetailDao = SpringUtils.getBean(RaDetailDao.class);
@@ -58,18 +59,18 @@ public class JdbcBillingRAImpl {
 
     public int addOneRADtRecord(BillingRAData val) {
         RaDetail r = new RaDetail();
-        r.setRaHeaderNo(Integer.parseInt(val.raheader_no));
-        r.setProviderOhipNo(val.providerohip_no);
-        r.setBillingNo(Integer.parseInt(val.billing_no));
-        r.setServiceCode(val.service_code);
-        r.setServiceCount(val.service_count);
-        r.setHin(val.hin);
-        r.setAmountClaim(val.amountclaim);
-        r.setAmountPay(val.amountpay);
-        r.setServiceDate(val.service_date);
-        r.setErrorCode(val.error_code);
-        r.setBillType(val.billtype);
-        r.setClaimNo(val.claim_no);
+        r.setRaHeaderNo(Integer.parseInt(val.getRaheader_no()));
+        r.setProviderOhipNo(val.getProviderohip_no());
+        r.setBillingNo(Integer.parseInt(val.getBilling_no()));
+        r.setServiceCode(val.getService_code());
+        r.setServiceCount(val.getService_count());
+        r.setHin(val.getHin());
+        r.setAmountClaim(val.getAmountclaim());
+        r.setAmountPay(val.getAmountpay());
+        r.setServiceDate(val.getService_date());
+        r.setErrorCode(val.getError_code());
+        r.setBillType(val.getBilltype());
+        r.setClaimNo(val.getClaim_no());
 
         raDetailDao.persist(r);
 

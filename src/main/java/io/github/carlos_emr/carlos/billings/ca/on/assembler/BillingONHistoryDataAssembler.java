@@ -21,7 +21,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONHistoryViewModel;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimQueryService;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
@@ -120,7 +120,7 @@ public final class BillingONHistoryDataAssembler {
     private List<BillingONHistoryViewModel.HistoryRow> loadRows(String demographicNo, boolean canEdit) {
         List<BillingONHistoryViewModel.HistoryRow> rows = new ArrayList<>();
         try {
-            JdbcBillingReviewImpl dbObj = new JdbcBillingReviewImpl();
+            BillingONClaimQueryService dbObj = new BillingONClaimQueryService();
             @SuppressWarnings("rawtypes")
             List aL = dbObj.getBillingHist(demographicNo, 10000, 0, null);
             for (int i = 0; i + 1 < aL.size(); i = i + 2) {

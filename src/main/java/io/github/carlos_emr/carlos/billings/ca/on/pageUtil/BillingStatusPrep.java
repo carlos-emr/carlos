@@ -24,7 +24,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimQueryService;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 
 import java.util.ArrayList;
@@ -37,12 +37,12 @@ public class BillingStatusPrep {
     private static final String ANY_BILLING_FORM = "---";
     public static final String ANY_VISIT_LOCATION = "0000";
 
-    // JdbcBillingRAImpl dbObj = new JdbcBillingRAImpl();
+    // BillingONRemittanceAdviceService dbObj = new BillingONRemittanceAdviceService();
 
 
     public List<BillingClaimHeader1Data> getBills(String[] billTypes, String statusType, String providerNo, String startDate, String endDate,
                                                   String demoNo, String visitLocation, String paymentStartDate, String paymentEndDate) {
-        JdbcBillingReviewImpl bObj = new JdbcBillingReviewImpl();
+        BillingONClaimQueryService bObj = new BillingONClaimQueryService();
 
         billTypes = billTypes == null || billTypes.length == 0 ? null : billTypes;
         statusType = statusType == null || statusType.length() == 0 || statusType.equals(ANY_STATUS_TYPE) ? null : statusType;
@@ -66,7 +66,7 @@ public class BillingStatusPrep {
     public List<BillingClaimHeader1Data> getBillsWithSorting(String[] billType, String statusType, String providerNo, String startDate, String endDate,
                                                              String demoNo, String serviceCodeParams, String dx, String visitType, String billingForm, String visitLocation, String sortName, String sortOrder,
                                                              String paymentStartDate, String paymentEndDate, String claimNo) {
-        JdbcBillingReviewImpl bObj = new JdbcBillingReviewImpl();
+        BillingONClaimQueryService bObj = new BillingONClaimQueryService();
         billType = billType == null || billType.length == 0 ? null : billType;
         statusType = statusType == null || statusType.length() == 0 || statusType.equals(ANY_STATUS_TYPE) ? null : statusType;
         providerNo = providerNo == null || providerNo.length() == 0 || providerNo.equals(ANY_PROVIDER) ? null : providerNo;
@@ -92,7 +92,7 @@ public class BillingStatusPrep {
 
 
     public List<LabelValueBean> listBillingForms() {
-        JdbcBillingReviewImpl bObj = new JdbcBillingReviewImpl();
+        BillingONClaimQueryService bObj = new BillingONClaimQueryService();
         List<LabelValueBean> billingFormsList = bObj.listBillingForms();
         if (billingFormsList == null) billingFormsList = new ArrayList<LabelValueBean>();
         return billingFormsList;

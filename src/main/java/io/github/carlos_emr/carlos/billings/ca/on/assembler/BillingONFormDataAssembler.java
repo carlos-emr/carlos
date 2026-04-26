@@ -25,7 +25,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingMultisiteContext;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONFormViewModel;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimQueryService;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.CSSStylesDAO;
 import io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao;
@@ -669,7 +669,7 @@ public final class BillingONFormDataAssembler {
 
     /**
      * Loads the recent-billing history rows the JSP renders at the bottom of
-     * the form. Up to 5 (claim, item) pairs from {@link JdbcBillingReviewImpl}.
+     * the form. Up to 5 (claim, item) pairs from {@link BillingONClaimQueryService}.
      */
     private static List<BillingONFormViewModel.BillingHistoryRow> loadHistoryRows(String demoNo) {
         List<BillingONFormViewModel.BillingHistoryRow> rows = new ArrayList<>();
@@ -677,7 +677,7 @@ public final class BillingONFormDataAssembler {
             return rows;
         }
         try {
-            JdbcBillingReviewImpl reviewer = new JdbcBillingReviewImpl();
+            BillingONClaimQueryService reviewer = new BillingONClaimQueryService();
             List<Object> raw = reviewer.getBillingHist(demoNo, 5, 0, null);
             for (int i = 0; i + 1 < raw.size(); i += 2) {
                 io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data header =
@@ -819,10 +819,10 @@ public final class BillingONFormDataAssembler {
     }
 
     /**
-     * Loads up to 5 recent billing-history entries via JdbcBillingReviewImpl.
+     * Loads up to 5 recent billing-history entries via BillingONClaimQueryService.
      * The JSP only reads the first record's visitType / clinic_ref_code, so
      * we surface only that. Split exception handling: ClassCastException is
-     * loud at ERROR (data-shape regression in JdbcBillingReviewImpl);
+     * loud at ERROR (data-shape regression in BillingONClaimQueryService);
      * RuntimeException is also ERROR (DB outage stripping the visit-context
      * hint is high-impact for clinical workflow — provider may
      * duplicate-bill the same encounter).
@@ -833,7 +833,7 @@ public final class BillingONFormDataAssembler {
             return history;
         }
         try {
-            JdbcBillingReviewImpl reviewer = new JdbcBillingReviewImpl();
+            BillingONClaimQueryService reviewer = new BillingONClaimQueryService();
             List<Object> raw = reviewer.getBillingHist(demoNo, 5, 0, null);
             if (raw.size() >= 2) {
                 BillingClaimHeader1Data header = (BillingClaimHeader1Data) raw.get(0);
@@ -846,7 +846,7 @@ public final class BillingONFormDataAssembler {
             }
         } catch (ClassCastException ccEx) {
             MiscUtils.getLogger().error(
-                    "Billing history data-shape regression for demo={} — JdbcBillingReviewImpl returned unexpected types",
+                    "Billing history data-shape regression for demo={} — BillingONClaimQueryService returned unexpected types",
                     LogSanitizer.sanitize(demoNo), ccEx);
         } catch (RuntimeException rtEx) {
             MiscUtils.getLogger().error(

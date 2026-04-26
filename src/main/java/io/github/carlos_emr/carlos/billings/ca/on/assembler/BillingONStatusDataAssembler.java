@@ -257,7 +257,7 @@ public final class BillingONStatusDataAssembler {
         if ((serviceCode == null || billingForm == null)
                 && dx.length() < 2 && visitType.length() < 2) {
             // deepcode ignore SqlInjection: BillingStatusPrep delegates to
-            // JdbcBillingReviewImpl which uses JPA criteria queries (parameterized)
+            // BillingONClaimQueryService which uses JPA criteria queries (parameterized)
             bList = search
                     ? statusPrep.getBills(billTypes, statusType, providerNo, startDate, endDate,
                             demoNo, visitLocation, paymentStartDate, paymentEndDate)

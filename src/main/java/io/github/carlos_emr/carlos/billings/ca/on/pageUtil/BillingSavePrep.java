@@ -38,13 +38,13 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingClaimImpl;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimPersistenceService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class BillingSavePrep {
     private static final Logger _logger = MiscUtils.getLogger();
-    JdbcBillingClaimImpl dbObj = new JdbcBillingClaimImpl();
+    BillingONClaimPersistenceService dbObj = new BillingONClaimPersistenceService();
     int billingId = 0;
 
     // save a billing record

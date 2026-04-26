@@ -20,7 +20,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.DocumentBean;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingRAImpl;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONRemittanceAdviceService;
 import io.github.carlos_emr.carlos.billings.ca.on.data.OnGenRAViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -69,7 +69,7 @@ public final class OnGenRADataAssembler {
                 try {
                     String filepath = CarlosProperties.getInstance()
                             .getProperty("DOCUMENT_DIR", "").trim();
-                    new JdbcBillingRAImpl().importRAFile(filepath + filename);
+                    new BillingONRemittanceAdviceService().importRAFile(filepath + filename);
                 } catch (Exception e) {
                     MiscUtils.getLogger().error("Failed to import RA file: " + filename, e);
                 }
@@ -84,7 +84,7 @@ public final class OnGenRADataAssembler {
                 loggedInInfo, "_site_access_privacy", "r", null);
 
         String user = loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo();
-        JdbcBillingRAImpl dbObj = new JdbcBillingRAImpl();
+        BillingONRemittanceAdviceService dbObj = new BillingONRemittanceAdviceService();
 
         List<Properties> raList;
         if (isTeamBillingOnly || isTeamAccessPrivacy) {

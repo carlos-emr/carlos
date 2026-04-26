@@ -21,8 +21,10 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-package io.github.carlos_emr.carlos.billings.ca.on.data;
+package io.github.carlos_emr.carlos.billings.ca.on.service;
 
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import org.apache.logging.log4j.Logger;
@@ -42,7 +44,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
-public class JdbcBillingReviewImpl {
+public class BillingONClaimQueryService {
     private static final Logger _logger = MiscUtils.getLogger();
 
     private ClinicLocationDao clinicLocationDao = (ClinicLocationDao) SpringUtils.getBean(ClinicLocationDao.class);

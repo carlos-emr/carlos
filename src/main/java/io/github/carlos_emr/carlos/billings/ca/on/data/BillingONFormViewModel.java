@@ -80,7 +80,7 @@ public final class BillingONFormViewModel {
     /**
      * One row in the recent-billing history table at the bottom of the form.
      * Replaces the inline {@code aL.get(i)/aL.get(i+1)} cast pairs the legacy
-     * JSP used to iterate {@code JdbcBillingReviewImpl.getBillingHist}.
+     * JSP used to iterate {@code BillingONClaimQueryService.getBillingHist}.
      */
     public record BillingHistoryRow(
             String id,
@@ -168,7 +168,7 @@ public final class BillingONFormViewModel {
     private final List<String> billingFavourites;
 
     // Round-A6: residual body-DAO data — pulled from the assembler so the JSP
-    // body no longer reaches into BillingONLookupService / JdbcBillingReviewImpl /
+    // body no longer reaches into BillingONLookupService / BillingONClaimQueryService /
     // BillingSiteIdPrep / DemographicData / JdbcApptImpl directly.
     /** All recent-history rows the bottom table renders (was {@code aL} in JSP). */
     private final List<BillingHistoryRow> billingHistoryRows;

@@ -32,11 +32,11 @@ import java.util.Vector;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingRAImpl;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONRemittanceAdviceService;
 
 public class BillingRAPrep {
     private static final Logger _logger = MiscUtils.getLogger();
-    JdbcBillingRAImpl dbObj = new JdbcBillingRAImpl();
+    BillingONRemittanceAdviceService dbObj = new BillingONRemittanceAdviceService();
 
     // ret - Vector = || ||
     public List getProviderListFromRAReport(String raNo) {

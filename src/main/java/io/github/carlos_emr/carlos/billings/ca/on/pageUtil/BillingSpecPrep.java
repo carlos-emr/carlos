@@ -34,13 +34,13 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingClaimImpl;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimPersistenceService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONServiceCodeService;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class BillingSpecPrep {
     private static final Logger _logger = MiscUtils.getLogger();
-    JdbcBillingClaimImpl dbObj = new JdbcBillingClaimImpl();
+    BillingONClaimPersistenceService dbObj = new BillingONClaimPersistenceService();
 
     // save a billing record
     public boolean addABillingRecord(Vector val) {

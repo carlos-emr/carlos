@@ -18,7 +18,7 @@ import java.util.List;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingShortcutPg1ViewModel;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimQueryService;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao;
@@ -78,7 +78,7 @@ class BillingShortcutPg1DataAssemblerUnitTest extends CarlosUnitTestBase {
     @Mock
     private ProfessionalSpecialistDao professionalSpecialistDao;
     @Mock
-    private JdbcBillingReviewImpl billingReviewImpl;
+    private BillingONClaimQueryService billingReviewImpl;
 
     private BillingShortcutPg1DataAssembler assembler;
     private MockHttpServletRequest request;

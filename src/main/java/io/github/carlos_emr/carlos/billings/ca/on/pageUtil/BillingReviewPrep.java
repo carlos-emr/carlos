@@ -35,9 +35,9 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReviewCodeItem;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReviewPercItem;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingClaimImpl;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimPersistenceService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimQueryService;
 import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
 import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -45,7 +45,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 public class BillingReviewPrep {
     private static final Logger _logger = MiscUtils.getLogger();
 
-    JdbcBillingReviewImpl dbObj = new JdbcBillingReviewImpl();
+    BillingONClaimQueryService dbObj = new BillingONClaimQueryService();
 
     public Vector getServiceCodeReviewVec(Vector vecCode, Vector vecUnit,
                                           Vector vecAt, String billReferalDate) {
@@ -255,7 +255,7 @@ public class BillingReviewPrep {
     }
 
     public List getMRIList(String sDate, String eDate, String status) {
-        JdbcBillingClaimImpl dbObj = new JdbcBillingClaimImpl();
+        BillingONClaimPersistenceService dbObj = new BillingONClaimPersistenceService();
         List ret = dbObj.getMRIList(sDate, eDate, status);
         return ret;
     }

@@ -21,7 +21,7 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-package io.github.carlos_emr.carlos.billings.ca.on.data;
+package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.math.BigDecimal;
 import java.sql.Timestamp;
@@ -34,6 +34,12 @@ import java.util.Vector;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingBatchHeaderData;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDiskNameData;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONDiskNameDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONFilenameDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONHeaderDao;
@@ -61,7 +67,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-public class JdbcBillingClaimImpl {
+public class BillingONClaimPersistenceService {
     private static final Logger _logger = MiscUtils.getLogger();
     private BillingONHeaderDao dao = SpringUtils.getBean(BillingONHeaderDao.class);
     private BillingONCHeader1Dao cheaderDao = SpringUtils.getBean(BillingONCHeader1Dao.class);
@@ -79,25 +85,25 @@ public class JdbcBillingClaimImpl {
 
     public int addOneBatchHeaderRecord(BillingBatchHeaderData val) {
         BillingONHeader b = new BillingONHeader();
-        b.setDiskId(Integer.parseInt(val.disk_id));
-        b.setTransactionId(val.transc_id);
-        b.setRecordId(val.rec_id);
-        b.setSpecId(val.spec_id);
-        b.setMohOffice(val.moh_office);
-        b.setBatchId(val.batch_id);
-        b.setOperator(val.operator);
-        b.setGroupNum(val.group_num);
-        b.setProviderRegNum(val.provider_reg_num);
-        b.setSpecialty(val.specialty);
-        b.sethCount(val.h_count);
-        b.setrCount(val.r_count);
-        b.settCount(val.t_count);
+        b.setDiskId(Integer.parseInt(val.getDisk_id()));
+        b.setTransactionId(val.getTransc_id());
+        b.setRecordId(val.getRec_id());
+        b.setSpecId(val.getSpec_id());
+        b.setMohOffice(val.getMoh_office());
+        b.setBatchId(val.getBatch_id());
+        b.setOperator(val.getOperator());
+        b.setGroupNum(val.getGroup_num());
+        b.setProviderRegNum(val.getProvider_reg_num());
+        b.setSpecialty(val.getSpecialty());
+        b.sethCount(val.getH_count());
+        b.setrCount(val.getR_count());
+        b.settCount(val.getT_count());
         b.setBatchDate(new Date());
         b.setCreateDateTime(new Date());
         b.setUpdateDateTime(new Date());
-        b.setCreator(val.creator);
-        b.setAction(val.action);
-        b.setComment(val.comment);
+        b.setCreator(val.getCreator());
+        b.setAction(val.getAction());
+        b.setComment(val.getComment());
 
         dao.persist(b);
 
@@ -107,67 +113,67 @@ public class JdbcBillingClaimImpl {
     public int addOneClaimHeaderRecord(BillingClaimHeader1Data val) {
         BillingONCHeader1 b = new BillingONCHeader1();
         b.setHeaderId(0);
-        b.setTranscId(val.transc_id);
-        b.setRecId(val.rec_id);
-        b.setHin(val.hin);
-        b.setVer(val.ver);
-        b.setDob(val.dob);
-        b.setPayProgram(val.pay_program);
-        b.setPayee(val.payee);
-        b.setRefNum(val.ref_num);
-        b.setFaciltyNum(val.facilty_num);
-        if (val.admission_date.length() > 0)
+        b.setTranscId(val.getTransc_id());
+        b.setRecId(val.getRec_id());
+        b.setHin(val.getHin());
+        b.setVer(val.getVer());
+        b.setDob(val.getDob());
+        b.setPayProgram(val.getPay_program());
+        b.setPayee(val.getPayee());
+        b.setRefNum(val.getRef_num());
+        b.setFaciltyNum(val.getFacilty_num());
+        if (val.getAdmission_date().length() > 0)
             try {
-                b.setAdmissionDate(dateformatter.parse(val.admission_date));
+                b.setAdmissionDate(dateformatter.parse(val.getAdmission_date()));
             } catch (ParseException e) {/*empty*/}
 
-        b.setRefLabNum(val.ref_lab_num);
-        b.setManReview(val.man_review);
-        b.setLocation(val.location);
-        b.setDemographicNo(Integer.parseInt(val.demographic_no));
-        b.setProviderNo(val.provider_no);
-        String apptNo = StringUtils.trimToNull(val.appointment_no);
+        b.setRefLabNum(val.getRef_lab_num());
+        b.setManReview(val.getMan_review());
+        b.setLocation(val.getLocation());
+        b.setDemographicNo(Integer.parseInt(val.getDemographic_no()));
+        b.setProviderNo(val.getProvider_no());
+        String apptNo = StringUtils.trimToNull(val.getAppointment_no());
 
         if (apptNo != null) {
-            b.setAppointmentNo(Integer.parseInt(val.appointment_no));
+            b.setAppointmentNo(Integer.parseInt(val.getAppointment_no()));
         } else {
             b.setAppointmentNo(null);
         }
 
-        b.setDemographicName(val.demographic_name);
-        b.setSex(val.sex);
-        b.setProvince(val.province);
-        if (val.billing_date.length() > 0)
+        b.setDemographicName(val.getDemographic_name());
+        b.setSex(val.getSex());
+        b.setProvince(val.getProvince());
+        if (val.getBilling_date().length() > 0)
             try {
-                b.setBillingDate(dateformatter.parse(val.billing_date));
+                b.setBillingDate(dateformatter.parse(val.getBilling_date()));
             } catch (ParseException e) {
                 MiscUtils.getLogger().error("Invalid date", e);
             }
-        if (val.billing_time.length() > 0)
+        if (val.getBilling_time().length() > 0)
             try {
-                b.setBillingTime(timeFormatter.parse(val.billing_time));
+                b.setBillingTime(timeFormatter.parse(val.getBilling_time()));
             } catch (ParseException e) {
                 MiscUtils.getLogger().error("Invalid time", e);
             }
 
 
-        b.setTotal(new BigDecimal(val.total == null ? "0.00" : val.total));
+        b.setTotal(new BigDecimal(val.getTotal() == null ? "0.00" : val.getTotal()));
 
-        if (val.paid == null || val.paid.isEmpty()) {
+        if (val.getPaid() == null || val.getPaid().isEmpty()) {
             b.setPaid(new BigDecimal("0.00"));
         } else {
-            b.setPaid(new BigDecimal(val.paid));
+            b.setPaid(new BigDecimal(val.getPaid()));
         }
 
-        b.setStatus(val.status);
-        b.setComment(val.comment);
-        b.setVisitType(val.visittype);
-        b.setProviderOhipNo(val.provider_ohip_no);
-        b.setProviderRmaNo(val.provider_rma_no);
-        b.setApptProviderNo(val.apptProvider_no);
-        b.setAsstProviderNo(val.asstProvider_no);
-        b.setCreator(val.creator);
-        b.setClinic(val.clinic);
+        b.setStatus(val.getStatus());
+        b.setComment(val.getComment());
+        b.setVisitType(val.getVisittype());
+        b.setProviderOhipNo(val.getProvider_ohip_no());
+        b.setProviderRmaNo(val.getProvider_rma_no());
+        b.setApptProviderNo(val.getApptProvider_no());
+        b.setAsstProviderNo(val.getAsstProvider_no());
+        b.setCreator(val.getCreator());
+        b.setClinic(val.getClinic());
 
         cheaderDao.persist(b);
 
@@ -182,19 +188,19 @@ public class JdbcBillingClaimImpl {
 
             BillingONItem b = new BillingONItem();
             b.setCh1Id(id);
-            b.setTranscId(val.transc_id);
-            b.setRecId(val.rec_id);
-            b.setServiceCode(val.service_code);
-            b.setFee(val.fee);
-            b.setServiceCount(val.ser_num);
-            if (val.service_date.length() > 0)
+            b.setTranscId(val.getTransc_id());
+            b.setRecId(val.getRec_id());
+            b.setServiceCode(val.getService_code());
+            b.setFee(val.getFee());
+            b.setServiceCount(val.getSer_num());
+            if (val.getService_date().length() > 0)
                 try {
-                    b.setServiceDate(dateformatter.parse(val.service_date));
+                    b.setServiceDate(dateformatter.parse(val.getService_date()));
                 } catch (ParseException e) {/*empty*/}
-            b.setDx(val.dx);
-            b.setDx1(val.dx1);
-            b.setDx2(val.dx2);
-            b.setStatus(val.status);
+            b.setDx(val.getDx());
+            b.setDx1(val.getDx1());
+            b.setDx2(val.getDx2());
+            b.setStatus(val.getStatus());
 
             itemDao.persist(b);
             val.setId(b.getId().toString());
@@ -429,17 +435,17 @@ public class JdbcBillingClaimImpl {
 
     public int addOneItemRecord(BillingItemData val) throws ParseException {
         BillingONItem item = new BillingONItem();
-        item.setCh1Id(Integer.parseInt(val.ch1_id));
-        item.setTranscId(val.transc_id);
-        item.setRecId(val.rec_id);
-        item.setServiceCode(val.service_code);
-        item.setFee(val.fee);
-        item.setServiceCount(val.ser_num);
-        item.setServiceDate(dateformatter.parse(val.service_date));
-        item.setDx(val.dx);
-        item.setDx1(val.dx1);
-        item.setDx2(val.dx2);
-        item.setStatus(val.status);
+        item.setCh1Id(Integer.parseInt(val.getCh1_id()));
+        item.setTranscId(val.getTransc_id());
+        item.setRecId(val.getRec_id());
+        item.setServiceCode(val.getService_code());
+        item.setFee(val.getFee());
+        item.setServiceCount(val.getSer_num());
+        item.setServiceDate(dateformatter.parse(val.getService_date()));
+        item.setDx(val.getDx());
+        item.setDx1(val.getDx1());
+        item.setDx2(val.getDx2());
+        item.setStatus(val.getStatus());
         BillingONItem returnItem = itemDao.saveEntity(item);
         return returnItem.getId(); //return ID
 
@@ -478,15 +484,15 @@ public class JdbcBillingClaimImpl {
     // add disk file
     public int addBillingDiskName(BillingDiskNameData val) {
         BillingONDiskName b = new BillingONDiskName();
-        b.setMonthCode(val.monthCode);
-        b.setBatchCount(Integer.parseInt(val.batchcount));
-        b.setOhipFilename(val.ohipfilename);
-        b.setGroupNo(val.groupno);
-        b.setCreator(val.creator);
-        b.setClaimRecord(val.claimrecord);
+        b.setMonthCode(val.getMonthCode());
+        b.setBatchCount(Integer.parseInt(val.getBatchcount()));
+        b.setOhipFilename(val.getOhipfilename());
+        b.setGroupNo(val.getGroupno());
+        b.setCreator(val.getCreator());
+        b.setClaimRecord(val.getClaimrecord());
         b.setCreateDateTime(new Date());
-        b.setStatus(val.status);
-        b.setTotal(val.total);
+        b.setStatus(val.getStatus());
+        b.setTotal(val.getTotal());
 
         diskNameDao.persist(b);
 
@@ -494,15 +500,15 @@ public class JdbcBillingClaimImpl {
 
         if (b.getId() > 0) {
             // add filenames, if needed
-            for (int i = 0; i < val.providerohipno.size(); i++) {
+            for (int i = 0; i < val.getProviderohipno().size(); i++) {
                 BillingONFilename f = new BillingONFilename();
                 f.setDiskId(b.getId());
-                f.setHtmlFilename((String) val.htmlfilename.get(i));
-                f.setProviderOhipNo((String) val.providerohipno.get(i));
-                f.setProviderNo((String) val.providerno.get(i));
-                f.setClaimRecord((String) val.vecClaimrecord.get(0));
-                f.setStatus((String) val.vecStatus.get(0));
-                f.setTotal((String) val.vecTotal.get(0));
+                f.setHtmlFilename((String) val.getHtmlfilename().get(i));
+                f.setProviderOhipNo((String) val.getProviderohipno().get(i));
+                f.setProviderNo((String) val.getProviderno().get(i));
+                f.setClaimRecord((String) val.getVecClaimrecord().get(0));
+                f.setStatus((String) val.getVecStatus().get(0));
+                f.setTotal((String) val.getVecTotal().get(0));
                 filenameDao.persist(f);
             }
 
@@ -696,11 +702,11 @@ public class JdbcBillingClaimImpl {
     public int addRepoDiskName(BillingDiskNameData val) {
         int retval = 0;
         BillingONRepo b = new BillingONRepo();
-        b.sethId(Integer.parseInt(val.id));
+        b.sethId(Integer.parseInt(val.getId()));
         b.setCategory("billing_on_diskname");
-        b.setContent(val.monthCode + "|" + val.batchcount + "|" + val.ohipfilename + "|" + val.groupno + "|" + val.creator
-                + "|" + val.claimrecord + "|" + val.createdatetime + "|" + val.status + "|" + val.total + "|"
-                + val.updatedatetime);
+        b.setContent(val.getMonthCode() + "|" + val.getBatchcount() + "|" + val.getOhipfilename() + "|" + val.getGroupno() + "|" + val.getCreator()
+                + "|" + val.getClaimrecord() + "|" + val.getCreatedatetime() + "|" + val.getStatus() + "|" + val.getTotal() + "|"
+                + val.getUpdatedatetime());
         b.setCreateDateTime(new Date());
 
         repoDao.persist(b);
@@ -708,13 +714,13 @@ public class JdbcBillingClaimImpl {
 
         if (b.getId() > 0) {
             // add filenames, if needed
-            for (int i = 0; i < val.providerohipno.size(); i++) {
+            for (int i = 0; i < val.getProviderohipno().size(); i++) {
                 BillingONRepo r = new BillingONRepo();
-                r.sethId(Integer.valueOf((String) val.vecFilenameId.get(i)));
+                r.sethId(Integer.valueOf((String) val.getVecFilenameId().get(i)));
                 r.setCategory("billing_on_filename");
-                r.setContent(val.id + "|" + val.htmlfilename.get(i) + "|"
-                        + val.providerohipno.get(i) + "|" + val.providerno.get(i) + "|" + val.vecClaimrecord.get(0)
-                        + "|" + val.vecStatus.get(0) + "|" + val.vecTotal.get(0) + "|" + val.updatedatetime);
+                r.setContent(val.getId() + "|" + val.getHtmlfilename().get(i) + "|"
+                        + val.getProviderohipno().get(i) + "|" + val.getProviderno().get(i) + "|" + val.getVecClaimrecord().get(0)
+                        + "|" + val.getVecStatus().get(0) + "|" + val.getVecTotal().get(0) + "|" + val.getUpdatedatetime());
 
                 r.setCreateDateTime(new Date());
 
@@ -729,7 +735,7 @@ public class JdbcBillingClaimImpl {
     public boolean updateDiskName(BillingDiskNameData val) {
         BillingONDiskName b = diskNameDao.find(Integer.parseInt(val.getId()));
         if (b != null) {
-            b.setCreator(val.creator);
+            b.setCreator(val.getCreator());
             diskNameDao.merge(b);
         }
         return true;
@@ -770,13 +776,13 @@ public class JdbcBillingClaimImpl {
 
     public int addRepoBatchHeader(BillingBatchHeaderData val) {
         BillingONRepo b = new BillingONRepo();
-        b.sethId(Integer.parseInt(val.id));
+        b.sethId(Integer.parseInt(val.getId()));
         b.setCategory("billing_on_header");
-        b.setContent(val.disk_id + "|" + val.transc_id + "|" + val.rec_id + "|" + val.spec_id + "|" + val.moh_office + "|"
-                + val.batch_id + "|" + val.operator + "|" + val.group_num + "|" + val.provider_reg_num + "|"
-                + val.specialty + "|" + val.h_count + "|" + val.r_count + "|" + val.t_count + "|" + val.batch_date
-                + "|" + val.createdatetime + "|" + val.updatedatetime + "|" + val.creator + "|" + val.action + "|"
-                + val.comment);
+        b.setContent(val.getDisk_id() + "|" + val.getTransc_id() + "|" + val.getRec_id() + "|" + val.getSpec_id() + "|" + val.getMoh_office() + "|"
+                + val.getBatch_id() + "|" + val.getOperator() + "|" + val.getGroup_num() + "|" + val.getProvider_reg_num() + "|"
+                + val.getSpecialty() + "|" + val.getH_count() + "|" + val.getR_count() + "|" + val.getT_count() + "|" + val.getBatch_date()
+                + "|" + val.getCreatedatetime() + "|" + val.getUpdatedatetime() + "|" + val.getCreator() + "|" + val.getAction() + "|"
+                + val.getComment());
         b.setCreateDateTime(new Date());
         repoDao.persist(b);
 
@@ -787,13 +793,13 @@ public class JdbcBillingClaimImpl {
     public boolean updateBatchHeaderRecord(BillingBatchHeaderData val) {
         BillingONHeader b = dao.find(Integer.parseInt(val.getId()));
         if (b != null) {
-            b.setMohOffice(val.moh_office);
-            b.setBatchId(val.batch_id);
-            b.setSpecialty(val.specialty);
-            b.setCreator(val.creator);
+            b.setMohOffice(val.getMoh_office());
+            b.setBatchId(val.getBatch_id());
+            b.setSpecialty(val.getSpecialty());
+            b.setCreator(val.getCreator());
             b.setUpdateDateTime(new Date());
-            b.setAction(val.action);
-            b.setComment(val.comment);
+            b.setAction(val.getAction());
+            b.setComment(val.getComment());
             dao.merge(b);
         }
 

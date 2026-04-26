@@ -33,9 +33,8 @@ package io.github.carlos_emr.carlos.billings.ca.on.data;
 import java.util.Comparator;
 import java.util.Hashtable;
 
-/**
- * @author jay
- */
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimQueryService;
+
 public class BillingSortComparator implements Comparator {
 
     /**
@@ -49,7 +48,7 @@ public class BillingSortComparator implements Comparator {
         Hashtable h2 = (Hashtable) obj2;
         String billReferenceDate = (String) h1.get("billReferenceDate");
 
-        JdbcBillingReviewImpl dbObj = new JdbcBillingReviewImpl();
+        BillingONClaimQueryService dbObj = new BillingONClaimQueryService();
 
         String fee1 = dbObj.getCodeFee((String) h1.get("serviceCode"), billReferenceDate);
         String fee2 = dbObj.getCodeFee((String) h2.get("serviceCode"), billReferenceDate);

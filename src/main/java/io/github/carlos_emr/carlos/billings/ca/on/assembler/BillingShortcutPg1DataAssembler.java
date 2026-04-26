@@ -32,7 +32,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDemographicSummary
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReferralDoctor;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingShortcutPg1ViewModel;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimQueryService;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao;
@@ -85,7 +85,7 @@ public final class BillingShortcutPg1DataAssembler {
     private final io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao ctlBillingServiceDao;
     private final io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao diagnosticCodeDao;
     private final io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao clinicNbrDao;
-    private final java.util.function.Supplier<JdbcBillingReviewImpl> billingReviewImplFactory;
+    private final java.util.function.Supplier<BillingONClaimQueryService> billingReviewImplFactory;
 
     public BillingShortcutPg1DataAssembler() {
         this(SpringUtils.getBean(DemographicDao.class),
@@ -99,7 +99,7 @@ public final class BillingShortcutPg1DataAssembler {
              SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao.class),
              SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao.class),
              SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao.class),
-             JdbcBillingReviewImpl::new);
+             BillingONClaimQueryService::new);
     }
 
     BillingShortcutPg1DataAssembler(DemographicDao demographicDao,
@@ -113,10 +113,10 @@ public final class BillingShortcutPg1DataAssembler {
         this(demographicDao, providerDao, billingDao, billingDetailDao,
              billingServiceDao, ctlBillingServicePremiumDao,
              clinicLocationDao, professionalSpecialistDao,
-             null, null, null, JdbcBillingReviewImpl::new);
+             null, null, null, BillingONClaimQueryService::new);
     }
 
-    /** Test-friendly constructor that overrides the JdbcBillingReviewImpl factory. */
+    /** Test-friendly constructor that overrides the BillingONClaimQueryService factory. */
     BillingShortcutPg1DataAssembler(DemographicDao demographicDao,
                                     ProviderDao providerDao,
                                     BillingDao billingDao,
@@ -125,7 +125,7 @@ public final class BillingShortcutPg1DataAssembler {
                                     CtlBillingServicePremiumDao ctlBillingServicePremiumDao,
                                     ClinicLocationDao clinicLocationDao,
                                     ProfessionalSpecialistDao professionalSpecialistDao,
-                                    java.util.function.Supplier<JdbcBillingReviewImpl> billingReviewImplFactory) {
+                                    java.util.function.Supplier<BillingONClaimQueryService> billingReviewImplFactory) {
         this(demographicDao, providerDao, billingDao, billingDetailDao,
              billingServiceDao, ctlBillingServicePremiumDao,
              clinicLocationDao, professionalSpecialistDao,
@@ -143,7 +143,7 @@ public final class BillingShortcutPg1DataAssembler {
                                     io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao ctlBillingServiceDao,
                                     io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao diagnosticCodeDao,
                                     io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao clinicNbrDao,
-                                    java.util.function.Supplier<JdbcBillingReviewImpl> billingReviewImplFactory) {
+                                    java.util.function.Supplier<BillingONClaimQueryService> billingReviewImplFactory) {
         this.demographicDao = demographicDao;
         this.providerDao = providerDao;
         this.billingDao = billingDao;
@@ -282,7 +282,7 @@ public final class BillingShortcutPg1DataAssembler {
                     billingHistoryDetails.add(detail);
                 }
             } else {
-                JdbcBillingReviewImpl hdbObj = billingReviewImplFactory.get();
+                BillingONClaimQueryService hdbObj = billingReviewImplFactory.get();
                 List<?> aL = hdbObj.getBillingHist(demoNo, 5, 0, null);
                 // aL contains alternating pairs of (BillingClaimHeader1Data, BillingItemData).
                 // Walk pairwise; per-pair try/catch so a single bad pair doesn't

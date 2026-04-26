@@ -32,7 +32,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingMultisiteContext;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONCorrectionViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingRAImpl;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONRemittanceAdviceService;
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONEAReportDao;
@@ -562,9 +562,9 @@ public final class BillingONCorrectionDataAssembler {
         // OHIP RA claim number — primary correlation key for ministry
         // remittance. Surface a flag so the JSP shows "RA lookup unavailable"
         // rather than silently rendering an empty claimNo. Log at ERROR so
-        // a JdbcBillingRAImpl regression is visible to ops.
+        // a BillingONRemittanceAdviceService regression is visible to ops.
         try {
-            JdbcBillingRAImpl raObj = new JdbcBillingRAImpl();
+            BillingONRemittanceAdviceService raObj = new BillingONRemittanceAdviceService();
             String raClaim = raObj.getRAClaimNo4BillingNo(billNo);
             if (raClaim != null) {
                 b.claimNo(raClaim);
