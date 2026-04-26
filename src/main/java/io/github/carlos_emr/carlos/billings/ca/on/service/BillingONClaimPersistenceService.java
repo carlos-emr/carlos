@@ -30,8 +30,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import java.util.Vector;
-
+import java.util.ArrayList;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingBatchHeaderData;
@@ -363,7 +362,7 @@ public class BillingONClaimPersistenceService {
 
 
     @SuppressWarnings("unchecked")
-    public boolean add3rdBillExt(Map<String, String> mVal, int id, Vector vecObj) {
+    public boolean add3rdBillExt(Map<String, String> mVal, int id, ArrayList vecObj) {
         BillingClaimHeader1Data claim1Obj = (BillingClaimHeader1Data) vecObj.get(0);
         boolean retval = true;
         String[] temp = {"billTo", "remitTo", "total", "payment", "discount", "provider_no", "gst", "payDate", "payMethod"};

@@ -20,9 +20,8 @@ import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Hashtable;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -473,7 +472,7 @@ public final class BillingONStatusDataAssembler {
             }
 
             String ohipNo = ch1Obj.getProvider_ohip_no();
-            ArrayList<Hashtable<String, String>> raList = raData.getRADataIntern(
+            ArrayList<HashMap<String, String>> raList = raData.getRADataIntern(
                     ch1Obj.getId(),
                     ch1Obj.getBilling_date() == null
                             ? ""

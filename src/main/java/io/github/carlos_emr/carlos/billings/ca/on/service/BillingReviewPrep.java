@@ -26,8 +26,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 import java.math.BigDecimal;
 import java.util.Enumeration;
 import java.util.List;
-import java.util.Vector;
-
+import java.util.ArrayList;
 import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.logging.log4j.Logger;
@@ -47,9 +46,9 @@ public class BillingReviewPrep {
 
     BillingONClaimQueryService dbObj = SpringUtils.getBean(BillingONClaimQueryService.class);
 
-    public Vector getServiceCodeReviewVec(Vector vecCode, Vector vecUnit,
-                                          Vector vecAt, String billReferalDate) {
-        Vector ret = new Vector();
+    public ArrayList getServiceCodeReviewVec(ArrayList vecCode, ArrayList vecUnit,
+                                          ArrayList vecAt, String billReferalDate) {
+        ArrayList ret = new ArrayList();
         BillingReviewCodeItem codeItem = null;
 
         for (int i = 0; i < vecCode.size(); i++) {
@@ -120,16 +119,16 @@ public class BillingReviewPrep {
     }
 
     // get perc code item display
-    public Vector getPercCodeReviewVec(Vector vecCode, Vector vecUnit,
-                                       Vector vecReviewCodeItem, String billReferalDate) {
-        Vector ret = new Vector();
+    public ArrayList getPercCodeReviewVec(ArrayList vecCode, ArrayList vecUnit,
+                                       ArrayList vecReviewCodeItem, String billReferalDate) {
+        ArrayList ret = new ArrayList();
         // no perc. code  ( perc codes are recognized in the database by having a value of .00, They are not in the vecReviewCodeItem)
         if (vecCode.size() == vecReviewCodeItem.size())
             return ret;
 
         // BillingReviewCodeItem codeItem = null;
         BillingReviewPercItem percItem = null;
-        Vector vecCodeFee = new Vector();
+        ArrayList vecCodeFee = new ArrayList();
         for (int i = 0; i < vecReviewCodeItem.size(); i++) {
             vecCodeFee.add(((BillingReviewCodeItem) vecReviewCodeItem.get(i))
                     .getCodeFee());
@@ -156,8 +155,8 @@ public class BillingReviewPrep {
                 percItem.setCodeFee("0.00");
                 percItem.setCodeMinFee("");
                 percItem.setCodeMaxFee("");
-                percItem.setVecCodeFee(new Vector());
-                percItem.setVecCodeTotal(new Vector());
+                percItem.setVecCodeFee(new ArrayList());
+                percItem.setVecCodeTotal(new ArrayList());
                 percItem.setMsg("<b>No this perc. code in the database!!!</b>");
                 ret.add(percItem);
                 _logger
@@ -167,7 +166,7 @@ public class BillingReviewPrep {
             }
 
             // calculate fee
-            Vector vecCodeTotal = new Vector();
+            ArrayList vecCodeTotal = new ArrayList();
             for (int j = 0; j < vecCodeFee.size(); j++) {
                 BigDecimal bigCodeFee = new BigDecimal((String) vecCodeFee
                         .get(j));
@@ -204,21 +203,21 @@ public class BillingReviewPrep {
         return ret;
     }
 
-    // ret[0],[1],[2] - Vector vecCode, Vector vecUnit, Vector vecAt
-    public Vector<String>[] getRequestCodeVec(HttpServletRequest requestData,
+    // ret[0],[1],[2] - ArrayList vecCode, ArrayList vecUnit, ArrayList vecAt
+    public ArrayList<String>[] getRequestCodeVec(HttpServletRequest requestData,
                                               String paramNameCode, String paramNameUnit, String paramNameAt,
                                               int numItem) {
         @SuppressWarnings("unchecked")
-        Vector<String>[] ret = new Vector[3];
-        ret[0] = new Vector<String>();
-        ret[1] = new Vector<String>();
-        ret[2] = new Vector<String>();
+        ArrayList<String>[] ret = new ArrayList[3];
+        ret[0] = new ArrayList<String>();
+        ret[1] = new ArrayList<String>();
+        ret[2] = new ArrayList<String>();
 
         for (int i = 0; i < numItem; i++) {
             // Skip both null (param absent from form) and "" (param sent
             // empty). The legacy code only checked "" via "".equals(...),
             // which returns false for null and let null leak into the
-            // returned Vector — TreeMap.put downstream then NPE'd.
+            // returned ArrayList — TreeMap.put downstream then NPE'd.
             String code = requestData.getParameter(paramNameCode + i);
             if (code == null || code.isEmpty()) continue;
             ret[0].add(code);
@@ -230,17 +229,17 @@ public class BillingReviewPrep {
         return ret;
     }
 
-    // ret[0],[1],[2] - Vector vecCode, Vector vecUnit, Vector vecAt - from form
+    // ret[0],[1],[2] - ArrayList vecCode, ArrayList vecUnit, ArrayList vecAt - from form
     // checkbox
     // this way for no sequence order
     // should change to col1, col2, col3 scan and get a sequence order
-    public Vector<String>[] getRequestFormCodeVec(HttpServletRequest requestData,
+    public ArrayList<String>[] getRequestFormCodeVec(HttpServletRequest requestData,
                                                   String paramNameCode, String paramNameUnit, String paramNameAt) {
         @SuppressWarnings("unchecked")
-        Vector<String>[] ret = new Vector[3];
-        ret[0] = new Vector<String>();
-        ret[1] = new Vector<String>();
-        ret[2] = new Vector<String>();
+        ArrayList<String>[] ret = new ArrayList[3];
+        ret[0] = new ArrayList<String>();
+        ret[1] = new ArrayList<String>();
+        ret[2] = new ArrayList<String>();
 
         for (Enumeration e = requestData.getParameterNames(); e
                 .hasMoreElements(); ) {
@@ -264,7 +263,7 @@ public class BillingReviewPrep {
         return ret;
     }
 
-    // ret - Vector = || ||
+    // ret - ArrayList = || ||
     public List getProviderBillingStr() {
         BillingONLookupService dbObj = SpringUtils.getBean(BillingONLookupService.class);
         List ret = dbObj.getCurProviderStr();

@@ -59,9 +59,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.net.URLEncoder;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Vector;
+import java.util.ArrayList;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class BillingDocumentErrorReportUpload2Action extends ActionSupport implements UploadedFilesAware {
@@ -358,10 +357,10 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
     @SuppressWarnings("unchecked")
     private BillingEDTOBECOutputSpecificationBeanHandler generateReportR(LoggedInInfo loggedInInfo, FileInputStream file) {
         BillingEDTOBECOutputSpecificationBeanHandler hd = new BillingEDTOBECOutputSpecificationBeanHandler(loggedInInfo, file);
-        Vector<BillingEDTOBECOutputSpecificationBean> outputSpecVector = hd.getEDTOBECOutputSecifiationBeanVector();
+        ArrayList<BillingEDTOBECOutputSpecificationBean> outputSpecVector = hd.getEDTOBECOutputSecifiationBeanVector();
 
         for (int i = 0; i < outputSpecVector.size(); i++) {
-            BillingEDTOBECOutputSpecificationBean bean = outputSpecVector.elementAt(i);
+            BillingEDTOBECOutputSpecificationBean bean = outputSpecVector.get(i);
             String hin = bean.getHealthNo();
             String responseCode = bean.getResponseCode();
             int responseCodeNum = -1;

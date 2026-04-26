@@ -28,10 +28,8 @@ import java.math.BigDecimal;
 import java.util.Date;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Vector;
-
+import java.util.ArrayList;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
@@ -216,7 +214,7 @@ public class BillingONCorrectionPersistenceService {
     @SuppressWarnings("rawtypes")
     public List getPayprogramByBillNo(String id) {
         BillingONCHeader1 b = billingHeaderDao.find(id);
-        List obj = new Vector();
+        List obj = new ArrayList();
         if (b != null) {
             obj.add(b.getPayProgram());
         }
@@ -225,7 +223,7 @@ public class BillingONCorrectionPersistenceService {
 
     // 0-cheader1 obj, 1 - item1obj, 2 - item2obj, ...
     public List getBillingRecordObj(String id) {
-        List obj = new Vector();
+        List obj = new ArrayList();
         BillingClaimHeader1Data ch1Obj = null;
         BillingItemData itemObj = null;
 

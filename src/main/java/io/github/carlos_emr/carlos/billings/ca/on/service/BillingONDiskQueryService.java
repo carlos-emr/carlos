@@ -15,8 +15,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
-import java.util.Vector;
-
+import java.util.ArrayList;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONDiskNameDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONFilenameDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONHeaderDao;
@@ -85,7 +84,7 @@ public class BillingONDiskQueryService {
     }
 
     public List getMRIList(String sDate, String eDate, String status) {
-        List retval = new Vector();
+        List retval = new ArrayList();
         try {
             List<BillingONDiskName> results = diskNameDao.findByCreateDateRangeAndStatus(
                     dateformatter.parse(sDate), dateformatter.parse(eDate), status);
@@ -104,13 +103,13 @@ public class BillingONDiskQueryService {
                 obj.setTotal(b.getTotal());
 
                 List<BillingONFilename> ff = filenameDao.findByDiskIdAndStatus(b.getId(), status);
-                Vector vecHtmlfilename = new Vector();
-                Vector vecProviderohipno = new Vector();
-                Vector vecProviderno = new Vector();
-                Vector vecClaimrecord = new Vector();
-                Vector vecStatus = new Vector();
-                Vector vecTotal = new Vector();
-                Vector vecFilenameId = new Vector();
+                ArrayList vecHtmlfilename = new ArrayList();
+                ArrayList vecProviderohipno = new ArrayList();
+                ArrayList vecProviderno = new ArrayList();
+                ArrayList vecClaimrecord = new ArrayList();
+                ArrayList vecStatus = new ArrayList();
+                ArrayList vecTotal = new ArrayList();
+                ArrayList vecFilenameId = new ArrayList();
 
                 for (BillingONFilename f : ff) {
                     vecFilenameId.add("" + f.getId());
@@ -169,13 +168,13 @@ public class BillingONDiskQueryService {
             obj.setUpdatedatetime(tsFormatter.format(b.getTimestamp()));
 
             List<BillingONFilename> ff = filenameDao.findCurrentByDiskId(b.getId());
-            Vector vecHtmlfilename = new Vector();
-            Vector vecProviderohipno = new Vector();
-            Vector vecProviderno = new Vector();
-            Vector vecClaimrecord = new Vector();
-            Vector vecStatus = new Vector();
-            Vector vecTotal = new Vector();
-            Vector vecFilenameId = new Vector();
+            ArrayList vecHtmlfilename = new ArrayList();
+            ArrayList vecProviderohipno = new ArrayList();
+            ArrayList vecProviderno = new ArrayList();
+            ArrayList vecClaimrecord = new ArrayList();
+            ArrayList vecStatus = new ArrayList();
+            ArrayList vecTotal = new ArrayList();
+            ArrayList vecFilenameId = new ArrayList();
             for (BillingONFilename f : ff) {
                 vecFilenameId.add("" + f.getId());
                 vecHtmlfilename.add(f.getHtmlFilename());

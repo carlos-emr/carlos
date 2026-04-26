@@ -12,7 +12,6 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.assembler;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -21,8 +20,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.Vector;
-
+import java.util.ArrayList;
 import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.commons.lang3.StringUtils;
@@ -346,7 +344,7 @@ public final class BillingONCorrectionDataAssembler {
         b.providerOptions(providerOptions);
 
         // ---- payment type code/label pairs ----
-        Vector<?> raw = BillingDataHlp.vecPaymentType;
+        ArrayList<?> raw = BillingDataHlp.vecPaymentType;
         List<BillingONCorrectionViewModel.PaymentTypeEntry> paymentTypes = new ArrayList<>();
         for (int i = 0; i + 1 < raw.size(); i += 2) {
             paymentTypes.add(new BillingONCorrectionViewModel.PaymentTypeEntry(

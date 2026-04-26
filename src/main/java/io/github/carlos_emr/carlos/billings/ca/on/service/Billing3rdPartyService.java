@@ -210,7 +210,7 @@ public class Billing3rdPartyService {
      * seems this method not used by any one.
      * public List get3rdAddrList(String keyword, String field) {
      * Properties prop = new Properties();
-     * List<Properties> ret = new Vector<Properties>();
+     * List<Properties> ret = new ArrayList<Properties>();
      * List<Billing3rdPartyAddress> addressList = daos.findAddressesByOneField(field,
      * keyword);
      * if(addressList != null) {

@@ -24,8 +24,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.data;
 
 import java.util.Properties;
-import java.util.Vector;
-
+import java.util.ArrayList;
 public final class BillingDataHlp {
     public static int FIELD_SERVICE_NUM = 10;
     public static int FIELD_MAX_SERVICE_NUM = 20;
@@ -57,7 +56,7 @@ public final class BillingDataHlp {
     public static Properties propMonthCode = new Properties();
     public static Properties propBillingCenter = new Properties();
     public static Properties propBillingType = new Properties();
-    public static Vector vecPaymentType = new Vector();
+    public static ArrayList vecPaymentType = new ArrayList();
 
     static {
         propMonthCode.setProperty("1", "A");

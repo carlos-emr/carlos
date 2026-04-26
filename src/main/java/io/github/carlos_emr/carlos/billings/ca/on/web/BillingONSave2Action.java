@@ -40,7 +40,7 @@ import org.apache.struts2.ServletActionContext;
 import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
-import java.util.Vector;
+import java.util.ArrayList;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingSavePrep;
 
 /**
@@ -106,7 +106,7 @@ public final class BillingONSave2Action extends ActionSupport {
         }
 
         BillingSavePrep bObj = SpringUtils.getBean(BillingSavePrep.class);
-        Vector vecObj = bObj.getBillingClaimObj(request);
+        ArrayList vecObj = bObj.getBillingClaimObj(request);
         boolean ret = bObj.addABillingRecord(vecObj);
 
         String xmlBillType = request.getParameter("xml_billtype");

@@ -23,16 +23,15 @@
 
 package io.github.carlos_emr.carlos.billings.ca.on.data;
 
-import java.util.Vector;
-
+import java.util.ArrayList;
 public class BillingReviewPercItem {
     String codeName;
     String codeUnit;
     String codeFee;
     String codeMinFee;
     String codeMaxFee;
-    Vector vecCodeFee;
-    Vector vecCodeTotal;
+    ArrayList vecCodeFee;
+    ArrayList vecCodeTotal;
     String msg;
 
     public String getCodeName() {
@@ -59,19 +58,19 @@ public class BillingReviewPercItem {
         this.msg = msg;
     }
 
-    public Vector getVecCodeFee() {
+    public ArrayList getVecCodeFee() {
         return vecCodeFee;
     }
 
-    public void setVecCodeFee(Vector vecCodeFee) {
+    public void setVecCodeFee(ArrayList vecCodeFee) {
         this.vecCodeFee = vecCodeFee;
     }
 
-    public Vector getVecCodeTotal() {
+    public ArrayList getVecCodeTotal() {
         return vecCodeTotal;
     }
 
-    public void setVecCodeTotal(Vector vecCodeTotal) {
+    public void setVecCodeTotal(ArrayList vecCodeTotal) {
         this.vecCodeTotal = vecCodeTotal;
     }
 

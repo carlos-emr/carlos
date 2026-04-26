@@ -36,7 +36,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Hashtable;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -77,8 +77,8 @@ public class ScheduleOfBenefits {
             Map change;
             while ((str = in.readLine()) != null) {
                 total++;
-                Hashtable newPricingInfo = breakLine(str);
-                Hashtable<String, String> billingInfo = bc.searchBillingCode((String) newPricingInfo.get("feeCode") + "A");
+                HashMap newPricingInfo = breakLine(str);
+                HashMap<String, String> billingInfo = bc.searchBillingCode((String) newPricingInfo.get("feeCode") + "A");
 
                 BigDecimal gpBD = getJBD((String) newPricingInfo.get("gpFees"));
                 BigDecimal specBD = getJBD((String) newPricingInfo.get("specFee"));
@@ -139,7 +139,7 @@ public class ScheduleOfBenefits {
     }
 
     public Map processBillingCode(Map newPricingInfo, Map oldPricingInfo, BigDecimal fee, String feeType, String moreprices, String defaultDescription) {
-        Hashtable change = new Hashtable();
+        HashMap change = new HashMap();
         String oldPrice = oldPricingInfo == null ? "0.00" : (String) oldPricingInfo.get("value");
         double oldDoub = 0.00;
         try {
@@ -227,9 +227,9 @@ public class ScheduleOfBenefits {
         return new BigDecimal(newDoub).setScale(2, BigDecimal.ROUND_HALF_UP);
     }
 
-    Hashtable breakLine(String s) {
+    HashMap breakLine(String s) {
 
-        Hashtable h = null;
+        HashMap h = null;
         if (s != null && s.length() == 75) {
             String feeCode = s.substring(0, 4);
             String effectiveDate = s.substring(4, 12);
@@ -240,7 +240,7 @@ public class ScheduleOfBenefits {
             String anaesthetistFee = s.substring(53, 64);
             String nonAnaesthetistFee = s.substring(64, 75);
 
-            h = new Hashtable();
+            h = new HashMap();
             h.put("feeCode", feeCode);
             h.put("effectiveDate", effectiveDate);
             h.put("terminactionDate", terminactionDate);

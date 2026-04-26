@@ -16,18 +16,15 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
-import java.util.Hashtable;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.TreeMap;
-import java.util.Vector;
-
+import java.util.ArrayList;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.appt.ApptUtil;
@@ -321,16 +318,16 @@ public final class BillingONReviewDataAssembler {
         GstReport gstRep = new GstReport();
 
         @SuppressWarnings("unchecked")
-        Vector<String>[] vecServiceParam = new Vector[3];
+        ArrayList<String>[] vecServiceParam = new ArrayList[3];
         if ("yes".equals(oscarVariables.getProperty("onBillingSingleClick", ""))) {
-            vecServiceParam[0] = new Vector<>();
-            vecServiceParam[1] = new Vector<>();
-            vecServiceParam[2] = new Vector<>();
+            vecServiceParam[0] = new ArrayList<>();
+            vecServiceParam[1] = new ArrayList<>();
+            vecServiceParam[2] = new ArrayList<>();
         } else {
             vecServiceParam = reviewPrep.getRequestFormCodeVec(request, "xml_", "1", "1");
         }
 
-        Vector<String>[] vecServiceParam0 = reviewPrep.getRequestCodeVec(
+        ArrayList<String>[] vecServiceParam0 = reviewPrep.getRequestCodeVec(
                 request, "serviceCode", "serviceUnit", "serviceAt", BillingDataHlp.FIELD_SERVICE_NUM);
         vecServiceParam[0].addAll(vecServiceParam0[0]);
         vecServiceParam[1].addAll(vecServiceParam0[1]);
@@ -343,9 +340,9 @@ public final class BillingONReviewDataAssembler {
         boolean dupServiceCode = mapServiceParam.size() != vecServiceParam[0].size();
         b.dupServiceCode(dupServiceCode);
 
-        Vector<Hashtable> v = new Vector<>();
+        ArrayList<HashMap> v = new ArrayList<>();
         for (int ii = 0; ii < vecServiceParam[0].size(); ii++) {
-            Hashtable h = new Hashtable();
+            HashMap h = new HashMap();
             h.put("serviceCode", vecServiceParam[0].get(ii));
             h.put("serviceUnit", vecServiceParam[1].get(ii));
             h.put("serviceAt", vecServiceParam[2].get(ii));
@@ -354,20 +351,20 @@ public final class BillingONReviewDataAssembler {
         }
         Collections.sort(v, new BillingSortComparator());
 
-        vecServiceParam[0] = new Vector<>();
-        vecServiceParam[1] = new Vector<>();
-        vecServiceParam[2] = new Vector<>();
+        vecServiceParam[0] = new ArrayList<>();
+        vecServiceParam[1] = new ArrayList<>();
+        vecServiceParam[2] = new ArrayList<>();
         for (int ii = 0; ii < v.size(); ii++) {
-            Hashtable h = v.get(ii);
+            HashMap h = v.get(ii);
             vecServiceParam[0].add((String) h.get("serviceCode"));
             vecServiceParam[1].add((String) h.get("serviceUnit"));
             vecServiceParam[2].add((String) h.get("serviceAt"));
         }
         b.totalItem(vecServiceParam[0].size());
 
-        Vector vecCodeItem = reviewPrep.getServiceCodeReviewVec(
+        ArrayList vecCodeItem = reviewPrep.getServiceCodeReviewVec(
                 vecServiceParam[0], vecServiceParam[1], vecServiceParam[2], billReferalDate);
-        Vector vecPercCodeItem = reviewPrep.getPercCodeReviewVec(
+        ArrayList vecPercCodeItem = reviewPrep.getPercCodeReviewVec(
                 vecServiceParam[0], vecServiceParam[1], vecCodeItem, billReferalDate);
 
         Properties propCodeDesc = SpringUtils.getBean(BillingONServiceCodeService.class).getCodeDescByNames(vecServiceParam[0]);
@@ -424,8 +421,8 @@ public final class BillingONReviewDataAssembler {
                 bPerc = true;
                 BillingReviewPercItem percItem = (BillingReviewPercItem) vecPercCodeItem.get(nPerc);
                 String percFee = nullToEmpty(percItem.getCodeFee());
-                Vector vecPercFee = percItem.getVecCodeFee() == null ? new Vector() : percItem.getVecCodeFee();
-                Vector vecPercTotal = percItem.getVecCodeTotal() == null ? new Vector() : percItem.getVecCodeTotal();
+                ArrayList vecPercFee = percItem.getVecCodeFee() == null ? new ArrayList() : percItem.getVecCodeFee();
+                ArrayList vecPercTotal = percItem.getVecCodeTotal() == null ? new ArrayList() : percItem.getVecCodeTotal();
                 String codeUnit = nullToEmpty(percItem.getCodeUnit());
 
                 List<BillingONReviewViewModel.PercSegment> segments = new ArrayList<>();

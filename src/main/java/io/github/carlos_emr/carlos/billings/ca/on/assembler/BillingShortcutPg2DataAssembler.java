@@ -19,8 +19,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Calendar;
 import java.util.Enumeration;
 import java.util.GregorianCalendar;
-import java.util.Vector;
-
+import java.util.ArrayList;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -320,11 +319,11 @@ public final class BillingShortcutPg2DataAssembler {
         // `serviceUnit{i}` request params. Same loop unrolled the legacy JSP
         // ran. Layered on top: form-based codes from `code_xml_*` etc.
         int NUMTYPEINFIELD = 5;
-        Vector<String> vecServiceCode = new Vector<>();
-        Vector<String> vecServiceCodeDesc = new Vector<>();
-        Vector<String> vecServiceCodeUnit = new Vector<>();
-        Vector<String> vecServiceCodePrice = new Vector<>();
-        Vector<String> vecServiceCodePerc = new Vector<>();
+        ArrayList<String> vecServiceCode = new ArrayList<>();
+        ArrayList<String> vecServiceCodeDesc = new ArrayList<>();
+        ArrayList<String> vecServiceCodeUnit = new ArrayList<>();
+        ArrayList<String> vecServiceCodePrice = new ArrayList<>();
+        ArrayList<String> vecServiceCodePerc = new ArrayList<>();
 
         String rulePerc = request.getParameter("rulePerc");
         if (rulePerc == null) rulePerc = "allAboveCode";
@@ -493,7 +492,7 @@ public final class BillingShortcutPg2DataAssembler {
                     }
                 }
                 @SuppressWarnings("unchecked")
-                Vector<Object> vecT = saveObj.getBillingClaimHospObj(request, dateStr, calc.total,
+                ArrayList<Object> vecT = saveObj.getBillingClaimHospObj(request, dateStr, calc.total,
                         calc.vecServiceCode, calc.vecServiceCodeUnit, calc.vecServiceCodePrice);
                 saveObj.addABillingRecord(vecT);
             } else {
@@ -653,20 +652,20 @@ public final class BillingShortcutPg2DataAssembler {
     private static class CalcResult {
         String html;
         String total;
-        Vector<String> vecServiceCode;
-        Vector<String> vecServiceCodeDesc;
-        Vector<String> vecServiceCodePrice;
-        Vector<String> vecServiceCodeUnit;
-        Vector<String> vecServiceCodePerc;
+        ArrayList<String> vecServiceCode;
+        ArrayList<String> vecServiceCodeDesc;
+        ArrayList<String> vecServiceCodePrice;
+        ArrayList<String> vecServiceCodeUnit;
+        ArrayList<String> vecServiceCodePerc;
         BigDecimal[] bdPercs;
         int size;
 
         CalcResult() {
-            this.vecServiceCode = new Vector<>();
-            this.vecServiceCodeDesc = new Vector<>();
-            this.vecServiceCodePrice = new Vector<>();
-            this.vecServiceCodeUnit = new Vector<>();
-            this.vecServiceCodePerc = new Vector<>();
+            this.vecServiceCode = new ArrayList<>();
+            this.vecServiceCodeDesc = new ArrayList<>();
+            this.vecServiceCodePrice = new ArrayList<>();
+            this.vecServiceCodeUnit = new ArrayList<>();
+            this.vecServiceCodePerc = new ArrayList<>();
             this.bdPercs = new BigDecimal[0];
         }
     }

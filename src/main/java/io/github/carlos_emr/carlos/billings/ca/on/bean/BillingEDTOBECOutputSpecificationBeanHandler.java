@@ -34,8 +34,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.List;
-import java.util.Vector;
-
+import java.util.ArrayList;
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.BatchEligibilityDao;
@@ -51,7 +50,7 @@ public class BillingEDTOBECOutputSpecificationBeanHandler {
 
     private BatchEligibilityDao batchEligibilityDao = (BatchEligibilityDao) SpringUtils.getBean(BatchEligibilityDao.class);
 
-    Vector<BillingEDTOBECOutputSpecificationBean> EDTOBECOutputSecifiationBeanVector = new Vector<BillingEDTOBECOutputSpecificationBean>();
+    ArrayList<BillingEDTOBECOutputSpecificationBean> EDTOBECOutputSecifiationBeanVector = new ArrayList<BillingEDTOBECOutputSpecificationBean>();
     public boolean verdict = true;
 
     public BillingEDTOBECOutputSpecificationBeanHandler(LoggedInInfo loggedInInfo, FileInputStream file) {
@@ -119,7 +118,7 @@ public class BillingEDTOBECOutputSpecificationBeanHandler {
         return verdict;
     }
 
-    public Vector<BillingEDTOBECOutputSpecificationBean> getEDTOBECOutputSecifiationBeanVector() {
+    public ArrayList<BillingEDTOBECOutputSpecificationBean> getEDTOBECOutputSecifiationBeanVector() {
         return EDTOBECOutputSecifiationBeanVector;
     }
 

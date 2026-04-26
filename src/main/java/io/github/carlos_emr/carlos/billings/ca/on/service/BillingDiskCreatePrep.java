@@ -27,8 +27,7 @@ import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Properties;
-import java.util.Vector;
-
+import java.util.ArrayList;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 
@@ -114,16 +113,16 @@ public class BillingDiskCreatePrep {
         diskName.setTotal("");
         diskName.setHtmlfilename(getSoloHtmlfilename(ohipNo, temp[0], temp[1]));
 
-        Vector vecTemp = new Vector();
+        ArrayList vecTemp = new ArrayList();
         vecTemp.add(ohipNo);
         diskName.setProviderohipno(vecTemp);
-        vecTemp = new Vector();
+        vecTemp = new ArrayList();
         vecTemp.add(providerNo);
         diskName.setProviderno(vecTemp);
-        vecTemp = new Vector();
+        vecTemp = new ArrayList();
         vecTemp.add(BillingDataHlp.BILLINGFILE_STATUS_UNCERT);
         diskName.setVecStatus(vecTemp);
-        vecTemp = new Vector();
+        vecTemp = new ArrayList();
         vecTemp.add("");
         diskName.setVecClaimrecord(vecTemp);
         diskName.setVecTotal(vecTemp);
@@ -149,12 +148,12 @@ public class BillingDiskCreatePrep {
         diskName.setStatus(BillingDataHlp.BILLINGFILE_STATUS_UNCERT);
         diskName.setTotal("");
         diskName.setHtmlfilename(getGrpHtmlfilename(ohipNo, groupno, temp[0], temp[1]));
-        diskName.setProviderohipno((Vector) ohipNo);
-        diskName.setProviderno((Vector) providerNo);
-        Vector vecTemp = new Vector();
+        diskName.setProviderohipno((ArrayList) ohipNo);
+        diskName.setProviderno((ArrayList) providerNo);
+        ArrayList vecTemp = new ArrayList();
         vecTemp.add(BillingDataHlp.BILLINGFILE_STATUS_UNCERT);
         diskName.setVecStatus(vecTemp);
-        vecTemp = new Vector();
+        vecTemp = new ArrayList();
         vecTemp.add("");
         diskName.setVecClaimrecord(vecTemp);
         diskName.setVecTotal(vecTemp);
@@ -248,15 +247,15 @@ public class BillingDiskCreatePrep {
         return retval;
     }
 
-    private Vector getSoloHtmlfilename(String ohipNo, String monthCode, String batchNum) {
-        Vector ret = new Vector();
+    private ArrayList getSoloHtmlfilename(String ohipNo, String monthCode, String batchNum) {
+        ArrayList ret = new ArrayList();
         String diskName = "H" + monthCode + ohipNo + "_" + getDefaultRightJust("0", 3, batchNum) + ".html";
         ret.add(diskName);
         return ret;
     }
 
-    private Vector getGrpHtmlfilename(List ohipNo, String groupNo, String monthCode, String batchNum) {
-        Vector ret = new Vector();
+    private ArrayList getGrpHtmlfilename(List ohipNo, String groupNo, String monthCode, String batchNum) {
+        ArrayList ret = new ArrayList();
         for (int i = 0; i < ohipNo.size(); i++) {
             String diskName = "H" + monthCode + groupNo + "_" + ohipNo.get(i) + "_"
                     + getDefaultRightJust("0", 3, batchNum) + ".html";

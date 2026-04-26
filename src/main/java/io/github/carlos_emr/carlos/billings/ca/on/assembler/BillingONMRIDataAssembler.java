@@ -12,7 +12,6 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.assembler;
 
-import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -23,8 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
-import java.util.Vector;
-
+import java.util.ArrayList;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -262,10 +260,10 @@ public final class BillingONMRIDataAssembler {
             String oFile = data.getOhipfilename();
             String updateDate = data.getUpdatedatetime();
             String createDate = data.getCreatedatetime();
-            Vector vecProviderNo = data.getProviderno();
-            Vector vecClaimRecord = data.getVecClaimrecord();
-            Vector vecHtmlFilename = data.getHtmlfilename();
-            Vector vecTotal = data.getVecTotal();
+            ArrayList vecProviderNo = data.getProviderno();
+            ArrayList vecClaimRecord = data.getVecClaimrecord();
+            ArrayList vecHtmlFilename = data.getHtmlfilename();
+            ArrayList vecTotal = data.getVecTotal();
 
             int providerCount = vecProviderNo == null ? 0 : vecProviderNo.size();
             for (int j = 0; j < providerCount; j++) {

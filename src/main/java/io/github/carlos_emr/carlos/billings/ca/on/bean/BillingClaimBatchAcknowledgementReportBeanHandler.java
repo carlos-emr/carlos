@@ -34,13 +34,12 @@ import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.Vector;
-
+import java.util.ArrayList;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 public class BillingClaimBatchAcknowledgementReportBeanHandler {
 
-    Vector batchAckReportBeanVector = new Vector();
+    ArrayList batchAckReportBeanVector = new ArrayList();
     public boolean verdict = true;
 
     public BillingClaimBatchAcknowledgementReportBeanHandler(FileInputStream file) {
@@ -98,7 +97,7 @@ public class BillingClaimBatchAcknowledgementReportBeanHandler {
     }
 
 
-    public Vector getBatchAckReportBeanVector() {
+    public ArrayList getBatchAckReportBeanVector() {
         return batchAckReportBeanVector;
     }
 

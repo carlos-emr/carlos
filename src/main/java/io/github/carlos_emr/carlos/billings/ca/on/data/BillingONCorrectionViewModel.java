@@ -125,7 +125,7 @@ public final class BillingONCorrectionViewModel {
     private final List<ProviderOption> providerOptions;
     // BillingDataHlp.vecPaymentType pairs (code + label) so the JSP renders
     // <c:forEach var="pt" items="${correctionModel.paymentTypes}"> rather
-    // than reading the static Vector via a scriptlet.
+    // than reading the static ArrayList via a scriptlet.
     private final List<PaymentTypeEntry> paymentTypes;
     // Echo of select request parameters (e.g. ?adminSubmit, ?admin) so the
     // JSP can branch on them without referencing ${param.X} (the encoder

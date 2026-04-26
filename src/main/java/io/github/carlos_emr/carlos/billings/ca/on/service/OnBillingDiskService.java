@@ -13,13 +13,11 @@
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import java.util.Vector;
-
+import java.util.ArrayList;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.SxmlMisc;
@@ -198,10 +196,10 @@ public class OnBillingDiskService {
 
         for (Iterator<String> it = groupNos.iterator(); it.hasNext(); ) {
             String groupNo = it.next();
-            // BillingDiskCreatePrep#createNewGrpDiskName casts these to Vector
-            // — pass Vector to preserve legacy behavior.
-            Vector<String> providerNoCopy = new Vector<>();
-            Vector<String> ohipNoCopy = new Vector<>();
+            // BillingDiskCreatePrep#createNewGrpDiskName casts these to ArrayList
+            // — pass ArrayList to preserve legacy behavior.
+            ArrayList<String> providerNoCopy = new ArrayList<>();
+            ArrayList<String> ohipNoCopy = new ArrayList<>();
             for (int copyi = 0; copyi < providerNos.size(); copyi++) {
                 BillingProviderData bpd = findByProviderNo(grpProviders, providerNos.get(copyi));
                 if (bpd != null && groupNo.equals(bpd.getBillingGroupNo())) {

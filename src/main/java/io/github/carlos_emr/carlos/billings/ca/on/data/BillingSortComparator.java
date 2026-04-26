@@ -31,8 +31,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.data;
 
 import java.util.Comparator;
-import java.util.Hashtable;
-
+import java.util.HashMap;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimQueryService;
 
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -45,8 +44,8 @@ public class BillingSortComparator implements Comparator {
     }
 
     public int compare(Object obj1, Object obj2) {
-        Hashtable h1 = (Hashtable) obj1;
-        Hashtable h2 = (Hashtable) obj2;
+        HashMap h1 = (HashMap) obj1;
+        HashMap h2 = (HashMap) obj2;
         String billReferenceDate = (String) h1.get("billReferenceDate");
 
         BillingONClaimQueryService dbObj = SpringUtils.getBean(BillingONClaimQueryService.class);

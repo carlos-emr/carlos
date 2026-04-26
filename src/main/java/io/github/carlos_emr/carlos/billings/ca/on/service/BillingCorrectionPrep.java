@@ -29,8 +29,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Properties;
-import java.util.Vector;
-
+import java.util.ArrayList;
 import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.logging.log4j.Logger;
@@ -239,10 +238,10 @@ public class BillingCorrectionPrep {
         String updateProviderNo = liUpdate != null ? liUpdate.getLoggedInProviderNo() : null;
         lItemObj.remove(0);
 
-        Vector<String> vecName = new Vector<String>();
-        Vector<String> vecUnit = new Vector<String>();
-        Vector<String> vecFee = new Vector<String>();
-        Vector<String> vecStatus = new Vector<String>();
+        ArrayList<String> vecName = new ArrayList<String>();
+        ArrayList<String> vecUnit = new ArrayList<String>();
+        ArrayList<String> vecFee = new ArrayList<String>();
+        ArrayList<String> vecStatus = new ArrayList<String>();
         String dx = request.getParameter("xml_diagnostic_detail");
         dx = dx.length() > 2 ? dx.substring(0, 3) : dx;
         String serviceDate = request.getParameter("xml_appointment_date");
@@ -283,7 +282,7 @@ public class BillingCorrectionPrep {
         }
 
         // add item if possible
-        Vector<Object> elemToDel = new Vector<Object>();
+        ArrayList<Object> elemToDel = new ArrayList<Object>();
         elemToDel.add(null);
         elemToDel.add("");
         for (int i = 0; i < vecName.size(); i++) {
@@ -766,7 +765,7 @@ public class BillingCorrectionPrep {
         return ret;
     }
 
-    private String sumFee(Vector vecFee) {
+    private String sumFee(ArrayList vecFee) {
         String ret = "";
         BigDecimal fee = new BigDecimal(Double.parseDouble("0.00")).setScale(4,
                 BigDecimal.ROUND_HALF_UP);

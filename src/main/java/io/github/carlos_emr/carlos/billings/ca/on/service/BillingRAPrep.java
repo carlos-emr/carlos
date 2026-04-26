@@ -27,8 +27,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Vector;
-
+import java.util.ArrayList;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 
@@ -40,7 +39,7 @@ public class BillingRAPrep {
     private static final Logger _logger = MiscUtils.getLogger();
     BillingONRemittanceAdviceService dbObj = SpringUtils.getBean(BillingONRemittanceAdviceService.class);
 
-    // ret - Vector = || ||
+    // ret - ArrayList = || ||
     public List getProviderListFromRAReport(String raNo) {
         List ret = dbObj.getProviderListFromRAReport(raNo);
         return ret;
@@ -61,7 +60,7 @@ public class BillingRAPrep {
     }
 
     public List getRASummary(String raNo, String providerOhipNo, List OBbilling_no, List CObilling_no, Map map) {
-        List rett = new Vector();
+        List rett = new ArrayList();
         List ret = dbObj.getRASummary(raNo, providerOhipNo);
         double dCFee = 0.0;
         double dPFee = 0.0;
@@ -205,7 +204,7 @@ public class BillingRAPrep {
     }
 
     public List getRANoErrorBill(String raNo, String providerOhipNo, String noErrorCodes, String errorCodes) {
-        List ret = new Vector();
+        List ret = new ArrayList();
         List errorBill = dbObj.getRAError35(raNo, providerOhipNo, errorCodes); // !=i2,
         // ...
         List noErrorBill = dbObj.getRAError35(raNo, providerOhipNo, noErrorCodes); // =

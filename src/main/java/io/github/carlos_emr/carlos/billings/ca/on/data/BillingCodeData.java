@@ -31,7 +31,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.data;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Hashtable;
+import java.util.HashMap;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
@@ -48,8 +48,8 @@ public class BillingCodeData {
 
     private BillingServiceDao billingServiceDao = SpringUtils.getBean(BillingServiceDao.class);
 
-    public List<Hashtable<String, String>> search(String str) {
-        ArrayList<Hashtable<String, String>> list = new ArrayList<Hashtable<String, String>>();
+    public List<HashMap<String, String>> search(String str) {
+        ArrayList<HashMap<String, String>> list = new ArrayList<HashMap<String, String>>();
 
         for (BillingService bs : billingServiceDao.findByServiceCodeOrDescription(str)) {
             list.add(fillCodeDataHashtable(bs));
@@ -57,8 +57,8 @@ public class BillingCodeData {
         return list;
     }
 
-    public Hashtable<String, String> fillCodeDataHashtable(BillingService bs) {
-        Hashtable<String, String> h = new Hashtable<String, String>();
+    public HashMap<String, String> fillCodeDataHashtable(BillingService bs) {
+        HashMap<String, String> h = new HashMap<String, String>();
         if (bs == null) {
             MiscUtils.getLogger().warn("Expected a billing service, but got null");
             return h;
@@ -80,8 +80,8 @@ public class BillingCodeData {
         return (str == null) ? "" : str;
     }
 
-    public Hashtable<String, String> searchBillingCode(String str) {
-        Hashtable<String, String> h = null;
+    public HashMap<String, String> searchBillingCode(String str) {
+        HashMap<String, String> h = null;
 
         List<BillingService> bss = billingServiceDao.findMostRecentByServiceCode(str);
 

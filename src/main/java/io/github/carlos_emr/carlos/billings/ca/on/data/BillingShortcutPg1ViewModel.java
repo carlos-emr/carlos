@@ -16,8 +16,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Vector;
-
+import java.util.ArrayList;
 /**
  * Immutable view model for {@code billingShortcutPg1.jsp} (the fast-track
  * hospital-billing entry, page 1).
@@ -31,9 +30,9 @@ import java.util.Vector;
  * service-code grid, and the validation messages that previously lived in the
  * 350-line top scriptlet of the legacy JSP.</p>
  *
- * <p>Vector / Properties types are kept (rather than a more idiomatic record /
+ * <p>ArrayList / Properties types are kept (rather than a more idiomatic record /
  * Map shape) because the existing JSP scriptlet body iterates them as
- * {@link Vector} and reads via {@code Properties.getProperty}; preserving the
+ * {@link ArrayList} and reads via {@code Properties.getProperty}; preserving the
  * shape lets the bridge keep the rendering-side scriptlets intact while still
  * pulling the data from a single tested source.</p>
  *
@@ -273,28 +272,28 @@ public final class BillingShortcutPg1ViewModel {
     public String getAdmissionDate() { return admissionDate; }
 
     /**
-     * Vector view of {@link #getBillingHistory()} for legacy JSP scriptlets that
-     * iterate via {@link Vector}. Returns a defensive copy.
+     * ArrayList view of {@link #getBillingHistory()} for legacy JSP scriptlets that
+     * iterate via {@link ArrayList}. Returns a defensive copy.
      */
-    public Vector<Properties> getBillingHistoryVec() { return new Vector<>(billingHistory); }
+    public ArrayList<Properties> getBillingHistoryVec() { return new ArrayList<>(billingHistory); }
 
-    /** Vector view of {@link #getBillingHistoryDetails()} for legacy JSP scriptlets. */
-    public Vector<Properties> getBillingHistoryDetailsVec() { return new Vector<>(billingHistoryDetails); }
+    /** ArrayList view of {@link #getBillingHistoryDetails()} for legacy JSP scriptlets. */
+    public ArrayList<Properties> getBillingHistoryDetailsVec() { return new ArrayList<>(billingHistoryDetails); }
 
-    /** Vector view of {@link #getProviders()} for legacy JSP scriptlets. */
-    public Vector<Properties> getProvidersVec() { return new Vector<>(providers); }
+    /** ArrayList view of {@link #getProviders()} for legacy JSP scriptlets. */
+    public ArrayList<Properties> getProvidersVec() { return new ArrayList<>(providers); }
 
-    /** Vector view of {@link #getClinicLocations()} for legacy JSP scriptlets. */
-    public Vector<Properties> getClinicLocationsVec() { return new Vector<>(clinicLocations); }
+    /** ArrayList view of {@link #getClinicLocations()} for legacy JSP scriptlets. */
+    public ArrayList<Properties> getClinicLocationsVec() { return new ArrayList<>(clinicLocations); }
 
-    /** Vector view of {@link #getServiceCodeCol1()} for legacy JSP scriptlets. */
-    public Vector<Properties> getServiceCodeCol1Vec() { return new Vector<>(serviceCodeCol1); }
+    /** ArrayList view of {@link #getServiceCodeCol1()} for legacy JSP scriptlets. */
+    public ArrayList<Properties> getServiceCodeCol1Vec() { return new ArrayList<>(serviceCodeCol1); }
 
-    /** Vector view of {@link #getServiceCodeCol2()} for legacy JSP scriptlets. */
-    public Vector<Properties> getServiceCodeCol2Vec() { return new Vector<>(serviceCodeCol2); }
+    /** ArrayList view of {@link #getServiceCodeCol2()} for legacy JSP scriptlets. */
+    public ArrayList<Properties> getServiceCodeCol2Vec() { return new ArrayList<>(serviceCodeCol2); }
 
-    /** Vector view of {@link #getServiceCodeCol3()} for legacy JSP scriptlets. */
-    public Vector<Properties> getServiceCodeCol3Vec() { return new Vector<>(serviceCodeCol3); }
+    /** ArrayList view of {@link #getServiceCodeCol3()} for legacy JSP scriptlets. */
+    public ArrayList<Properties> getServiceCodeCol3Vec() { return new ArrayList<>(serviceCodeCol3); }
 
     /**
      * Properties view of {@link #getPropPremium()} for legacy JSP scriptlets that

@@ -31,7 +31,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.data;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Hashtable;
+import java.util.HashMap;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.dao.RaDetailDao;
@@ -56,8 +56,8 @@ public class RAData {
     // radetail_no | raheader_no | providerohip_no | billing_no | service_code |
     // service_count | hin | amountclaim | amountpay | service_date | error_code
     // | billtype |
-    public ArrayList<Hashtable<String, String>> getRAData(String billingNo) {
-        ArrayList<Hashtable<String, String>> list = new ArrayList<Hashtable<String, String>>();
+    public ArrayList<HashMap<String, String>> getRAData(String billingNo) {
+        ArrayList<HashMap<String, String>> list = new ArrayList<HashMap<String, String>>();
         RaDetailDao dao = SpringUtils.getBean(RaDetailDao.class);
         for (RaDetail ra : dao.findByBillingNo(ConversionUtils.fromIntString(billingNo))) {
             list.add(getAsMap(ra));
@@ -65,8 +65,8 @@ public class RAData {
         return list;
     }
 
-    private Hashtable<String, String> getAsMap(RaDetail ra) {
-        Hashtable<String, String> h = new Hashtable<String, String>();
+    private HashMap<String, String> getAsMap(RaDetail ra) {
+        HashMap<String, String> h = new HashMap<String, String>();
         h.put("radetail_no", ra.getId().toString());
         h.put("raheader_no", "" + ra.getRaHeaderNo());
         h.put("providerohip_no", ra.getProviderOhipNo());
@@ -82,8 +82,8 @@ public class RAData {
         return h;
     }
 
-    public ArrayList<Hashtable<String, String>> getRADataIntern(String billingNo, String service_date, String ohip_no) {
-        ArrayList<Hashtable<String, String>> list = new ArrayList<Hashtable<String, String>>();
+    public ArrayList<HashMap<String, String>> getRADataIntern(String billingNo, String service_date, String ohip_no) {
+        ArrayList<HashMap<String, String>> list = new ArrayList<HashMap<String, String>>();
         RaDetailDao dao = SpringUtils.getBean(RaDetailDao.class);
         for (RaDetail ra : dao.findByBillingNoServiceDateAndProviderNo(ConversionUtils.fromIntString(billingNo), service_date, ohip_no)) {
             list.add(getAsMap(ra));
@@ -91,20 +91,20 @@ public class RAData {
         return list;
     }
 
-    public String getErrorCodes(ArrayList<Hashtable<String, String>> a) {
+    public String getErrorCodes(ArrayList<HashMap<String, String>> a) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < a.size(); i++) {
-            Hashtable<String, String> h = a.get(i);
+            HashMap<String, String> h = a.get(i);
             sb.append(h.get("error_code"));
             sb.append(" ");
         }
         return sb.toString();
     }
 
-    public String getAmountPaid(ArrayList<Hashtable<String, String>> a) {
+    public String getAmountPaid(ArrayList<HashMap<String, String>> a) {
         BigDecimal total = new BigDecimal("0.00").setScale(2, BigDecimal.ROUND_HALF_UP);
         for (int i = 0; i < a.size(); i++) {
-            Hashtable<String, String> h = a.get(i);
+            HashMap<String, String> h = a.get(i);
             BigDecimal valueToAdd = new BigDecimal("0.00");
             try {
                 String amount = "" + h.get("amountpay");
@@ -119,10 +119,10 @@ public class RAData {
         return total.toString();
     }
 
-    public String getAmountPaid(ArrayList<Hashtable<String, String>> a, String billingNo, String serviceCode) {
+    public String getAmountPaid(ArrayList<HashMap<String, String>> a, String billingNo, String serviceCode) {
         BigDecimal total = new BigDecimal("0.00").setScale(2, BigDecimal.ROUND_HALF_UP);
         for (int i = 0; i < a.size(); i++) {
-            Hashtable<String, String> h = a.get(i);
+            HashMap<String, String> h = a.get(i);
             if (!(h.get("billing_no").equals(billingNo)) || !(h.get("service_code").equals(serviceCode))) {
                 continue;
             }

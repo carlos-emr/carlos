@@ -24,8 +24,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.util.List;
-import java.util.Vector;
-
+import java.util.ArrayList;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -45,7 +44,7 @@ public class BillingSpecPrep {
     BillingONClaimPersistenceService dbObj = SpringUtils.getBean(BillingONClaimPersistenceService.class);
 
     // save a billing record
-    public boolean addABillingRecord(Vector val) {
+    public boolean addABillingRecord(ArrayList val) {
         boolean ret = false;
         BillingClaimHeader1Data claim1Obj = (BillingClaimHeader1Data) val.get(0);
         int billingNo = dbObj.addOneClaimHeaderRecord(claim1Obj);
@@ -62,14 +61,14 @@ public class BillingSpecPrep {
         return ret;
     }
 
-    // ret - Vector claimheader1data, itemdata
-    public Vector getBillingClaimObj(HttpServletRequest requestData) {
-        Vector ret = new Vector();
+    // ret - ArrayList claimheader1data, itemdata
+    public ArrayList getBillingClaimObj(HttpServletRequest requestData) {
+        ArrayList ret = new ArrayList();
         BillingClaimHeader1Data claim1Header = getClaimHeader1Obj(requestData);
         ret.add(claim1Header);
         BillingItemData[] itemData = getItemObj(requestData);
 
-        List aL = new Vector();
+        List aL = new ArrayList();
         for (int i = 0; i < itemData.length; i++) {
             aL.add(itemData[i]);
         }
@@ -77,14 +76,14 @@ public class BillingSpecPrep {
         return ret;
     }
 
-    // ret - Vector claimheader1data, itemdata
-    public Vector getBillingClaimInrObj(HttpServletRequest requestData) {
-        Vector ret = new Vector();
+    // ret - ArrayList claimheader1data, itemdata
+    public ArrayList getBillingClaimInrObj(HttpServletRequest requestData) {
+        ArrayList ret = new ArrayList();
         BillingClaimHeader1Data claim1Header = getClaimHeader1InrObj(requestData);
         ret.add(claim1Header);
         BillingItemData[] itemData = getItemInrObj(requestData);
 
-        List aL = new Vector();
+        List aL = new ArrayList();
         for (int i = 0; i < itemData.length; i++) {
             aL.add(itemData[i]);
         }

@@ -34,13 +34,12 @@ import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.Vector;
-
+import java.util.ArrayList;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 public class BillingClaimsErrorReportBeanHandler {
 
-    Vector claimsErrorReportBeanVector = new Vector();
+    ArrayList claimsErrorReportBeanVector = new ArrayList();
     public boolean verdict = true;
 
     public BillingClaimsErrorReportBeanHandler(FileInputStream file) {
@@ -160,11 +159,11 @@ public class BillingClaimsErrorReportBeanHandler {
     }
 
 
-    public Vector getClaimsErrorReportBeanVector() {
+    public ArrayList getClaimsErrorReportBeanVector() {
         return claimsErrorReportBeanVector;
     }
 
-    public void setClaimsErrorReportBeanVector(Vector claimsErrorReportBeanVector) {
+    public void setClaimsErrorReportBeanVector(ArrayList claimsErrorReportBeanVector) {
         this.claimsErrorReportBeanVector = claimsErrorReportBeanVector;
     }
 

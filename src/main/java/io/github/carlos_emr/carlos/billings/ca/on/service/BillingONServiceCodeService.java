@@ -23,11 +23,9 @@
 
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
-import java.util.Vector;
-
+import java.util.ArrayList;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
 
@@ -53,7 +51,7 @@ public class BillingONServiceCodeService {
     private BillingServiceDao dao = (BillingServiceDao) SpringUtils.getBean(BillingServiceDao.class);
 
     public List getBillingCodeAttr(String serviceCode) {
-        List ret = new Vector();
+        List ret = new ArrayList();
         List<BillingService> bs = dao.getBillingCodeAttr(serviceCode);
         for (BillingService b : bs) {
             ret.add(serviceCode);

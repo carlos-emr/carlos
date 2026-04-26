@@ -27,8 +27,7 @@ import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Vector;
-
+import java.util.ArrayList;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
@@ -51,7 +50,7 @@ public class BillingSavePrep {
 
     // save a billing record
     @SuppressWarnings("rawtypes")
-    public boolean addABillingRecord(Vector val) {
+    public boolean addABillingRecord(ArrayList val) {
         boolean ret = false;
         BillingClaimHeader1Data claim1Obj = (BillingClaimHeader1Data) val.get(0);
         int billingNo = dbObj.addOneClaimHeaderRecord(claim1Obj);
@@ -82,7 +81,7 @@ public class BillingSavePrep {
 
 
     @SuppressWarnings("unchecked")
-    public boolean addPrivateBillExtRecord(HttpServletRequest requestData, Vector vecObj) {
+    public boolean addPrivateBillExtRecord(HttpServletRequest requestData, ArrayList vecObj) {
         boolean ret = false;
         boolean rat = false;
 
@@ -97,7 +96,7 @@ public class BillingSavePrep {
 
 
     @SuppressWarnings("unchecked")
-    public void addOhipInvoiceTrans(Vector vecObj) {
+    public void addOhipInvoiceTrans(ArrayList vecObj) {
         dbObj.addCreateOhipInvoiceTrans((BillingClaimHeader1Data) vecObj.get(0), (List<BillingItemData>) vecObj.get(1));
     }
 
@@ -113,14 +112,14 @@ public class BillingSavePrep {
         return ret;
     }
 
-    // ret - Vector claimheader1data, itemdata
-    public Vector getBillingClaimObj(HttpServletRequest requestData) {
-        Vector ret = new Vector();
+    // ret - ArrayList claimheader1data, itemdata
+    public ArrayList getBillingClaimObj(HttpServletRequest requestData) {
+        ArrayList ret = new ArrayList();
         BillingClaimHeader1Data claim1Header = getClaimHeader1Obj(requestData);
         ret.add(claim1Header);
         BillingItemData[] itemData = getItemObj(requestData);
 
-        List aL = new Vector();
+        List aL = new ArrayList();
         for (int i = 0; i < itemData.length; i++) {
             aL.add(itemData[i]);
         }
@@ -128,16 +127,16 @@ public class BillingSavePrep {
         return ret;
     }
 
-    // ret - Vector claimheader1data, itemdata
-    public Vector getBillingClaimHospObj(HttpServletRequest requestData, String service_date, String total,
-                                         Vector vecServiceCode, Vector vecServiceCodeUnit, Vector vecServiceCodePrice) {
-        Vector ret = new Vector();
+    // ret - ArrayList claimheader1data, itemdata
+    public ArrayList getBillingClaimHospObj(HttpServletRequest requestData, String service_date, String total,
+                                         ArrayList vecServiceCode, ArrayList vecServiceCodeUnit, ArrayList vecServiceCodePrice) {
+        ArrayList ret = new ArrayList();
         BillingClaimHeader1Data claim1Header = getClaimHeader1HospObj(requestData, service_date, total);
         ret.add(claim1Header);
         BillingItemData[] itemData = getItemHospObj(requestData, vecServiceCode, vecServiceCodeUnit,
                 vecServiceCodePrice, service_date);
 
-        List aL = new Vector();
+        List aL = new ArrayList();
         for (int i = 0; i < itemData.length; i++) {
             aL.add(itemData[i]);
         }
@@ -324,8 +323,8 @@ public class BillingSavePrep {
         return claim1Header;
     }
 
-    private BillingItemData[] getItemHospObj(HttpServletRequest val, Vector vecServiceCode, Vector vecServiceCodeUnit,
-                                             Vector vecServiceCodePrice, String service_date) {
+    private BillingItemData[] getItemHospObj(HttpServletRequest val, ArrayList vecServiceCode, ArrayList vecServiceCodeUnit,
+                                             ArrayList vecServiceCodePrice, String service_date) {
         int itemNum = vecServiceCode.size();
         BillingItemData[] claimItem = new BillingItemData[itemNum];
         // _logger.info("No billing item for billing # " + itemNum);

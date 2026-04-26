@@ -33,8 +33,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.administration;
 
 import java.util.Properties;
-import java.util.Vector;
-
+import java.util.ArrayList;
 import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONExt;
@@ -48,10 +47,10 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 public class GstReport {
 
-    public Vector<Properties> getGST(LoggedInInfo loggedInInfo, String providerNo, String startDate, String endDate) {
+    public ArrayList<Properties> getGST(LoggedInInfo loggedInInfo, String providerNo, String startDate, String endDate) {
         Properties props;
-        Vector<String> billno = new Vector<String>();
-        Vector<Properties> list = new Vector<Properties>();
+        ArrayList<String> billno = new ArrayList<String>();
+        ArrayList<Properties> list = new ArrayList<Properties>();
         // First find all the billing_no referring to the selected provider_no.
         BillingONExtDao dao = SpringUtils.getBean(BillingONExtDao.class);
         DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);

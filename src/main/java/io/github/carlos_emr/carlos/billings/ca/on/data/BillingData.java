@@ -30,8 +30,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.data;
 
 import java.util.ArrayList;
-import java.util.Hashtable;
-
+import java.util.HashMap;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -49,11 +48,11 @@ public class BillingData {
     public BillingData() {
     }
 
-    public ArrayList<Hashtable<String, Object>> getBills(String statusType, String providerNo, String startDate, String endDate, String demoNo) {
-        ArrayList<Hashtable<String, Object>> list = new ArrayList<Hashtable<String, Object>>();
+    public ArrayList<HashMap<String, Object>> getBills(String statusType, String providerNo, String startDate, String endDate, String demoNo) {
+        ArrayList<HashMap<String, Object>> list = new ArrayList<HashMap<String, Object>>();
         BillingDao dao = SpringUtils.getBean(BillingDao.class);
         for (Billing b : dao.findBillings(ConversionUtils.fromIntString(demoNo), statusType, providerNo, ConversionUtils.fromDateString(startDate), ConversionUtils.fromDateString(endDate))) {
-            Hashtable<String, Object> h = new Hashtable<String, Object>();
+            HashMap<String, Object> h = new HashMap<String, Object>();
             h.put("billing_no", b.getId());
             h.put("demographic_no", ConversionUtils.toIntString(b.getDemographicNo()));
             h.put("status", b.getStatus());

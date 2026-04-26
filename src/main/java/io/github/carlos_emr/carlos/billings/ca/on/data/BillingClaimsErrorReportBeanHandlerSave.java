@@ -27,8 +27,7 @@ import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.Vector;
-
+import java.util.ArrayList;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.billings.ca.on.bean.BillingClaimsErrorReportBean;
@@ -38,7 +37,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONErrorReportSe
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 public class BillingClaimsErrorReportBeanHandlerSave {
 
-    Vector claimsErrorReportBeanVector = new Vector();
+    ArrayList claimsErrorReportBeanVector = new ArrayList();
     public boolean verdict = true;
 
     public BillingClaimsErrorReportBeanHandlerSave(FileInputStream file, String filename) {

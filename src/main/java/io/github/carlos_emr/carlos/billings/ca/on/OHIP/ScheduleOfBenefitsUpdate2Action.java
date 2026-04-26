@@ -34,7 +34,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.Hashtable;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -102,7 +102,7 @@ public class ScheduleOfBenefitsUpdate2Action extends ActionSupport {
                 }
                 try {
                     bc.insertBillingCode(code.get("newprice").toString(), (String) code.get("feeCode"), effDate, (String) code.get("description"), termDate);
-                    Hashtable h = new Hashtable();
+                    HashMap h = new HashMap();
                     h.put("code", code.get("feeCode"));
                     h.put("value", code.get("newprice").toString());
                     list.add(h);
@@ -155,7 +155,7 @@ public class ScheduleOfBenefitsUpdate2Action extends ActionSupport {
                         }
                         try {
                             bc.insertBillingCode(change[1], change[0], effDate, change[4], termDate);
-                            Hashtable h = new Hashtable();
+                            HashMap h = new HashMap();
                             h.put("code", change[0]);
                             h.put("value", change[1]);
                             list.add(h);
