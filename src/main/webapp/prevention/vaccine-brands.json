@@ -1,3 +1,4 @@
+<%@ page contentType="application/json; charset=UTF-8" %>
 [
 {"name":"OtherA","value":"IXCHIQ 3 log10 TCID50 per 0.5ml powder for solution","manufacture":"Valneva Austria GmbH","dose":"0.5","units":"mL","route":"IM","din":"2548984"},
 {"name":"Chol-Ecol-O","value":"DUKORAL oral","manufacture":"Valneva Sweden AB","dose":"","units":"DOSE","route":"PO","din":"2247208"},
