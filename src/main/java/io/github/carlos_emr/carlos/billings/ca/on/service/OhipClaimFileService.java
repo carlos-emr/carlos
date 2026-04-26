@@ -91,10 +91,27 @@ import org.owasp.encoder.Encode;
  *       — gate actions for the two report-generation pages.</li>
  * </ul>
  *
+ * <p><strong>Scope:</strong> {@code prototype}. Unlike most services in
+ * this package, this class carries per-claim instance state — {@code
+ * htmlValue}, {@code ohipClaim}, {@code dateRange}, {@code eFlag},
+ * {@code providerNo}, {@code bhObj}, the running total / record-count
+ * fields, etc. — populated by setters as it incrementally builds an OHIP
+ * claim file. A singleton-scoped instance shared across two concurrent
+ * OHIP file generations would corrupt both files' state. Every
+ * {@code SpringUtils.getBean(OhipClaimFileService.class)} therefore
+ * yields a fresh proxy + target instance.</p>
+ *
+ * <p><strong>{@code @Transactional} note:</strong> the two write methods
+ * ({@link #updateHeader1BilledBatchId}, {@link #updateDisknameSum}) each
+ * make a single DAO {@code merge} — they are already individually
+ * transactional via {@code AbstractDaoImpl}. The class-level
+ * {@code @Transactional} is kept for forward-compatibility (so a future
+ * multi-DAO write inherits an outer transaction by default).</p>
+ *
  * @since 2026-04-26
  */
 @org.springframework.stereotype.Service
-@org.springframework.context.annotation.Lazy
+@org.springframework.context.annotation.Scope("prototype")
 @org.springframework.transaction.annotation.Transactional
 public class OhipClaimFileService {
 

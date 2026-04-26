@@ -216,7 +216,7 @@ public class OnBillingDiskService {
                     loggedInInfo, request, dateRange, mohOffice, useProviderMOH, currentUser,
                     oriBillCenter);
             if (aggregatedClaim != null) {
-                OhipClaimFileService finalize = new OhipClaimFileService();
+                OhipClaimFileService finalize = SpringUtils.getBean(OhipClaimFileService.class);
                 finalize.setContextPath(request.getContextPath());
                 finalize.setOhipFilename(prep.getOhipfilename(diskId));
                 finalize.writeFile(aggregatedClaim);
@@ -330,7 +330,7 @@ public class OnBillingDiskService {
                                                                String providerNo,
                                                                String ohipFilename,
                                                                String htmlFilename) {
-        OhipClaimFileService objFile = new OhipClaimFileService();
+        OhipClaimFileService objFile = SpringUtils.getBean(OhipClaimFileService.class);
         objFile.setContextPath(request.getContextPath());
         objFile.setDateRange(dateRange);
         objFile.setProviderNo(providerNo);
