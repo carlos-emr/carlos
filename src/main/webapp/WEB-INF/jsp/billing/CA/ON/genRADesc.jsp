@@ -23,35 +23,52 @@
 
 --%>
 
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.GenRADescViewModel" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.GenRADescDataAssembler" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 
+<%--
+  Defensive model-resolver: ensures ${raDescModel} is set on the request
+  even on the unlikely path where this JSP is reached without going through
+  ViewGenRADesc2Action. The action's own _billing w privilege check is
+  duplicated here for parity: without it a future bypass would silently run
+  the full PHI-touching assembler on an unauthenticated request. (The
+  action's POST-only enforcement is not duplicated; the assembler itself
+  is read-mostly when no submitFrm parameter is present.)
+--%>
 <%
-    // ViewGenRADesc2Action enforces _billing w + POST-only and assembles the
-    // view model with the 3 DAO lookups + RA-file parsing + RA-header merge +
-    // premium parse-and-save the legacy JSP body used to perform inline.
-    GenRADescViewModel raDescModel =
-            (GenRADescViewModel) request.getAttribute("raDescModel");
-    if (raDescModel == null) {
-        // Defensive fallback: any caller that forwards directly here gets a
-        // safe stub render. The canonical entrypoint is
-        // billing/CA/ON/ViewGenRADesc.
-        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
-                "genRADesc.jsp reached without raDescModel — caller should route "
-              + "through billing/CA/ON/ViewGenRADesc.");
-        raDescModel = GenRADescViewModel.builder().build();
+    if (request.getAttribute("raDescModel") == null) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("genRADesc.jsp fallback: missing session");
+        }
+        io.github.carlos_emr.carlos.managers.SecurityInfoManager __secMgr;
+        try {
+            __secMgr = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+        } catch (RuntimeException __springEx) {
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
+                    "genRADesc.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
+            throw new SecurityException("genRADesc.jsp fallback: privilege check unavailable", __springEx);
+        }
+        if (!__secMgr.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+            throw new SecurityException("genRADesc.jsp fallback: missing required sec object (_billing)");
+        }
+        request.setAttribute("raDescModel",
+                new GenRADescDataAssembler().assemble(request, loggedInInfo));
     }
 %>
 
 <html>
 <head>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
     <title>CARLOS EMR</title>
-    <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css">
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/web.css">
 </head>
 
 <body onLoad="setfocus()" topmargin="0" leftmargin="0" rightmargin="0">
@@ -65,7 +82,7 @@
             Reconcillation Report </font></th>
         <th align="right">
             <form><input type="button"
-                         onClick="popupPage(700,600,'<%= request.getContextPath() %>/billing/CA/ON/ViewBillingClipboard')" value="Clipboard"></form>
+                         onClick="popupPage(700,600,'${pageContext.request.contextPath}/billing/CA/ON/ViewBillingClipboard')" value="Clipboard"></form>
         </th>
     </tr>
 </table>
@@ -88,18 +105,18 @@ Colposcopy Total :
 <br>
 <%-- balanceForwardHtml + transactionHtml are pre-rendered HTML row blocks
      assembled by the assembler from RA-file H6/H7 records. Emitted raw
-     (matches legacy <%=htmlContent%> behavior) since the content is
+     (matches the legacy raw-HTML output behavior) since the content is
      server-controlled (parsed from a server-side fixed-width OHIP file). --%>
 <table bgcolor="#EEEEEE" bordercolor="#666666" border="1">
-    <%= raDescModel.getBalanceForwardHtml() %>
+    ${raDescModel.balanceForwardHtml}
 </table>
 <br>
 <table bgcolor="#EEEEFF" bordercolor="#666666" border="1">
-    <%= raDescModel.getTransactionHtml() %>
+    ${raDescModel.transactionHtml}
 </table>
 
-<% if (!raDescModel.getPremiumRows().isEmpty()) { %>
-<form action="<%=request.getContextPath() %>/billing/CA/ON/ApplyPractitionerPremium" method="post">
+<c:if test="${not empty raDescModel.premiumRows}">
+<form action="${pageContext.request.contextPath}/billing/CA/ON/ApplyPractitionerPremium" method="post">
     <input type="hidden" name="rano" value="<carlos:encode value="${raDescModel.raNo}" context="htmlAttribute"/>"/>
     <input type="hidden" name="method" value="applyPremium"/>
     <h3><fmt:message key="oscar.billing.on.genRADesc.premiumTitle"/></h3>
@@ -111,23 +128,19 @@ Colposcopy Total :
         <th style="font-family: helvetica; background-color: #486ebd; color:white;"><fmt:message key="oscar.billing.on.genRADesc.totalMonthlyPayment"/></th>
         <th style="font-family: helvetica; background-color: #486ebd; color:white;"><fmt:message key="oscar.billing.on.genRADesc.paymentDate"/></th>
         </thead>
-        <% for (GenRADescViewModel.PremiumRow __row : raDescModel.getPremiumRows()) {
-                String __isChecked = __row.checked() ? "checked" : "";
-        %>
+        <c:forEach var="__row" items="${raDescModel.premiumRows}">
         <tr>
-            <td><input name="choosePremium<%= __row.premiumId() %>" type="checkbox" value="Y" <%= __isChecked %>/>
-            <td><carlos:encode value='<%= __row.providerOhipNo() %>' context="html"/></td>
-            <td><select name="providerNo<%= __row.premiumId() %>">
-                <% for (GenRADescViewModel.ProviderOption __opt : __row.providerOptions()) {
-                        String __sel = __opt.selected() ? "selected=\"selected\"" : "";
-                %>
-                <option value="<carlos:encode value='<%= __opt.providerNo() %>' context="htmlAttribute"/>" <%= __sel %>><carlos:encode value='<%= __opt.formattedName() %>' context="html"/></option>
-                <% } %>
+            <td><input name="choosePremium<carlos:encode value='${__row.premiumId}' context='htmlAttribute'/>" type="checkbox" value="Y" <c:if test="${__row.checked}">checked</c:if>/>
+            <td><carlos:encode value="${__row.providerOhipNo}" context="html"/></td>
+            <td><select name="providerNo<carlos:encode value='${__row.premiumId}' context='htmlAttribute'/>">
+                <c:forEach var="__opt" items="${__row.providerOptions}">
+                <option value="<carlos:encode value='${__opt.providerNo}' context='htmlAttribute'/>" <c:if test="${__opt.selected}">selected="selected"</c:if>><carlos:encode value="${__opt.formattedName}" context="html"/></option>
+                </c:forEach>
             </select></td>
-            <td><carlos:encode value='<%= __row.amountPay() %>' context="html"/></td>
-            <td><carlos:encode value='<%= __row.payDateStr() %>' context="html"/></td>
+            <td><carlos:encode value="${__row.amountPay}" context="html"/></td>
+            <td><carlos:encode value="${__row.payDateStr}" context="html"/></td>
         </tr>
-        <% } %>
+        </c:forEach>
         <tr>
             <td colspan="5" style="text-align: right"><input type="submit"
                                                              value="<fmt:message key="oscar.billing.on.genRADesc.submitPremium"/>"/>
@@ -135,7 +148,7 @@ Colposcopy Total :
         </tr>
     </table>
 </form>
-<% } %>
+</c:if>
 <pre><carlos:encode value="${raDescModel.messageTxt}" context="html"/></pre>
 
 </body>
