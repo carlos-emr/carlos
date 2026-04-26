@@ -1,26 +1,26 @@
-<%--  
+<%--
 /*
- * 
+ *
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved. *
- * This software is published under the GPL GNU General Public License. 
- * This program is free software; you can redistribute it and/or 
- * modify it under the terms of the GNU General Public License 
- * as published by the Free Software Foundation; either version 2 
- * of the License, or (at your option) any later version. * 
- * This program is distributed in the hope that it will be useful, 
- * but WITHOUT ANY WARRANTY; without even the implied warranty of 
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
- * GNU General Public License for more details. * * You should have received a copy of the GNU General Public License 
- * along with this program; if not, write to the Free Software 
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. * 
- * 
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version. *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details. * * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. *
+ *
  * <OSCAR TEAM>
- * 
- * This software was written for the 
- * Department of Family Medicine 
- * McMaster University 
- * Hamilton 
- * Ontario, Canada 
+ *
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
  */
 
     Now maintained by the CARLOS EMR Project (2026+).
@@ -29,95 +29,60 @@
 
 --%>
 
-<%@page import="io.github.carlos_emr.MyDateFormat" %>
-<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@page import="java.util.List" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Billing" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingReportFragmentViewModel" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingReportFragmentDataAssembler" %>
+
+<%--
+  Fragment-local model resolver: this JSPF is statically included from
+  billingReportControl.jsp; the parent's privilege check (_report r) gates
+  access. We assemble the fragment's row list here lazily so the parent
+  doesn't need to know about which fragment it includes.
+--%>
+<%
+    if (request.getAttribute("billingReportFragmentModel") == null) {
+        request.setAttribute("billingReportFragmentModel",
+                new BillingReportFragmentDataAssembler().assemble(request, "billed"));
+    }
+%>
 
 <table width="100%" border="2" valign="top">
-	<% 
- String dateBegin = request.getParameter("xml_vdate");
-   String dateEnd = request.getParameter("xml_appointment_date");
-   if (dateEnd.compareTo("") == 0) dateEnd = MyDateFormat.getMysqlStandardDate(curYear, curMonth, curDay);
-   if (dateBegin.compareTo("") == 0) dateBegin="1950-01-01"; // set to any early time to start search from beginning
-   
-   List<Billing> bs = billingDao.search_bill_history_daterange(request.getParameter("providerview"),ConversionUtils.fromDateString(dateBegin),ConversionUtils.fromDateString(dateEnd));
-
-
-  boolean bodd=false;
-  nItems=0;
-  String apptDoctorNo="", apptNo="", demoNo = "", demoName="", userno="", apptDate="", apptTime="", reason="",  note="";
-  if(bs.size() == 0) {
-    out.println("failed!!!"); 
-  } else {
-  %>
-	<tr bgcolor="#CCCCFF">
-		<TH align="center" width="20%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif">SERVICE DATE</font></b></TH>
-		<TH align="center" width="10%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif">TIME</font></b></TH>
-		<TH align="center" width="10%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif">PATIENT</font></b></TH>
-		<TH align="center" width="20%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif">DESCRIPTION</font></b></TH>
-		<TH align="center" width="10%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif">ACCOUNT</font></b></TH>
-	</tr>
-	<%
-    for (Billing b:bs) {
-     
-      bodd=bodd?false:true; //for the color of rows
-      nItems++; //to calculate if it is the end of records
-      apptDoctorNo =b.getApptProviderNo();
-      apptNo = String.valueOf(b.getAppointmentNo());
-      demoNo = String.valueOf(b.getDemographicNo());
-      demoName = b.getDemographicName();
-      userno=b.getProviderNo();
-      apptDate = ConversionUtils.toDateString(b.getBillingDate());
-      apptTime = ConversionUtils.toTimeString(b.getBillingTime()); 
-      reason =b.getStatus();
-      
-      if (apptDoctorNo.compareTo("none") == 0){
-      note = "No Appt / INR";
-      } 
-      else{
-      if (apptDoctorNo.compareTo(userno) == 0) {
-      note = "With Appt. Doctor";
-      }else{
-      note = "Unmatched Appt. Doctor";
-      }
-      }
-      
-if (reason.compareTo("N") == 0) reason="Do Not Bill ";
-if (reason.compareTo("O") == 0) reason="Bill OHIP ";
-if (reason.compareTo("W") == 0) reason="Bill WSIB ";
-if (reason.compareTo("H") == 0) reason="Capitated Bill ";
-if (reason.compareTo("P") == 0) reason="Bill Patient";
-%>
-	<tr bgcolor="<%=bodd?"#EEEEFF":"white"%>">
-		<TD align="center" width="20%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><%=apptDate%></font></b></TD>
-		<TD align="center" width="10%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><%=apptTime==null?"00:00:00":apptTime%></font></b></TD>
-		<TD align="center" width="10%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><%=demoName%></font></b></TD>
-		<TD align="center" width="20%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><%=reason%>(<%=note%>) </font></b></TD>
-		<TD align="center" width="10%"><b> <font size="2"
-			face="Arial, Helvetica, sans-serif"><a href=#
-			onClick='popupPage(700,720, "<%= request.getContextPath() %>/billing/CA/ON/ViewBillingOB2?billing_no=<%=b.getId()%>&dboperation=search_bill&hotclick=0")'
-			title="<%=reason%>"> <%=b.getId()%></a></font></b></TD>
-	</tr>
-	<%  rowCount = rowCount + 1;
-    }
-    if (rowCount == 0) {
-    %>
-	<tr bgcolor="<%=bodd?"ivory":"white"%>">
-		<TD colspan="5" align="center"><b><font size="2"
-			face="Arial, Helvetica, sans-serif">No unbill items</font></b></TD>
-	</tr>
-	<% }
-  
-}%>
+<c:choose>
+<c:when test="${empty billingReportFragmentModel.billedRows}">
+    <tr>
+        <td>failed!!!</td>
+    </tr>
+</c:when>
+<c:otherwise>
+    <tr bgcolor="#CCCCFF">
+        <TH align="center" width="20%"><b><font size="2"
+            face="Arial, Helvetica, sans-serif">SERVICE DATE</font></b></TH>
+        <TH align="center" width="10%"><b><font size="2"
+            face="Arial, Helvetica, sans-serif">TIME</font></b></TH>
+        <TH align="center" width="10%"><b><font size="2"
+            face="Arial, Helvetica, sans-serif">PATIENT</font></b></TH>
+        <TH align="center" width="20%"><b><font size="2"
+            face="Arial, Helvetica, sans-serif">DESCRIPTION</font></b></TH>
+        <TH align="center" width="10%"><b><font size="2"
+            face="Arial, Helvetica, sans-serif">ACCOUNT</font></b></TH>
+    </tr>
+    <c:forEach var="row" items="${billingReportFragmentModel.billedRows}">
+    <tr bgcolor="<carlos:encode value='${row.rowBgColor}' context='htmlAttribute'/>">
+        <TD align="center" width="20%"><b><font size="2"
+            face="Arial, Helvetica, sans-serif"><carlos:encode value="${row.apptDate}" context="html"/></font></b></TD>
+        <TD align="center" width="10%"><b><font size="2"
+            face="Arial, Helvetica, sans-serif"><carlos:encode value="${row.apptTime}" context="html"/></font></b></TD>
+        <TD align="center" width="10%"><b><font size="2"
+            face="Arial, Helvetica, sans-serif"><carlos:encode value="${row.demoName}" context="html"/></font></b></TD>
+        <TD align="center" width="20%"><b><font size="2"
+            face="Arial, Helvetica, sans-serif"><carlos:encode value="${row.reasonText}" context="html"/>(<carlos:encode value="${row.note}" context="html"/>) </font></b></TD>
+        <TD align="center" width="10%"><b> <font size="2"
+            face="Arial, Helvetica, sans-serif"><a href=#
+            onClick='popupPage(700,720, "${pageContext.request.contextPath}/billing/CA/ON/ViewBillingOB2?billing_no=<carlos:encode value='${row.billingId}' context='javaScript'/>&dboperation=search_bill&hotclick=0")'
+            title="<carlos:encode value='${row.reasonCode}' context='htmlAttribute'/>"> <c:out value="${row.billingId}"/></a></font></b></TD>
+    </tr>
+    </c:forEach>
+</c:otherwise>
+</c:choose>
 </table>
