@@ -48,7 +48,17 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
 public class BillingONServiceCodeService {
 
-    private BillingServiceDao dao = (BillingServiceDao) SpringUtils.getBean(BillingServiceDao.class);
+    private final BillingServiceDao dao;
+
+    /** Production constructor — Spring uses this; field-init via SpringUtils.getBean. */
+    public BillingONServiceCodeService() {
+        this(SpringUtils.getBean(BillingServiceDao.class));
+    }
+
+    /** Test-friendly constructor — package-private, takes a DAO mock directly. */
+    BillingONServiceCodeService(BillingServiceDao dao) {
+        this.dao = dao;
+    }
 
     public List getBillingCodeAttr(String serviceCode) {
         List ret = new ArrayList();

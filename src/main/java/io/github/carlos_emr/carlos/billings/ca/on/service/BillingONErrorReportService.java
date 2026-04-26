@@ -51,7 +51,17 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
 public class BillingONErrorReportService {
 
-    private BillingONEAReportDao billingONEARReportDao = (BillingONEAReportDao) SpringUtils.getBean(BillingONEAReportDao.class);
+    private final BillingONEAReportDao billingONEARReportDao;
+
+    /** Production constructor — Spring uses this; field-init via SpringUtils.getBean. */
+    public BillingONErrorReportService() {
+        this(SpringUtils.getBean(BillingONEAReportDao.class));
+    }
+
+    /** Test-friendly constructor — package-private, takes DAO mocks directly. */
+    BillingONErrorReportService(BillingONEAReportDao billingONEARReportDao) {
+        this.billingONEARReportDao = billingONEARReportDao;
+    }
 
     public List<BillingErrorRepData> getErrorRecords(BillingProviderData val, String fromDate, String toDate, String filename) {
         List<BillingErrorRepData> retval = new ArrayList<BillingErrorRepData>();

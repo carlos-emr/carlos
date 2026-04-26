@@ -50,11 +50,30 @@ import java.util.*;
 public class BillingONClaimQueryService {
     private static final Logger _logger = MiscUtils.getLogger();
 
-    private ClinicLocationDao clinicLocationDao = (ClinicLocationDao) SpringUtils.getBean(ClinicLocationDao.class);
-    private BillingONCHeader1Dao dao = SpringUtils.getBean(BillingONCHeader1Dao.class);
-    private BillingONExtDao extDao = SpringUtils.getBean(BillingONExtDao.class);
-    private BillingONPaymentDao payDao = SpringUtils.getBean(BillingONPaymentDao.class);
-    private BillingServiceDao serviceDao = SpringUtils.getBean(BillingServiceDao.class);
+    private final ClinicLocationDao clinicLocationDao;
+    private final BillingONCHeader1Dao dao;
+    private final BillingONExtDao extDao;
+    private final BillingONPaymentDao payDao;
+    private final BillingServiceDao serviceDao;
+
+    /** Production constructor — Spring uses this; field-init via SpringUtils.getBean. */
+    public BillingONClaimQueryService() {
+        this(SpringUtils.getBean(ClinicLocationDao.class),
+             SpringUtils.getBean(BillingONCHeader1Dao.class),
+             SpringUtils.getBean(BillingONExtDao.class),
+             SpringUtils.getBean(BillingONPaymentDao.class),
+             SpringUtils.getBean(BillingServiceDao.class));
+    }
+
+    /** Test-friendly constructor — package-private, takes DAO mocks directly. */
+    BillingONClaimQueryService(ClinicLocationDao clinicLocationDao, BillingONCHeader1Dao dao, BillingONExtDao extDao, BillingONPaymentDao payDao, BillingServiceDao serviceDao) {
+        this.clinicLocationDao = clinicLocationDao;
+        this.dao = dao;
+        this.extDao = extDao;
+        this.payDao = payDao;
+        this.serviceDao = serviceDao;
+    }
+
     BillingOnItemPaymentDao billOnItemPaymentDao = (BillingOnItemPaymentDao) SpringUtils.getBean(BillingOnItemPaymentDao.class);
 
     public String getCodeFee(String val, String billReferalDate) {

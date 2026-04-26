@@ -76,15 +76,41 @@ public class BillingONLookupService {
 
     private static final Logger _logger = MiscUtils.getLogger();
 
-    private OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
-    private ProfessionalSpecialistDao professionalSpecialistDao = (ProfessionalSpecialistDao) SpringUtils.getBean(ProfessionalSpecialistDao.class);
-    private ClinicLocationDao clinicLocationDao = (ClinicLocationDao) SpringUtils.getBean(ClinicLocationDao.class);
-    private ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
-    private BillingPaymentTypeDao billingPaymentTypeDao = SpringUtils.getBean(BillingPaymentTypeDao.class);
-    private BillingONFavouriteDao billingONFavouriteDao = SpringUtils.getBean(BillingONFavouriteDao.class);
-    private DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
-    private BillingONFilenameDao billingONFilenameDao = SpringUtils.getBean(BillingONFilenameDao.class);
-    private ProviderSiteDao providerSiteDao = SpringUtils.getBean(ProviderSiteDao.class);
+    private final OscarAppointmentDao appointmentDao;
+    private final ProfessionalSpecialistDao professionalSpecialistDao;
+    private final ClinicLocationDao clinicLocationDao;
+    private final ProviderDao providerDao;
+    private final BillingPaymentTypeDao billingPaymentTypeDao;
+    private final BillingONFavouriteDao billingONFavouriteDao;
+    private final DemographicManager demographicManager;
+    private final BillingONFilenameDao billingONFilenameDao;
+    private final ProviderSiteDao providerSiteDao;
+
+    /** Production constructor — Spring uses this; field-init via SpringUtils.getBean. */
+    public BillingONLookupService() {
+        this(SpringUtils.getBean(OscarAppointmentDao.class),
+             SpringUtils.getBean(ProfessionalSpecialistDao.class),
+             SpringUtils.getBean(ClinicLocationDao.class),
+             SpringUtils.getBean(ProviderDao.class),
+             SpringUtils.getBean(BillingPaymentTypeDao.class),
+             SpringUtils.getBean(BillingONFavouriteDao.class),
+             SpringUtils.getBean(DemographicManager.class),
+             SpringUtils.getBean(BillingONFilenameDao.class),
+             SpringUtils.getBean(ProviderSiteDao.class));
+    }
+
+    /** Test-friendly constructor — package-private, takes DAO mocks directly. */
+    BillingONLookupService(OscarAppointmentDao appointmentDao, ProfessionalSpecialistDao professionalSpecialistDao, ClinicLocationDao clinicLocationDao, ProviderDao providerDao, BillingPaymentTypeDao billingPaymentTypeDao, BillingONFavouriteDao billingONFavouriteDao, DemographicManager demographicManager, BillingONFilenameDao billingONFilenameDao, ProviderSiteDao providerSiteDao) {
+        this.appointmentDao = appointmentDao;
+        this.professionalSpecialistDao = professionalSpecialistDao;
+        this.clinicLocationDao = clinicLocationDao;
+        this.providerDao = providerDao;
+        this.billingPaymentTypeDao = billingPaymentTypeDao;
+        this.billingONFavouriteDao = billingONFavouriteDao;
+        this.demographicManager = demographicManager;
+        this.billingONFilenameDao = billingONFilenameDao;
+        this.providerSiteDao = providerSiteDao;
+    }
 
     public List<String> getCurTeamProviderStr(String provider_no) {
         List<String> retval = new ArrayList<String>();

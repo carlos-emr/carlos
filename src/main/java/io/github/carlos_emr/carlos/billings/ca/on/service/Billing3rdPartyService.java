@@ -61,10 +61,25 @@ import io.github.carlos_emr.carlos.commn.model.Clinic;
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
 public class Billing3rdPartyService {
 
-    private ClinicDAO clinicDao = (ClinicDAO) SpringUtils.getBean(ClinicDAO.class);
-    private Billing3rdPartyAddressDao dao = SpringUtils.getBean(Billing3rdPartyAddressDao.class);
+    private final ClinicDAO clinicDao;
+    private final Billing3rdPartyAddressDao dao;
     BillingONExtDao extDao = (BillingONExtDao) SpringUtils.getBean(BillingONExtDao.class);
-    private BillingPaymentTypeDao typeDao = (BillingPaymentTypeDao) SpringUtils.getBean(BillingPaymentTypeDao.class);
+    private final BillingPaymentTypeDao typeDao;
+
+    /** Production constructor — Spring uses this; field-init via SpringUtils.getBean. */
+    public Billing3rdPartyService() {
+        this(SpringUtils.getBean(ClinicDAO.class),
+             SpringUtils.getBean(Billing3rdPartyAddressDao.class),
+             SpringUtils.getBean(BillingPaymentTypeDao.class));
+    }
+
+    /** Test-friendly constructor — package-private, takes DAO mocks directly. */
+    Billing3rdPartyService(ClinicDAO clinicDao, Billing3rdPartyAddressDao dao, BillingPaymentTypeDao typeDao) {
+        this.clinicDao = clinicDao;
+        this.dao = dao;
+        this.typeDao = typeDao;
+    }
+
     public static final String ACTIVE = "1";
     public static final String INACTIVE = "0";
 

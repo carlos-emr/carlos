@@ -56,9 +56,23 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 public class BillingONRemittanceAdviceService {
     private static final Logger _logger = MiscUtils.getLogger();
 
-    private RaDetailDao raDetailDao = SpringUtils.getBean(RaDetailDao.class);
-    private RaHeaderDao raHeaderDao = SpringUtils.getBean(RaHeaderDao.class);
-    private BillingONCHeader1Dao cheader1Dao = SpringUtils.getBean(BillingONCHeader1Dao.class);
+    private final RaDetailDao raDetailDao;
+    private final RaHeaderDao raHeaderDao;
+    private final BillingONCHeader1Dao cheader1Dao;
+
+    /** Production constructor — Spring uses this; field-init via SpringUtils.getBean. */
+    public BillingONRemittanceAdviceService() {
+        this(SpringUtils.getBean(RaDetailDao.class),
+             SpringUtils.getBean(RaHeaderDao.class),
+             SpringUtils.getBean(BillingONCHeader1Dao.class));
+    }
+
+    /** Test-friendly constructor — package-private, takes DAO mocks directly. */
+    BillingONRemittanceAdviceService(RaDetailDao raDetailDao, RaHeaderDao raHeaderDao, BillingONCHeader1Dao cheader1Dao) {
+        this.raDetailDao = raDetailDao;
+        this.raHeaderDao = raHeaderDao;
+        this.cheader1Dao = cheader1Dao;
+    }
 
     public int addOneRADtRecord(BillingRAData val) {
         RaDetail r = new RaDetail();
