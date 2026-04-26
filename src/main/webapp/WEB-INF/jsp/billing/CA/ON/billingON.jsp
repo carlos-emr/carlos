@@ -1285,10 +1285,31 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                                 <tr>
                                     <td style="white-space:nowrap; width: 30%"><b><fmt:message key="oscar.billing.ca.on.billingON.billingPhysician"/></b></td>
                                     <td style="width: 20%">
-                                        <% if (IsPropertiesOn.isMultisitesEnable()) {
+                                        <%-- Round-15: multisite block now driven by formModel
+                                             (assembler pre-loads via BillingONFormSiteContextComposer).
+                                             SiteDao no longer touched in JSP body code; the legacy
+                                             `sites` local is rebuilt from model.getMultisiteSites()
+                                             so the existing JS-string-build below stays unchanged. --%>
+                                        <% if (model.isMultisiteEnabled()) {
                                             // multisite start ==========================================
-                                            SiteDao siteDao = SpringUtils.getBean(SiteDao.class);
-                                            List<Site> sites = siteDao.getActiveSitesByProviderNo((String) session.getAttribute("user"));
+                                            java.util.List<io.github.carlos_emr.carlos.commn.model.Site> sites = new java.util.ArrayList<>();
+                                            for (io.github.carlos_emr.carlos.billings.ca.on.data.BillingONFormViewModel.MultisiteSite __mss : model.getMultisiteSites()) {
+                                                io.github.carlos_emr.carlos.commn.model.Site __s = new io.github.carlos_emr.carlos.commn.model.Site();
+                                                __s.setName(__mss.name());
+                                                __s.setBgColor(__mss.bgColor());
+                                                java.util.Set<io.github.carlos_emr.carlos.commn.model.Provider> __ps = new java.util.LinkedHashSet<>();
+                                                for (io.github.carlos_emr.carlos.billings.ca.on.data.BillingONFormViewModel.MultisiteProvider __msp : __mss.providers()) {
+                                                    io.github.carlos_emr.carlos.commn.model.Provider __p = new io.github.carlos_emr.carlos.commn.model.Provider();
+                                                    __p.setProviderNo(__msp.providerNo());
+                                                    __p.setOhipNo(__msp.ohipNo());
+                                                    __p.setLastName(__msp.lastName());
+                                                    __p.setFirstName(__msp.firstName());
+                                                    __p.setStatus("1");
+                                                    __ps.add(__p);
+                                                }
+                                                __s.setProviders(__ps);
+                                                sites.add(__s);
+                                            }
                                         %>
                                         <script>
                                             var _providers = [];
@@ -1313,18 +1334,13 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                                             <option value="none" style="background-color: white"><fmt:message key="oscar.billing.ca.on.billingON.selectClinic"/>
                                             </option>
                                             <%
-                                                String selectedSite = request.getParameter("site");
-                                                String xmlp = null;
-                                                if (selectedSite == null) {
-                                                    OscarAppointmentDao apptDao = SpringUtils.getBean(OscarAppointmentDao.class);
-                                                    for (Object[] obj : apptDao.findAppointmentAndProviderByAppointmentNo(ConversionUtils.fromIntString(appt_no))) {
-                                                        Appointment a = (Appointment) obj[0];
-                                                        Provider p = (Provider) obj[1];
-
-                                                        selectedSite = a.getLocation();
-                                                        xmlp = a.getProviderNo() + "|" + p.getOhipNo();
-                                                    }
-                                                }
+                                                // Round-15: default selected site + xml_provider come
+                                                // from formModel (request param 'site', or the
+                                                // appointment's site as resolved in the assembler).
+                                                String selectedSite = model.getDefaultSelectedSite();
+                                                if (selectedSite == null || selectedSite.isEmpty()) selectedSite = null;
+                                                String xmlp = model.getDefaultXmlProvider();
+                                                if (xmlp != null && xmlp.isEmpty()) xmlp = null;
                                                 for (int i = 0; i < sites.size(); i++) {
                                             %>
                                             <option value="<%=sites.get(i).getName()%>"
@@ -1404,22 +1420,18 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                                         <%
                                             if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) {
                                         %>
+                                        <%-- Round-15: clinic-nbr dropdown driven by pre-loaded
+                                             formModel.clinicNbrs (replaces ClinicNbrDao.findAll +
+                                             ProviderDao.getProvider/comments XML inline calls). --%>
                                         <%
-													ClinicNbrDao cnDao = SpringUtils.getBean(ClinicNbrDao.class);
-                                            ArrayList<ClinicNbr> nbrs = cnDao.findAll();
-													            ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
-                                            String providerSearch = apptProvider_no.equalsIgnoreCase("none") ? user_no : apptProvider_no;
-                                            Provider p = providerDao.getProvider(providerSearch);
-                                            String providerNbr = SxmlMisc.getXmlContent(p.getComments(), "xml_p_nbr");
-                                            for (ClinicNbr clinic : nbrs) {
-                                                String valueString = String.format("%s | %s", clinic.getNbrValue(), clinic.getNbrString());
+                                            String providerNbr = model.getSelectedClinicNbrPrefix();
+                                            for (io.github.carlos_emr.carlos.billings.ca.on.data.BillingONFormViewModel.ClinicNbrEntry __c : model.getClinicNbrs()) {
+                                                String valueString = __c.displayLabel();
                                         %>
-                                        <option value="<%=valueString%>"
-                                                <%=providerNbr.startsWith(clinic.getNbrValue()) ? "selected" : ""%>><%=valueString%>
+                                        <option value="<%= valueString %>"
+                                                <%= providerNbr.startsWith(__c.nbrValue()) ? "selected" : "" %>><%= valueString %>
                                         </option>
-                                        <%
-                                            }
-                                        %>
+                                        <% } %>
                                         <%
                                         } else {
                                         %>

@@ -115,6 +115,24 @@ public final class BillingONFormViewModel {
     private final String patientDxAddCode;
     private final String patientDxMatchCode;
 
+    // Round-15: site context for billingON.jsp's multisite + RMA blocks.
+    // Replaces the inline SiteDao / OscarAppointmentDao / ClinicNbrDao /
+    // ProviderDao calls the JSP previously made.
+    private final boolean multisiteEnabled;
+    private final List<MultisiteSite> multisiteSites;
+    private final String defaultSelectedSite;
+    private final String defaultXmlProvider;
+    private final boolean rmaEnabled;
+    private final List<ClinicNbrEntry> clinicNbrs;
+    private final String selectedClinicNbrPrefix;
+
+    /** A multisite site entry (name, bg color, providers attached). */
+    public record MultisiteSite(String name, String bgColor, List<MultisiteProvider> providers) { }
+    /** A provider attached to a multisite site (for the per-site picker). */
+    public record MultisiteProvider(String providerNo, String ohipNo, String lastName, String firstName) { }
+    /** Clinic-number entry for the xml_visittype dropdown when rma_enabled=true. */
+    public record ClinicNbrEntry(String nbrValue, String displayLabel) { }
+
     // Billing recommendations (pre-rendered HTML snippet)
     private final String billingRecommendations;
 
@@ -198,6 +216,13 @@ public final class BillingONFormViewModel {
         this.patientDxAddCode = nullToEmpty(b.patientDxAddCode);
         this.patientDxMatchCode = nullToEmpty(b.patientDxMatchCode);
         this.billingRecommendations = nullToEmpty(b.billingRecommendations);
+        this.multisiteEnabled = b.multisiteEnabled;
+        this.multisiteSites = b.multisiteSites == null ? Collections.emptyList() : List.copyOf(b.multisiteSites);
+        this.defaultSelectedSite = nullToEmpty(b.defaultSelectedSite);
+        this.defaultXmlProvider = nullToEmpty(b.defaultXmlProvider);
+        this.rmaEnabled = b.rmaEnabled;
+        this.clinicNbrs = b.clinicNbrs == null ? Collections.emptyList() : List.copyOf(b.clinicNbrs);
+        this.selectedClinicNbrPrefix = nullToEmpty(b.selectedClinicNbrPrefix);
         this.billingHistory = b.billingHistory == null ? Collections.emptyList() : List.copyOf(b.billingHistory);
         this.warningMsg = nullToEmpty(b.warningMsg);
         this.errorMsg = nullToEmpty(b.errorMsg);
@@ -290,6 +315,13 @@ public final class BillingONFormViewModel {
     public List<String> getPatientDx() { return patientDx; }
     public String getPatientDxAddCode() { return patientDxAddCode; }
     public String getPatientDxMatchCode() { return patientDxMatchCode; }
+    public boolean isMultisiteEnabled() { return multisiteEnabled; }
+    public List<MultisiteSite> getMultisiteSites() { return multisiteSites; }
+    public String getDefaultSelectedSite() { return defaultSelectedSite; }
+    public String getDefaultXmlProvider() { return defaultXmlProvider; }
+    public boolean isRmaEnabled() { return rmaEnabled; }
+    public List<ClinicNbrEntry> getClinicNbrs() { return clinicNbrs; }
+    public String getSelectedClinicNbrPrefix() { return selectedClinicNbrPrefix; }
     public String getBillingRecommendations() { return billingRecommendations; }
     public List<BillingHistoryEntry> getBillingHistory() { return billingHistory; }
     public String getWarningMsg() { return warningMsg; }
@@ -421,6 +453,25 @@ public final class BillingONFormViewModel {
         public Builder patientDxAddCode(String v) { this.patientDxAddCode = v; return this; }
         public Builder patientDxMatchCode(String v) { this.patientDxMatchCode = v; return this; }
         public Builder billingRecommendations(String v) { this.billingRecommendations = v; return this; }
+
+        private boolean multisiteEnabled;
+        private List<MultisiteSite> multisiteSites;
+        private String defaultSelectedSite;
+        private String defaultXmlProvider;
+        private boolean rmaEnabled;
+        private List<ClinicNbrEntry> clinicNbrs;
+        private String selectedClinicNbrPrefix;
+        public Builder multisiteEnabled(boolean v) { this.multisiteEnabled = v; return this; }
+        public Builder multisiteSites(List<MultisiteSite> v) {
+            this.multisiteSites = v == null ? null : List.copyOf(v); return this;
+        }
+        public Builder defaultSelectedSite(String v) { this.defaultSelectedSite = v; return this; }
+        public Builder defaultXmlProvider(String v) { this.defaultXmlProvider = v; return this; }
+        public Builder rmaEnabled(boolean v) { this.rmaEnabled = v; return this; }
+        public Builder clinicNbrs(List<ClinicNbrEntry> v) {
+            this.clinicNbrs = v == null ? null : List.copyOf(v); return this;
+        }
+        public Builder selectedClinicNbrPrefix(String v) { this.selectedClinicNbrPrefix = v; return this; }
         public Builder billingHistory(List<BillingHistoryEntry> v) { this.billingHistory = v == null ? null : List.copyOf(v); return this; }
         public Builder warningMsg(String v) { this.warningMsg = v; return this; }
         public Builder errorMsg(String v) { this.errorMsg = v; return this; }

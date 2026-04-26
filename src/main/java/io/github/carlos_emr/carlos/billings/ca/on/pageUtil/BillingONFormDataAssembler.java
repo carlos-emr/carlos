@@ -93,6 +93,7 @@ public final class BillingONFormDataAssembler {
     private final BillingONFormDroolsRecommender droolsRecommender;
     private final BillingONFormBillFormResolver billFormResolver;
     private final BillingONFormServiceGridComposer serviceGridComposer;
+    private final BillingONFormSiteContextComposer siteContextComposer;
 
     /**
      * Production constructor used by Struts; resolves every dependency from
@@ -113,7 +114,31 @@ public final class BillingONFormDataAssembler {
              SpringUtils.getBean(CSSStylesDAO.class),
              SpringUtils.getBean(CodeFilterManager.class),
              SpringUtils.getBean(CtlBillingTypeDao.class),
-             SpringUtils.getBean(DiagnosticCodeDao.class));
+             SpringUtils.getBean(DiagnosticCodeDao.class),
+             SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.SiteDao.class),
+             SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao.class),
+             SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao.class));
+    }
+
+    /** Test-friendly ctor with the legacy 14-DAO arg list. Site-context fields default to empty. */
+    BillingONFormDataAssembler(DemographicManager demographicManager,
+                               ProfessionalSpecialistDao professionalSpecialistDao,
+                               DxresearchDAO dxresearchDao,
+                               UserPropertyDAO userPropertyDao,
+                               ProviderDao providerDao,
+                               CtlBillingServiceDao ctlBillingServiceDao,
+                               ProviderPreferenceDao providerPreferenceDao,
+                               MyGroupDao myGroupDao,
+                               BillingServiceDao billingServiceDao,
+                               CtlBillingServicePremiumDao ctlBillingServicePremiumDao,
+                               CSSStylesDAO cssStylesDao,
+                               CodeFilterManager codeFilterManager,
+                               CtlBillingTypeDao ctlBillingTypeDao,
+                               DiagnosticCodeDao diagnosticCodeDao) {
+        this(demographicManager, professionalSpecialistDao, dxresearchDao, userPropertyDao,
+             providerDao, ctlBillingServiceDao, providerPreferenceDao, myGroupDao,
+             billingServiceDao, ctlBillingServicePremiumDao, cssStylesDao, codeFilterManager,
+             ctlBillingTypeDao, diagnosticCodeDao, null, null, null);
     }
 
     BillingONFormDataAssembler(DemographicManager demographicManager,
@@ -129,7 +154,10 @@ public final class BillingONFormDataAssembler {
                                CSSStylesDAO cssStylesDao,
                                CodeFilterManager codeFilterManager,
                                CtlBillingTypeDao ctlBillingTypeDao,
-                               DiagnosticCodeDao diagnosticCodeDao) {
+                               DiagnosticCodeDao diagnosticCodeDao,
+                               io.github.carlos_emr.carlos.commn.dao.SiteDao siteDao,
+                               io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao oscarAppointmentDao,
+                               io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao clinicNbrDao) {
         // Hold only what the orchestrator still consumes directly.
         this.dxresearchDao = dxresearchDao;
         this.userPropertyDao = userPropertyDao;
@@ -144,6 +172,8 @@ public final class BillingONFormDataAssembler {
         this.serviceGridComposer = new BillingONFormServiceGridComposer(
                 ctlBillingServiceDao, billingServiceDao, ctlBillingServicePremiumDao,
                 cssStylesDao, codeFilterManager, ctlBillingTypeDao, diagnosticCodeDao);
+        this.siteContextComposer = new BillingONFormSiteContextComposer(
+                siteDao, oscarAppointmentDao, clinicNbrDao, providerDao);
     }
 
     /**
@@ -364,6 +394,10 @@ public final class BillingONFormDataAssembler {
                 .fromDateString(billReferenceDate);
 
         serviceGridComposer.compose(b, ctlBillForm, filterDate, billRefDate, demo);
+
+        // Round-15: site-context (multisite, RMA / clinic-nbr) loaded by the
+        // dedicated composer instead of inline in the JSP.
+        siteContextComposer.populate(b, request, userNo, apptProviderNo, apptNo);
 
         // ---- billing favourites (flat name/code list for the cutlist dropdown) ----
         io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil favPageUtil =

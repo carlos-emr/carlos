@@ -105,6 +105,16 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
         EFormDao eFormDao = Mockito.mock(EFormDao.class);
         EncounterFormDao encounterFormDao = Mockito.mock(EncounterFormDao.class);
 
+        // Round-15: SiteDao + ClinicNbrDao added so the new
+        // BillingONFormSiteContextComposer (multisite + RMA / clinic-nbr
+        // pre-load) can resolve through SpringUtils. The composer itself
+        // gates on IsPropertiesOn.isMultisitesEnable / rma_enabled, so
+        // empty stubs are sufficient for unit tests.
+        io.github.carlos_emr.carlos.commn.dao.SiteDao siteDao =
+                Mockito.mock(io.github.carlos_emr.carlos.commn.dao.SiteDao.class);
+        io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao clinicNbrDao =
+                Mockito.mock(io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao.class);
+
         registerMock(DemographicManager.class, demographicManager);
         registerMock(ProfessionalSpecialistDao.class, professionalSpecialistDao);
         registerMock(DxresearchDAO.class, dxresearchDAO);
@@ -127,6 +137,8 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
         registerMock(ProviderSiteDao.class, providerSiteDao);
         registerMock(EFormDao.class, eFormDao);
         registerMock(EncounterFormDao.class, encounterFormDao);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.SiteDao.class, siteDao);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao.class, clinicNbrDao);
 
         // Default empty returns so the assembler doesn't NPE on any path.
         when(demographicManager.getDemographic(any(), anyString())).thenReturn(null);
