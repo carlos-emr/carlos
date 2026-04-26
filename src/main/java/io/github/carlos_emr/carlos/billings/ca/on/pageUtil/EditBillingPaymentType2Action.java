@@ -15,6 +15,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.billings.ca.on.data.EditBillingPaymentTypeViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -27,11 +28,29 @@ import org.apache.struts2.ServletActionContext;
  * w privilege AND POST-only before forwarding to the JSP. GET requests return
  * 405 Method Not Allowed.
  *
+ * <p>Also assembles the {@link EditBillingPaymentTypeViewModel} on the request
+ * as {@code paymentTypeModel} so the JSP body can render in pure EL (drained
+ * from 12 scriptlets in the round-2 billing-form refactor).</p>
+ *
  * @since 2026-04-13
  */
 public final class EditBillingPaymentType2Action extends ActionSupport {
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final SecurityInfoManager securityInfoManager;
+    private final EditBillingPaymentTypeDataAssembler assembler;
+
+    /** Production constructor used by Struts2's Spring object factory. */
+    public EditBillingPaymentType2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class),
+             new EditBillingPaymentTypeDataAssembler());
+    }
+
+    /** Test-friendly constructor — call with mocks. Package-private. */
+    EditBillingPaymentType2Action(SecurityInfoManager securityInfoManager,
+                                  EditBillingPaymentTypeDataAssembler assembler) {
+        this.securityInfoManager = securityInfoManager;
+        this.assembler = assembler;
+    }
 
     @Override
     public String execute() throws Exception {
@@ -48,6 +67,7 @@ public final class EditBillingPaymentType2Action extends ActionSupport {
             return NONE;
         }
 
+        request.setAttribute("paymentTypeModel", assembler.assemble(request));
         return SUCCESS;
     }
 }
