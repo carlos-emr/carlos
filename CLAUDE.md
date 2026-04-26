@@ -55,10 +55,8 @@
 make clean                    # Clean project and remove deployed app
 make install                  # Build and deploy without tests
 make install --run-tests      # Build, test, and deploy (all tests)
-make install --run-modern-tests     # Build and run only modern tests (JUnit 5)
-make install --run-legacy-tests     # Build and run only legacy tests (JUnit 4)
-make install --run-unit-tests       # Build and run only modern unit tests
-make install --run-integration-tests # Build and run only modern integration tests
+make install --run-unit-tests       # Build and run only unit tests
+make install --run-integration-tests # Build and run only integration tests
 server start/stop/restart     # Tomcat management
 server log                    # Tail application logs
 
@@ -254,10 +252,9 @@ The deprecated `com.opensymphony.xwork2.*` packages from Struts 6.x were migrate
 2. For quick iterations: `make install` (skips tests)
 3. Debug logging: `debug-on` → `server restart` → `debug-off`
 
-## Modern Test Framework (JUnit 5)
+## Test Framework (JUnit 5)
 **Key Features**:
-- **Dual Structure**: `src/test-modern/` (primary for new tests) and `src/test/` (legacy + permitted for new unit tests using `CarlosUnitTestBase`)
-- **Zero Impact**: Legacy tests unchanged, both suites run automatically
+- **Single Structure**: All tests live under `src/test/`. The legacy JUnit 4 suite has been removed; the historical `src/test-modern/` directory has been collapsed into `src/test/`.
 - **Modern Stack**: JUnit 5, AssertJ, H2 in-memory database, BDD naming
 - **Spring Integration**: Full Spring context with transaction support
 - **Multi-File Architecture**: Component-first naming (`TicklerDao*Test`) for scalability
@@ -282,7 +279,7 @@ mvn test -Dgroups="create,update"  # Specific operations
 
 ### BDD Test Naming Convention
 
-Modern tests use BDD (Behavior-Driven Development) naming for clarity. Choose ONE style and use it consistently:
+Tests use BDD (Behavior-Driven Development) naming for clarity. Choose ONE style and use it consistently:
 
 **Pattern: `should<Action>_<preposition><Condition>()` (RECOMMENDED for Java)**
 ```java
@@ -470,7 +467,7 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 - `TargetColour` / `Recommendation` — generate DRL from flowsheet XML for color indicators and clinical reminders
 - `WorkFlowDS` — wraps `KieBase` for workflow rule execution (e.g., Rh pregnancy management)
 
-**Test Coverage**: Tests in `src/test-modern/` tagged `@Tag("drools")`. Run with `make install --run-unit-tests` or `mvn test -Dgroups="drools"`. See `docs/drools-decision-support-system.md#test-coverage` for details.
+**Test Coverage**: Tests under `src/test/` tagged `@Tag("drools")`. Run with `make install --run-unit-tests` or `mvn test -Dgroups="drools"`. See `docs/drools-decision-support-system.md#test-coverage` for details.
 
 ## Technology Stack Details
 
@@ -1109,27 +1106,24 @@ database/mysql/SnomedCore/snomedinit.sql         # Medical terminology integrati
 
 ### Testing Patterns
 ```bash
-# Modern Test Framework (JUnit 5) - ACTIVE AND RECOMMENDED
-src/test-modern/java/io/github/carlos_emr/carlos/            # Primary location for new JUnit 5 tests
-src/test-modern/java/io/github/carlos_emr/carlos/managers/   # Manager unit tests (DemographicManagerUnitTest)
-src/test-modern/java/io/github/carlos_emr/carlos/test/unit/  # Unit test base classes (CarlosUnitTestBase)
-src/test-modern/resources/                        # Modern test configurations
-docs/test/modern-test-framework-complete.md       # Complete test framework documentation
-docs/test/test-writing-guide.md                   # Test writing patterns and static mocking
-
-# src/test/ — acceptable for both legacy (JUnit 4) and new unit tests using CarlosUnitTestBase
-src/test/java/io/github/carlos_emr/carlos/                   # Legacy + permitted for new unit tests
-src/test/resources/over_ride_config.properties    # Test configuration template
+# Test Framework (JUnit 5)
+src/test/java/io/github/carlos_emr/carlos/            # All tests live here
+src/test/java/io/github/carlos_emr/carlos/managers/   # Manager unit tests (DemographicManagerUnitTest)
+src/test/java/io/github/carlos_emr/carlos/test/unit/  # Unit test base classes (CarlosUnitTestBase)
+src/test/resources/                                   # Test configurations
+src/test/resources/over_ride_config.properties        # Test configuration template
+docs/test/modern-test-framework-complete.md           # Complete test framework documentation
+docs/test/test-writing-guide.md                       # Test writing patterns and static mocking
 ```
 
-#### Modern Test Framework - Critical Guidelines
+#### Test Framework - Critical Guidelines
 **IMPORTANT**: When writing tests, ALWAYS:
 1. **Examine the actual code first** - Read the DAO/Manager interfaces to see what methods actually exist
 2. **Test real methods only** - Never make up methods that don't exist in the codebase
 3. **Use actual method signatures** - Match the exact parameters and return types
-4. **Choose the right base class and directory**:
-   - Integration tests: Extend `CarlosTestBase` → place in `src/test-modern/`
-   - Unit tests: Extend `CarlosUnitTestBase` (mocked SpringUtils, no database) → either `src/test-modern/` or `src/test/` is acceptable
+4. **Choose the right base class**:
+   - Integration tests: Extend `CarlosTestBase` (Spring context + H2 database)
+   - Unit tests: Extend `CarlosUnitTestBase` (mocked SpringUtils, no database)
    - Domain unit tests: Extend domain-specific bases like `DemographicUnitTestBase`
 5. **Follow BDD naming strictly**: `should<Action>_<preposition><Condition>` (camelCase, ONE underscore, e.g. `_when`, `_by`, `_for`, `_with`)
 6. **Check DAO interfaces** - Look at `*Dao.java` files to see available methods before writing tests
@@ -1170,8 +1164,8 @@ For detailed examples and test development workflow, see **[Test Writing Guide](
 
 **Test Execution Commands:**
 ```bash
-# Run all modern tests
-mvn test                          # Runs modern tests first, then legacy
+# Run all tests
+mvn test
 
 # Run all integration tests for a DAO component
 mvn test -Dtest=TicklerDao*IntegrationTest  # All TicklerDao integration tests
@@ -1185,7 +1179,7 @@ mvn test -Dtest=DemographicManagerUnitTest         # All 117 Demographic manager
 mvn test -Dtest=*ManagerUnitTest                   # All manager unit tests
 
 # Run by test type (using tags)
-mvn test -Dgroups="unit"                # Fast unit tests only (129 tests)
+mvn test -Dgroups="unit"                # Fast unit tests only
 mvn test -Dgroups="integration"         # Integration tests only
 mvn test -Dgroups="manager"             # All manager layer tests
 
@@ -1195,7 +1189,7 @@ mvn test -Dgroups="demographic,security" # Demographic security tests
 mvn test -Dgroups="create,update"       # All create and update operations
 
 # Build with tests
-make install --run-tests          # Includes modern tests automatically
+make install --run-tests          # All tests
 make install --run-unit-tests     # Only unit tests (fast, no database)
 ```
 
