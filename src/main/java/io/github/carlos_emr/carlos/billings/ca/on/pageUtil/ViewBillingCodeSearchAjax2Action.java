@@ -14,6 +14,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCodeSearchAjaxViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -22,11 +23,14 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * View gate for {@code billing/CA/ON/billingCodeSearchAjax.jsp}. Enforces {@code _billing}
- * {@code r} privilege before forwarding to the JSP at its
- * {@code /WEB-INF/jsp/} location. Created as part of the ON billing migration
- * to gate direct-access paths behind Struts2 actions (same pattern as
- * PR #1632 for BC billing).
+ * View gate for {@code billing/CA/ON/billingCodeSearchAjax.jsp}, the
+ * jQuery-UI Autocomplete endpoint for OHIP service codes.
+ *
+ * <p>Enforces {@code _billing r} privilege, then assembles a
+ * {@link BillingCodeSearchAjaxViewModel} via
+ * {@link BillingCodeSearchAjaxDataAssembler} so the JSP can read
+ * pre-resolved suggestions instead of doing the inline
+ * {@code SpringUtils.getBean(BillingServiceDao)} lookup.</p>
  *
  * @since 2026-04-13
  */
@@ -42,6 +46,10 @@ public final class ViewBillingCodeSearchAjax2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
+
+        BillingCodeSearchAjaxViewModel model = new BillingCodeSearchAjaxDataAssembler()
+                .assemble(request.getParameter("term"));
+        request.setAttribute("ajaxModel", model);
 
         return SUCCESS;
     }

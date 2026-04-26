@@ -14,6 +14,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCodeSearchViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -22,11 +23,14 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * View gate for {@code billing/CA/ON/billingResearchCodeSearch.jsp}. Enforces {@code _billing}
- * {@code r} privilege before forwarding to the JSP at its
- * {@code /WEB-INF/jsp/} location. Created as part of the ON billing migration
- * to gate direct-access paths behind Struts2 actions (same pattern as
- * PR #1632 for BC billing).
+ * View gate for {@code billing/CA/ON/billingResearchCodeSearch.jsp}, the
+ * ICHPPC research-code search popup.
+ *
+ * <p>Enforces {@code _billing r}, then assembles a
+ * {@link BillingCodeSearchViewModel} via {@link BillingCodeSearchDataAssembler}'s
+ * research-code mode so the JSP reads pre-resolved code rows + auto-select
+ * state instead of doing the inline {@code SpringUtils.getBean(IchppccodeDao)}
+ * lookup.</p>
  *
  * @since 2026-04-13
  */
@@ -42,6 +46,12 @@ public final class ViewBillingResearchCodeSearch2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
+
+        BillingCodeSearchViewModel model = new BillingCodeSearchDataAssembler().assembleResearch(
+                request.getParameter("name"),
+                request.getParameter("name1"),
+                request.getParameter("name2"));
+        request.setAttribute("codeSearchModel", model);
 
         return SUCCESS;
     }

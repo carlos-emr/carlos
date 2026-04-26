@@ -15,6 +15,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCodeUpdateViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -23,9 +24,14 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * Mutation gate for {@code billing/CA/ON/billingCodeUpdate.jsp}. Enforces {@code _billing}
- * w privilege AND POST-only before forwarding to the JSP. GET requests return
- * 405 Method Not Allowed.
+ * Mutation gate for {@code billing/CA/ON/billingCodeUpdate.jsp}. Enforces
+ * {@code _billing w} privilege AND POST-only (the JSP-era scriptlet
+ * persisted BillingService description edits during render).
+ *
+ * <p>Also assembles a {@link BillingCodeUpdateViewModel} via
+ * {@link BillingCodeUpdateDataAssembler}, which both runs the persist
+ * mutation when applicable and tells the JSP which client-side script
+ * branch to emit.</p>
  *
  * @since 2026-04-13
  */
@@ -47,6 +53,9 @@ public final class BillingCodeUpdate2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
+
+        BillingCodeUpdateViewModel model = new BillingCodeUpdateDataAssembler().assemble(request);
+        request.setAttribute("codeUpdateModel", model);
 
         return SUCCESS;
     }

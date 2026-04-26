@@ -22,20 +22,25 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%
-
-    String curUser_no = (String) session.getAttribute("user");
-%>
-<%@ page import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingCodeUpdateViewModel" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+
 <%
-    BillingServiceDao billingServiceDao = SpringUtils.getBean(BillingServiceDao.class);
+    // BillingCodeUpdate2Action enforces _billing w + POST and assembles the
+    // view model. The assembler does either:
+    //   - Confirm-mode: collects the code_* checkbox params into selected0/1/2
+    //   - Update-mode:  persists a single BillingService description edit
+    BillingCodeUpdateViewModel codeUpdateModel =
+            (BillingCodeUpdateViewModel) request.getAttribute("codeUpdateModel");
+    if (codeUpdateModel == null) {
+        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
+                "billingCodeUpdate.jsp reached without codeUpdateModel — caller "
+              + "should route through billing/CA/ON/BillingCodeUpdate.");
+        codeUpdateModel = BillingCodeUpdateViewModel.builder().build();
+    }
 %>
 <html>
 <head>
@@ -63,68 +68,21 @@
 
 </head>
 <body>
-<%
-    if (request.getParameter("update").equals("Confirm")) {
-
-
-        String temp = "";
-        String[] param = new String[10];
-        param[0] = "";
-        param[1] = "";
-        param[2] = "";
-
-        int Count = 0;
-
-        for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
-            temp = e.nextElement().toString();
-            if (temp.indexOf("code_") == -1) continue;
-            param[Count] = temp.substring(5).toUpperCase(); // + " |" + request.getParameter("codedesc_" + temp.substring(5));
-            Count = Count + 1;
-
-        }
-
-        if (Count == 1) {
-            param[1] = "";
-            param[2] = "";
-        }
-        if (Count == 2) {
-            param[2] = "";
-
-        }
-
-        if (Count == 0) {
-%>
+<% if (codeUpdateModel.getMode() == BillingCodeUpdateViewModel.Mode.CONFIRM_SELECTION) { %>
+    <% if (codeUpdateModel.isNoSelection()) { %>
 <p>No input selected</p>
 <input type="button" name="back" value="back"
        onClick="javascript:history.go(-1);return false;">
-<%
-} else {
-%>
+    <% } else { %>
 <script LANGUAGE="JavaScript">
     <!--
-    CodeAttach('<carlos:encode value='<%= param[0] %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= param[1] %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= param[2] %>' context="javaScriptBlock"/>');
+    CodeAttach('<carlos:encode value="${codeUpdateModel.selected0}" context="javaScriptBlock"/>', '<carlos:encode value="${codeUpdateModel.selected1}" context="javaScriptBlock"/>', '<carlos:encode value="${codeUpdateModel.selected2}" context="javaScriptBlock"/>');
     -->
 
 </script>
-<%
-    }
-} else {
-%>
-<%
-
-    String code = request.getParameter("update");
-    code = code.substring(code.length() - 5);
-
-    int rowsAffected = 0;
-
-    for (BillingService bs : billingServiceDao.findByServiceCode(code)) {
-        bs.setDescription(request.getParameter(code));
-        billingServiceDao.merge(bs);
-        rowsAffected++;
-    }
-%>
-<%
-%>
+    <% } %>
+<% } else { %>
+<%-- Update mode: assembler already persisted; emit popup-close JS. --%>
 <p>
 <h1>Successful Addition of a billing Record.</h1>
 </p>

@@ -15,12 +15,6 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-    This software was written for the
-    Department of Family Medicine
-    McMaster University
-    Hamilton
-    Ontario, Canada
-
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
@@ -30,32 +24,26 @@
 
     Purpose:
         AJAX endpoint that returns a JSON array of Ontario billing service code suggestions
-        for use with jQuery UI Autocomplete on the Ontario billing form (billingON.jsp).
+        for use with jQuery UI Autocomplete on the Ontario billing form.
 
     Features:
-        - Session-protected: returns HTTP 401 if no active user session is found
-        - Always searches both code prefix (e.g. "A00") and description keyword (e.g. "visit")
-        - Merges both result sets, code-prefix matches listed first, deduplicated by serviceCode
-        - Limits output to 20 items for performance
-        - All output values are JSON-encoded via Jackson ObjectMapper for spec-compliant output
+        - Session-protected at the action layer (ViewBillingCodeSearchAjax2Action enforces _billing r)
+        - View model populated by BillingCodeSearchAjaxDataAssembler:
+            - merges code-prefix and description-keyword search results
+            - deduplicates by serviceCode
+            - limits to 20 items
+        - JSON encoded via Jackson ObjectMapper (thread-safe shared instance)
 
     Request Parameters:
-        term  (String, required) - The text typed by the user; matched against both the
-                                   service code prefix (e.g. "A001") and the description
-                                   text (e.g. "general assessment") simultaneously
+        term  (String, required) - autocomplete query, used by both code-prefix and
+                                   description-substring searches simultaneously
 
     Response:
         Content-Type: application/json; charset=UTF-8
-        Body: JSON array of suggestion objects, e.g.:
-              [{"value":"A001","label":"A001 – General assessment","code":"A001","description":"General assessment"}, ...]
-
-    @since 2026-03-30
+        Body: JSON array of suggestion objects
 --%>
 <%@ page contentType="application/json; charset=UTF-8" trimDirectiveWhitespaces="true" %>
-<%@ page import="java.util.*, java.util.Date" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingCodeSearchAjaxViewModel" %>
 <%@ page import="com.fasterxml.jackson.databind.ObjectMapper" %>
 <%! private static final ObjectMapper SHARED_MAPPER = new ObjectMapper(); %>
 <%
@@ -63,54 +51,24 @@
         response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
         return;
     }
-    String term = request.getParameter("term");
-    if (term == null) term = "";
-    term = term.trim();
 
-    List<BillingService> results = new ArrayList<>();
-    if (term.length() >= 2) {
-        BillingServiceDao billingServiceDao = SpringUtils.getBean(BillingServiceDao.class);
-        java.util.LinkedHashMap<String, BillingService> merged = new java.util.LinkedHashMap<>();
-
-        // Use a single Date instance for both queries to ensure consistent date-based filtering
-        Date searchDate = new Date();
-
-        // Code-prefix search: finds codes starting with the term (e.g. "A00" → A001, A002...)
-        List<BillingService> codeResults = billingServiceDao.search(term.toUpperCase() + "%", "ON", searchDate);
-        if (codeResults != null) {
-            for (BillingService bs : codeResults) {
-                String key = bs.getServiceCode() != null ? bs.getServiceCode() : "";
-                if (!key.isEmpty()) merged.put(key, bs);
-            }
-        }
-
-        // Description-contains search: finds codes whose description contains the term
-        List<BillingService> descResults = billingServiceDao.search("%" + term + "%", "ON", searchDate);
-        if (descResults != null) {
-            for (BillingService bs : descResults) {
-                String key = bs.getServiceCode() != null ? bs.getServiceCode() : "";
-                if (!key.isEmpty()) merged.putIfAbsent(key, bs);
-            }
-        }
-
-        results = new ArrayList<>(merged.values());
+    BillingCodeSearchAjaxViewModel ajaxModel =
+            (BillingCodeSearchAjaxViewModel) request.getAttribute("ajaxModel");
+    if (ajaxModel == null) {
+        ajaxModel = BillingCodeSearchAjaxViewModel.builder().build();
     }
 
-    // Use shared Jackson ObjectMapper for spec-compliant JSON string encoding (thread-safe, reused across requests)
     ObjectMapper jsonMapper = SHARED_MAPPER;
-    int limit = Math.min(results.size(), 20);
     StringBuilder json = new StringBuilder("[");
-    for (int i = 0; i < limit; i++) {
-        BillingService bs = results.get(i);
-        if (i > 0) json.append(",");
-        String code = bs.getServiceCode() != null ? bs.getServiceCode() : "";
-        String desc = bs.getDescription() != null ? bs.getDescription() : "";
-        String label = code + " \u2013 " + desc;
+    boolean first = true;
+    for (BillingCodeSearchAjaxViewModel.Suggestion s : ajaxModel.getSuggestions()) {
+        if (!first) json.append(",");
+        first = false;
         json.append("{");
-        json.append("\"value\":").append(jsonMapper.writeValueAsString(code));
-        json.append(",\"label\":").append(jsonMapper.writeValueAsString(label));
-        json.append(",\"code\":").append(jsonMapper.writeValueAsString(code));
-        json.append(",\"description\":").append(jsonMapper.writeValueAsString(desc));
+        json.append("\"value\":").append(jsonMapper.writeValueAsString(s.value()));
+        json.append(",\"label\":").append(jsonMapper.writeValueAsString(s.label()));
+        json.append(",\"code\":").append(jsonMapper.writeValueAsString(s.code()));
+        json.append(",\"description\":").append(jsonMapper.writeValueAsString(s.description()));
         json.append("}");
     }
     json.append("]");
