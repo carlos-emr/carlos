@@ -118,6 +118,7 @@ public final class BillingShortcutPg2DataAssembler {
 
         DemoContext demo = loadDemographic(request.getParameter("demographic_no"));
         applyDemoToBuilder(b, demo);
+        applyJspViewFieldsToBuilder(b, request);
 
         if (!shouldSave(request)) {
             return b.postSaveAction(BillingShortcutPg2ViewModel.PostSaveAction.NONE).build();
@@ -228,6 +229,86 @@ public final class BillingShortcutPg2DataAssembler {
                 .demoHin(c.hin).demoHcType(c.hcType)
                 .referralDoctor(c.refDoctor).referralDoctorOhip(c.refDoctorOhip)
                 .errorMsg(c.errorMsg).warningMsg(c.warningMsg).errorFlagged(c.errorFlagged);
+    }
+
+    /**
+     * Populate the JSP-presentation fields the legacy scriptlet body computed
+     * inline: provider-name labels (resolved via the session-scoped
+     * {@code providerBean} populated at login), visit-type / bill-type /
+     * location split-on-pipe labels, SLI-applicable flag, request-param
+     * echoes for the hidden-input loop, and the pre-rendered billDate column
+     * HTML. Centralizing these in the assembler keeps the JSP body 100% EL.
+     */
+    private void applyJspViewFieldsToBuilder(BillingShortcutPg2ViewModel.Builder b,
+                                             HttpServletRequest request) {
+        java.util.Properties providerBean;
+        Object beanObj = request.getSession().getAttribute("providerBean"); // nosemgrep: tainted-session-from-http-request -- providerBean is built post-auth from DAO-sourced active providers (see ImportDemographicDataAction42Action)
+        providerBean = (beanObj instanceof java.util.Properties) ? (java.util.Properties) beanObj : new java.util.Properties();
+
+        String xmlProvider = nullToEmpty(request.getParameter("xml_provider"));
+        String assgProviderNo = nullToEmpty(request.getParameter("assgProvider_no"));
+
+        b.billingProviderLabel(providerBean.getProperty(xmlProvider, ""));
+        b.assignedProviderLabel(providerBean.getProperty(assgProviderNo, ""));
+
+        b.visitTypeLabel(splitOnPipeAfter(request.getParameter("xml_visittype")));
+        b.billTypeLabel(splitOnPipeAfter(request.getParameter("xml_billtype")));
+        b.visitLocationLabel(splitOnPipeAfter(request.getParameter("xml_location")));
+
+        // SLI code: take everything after the | (the "label" half), then
+        // compare against configured clinic_no. If it begins with that
+        // value, the field is "Not Applicable" — the legacy treated SLI
+        // codes that match the clinic prefix as N/A.
+        String sliCode = splitOnPipeAfter(request.getParameter("xml_slicode"));
+        String clinicNoTrim = io.github.carlos_emr.CarlosProperties.getInstance()
+                .getProperty("clinic_no", "").trim();
+        boolean sliNotApplicable = sliCode.startsWith(clinicNoTrim);
+        b.sliCode(sliCode).sliNotApplicable(sliNotApplicable);
+
+        b.admissionDate(nullToEmpty(request.getParameter("xml_vdate")));
+        b.demographicName(nullToEmpty(request.getParameter("demographic_name")));
+        b.dxCode(nullToEmpty(request.getParameter("dxCode")));
+        b.rulePerc(nullToEmpty(request.getParameter("rulePerc")));
+        b.referralDocName(nullToEmpty(request.getParameter("referralDocName")));
+        b.referralCodeParam(nullToEmpty(request.getParameter("referralCode")));
+
+        // billDate may contain a newline-separated list of dates (multi-row
+        // billing). Each line is HTML-encoded and joined with <br> so the JSP
+        // can output the result without further escaping.
+        String billDateRaw = request.getParameter("billDate");
+        if (billDateRaw == null) {
+            b.billDateHtml("");
+        } else {
+            StringBuilder sb = new StringBuilder();
+            String[] parts = billDateRaw.split("\\n");
+            for (int i = 0; i < parts.length; i++) {
+                if (i > 0) sb.append("<br>");
+                sb.append(org.owasp.encoder.Encode.forHtml(parts[i]));
+            }
+            b.billDateHtml(sb.toString());
+        }
+
+        // Hidden-input loop echo map — capture every request param verbatim
+        // so the JSP renders one <c:forEach> rather than iterating
+        // request.getParameterNames() inline. The original loop emitted
+        // <input type="hidden" name="<param>" value="<param value>"> for
+        // every parameter; the map preserves that exact behaviour.
+        java.util.Map<String, String> echoes = new java.util.LinkedHashMap<>();
+        Enumeration<String> en = request.getParameterNames();
+        while (en.hasMoreElements()) {
+            String name = en.nextElement();
+            String v = request.getParameter(name);
+            echoes.put(name, v == null ? "" : v);
+        }
+        b.requestParamEchoes(echoes);
+    }
+
+    /** Returns the substring after the first {@code |} delimiter, or empty
+     *  string when the input is null or has no pipe. The legacy XML-attribute
+     *  pattern stored "key|label" pairs in many param values. */
+    private static String splitOnPipeAfter(String s) {
+        if (s == null || !s.contains("|")) return "";
+        return s.substring(s.indexOf('|') + 1);
     }
 
     private CalcResult calculate(HttpServletRequest request) {

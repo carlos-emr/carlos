@@ -23,36 +23,49 @@
 
 --%>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@page import="org.owasp.encoder.Encode" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<%@page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingShortcutPg2ViewModel" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingShortcutPg2DataAssembler" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 
+<%--
+  Defensive model-resolver: ensures ${shortcutPg2Model} is set on the request
+  even on the unlikely path where this JSP is reached without going through
+  BillingShortcutPg2Save2Action. The action's own _billing w privilege check
+  is duplicated here for parity: without it a future bypass would silently
+  run the full PHI-touching assembler (and persist bills) on an
+  unauthenticated request.
+--%>
 <%
-    // BillingShortcutPg2Save2Action enforces _billing w and assembles the
-    // view model with the 6 DAO lookups + calculation + persistence the
-    // legacy JSP body used to perform inline.
-    BillingShortcutPg2ViewModel shortcutPg2Model =
-            (BillingShortcutPg2ViewModel) request.getAttribute("shortcutPg2Model");
-    if (shortcutPg2Model == null) {
-        // Defensive fallback for any caller forwarding directly here. The
-        // empty model renders a stub page; the action layer is the canonical
-        // entry point.
-        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
-                "billingShortcutPg2.jsp reached without shortcutPg2Model — caller "
-              + "should route through billing/CA/ON/BillingShortcutPg2Save.");
-        shortcutPg2Model = BillingShortcutPg2ViewModel.builder().build();
+    if (request.getAttribute("shortcutPg2Model") == null) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("billingShortcutPg2.jsp fallback: missing session");
+        }
+        io.github.carlos_emr.carlos.managers.SecurityInfoManager __secMgr;
+        try {
+            __secMgr = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+        } catch (RuntimeException __springEx) {
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
+                    "billingShortcutPg2.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
+            throw new SecurityException("billingShortcutPg2.jsp fallback: privilege check unavailable", __springEx);
+        }
+        if (!__secMgr.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+            throw new SecurityException("billingShortcutPg2.jsp fallback: missing required sec object (_billing)");
+        }
+        String __userNo = (String) request.getSession().getAttribute("user");
+        request.setAttribute("shortcutPg2Model",
+                new BillingShortcutPg2DataAssembler().assemble(request, __userNo));
     }
-    String demoname = request.getParameter("demographic_name");
 %>
 
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
     <title>CARLOS Billing</title>
     <script language="JavaScript">
         <!--
@@ -73,7 +86,7 @@
 
 <table border="0" cellpadding="0" cellspacing="2" width="100%"
        bgcolor="#CCCCFF">
-    <form method="post" name="titlesearch" action="<%= request.getContextPath() %>/billing/CA/ON/BillingShortcutPg2Save" onsubmit="return onSave();">
+    <form method="post" name="titlesearch" action="${pageContext.request.contextPath}/billing/CA/ON/BillingShortcutPg2Save" onsubmit="return onSave();">
         <input type="hidden" value="" name="submitType"/>
         <tr>
             <td>
@@ -90,12 +103,15 @@
             <td>
                 <table border="0" cellspacing="0" cellpadding="0" width="100%">
                     <tr bgcolor="#33CCCC">
-                        <td nowrap bgcolor="#FFCC99" width="10%" align="center"><carlos:encode value='<%= demoname %>' context="html"/>
+                        <td nowrap bgcolor="#FFCC99" width="10%" align="center"><carlos:encode value="${shortcutPg2Model.demographicName}" context="html"/>
                             <carlos:encode value="${shortcutPg2Model.displaySex}" context="html"/>
                             DOB: <carlos:encode value="${shortcutPg2Model.demoDobYy}" context="html"/>/<carlos:encode value="${shortcutPg2Model.demoDobMm}" context="html"/>/<carlos:encode value="${shortcutPg2Model.demoDobDd}" context="html"/>
                             HIN: <carlos:encode value="${shortcutPg2Model.demoHin}" context="html"/>
                         </td>
-                        <td bgcolor="#99CCCC" align="center"><%= shortcutPg2Model.getCombinedMsgs() %>
+                        <%-- combinedMsgs is pre-rendered HTML with deliberate
+                             font/color tags from the assembler — output
+                             unescaped to preserve the legacy warning markup. --%>
+                        <td bgcolor="#99CCCC" align="center">${shortcutPg2Model.combinedMsgs}
                         </td>
                     </tr>
                 </table>
@@ -112,17 +128,20 @@
                                 <tr>
                                     <td nowrap width="30%" align="center" valign="top"><b>Service
                                         Date</b><br>
-                                        <%= request.getParameter("billDate") != null ? String.join("<br>", java.util.Arrays.stream(request.getParameter("billDate").split("\\n")).map(Encode::forHtml).toArray(String[]::new)) : "" %>
+                                        <%-- billDateHtml is pre-rendered: each
+                                             newline-split date is HTML-encoded
+                                             and joined with <br>. --%>
+                                        ${shortcutPg2Model.billDateHtml}
                                     </td>
                                     <td align="center" width="33%"><b>Diagnostic Code</b><br>
-                                        <carlos:encode value='<%= StringUtils.noNull(request.getParameter("dxCode")) %>' context="html"/>
+                                        <carlos:encode value="${shortcutPg2Model.dxCode}" context="html"/>
                                         <hr>
                                         <b>Cal.% mode</b><br>
-                                        <carlos:encode value='<%= StringUtils.noNull(request.getParameter("rulePerc")) %>' context="html"/>
+                                        <carlos:encode value="${shortcutPg2Model.rulePerc}" context="html"/>
                                     </td>
                                     <td valign="top"><b>Refer.
-                                        Doctor</b><br><carlos:encode value='<%= StringUtils.noNull(request.getParameter("referralDocName")) %>' context="html"/><br>
-                                        <b>Refer. Doctor #</b><br><carlos:encode value='<%= StringUtils.noNull(request.getParameter("referralCode")) %>' context="html"/>
+                                        Doctor</b><br><carlos:encode value="${shortcutPg2Model.referralDocName}" context="html"/><br>
+                                        <b>Refer. Doctor #</b><br><carlos:encode value="${shortcutPg2Model.referralCodeParam}" context="html"/>
                                     </td>
                                 </tr>
                             </table>
@@ -135,44 +154,43 @@
                                    bgcolor="#EEEEFF">
                                 <tr>
                                     <td nowrap width="30%"><b>Billing Physician</b></td>
-                                    <td width="20%"><carlos:encode value='<%= providerBean.getProperty(request.getParameter("xml_provider"), "") %>' context="html"/>
+                                    <td width="20%"><carlos:encode value="${shortcutPg2Model.billingProviderLabel}" context="html"/>
                                     </td>
                                     <td nowrap width="30%"><b>Assig. Physician</b></td>
-                                    <td width="20%"><carlos:encode value='<%= providerBean.getProperty(request.getParameter("assgProvider_no") == null ? "" : request.getParameter("assgProvider_no"), "") %>' context="html"/>
+                                    <td width="20%"><carlos:encode value="${shortcutPg2Model.assignedProviderLabel}" context="html"/>
                                     </td>
                                 </tr>
                                 <tr>
 
                                     <td width="30%"><b>Visit Type</b></td>
-                                    <td width="20%"><carlos:encode value='<%= request.getParameter("xml_visittype") != null && request.getParameter("xml_visittype").contains("|") ? request.getParameter("xml_visittype").substring(request.getParameter("xml_visittype").indexOf("|") + 1) : "" %>' context="html"/>
+                                    <td width="20%"><carlos:encode value="${shortcutPg2Model.visitTypeLabel}" context="html"/>
                                     </td>
 
                                     <td width="30%"><b>Billing Type</b></td>
-                                    <td width="20%"><carlos:encode value='<%= request.getParameter("xml_billtype") != null && request.getParameter("xml_billtype").contains("|") ? request.getParameter("xml_billtype").substring(request.getParameter("xml_billtype").indexOf("|") + 1) : "" %>' context="html"/>
+                                    <td width="20%"><carlos:encode value="${shortcutPg2Model.billTypeLabel}" context="html"/>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td><b>Visit Location</b></td>
-                                    <td colspan="3"><carlos:encode value='<%= request.getParameter("xml_location") != null && request.getParameter("xml_location").contains("|") ? request.getParameter("xml_location").substring(request.getParameter("xml_location").indexOf("|") + 1) : "" %>' context="html"/>
+                                    <td colspan="3"><carlos:encode value="${shortcutPg2Model.visitLocationLabel}" context="html"/>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td><b>SLI Code</b></td>
-                                    <td><%
-                                        String xmlSlicodeRaw = request.getParameter("xml_slicode");
-                                        String testSliCode = (xmlSlicodeRaw != null && xmlSlicodeRaw.contains("|")) ? xmlSlicodeRaw.substring(xmlSlicodeRaw.indexOf("|") + 1) : "";
-                                        String clinicNoTrim = io.github.carlos_emr.CarlosProperties.getInstance().getProperty("clinic_no", "").trim();
-                                        if (testSliCode.startsWith(clinicNoTrim)) {
-                                    %>
+                                    <td>
+                                        <c:choose>
+                                            <c:when test="${shortcutPg2Model.sliNotApplicable}">
                                         Not Applicable &nbsp;
-                                        <%} else {%>
-                                        <carlos:encode value='<%= testSliCode %>' context="html"/> &nbsp;
-                                        <%}%>
+                                            </c:when>
+                                            <c:otherwise>
+                                        <carlos:encode value="${shortcutPg2Model.sliCode}" context="html"/> &nbsp;
+                                            </c:otherwise>
+                                        </c:choose>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td><b>Admission Date</b></td>
-                                    <td><carlos:encode value='<%= StringUtils.noNull(request.getParameter("xml_vdate")) %>' context="html"/>
+                                    <td><carlos:encode value="${shortcutPg2Model.admissionDate}" context="html"/>
                                     </td>
                                     <td colspan="2"></td>
 
@@ -194,8 +212,9 @@
 
                     <%-- Calculation HTML is pre-rendered by the assembler. The
                          JSP previously built the same string inline as it walked
-                         the per-line and percent-code vectors. --%>
-                    <%= shortcutPg2Model.getCalculationHtml() %>
+                         the per-line and percent-code vectors. Output unescaped
+                         to preserve the legacy table markup. --%>
+                    ${shortcutPg2Model.calculationHtml}
 
                     <tr>
 
@@ -213,15 +232,14 @@
         </tr>
 
 
-        <%
-            for (java.util.Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
-                String temp = e.nextElement().toString();
-        %>
-        <input type="hidden" name="<carlos:encode value='<%= temp %>' context="htmlAttribute"/>"
-               value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter(temp)) %>' context="htmlAttribute"/>">
-        <%
-            }
-        %>
+        <%-- Hidden-input echo loop — preserves every request parameter so
+             a self-post round-trip retains form state. The assembler captures
+             these into requestParamEchoes; the c:forEach below mirrors the
+             legacy Enumeration walk over request.getParameterNames(). --%>
+        <c:forEach var="__echo" items="${shortcutPg2Model.requestParamEchoes}">
+        <input type="hidden" name="<carlos:encode value='${__echo.key}' context='htmlAttribute'/>"
+               value="<carlos:encode value='${__echo.value}' context='htmlAttribute'/>">
+        </c:forEach>
         <input type="hidden" name="hc_type" value="<carlos:encode value="${shortcutPg2Model.demoHcType}" context="htmlAttribute"/>">
         <input type="hidden" name="referralCode" value="<carlos:encode value="${shortcutPg2Model.referralDoctorOhip}" context="htmlAttribute"/>">
         <input type="hidden" name="sex" value="<carlos:encode value="${shortcutPg2Model.demoSex}" context="htmlAttribute"/>">
@@ -233,11 +251,14 @@
 <%-- Post-save navigation: action layer decides between "close popup"
      (Save button), redirect to pg1 (Save and Back / Next), or no-op
      (initial render or Back-to-Edit which is routed elsewhere). --%>
-<% if (shortcutPg2Model.getPostSaveAction() == BillingShortcutPg2ViewModel.PostSaveAction.CLOSE_WINDOW) { %>
+<c:choose>
+    <c:when test="${shortcutPg2Model.postSaveAction == 'CLOSE_WINDOW'}">
 <script language="JavaScript"> self.close();</script>
-<% } else if (shortcutPg2Model.getPostSaveAction() == BillingShortcutPg2ViewModel.PostSaveAction.REDIRECT_TO_PG1) { %>
-<script language="JavaScript">window.location = '<%= SafeEncode.forJavaScript(shortcutPg2Model.getRedirectUrl()) %>';</script>
-<% } %>
+    </c:when>
+    <c:when test="${shortcutPg2Model.postSaveAction == 'REDIRECT_TO_PG1'}">
+<script language="JavaScript">window.location = '<carlos:encode value="${shortcutPg2Model.redirectUrl}" context="javaScript"/>';</script>
+    </c:when>
+</c:choose>
 
 </body>
 </html>

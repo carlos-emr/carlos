@@ -12,6 +12,9 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.data;
 
+import java.util.Collections;
+import java.util.Map;
+
 /**
  * Immutable view model for {@code billingShortcutPg2.jsp}, the fast-track
  * billing-confirmation page that displays computed totals and persists
@@ -83,6 +86,49 @@ public final class BillingShortcutPg2ViewModel {
     private final String redirectUrl;
     private final String displaySex;
 
+    /** Pre-resolved request-param echoes — the hidden-input loop in the JSP
+     *  iterates {@code request.getParameterNames()} and emits one
+     *  {@code <input type="hidden">} per param. The assembler captures every
+     *  request parameter into this map so the JSP renders a single
+     *  {@code <c:forEach>} over a known map. */
+    private final Map<String, String> requestParamEchoes;
+    /** Pre-rendered billDate column HTML — the legacy JSP joined the
+     *  newline-split {@code billDate} param with {@code <br>}. The HTML
+     *  fragment is encoded by the assembler before joining; the JSP outputs
+     *  it untouched. */
+    private final String billDateHtml;
+    /** Resolved billing-physician label — the legacy JSP read this from a
+     *  session-scoped {@code providerBean} keyed by {@code xml_provider}. */
+    private final String billingProviderLabel;
+    /** Resolved assigned-physician label — keyed by {@code assgProvider_no}. */
+    private final String assignedProviderLabel;
+    /** Visit-type label (text after the {@code |} delimiter in
+     *  {@code xml_visittype}). Empty when no pipe present. */
+    private final String visitTypeLabel;
+    /** Billing-type label (text after the {@code |} in {@code xml_billtype}). */
+    private final String billTypeLabel;
+    /** Visit-location label (text after the {@code |} in {@code xml_location}). */
+    private final String visitLocationLabel;
+    /** SLI code (text after the {@code |} in {@code xml_slicode}). */
+    private final String sliCode;
+    /** When true, render "Not Applicable" for SLI; otherwise render
+     *  {@link #sliCode}. The legacy logic: if the resolved sliCode starts
+     *  with the configured {@code clinic_no} property, the field is N/A. */
+    private final boolean sliNotApplicable;
+    /** Admission date echo (the {@code xml_vdate} param). */
+    private final String admissionDate;
+    /** {@code demographic_name} request-param echo (rendered in the patient
+     *  header). */
+    private final String demographicName;
+    /** {@code dxCode} request-param echo. */
+    private final String dxCode;
+    /** {@code rulePerc} request-param echo. */
+    private final String rulePerc;
+    /** {@code referralDocName} request-param echo (referral-doctor display). */
+    private final String referralDocName;
+    /** {@code referralCode} request-param echo (referral-doctor #). */
+    private final String referralCodeParam;
+
     private BillingShortcutPg2ViewModel(Builder b) {
         this.demoFirst = nullToEmpty(b.demoFirst);
         this.demoLast = nullToEmpty(b.demoLast);
@@ -104,6 +150,22 @@ public final class BillingShortcutPg2ViewModel {
         this.postSaveAction = b.postSaveAction == null ? PostSaveAction.NONE : b.postSaveAction;
         this.redirectUrl = nullToEmpty(b.redirectUrl);
         this.displaySex = nullToEmpty(b.displaySex);
+        this.requestParamEchoes = b.requestParamEchoes == null
+                ? Collections.emptyMap() : Map.copyOf(b.requestParamEchoes);
+        this.billDateHtml = nullToEmpty(b.billDateHtml);
+        this.billingProviderLabel = nullToEmpty(b.billingProviderLabel);
+        this.assignedProviderLabel = nullToEmpty(b.assignedProviderLabel);
+        this.visitTypeLabel = nullToEmpty(b.visitTypeLabel);
+        this.billTypeLabel = nullToEmpty(b.billTypeLabel);
+        this.visitLocationLabel = nullToEmpty(b.visitLocationLabel);
+        this.sliCode = nullToEmpty(b.sliCode);
+        this.sliNotApplicable = b.sliNotApplicable;
+        this.admissionDate = nullToEmpty(b.admissionDate);
+        this.demographicName = nullToEmpty(b.demographicName);
+        this.dxCode = nullToEmpty(b.dxCode);
+        this.rulePerc = nullToEmpty(b.rulePerc);
+        this.referralDocName = nullToEmpty(b.referralDocName);
+        this.referralCodeParam = nullToEmpty(b.referralCodeParam);
     }
 
     private static String nullToEmpty(String s) { return s == null ? "" : s; }
@@ -130,6 +192,21 @@ public final class BillingShortcutPg2ViewModel {
     public PostSaveAction getPostSaveAction() { return postSaveAction; }
     public String getRedirectUrl() { return redirectUrl; }
     public String getDisplaySex() { return displaySex; }
+    public Map<String, String> getRequestParamEchoes() { return requestParamEchoes; }
+    public String getBillDateHtml() { return billDateHtml; }
+    public String getBillingProviderLabel() { return billingProviderLabel; }
+    public String getAssignedProviderLabel() { return assignedProviderLabel; }
+    public String getVisitTypeLabel() { return visitTypeLabel; }
+    public String getBillTypeLabel() { return billTypeLabel; }
+    public String getVisitLocationLabel() { return visitLocationLabel; }
+    public String getSliCode() { return sliCode; }
+    public boolean isSliNotApplicable() { return sliNotApplicable; }
+    public String getAdmissionDate() { return admissionDate; }
+    public String getDemographicName() { return demographicName; }
+    public String getDxCode() { return dxCode; }
+    public String getRulePerc() { return rulePerc; }
+    public String getReferralDocName() { return referralDocName; }
+    public String getReferralCodeParam() { return referralCodeParam; }
 
     public String getCombinedMsgs() { return errorMsg + warningMsg; }
 
@@ -154,6 +231,21 @@ public final class BillingShortcutPg2ViewModel {
         private PostSaveAction postSaveAction;
         private String redirectUrl;
         private String displaySex;
+        private Map<String, String> requestParamEchoes;
+        private String billDateHtml;
+        private String billingProviderLabel;
+        private String assignedProviderLabel;
+        private String visitTypeLabel;
+        private String billTypeLabel;
+        private String visitLocationLabel;
+        private String sliCode;
+        private boolean sliNotApplicable;
+        private String admissionDate;
+        private String demographicName;
+        private String dxCode;
+        private String rulePerc;
+        private String referralDocName;
+        private String referralCodeParam;
 
         public Builder demoFirst(String v) { this.demoFirst = v; return this; }
         public Builder demoLast(String v) { this.demoLast = v; return this; }
@@ -175,6 +267,21 @@ public final class BillingShortcutPg2ViewModel {
         public Builder postSaveAction(PostSaveAction v) { this.postSaveAction = v; return this; }
         public Builder redirectUrl(String v) { this.redirectUrl = v; return this; }
         public Builder displaySex(String v) { this.displaySex = v; return this; }
+        public Builder requestParamEchoes(Map<String, String> v) { this.requestParamEchoes = v == null ? null : Map.copyOf(v); return this; }
+        public Builder billDateHtml(String v) { this.billDateHtml = v; return this; }
+        public Builder billingProviderLabel(String v) { this.billingProviderLabel = v; return this; }
+        public Builder assignedProviderLabel(String v) { this.assignedProviderLabel = v; return this; }
+        public Builder visitTypeLabel(String v) { this.visitTypeLabel = v; return this; }
+        public Builder billTypeLabel(String v) { this.billTypeLabel = v; return this; }
+        public Builder visitLocationLabel(String v) { this.visitLocationLabel = v; return this; }
+        public Builder sliCode(String v) { this.sliCode = v; return this; }
+        public Builder sliNotApplicable(boolean v) { this.sliNotApplicable = v; return this; }
+        public Builder admissionDate(String v) { this.admissionDate = v; return this; }
+        public Builder demographicName(String v) { this.demographicName = v; return this; }
+        public Builder dxCode(String v) { this.dxCode = v; return this; }
+        public Builder rulePerc(String v) { this.rulePerc = v; return this; }
+        public Builder referralDocName(String v) { this.referralDocName = v; return this; }
+        public Builder referralCodeParam(String v) { this.referralCodeParam = v; return this; }
 
         public BillingShortcutPg2ViewModel build() {
             return new BillingShortcutPg2ViewModel(this);
