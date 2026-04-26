@@ -24,43 +24,58 @@
 
 --%>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@page import="java.util.Map" %>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingONMRIViewModel" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONMRIDataAssembler" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <fmt:setBundle basename="oscarResources"/>
 
+<%--
+  Defensive model-resolver: ensures ${mriModel} is set on the request even on
+  the unlikely path where this JSP is reached without going through
+  ViewBillingONMRI2Action. The action's own _billing r privilege check is
+  duplicated here for parity: without it a future bypass would silently run
+  the full DAO-touching assembler on an unauthenticated request. Mirrors the
+  pattern in billingON.jsp.
+--%>
 <%
-    // ViewBillingONMRI2Action enforces _billing r and assembles the view
-    // model with the 4 DAO lookups the JSP body used to perform inline.
-    // "MRI" = Medical Records Interchange / OHIP claim diskette, NOT
-    // magnetic resonance imaging.
-    BillingONMRIViewModel mriModel =
-            (BillingONMRIViewModel) request.getAttribute("mriModel");
-    if (mriModel == null) {
-        // Defensive fallback: any caller that forwards directly here gets a
-        // safe stub render. The canonical entrypoint is
-        // billing/CA/ON/ViewBillingONMRI.
-        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
-                "billingONMRI.jsp reached without mriModel — caller should route "
-              + "through billing/CA/ON/ViewBillingONMRI.");
-        mriModel = BillingONMRIViewModel.builder().build();
+    if (request.getAttribute("mriModel") == null) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("billingONMRI.jsp fallback: missing session");
+        }
+        io.github.carlos_emr.carlos.managers.SecurityInfoManager __secMgr;
+        try {
+            __secMgr = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+        } catch (RuntimeException __springEx) {
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
+                    "billingONMRI.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
+            throw new SecurityException("billingONMRI.jsp fallback: privilege check unavailable", __springEx);
+        }
+        if (!__secMgr.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
+            throw new SecurityException("billingONMRI.jsp fallback: missing required sec object (_billing)");
+        }
+        request.setAttribute("mriModel",
+                new BillingONMRIDataAssembler().assemble(request, loggedInInfo));
+        request.getSession().setAttribute("ohipdownload",
+                io.github.carlos_emr.CarlosProperties.getInstance().getProperty("HOME_DIR"));
     }
-    session.setAttribute("ohipdownload",
-            io.github.carlos_emr.CarlosProperties.getInstance().getProperty("HOME_DIR"));
 %>
 
 <html>
 <head>
     <title><fmt:message key="admin.admin.btnGenerateOHIPDiskette"/></title>
 
-    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
-    <script type="text/javascript" src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
+    <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.js"></script>
 
-    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
-    <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
-    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+    <link href="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
 
     <script>
 
@@ -84,7 +99,7 @@
             var su = document.forms[0].useProviderMOH.checked;
             var f = document.createElement("form");
             f.method = "post";
-            f.action = "<%= request.getContextPath() %>/billing/CA/ON/ViewOnregenreport";
+            f.action = "${pageContext.request.contextPath}/billing/CA/ON/ViewOnregenreport";
             ["diskId", "billcenter", "useProviderMOH"].forEach(function (n) {
                 var input = document.createElement("input");
                 input.type = "hidden";
@@ -97,11 +112,9 @@
         }
 
         var providerBillCenterMap = {};
-        <%
-            for (Map.Entry<String, String> __entry : mriModel.getProviderBillCenterMap().entrySet()) {
-        %>
-        providerBillCenterMap['<carlos:encode value='<%= __entry.getKey() %>' context="javaScriptBlock"/>'] = '<carlos:encode value='<%= __entry.getValue() %>' context="javaScriptBlock"/>';
-        <% } %>
+        <c:forEach var="entry" items="${mriModel.providerBillCenterMap}">
+        providerBillCenterMap['<carlos:encode value="${entry.key}" context="javaScriptBlock"/>'] = '<carlos:encode value="${entry.value}" context="javaScriptBlock"/>';
+        </c:forEach>
 
         function setBillingCenter(providerNo) {
             var bcDropdown = document.getElementById("billcenter");
@@ -150,35 +163,33 @@
         <div class="dropdown">
             <a href="#" class="dropdown-archive dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Show Archive</a>
             <ul class="dropdown-menu" role="menu" aria-labelledby="dLabel">
-                <% for (String __year : mriModel.getArchiveYears()) { %>
-                <li><a class="dropdown-item" href="<%= request.getContextPath() %>/billing/CA/ON/ViewBillingONMRI?year=<carlos:encode value='<%= __year %>' context="uriComponent"/>">YEAR <carlos:encode value='<%= __year %>' context="html"/></a></li>
-                <% } %>
+                <c:forEach var="year" items="${mriModel.archiveYears}">
+                <li><a class="dropdown-item" href="${pageContext.request.contextPath}/billing/CA/ON/ViewBillingONMRI?year=${carlos:forUriComponent(year)}">YEAR <carlos:encode value="${year}" context="html"/></a></li>
+                </c:forEach>
             </ul>
         </div>
 
 
-        <form name="form1" method="post" action="<%= request.getContextPath() %>/billing/CA/ON/ViewOngenreport" onsubmit="return checkSubmit();">
+        <form name="form1" method="post" action="${pageContext.request.contextPath}/billing/CA/ON/ViewOngenreport" onsubmit="return checkSubmit();">
 
             <div class="col-md-4">
                 Select Provider<br>
                 <select name="providers" onchange="setBillingCenter(this.value);">
-                    <% if (mriModel.getProviderOptions().size() != 1) { %>
+                    <c:if test="${fn:length(mriModel.providerOptions) != 1}">
                     <option value="all">All Providers</option>
-                    <% } %>
-                    <% for (BillingONMRIViewModel.ProviderEntry __pe : mriModel.getProviderOptions()) { %>
-                    <option value="<carlos:encode value='<%= __pe.providerNo() %>' context="htmlAttribute"/>"><carlos:encode value='<%= __pe.lastName() %>' context="html"/>, <carlos:encode value='<%= __pe.firstName() %>' context="html"/></option>
-                    <% } %>
+                    </c:if>
+                    <c:forEach var="pe" items="${mriModel.providerOptions}">
+                    <option value="<carlos:encode value='${pe.providerNo}' context='htmlAttribute'/>"><carlos:encode value="${pe.lastName}" context="html"/>, <carlos:encode value="${pe.firstName}" context="html"/></option>
+                    </c:forEach>
                 </select>
             </div>
 
             <div class="col-md-4">
                 Billing Center<br>
                 <select name="billcenter" id="billcenter">
-                    <% for (BillingONMRIViewModel.BillCenterEntry __bc : mriModel.getBillCenterOptions()) {
-                            String __sel = __bc.selected() ? "selected" : "";
-                    %>
-                    <option value="<carlos:encode value='<%= __bc.code() %>' context="htmlAttribute"/>" <%= __sel %>><carlos:encode value='<%= __bc.label() %>' context="html"/></option>
-                    <% } %>
+                    <c:forEach var="bc" items="${mriModel.billCenterOptions}">
+                    <option value="<carlos:encode value='${bc.code}' context='htmlAttribute'/>" <c:if test="${bc.selected}">selected</c:if>><carlos:encode value="${bc.label}" context="html"/></option>
+                    </c:forEach>
                 </select>
             </div>
 
@@ -209,7 +220,7 @@
 
             <div class="col-md-10">
                 <input type="checkbox" name="useProviderMOH"
-                       id="useProviderMOH" <%= mriModel.isUseProviderMOHChecked() ? "checked" : "" %>>Use
+                       id="useProviderMOH" <c:if test="${mriModel.useProviderMOHChecked}">checked</c:if>>Use
                 individual provider's bill center setting (will use above bill center if provider does not have one
                 set.)
                 <br><br>
@@ -234,40 +245,40 @@
         </thead>
 
         <tbody>
-        <% for (BillingONMRIViewModel.MriRow __row : mriModel.getMriRows()) { %>
-        <tr onMouseOver="this.style.backgroundColor='pink';" onMouseout="this.style.backgroundColor='<carlos:encode value='<%= __row.rowBgColor() %>' context="javaScriptAttribute"/>';"
-            bgcolor="<carlos:encode value='<%= __row.rowBgColor() %>' context="htmlAttribute"/>">
-            <td><font size="2"><carlos:encode value='<%= __row.providerName() %>' context="html"/></font></td>
-            <td align="center"><font size="2"><carlos:encode value='<%= __row.updateDate() %>' context="html"/></font></td>
-            <td align="center"><font size="2"><carlos:encode value='<%= __row.claimRecord() %>' context="html"/></font></td>
-            <td align="right"><font size="2"><carlos:encode value='<%= __row.total() %>' context="html"/></font></td>
+        <c:forEach var="row" items="${mriModel.mriRows}">
+        <tr onMouseOver="this.style.backgroundColor='pink';" onMouseout="this.style.backgroundColor='<carlos:encode value='${row.rowBgColor}' context='javaScriptAttribute'/>';"
+            bgcolor="<carlos:encode value='${row.rowBgColor}' context='htmlAttribute'/>">
+            <td><font size="2"><carlos:encode value="${row.providerName}" context="html"/></font></td>
+            <td align="center"><font size="2"><carlos:encode value="${row.updateDate}" context="html"/></font></td>
+            <td align="center"><font size="2"><carlos:encode value="${row.claimRecord}" context="html"/></font></td>
+            <td align="right"><font size="2"><carlos:encode value="${row.total}" context="html"/></font></td>
 
             <td width="15%"><font size="2"> <a
-                    href="<%= request.getContextPath() %>/servlet/OscarDownload?homepath=ohipdownload&filename=<carlos:encode value='<%= __row.ohipFile() %>' context="uriComponent"/>"
-                    target="_blank"><carlos:encode value='<%= __row.ohipFile() %>' context="html"/></a></font></td>
+                    href="${pageContext.request.contextPath}/servlet/OscarDownload?homepath=ohipdownload&filename=${carlos:forUriComponent(row.ohipFile)}"
+                    target="_blank"><carlos:encode value="${row.ohipFile}" context="html"/></a></font></td>
             <td width="3%"><input type="button" value="R" class="btn d-print-none"
-                                  onclick="recreate(<%= __row.diskId() %>)"/></td>
+                                  onclick="recreate(<c:out value='${row.diskId}'/>)"/></td>
             <td><font size="2"> <a
-                    href="<%= request.getContextPath() %>/servlet/OscarDownload?homepath=ohipdownload&filename=<carlos:encode value='<%= __row.htmlFile() %>' context="uriComponent"/>"
-                    target="_blank"><carlos:encode value='<%= __row.htmlFile() %>' context="html"/></a></font></td>
+                    href="${pageContext.request.contextPath}/servlet/OscarDownload?homepath=ohipdownload&filename=${carlos:forUriComponent(row.htmlFile)}"
+                    target="_blank"><carlos:encode value="${row.htmlFile}" context="html"/></a></font></td>
         </tr>
-        <% } %>
+        </c:forEach>
 
-        <% for (BillingONMRIViewModel.BillActivityRow __row : mriModel.getBillActivityRows()) { %>
-        <tr bgcolor="<carlos:encode value='<%= __row.rowBgColor() %>' context="htmlAttribute"/>">
-            <td><% if (__row.providerName() != null && !__row.providerName().isEmpty()) { %><font size="2"><carlos:encode value='<%= __row.providerName() %>' context="html"/></font><% } %></td>
-            <td align="center"><font size="2"><carlos:encode value='<%= __row.updateDate() %>' context="html"/></font></td>
-            <td align="center"><font size="2"><carlos:encode value='<%= __row.claimRecord() %>' context="html"/></td>
-            <td align="right"><font size="2"><carlos:encode value='<%= __row.formattedTotal() %>' context="html"/></font></td>
+        <c:forEach var="row" items="${mriModel.billActivityRows}">
+        <tr bgcolor="<carlos:encode value='${row.rowBgColor}' context='htmlAttribute'/>">
+            <td><c:if test="${not empty row.providerName}"><font size="2"><carlos:encode value="${row.providerName}" context="html"/></font></c:if></td>
+            <td align="center"><font size="2"><carlos:encode value="${row.updateDate}" context="html"/></font></td>
+            <td align="center"><font size="2"><carlos:encode value="${row.claimRecord}" context="html"/></td>
+            <td align="right"><font size="2"><carlos:encode value="${row.formattedTotal}" context="html"/></font></td>
 
             <td colspan=2><font size="2"> <a
-                    href="<%= request.getContextPath() %>/servlet/OscarDownload?homepath=ohipdownload&filename=<carlos:encode value='<%= __row.ohipFile() %>' context="uriComponent"/>"
-                    target="_blank"><carlos:encode value='<%= __row.ohipFile() %>' context="html"/></a></font></td>
+                    href="${pageContext.request.contextPath}/servlet/OscarDownload?homepath=ohipdownload&filename=${carlos:forUriComponent(row.ohipFile)}"
+                    target="_blank"><carlos:encode value="${row.ohipFile}" context="html"/></a></font></td>
             <td><font size="2"> <a
-                    href="<%= request.getContextPath() %>/servlet/OscarDownload?homepath=ohipdownload&filename=<carlos:encode value='<%= __row.htmlFile() %>' context="uriComponent"/>"
-                    target="_blank"><carlos:encode value='<%= __row.htmlFile() %>' context="html"/></a></font></td>
+                    href="${pageContext.request.contextPath}/servlet/OscarDownload?homepath=ohipdownload&filename=${carlos:forUriComponent(row.htmlFile)}"
+                    target="_blank"><carlos:encode value="${row.htmlFile}" context="html"/></a></font></td>
         </tr>
-        <% } %>
+        </c:forEach>
         </tbody>
     </table>
 </div><!--container-->

@@ -14,6 +14,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONMRIViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -66,6 +67,13 @@ public final class ViewBillingONMRI2Action extends ActionSupport {
 
         BillingONMRIViewModel model = new BillingONMRIDataAssembler().assemble(request, loggedInInfo);
         request.setAttribute("mriModel", model);
+
+        // Replicates the legacy session-attribute the JSP scriptlet set so the
+        // download servlet (OscarDownload) can resolve homepath=ohipdownload to
+        // the OHIP file directory. Now lives in the action so the JSP body
+        // remains scriptlet-free.
+        request.getSession().setAttribute("ohipdownload",
+                CarlosProperties.getInstance().getProperty("HOME_DIR"));
 
         return SUCCESS;
     }
