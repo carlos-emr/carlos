@@ -24,25 +24,41 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingON3rdInvViewModel" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingON3rdInvDataAssembler" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <fmt:setBundle basename="oscarResources"/>
 
+<%--
+  Defensive model-resolver: ensures ${invoiceModel} is set on the request even
+  on the unlikely path where this JSP is reached without going through
+  ViewBillingON3rdInv2Action. The action's own _billing r privilege check is
+  duplicated here for parity: without it a future bypass would silently run
+  the full PHI-touching assembler on an unauthenticated request.
+--%>
 <%
-    // ViewBillingON3rdInv2Action enforces _billing r and assembles the view
-    // model with the 9 DAO lookups the JSP body used to perform.
-    BillingON3rdInvViewModel invoiceModel =
-            (BillingON3rdInvViewModel) request.getAttribute("invoiceModel");
-    if (invoiceModel == null) {
-        // Defensive fallback: any caller that forwards directly here gets a
-        // safe stub render. Mirrors the pattern used by billingON.jsp /
-        // billingONCorrection.jsp.
-        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
-                "billingON3rdInv.jsp reached without invoiceModel — caller should "
-              + "route through billing/CA/ON/ViewBillingON3rdInv.");
-        invoiceModel = BillingON3rdInvViewModel.builder().build();
+    if (request.getAttribute("invoiceModel") == null) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("billingON3rdInv.jsp fallback: missing session");
+        }
+        io.github.carlos_emr.carlos.managers.SecurityInfoManager __secMgr;
+        try {
+            __secMgr = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+        } catch (RuntimeException __springEx) {
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
+                    "billingON3rdInv.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
+            throw new SecurityException("billingON3rdInv.jsp fallback: privilege check unavailable", __springEx);
+        }
+        if (!__secMgr.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
+            throw new SecurityException("billingON3rdInv.jsp fallback: missing required sec object (_billing)");
+        }
+        request.setAttribute("invoiceModel",
+                new BillingON3rdInvDataAssembler().assemble(request));
     }
 %>
 
@@ -62,12 +78,12 @@
             padding-left: .5em;
         }
     </style>
-    <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
-    <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
     <script>
         jQuery.noConflict();
     </script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
     <script type="text/javascript">
         function submitForm(methodName) {
             // The sendEmail() method in BillingInvoice2Action.java is not supported.
@@ -81,7 +97,7 @@
     <oscar:customInterface section="invoice"/>
 </head>
 <body>
-<form action="<%=request.getContextPath()%>/BillingInvoice" method="post">
+<form action="${pageContext.request.contextPath}/BillingInvoice" method="post">
     <input type="hidden" name="method" value=""/>
     <input type="hidden" name="invoiceNo" id="invoiceNo" value="<carlos:encode value="${invoiceModel.invoiceNoStr}" context="htmlAttribute"/>"/>
     <div class="doNotPrint">
@@ -95,33 +111,40 @@
 <table width="100%" border="0">
     <tr>
         <td>
-            <% if (invoiceModel.isMultisiteEnabled()) {
-                if (invoiceModel.isSiteLogoAvailable()) { %>
-            <img src="<%=request.getContextPath() %>/documentManager/ManageDocument?method=display&doc_no=<carlos:encode value="${invoiceModel.siteLogoId}" context="uriComponent"/>"/>
-            <% } else { %>
+            <c:choose>
+                <c:when test="${invoiceModel.multisiteEnabled}">
+                    <c:choose>
+                        <c:when test="${invoiceModel.siteLogoAvailable}">
+            <img src="${pageContext.request.contextPath}/documentManager/ManageDocument?method=display&doc_no=<carlos:encode value="${invoiceModel.siteLogoId}" context="uriComponent"/>"/>
+                        </c:when>
+                        <c:otherwise>
             <b><carlos:encode value="${invoiceModel.siteName}" context="html"/></b><br/>
             <carlos:encode value="${invoiceModel.siteAddress}" context="html"/><br/>
             <carlos:encode value="${invoiceModel.siteCity}" context="html"/>, <carlos:encode value="${invoiceModel.siteProvince}" context="html"/><br/>
             <carlos:encode value="${invoiceModel.sitePostal}" context="html"/><br/>
             Tel.: <carlos:encode value="${invoiceModel.sitePhone}" context="html"/><br/>
-            <% } %>
-            <% } else if (invoiceModel.isClinicLogoImgExists()) { %>
-            <img src="<%=request.getContextPath() %>/billing/ca/on/DisplayInvoiceLogo"/>
-            <% } else { %>
+                        </c:otherwise>
+                    </c:choose>
+                </c:when>
+                <c:when test="${invoiceModel.clinicLogoImgExists}">
+            <img src="${pageContext.request.contextPath}/billing/ca/on/DisplayInvoiceLogo"/>
+                </c:when>
+                <c:otherwise>
             <b><carlos:encode value="${invoiceModel.clinicName}" context="html"/></b><br/>
             <carlos:encode value="${invoiceModel.clinicAddress}" context="html"/><br/>
             <carlos:encode value="${invoiceModel.clinicCity}" context="html"/>, <carlos:encode value="${invoiceModel.clinicProvince}" context="html"/><br/>
             <carlos:encode value="${invoiceModel.clinicPostal}" context="html"/><br/>
             Tel.: <carlos:encode value="${invoiceModel.clinicPhone}" context="html"/><br/>
-            <% } %>
+                </c:otherwise>
+            </c:choose>
         </td>
         <td align="right" valign="top"><font size="+2"><b>Invoice
             - <carlos:encode value="${invoiceModel.invoiceNoStr}" context="html"/>
         </b></font><br/>
             Print Date:<carlos:encode value="${invoiceModel.printDate}" context="html"/><br/>
-            <% if (invoiceModel.isDueDateEnabled()) { %>
+            <c:if test="${invoiceModel.dueDateEnabled}">
             <b><fmt:message key="oscar.billing.CA.ON.3rdpartyinvoice.dueDate"/>:</b><carlos:encode value="${invoiceModel.dueDateStr}" context="html"/>
-            <% } %>
+            </c:if>
         </td>
     </tr>
 </table>
@@ -141,17 +164,17 @@
 <oscar:customInterface section="billingInvoice"/>
 <table width="100%" border="0">
     <tr>
-        <td id="ptName">Patient: <% if (invoiceModel.isInvoiceLoaded()) { %><carlos:encode value="${invoiceModel.patientName}" context="html"/><% } else { %>N/A<% } %>
+        <td id="ptName">Patient: <c:choose><c:when test="${invoiceModel.invoiceLoaded}"><carlos:encode value="${invoiceModel.patientName}" context="html"/></c:when><c:otherwise>N/A</c:otherwise></c:choose>
         </td>
-        <td id="ptDemoNo"> (<% if (invoiceModel.isInvoiceLoaded()) { %><carlos:encode value="${invoiceModel.patientDemoNo}" context="html"/><% } else { %>N/A<% } %>)</td>
-        <td id="ptGender"><% if (invoiceModel.isInvoiceLoaded()) { %><carlos:encode value="${invoiceModel.patientGender}" context="html"/><% } else { %>N/A<% } %>
+        <td id="ptDemoNo"> (<c:choose><c:when test="${invoiceModel.invoiceLoaded}"><carlos:encode value="${invoiceModel.patientDemoNo}" context="html"/></c:when><c:otherwise>N/A</c:otherwise></c:choose>)</td>
+        <td id="ptGender"><c:choose><c:when test="${invoiceModel.invoiceLoaded}"><carlos:encode value="${invoiceModel.patientGender}" context="html"/></c:when><c:otherwise>N/A</c:otherwise></c:choose>
         </td>
-        <td id="ptDOB"> DOB: <% if (invoiceModel.isInvoiceLoaded()) { %><carlos:encode value="${invoiceModel.patientDob}" context="html"/><% } else { %>N/A<% } %>
+        <td id="ptDOB"> DOB: <c:choose><c:when test="${invoiceModel.invoiceLoaded}"><carlos:encode value="${invoiceModel.patientDob}" context="html"/></c:when><c:otherwise>N/A</c:otherwise></c:choose>
         </td>
     </tr>
     <tr>
         <td id="ptHin">
-            Insurance No: <% if (invoiceModel.isInvoiceLoaded() && !invoiceModel.getPatientHin().isEmpty()) { %><carlos:encode value="${invoiceModel.patientHin}" context="html"/><% } else { %>N/A<% } %>
+            Insurance No: <c:choose><c:when test="${invoiceModel.invoiceLoaded and not empty invoiceModel.patientHin}"><carlos:encode value="${invoiceModel.patientHin}" context="html"/></c:when><c:otherwise>N/A</c:otherwise></c:choose>
         </td>
     </tr>
 </table>
@@ -195,22 +218,22 @@
         <th>Dx</th>
         <th>Amount</th>
     </tr>
-    <% for (BillingON3rdInvViewModel.InvoiceItem __ii : invoiceModel.getInvoiceItems()) { %>
+    <c:forEach var="__ii" items="${invoiceModel.invoiceItems}">
     <tr align="center">
-        <td><carlos:encode value='<%= __ii.itemId() %>' context="html"/>
+        <td><carlos:encode value="${__ii.itemId}" context="html"/>
         </td>
-        <td><carlos:encode value='<%= __ii.description() %>' context="html"/>
+        <td><carlos:encode value="${__ii.description}" context="html"/>
         </td>
-        <td><carlos:encode value='<%= __ii.serviceCode() %>' context="html"/>
+        <td><carlos:encode value="${__ii.serviceCode}" context="html"/>
         </td>
-        <td><carlos:encode value='<%= __ii.quantity() %>' context="html"/>
+        <td><carlos:encode value="${__ii.quantity}" context="html"/>
         </td>
-        <td><carlos:encode value='<%= __ii.dx() %>' context="html"/>
+        <td><carlos:encode value="${__ii.dx}" context="html"/>
         </td>
-        <td align="right"><carlos:encode value='<%= __ii.fee() %>' context="html"/>
+        <td align="right"><carlos:encode value="${__ii.fee}" context="html"/>
         </td>
     </tr>
-    <% } %>
+    </c:forEach>
 </table>
 
 <hr/>
