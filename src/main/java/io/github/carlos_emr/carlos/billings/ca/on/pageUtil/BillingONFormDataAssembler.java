@@ -565,6 +565,13 @@ public final class BillingONFormDataAssembler {
         b.serviceDateDefault(reqServiceDate != null && !reqServiceDate.isEmpty()
                 ? reqServiceDate : today);
 
+        // ---- config props + URL-encoded demographic name for the
+        // onChangePrivate JS click handler ----
+        b.primaryCareIncentive(nullToEmpty(oscarVars.getProperty("primary_care_incentive", "")).trim())
+                .defaultView(nullToEmpty(oscarVars.getProperty("default_view", "")).trim())
+                .demoNameUrlEncoded(java.net.URLEncoder.encode(
+                        nullToEmpty(demoName), java.nio.charset.StandardCharsets.UTF_8));
+
         // ---- multisite xml_provider default (request param > assembler default) ----
         String reqXmlProvider = request.getParameter("xml_provider");
         // The assembler-supplied default lives on the in-flight builder via the
@@ -598,7 +605,8 @@ public final class BillingONFormDataAssembler {
         java.util.Map<String, String> echoes = new java.util.HashMap<>();
         for (String name : new String[]{
                 "appointment_date", "start_time", "asstProvider_no", "apptProvider_no",
-                "billNo_old", "billStatus_old", "dxCode1", "dxCode2"}) {
+                "billNo_old", "billStatus_old", "dxCode1", "dxCode2", "demographic_no",
+                "appointment_no", "status", "services_checked"}) {
             String v = request.getParameter(name);
             if (v != null) echoes.put(name, v);
         }

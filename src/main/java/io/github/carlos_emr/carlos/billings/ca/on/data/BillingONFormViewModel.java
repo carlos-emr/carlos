@@ -244,6 +244,14 @@ public final class BillingONFormViewModel {
     /** Pre-rendered "msg" string (msg seed + errorMsg + warningMsg + DOB-invalid
      *  warning) the legacy JSP built inline at lines 273-280. */
     private final String displayMessage;
+    /** {@code primary_care_incentive} property value (trimmed). Used by the
+     *  {@code onChangePrivate} JS to route to the configured PRI form. */
+    private final String primaryCareIncentive;
+    /** {@code default_view} property value (trimmed). Used by the same JS to
+     *  route back to the default form when leaving the PRI variant. */
+    private final String defaultView;
+    /** URL-encoded demographic name for href interpolation in click handlers. */
+    private final String demoNameUrlEncoded;
     /** Pre-resolved value for the multisite xml_provider input on first render
      *  ({@code request.getParameter("xml_provider") || defaultXmlProvider}). */
     private final String selectedXmlProvider;
@@ -358,6 +366,9 @@ public final class BillingONFormViewModel {
         this.dxCodeDefault = nullToEmpty(b.dxCodeDefault);
         this.serviceDateDefault = nullToEmpty(b.serviceDateDefault);
         this.displayMessage = nullToEmpty(b.displayMessage);
+        this.primaryCareIncentive = nullToEmpty(b.primaryCareIncentive);
+        this.defaultView = nullToEmpty(b.defaultView);
+        this.demoNameUrlEncoded = nullToEmpty(b.demoNameUrlEncoded);
         this.selectedXmlProvider = nullToEmpty(b.selectedXmlProvider);
         this.multisiteProviderHtml = b.multisiteProviderHtml == null
                 ? Collections.emptyMap() : Map.copyOf(b.multisiteProviderHtml);
@@ -474,6 +485,9 @@ public final class BillingONFormViewModel {
     public String getDxCodeDefault() { return dxCodeDefault; }
     public String getServiceDateDefault() { return serviceDateDefault; }
     public String getDisplayMessage() { return displayMessage; }
+    public String getPrimaryCareIncentive() { return primaryCareIncentive; }
+    public String getDefaultView() { return defaultView; }
+    public String getDemoNameUrlEncoded() { return demoNameUrlEncoded; }
     public String getSelectedXmlProvider() { return selectedXmlProvider; }
     public Map<String, String> getMultisiteProviderHtml() { return multisiteProviderHtml; }
     public Map<String, String> getRequestParamEchoes() { return requestParamEchoes; }
@@ -554,6 +568,9 @@ public final class BillingONFormViewModel {
         private String dxCodeDefault;
         private String serviceDateDefault;
         private String displayMessage;
+        private String primaryCareIncentive;
+        private String defaultView;
+        private String demoNameUrlEncoded;
         private String selectedXmlProvider;
         private Map<String, String> multisiteProviderHtml;
         private Map<String, String> requestParamEchoes;
@@ -657,6 +674,9 @@ public final class BillingONFormViewModel {
         public Builder dxCodeDefault(String v) { this.dxCodeDefault = v; return this; }
         public Builder serviceDateDefault(String v) { this.serviceDateDefault = v; return this; }
         public Builder displayMessage(String v) { this.displayMessage = v; return this; }
+        public Builder primaryCareIncentive(String v) { this.primaryCareIncentive = v; return this; }
+        public Builder defaultView(String v) { this.defaultView = v; return this; }
+        public Builder demoNameUrlEncoded(String v) { this.demoNameUrlEncoded = v; return this; }
         public Builder selectedXmlProvider(String v) { this.selectedXmlProvider = v; return this; }
         public Builder multisiteProviderHtml(Map<String, String> v) { this.multisiteProviderHtml = v == null ? null : Map.copyOf(v); return this; }
         public Builder requestParamEchoes(Map<String, String> v) { this.requestParamEchoes = v == null ? null : Map.copyOf(v); return this; }

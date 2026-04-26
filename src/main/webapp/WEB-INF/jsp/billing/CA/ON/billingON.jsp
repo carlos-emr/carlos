@@ -77,28 +77,17 @@
 <%@page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.filters.CodeFilterManager" %>
 
-<jsp:useBean id="providerBean" class="java.util.Properties"
-             scope="session"/>
+<%--
+  Defensive model-resolver: ensures ${formModel} is set on the request even on
+  the unlikely path where this JSP is reached without going through
+  ViewBillingON2Action (e.g., a stray <jsp:forward> from an unguarded entry).
+  The action's own _billing r privilege check is duplicated here for parity:
+  without it a future bypass would silently run the full PHI-touching
+  assembler on an unauthenticated request.
+--%>
 <%
-    // View-model shim: all data from lines 82-260 of the original scriptlet now
-    // comes from BillingONFormDataAssembler via ViewBillingON2Action. Local
-    // variables are preserved so the rest of this scriptlet (provider loop,
-    // billing-form selection, service-code map) keeps working unchanged until
-    // those sections migrate in follow-up commits.
-    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-    BillingONFormViewModel model = (BillingONFormViewModel) request.getAttribute("formModel");
-    if (model == null) {
-        // Defensive fallback for any legacy entry path that forwarded at this
-        // JSP without chaining through ViewBillingON2Action. The fallback
-        // path runs the full assembler (Demographic + Dxresearch + billing
-        // history + dx codes — all PHI), so re-check the same `_billing r`
-        // privilege the action enforces. Without this guard, a future
-        // <jsp:forward> from an unguarded JSP would silently expose PHI
-        // assembly. Accepts a tiny double-cost on the legitimate path
-        // (action already ran the same check) for correctness on the
-        // shim path. Wrap the bean lookup so a Spring context-reload
-        // failure surfaces as a typed SecurityException rather than a
-        // raw BeansException through the errorPage directive.
+    if (request.getAttribute("formModel") == null) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
             throw new SecurityException("billingON.jsp fallback: missing session");
         }
@@ -113,171 +102,9 @@
         if (!__secMgr.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("billingON.jsp fallback: missing required sec object (_billing)");
         }
-        model = new BillingONFormDataAssembler().assemble(loggedInInfo, request);
-        // Stash the assembled model back on the request so the 36 ${formModel.X}
-        // EL sites further down resolve. Without this, EL renders blank fields
-        // on the unguarded fallback path even though the local Java variable
-        // is populated.
-        request.setAttribute("formModel", model);
+        request.setAttribute("formModel",
+                new BillingONFormDataAssembler().assemble(loggedInInfo, request));
     }
-
-    CarlosProperties oscarVariables = CarlosProperties.getInstance();
-
-    String user_no = model.getUserNo();
-    String providerview = model.getProviderView();
-    String asstProvider_no = "", color = "", premiumFlag = "", service_form = "";
-    String strToday = model.getToday();
-    boolean bSingleClick = model.isSingleClickEnabled();
-    boolean bHospitalBilling = model.isHospitalBilling();
-    String clinicview = model.getClinicView();
-    String clinicNo = model.getClinicNo();
-    String visitType = model.getVisitType();
-
-    String appt_no = model.getAppointmentNo();
-    String billReferenceDate = model.getBillReferenceDate();
-    String demoname = model.getDemoName();
-    String demo_no = model.getDemographicNo();
-    String apptProvider_no = model.getApptProviderNo();
-    String assgProvider_no = model.getAssgProviderNo();
-    String demoSex = model.getDemoSex();
-    String m_review = model.getMReview();
-    String ctlBillForm = model.getCtlBillForm();
-    String curBillForm = model.getCurBillForm();
-    String provider_no = model.getProviderNo();
-
-    // (Removed redundant DemographicManager.getDemographic() call here — the
-    // assembler already loaded it once and surfaced everything the JSP needs
-    // via the model. Saving one DB roundtrip per render.)
-
-    List<String> patientDx = model.getPatientDx();
-    String codeToAddPatientDx = model.getPatientDxAddCode();
-    String codeToMatchPatientDx = model.getPatientDxMatchCode();
-    StringBuilder billingRecomendations = new StringBuilder(model.getBillingRecommendations());
-
-    ProviderPreference preference = ProviderPreferencesUIBean.getProviderPreferenceByProviderNo(provider_no);
-
-    GregorianCalendar now = new GregorianCalendar();
-    int curYear = now.get(Calendar.YEAR);
-    int curMonth = (now.get(Calendar.MONTH) + 1);
-    int curDay = now.get(Calendar.DAY_OF_MONTH);
-    // Age is derived in the assembler (model.getAge()); the dob_year/dob_month/
-    // dob_date locals were never read after declaration. The eager parseInt
-    // calls also threw NumberFormatException on a malformed DOB before the
-    // invalid-DOB warning at lines below could render — defeating the very
-    // feature they surrounded.
-    int age = model.getAge();
-
-    String msg = "The default unit and @ value is 1.";
-    String action = "edit";
-    Properties propHist = null;
-    Vector vecHist = new Vector();
-
-    String errorFlag = model.getErrorFlag();
-    String warningMsg = model.getWarningMsg();
-    String errorMsg = model.getErrorMsg();
-    String r_doctor = model.getReferralDoctor();
-    String r_doctor_ohip = model.getReferralDoctorOhip();
-    String demoFirst = model.getDemoFirst();
-    String demoLast = model.getDemoLast();
-    String demoHIN = model.getDemoHin();
-    String demoVer = model.getDemoVer();
-    String demoDOB = model.getDemoDob();
-    String demoDOBYY = model.getDemoDobYear();
-    String demoDOBMM = model.getDemoDobMonth();
-    String demoDOBDD = model.getDemoDobDay();
-    String demoHCTYPE = model.getDemoHcType();
-    String family_doctor = model.getFamilyDoctor();
-    String roster_status = model.getRosterStatus();
-    String referSpet = model.getReferralSpecialty();
-
-
-    // Downstream scriptlets still use JdbcBillingPageUtil / JdbcBillingReviewImpl directly
-    // (favourite list, facility numbers, full history table). Keep them here as locals until
-    // those sections migrate to the view model.
-    JdbcBillingPageUtil tdbObj = new JdbcBillingPageUtil();
-    JdbcBillingReviewImpl hdbObj = new JdbcBillingReviewImpl();
-    List aL = hdbObj.getBillingHist(demo_no, 5, 0, null);
-
-    // Build vecHist / vecHistD for default visit-type / dx-code lookups below.
-    boolean bFirst = true;
-    Vector vecHistD = new Vector();
-    for (BillingONFormViewModel.BillingHistoryEntry entry : model.getBillingHistory()) {
-        propHist = new Properties();
-        propHist.setProperty("visitdate", entry.visitDate());
-        propHist.setProperty("visitType", entry.visitType());
-        propHist.setProperty("clinic_ref_code", entry.clinicRefCode());
-        propHist.setProperty("diagnostic_code", entry.diagnosticCode());
-        vecHist.add(propHist);
-        vecHistD.add(propHist);
-    }
-
-    // All provider-list + default-code + billing-form selection + location / visit-date
-    // resolution lives in BillingONFormDataAssembler now. Re-export the scriptlet
-    // variable names used by downstream scriptlets until those sections migrate too.
-    Vector vecProvider = new Vector();
-    Properties propT = null;
-    for (BillingONFormViewModel.ProviderOption po : model.getProviders()) {
-        propT = new Properties();
-        propT.setProperty("last_name", po.lastName());
-        propT.setProperty("first_name", po.firstName());
-        propT.setProperty("proOHIP", po.proOhip());
-        vecProvider.add(propT);
-    }
-
-    String paraName;
-    String dxCode = model.getDxCode();
-    String xml_visittype = model.getXmlVisitType();
-    visitType = model.getVisitType();
-    ctlBillForm = model.getCtlBillForm();
-    String defaultServiceType = model.getDefaultServiceType();
-    String xml_location = model.getXmlLocation();
-    clinicview = model.getClinicView();
-    String xml_vdate = model.getVisitDate();
-    String visitdate = xml_vdate.isEmpty() ? "" : xml_vdate;
-
-    // Service-code grid + premium flags + bill type all come from the assembler.
-    // Rebuild the scriptlet-era Properties-based structures from the DTO so downstream
-    // rendering scriptlets keep working until they migrate to EL.
-    HashMap<String, ArrayList<Properties>> billingServiceCodesMap = new HashMap<String, ArrayList<Properties>>();
-    for (java.util.Map.Entry<String, java.util.List<BillingONFormViewModel.ServiceCodeEntry>> e : model.getBillingServiceCodesMap().entrySet()) {
-        ArrayList<Properties> list = new ArrayList<Properties>();
-        for (BillingONFormViewModel.ServiceCodeEntry entry : e.getValue()) {
-            Properties p = new Properties();
-            p.setProperty("serviceCode", entry.serviceCode());
-            p.setProperty("serviceDesc", entry.serviceDesc());
-            p.setProperty("serviceDisp", entry.serviceDisp());
-            p.setProperty("servicePercentage", entry.servicePercentage());
-            p.setProperty("serviceType", entry.serviceType());
-            p.setProperty("serviceTypeName", entry.serviceTypeName());
-            p.setProperty("displaystyle", entry.displayStyle());
-            p.setProperty("serviceSLI", String.valueOf(entry.sliFlag()));
-            list.add(p);
-        }
-        billingServiceCodesMap.put(e.getKey(), list);
-    }
-    ArrayList<String> listServiceType = new ArrayList<String>(model.getListServiceType());
-    HashMap<String, String> titleMap = new HashMap<String, String>(model.getTitleMap());
-    Properties propPremium = new Properties();
-    for (String pc : model.getPremiumCodes()) {
-        propPremium.setProperty(pc, "A");
-    }
-    String defaultBillFormName = model.getDefaultBillFormName() == null ? "" : model.getDefaultBillFormName();
-    String defaultBillType = model.getDefaultBillType();
-
-    // Loop-local variables used by the downstream rendering scriptlets - declared here to preserve the scriptlet's global scope.
-    String serviceCode, serviceDesc, serviceValue, servicePercentage, serviceType, displayStyle, serviceDisp = "";
-    String headerTitle1 = "", headerTitle2 = "", headerTitle3 = "";
-    String styleId;
-    boolean sliFlag = false;
-
-    // Append error / warning messages to msg for downstream alert rendering.
-    // Surface a malformed-DOB warning so the operator knows the visit-type
-    // defaults / age-keyed premium codes were computed off bad input.
-    if (model.isDemoDobInvalid()) {
-        warningMsg += "<br><b><font color='orange'>Warning: the patient's stored DOB is malformed; "
-                + "age-keyed premium codes and visit-type defaults are unreliable.</font></b><br>";
-    }
-    msg += errorMsg + warningMsg;
 %>
 
 
@@ -427,9 +254,9 @@
             var codeMatch = codeToMatch[dxCode];
             if (codeToAdd.indexOf(dxCode) >= 0 || codeMatch != null) {
                 var dxCodeMatch = codeMatch == null ? dxCode : codeMatch;
-                <%for (String pcode : patientDx) {%>
-                if (dxCodeMatch === "<carlos:encode value='<%= pcode %>' context="javaScriptBlock"/>") dxCode = -1;
-                <%}%>
+                <c:forEach var="__pc" items="${formModel.patientDx}">
+                if (dxCodeMatch === "<carlos:encode value='${__pc}' context='javaScript'/>") dxCode = -1;
+                </c:forEach>
                 if (dxCode != -1 && codeMatch != null) {
                     document.titlesearch.codeMatchToPatientDx.value = codeMatch;
                 }
@@ -491,12 +318,12 @@
                 alert("Please select a providers.");
                 b = false;
             }
-                <% if (!CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
+                <c:if test="${not formModel.rmaEnabled}">
             else if (document.forms[0].xml_visittype.options[2].selected && (document.forms[0].xml_vdate.value == "" || document.forms[0].xml_vdate.value == "0000-00-00")) {
                 alert("Need an admission date.");
                 b = false;
             }
-                <% } %>
+                </c:if>
             else if (document.forms[0].xml_vdate.value.length > 0) {
                 b = checkServiceDate(document.forms[0].xml_vdate.value);
             } else if (document.forms[0].service_date.value.length > 0) {
@@ -549,9 +376,9 @@
             b = false;
 
             if (document.forms[0].serviceCode0.value != "") b = true;
-                <% for (int i = 1; i < BillingDataHlp.FIELD_SERVICE_NUM; i++) { %>
-            else if (document.forms[0].serviceCode<%=i%>.value != "") b = true;
-            <% } %>
+                <c:forEach var="i" begin="1" end="11">
+            else if (document.forms[0]['serviceCode' + ${i}].value != "") b = true;
+            </c:forEach>
 
             return b;
         }
@@ -641,22 +468,22 @@
             if (document.forms[0].serviceCode0.value == "") {
                 document.forms[0].serviceCode0.value = item.id.substring(3);
             }
-                <% for(int i=1; i<BillingDataHlp.FIELD_SERVICE_NUM; ++i) { %>
-            else if (document.forms[0].serviceCode<%=i%>.value == "") {
-                document.forms[0].serviceCode<%=i%>.value = item.id.substring(3);
+                <c:forEach var="i" begin="1" end="11">
+            else if (document.forms[0]['serviceCode' + ${i}].value == "") {
+                document.forms[0]['serviceCode' + ${i}].value = item.id.substring(3);
             }
-            <% } %>
+            </c:forEach>
         }
 
         function onClickServiceCode(item) {
             if (document.forms[0].serviceCode0.value == "") {
                 document.forms[0].serviceCode0.value = item.id.substring(4);
             }
-                <% for(int i=1; i<BillingDataHlp.FIELD_SERVICE_NUM; ++i) { %>
-            else if (document.forms[0].serviceCode<%=i%>.value == "") {
-                document.forms[0].serviceCode<%=i%>.value = item.id.substring(4);
+                <c:forEach var="i" begin="1" end="11">
+            else if (document.forms[0]['serviceCode' + ${i}].value == "") {
+                document.forms[0]['serviceCode' + ${i}].value = item.id.substring(4);
             }
-            <% } %>
+            </c:forEach>
         }
 
         function changeCut(dropdown) {
@@ -668,7 +495,7 @@
             document.forms[0].dxCode1.value = "";
             document.forms[0].dxCode2.value = "";
             var n = 0;
-            for (var i = 0; i <<%=BillingDataHlp.FIELD_SERVICE_NUM %>; ++i) {
+            for (var i = 0; i < 12; ++i) {
                 ocode = eval("document.forms[0].serviceCode" + i);
                 ounit = eval("document.forms[0].serviceUnit" + i);
                 operc = eval("document.forms[0].serviceAt" + i);
@@ -692,9 +519,9 @@
                 }
             }
             if (document.forms[0].dxCode.value == "" && document.forms[0].dxCode1.value == "" && document.forms[0].dxCode2.value == "") {
-                document.forms[0].dxCode.value = '<carlos:encode value='<%= request.getParameter("dxCode")!=null?request.getParameter("dxCode"):dxCode %>' context="javaScriptBlock"/>';
-                document.forms[0].dxCode1.value = '<carlos:encode value='<%= request.getParameter("dxCode1")!=null?request.getParameter("dxCode1"):"" %>' context="javaScriptBlock"/>';
-                document.forms[0].dxCode2.value = '<carlos:encode value='<%= request.getParameter("dxCode2")!=null?request.getParameter("dxCode2"):"" %>' context="javaScriptBlock"/>';
+                document.forms[0].dxCode.value = '<carlos:encode value='${formModel.dxCodeDefault}' context='javaScript'/>';
+                document.forms[0].dxCode1.value = '<carlos:encode value='${formModel.requestParamEchoes["dxCode1"]}' context='javaScript'/>';
+                document.forms[0].dxCode2.value = '<carlos:encode value='${formModel.requestParamEchoes["dxCode2"]}' context='javaScript'/>';
             }
         }
 
@@ -721,41 +548,26 @@
         function onChangePrivate() {
             var n = document.forms[0].xml_billtype.selectedIndex;
             var val = document.forms[0].xml_billtype[n].value;
-            <c:set var="__enc_1"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_no")) %>' context="uriComponent"/></c:set>
-            <c:set var="__enc_2"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")) %>' context="uriComponent"/></c:set>
-            <c:set var="__enc_3"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' context="uriComponent"/></c:set>
-            <c:set var="__enc_4"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' context="uriComponent"/></c:set>
-            <c:set var="__enc_5"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")) %>' context="uriComponent"/></c:set>
-            <c:set var="__enc_6"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status")) %>' context="uriComponent"/></c:set>
-            <c:set var="__enc_7"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")) %>' context="uriComponent"/></c:set>
+            <%-- Pre-encoded URL components precomputed in the assembler.
+                 demoNameUrlEncoded uses URLEncoder.encode(...UTF-8); the others
+                 round-trip via <carlos:encode context="uriComponent">. --%>
+            <c:set var="__apptNoUri"><carlos:encode value='${formModel.requestParamEchoes["appointment_no"]}' context='uriComponent'/></c:set>
+            <c:set var="__demoNoUri"><carlos:encode value='${formModel.requestParamEchoes["demographic_no"]}' context='uriComponent'/></c:set>
+            <c:set var="__apptProvUri"><carlos:encode value='${formModel.requestParamEchoes["apptProvider_no"]}' context='uriComponent'/></c:set>
+            <c:set var="__apptDateUri"><carlos:encode value='${formModel.requestParamEchoes["appointment_date"]}' context='uriComponent'/></c:set>
+            <c:set var="__statusUri"><carlos:encode value='${formModel.requestParamEchoes["status"]}' context='uriComponent'/></c:set>
+            <c:set var="__startTimeUri"><carlos:encode value='${formModel.requestParamEchoes["start_time"]}' context='uriComponent'/></c:set>
+            <c:set var="__demoNameJs">&demographic_name=<carlos:encode value='${formModel.demoNameUrlEncoded}' context='javaScript'/></c:set>
+            <c:set var="__commonQs">&appointment_no=<carlos:encode value='${__apptNoUri}' context='javaScript'/>${__demoNameJs}&demographic_no=<carlos:encode value='${__demoNoUri}' context='javaScript'/></c:set>
+            <c:set var="__commonTail">&apptProvider_no=<carlos:encode value='${__apptProvUri}' context='javaScript'/>&providerview=<carlos:encode value='${__apptProvUri}' context='javaScript'/>&appointment_date=<carlos:encode value='${__apptDateUri}' context='javaScript'/>&status=<carlos:encode value='${__statusUri}' context='javaScript'/>&start_time=<carlos:encode value='${__startTimeUri}' context='javaScript'/>&bNewForm=1</c:set>
             if (val.substring(0, 3) == "PAT" || val.substring(0, 3) == "OCF" || val.substring(0, 3) == "ODS" || val.substring(0, 3) == "CPP" || val.substring(0, 3) == "STD") {
-                self.location.href = billingContextPath + "/billing?curBillForm=<%="PRI"%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<carlos:encode value='${__enc_1}' context="javaScript"/>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<carlos:encode value='${__enc_2}' context="javaScript"/>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<carlos:encode value='${__enc_3}' context="javaScript"/>&providerview=<carlos:encode value='${__enc_4}' context="javaScript"/>&appointment_date=<carlos:encode value='${__enc_5}' context="javaScript"/>&status=<carlos:encode value='${__enc_6}' context="javaScript"/>&start_time=<carlos:encode value='${__enc_7}' context="javaScript"/>&bNewForm=1";
+                self.location.href = billingContextPath + "/billing?curBillForm=PRI&hotclick=${__commonQs}&xml_billtype=" + val.substring(0, 3) + "${__commonTail}";
             } else if (val.substring(0, 3) == "BON") {
-                <c:set var="__enc_8"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_no")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_9"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_10"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_11"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_12"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_13"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_14"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")) %>' context="uriComponent"/></c:set>
-                self.location.href = billingContextPath + "/billing?curBillForm=<%=oscarVariables.getProperty("primary_care_incentive", "").trim()%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<carlos:encode value='${__enc_8}' context="javaScript"/>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<carlos:encode value='${__enc_9}' context="javaScript"/>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<carlos:encode value='${__enc_10}' context="javaScript"/>&providerview=<carlos:encode value='${__enc_11}' context="javaScript"/>&appointment_date=<carlos:encode value='${__enc_12}' context="javaScript"/>&status=<carlos:encode value='${__enc_13}' context="javaScript"/>&start_time=<carlos:encode value='${__enc_14}' context="javaScript"/>&bNewForm=1";
+                self.location.href = billingContextPath + "/billing?curBillForm=<carlos:encode value='${formModel.primaryCareIncentive}' context='javaScript'/>&hotclick=${__commonQs}&xml_billtype=" + val.substring(0, 3) + "${__commonTail}";
             } else {
-                <% if(ctlBillForm.equals("PRI") ) {%>
-                <%-- __enc_15..__enc_21 must be declared BEFORE the
-                     `self.location.href = ...` rewrite below references them.
-                     <c:set> runs at JSP render time, top-to-bottom regardless
-                     of which JS function the literal text appears inside;
-                     declaring these after the URL rewrite would render
-                     ${__enc_15..21} as empty strings into the emitted JS. --%>
-                <c:set var="__enc_15"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_no")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_16"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_17"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_18"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_19"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_20"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_21"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")) %>' context="uriComponent"/></c:set>
-                self.location.href = billingContextPath + "/billing?curBillForm=<%=oscarVariables.getProperty("default_view", "").trim()%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<carlos:encode value='${__enc_15}' context="javaScript"/>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<carlos:encode value='${__enc_16}' context="javaScript"/>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<carlos:encode value='${__enc_17}' context="javaScript"/>&providerview=<carlos:encode value='${__enc_18}' context="javaScript"/>&appointment_date=<carlos:encode value='${__enc_19}' context="javaScript"/>&status=<carlos:encode value='${__enc_20}' context="javaScript"/>&start_time=<carlos:encode value='${__enc_21}' context="javaScript"/>&bNewForm=1";
-                <% } %>
+                <c:if test="${formModel.ctlBillForm eq 'PRI'}">
+                self.location.href = billingContextPath + "/billing?curBillForm=<carlos:encode value='${formModel.defaultView}' context='javaScript'/>&hotclick=${__commonQs}&xml_billtype=" + val.substring(0, 3) + "${__commonTail}";
+                </c:if>
             }
         }
 
@@ -772,11 +584,11 @@
 
         function onHistory() {
             var dd = document.forms[0].day.value;
-            popupPage("800", "1000", billingContextPath + "/billing/CA/ON/ViewBillingONHistorySpec?demographic_no=<carlos:encode value='${formModel.demographicNo}' context="javaScript"/>&demo_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&orderby=appointment_date&day=" + dd);
+            popupPage("800", "1000", billingContextPath + "/billing/CA/ON/ViewBillingONHistorySpec?demographic_no=<carlos:encode value='${formModel.demographicNo}' context='javaScript'/>&demo_name=<carlos:encode value='${formModel.demoNameUrlEncoded}' context='javaScript'/>&orderby=appointment_date&day=" + dd);
         }
 
         function prepareBack() {
-            document.forms[0].services_checked.value = "<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("services_checked")) %>' context="javaScriptBlock"/>";
+            document.forms[0].services_checked.value = "<carlos:encode value='${formModel.requestParamEchoes["services_checked"]}' context='javaScript'/>";
             if (document.forms[0].services_checked.value == "") document.forms[0].services_checked.value = 0;
             document.forms[0].url_back.value = location.href;
 
@@ -903,7 +715,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
     <script>
     jQuery(document).ready(function () {
         var ctx = "${pageContext.request.contextPath}";
-        var searchLabel = '<carlos:encode value='<%= (String) pageContext.getAttribute("searchLabelMsg") %>' context="javaScriptBlock"/>';
+        var searchLabel = '<carlos:encode value='${searchLabelMsg}' context='javaScript'/>';
 
         // Safe HTML escaping for autocomplete rendering
         function escHtml(s) {
@@ -1158,12 +970,6 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                                        maxlength="10" style="width: 80px;">
                                 </c:otherwise>
                             </c:choose></td>
-                        <%
-                            String warningClass = "";
-                            if (billingRecomendations.length() > 0) {
-                                warningClass = "alert";
-                            }
-                        %>
                         <td style="text-align: center;"
                             class="${not empty formModel.billingRecommendations ? 'alert' : ''}">${formModel.billingRecommendations}
                         </td>
@@ -1775,7 +1581,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
         singleClick: true,
         step: 1
     });
-    <%if (appt_no.compareTo("0") == 0) {%>
+    <c:if test="${formModel.appointmentNo eq '0'}">
     Calendar.setup({
         inputField: "service_date",
         ifFormat: "%Y-%m-%d",
@@ -1784,7 +1590,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
         singleClick: true,
         step: 1
     });
-    <%}%>
+    </c:if>
 
 function getDays() {
     if (!document.getElementById("xml_vdate") || !document.getElementById("service_date")) { return; }
@@ -1818,25 +1624,6 @@ function getDays() {
 }
 
 </script>
-
-<%!
-    String getDefaultValue(String paraName, Vector vec, String propName) {
-        String ret = "";
-        if (paraName != null && !"".equals(paraName)) {
-            ret = paraName;
-        } else if (vec != null && vec.size() > 0 && vec.get(0) != null) {
-            ret = ((Properties) vec.get(0)).getProperty(propName, "");
-        }
-        return ret;
-    }
-
-    String noNull(String str) {
-        if (str != null) {
-            return str;
-        }
-        return "";
-    }
-%>
 
 </body>
 </html>
