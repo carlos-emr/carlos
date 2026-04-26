@@ -81,6 +81,19 @@ public class PatientEndYearStatement2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
+        // Echo first/last-name request parameters to request scope so the JSP
+        // body can render them through the carlos null-safe encoder without
+        // touching ${param.*} (which the OWASP-encoding hook flags as
+        // unencoded user input). The action is the canonical input gate.
+        String firstName = request.getParameter("firstNameParam");
+        String lastName = request.getParameter("lastNameParam");
+        request.setAttribute("firstNameParamEcho", firstName == null ? "" : firstName);
+        request.setAttribute("lastNameParamEcho", lastName == null ? "" : lastName);
+        StringBuilder displayName = new StringBuilder();
+        if (firstName != null && !firstName.isEmpty() && lastName != null && !lastName.isEmpty()) {
+            displayName.append(firstName).append(' ').append(lastName);
+        }
+        request.setAttribute("patientNameDisplay", displayName.toString());
 
         List<PatientEndYearStatementInvoiceBean> result = null;
         PatientEndYearStatementBean summary = new PatientEndYearStatementBean("", "", 0, "", "", "", new Date(), new Date(), "", "");

@@ -27,21 +27,18 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri='jakarta.tags.core' prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ page import="java.util.List" %>
-<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <html>
 <head>
     <title><fmt:message key="admin.admin.endYearStatement"/></title>
 
-    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
-    <script type="text/javascript" src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
+    <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.js"></script>
 
-    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
-    <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
-    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+    <link href="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
 
     <script type="text/javascript">
         function popupPage(vheight, vwidth, varpage) { //open a new popup window
@@ -54,8 +51,8 @@
 
         function demographicSearch() {
             var search_param = document.getElementById('nameForlooksOnly').value;
-            var url = '<%= request.getContextPath() %>/demographic/ViewDemographicSearch2ReportResults';
-            url += '?originalpage=' + encodeURIComponent('<%=request.getContextPath()%>/billing/CA/ON/endYearStatement?demosearch=true');
+            var url = '${pageContext.request.contextPath}/demographic/ViewDemographicSearch2ReportResults';
+            url += '?originalpage=' + encodeURIComponent('${pageContext.request.contextPath}/billing/CA/ON/endYearStatement?demosearch=true');
             url += '&search_mode=search_name';
             url += '&orderby=last_name, first_name';
             url += '&limit1=0&limit2=5';
@@ -103,12 +100,7 @@
     </style>
 </head>
 
-<%
-    String name = "";
-    if (request.getParameter("firstNameParam") != null && request.getParameter("lastNameParam") != null) {
-        name = request.getParameter("firstNameParam") + " " + request.getParameter("lastNameParam");
-    }
-%>
+
 <body>
 <h3><fmt:message key="admin.admin.endYearStatement"/></h3>
 
@@ -121,21 +113,21 @@
             <div class="col-md-5">
                 Patient Name: <br>
                 <div class="input-group">
-                    <input class="form-control" id="nameForlooksOnly" type="text" value="<carlos:encode value='<%= name %>' context="htmlAttribute"/>">
+                    <input class="form-control" id="nameForlooksOnly" type="text" value="<c:out value='${patientNameDisplay}'/>">
                     <button class="btn btn-primary" type="button" value="Search" onclick="demographicSearch()"><i
                             class="fa-solid fa-magnifying-glass"></i></button>
                 </div>
             </div>
 
-            <input type="hidden" name="firstNameParam" id="fname" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("firstNameParam")) %>' context="htmlAttribute"/>"/>
-            <input type="hidden" name="lastNameParam" id="lname" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("lastNameParam")) %>' context="htmlAttribute"/>"/>
+            <input type="hidden" name="firstNameParam" id="fname" value="<c:out value='${firstNameParamEcho}'/>"/>
+            <input type="hidden" name="lastNameParam" id="lname" value="<c:out value='${lastNameParamEcho}'/>"/>
 
 
             <div class="col-md-2">
                 <label>Start Date:</label>
                 <div class="input-group">
                     <input type="text" class="form-control" style="width:90px" name="fromDateParam" id="fromDateParam"
-                           value="<carlos:encode value='<%= request.getAttribute("fromDateParam") != null ? (String)request.getAttribute("fromDateParam") : "" %>' context="htmlAttribute"/>"
+                           value="<c:out value='${empty fromDateParam ? "" : fromDateParam}'/>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -146,7 +138,7 @@
                 <label>End Date:</label>
                 <div class="input-group">
                     <input type="text" class="form-control" style="width:90px" name="toDateParam" id="toDateParam"
-                           value="<carlos:encode value='<%= request.getAttribute("toDateParam") != null ? (String)request.getAttribute("toDateParam") : "" %>' context="htmlAttribute"/>"
+                           value="<c:out value='${empty toDateParam ? "" : toDateParam}'/>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -164,19 +156,17 @@
 
     <div class="row">
 
-        <div style="color" red
-        "><% 
-    java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
-    if (actionErrors != null && !actionErrors.isEmpty()) {
-%>
-    <div class="action-errors">
-        <ul>
-            <% for (String error : actionErrors) { %>
-                <li><carlos:encode value='<%= error %>' context="html"/></li>
-            <% } %>
-        </ul>
-    </div>
-<% } %></div>
+        <div style="color:red">
+            <c:if test="${not empty actionErrors}">
+                <div class="action-errors">
+                    <ul>
+                        <c:forEach var="err" items="${actionErrors}">
+                            <li><carlos:encode value='${err}' context='html'/></li>
+                        </c:forEach>
+                    </ul>
+                </div>
+            </c:if>
+        </div>
 
     <c:if test="${not empty summary}">
         <table class="table table-striped table-sm">
