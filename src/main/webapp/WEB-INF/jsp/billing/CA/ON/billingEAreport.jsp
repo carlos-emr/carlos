@@ -31,10 +31,10 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <html>
     <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
         <title>Billing Reconcilliation</title>
-        <link rel="stylesheet" href="<%= request.getContextPath() %>/billing.css">
-        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
+        <link rel="stylesheet" href="${pageContext.request.contextPath}/billing.css">
+        <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/share/css/extractedFromPages.css"/>
     </head>
 
     <body class="BodyStyle">

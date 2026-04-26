@@ -28,6 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <html>
 <head>
@@ -43,7 +44,7 @@
 </head>
 <body style="background-color:#C4D9E7;" onload='setTimeout("exit();",5000)'>
 
-<%=request.getAttribute("error")%>
+<carlos:encode value="${error}" context="html"/>
 
 </body>
 </html>

@@ -13,10 +13,11 @@
     @since 2026
 --%>
 <%@ page contentType="text/html;charset=UTF-8" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <!DOCTYPE html>
 <html>
 <head>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
 </head>
 <body>
 <center>
@@ -26,9 +27,10 @@
         </tr>
     </table>
     <p>
-    <h1><%= request.getAttribute("cannotDelete") != null
-            ? "Sorry, cannot delete billed items."
-            : "Unable to delete billing record." %></h1>
+    <h1><c:choose>
+        <c:when test="${not empty cannotDelete}">Sorry, cannot delete billed items.</c:when>
+        <c:otherwise>Unable to delete billing record.</c:otherwise>
+    </c:choose></h1>
 
     <form><input type="button" value="Back to previous page" onClick="window.close()"></form>
 </center>

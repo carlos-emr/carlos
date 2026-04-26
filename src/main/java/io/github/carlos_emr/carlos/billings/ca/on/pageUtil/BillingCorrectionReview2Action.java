@@ -15,6 +15,10 @@ package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.BillingBean;
+import io.github.carlos_emr.BillingDataBean;
+import io.github.carlos_emr.BillingPatientDataBean;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCorrectionReviewViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -26,6 +30,14 @@ import org.apache.struts2.ServletActionContext;
  * Mutation gate for {@code billing/CA/ON/billingCorrectionReview.jsp}. Enforces {@code _billing}
  * w privilege AND POST-only before forwarding to the JSP. GET requests return
  * 405 Method Not Allowed.
+ *
+ * <p>Also reads the three session-scoped beans populated by the upstream
+ * {@code billingCorrectionValid.jsp} step ({@link BillingBean},
+ * {@link BillingDataBean}, {@link BillingPatientDataBean}) and assembles a
+ * {@link BillingCorrectionReviewViewModel} via
+ * {@link BillingCorrectionReviewDataAssembler}, exposing it to the JSP as
+ * request attribute {@code reviewModel}. This drains the JSP body of the
+ * scriptlet that reused those beans inline.</p>
  *
  * @since 2026-04-13
  */
@@ -47,6 +59,14 @@ public final class BillingCorrectionReview2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
+
+        BillingBean billing = (BillingBean) request.getSession().getAttribute("billing");
+        BillingDataBean billingDataBean = (BillingDataBean) request.getSession().getAttribute("billingDataBean");
+        BillingPatientDataBean patient = (BillingPatientDataBean) request.getSession().getAttribute("billingPatientDataBean");
+
+        BillingCorrectionReviewViewModel model = new BillingCorrectionReviewDataAssembler()
+                .assemble(billing, billingDataBean, patient);
+        request.setAttribute("reviewModel", model);
 
         return SUCCESS;
     }
