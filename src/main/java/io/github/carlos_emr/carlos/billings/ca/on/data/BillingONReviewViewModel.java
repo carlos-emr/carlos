@@ -15,14 +15,15 @@ package io.github.carlos_emr.carlos.billings.ca.on.data;
 /**
  * Immutable view model for {@code billingONReview.jsp}.
  *
- * <p>Captures demographic + provider lookups, the chosen diagnostic code, and
- * the validation messages produced from those lookups. Built by
+ * <p>Captures demographic + provider lookups, the chosen diagnostic code, the
+ * pre-rendered service-code / percent-code rows, the validation messages, and
+ * all derived flags / request-param echoes the JSP needs. Built by
  * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONReviewDataAssembler}
  * and exposed to the JSP as request attribute {@code reviewModel}. Replaces
- * the demographic-driven prep block that previously ran inline in the top
- * scriptlet of the JSP.</p>
+ * the legacy multi-block scriptlet that previously ran inline in the JSP.</p>
  *
  * @since 2026-04-24
+ *        2026-04-25 (full body-scriptlet drain)
  */
 public final class BillingONReviewViewModel {
 
@@ -52,20 +53,88 @@ public final class BillingONReviewViewModel {
     private final String errorMessage;
     private final String warningMessage;
 
-    // Pre-render validation results (replaces the inline DAO scriptlet
-    // block in billingONReview.jsp lines 700-786). Pre-computed by
-    // BillingONReviewValidator at assemble time so the JSP just iterates.
     private final java.util.List<io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONReviewValidator.Message> validationMessages;
     private final boolean codeValid;
 
-    // Provider name lookup map keyed by providerNo. Replaces the
-    // ProviderDao.getProvider(providerNo) call mid-render in the JSP
-    // (line 1179) for the payee-name resolution. Populated for every
-    // provider with non-empty credentials.
     private final java.util.Map<String, ProviderName> providerNameLookup;
+
+    private final java.util.Map<String, String> requestParamEchoes;
+    private final String demoName;
+    private final String wrongMessage;
+    private final String demoSexLabel;
+    private final String demoHeaderLine;
+    private final boolean multisitesEnabled;
+    private final boolean mReview;
+    private final java.util.List<String> serviceDateLines;
+    private final String billingPhysicianLabel;
+    private final String mrpLabel;
+    private final String visitTypeLabel;
+    private final String billTypeLabel;
+    private final String billType;
+    private final String locationLabel;
+    private final String sliCodeLabel;
+    private final String admissionDate;
+    private final String siteName;
+    private final java.util.List<ServiceCodeRow> serviceCodeRows;
+    private final java.util.List<PercCodeRow> percCodeRows;
+    private final java.util.Map<String, String> codeDescriptions;
+    private final String gstTotal;
+    private final String gstBilledTotal;
+    private final String gstPercent;
+    private final boolean percRendered;
+    private final boolean dupServiceCode;
+    private final int totalItem;
+    private final java.util.List<PercJsHandler> percJsHandlers;
+    private final boolean publicPayer;
+    private final boolean privatePayer;
+    private final String billingNotes;
+    private final String clinicAddress;
+    private final String payeeProviderNo;
+    private final String payeeName;
+    private final String payeeFromConfig;
+    private final boolean payeeFromConfigSet;
+    private final java.util.List<PaymentType> paymentTypes;
+    private final java.util.List<ParamPair> allRequestParams;
+    private final String loggedInUserNo;
 
     /** Provider name pair surfaced for the payee lookup. */
     public record ProviderName(String lastName, String firstName) { }
+
+    /** A single service-code row in the calculation table. */
+    public record ServiceCodeRow(
+            int rowIndex,
+            int n,
+            String codeName,
+            String codeUnit,
+            String codeFee,
+            String codeTotal,
+            String codeAt,
+            String codeDescription,
+            String warning,
+            boolean gstApplied,
+            boolean codeValid) { }
+
+    /** A single percent-code row in the calculation table. */
+    public record PercCodeRow(
+            int rowIndex,
+            String codeName,
+            String codeUnit,
+            String percFee,
+            String codeMin,
+            String codeMax,
+            java.util.List<PercSegment> segments) { }
+
+    /** One percent-code segment (checkbox value within a {@link PercCodeRow}). */
+    public record PercSegment(String percTotal, String factor) { }
+
+    /** JS handler descriptor for the onCheckMaster() per-percent loop. */
+    public record PercJsHandler(String iCheckNo, String min, String max) { }
+
+    /** Payment-type radio option. */
+    public record PaymentType(String id, String label) { }
+
+    /** Generic (name,value) pair used for the dump-all-params hidden inputs. */
+    public record ParamPair(String name, String value) { }
 
     private BillingONReviewViewModel(Builder b) {
         this.demoFirst = nullToEmpty(b.demoFirst);
@@ -97,13 +166,67 @@ public final class BillingONReviewViewModel {
         this.providerNameLookup = b.providerNameLookup == null
                 ? java.util.Collections.emptyMap()
                 : java.util.Map.copyOf(b.providerNameLookup);
+
+        this.requestParamEchoes = b.requestParamEchoes == null
+                ? java.util.Collections.emptyMap()
+                : java.util.Map.copyOf(b.requestParamEchoes);
+        this.demoName = nullToEmpty(b.demoName);
+        this.wrongMessage = nullToEmpty(b.wrongMessage);
+        this.demoSexLabel = nullToEmpty(b.demoSexLabel);
+        this.demoHeaderLine = nullToEmpty(b.demoHeaderLine);
+        this.multisitesEnabled = b.multisitesEnabled;
+        this.mReview = b.mReview;
+        this.serviceDateLines = b.serviceDateLines == null
+                ? java.util.Collections.emptyList()
+                : java.util.List.copyOf(b.serviceDateLines);
+        this.billingPhysicianLabel = nullToEmpty(b.billingPhysicianLabel);
+        this.mrpLabel = nullToEmpty(b.mrpLabel);
+        this.visitTypeLabel = nullToEmpty(b.visitTypeLabel);
+        this.billTypeLabel = nullToEmpty(b.billTypeLabel);
+        this.billType = nullToEmpty(b.billType);
+        this.locationLabel = nullToEmpty(b.locationLabel);
+        this.sliCodeLabel = nullToEmpty(b.sliCodeLabel);
+        this.admissionDate = nullToEmpty(b.admissionDate);
+        this.siteName = nullToEmpty(b.siteName);
+        this.serviceCodeRows = b.serviceCodeRows == null
+                ? java.util.Collections.emptyList()
+                : java.util.List.copyOf(b.serviceCodeRows);
+        this.percCodeRows = b.percCodeRows == null
+                ? java.util.Collections.emptyList()
+                : java.util.List.copyOf(b.percCodeRows);
+        this.codeDescriptions = b.codeDescriptions == null
+                ? java.util.Collections.emptyMap()
+                : java.util.Map.copyOf(b.codeDescriptions);
+        this.gstTotal = nullToEmpty(b.gstTotal);
+        this.gstBilledTotal = nullToEmpty(b.gstBilledTotal);
+        this.gstPercent = nullToEmpty(b.gstPercent);
+        this.percRendered = b.percRendered;
+        this.dupServiceCode = b.dupServiceCode;
+        this.totalItem = b.totalItem;
+        this.percJsHandlers = b.percJsHandlers == null
+                ? java.util.Collections.emptyList()
+                : java.util.List.copyOf(b.percJsHandlers);
+        this.publicPayer = b.publicPayer;
+        this.privatePayer = b.privatePayer;
+        this.billingNotes = nullToEmpty(b.billingNotes);
+        this.clinicAddress = nullToEmpty(b.clinicAddress);
+        this.payeeProviderNo = nullToEmpty(b.payeeProviderNo);
+        this.payeeName = nullToEmpty(b.payeeName);
+        this.payeeFromConfig = nullToEmpty(b.payeeFromConfig);
+        this.payeeFromConfigSet = b.payeeFromConfigSet;
+        this.paymentTypes = b.paymentTypes == null
+                ? java.util.Collections.emptyList()
+                : java.util.List.copyOf(b.paymentTypes);
+        this.allRequestParams = b.allRequestParams == null
+                ? java.util.Collections.emptyList()
+                : java.util.List.copyOf(b.allRequestParams);
+        this.loggedInUserNo = nullToEmpty(b.loggedInUserNo);
     }
 
     public static Builder builder() {
         return new Builder();
     }
 
-    /** Coalesce null Strings to empty so EL doesn't render literal "null". */
     private static String nullToEmpty(String s) {
         return s == null ? "" : s;
     }
@@ -118,7 +241,6 @@ public final class BillingONReviewViewModel {
     public String getDemoDobYy() { return demoDobYy; }
     public String getDemoDobMm() { return demoDobMm; }
     public String getDemoDobDd() { return demoDobDd; }
-    /** Aggregated view of the demographic snapshot as a structured record. */
     public BillingDemographicSummary getDemographicSummary() {
         return new BillingDemographicSummary(demoFirst, demoLast, demoHin, demoVer,
                 demoSex, demoHcType, demoDob, demoDobYy, demoDobMm, demoDobDd);
@@ -126,7 +248,6 @@ public final class BillingONReviewViewModel {
     public String getPatientAddress() { return patientAddress; }
     public String getReferralDoctorName() { return referralDoctorName; }
     public String getReferralDoctorOhip() { return referralDoctorOhip; }
-    /** Aggregated referral-doctor view as a structured record (specialty empty for review). */
     public BillingReferralDoctor getReferralDoctorRecord() {
         return new BillingReferralDoctor(referralDoctorName, referralDoctorOhip, "");
     }
@@ -139,17 +260,53 @@ public final class BillingONReviewViewModel {
     public String getErrorFlag() { return errorFlag; }
     public String getErrorMessage() { return errorMessage; }
     public String getWarningMessage() { return warningMessage; }
-    /** Aggregated view of the (errorFlag, errorMessage, warningMessage) triple. */
     public BillingValidationMessages getValidationMessagesAggregate() {
         return new BillingValidationMessages(errorFlag, errorMessage, warningMessage);
     }
-    /** Pre-render validation result list (already-immutable). */
     public java.util.List<io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONReviewValidator.Message> getValidationMessages() {
         return validationMessages;
     }
     public boolean isCodeValid() { return codeValid; }
-    /** Provider-name lookup keyed by providerNo (already-immutable). */
     public java.util.Map<String, ProviderName> getProviderNameLookup() { return providerNameLookup; }
+
+    public java.util.Map<String, String> getRequestParamEchoes() { return requestParamEchoes; }
+    public String getDemoName() { return demoName; }
+    public String getWrongMessage() { return wrongMessage; }
+    public String getDemoSexLabel() { return demoSexLabel; }
+    public String getDemoHeaderLine() { return demoHeaderLine; }
+    public boolean isMultisitesEnabled() { return multisitesEnabled; }
+    public boolean isMReview() { return mReview; }
+    public java.util.List<String> getServiceDateLines() { return serviceDateLines; }
+    public String getBillingPhysicianLabel() { return billingPhysicianLabel; }
+    public String getMrpLabel() { return mrpLabel; }
+    public String getVisitTypeLabel() { return visitTypeLabel; }
+    public String getBillTypeLabel() { return billTypeLabel; }
+    public String getBillType() { return billType; }
+    public String getLocationLabel() { return locationLabel; }
+    public String getSliCodeLabel() { return sliCodeLabel; }
+    public String getAdmissionDate() { return admissionDate; }
+    public String getSiteName() { return siteName; }
+    public java.util.List<ServiceCodeRow> getServiceCodeRows() { return serviceCodeRows; }
+    public java.util.List<PercCodeRow> getPercCodeRows() { return percCodeRows; }
+    public java.util.Map<String, String> getCodeDescriptions() { return codeDescriptions; }
+    public String getGstTotal() { return gstTotal; }
+    public String getGstBilledTotal() { return gstBilledTotal; }
+    public String getGstPercent() { return gstPercent; }
+    public boolean isPercRendered() { return percRendered; }
+    public boolean isDupServiceCode() { return dupServiceCode; }
+    public int getTotalItem() { return totalItem; }
+    public java.util.List<PercJsHandler> getPercJsHandlers() { return percJsHandlers; }
+    public boolean isPublicPayer() { return publicPayer; }
+    public boolean isPrivatePayer() { return privatePayer; }
+    public String getBillingNotes() { return billingNotes; }
+    public String getClinicAddress() { return clinicAddress; }
+    public String getPayeeProviderNo() { return payeeProviderNo; }
+    public String getPayeeName() { return payeeName; }
+    public String getPayeeFromConfig() { return payeeFromConfig; }
+    public boolean isPayeeFromConfigSet() { return payeeFromConfigSet; }
+    public java.util.List<PaymentType> getPaymentTypes() { return paymentTypes; }
+    public java.util.List<ParamPair> getAllRequestParams() { return allRequestParams; }
+    public String getLoggedInUserNo() { return loggedInUserNo; }
 
     public static final class Builder {
         private String demoFirst = "";
@@ -177,6 +334,45 @@ public final class BillingONReviewViewModel {
         private java.util.List<io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONReviewValidator.Message> validationMessages;
         private boolean codeValid = true;
         private java.util.Map<String, ProviderName> providerNameLookup;
+
+        private java.util.Map<String, String> requestParamEchoes;
+        private String demoName = "";
+        private String wrongMessage = "";
+        private String demoSexLabel = "";
+        private String demoHeaderLine = "";
+        private boolean multisitesEnabled = false;
+        private boolean mReview = false;
+        private java.util.List<String> serviceDateLines;
+        private String billingPhysicianLabel = "";
+        private String mrpLabel = "";
+        private String visitTypeLabel = "";
+        private String billTypeLabel = "";
+        private String billType = "";
+        private String locationLabel = "";
+        private String sliCodeLabel = "";
+        private String admissionDate = "";
+        private String siteName = "";
+        private java.util.List<ServiceCodeRow> serviceCodeRows;
+        private java.util.List<PercCodeRow> percCodeRows;
+        private java.util.Map<String, String> codeDescriptions;
+        private String gstTotal = "0";
+        private String gstBilledTotal = "0";
+        private String gstPercent = "";
+        private boolean percRendered = false;
+        private boolean dupServiceCode = false;
+        private int totalItem = 0;
+        private java.util.List<PercJsHandler> percJsHandlers;
+        private boolean publicPayer = false;
+        private boolean privatePayer = false;
+        private String billingNotes = "";
+        private String clinicAddress = "";
+        private String payeeProviderNo = "";
+        private String payeeName = "";
+        private String payeeFromConfig = "";
+        private boolean payeeFromConfigSet = false;
+        private java.util.List<PaymentType> paymentTypes;
+        private java.util.List<ParamPair> allRequestParams;
+        private String loggedInUserNo = "";
 
         public Builder validationMessages(java.util.List<io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONReviewValidator.Message> v) {
             this.validationMessages = v == null ? null : java.util.List.copyOf(v); return this;
@@ -208,6 +404,45 @@ public final class BillingONReviewViewModel {
         public Builder errorFlag(String v) { this.errorFlag = v; return this; }
         public Builder errorMessage(String v) { this.errorMessage = v; return this; }
         public Builder warningMessage(String v) { this.warningMessage = v; return this; }
+
+        public Builder requestParamEchoes(java.util.Map<String, String> v) { this.requestParamEchoes = v == null ? null : java.util.Map.copyOf(v); return this; }
+        public Builder demoName(String v) { this.demoName = v; return this; }
+        public Builder wrongMessage(String v) { this.wrongMessage = v; return this; }
+        public Builder demoSexLabel(String v) { this.demoSexLabel = v; return this; }
+        public Builder demoHeaderLine(String v) { this.demoHeaderLine = v; return this; }
+        public Builder multisitesEnabled(boolean v) { this.multisitesEnabled = v; return this; }
+        public Builder mReview(boolean v) { this.mReview = v; return this; }
+        public Builder serviceDateLines(java.util.List<String> v) { this.serviceDateLines = v == null ? null : java.util.List.copyOf(v); return this; }
+        public Builder billingPhysicianLabel(String v) { this.billingPhysicianLabel = v; return this; }
+        public Builder mrpLabel(String v) { this.mrpLabel = v; return this; }
+        public Builder visitTypeLabel(String v) { this.visitTypeLabel = v; return this; }
+        public Builder billTypeLabel(String v) { this.billTypeLabel = v; return this; }
+        public Builder billType(String v) { this.billType = v; return this; }
+        public Builder locationLabel(String v) { this.locationLabel = v; return this; }
+        public Builder sliCodeLabel(String v) { this.sliCodeLabel = v; return this; }
+        public Builder admissionDate(String v) { this.admissionDate = v; return this; }
+        public Builder siteName(String v) { this.siteName = v; return this; }
+        public Builder serviceCodeRows(java.util.List<ServiceCodeRow> v) { this.serviceCodeRows = v == null ? null : java.util.List.copyOf(v); return this; }
+        public Builder percCodeRows(java.util.List<PercCodeRow> v) { this.percCodeRows = v == null ? null : java.util.List.copyOf(v); return this; }
+        public Builder codeDescriptions(java.util.Map<String, String> v) { this.codeDescriptions = v == null ? null : java.util.Map.copyOf(v); return this; }
+        public Builder gstTotal(String v) { this.gstTotal = v; return this; }
+        public Builder gstBilledTotal(String v) { this.gstBilledTotal = v; return this; }
+        public Builder gstPercent(String v) { this.gstPercent = v; return this; }
+        public Builder percRendered(boolean v) { this.percRendered = v; return this; }
+        public Builder dupServiceCode(boolean v) { this.dupServiceCode = v; return this; }
+        public Builder totalItem(int v) { this.totalItem = v; return this; }
+        public Builder percJsHandlers(java.util.List<PercJsHandler> v) { this.percJsHandlers = v == null ? null : java.util.List.copyOf(v); return this; }
+        public Builder publicPayer(boolean v) { this.publicPayer = v; return this; }
+        public Builder privatePayer(boolean v) { this.privatePayer = v; return this; }
+        public Builder billingNotes(String v) { this.billingNotes = v; return this; }
+        public Builder clinicAddress(String v) { this.clinicAddress = v; return this; }
+        public Builder payeeProviderNo(String v) { this.payeeProviderNo = v; return this; }
+        public Builder payeeName(String v) { this.payeeName = v; return this; }
+        public Builder payeeFromConfig(String v) { this.payeeFromConfig = v; return this; }
+        public Builder payeeFromConfigSet(boolean v) { this.payeeFromConfigSet = v; return this; }
+        public Builder paymentTypes(java.util.List<PaymentType> v) { this.paymentTypes = v == null ? null : java.util.List.copyOf(v); return this; }
+        public Builder allRequestParams(java.util.List<ParamPair> v) { this.allRequestParams = v == null ? null : java.util.List.copyOf(v); return this; }
+        public Builder loggedInUserNo(String v) { this.loggedInUserNo = v; return this; }
 
         public BillingONReviewViewModel build() {
             return new BillingONReviewViewModel(this);
