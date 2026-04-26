@@ -31,10 +31,16 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import jakarta.persistence.Query;
 
+import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 import io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode;
+import io.github.carlos_emr.carlos.config.CacheConfig;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -45,12 +51,15 @@ public class ScheduleTemplateCodeDaoImpl extends AbstractDaoImpl<ScheduleTemplat
     }
 
     @SuppressWarnings("unchecked")
+    @Cacheable(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, key = "'all'")
     @Override
     public List<ScheduleTemplateCode> findAll() {
         Query query = createQuery("x", null);
-        return query.getResultList();
+        return Collections.unmodifiableList(new ArrayList<>(query.getResultList()));
     }
 
+    @Cacheable(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, key = "'codeChar:' + #code",
+               unless = "#result == null")
     @Override
     public ScheduleTemplateCode getByCode(char code) {
         //Query query = entityManager.createQuery("FROM " + modelClass.getSimpleName() + " bst WHERE bst.id IN (:typeCodes)");
@@ -65,6 +74,7 @@ public class ScheduleTemplateCodeDaoImpl extends AbstractDaoImpl<ScheduleTemplat
         return null;
     }
 
+    @Cacheable(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, key = "'templateCodes'")
     @Override
     public List<ScheduleTemplateCode> findTemplateCodes() {
         Query query = entityManager.createQuery("select s from ScheduleTemplateCode s where s.bookinglimit > 0 and s.duration <>''");
@@ -72,9 +82,12 @@ public class ScheduleTemplateCodeDaoImpl extends AbstractDaoImpl<ScheduleTemplat
         @SuppressWarnings("unchecked")
         List<ScheduleTemplateCode> results = query.getResultList();
 
-        return results;
+        return Collections.unmodifiableList(new ArrayList<>(results));
     }
 
+    @Cacheable(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, key = "'codeStr:' + #code",
+               condition = "#code != null && !#code.isEmpty()",
+               unless = "#result == null")
     @Override
     public ScheduleTemplateCode findByCode(String code) {
         char codeChar = code.charAt(0);
@@ -88,4 +101,40 @@ public class ScheduleTemplateCodeDaoImpl extends AbstractDaoImpl<ScheduleTemplat
         }
         return null;
     }
+
+    @CacheEvict(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, allEntries = true)
+    @Override
+    public void persist(AbstractModel<?> o) { super.persist(o); }
+
+    @CacheEvict(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, allEntries = true)
+    @Override
+    public void merge(AbstractModel<?> o) { super.merge(o); }
+
+    @CacheEvict(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, allEntries = true)
+    @Override
+    public void remove(AbstractModel<?> o) { super.remove(o); }
+
+    @CacheEvict(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, allEntries = true)
+    @Override
+    public boolean remove(Object id) { return super.remove(id); }
+
+    @CacheEvict(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, allEntries = true)
+    @Override
+    public ScheduleTemplateCode saveEntity(ScheduleTemplateCode entity) { return super.saveEntity(entity); }
+
+    @CacheEvict(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchPersist(List<ScheduleTemplateCode> oList) { super.batchPersist(oList); }
+
+    @CacheEvict(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchPersist(List<ScheduleTemplateCode> oList, int batchSize) { super.batchPersist(oList, batchSize); }
+
+    @CacheEvict(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchRemove(List<ScheduleTemplateCode> oList) { super.batchRemove(oList); }
+
+    @CacheEvict(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchRemove(List<ScheduleTemplateCode> oList, int batchSize) { super.batchRemove(oList, batchSize); }
 }

@@ -42,7 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Regression guard for {@link CacheConfig} Spring wiring.
  *
  * <p>The original cache PR registered {@code @Cacheable} / {@code @CacheEvict}
- * annotations on six DAOs but did not wire {@link CacheConfig} into the Spring
+ * annotations on reference-data DAOs but did not wire {@link CacheConfig} into the Spring
  * context, so every annotation became a silent no-op. This test fails fast if
  * the {@link CacheManager} bean is missing or if any expected cache name drops
  * out of the catalogue.</p>
@@ -65,7 +65,10 @@ class CacheConfigIntegrationTest extends CarlosTestBase {
             "activeProviderSummaries",
             "appointmentStatuses",
             "measurementTypes",
-            "lookupLists"
+            "lookupLists",
+            "appointmentTypes",
+            "scheduleTemplateCodes",
+            "facilities"
     };
 
     private static final String ROLLBACK_TEST_CACHE = "appointmentStatuses";

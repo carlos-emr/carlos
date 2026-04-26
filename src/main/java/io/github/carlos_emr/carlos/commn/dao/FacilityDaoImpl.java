@@ -30,10 +30,16 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import jakarta.persistence.Query;
 
+import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 import io.github.carlos_emr.carlos.commn.model.Facility;
+import io.github.carlos_emr.carlos.config.CacheConfig;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -48,6 +54,7 @@ public class FacilityDaoImpl extends AbstractDaoImpl<Facility> implements Facili
      *
      * @param active null is find all, true is find only active, false is find only inactive.
      */
+    @Cacheable(value = CacheConfig.FACILITIES, key = "'active:' + #active")
     public List<Facility> findAll(Boolean active) {
         StringBuilder sb = new StringBuilder();
         sb.append("select x from Facility x");
@@ -60,7 +67,43 @@ public class FacilityDaoImpl extends AbstractDaoImpl<Facility> implements Facili
         @SuppressWarnings("unchecked")
         List<Facility> results = query.getResultList();
 
-        return (results);
+        return Collections.unmodifiableList(new ArrayList<>(results));
     }
+
+    @CacheEvict(value = CacheConfig.FACILITIES, allEntries = true)
+    @Override
+    public void persist(AbstractModel<?> o) { super.persist(o); }
+
+    @CacheEvict(value = CacheConfig.FACILITIES, allEntries = true)
+    @Override
+    public void merge(AbstractModel<?> o) { super.merge(o); }
+
+    @CacheEvict(value = CacheConfig.FACILITIES, allEntries = true)
+    @Override
+    public void remove(AbstractModel<?> o) { super.remove(o); }
+
+    @CacheEvict(value = CacheConfig.FACILITIES, allEntries = true)
+    @Override
+    public boolean remove(Object id) { return super.remove(id); }
+
+    @CacheEvict(value = CacheConfig.FACILITIES, allEntries = true)
+    @Override
+    public Facility saveEntity(Facility entity) { return super.saveEntity(entity); }
+
+    @CacheEvict(value = CacheConfig.FACILITIES, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchPersist(List<Facility> oList) { super.batchPersist(oList); }
+
+    @CacheEvict(value = CacheConfig.FACILITIES, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchPersist(List<Facility> oList, int batchSize) { super.batchPersist(oList, batchSize); }
+
+    @CacheEvict(value = CacheConfig.FACILITIES, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchRemove(List<Facility> oList) { super.batchRemove(oList); }
+
+    @CacheEvict(value = CacheConfig.FACILITIES, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchRemove(List<Facility> oList, int batchSize) { super.batchRemove(oList, batchSize); }
 
 }

@@ -31,9 +31,15 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import jakarta.persistence.Query;
 
+import io.github.carlos_emr.carlos.commn.model.AbstractModel;
+import io.github.carlos_emr.carlos.config.CacheConfig;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Repository;
 import io.github.carlos_emr.carlos.commn.model.AppointmentType;
 
@@ -44,6 +50,7 @@ public class AppointmentTypeDaoImpl extends AbstractDaoImpl<AppointmentType> imp
         super(AppointmentType.class);
     }
 
+    @Cacheable(value = CacheConfig.APPOINTMENT_TYPES, key = "'all'")
     @Override
     public List<AppointmentType> listAll() {
         String sqlCommand = "select x from AppointmentType x order by x.name";
@@ -52,15 +59,54 @@ public class AppointmentTypeDaoImpl extends AbstractDaoImpl<AppointmentType> imp
         @SuppressWarnings("unchecked")
         List<AppointmentType> results = query.getResultList();
 
-        return (results);
+        return Collections.unmodifiableList(new ArrayList<>(results));
 
     }
 
+    @Cacheable(value = CacheConfig.APPOINTMENT_TYPES, key = "'name:' + #name",
+               condition = "#name != null && !#name.isEmpty()",
+               unless = "#result == null")
     @Override
     public AppointmentType findByAppointmentTypeByName(String name) {
         Query query = entityManager.createQuery("from AppointmentType atype where atype.name = ?1").setParameter(1, name);
         return this.getSingleResultOrNull(query);
     }
+
+    @CacheEvict(value = CacheConfig.APPOINTMENT_TYPES, allEntries = true)
+    @Override
+    public void persist(AbstractModel<?> o) { super.persist(o); }
+
+    @CacheEvict(value = CacheConfig.APPOINTMENT_TYPES, allEntries = true)
+    @Override
+    public void merge(AbstractModel<?> o) { super.merge(o); }
+
+    @CacheEvict(value = CacheConfig.APPOINTMENT_TYPES, allEntries = true)
+    @Override
+    public void remove(AbstractModel<?> o) { super.remove(o); }
+
+    @CacheEvict(value = CacheConfig.APPOINTMENT_TYPES, allEntries = true)
+    @Override
+    public boolean remove(Object id) { return super.remove(id); }
+
+    @CacheEvict(value = CacheConfig.APPOINTMENT_TYPES, allEntries = true)
+    @Override
+    public AppointmentType saveEntity(AppointmentType entity) { return super.saveEntity(entity); }
+
+    @CacheEvict(value = CacheConfig.APPOINTMENT_TYPES, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchPersist(List<AppointmentType> oList) { super.batchPersist(oList); }
+
+    @CacheEvict(value = CacheConfig.APPOINTMENT_TYPES, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchPersist(List<AppointmentType> oList, int batchSize) { super.batchPersist(oList, batchSize); }
+
+    @CacheEvict(value = CacheConfig.APPOINTMENT_TYPES, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchRemove(List<AppointmentType> oList) { super.batchRemove(oList); }
+
+    @CacheEvict(value = CacheConfig.APPOINTMENT_TYPES, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchRemove(List<AppointmentType> oList, int batchSize) { super.batchRemove(oList, batchSize); }
 
 }
  
