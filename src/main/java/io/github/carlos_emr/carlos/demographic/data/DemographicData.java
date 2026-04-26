@@ -138,7 +138,7 @@ public class DemographicData {
         String nameage = "";
         Demographic demographic = demographicManager.getDemographic(loggedInInfo, demographicNo);
         if (demographic != null) {
-            String age = UtilDateUtilities.calcAge(UtilDateUtilities.calcDate(demographic.getYearOfBirth(), demographic.getMonthOfBirth(), demographic.getDateOfBirth()));
+            String age = UtilDateUtilities.calcAge(UtilDateUtilities.calcDate(demographic.getYearOfBirth(), demographic.getMonthOfBirth(), demographic.getDateOfBirth()), loggedInInfo.getLocale());
             if (age == null) {
                 age = "";
             }
@@ -152,7 +152,7 @@ public class DemographicData {
         String[] nameage = null;
         Demographic demographic = demographicManager.getDemographic(loggedInInfo, demographicNo);
         if (demographic != null) {
-            String age = UtilDateUtilities.calcAge(UtilDateUtilities.calcDate(demographic.getYearOfBirth(), demographic.getMonthOfBirth(), demographic.getDateOfBirth()));
+            String age = UtilDateUtilities.calcAge(UtilDateUtilities.calcDate(demographic.getYearOfBirth(), demographic.getMonthOfBirth(), demographic.getDateOfBirth()), loggedInInfo.getLocale());
             if (age == null) {
                 age = "";
             }
