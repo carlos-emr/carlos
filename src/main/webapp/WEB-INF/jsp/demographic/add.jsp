@@ -517,6 +517,41 @@
                 }
             }
 
+            function parsedob_date(){
+                const input=document.getElementById('inputDOB').value;
+                let year="";
+                let month="";
+                let day="";
+                if (input) {
+                    const [y, m, d] = input.split("-");
+                    year = y || "";
+                    month = m || "";
+                    day = d || "";
+                }
+                document.getElementById('year_of_birth').value = year
+                document.getElementById('month_of_birth').value = month
+                document.getElementById('date_of_birth').value = day
+            }
+
+            function parseDateField(fieldId) {
+                const input = document.getElementById(fieldId).value;
+            
+                let year = "";
+                let month = "";
+                let day = "";
+            
+                if (input) {
+                    const [y, m, d] = input.split("-");
+                    year = y || "";
+                    month = m || "";
+                    day = d || "";
+                }
+            
+                document.getElementById(`${fieldId}_year`).value = year;
+                document.getElementById(`${fieldId}_month`).value = month;
+                document.getElementById(`${fieldId}_day`).value = day;
+            }
+
             <%
             if("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled","false"))) {
             %>
@@ -643,6 +678,14 @@
 
     <script type="text/javascript">
         Calendar.setup({
+            inputField: "inputDOB",
+            ifFormat: "%Y-%m-%d",
+            showsTime: false,
+            button: "inputDOB_cal",
+            singleClick: true,
+            step: 1
+        });
+        Calendar.setup({
             inputField: "waiting_list_referral_date",
             ifFormat: "%Y-%m-%d",
             showsTime: false,
@@ -658,7 +701,46 @@
             singleClick: true,
             step: 1
         });
-
+        Calendar.setup({
+            inputField: "roster_date",
+            ifFormat: "%Y-%m-%d",
+            showsTime: false,
+            button: "roster_date_cal",
+            singleClick: true,
+            step: 1
+        });
+        Calendar.setup({
+            inputField: "end_date",
+            ifFormat: "%Y-%m-%d",
+            showsTime: false,
+            button: "end_date_cal",
+            singleClick: true,
+            step: 1
+        });
+        Calendar.setup({
+            inputField: "date_joined",
+            ifFormat: "%Y-%m-%d",
+            showsTime: false,
+            button: "date_joined_cal",
+            singleClick: true,
+            step: 1
+        });
+        Calendar.setup({
+            inputField: "hc_renew_date",
+            ifFormat: "%Y-%m-%d",
+            showsTime: false,
+            button: "hc_renew_date_cal",
+            singleClick: true,
+            step: 1
+        });
+        Calendar.setup({
+            inputField: "eff_date",
+            ifFormat: "%Y-%m-%d",
+            showsTime: false,
+            button: "eff_date_cal",
+            singleClick: true,
+            step: 1
+        });
         <%
         if (privateConsentEnabled) {
         %>
