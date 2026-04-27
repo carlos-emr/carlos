@@ -20,6 +20,7 @@
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
@@ -219,7 +220,7 @@
                                         <option value="FS"><fmt:message key="demographic.demographicaddrecordhtm.FS-feeforservice"/></option>
                                         <%
                                             for (String status : demographicDao.getRosterStatuses()) {%>
-                                        <option value="<%= Encode.forHtmlAttribute(status) %>"><%= Encode.forHtml(status) %></option>
+                                        <option value="<%= SafeEncode.forHtmlAttribute(status) %>"><%= SafeEncode.forHtml(status) %></option>
                                         <% } // end while %>
                                     </select>
                                     <input type="button" onClick="newStatus1();" class="btn btn-outline-secondary btn-sm"
@@ -255,7 +256,7 @@
                                         for (Provider p : providerDao.getActiveProvidersByRole("doctor")) {
                                             String docProviderNo = p.getProviderNo();
                                     %>
-                                    <option id="<%= Encode.forHtmlAttribute(docProviderNo) %>" value="<%= Encode.forHtmlAttribute(docProviderNo) %>"><%= Encode.forHtml(p.getFormattedName()) %></option>
+                                    <option id="<%= SafeEncode.forHtmlAttribute(docProviderNo) %>" value="<%= SafeEncode.forHtmlAttribute(docProviderNo) %>"><%= SafeEncode.forHtml(p.getFormattedName()) %></option>
                                     <%
                                         }
                                     %>
@@ -425,7 +426,7 @@
                                 for (int k = 0; k < propDemoExt.length; k = k + 2) {
                         %>
                         <div class="row mb-2 align-items-center">
-                            <div class="col-sm-2 text-end"><label class="fw-bold col-form-label py-0"><%= Encode.forHtml(propDemoExt[k]) %>:</label></div>
+                            <div class="col-sm-2 text-end"><label class="fw-bold col-form-label py-0"><%= SafeEncode.forHtml(propDemoExt[k]) %>:</label></div>
                             <div class="col-sm-4">
                                 <% if (bExtForm) {
                                     out.println(propDemoExtForm[k]);
@@ -484,7 +485,7 @@
                                                 <%
                                                     for (WaitingListName wln : waitingListNameDao.findCurrentByGroup(((ProviderPreference) session.getAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE)).getMyGroupNo())) {
                                                 %>
-                                                <option value="<%= Encode.forHtmlAttribute(wln.getId().toString()) %>"><%= Encode.forHtml(wln.getName()) %></option>
+                                                <option value="<%= SafeEncode.forHtmlAttribute(wln.getId().toString()) %>"><%= SafeEncode.forHtml(wln.getName()) %></option>
                                                 <%
                                                     }
                                                 %>
@@ -587,11 +588,11 @@
                         Program oscarProgram = programDao.getProgramByName("OSCAR");
                         String programId = "";
                         if (oscarProgram != null) {
-                          programId = oscarProgram.getId();
+                          programId = String.valueOf(oscarProgram.getId());
                         }
                         %>                
-                        <input type="hidden" name="rps" value="<%=programId%>" >
-                        <input type="hidden" name="sp" value="<%=programId%>" >
+                        <input type="hidden" name="rps" value="<%= SafeEncode.forHtmlAttribute(programId) %>" >
+                        <input type="hidden" name="sp" value="<%= SafeEncode.forHtmlAttribute(programId) %>" >
 
 
                         <div class="row mb-2">

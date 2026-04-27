@@ -7,7 +7,6 @@
 <%@ page import="java.util.Date" %>
 <%@ page import="java.util.ResourceBundle" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.AppointmentMainBean" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
@@ -25,6 +24,7 @@
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
@@ -117,17 +117,17 @@
         <script type="text/javascript">
             // Pre-computed i18n strings, safely encoded for JavaScript
             var i18n = {
-                msgEnrolledToRequired:   '<%= Encode.forJavaScript(oscarResources.getString("demographic.add.msgEnrolledToRequired")) %>',
-                msgRosterDateRequired:   '<%= Encode.forJavaScript(oscarResources.getString("demographic.add.msgRosterDateRequired")) %>',
-                promptNewStatus:         '<%= Encode.forJavaScript(oscarResources.getString("demographic.add.promptNewStatus")) %>',
-                msgInvalidEntry:         '<%= Encode.forJavaScript(oscarResources.getString("demographic.add.msgInvalidEntry")) %>',
-                msgInvalidDOB:           '<%= Encode.forJavaScript(oscarResources.getString("demographic.add.msgInvalidDOB")) %>',
-                msgInvalidDOBDate:       '<%= Encode.forJavaScript(oscarResources.getString("demographic.add.msgInvalidDOBDate")) %>',
-                msgInvalidHIN:           '<%= Encode.forJavaScript(oscarResources.getString("demographic.add.msgInvalidHIN")) %>',
-                msgSexRequired:          '<%= Encode.forJavaScript(oscarResources.getString("demographic.add.msgSexRequired")) %>',
-                msgInvalidPostalCode:    '<%= Encode.forJavaScript(oscarResources.getString("demographic.add.msgInvalidPostalCode")) %>',
-                confirmDuplicatePatient: '<%= Encode.forJavaScript(oscarResources.getString("demographic.add.confirmDuplicatePatient")) %>',
-                confirmClearConsent:     '<%= Encode.forJavaScript(oscarResources.getString("demographic.add.confirmClearConsent")) %>'
+                msgEnrolledToRequired:   '<%= SafeEncode.forJavaScript(oscarResources.getString("demographic.add.msgEnrolledToRequired")) %>',
+                msgRosterDateRequired:   '<%= SafeEncode.forJavaScript(oscarResources.getString("demographic.add.msgRosterDateRequired")) %>',
+                promptNewStatus:         '<%= SafeEncode.forJavaScript(oscarResources.getString("demographic.add.promptNewStatus")) %>',
+                msgInvalidEntry:         '<%= SafeEncode.forJavaScript(oscarResources.getString("demographic.add.msgInvalidEntry")) %>',
+                msgInvalidDOB:           '<%= SafeEncode.forJavaScript(oscarResources.getString("demographic.add.msgInvalidDOB")) %>',
+                msgInvalidDOBDate:       '<%= SafeEncode.forJavaScript(oscarResources.getString("demographic.add.msgInvalidDOBDate")) %>',
+                msgInvalidHIN:           '<%= SafeEncode.forJavaScript(oscarResources.getString("demographic.add.msgInvalidHIN")) %>',
+                msgSexRequired:          '<%= SafeEncode.forJavaScript(oscarResources.getString("demographic.add.msgSexRequired")) %>',
+                msgInvalidPostalCode:    '<%= SafeEncode.forJavaScript(oscarResources.getString("demographic.add.msgInvalidPostalCode")) %>',
+                confirmDuplicatePatient: '<%= SafeEncode.forJavaScript(oscarResources.getString("demographic.add.confirmDuplicatePatient")) %>',
+                confirmClearConsent:     '<%= SafeEncode.forJavaScript(oscarResources.getString("demographic.add.confirmClearConsent")) %>'
             };
 
             function aSubmit() {
