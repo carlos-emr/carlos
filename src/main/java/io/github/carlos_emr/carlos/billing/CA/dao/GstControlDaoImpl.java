@@ -38,12 +38,14 @@ import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.billing.CA.model.GstControl;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Repository;
 
 /**
  * @author rjonasz
  */
 @Repository
+@Primary
 public class GstControlDaoImpl extends AbstractDaoImpl<GstControl> implements GstControlDao {
 
     public GstControlDaoImpl() {

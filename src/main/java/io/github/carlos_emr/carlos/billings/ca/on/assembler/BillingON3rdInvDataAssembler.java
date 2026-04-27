@@ -25,7 +25,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.util.DisplayInvoiceLogo2Action;
-import io.github.carlos_emr.carlos.billings.ca.on.administration.GstControl2Action;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingON3rdInvViewModel;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
@@ -122,12 +121,6 @@ public class BillingON3rdInvDataAssembler {
         Properties propClinic = privateObj.getLocalClinicAddr();
         Properties prop3rdPart = privateObj.get3rdPartBillProp(invoiceNoStr);
         Properties prop3rdPayMethod = privateObj.get3rdPayMethod();
-
-        // GST percent is read but not used by the surviving rendered totals
-        // (the bdGst commented-out line in the legacy JSP preserved that).
-        // Reading here keeps parity with legacy behavior in case downstream
-        // hooks observe the side effect.
-        new GstControl2Action().readDatabase().getProperty("gstPercent", "");
 
         CarlosProperties oscarProp = CarlosProperties.getInstance();
         boolean isMultisite = oscarProp.getBooleanProperty("multisites", "on");

@@ -103,8 +103,11 @@ class BillingONReviewDataAssemblerUnitTest extends CarlosUnitTestBase {
         BillingONReviewValidator stubValidator = Mockito.mock(BillingONReviewValidator.class);
         when(stubValidator.validate(any(), any(), any())).thenReturn(
                 new BillingONReviewValidator.Result(java.util.Collections.emptyList(), true));
+        io.github.carlos_emr.carlos.billings.ca.on.administration.GstSettingsService gstSettingsService =
+                Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.administration.GstSettingsService.class);
+        when(gstSettingsService.readDatabase()).thenReturn(new java.util.Properties());
         assembler = new BillingONReviewDataAssembler(demographicDao, providerDao, reviewPrep, stubValidator,
-                serviceCodeService, lookupService, siteDao);
+                serviceCodeService, lookupService, siteDao, gstSettingsService);
         request = new MockHttpServletRequest();
     }
 

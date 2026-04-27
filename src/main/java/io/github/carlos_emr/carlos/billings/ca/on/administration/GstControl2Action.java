@@ -14,7 +14,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -32,70 +32,46 @@
 
 package io.github.carlos_emr.carlos.billings.ca.on.administration;
 
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.util.Properties;
-
-import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.billing.CA.dao.GstControlDao;
-import io.github.carlos_emr.carlos.billing.CA.model.GstControl;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.action.ServletRequestAware;
-import org.apache.struts2.action.ServletResponseAware;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
-public class GstControl2Action extends ActionSupport implements ServletRequestAware, ServletResponseAware  {
+public class GstControl2Action extends ActionSupport implements ServletRequestAware {
     private HttpServletRequest request;
-    private HttpServletResponse response;
+
+    private final SecurityInfoManager securityInfoManager;
+    private final GstSettingsService gstSettingsService;
+
+    public GstControl2Action(SecurityInfoManager securityInfoManager,
+                             GstSettingsService gstSettingsService) {
+        this.securityInfoManager = securityInfoManager;
+        this.gstSettingsService = gstSettingsService;
+    }
+
     @Override
     public void withServletRequest(HttpServletRequest request) {
         this.request = request;
     }
 
     @Override
-    public void withServletResponse(HttpServletResponse response) {
-        this.response = response;
-    }
-
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private GstControlDao dao = SpringUtils.getBean(GstControlDao.class);
-
-
-    @Override
-    public String execute() throws ServletException, IOException {
+    public String execute() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.billing", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.billing)");
         }
 
         String percent = this.getGstPercent();
         if (percent != null && !percent.isEmpty()) {
-            writeDatabase(percent);
+            gstSettingsService.writeDatabase(percent);
         }
 
         return SUCCESS;
     }
 
-    public void writeDatabase(String percent) {
-        for (GstControl g : dao.findAll()) {
-            g.setGstPercent(BigDecimal.valueOf(Double.valueOf(percent)));
-            dao.merge(g);
-        }
-    }
-
-    public Properties readDatabase() {
-        Properties props = new Properties();
-        for (GstControl g : dao.findAll()) {
-            props.setProperty("gstPercent", g.getGstPercent().toString());
-        }
-        return props;
-    }
     String gstPercent;
 
     public String getGstPercent() {

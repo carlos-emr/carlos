@@ -25,7 +25,8 @@
 --%>
 <%@ page
         import="java.util.*,io.github.carlos_emr.carlos.report.data.*, java.util.Properties, io.github.carlos_emr.carlos.billing.ca.on.administration.*" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.administration.GstControl2Action" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.administration.GstSettingsService" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -49,9 +50,7 @@
 
     <%
 
-        Properties props = new Properties();
-        GstControl2Action db = new GstControl2Action();
-        props = db.readDatabase();
+        Properties props = SpringUtils.getBean(GstSettingsService.class).readDatabase();
         String percent = props.getProperty("gstPercent");
 
     %>

@@ -28,6 +28,7 @@
         import="java.math.*, java.util.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.billing.ca.on.administration.*, io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.administration.GstReport" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
@@ -89,15 +90,16 @@
     BigDecimal earned;
     BigDecimal billed;
     BigDecimal gst = new BigDecimal(0);
-    Vector list = gstReport.getGST(LoggedInInfo.getLoggedInInfoFromSession(request), providerNo, startDate, endDate);
+    List<Properties> list = gstReport.getGST(LoggedInInfo.getLoggedInInfoFromSession(request), providerNo, startDate, endDate);
 
+    BillingONLookupService lookupService = SpringUtils.getBean(BillingONLookupService.class);
     List<String> pList = new ArrayList<String>();
     if (isTeamAccessPrivacy) {
-        pList = (new BillingONLookupService()).getCurTeamProviderStr(curProvider_no);
+        pList = lookupService.getCurTeamProviderStr(curProvider_no);
     } else if (isSiteAccessPrivacy) {
-        pList = (new BillingONLookupService()).getCurSiteProviderStr(curProvider_no);
+        pList = lookupService.getCurSiteProviderStr(curProvider_no);
     } else {
-        pList = (new BillingONLookupService()).getCurProviderStr();
+        pList = lookupService.getCurProviderStr();
     }
 %>
 <html>

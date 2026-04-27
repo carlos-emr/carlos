@@ -37,7 +37,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
-import io.github.carlos_emr.carlos.billings.ca.on.administration.GstControl2Action;
+import io.github.carlos_emr.carlos.billings.ca.on.administration.GstSettingsService;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
@@ -51,7 +51,7 @@ import java.util.List;
 
 public class BillingBillingManager implements Serializable {
     private String billTtype;
-    private String gstPercent = (new GstControl2Action()).readDatabase().getProperty("gstPercent", "");
+    private String gstPercent = SpringUtils.getBean(GstSettingsService.class).readDatabase().getProperty("gstPercent", "");
 
     public BillingItem[] getBillingItem(String[] service, String service1, String service2, String service3, String service1unit, String service2unit, String service3unit) {
         BillingItem[] arr = {};

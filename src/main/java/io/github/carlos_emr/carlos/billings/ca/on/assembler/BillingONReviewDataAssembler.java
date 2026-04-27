@@ -28,7 +28,7 @@ import java.util.ArrayList;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.appt.ApptUtil;
-import io.github.carlos_emr.carlos.billings.ca.on.administration.GstControl2Action;
+import io.github.carlos_emr.carlos.billings.ca.on.administration.GstSettingsService;
 import io.github.carlos_emr.carlos.billings.ca.on.administration.GstReport;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDemographicSummary;
@@ -72,6 +72,7 @@ public class BillingONReviewDataAssembler {
     private final BillingONServiceCodeService serviceCodeService;
     private final BillingONLookupService lookupService;
     private final SiteDao siteDao;
+    private final GstSettingsService gstSettingsService;
 
     public BillingONReviewDataAssembler(DemographicDao demographicDao,
                                  ProviderDao providerDao,
@@ -79,7 +80,8 @@ public class BillingONReviewDataAssembler {
                                  BillingONReviewValidator validator,
                                  BillingONServiceCodeService serviceCodeService,
                                  BillingONLookupService lookupService,
-                                 SiteDao siteDao) {
+                                 SiteDao siteDao,
+                                 GstSettingsService gstSettingsService) {
         this.demographicDao = demographicDao;
         this.providerDao = providerDao;
         this.reviewPrep = reviewPrep;
@@ -87,6 +89,7 @@ public class BillingONReviewDataAssembler {
         this.serviceCodeService = serviceCodeService;
         this.lookupService = lookupService;
         this.siteDao = siteDao;
+        this.gstSettingsService = gstSettingsService;
     }
 
     public BillingONReviewViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
@@ -311,9 +314,9 @@ public class BillingONReviewDataAssembler {
         Properties oscarVariables = CarlosProperties.getInstance();
         Properties gstProp;
         try {
-            gstProp = new GstControl2Action().readDatabase();
+            gstProp = gstSettingsService.readDatabase();
         } catch (RuntimeException e) {
-            MiscUtils.getLogger().warn("BillingONReviewDataAssembler: GstControl2Action.readDatabase failed", e);
+            MiscUtils.getLogger().warn("BillingONReviewDataAssembler: GstSettingsService.readDatabase failed", e);
             gstProp = new Properties();
         }
         String percent = gstProp.getProperty("gstPercent", "");

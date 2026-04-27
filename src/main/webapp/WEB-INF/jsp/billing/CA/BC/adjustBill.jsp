@@ -60,7 +60,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.administration.GstControl2Action" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.administration.GstSettingsService" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.administration.GstReport" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
@@ -159,7 +159,7 @@
         request.setAttribute("invoiceNo", String.valueOf(bm.getBillingNo()));
     }
     GstReport gstReport = new GstReport();
-    String gstPercent = (new GstControl2Action()).readDatabase().getProperty("gstPercent", "");
+    String gstPercent = io.github.carlos_emr.carlos.utility.SpringUtils.getBean(GstSettingsService.class).readDatabase().getProperty("gstPercent", "");
 
 %>
 <html>

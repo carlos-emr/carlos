@@ -46,7 +46,6 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.on.bean.BillingClaimBatchAcknowledgementReportBeanHandler;
 import io.github.carlos_emr.carlos.billings.ca.on.bean.BillingClaimsErrorReportBeanHandler;
@@ -68,15 +67,18 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-
-    private BatchEligibilityDao batchEligibilityDao = (BatchEligibilityDao) SpringUtils.getBean(BatchEligibilityDao.class);
-    private DemographicCustDao demographicCustDao = (DemographicCustDao) SpringUtils.getBean(DemographicCustDao.class);
+    private final BatchEligibilityDao batchEligibilityDao;
+    private final DemographicCustDao demographicCustDao;
     private final DemographicManager demographicManager;
 
     public BillingDocumentErrorReportUpload2Action(SecurityInfoManager securityInfoManager,
-                                                   DemographicManager demographicManager) {
+                                                   DemographicManager demographicManager,
+                                                   BatchEligibilityDao batchEligibilityDao,
+                                                   DemographicCustDao demographicCustDao) {
         this.securityInfoManager = securityInfoManager;
         this.demographicManager = demographicManager;
+        this.batchEligibilityDao = batchEligibilityDao;
+        this.demographicCustDao = demographicCustDao;
     }
     public String execute() throws ServletException, IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

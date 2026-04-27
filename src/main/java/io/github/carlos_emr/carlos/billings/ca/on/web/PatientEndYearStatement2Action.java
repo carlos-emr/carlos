@@ -36,7 +36,6 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -71,13 +70,17 @@ public class PatientEndYearStatement2Action extends ActionSupport {
     private static final String RES_FAILURE = "failure";
     private static final String PDF_FILENAME_BASE = "end_year_statement_report";
 
-    private final SecurityInfoManager securityInfoManager =
-            SpringUtils.getBean(SecurityInfoManager.class);
-    private final PatientEndYearStatementService statementService =
-            SpringUtils.getBean(PatientEndYearStatementService.class);
+    private final SecurityInfoManager securityInfoManager;
+    private final PatientEndYearStatementService statementService;
 
     private final HttpServletRequest request = ServletActionContext.getRequest();
     private final HttpServletResponse response = ServletActionContext.getResponse();
+
+    public PatientEndYearStatement2Action(SecurityInfoManager securityInfoManager,
+                                          PatientEndYearStatementService statementService) {
+        this.securityInfoManager = securityInfoManager;
+        this.statementService = statementService;
+    }
 
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
