@@ -65,9 +65,12 @@
         <action name="admin/manageCSSStyles" class="io.github.carlos_emr.carlos.billing.CA.ON.web.ManageCSS2Action">
             <result name="init">/WEB-INF/jsp/admin/manageCSSStyles.jsp</result>
         </action>
-        <action name="billing" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.Billing2Action">
-            <result name="BC">/WEB-INF/jsp/billing/CA/BC/billingBC.jsp</result>
+        <action name="billing" class="io.github.carlos_emr.carlos.billings.ca.pageUtil.Billing2Action">
+            <result name="BC" type="chain">billing/CA/BC/billingSetup</result>
             <result name="ON" type="chain">billing/CA/ON/billingView</result>
+        </action>
+        <action name="billing/CA/BC/billingSetup" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBCSetup2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/BC/billingBC.jsp</result>
         </action>
         <action name="billing/CA/BC/CreateBilling" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingCreateBilling2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/BC/billingCreated.jsp</result>
@@ -79,7 +82,6 @@
         </action>
         <action name="billing/CA/BC/billingView" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingView2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/BC/billingView.jsp</result>
-            <result name="ON">/WEB-INF/jsp/billing/CA/ON/billingOB2.jsp</result>
             <result name="private">/WEB-INF/jsp/billing/CA/BC/billReceipt.jsp</result>
         </action>
         <!-- Dedicated ON view gate for the OHIP-billing history popup.

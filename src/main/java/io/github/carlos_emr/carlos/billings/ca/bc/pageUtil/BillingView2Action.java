@@ -33,7 +33,6 @@ package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Properties;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -50,7 +49,6 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
-import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillRecipient;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingPreference;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingPreferencesDAO;
@@ -79,111 +77,107 @@ public final class BillingView2Action
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-
-        Properties oscarVars = CarlosProperties.getInstance();
-
-        if (oscarVars.getProperty("billregion").equals("ON")) {
-            return "ON";
-        } else {
-            BillingViewBean bean = new BillingViewBean();
-            String billingNoParam = request.getParameter("billing_no");
-            if (billingNoParam == null || !billingNoParam.matches("\\d{1,9}")) {
-                log.warn("Invalid billing_no rejected");
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
-                return NONE;
-            }
-            bean.loadBilling(billingNoParam);
-            BillingBillingManager bmanager = new BillingBillingManager();
-            ArrayList<BillingItem> billItem = new ArrayList<BillingItem>();
-            String[] billingN = request.getParameterValues("billing_no");
-            if (billingN == null) {
-                log.warn("Missing billing_no parameter values");
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
-                return NONE;
-            }
-            for (String bn : billingN) {
-                if (bn == null || !bn.matches("\\d{1,9}")) {
-                    log.warn("Invalid billing_no in parameter values");
-                    response.sendError(HttpServletResponse.SC_BAD_REQUEST);
-                    return NONE;
-                }
-            }
-
-            for (int i = 0; i < billingN.length; i++) {
-                log.debug("billn " + i + " " + billingN[i]);
-                ArrayList<BillingItem> tempBillItem = bmanager.getBillView(billingN[i]);
-                billItem.addAll(tempBillItem);
-            }
-
-            log.debug("Calling getGrandTotal");
-            bean.setBillItem(billItem);
-
-            bean.calculateSubtotal();
-            log.debug("GrandTotal" + bmanager.getGrandTotal(billItem));
-            bean.setGrandtotal(bmanager.getGrandTotal(billItem));
-            DemographicData demoData = new DemographicData();
-            log.debug("Calling Demo");
-
-            Demographic demo = demoData.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), bean.getPatientNo());
-            bean.setPatientLastName(demo.getLastName());
-            bean.setPatientFirstName(demo.getFirstName());
-            bean.setPatientDoB(demo.getDateOfBirth());
-            bean.setPatientAddress1(demo.getAddress());
-            bean.setPatientAddress2(demo.getCity());
-            bean.setPatientPostal(demo.getPostal());
-            bean.setPatientSex(demo.getSex());
-            bean.setPatientPHN(demo.getHin() + demo.getVer());
-            bean.setPatientHCType(demo.getHcType());
-            bean.setPatientAge(demo.getAge());
-            this.setBillingNo(bean.getBillingNo());
-            log.debug("End Demo Call billing No{}", LogSanitizer.sanitize(request.getParameter("billing_no")));
-            //Loading bill Recipient Data
-            List<BillRecipient> billRecipList = bean.getBillRecipient(request.getParameter("billing_no"));
-            if (!billRecipList.isEmpty()) {
-                log.debug("Filling recep with last details");
-                BillRecipient rec = billRecipList.get(0);
-                this.setRecipientAddress(rec.getAddress());
-                this.setRecipientCity(rec.getCity());
-                this.setRecipientName(rec.getName());
-                this.setRecipientPostal(rec.getPostal());
-                this.setRecipientProvince(rec.getProvince());
-                this.setBillPatient("0");
-            } else {
-                log.debug("Filling recep with demo details");
-                this.setRecipientName(demo.getFirstName() + " " + demo.getLastName());
-                this.setRecipientCity(demo.getCity());
-                this.setRecipientAddress(demo.getAddress());
-                this.setRecipientPostal(demo.getPostal());
-                this.setRecipientProvince(demo.getProvince());
-                this.setBillPatient("1");
-            }
-            this.setMessageNotes(bean.getMessageNotes());
-            this.setBillStatus(bean.getBillingType());
-            this.setPaymentMethod(bean.getPaymentMethod());
-            request.getSession().setAttribute("billingViewBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-            String receipt = request.getParameter("receipt");
-            if (receipt != null && receipt.equals("yes")) {
-
-                BillingPreferencesDAO billingPreferencesDAO = SpringUtils.getBean(BillingPreferencesDAO.class);
-                BillingPreference pref = billingPreferencesDAO.getUserBillingPreference(bean.getBillingProvider());
-
-                if (pref == null || "NONE".equals(pref.getDefaultPayeeNo())) {
-                    bean.setDefaultPayeeInfo("");
-                } else if ("CUSTOM".equals(pref.getDefaultPayeeNo())) {
-                    PropertyDao propertyDao = SpringUtils.getBean(PropertyDao.class);
-                    List<Property> propList = propertyDao.findByNameAndProvider(Property.PROPERTY_KEY.invoice_payee_info, bean.getBillingProvider());
-                    bean.setDefaultPayeeInfo(!propList.isEmpty() ? propList.get(0).getValue() : "");
-                } else {
-                    ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
-                    Provider p = providerDao.getProvider(pref.getDefaultPayeeNo());
-                    bean.setDefaultPayeeInfo(p != null ? p.getFormattedName() : "");
-                }
-                return "private";
-            }
-
-
-            return SUCCESS;
+        // ON callers no longer enter this BC action — they hit
+        // billing/CA/ON/ViewBillingOB2 (BillingOB2View2Action) directly.
+        // The historic "if billregion==ON, redirect" crossover has been
+        // dropped along with the corresponding name="ON" result mapping.
+        BillingViewBean bean = new BillingViewBean();
+        String billingNoParam = request.getParameter("billing_no");
+        if (billingNoParam == null || !billingNoParam.matches("\\d{1,9}")) {
+            log.warn("Invalid billing_no rejected");
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
         }
+        bean.loadBilling(billingNoParam);
+        BillingBillingManager bmanager = new BillingBillingManager();
+        ArrayList<BillingItem> billItem = new ArrayList<BillingItem>();
+        String[] billingN = request.getParameterValues("billing_no");
+        if (billingN == null) {
+            log.warn("Missing billing_no parameter values");
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        for (String bn : billingN) {
+            if (bn == null || !bn.matches("\\d{1,9}")) {
+                log.warn("Invalid billing_no in parameter values");
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
+        }
+
+        for (int i = 0; i < billingN.length; i++) {
+            log.debug("billn " + i + " " + billingN[i]);
+            ArrayList<BillingItem> tempBillItem = bmanager.getBillView(billingN[i]);
+            billItem.addAll(tempBillItem);
+        }
+
+        log.debug("Calling getGrandTotal");
+        bean.setBillItem(billItem);
+
+        bean.calculateSubtotal();
+        log.debug("GrandTotal" + bmanager.getGrandTotal(billItem));
+        bean.setGrandtotal(bmanager.getGrandTotal(billItem));
+        DemographicData demoData = new DemographicData();
+        log.debug("Calling Demo");
+
+        Demographic demo = demoData.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), bean.getPatientNo());
+        bean.setPatientLastName(demo.getLastName());
+        bean.setPatientFirstName(demo.getFirstName());
+        bean.setPatientDoB(demo.getDateOfBirth());
+        bean.setPatientAddress1(demo.getAddress());
+        bean.setPatientAddress2(demo.getCity());
+        bean.setPatientPostal(demo.getPostal());
+        bean.setPatientSex(demo.getSex());
+        bean.setPatientPHN(demo.getHin() + demo.getVer());
+        bean.setPatientHCType(demo.getHcType());
+        bean.setPatientAge(demo.getAge());
+        this.setBillingNo(bean.getBillingNo());
+        log.debug("End Demo Call billing No{}", LogSanitizer.sanitize(request.getParameter("billing_no")));
+        //Loading bill Recipient Data
+        List<BillRecipient> billRecipList = bean.getBillRecipient(request.getParameter("billing_no"));
+        if (!billRecipList.isEmpty()) {
+            log.debug("Filling recep with last details");
+            BillRecipient rec = billRecipList.get(0);
+            this.setRecipientAddress(rec.getAddress());
+            this.setRecipientCity(rec.getCity());
+            this.setRecipientName(rec.getName());
+            this.setRecipientPostal(rec.getPostal());
+            this.setRecipientProvince(rec.getProvince());
+            this.setBillPatient("0");
+        } else {
+            log.debug("Filling recep with demo details");
+            this.setRecipientName(demo.getFirstName() + " " + demo.getLastName());
+            this.setRecipientCity(demo.getCity());
+            this.setRecipientAddress(demo.getAddress());
+            this.setRecipientPostal(demo.getPostal());
+            this.setRecipientProvince(demo.getProvince());
+            this.setBillPatient("1");
+        }
+        this.setMessageNotes(bean.getMessageNotes());
+        this.setBillStatus(bean.getBillingType());
+        this.setPaymentMethod(bean.getPaymentMethod());
+        request.getSession().setAttribute("billingViewBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        String receipt = request.getParameter("receipt");
+        if (receipt != null && receipt.equals("yes")) {
+
+            BillingPreferencesDAO billingPreferencesDAO = SpringUtils.getBean(BillingPreferencesDAO.class);
+            BillingPreference pref = billingPreferencesDAO.getUserBillingPreference(bean.getBillingProvider());
+
+            if (pref == null || "NONE".equals(pref.getDefaultPayeeNo())) {
+                bean.setDefaultPayeeInfo("");
+            } else if ("CUSTOM".equals(pref.getDefaultPayeeNo())) {
+                PropertyDao propertyDao = SpringUtils.getBean(PropertyDao.class);
+                List<Property> propList = propertyDao.findByNameAndProvider(Property.PROPERTY_KEY.invoice_payee_info, bean.getBillingProvider());
+                bean.setDefaultPayeeInfo(!propList.isEmpty() ? propList.get(0).getValue() : "");
+            } else {
+                ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
+                Provider p = providerDao.getProvider(pref.getDefaultPayeeNo());
+                bean.setDefaultPayeeInfo(p != null ? p.getFormattedName() : "");
+            }
+            return "private";
+        }
+
+        return SUCCESS;
     }
 
     private String amountReceived;

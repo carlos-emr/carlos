@@ -113,7 +113,8 @@ Comprehensive billing management for various Canadian provinces.
 | billing/CA/ON/moveMOHFiles | io.github.carlos_emr.carlos.billing.CA.ON.web.MoveMOHFiles2Action | Moves MOH billing files |
 | BillingInvoice | io.github.carlos_emr.carlos.commn.web.BillingInvoice2Action | Generates billing invoices |
 | BillingONReview | io.github.carlos_emr.carlos.commn.web.BillingONReview2Action | Reviews Ontario billing submissions |
-| billing | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.Billing2Action | Main billing interface |
+| billing | io.github.carlos_emr.carlos.billings.ca.pageUtil.Billing2Action | Cross-province billing entry router (BC → billing/CA/BC/billingSetup; ON → billing/CA/ON/billingView) |
+| billing/CA/BC/billingSetup | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBCSetup2Action | BC-only billing entry setup (BillingSessionBean + BillingGuidelines DS) |
 
 ## Case Management Module
 
