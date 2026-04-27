@@ -20,7 +20,6 @@ import java.util.List;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCodeSearchAjaxViewModel;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Assembles {@link BillingCodeSearchAjaxViewModel} for
@@ -45,11 +44,7 @@ public class BillingCodeSearchAjaxDataAssembler {
 
     private final BillingServiceDao billingServiceDao;
 
-    public BillingCodeSearchAjaxDataAssembler() {
-        this(SpringUtils.getBean(BillingServiceDao.class));
-    }
-
-    BillingCodeSearchAjaxDataAssembler(BillingServiceDao billingServiceDao) {
+    public BillingCodeSearchAjaxDataAssembler(BillingServiceDao billingServiceDao) {
         this.billingServiceDao = billingServiceDao;
     }
 

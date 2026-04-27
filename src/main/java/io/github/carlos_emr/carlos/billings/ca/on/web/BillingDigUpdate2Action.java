@@ -39,8 +39,12 @@ public class BillingDigUpdate2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    public BillingDigUpdate2Action(SecurityInfoManager securityInfoManager) {
+    private final BillingDxCodeDataAssembler billingDxCodeAssembler;
+
+    public BillingDigUpdate2Action(SecurityInfoManager securityInfoManager,
+                                    BillingDxCodeDataAssembler billingDxCodeAssembler) {
         this.securityInfoManager = securityInfoManager;
+        this.billingDxCodeAssembler = billingDxCodeAssembler;
     }
     @Override
     public String execute() throws Exception {
@@ -65,7 +69,7 @@ public class BillingDigUpdate2Action extends ActionSupport {
                 ? "" : submitValue.substring(submitValue.length() - 3);
         String newDescription = request.getParameter(code);
 
-        BillingDigUpdateViewModel model = new BillingDxCodeDataAssembler()
+        BillingDigUpdateViewModel model = billingDxCodeAssembler
                 .assembleUpdate(submitValue, newDescription);
         request.setAttribute("digUpdateModel", model);
 

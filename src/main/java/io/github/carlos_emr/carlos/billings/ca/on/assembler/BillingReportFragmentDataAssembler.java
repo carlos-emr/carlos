@@ -31,7 +31,6 @@ import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Assembles {@link BillingReportFragmentViewModel} for the four ON billing
@@ -55,13 +54,7 @@ public class BillingReportFragmentDataAssembler {
     private final BillingDetailDao billingDetailDao;
     private final io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao appointmentDao;
 
-    public BillingReportFragmentDataAssembler() {
-        this(SpringUtils.getBean(BillingDao.class),
-             SpringUtils.getBean(BillingDetailDao.class),
-             SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao.class));
-    }
-
-    BillingReportFragmentDataAssembler(BillingDao billingDao, BillingDetailDao billingDetailDao,
+    public BillingReportFragmentDataAssembler(BillingDao billingDao, BillingDetailDao billingDetailDao,
                                         io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao appointmentDao) {
         this.billingDao = billingDao;
         this.billingDetailDao = billingDetailDao;

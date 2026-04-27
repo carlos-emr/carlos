@@ -40,8 +40,12 @@ public class ViewOnGenRAError2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    public ViewOnGenRAError2Action(SecurityInfoManager securityInfoManager) {
+    private final OnGenRAErrorDataAssembler onGenRAErrorAssembler;
+
+    public ViewOnGenRAError2Action(SecurityInfoManager securityInfoManager,
+                                    OnGenRAErrorDataAssembler onGenRAErrorAssembler) {
         this.securityInfoManager = securityInfoManager;
+        this.onGenRAErrorAssembler = onGenRAErrorAssembler;
     }
     @Override
     public String execute() throws Exception {
@@ -52,7 +56,7 @@ public class ViewOnGenRAError2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        OnGenRAErrorViewModel model = new OnGenRAErrorDataAssembler().assemble(
+        OnGenRAErrorViewModel model = onGenRAErrorAssembler.assemble(
                 request.getParameter("rano"),
                 request.getParameter("proNo"));
         request.setAttribute("onGenRAErrorModel", model);

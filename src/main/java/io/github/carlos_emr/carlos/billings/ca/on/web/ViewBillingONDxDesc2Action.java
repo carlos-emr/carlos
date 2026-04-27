@@ -34,8 +34,12 @@ public class ViewBillingONDxDesc2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    public ViewBillingONDxDesc2Action(SecurityInfoManager securityInfoManager) {
+    private final BillingDxCodeDataAssembler billingDxCodeAssembler;
+
+    public ViewBillingONDxDesc2Action(SecurityInfoManager securityInfoManager,
+                                       BillingDxCodeDataAssembler billingDxCodeAssembler) {
         this.securityInfoManager = securityInfoManager;
+        this.billingDxCodeAssembler = billingDxCodeAssembler;
     }
     @Override
     public String execute() throws Exception {
@@ -46,7 +50,7 @@ public class ViewBillingONDxDesc2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        BillingONDxDescViewModel model = new BillingDxCodeDataAssembler()
+        BillingONDxDescViewModel model = billingDxCodeAssembler
                 .assembleDescription(request.getParameter("diagnostic_code"));
         request.setAttribute("dxDescModel", model);
 

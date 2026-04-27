@@ -43,7 +43,6 @@ import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.web.BillingONPayment2Action;
 
 /**
@@ -78,23 +77,7 @@ public class BillingONPaymentDataAssembler {
     private final DemographicDao demographicDao;
     private final BillingONService billingONService;
 
-    /**
-     * Production constructor used by Struts; resolves dependencies from the
-     * Spring context via {@link SpringUtils#getBean}. Tests use the
-     * package-private constructor below to inject mocks directly.
-     */
-    public BillingONPaymentDataAssembler() {
-        this(SpringUtils.getBean(ProviderDao.class),
-             SpringUtils.getBean(RaDetailDao.class),
-             SpringUtils.getBean(BillingONCHeader1Dao.class),
-             SpringUtils.getBean(BillingONPremiumDao.class),
-             SpringUtils.getBean(BillingONPaymentDao.class),
-             SpringUtils.getBean(BillingOnItemPaymentDao.class),
-             SpringUtils.getBean(DemographicDao.class),
-             SpringUtils.getBean(BillingONService.class));
-    }
-
-    BillingONPaymentDataAssembler(ProviderDao providerDao,
+    public BillingONPaymentDataAssembler(ProviderDao providerDao,
                                   RaDetailDao raDetailDao,
                                   BillingONCHeader1Dao bCh1Dao,
                                   BillingONPremiumDao bPremiumDao,

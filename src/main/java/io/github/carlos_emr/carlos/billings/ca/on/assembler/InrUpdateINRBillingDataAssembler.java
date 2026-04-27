@@ -18,7 +18,6 @@ import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.carlos.billings.ca.on.data.InrUpdateINRBillingViewModel;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Assembles the {@link InrUpdateINRBillingViewModel} from request
@@ -40,12 +39,8 @@ public class InrUpdateINRBillingDataAssembler {
     private final DemographicDao demographicDao;
 
     /** Production constructor — resolves the DAO from the Spring context. */
-    public InrUpdateINRBillingDataAssembler() {
-        this(SpringUtils.getBean(DemographicDao.class));
-    }
-
     /** Test-friendly constructor — takes the DAO mock directly. */
-    InrUpdateINRBillingDataAssembler(DemographicDao demographicDao) {
+    public InrUpdateINRBillingDataAssembler(DemographicDao demographicDao) {
         this.demographicDao = demographicDao;
     }
 

@@ -36,7 +36,6 @@ import io.github.carlos_emr.carlos.commn.model.RaHeader;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Shared assembler for {@code genRASummary.jsp} and
@@ -63,14 +62,7 @@ public class GenRASummaryDataAssembler {
     private final ProviderDao providerDao;
     private final BillingDao billingDao;
 
-    public GenRASummaryDataAssembler() {
-        this(SpringUtils.getBean(RaHeaderDao.class),
-             SpringUtils.getBean(RaDetailDao.class),
-             SpringUtils.getBean(ProviderDao.class),
-             SpringUtils.getBean(BillingDao.class));
-    }
-
-    GenRASummaryDataAssembler(RaHeaderDao raHeaderDao,
+    public GenRASummaryDataAssembler(RaHeaderDao raHeaderDao,
                               RaDetailDao raDetailDao,
                               ProviderDao providerDao,
                               BillingDao billingDao) {

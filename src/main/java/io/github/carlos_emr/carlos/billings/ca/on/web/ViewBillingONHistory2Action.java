@@ -35,8 +35,12 @@ public class ViewBillingONHistory2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    public ViewBillingONHistory2Action(SecurityInfoManager securityInfoManager) {
+    private final BillingONHistoryDataAssembler billingONHistoryAssembler;
+
+    public ViewBillingONHistory2Action(SecurityInfoManager securityInfoManager,
+                                        BillingONHistoryDataAssembler billingONHistoryAssembler) {
         this.securityInfoManager = securityInfoManager;
+        this.billingONHistoryAssembler = billingONHistoryAssembler;
     }
     @Override
     public String execute() throws Exception {
@@ -47,7 +51,7 @@ public class ViewBillingONHistory2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        BillingONHistoryViewModel model = new BillingONHistoryDataAssembler()
+        BillingONHistoryViewModel model = billingONHistoryAssembler
                 .assemble(loggedInInfo, request.getParameter("demographic_no"));
         request.setAttribute("historyModel", model);
 

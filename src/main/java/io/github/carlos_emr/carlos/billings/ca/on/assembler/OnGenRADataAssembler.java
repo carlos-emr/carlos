@@ -25,7 +25,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.OnGenRAViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Assembles {@link OnGenRAViewModel} for {@code billing/CA/ON/onGenRA.jsp},
@@ -45,13 +44,8 @@ public class OnGenRADataAssembler {
     private final SecurityInfoManager securityInfoManager;
     private final BillingONRemittanceAdviceService dbObj;
 
-    public OnGenRADataAssembler() {
-        this(SpringUtils.getBean(SecurityInfoManager.class),
-             SpringUtils.getBean(BillingONRemittanceAdviceService.class));
-    }
-
-    OnGenRADataAssembler(SecurityInfoManager securityInfoManager,
-                         BillingONRemittanceAdviceService dbObj) {
+    public OnGenRADataAssembler(SecurityInfoManager securityInfoManager,
+                                BillingONRemittanceAdviceService dbObj) {
         this.securityInfoManager = securityInfoManager;
         this.dbObj = dbObj;
     }

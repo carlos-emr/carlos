@@ -40,8 +40,12 @@ public class BillingEditWithApptNo2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    public BillingEditWithApptNo2Action(SecurityInfoManager securityInfoManager) {
+    private final BillingEditWithApptNoDataAssembler billingEditWithApptNoAssembler;
+
+    public BillingEditWithApptNo2Action(SecurityInfoManager securityInfoManager,
+                                         BillingEditWithApptNoDataAssembler billingEditWithApptNoAssembler) {
         this.securityInfoManager = securityInfoManager;
+        this.billingEditWithApptNoAssembler = billingEditWithApptNoAssembler;
     }
     @Override
     public String execute() throws Exception {
@@ -58,7 +62,7 @@ public class BillingEditWithApptNo2Action extends ActionSupport {
             return NONE;
         }
 
-        BillingEditWithApptNoViewModel model = new BillingEditWithApptNoDataAssembler().assemble(request, loggedInInfo);
+        BillingEditWithApptNoViewModel model = billingEditWithApptNoAssembler.assemble(request, loggedInInfo);
         request.setAttribute("editApptModel", model);
 
         return SUCCESS;

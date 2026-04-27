@@ -36,8 +36,12 @@ public class ViewInrReportINR2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    public ViewInrReportINR2Action(SecurityInfoManager securityInfoManager) {
+    private final BillingInrReportDataAssembler billingInrReportAssembler;
+
+    public ViewInrReportINR2Action(SecurityInfoManager securityInfoManager,
+                                    BillingInrReportDataAssembler billingInrReportAssembler) {
         this.securityInfoManager = securityInfoManager;
+        this.billingInrReportAssembler = billingInrReportAssembler;
     }
     @Override
     public String execute() throws Exception {
@@ -48,7 +52,7 @@ public class ViewInrReportINR2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        BillingInrReportViewModel model = new BillingInrReportDataAssembler()
+        BillingInrReportViewModel model = billingInrReportAssembler
                 .assemble(request, loggedInInfo);
         request.setAttribute("reportInrModel", model);
 

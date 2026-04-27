@@ -37,8 +37,11 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONMRIDataAsse
  */
 public class ViewBillingONMRI2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
-    public ViewBillingONMRI2Action(SecurityInfoManager securityInfoManager) {
+    private final BillingONMRIDataAssembler billingONMRIAssembler;
+    public ViewBillingONMRI2Action(SecurityInfoManager securityInfoManager,
+                                    BillingONMRIDataAssembler billingONMRIAssembler) {
         this.securityInfoManager = securityInfoManager;
+        this.billingONMRIAssembler = billingONMRIAssembler;
     }
 
     @Override
@@ -56,7 +59,7 @@ public class ViewBillingONMRI2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        BillingONMRIViewModel model = new BillingONMRIDataAssembler().assemble(request, loggedInInfo);
+        BillingONMRIViewModel model = billingONMRIAssembler.assemble(request, loggedInInfo);
         request.setAttribute("mriModel", model);
 
         // Replicates the legacy session-attribute the JSP scriptlet set so the

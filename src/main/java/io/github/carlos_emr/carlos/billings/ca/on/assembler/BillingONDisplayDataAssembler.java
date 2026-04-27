@@ -30,7 +30,6 @@ import io.github.carlos_emr.carlos.commn.model.BillingONErrorCode;
 import io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao;
 import io.github.carlos_emr.carlos.commn.model.ClinicNbr;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionPrep;
 import io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingONDisplay2Action;
 
@@ -53,19 +52,7 @@ public class BillingONDisplayDataAssembler {
     private final BillingONErrorCodeDao errorCodeDao;
     private final BillingONLookupService lookupService;
 
-    /**
-     * Production constructor used by Struts; resolves dependencies from the
-     * Spring context via {@link SpringUtils#getBean}. Tests use the
-     * package-private constructor below to inject mocks.
-     */
-    public BillingONDisplayDataAssembler() {
-        this(SpringUtils.getBean(ClinicNbrDao.class),
-             SpringUtils.getBean(BillingCorrectionPrep.class),
-             SpringUtils.getBean(BillingONErrorCodeDao.class),
-             SpringUtils.getBean(BillingONLookupService.class));
-    }
-
-    BillingONDisplayDataAssembler(ClinicNbrDao clinicNbrDao,
+    public BillingONDisplayDataAssembler(ClinicNbrDao clinicNbrDao,
                                   BillingCorrectionPrep prep,
                                   BillingONErrorCodeDao errorCodeDao,
                                   BillingONLookupService lookupService) {

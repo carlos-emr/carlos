@@ -36,8 +36,11 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOHIPSimulatio
  */
 public class ViewBillingOHIPsimulation2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
-    public ViewBillingOHIPsimulation2Action(SecurityInfoManager securityInfoManager) {
+    private final BillingOHIPSimulationDataAssembler billingOHIPSimulationAssembler;
+    public ViewBillingOHIPsimulation2Action(SecurityInfoManager securityInfoManager,
+                                             BillingOHIPSimulationDataAssembler billingOHIPSimulationAssembler) {
         this.securityInfoManager = securityInfoManager;
+        this.billingOHIPSimulationAssembler = billingOHIPSimulationAssembler;
     }
 
     @Override
@@ -62,7 +65,7 @@ public class ViewBillingOHIPsimulation2Action extends ActionSupport {
         boolean teamAccessPrivacy = securityInfoManager.hasPrivilege(
                 loggedInInfo, "_team_access_privacy", "r", null);
 
-        BillingOHIPSimulationViewModel model = new BillingOHIPSimulationDataAssembler()
+        BillingOHIPSimulationViewModel model = billingOHIPSimulationAssembler
                 .assemble(request, loggedInInfo, teamBillingOnly,
                         siteAccessPrivacy, teamAccessPrivacy);
         request.setAttribute("simulationModel", model);

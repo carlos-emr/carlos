@@ -37,8 +37,11 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.AddEditServiceCodeDa
  */
 public class AddEditServiceCode2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
-    public AddEditServiceCode2Action(SecurityInfoManager securityInfoManager) {
+    private final AddEditServiceCodeDataAssembler addEditServiceCodeAssembler;
+    public AddEditServiceCode2Action(SecurityInfoManager securityInfoManager,
+                                      AddEditServiceCodeDataAssembler addEditServiceCodeAssembler) {
         this.securityInfoManager = securityInfoManager;
+        this.addEditServiceCodeAssembler = addEditServiceCodeAssembler;
     }
 
     @Override
@@ -73,7 +76,7 @@ public class AddEditServiceCode2Action extends ActionSupport {
             return NONE;
         }
 
-        AddEditServiceCodeViewModel model = new AddEditServiceCodeDataAssembler().assemble(request, loggedInInfo);
+        AddEditServiceCodeViewModel model = addEditServiceCodeAssembler.assemble(request, loggedInInfo);
         request.setAttribute("addEditModel", model);
 
         return SUCCESS;

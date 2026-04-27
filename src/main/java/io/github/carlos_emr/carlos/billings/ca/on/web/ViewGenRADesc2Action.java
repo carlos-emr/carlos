@@ -42,8 +42,12 @@ public class ViewGenRADesc2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    public ViewGenRADesc2Action(SecurityInfoManager securityInfoManager) {
+    private final GenRADescDataAssembler genRADescAssembler;
+
+    public ViewGenRADesc2Action(SecurityInfoManager securityInfoManager,
+                                 GenRADescDataAssembler genRADescAssembler) {
         this.securityInfoManager = securityInfoManager;
+        this.genRADescAssembler = genRADescAssembler;
     }
     @Override
     public String execute() throws Exception {
@@ -60,7 +64,7 @@ public class ViewGenRADesc2Action extends ActionSupport {
             return NONE;
         }
 
-        GenRADescViewModel model = new GenRADescDataAssembler().assemble(request, loggedInInfo);
+        GenRADescViewModel model = genRADescAssembler.assemble(request, loggedInInfo);
         request.setAttribute("raDescModel", model);
 
         return SUCCESS;

@@ -38,8 +38,12 @@ public class ViewOnGenRASummary2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    public ViewOnGenRASummary2Action(SecurityInfoManager securityInfoManager) {
+    private final OnGenRASummaryDataAssembler onGenRASummaryAssembler;
+
+    public ViewOnGenRASummary2Action(SecurityInfoManager securityInfoManager,
+                                      OnGenRASummaryDataAssembler onGenRASummaryAssembler) {
         this.securityInfoManager = securityInfoManager;
+        this.onGenRASummaryAssembler = onGenRASummaryAssembler;
     }
     private OnGenRASummaryViewModel model;
 
@@ -58,7 +62,7 @@ public class ViewOnGenRASummary2Action extends ActionSupport {
             return NONE;
         }
 
-        model = new OnGenRASummaryDataAssembler().assemble(
+        model = onGenRASummaryAssembler.assemble(
                 request.getParameter("rano"),
                 request.getParameter("proNo"));
         request.setAttribute("model", model);

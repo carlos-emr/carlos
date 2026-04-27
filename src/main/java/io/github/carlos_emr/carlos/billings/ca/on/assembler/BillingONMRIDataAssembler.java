@@ -42,7 +42,6 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewPrep;
 
 /**
@@ -78,17 +77,7 @@ public class BillingONMRIDataAssembler {
     private final BillingReviewPrep reviewPrep;
     private final BillingONLookupService lookupService;
 
-    public BillingONMRIDataAssembler() {
-        this(SpringUtils.getBean(ProviderDao.class),
-             SpringUtils.getBean(BillActivityDao.class),
-             SpringUtils.getBean(ProviderDataDao.class),
-             SpringUtils.getBean(ProviderBillCenterDao.class),
-             SpringUtils.getBean(SecurityInfoManager.class),
-             SpringUtils.getBean(BillingReviewPrep.class),
-             SpringUtils.getBean(BillingONLookupService.class));
-    }
-
-    BillingONMRIDataAssembler(ProviderDao providerDao,
+    public BillingONMRIDataAssembler(ProviderDao providerDao,
                               BillActivityDao billActivityDao,
                               ProviderDataDao providerDataDao,
                               ProviderBillCenterDao providerBillCenterDao,

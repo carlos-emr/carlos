@@ -41,8 +41,12 @@ public class ViewGenRASummary2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    public ViewGenRASummary2Action(SecurityInfoManager securityInfoManager) {
+    private final GenRASummaryDataAssembler genRASummaryAssembler;
+
+    public ViewGenRASummary2Action(SecurityInfoManager securityInfoManager,
+                                    GenRASummaryDataAssembler genRASummaryAssembler) {
         this.securityInfoManager = securityInfoManager;
+        this.genRASummaryAssembler = genRASummaryAssembler;
     }
     @Override
     public String execute() throws Exception {
@@ -59,7 +63,7 @@ public class ViewGenRASummary2Action extends ActionSupport {
             return NONE;
         }
 
-        GenRASummaryViewModel model = new GenRASummaryDataAssembler().assemble(request, loggedInInfo);
+        GenRASummaryViewModel model = genRASummaryAssembler.assemble(request, loggedInInfo);
         request.setAttribute("raSummaryModel", model);
 
         return SUCCESS;

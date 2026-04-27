@@ -24,7 +24,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONFavouriteViewMod
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * Assembles {@link BillingONFavouriteViewModel} for
  * {@code billingONfavourite.jsp}, the Add/Edit favourite-service-code admin
@@ -55,12 +54,8 @@ public class BillingONFavouriteDataAssembler {
     private final BillingONLookupService dbObj;
 
     /** Production constructor (Struts no-arg shape). */
-    public BillingONFavouriteDataAssembler() {
-        this(SpringUtils.getBean(BillingONLookupService.class));
-    }
-
     /** Test-friendly constructor — takes the lookup service mock directly. */
-    BillingONFavouriteDataAssembler(BillingONLookupService dbObj) {
+    public BillingONFavouriteDataAssembler(BillingONLookupService dbObj) {
         this.dbObj = dbObj;
     }
 

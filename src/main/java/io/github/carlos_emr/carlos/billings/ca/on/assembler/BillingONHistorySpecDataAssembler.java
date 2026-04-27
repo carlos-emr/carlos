@@ -25,7 +25,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimQuerySer
 import io.github.carlos_emr.carlos.utility.DateRange;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * Assembles {@link BillingONHistorySpecViewModel} for
  * {@code billingONHistorySpec.jsp}, the service-code-filtered billing
@@ -44,11 +43,7 @@ public class BillingONHistorySpecDataAssembler {
     private final BillingONClaimQueryService dbObj;
 
     /** Production constructor — Struts no-arg shape. */
-    public BillingONHistorySpecDataAssembler() {
-        this(SpringUtils.getBean(BillingONClaimQueryService.class));
-    }
-
-    BillingONHistorySpecDataAssembler(BillingONClaimQueryService dbObj) {
+    public BillingONHistorySpecDataAssembler(BillingONClaimQueryService dbObj) {
         this.dbObj = dbObj;
     }
 

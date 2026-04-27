@@ -22,7 +22,6 @@ import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.IchppccodeDao;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.commn.model.Ichppccode;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Shared assembler for the two code-search popups —
@@ -48,12 +47,7 @@ public class BillingCodeSearchDataAssembler {
     private final BillingServiceDao billingServiceDao;
     private final IchppccodeDao ichppccodeDao;
 
-    public BillingCodeSearchDataAssembler() {
-        this(SpringUtils.getBean(BillingServiceDao.class),
-             SpringUtils.getBean(IchppccodeDao.class));
-    }
-
-    BillingCodeSearchDataAssembler(BillingServiceDao billingServiceDao, IchppccodeDao ichppccodeDao) {
+    public BillingCodeSearchDataAssembler(BillingServiceDao billingServiceDao, IchppccodeDao ichppccodeDao) {
         this.billingServiceDao = billingServiceDao;
         this.ichppccodeDao = ichppccodeDao;
     }

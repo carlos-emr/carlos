@@ -35,8 +35,12 @@ public class ViewBillingON3rdInv2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    public ViewBillingON3rdInv2Action(SecurityInfoManager securityInfoManager) {
+    private final BillingON3rdInvDataAssembler billingON3rdInvAssembler;
+
+    public ViewBillingON3rdInv2Action(SecurityInfoManager securityInfoManager,
+                                       BillingON3rdInvDataAssembler billingON3rdInvAssembler) {
         this.securityInfoManager = securityInfoManager;
+        this.billingON3rdInvAssembler = billingON3rdInvAssembler;
     }
     @Override
     public String execute() throws Exception {
@@ -47,7 +51,7 @@ public class ViewBillingON3rdInv2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        BillingON3rdInvViewModel model = new BillingON3rdInvDataAssembler().assemble(request, loggedInInfo);
+        BillingON3rdInvViewModel model = billingON3rdInvAssembler.assemble(request, loggedInInfo);
         request.setAttribute("invoiceModel", model);
 
         return SUCCESS;

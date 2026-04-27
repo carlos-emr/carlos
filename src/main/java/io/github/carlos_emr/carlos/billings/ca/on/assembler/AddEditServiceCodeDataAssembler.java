@@ -31,7 +31,6 @@ import io.github.carlos_emr.carlos.commn.model.CssStyle;
 import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Assembles {@link AddEditServiceCodeViewModel} for
@@ -63,13 +62,7 @@ public class AddEditServiceCodeDataAssembler {
     private final BillingPercLimitDao billingPercLimitDao;
     private final CSSStylesDAO cssStylesDao;
 
-    public AddEditServiceCodeDataAssembler() {
-        this(SpringUtils.getBean(BillingServiceDao.class),
-             SpringUtils.getBean(BillingPercLimitDao.class),
-             SpringUtils.getBean(CSSStylesDAO.class));
-    }
-
-    AddEditServiceCodeDataAssembler(BillingServiceDao billingServiceDao,
+    public AddEditServiceCodeDataAssembler(BillingServiceDao billingServiceDao,
                                      BillingPercLimitDao billingPercLimitDao,
                                      CSSStylesDAO cssStylesDao) {
         this.billingServiceDao = billingServiceDao;

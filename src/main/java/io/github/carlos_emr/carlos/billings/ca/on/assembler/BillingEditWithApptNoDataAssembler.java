@@ -26,7 +26,6 @@ import io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Assembles {@link BillingEditWithApptNoViewModel} for
@@ -49,13 +48,7 @@ public class BillingEditWithApptNoDataAssembler {
     private final CtlBillingServiceDao ctlBillingServiceDao;
 
     /** Production constructor — Struts no-arg shape. */
-    public BillingEditWithApptNoDataAssembler() {
-        this(SpringUtils.getBean(BillingONClaimQueryService.class),
-             SpringUtils.getBean(BillingONItemDao.class),
-             SpringUtils.getBean(CtlBillingServiceDao.class));
-    }
-
-    BillingEditWithApptNoDataAssembler(BillingONClaimQueryService claimQueryService,
+    public BillingEditWithApptNoDataAssembler(BillingONClaimQueryService claimQueryService,
                                        BillingONItemDao itemDao,
                                        CtlBillingServiceDao ctlBillingServiceDao) {
         this.claimQueryService = claimQueryService;

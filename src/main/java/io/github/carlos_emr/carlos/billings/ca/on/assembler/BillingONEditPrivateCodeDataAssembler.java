@@ -25,7 +25,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * Assembles {@link BillingONEditPrivateCodeViewModel} for
  * {@code billingONEditPrivateCode.jsp}, the manage-private-billing-code
@@ -61,11 +60,7 @@ public class BillingONEditPrivateCodeDataAssembler {
     private final BillingONServiceCodeService dbObj;
 
     /** Production constructor — Struts no-arg shape. */
-    public BillingONEditPrivateCodeDataAssembler() {
-        this(SpringUtils.getBean(BillingONServiceCodeService.class));
-    }
-
-    BillingONEditPrivateCodeDataAssembler(BillingONServiceCodeService dbObj) {
+    public BillingONEditPrivateCodeDataAssembler(BillingONServiceCodeService dbObj) {
         this.dbObj = dbObj;
     }
 

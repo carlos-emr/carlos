@@ -40,8 +40,12 @@ public class ViewBillingONFavourite2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    public ViewBillingONFavourite2Action(SecurityInfoManager securityInfoManager) {
+    private final BillingONFavouriteDataAssembler billingONFavouriteAssembler;
+
+    public ViewBillingONFavourite2Action(SecurityInfoManager securityInfoManager,
+                                          BillingONFavouriteDataAssembler billingONFavouriteAssembler) {
         this.securityInfoManager = securityInfoManager;
+        this.billingONFavouriteAssembler = billingONFavouriteAssembler;
     }
     @Override
     public String execute() throws Exception {
@@ -63,7 +67,7 @@ public class ViewBillingONFavourite2Action extends ActionSupport {
             }
         }
 
-        BillingONFavouriteViewModel model = new BillingONFavouriteDataAssembler()
+        BillingONFavouriteViewModel model = billingONFavouriteAssembler
                 .assemble(request, loggedInInfo);
         request.setAttribute("favouriteModel", model);
 

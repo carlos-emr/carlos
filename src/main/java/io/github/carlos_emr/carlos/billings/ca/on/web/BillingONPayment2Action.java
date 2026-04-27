@@ -41,8 +41,12 @@ public class BillingONPayment2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    public BillingONPayment2Action(SecurityInfoManager securityInfoManager) {
+    private final BillingONPaymentDataAssembler billingONPaymentAssembler;
+
+    public BillingONPayment2Action(SecurityInfoManager securityInfoManager,
+                                    BillingONPaymentDataAssembler billingONPaymentAssembler) {
         this.securityInfoManager = securityInfoManager;
+        this.billingONPaymentAssembler = billingONPaymentAssembler;
     }
     @Override
     public String execute() throws Exception {
@@ -76,7 +80,7 @@ public class BillingONPayment2Action extends ActionSupport {
                 && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "r", null);
 
         try {
-            BillingONPaymentViewModel model = new BillingONPaymentDataAssembler().assemble(
+            BillingONPaymentViewModel model = billingONPaymentAssembler.assemble(
                     request, loggedInInfo,
                     isThisProviderOnly, isTeamBillingOnly);
             request.setAttribute("paymentModel", model);

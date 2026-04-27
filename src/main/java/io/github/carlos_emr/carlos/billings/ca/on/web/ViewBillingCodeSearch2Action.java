@@ -38,8 +38,12 @@ public class ViewBillingCodeSearch2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    public ViewBillingCodeSearch2Action(SecurityInfoManager securityInfoManager) {
+    private final BillingCodeSearchDataAssembler billingCodeSearchAssembler;
+
+    public ViewBillingCodeSearch2Action(SecurityInfoManager securityInfoManager,
+                                         BillingCodeSearchDataAssembler billingCodeSearchAssembler) {
         this.securityInfoManager = securityInfoManager;
+        this.billingCodeSearchAssembler = billingCodeSearchAssembler;
     }
     @Override
     public String execute() throws Exception {
@@ -50,7 +54,7 @@ public class ViewBillingCodeSearch2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        BillingCodeSearchViewModel model = new BillingCodeSearchDataAssembler().assembleService(
+        BillingCodeSearchViewModel model = billingCodeSearchAssembler.assembleService(
                 request.getParameter("name"),
                 request.getParameter("name1"),
                 request.getParameter("name2"),

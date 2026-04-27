@@ -38,8 +38,12 @@ public class ViewBillingDigSearch2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    public ViewBillingDigSearch2Action(SecurityInfoManager securityInfoManager) {
+    private final BillingDxCodeDataAssembler billingDxCodeAssembler;
+
+    public ViewBillingDigSearch2Action(SecurityInfoManager securityInfoManager,
+                                        BillingDxCodeDataAssembler billingDxCodeAssembler) {
         this.securityInfoManager = securityInfoManager;
+        this.billingDxCodeAssembler = billingDxCodeAssembler;
     }
     @Override
     public String execute() throws Exception {
@@ -50,7 +54,7 @@ public class ViewBillingDigSearch2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        BillingDigSearchViewModel model = new BillingDxCodeDataAssembler().assembleSearch(
+        BillingDigSearchViewModel model = billingDxCodeAssembler.assembleSearch(
                 request.getParameter("coderange"),
                 request.getParameter("codedesc"),
                 request.getParameter("name2"));

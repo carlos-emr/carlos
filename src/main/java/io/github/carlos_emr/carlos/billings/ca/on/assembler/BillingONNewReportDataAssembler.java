@@ -35,7 +35,6 @@ import io.github.carlos_emr.carlos.commn.model.Site;
 import io.github.carlos_emr.carlos.login.DBHelp;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -70,12 +69,7 @@ public class BillingONNewReportDataAssembler {
     private final ReportProviderDao reportProviderDao;
     private final SiteDao siteDao;
 
-    public BillingONNewReportDataAssembler() {
-        this(SpringUtils.getBean(ReportProviderDao.class),
-             SpringUtils.getBean(SiteDao.class));
-    }
-
-    BillingONNewReportDataAssembler(ReportProviderDao reportProviderDao, SiteDao siteDao) {
+    public BillingONNewReportDataAssembler(ReportProviderDao reportProviderDao, SiteDao siteDao) {
         this.reportProviderDao = reportProviderDao;
         this.siteDao = siteDao;
     }

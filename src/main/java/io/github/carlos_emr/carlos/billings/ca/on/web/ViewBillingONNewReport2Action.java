@@ -36,9 +36,13 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONNewReportDa
  */
 public class ViewBillingONNewReport2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
+    private final BillingONNewReportDataAssembler assembler;
     private BillingONNewReportViewModel model;
-    public ViewBillingONNewReport2Action(SecurityInfoManager securityInfoManager) {
+
+    public ViewBillingONNewReport2Action(SecurityInfoManager securityInfoManager,
+                                         BillingONNewReportDataAssembler assembler) {
         this.securityInfoManager = securityInfoManager;
+        this.assembler = assembler;
     }
 
     @Override
@@ -56,7 +60,7 @@ public class ViewBillingONNewReport2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        model = new BillingONNewReportDataAssembler().assemble(request, loggedInInfo);
+        model = assembler.assemble(request, loggedInInfo);
         request.setAttribute("model", model);
 
         return SUCCESS;

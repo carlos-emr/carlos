@@ -24,7 +24,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.OnGenRASummaryViewModel;
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import io.github.carlos_emr.carlos.commn.dao.RaHeaderDao;
 import io.github.carlos_emr.carlos.commn.model.RaHeader;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingRAPrep;
 
 /**
@@ -49,12 +48,7 @@ public class OnGenRASummaryDataAssembler {
     private final RaHeaderDao raHeaderDao;
     private final BillingRAPrep prep;
 
-    public OnGenRASummaryDataAssembler() {
-        this(SpringUtils.getBean(RaHeaderDao.class),
-             SpringUtils.getBean(BillingRAPrep.class));
-    }
-
-    OnGenRASummaryDataAssembler(RaHeaderDao raHeaderDao, BillingRAPrep prep) {
+    public OnGenRASummaryDataAssembler(RaHeaderDao raHeaderDao, BillingRAPrep prep) {
         this.raHeaderDao = raHeaderDao;
         this.prep = prep;
     }

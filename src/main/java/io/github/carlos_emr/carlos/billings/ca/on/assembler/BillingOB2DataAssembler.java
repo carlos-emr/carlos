@@ -29,7 +29,6 @@ import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Assembles {@link BillingOB2ViewModel} for {@code billingOB2.jsp}, the
@@ -51,16 +50,7 @@ public class BillingOB2DataAssembler {
     private final ClinicLocationDao clinicLocationDao;
     private final DiagnosticCodeDao diagnosticCodeDao;
 
-    public BillingOB2DataAssembler() {
-        this(SpringUtils.getBean(BillingDao.class),
-             SpringUtils.getBean(BillingDetailDao.class),
-             SpringUtils.getBean(DemographicDao.class),
-             SpringUtils.getBean(ProviderDao.class),
-             SpringUtils.getBean(ClinicLocationDao.class),
-             SpringUtils.getBean(DiagnosticCodeDao.class));
-    }
-
-    BillingOB2DataAssembler(BillingDao billingDao,
+    public BillingOB2DataAssembler(BillingDao billingDao,
                             BillingDetailDao billingDetailDao,
                             DemographicDao demographicDao,
                             ProviderDao providerDao,

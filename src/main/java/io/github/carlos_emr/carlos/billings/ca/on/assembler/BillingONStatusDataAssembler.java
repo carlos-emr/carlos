@@ -73,26 +73,7 @@ public class BillingONStatusDataAssembler {
     private final BillingStatusPrep statusPrep;
     private final BillingONErrorReportService errorRepImpl;
 
-    /**
-     * Production constructor used by Struts; resolves dependencies from the
-     * Spring context via {@link SpringUtils#getBean}. Tests use the
-     * package-private constructor below to inject mocks directly.
-     */
-    public BillingONStatusDataAssembler() {
-        this(SpringUtils.getBean(SecurityInfoManager.class),
-             SpringUtils.getBean(BillingONLookupService.class),
-             SpringUtils.getBean(BillingStatusPrep.class),
-             SpringUtils.getBean(BillingONErrorReportService.class));
-    }
-
-    BillingONStatusDataAssembler(SecurityInfoManager securityInfoManager) {
-        this(securityInfoManager,
-             SpringUtils.getBean(BillingONLookupService.class),
-             SpringUtils.getBean(BillingStatusPrep.class),
-             SpringUtils.getBean(BillingONErrorReportService.class));
-    }
-
-    BillingONStatusDataAssembler(SecurityInfoManager securityInfoManager,
+    public BillingONStatusDataAssembler(SecurityInfoManager securityInfoManager,
                                  BillingONLookupService lookupService,
                                  BillingStatusPrep statusPrep,
                                  BillingONErrorReportService errorRepImpl) {

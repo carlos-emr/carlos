@@ -24,7 +24,6 @@ import io.github.carlos_emr.carlos.commn.dao.ReportProviderDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ReportProvider;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Assembles {@link BillingReportControlViewModel} for
@@ -43,11 +42,7 @@ public class BillingReportControlDataAssembler {
 
     private final ReportProviderDao reportProviderDao;
 
-    public BillingReportControlDataAssembler() {
-        this(SpringUtils.getBean(ReportProviderDao.class));
-    }
-
-    BillingReportControlDataAssembler(ReportProviderDao reportProviderDao) {
+    public BillingReportControlDataAssembler(ReportProviderDao reportProviderDao) {
         this.reportProviderDao = reportProviderDao;
     }
 

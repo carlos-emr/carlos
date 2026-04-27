@@ -35,7 +35,6 @@ import io.github.carlos_emr.carlos.commn.model.RaHeader;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Assembles {@link GenRADescViewModel} for {@code genRADesc.jsp}, the OHIP RA
@@ -67,13 +66,7 @@ public class GenRADescDataAssembler {
     private final BillingONPremiumDao billingONPremiumDao;
     private final ProviderDao providerDao;
 
-    public GenRADescDataAssembler() {
-        this(SpringUtils.getBean(RaHeaderDao.class),
-             SpringUtils.getBean(BillingONPremiumDao.class),
-             SpringUtils.getBean(ProviderDao.class));
-    }
-
-    GenRADescDataAssembler(RaHeaderDao raHeaderDao,
+    public GenRADescDataAssembler(RaHeaderDao raHeaderDao,
                            BillingONPremiumDao billingONPremiumDao,
                            ProviderDao providerDao) {
         this.raHeaderDao = raHeaderDao;

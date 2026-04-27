@@ -49,8 +49,12 @@ public class BillingShortcutPg2Save2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    public BillingShortcutPg2Save2Action(SecurityInfoManager securityInfoManager) {
+    private final BillingShortcutPg2DataAssembler billingShortcutPg2Assembler;
+
+    public BillingShortcutPg2Save2Action(SecurityInfoManager securityInfoManager,
+                                          BillingShortcutPg2DataAssembler billingShortcutPg2Assembler) {
         this.securityInfoManager = securityInfoManager;
+        this.billingShortcutPg2Assembler = billingShortcutPg2Assembler;
     }
     @Override
     public String execute() {
@@ -64,7 +68,7 @@ public class BillingShortcutPg2Save2Action extends ActionSupport {
             return "backToEdit";
         }
 
-        BillingShortcutPg2ViewModel model = new BillingShortcutPg2DataAssembler()
+        BillingShortcutPg2ViewModel model = billingShortcutPg2Assembler
                 .assemble(request, loggedInInfo);
         request.setAttribute("shortcutPg2Model", model);
 

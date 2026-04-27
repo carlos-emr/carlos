@@ -31,7 +31,6 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Assembles {@link BillingONHistoryViewModel} for {@code billingONHistory.jsp},
@@ -56,15 +55,7 @@ public class BillingONHistoryDataAssembler {
     private final SecurityInfoManager securityInfoManager;
     private final BillingONClaimQueryService claimQueryService;
 
-    public BillingONHistoryDataAssembler() {
-        this(SpringUtils.getBean(BillingONPaymentDao.class),
-             SpringUtils.getBean(BillingONCHeader1Dao.class),
-             SpringUtils.getBean(DemographicManager.class),
-             SpringUtils.getBean(SecurityInfoManager.class),
-             SpringUtils.getBean(BillingONClaimQueryService.class));
-    }
-
-    BillingONHistoryDataAssembler(BillingONPaymentDao billingOnPaymentDao,
+    public BillingONHistoryDataAssembler(BillingONPaymentDao billingOnPaymentDao,
                                   BillingONCHeader1Dao bCh1Dao,
                                   DemographicManager demographicManager,
                                   SecurityInfoManager securityInfoManager,

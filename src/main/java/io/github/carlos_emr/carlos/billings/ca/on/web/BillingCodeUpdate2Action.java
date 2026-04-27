@@ -39,8 +39,12 @@ public class BillingCodeUpdate2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    public BillingCodeUpdate2Action(SecurityInfoManager securityInfoManager) {
+    private final BillingCodeUpdateDataAssembler billingCodeUpdateAssembler;
+
+    public BillingCodeUpdate2Action(SecurityInfoManager securityInfoManager,
+                                     BillingCodeUpdateDataAssembler billingCodeUpdateAssembler) {
         this.securityInfoManager = securityInfoManager;
+        this.billingCodeUpdateAssembler = billingCodeUpdateAssembler;
     }
     @Override
     public String execute() throws Exception {
@@ -57,7 +61,7 @@ public class BillingCodeUpdate2Action extends ActionSupport {
             return NONE;
         }
 
-        BillingCodeUpdateViewModel model = new BillingCodeUpdateDataAssembler().assemble(request, loggedInInfo);
+        BillingCodeUpdateViewModel model = billingCodeUpdateAssembler.assemble(request, loggedInInfo);
         request.setAttribute("codeUpdateModel", model);
 
         return SUCCESS;

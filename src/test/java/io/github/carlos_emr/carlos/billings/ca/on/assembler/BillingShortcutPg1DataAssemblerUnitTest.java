@@ -103,7 +103,10 @@ class BillingShortcutPg1DataAssemblerUnitTest extends CarlosUnitTestBase {
                 demographicDao, providerDao, billingDao, billingDetailDao,
                 billingServiceDao, ctlBillingServicePremiumDao,
                 clinicLocationDao, professionalSpecialistDao,
-                () -> billingReviewImpl);
+                mock(io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao.class),
+                mock(io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao.class),
+                mock(io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao.class),
+                billingReviewImpl);
 
         request = new MockHttpServletRequest();
         loggedInInfo = mock(LoggedInInfo.class);

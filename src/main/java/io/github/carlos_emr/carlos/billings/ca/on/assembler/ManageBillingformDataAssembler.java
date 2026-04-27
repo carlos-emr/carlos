@@ -28,7 +28,6 @@ import io.github.carlos_emr.carlos.commn.model.CtlBillingService;
 import io.github.carlos_emr.carlos.commn.model.CtlBillingServicePremium;
 import io.github.carlos_emr.carlos.commn.model.CtlDiagCode;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Assembles a {@link ManageBillingformViewModel} for {@code manageBillingform.jsp}
@@ -54,13 +53,7 @@ public class ManageBillingformDataAssembler {
     private final CtlDiagCodeDao ctlDiagCodeDao;
     private final CtlBillingServicePremiumDao ctlBillingServicePremiumDao;
 
-    public ManageBillingformDataAssembler() {
-        this(SpringUtils.getBean(CtlBillingServiceDao.class),
-             SpringUtils.getBean(CtlDiagCodeDao.class),
-             SpringUtils.getBean(CtlBillingServicePremiumDao.class));
-    }
-
-    ManageBillingformDataAssembler(CtlBillingServiceDao ctlBillingServiceDao,
+    public ManageBillingformDataAssembler(CtlBillingServiceDao ctlBillingServiceDao,
                                     CtlDiagCodeDao ctlDiagCodeDao,
                                     CtlBillingServicePremiumDao ctlBillingServicePremiumDao) {
         this.ctlBillingServiceDao = ctlBillingServiceDao;

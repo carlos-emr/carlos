@@ -48,7 +48,6 @@ import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.service.Billing3rdPartPrep;
 
 /**
@@ -78,20 +77,7 @@ public class BillingON3rdInvDataAssembler {
     private final BillingONService billingONService;
     private final Billing3rdPartPrep privateObj;
 
-    public BillingON3rdInvDataAssembler() {
-        this(SpringUtils.getBean(BillingONCHeader1Dao.class),
-             SpringUtils.getBean(BillingONExtDao.class),
-             SpringUtils.getBean(BillingONPaymentDao.class),
-             SpringUtils.getBean(BillingServiceDao.class),
-             SpringUtils.getBean(ClinicDAO.class),
-             SpringUtils.getBean(DemographicDao.class),
-             SpringUtils.getBean(ProviderDao.class),
-             SpringUtils.getBean(SiteDao.class),
-             SpringUtils.getBean(BillingONService.class),
-             SpringUtils.getBean(Billing3rdPartPrep.class));
-    }
-
-    BillingON3rdInvDataAssembler(BillingONCHeader1Dao bCh1Dao,
+    public BillingON3rdInvDataAssembler(BillingONCHeader1Dao bCh1Dao,
                                  BillingONExtDao bExtDao,
                                  BillingONPaymentDao bPaymentDao,
                                  BillingServiceDao billingServiceDao,

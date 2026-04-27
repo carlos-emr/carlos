@@ -19,7 +19,6 @@ import java.util.Properties;
 import io.github.carlos_emr.carlos.billings.ca.on.data.OnGenRAErrorViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingRAPrep;
 
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * Assembles {@link OnGenRAErrorViewModel} for
  * {@code billing/CA/ON/onGenRAError.jsp}, the Billing Reconciliation Error
@@ -42,12 +41,8 @@ public class OnGenRAErrorDataAssembler {
     private final BillingRAPrep prep;
 
     /** Production constructor — Struts no-arg shape. */
-    public OnGenRAErrorDataAssembler() {
-        this(SpringUtils.getBean(BillingRAPrep.class));
-    }
-
     /** Test-friendly constructor. */
-    OnGenRAErrorDataAssembler(BillingRAPrep prep) {
+    public OnGenRAErrorDataAssembler(BillingRAPrep prep) {
         this.prep = prep;
     }
 

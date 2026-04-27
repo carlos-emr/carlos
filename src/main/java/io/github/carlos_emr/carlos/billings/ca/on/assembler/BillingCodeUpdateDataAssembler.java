@@ -20,7 +20,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCodeUpdateViewMode
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Assembles {@link BillingCodeUpdateViewModel} for
@@ -49,11 +48,7 @@ public class BillingCodeUpdateDataAssembler {
 
     private final BillingServiceDao billingServiceDao;
 
-    public BillingCodeUpdateDataAssembler() {
-        this(SpringUtils.getBean(BillingServiceDao.class));
-    }
-
-    BillingCodeUpdateDataAssembler(BillingServiceDao billingServiceDao) {
+    public BillingCodeUpdateDataAssembler(BillingServiceDao billingServiceDao) {
         this.billingServiceDao = billingServiceDao;
     }
 

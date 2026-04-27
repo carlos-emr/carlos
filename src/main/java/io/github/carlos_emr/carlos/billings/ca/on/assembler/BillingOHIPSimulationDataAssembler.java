@@ -33,7 +33,6 @@ import io.github.carlos_emr.carlos.utility.DateRange;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewPrep;
 
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.beans.factory.ObjectFactory;
 /**
  * Assembles {@link BillingOHIPSimulationViewModel} for
@@ -67,13 +66,7 @@ public class BillingOHIPSimulationDataAssembler {
     private final ObjectFactory<OhipClaimFileService> ohipClaimFileFactory;
 
     /** Production constructor — Struts no-arg shape. */
-    public BillingOHIPSimulationDataAssembler() {
-        this(SpringUtils.getBean(BillingReviewPrep.class),
-             SpringUtils.getBean(BillingONLookupService.class),
-             () -> SpringUtils.getBean(OhipClaimFileService.class));
-    }
-
-    BillingOHIPSimulationDataAssembler(BillingReviewPrep reviewPrep,
+    public BillingOHIPSimulationDataAssembler(BillingReviewPrep reviewPrep,
                                        BillingONLookupService lookupService,
                                        ObjectFactory<OhipClaimFileService> ohipClaimFileFactory) {
         this.reviewPrep = reviewPrep;

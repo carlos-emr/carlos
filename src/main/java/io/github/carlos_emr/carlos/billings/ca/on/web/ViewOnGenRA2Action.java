@@ -39,8 +39,12 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.OnGenRADataAssembler
  */
 public class ViewOnGenRA2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
-    public ViewOnGenRA2Action(SecurityInfoManager securityInfoManager) {
+    private final OnGenRADataAssembler assembler;
+
+    public ViewOnGenRA2Action(SecurityInfoManager securityInfoManager,
+                              OnGenRADataAssembler assembler) {
         this.securityInfoManager = securityInfoManager;
+        this.assembler = assembler;
     }
 
     @Override
@@ -58,7 +62,7 @@ public class ViewOnGenRA2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        OnGenRAViewModel model = new OnGenRADataAssembler().assemble(request, loggedInInfo);
+        OnGenRAViewModel model = assembler.assemble(request, loggedInInfo);
         request.setAttribute("onGenRAModel", model);
 
         return SUCCESS;

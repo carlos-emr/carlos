@@ -79,13 +79,13 @@ class BillingONReviewDataAssemblerUnitTest extends CarlosUnitTestBase {
         when(reviewPrep.getRequestFormCodeVec(any(), any(), any(), any())).thenReturn(emptyVec);
         when(reviewPrep.getRequestCodeVec(any(), any(), any(), any(), anyInt())).thenReturn(emptyVec);
 
-        // The 4-arg ctor delegates to the 7-arg via SpringUtils.getBean for
-        // these three collaborators. Empty/no-op mocks are sufficient here.
         BillingONServiceCodeService serviceCodeService = Mockito.mock(BillingONServiceCodeService.class);
         when(serviceCodeService.getCodeDescByNames(any())).thenReturn(new java.util.Properties());
         registerMock(BillingONServiceCodeService.class, serviceCodeService);
-        registerMock(BillingONLookupService.class, Mockito.mock(BillingONLookupService.class));
-        registerMock(SiteDao.class, Mockito.mock(SiteDao.class));
+        BillingONLookupService lookupService = Mockito.mock(BillingONLookupService.class);
+        registerMock(BillingONLookupService.class, lookupService);
+        SiteDao siteDao = Mockito.mock(SiteDao.class);
+        registerMock(SiteDao.class, siteDao);
 
         // The assembler instantiates `new GstReport()` whose no-arg ctor
         // now resolves these three collaborators via SpringUtils.
@@ -103,7 +103,8 @@ class BillingONReviewDataAssemblerUnitTest extends CarlosUnitTestBase {
         BillingONReviewValidator stubValidator = Mockito.mock(BillingONReviewValidator.class);
         when(stubValidator.validate(any(), any(), any())).thenReturn(
                 new BillingONReviewValidator.Result(java.util.Collections.emptyList(), true));
-        assembler = new BillingONReviewDataAssembler(demographicDao, providerDao, reviewPrep, stubValidator);
+        assembler = new BillingONReviewDataAssembler(demographicDao, providerDao, reviewPrep, stubValidator,
+                serviceCodeService, lookupService, siteDao);
         request = new MockHttpServletRequest();
     }
 

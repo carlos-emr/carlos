@@ -44,8 +44,12 @@ public class BillingOB2View2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    public BillingOB2View2Action(SecurityInfoManager securityInfoManager) {
+    private final BillingOB2DataAssembler billingOB2Assembler;
+
+    public BillingOB2View2Action(SecurityInfoManager securityInfoManager,
+                                  BillingOB2DataAssembler billingOB2Assembler) {
         this.securityInfoManager = securityInfoManager;
+        this.billingOB2Assembler = billingOB2Assembler;
     }
     @Override
     public String execute() throws Exception {
@@ -65,7 +69,7 @@ public class BillingOB2View2Action extends ActionSupport {
             return NONE;
         }
 
-        BillingOB2ViewModel model = new BillingOB2DataAssembler().assemble(billingNoParam);
+        BillingOB2ViewModel model = billingOB2Assembler.assemble(billingNoParam);
         request.setAttribute("ob2Model", model);
 
         return SUCCESS;

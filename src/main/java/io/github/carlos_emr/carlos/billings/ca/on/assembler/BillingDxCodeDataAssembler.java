@@ -26,7 +26,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONDxDescViewModel;
 import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
 import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Shared assembler for the four dx-code (ICD-9 diagnostic code) JSPs:
@@ -64,11 +63,7 @@ public class BillingDxCodeDataAssembler {
 
     private final DiagnosticCodeDao diagnosticCodeDao;
 
-    public BillingDxCodeDataAssembler() {
-        this(SpringUtils.getBean(DiagnosticCodeDao.class));
-    }
-
-    BillingDxCodeDataAssembler(DiagnosticCodeDao diagnosticCodeDao) {
+    public BillingDxCodeDataAssembler(DiagnosticCodeDao diagnosticCodeDao) {
         this.diagnosticCodeDao = diagnosticCodeDao;
     }
 

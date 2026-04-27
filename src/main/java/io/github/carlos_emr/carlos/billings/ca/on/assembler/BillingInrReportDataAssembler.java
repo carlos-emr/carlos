@@ -33,7 +33,6 @@ import io.github.carlos_emr.carlos.commn.model.ClinicLocation;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Assembles a {@link BillingInrReportViewModel} for the
@@ -54,13 +53,7 @@ public class BillingInrReportDataAssembler {
     private final BillingInrDao billingInrDao;
     private final ClinicLocationDao clinicLocationDao;
 
-    public BillingInrReportDataAssembler() {
-        this(SpringUtils.getBean(ProviderDao.class),
-             SpringUtils.getBean(BillingInrDao.class),
-             SpringUtils.getBean(ClinicLocationDao.class));
-    }
-
-    BillingInrReportDataAssembler(ProviderDao providerDao,
+    public BillingInrReportDataAssembler(ProviderDao providerDao,
                                   BillingInrDao billingInrDao,
                                   ClinicLocationDao clinicLocationDao) {
         this.providerDao = providerDao;

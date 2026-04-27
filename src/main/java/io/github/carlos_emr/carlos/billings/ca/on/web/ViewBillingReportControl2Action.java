@@ -43,8 +43,16 @@ public class ViewBillingReportControl2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    public ViewBillingReportControl2Action(SecurityInfoManager securityInfoManager) {
+    private final BillingReportFragmentDataAssembler billingReportFragmentAssembler;
+
+    private final BillingReportControlDataAssembler billingReportControlAssembler;
+
+    public ViewBillingReportControl2Action(SecurityInfoManager securityInfoManager,
+                                            BillingReportFragmentDataAssembler billingReportFragmentAssembler,
+                                            BillingReportControlDataAssembler billingReportControlAssembler) {
         this.securityInfoManager = securityInfoManager;
+        this.billingReportFragmentAssembler = billingReportFragmentAssembler;
+        this.billingReportControlAssembler = billingReportControlAssembler;
     }
     @Override
     public String execute() throws Exception {
@@ -56,14 +64,14 @@ public class ViewBillingReportControl2Action extends ActionSupport {
         }
 
         BillingReportControlViewModel model =
-                new BillingReportControlDataAssembler().assemble(request, loggedInInfo);
+                billingReportControlAssembler.assemble(request, loggedInInfo);
         request.setAttribute("billingReportControlModel", model);
 
         // Pre-assemble the fragment view model the included JSPFs render. The
         // assembler returns an empty model when reportAction is null/unknown,
         // so the parent JSP's c:choose fall-through still works correctly.
         BillingReportFragmentViewModel fragmentModel =
-                new BillingReportFragmentDataAssembler().assemble(
+                billingReportFragmentAssembler.assemble(
                         request, loggedInInfo, model.getReportAction());
         request.setAttribute("billingReportFragmentModel", fragmentModel);
 

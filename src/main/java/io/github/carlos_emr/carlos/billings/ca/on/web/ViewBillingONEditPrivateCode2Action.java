@@ -35,8 +35,12 @@ public class ViewBillingONEditPrivateCode2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    public ViewBillingONEditPrivateCode2Action(SecurityInfoManager securityInfoManager) {
+    private final BillingONEditPrivateCodeDataAssembler billingONEditPrivateCodeAssembler;
+
+    public ViewBillingONEditPrivateCode2Action(SecurityInfoManager securityInfoManager,
+                                                BillingONEditPrivateCodeDataAssembler billingONEditPrivateCodeAssembler) {
         this.securityInfoManager = securityInfoManager;
+        this.billingONEditPrivateCodeAssembler = billingONEditPrivateCodeAssembler;
     }
     @Override
     public String execute() throws Exception {
@@ -47,7 +51,7 @@ public class ViewBillingONEditPrivateCode2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin.billing)");
         }
 
-        BillingONEditPrivateCodeViewModel model = new BillingONEditPrivateCodeDataAssembler()
+        BillingONEditPrivateCodeViewModel model = billingONEditPrivateCodeAssembler
                 .assemble(request, loggedInInfo);
         request.setAttribute("privateCodeModel", model);
 

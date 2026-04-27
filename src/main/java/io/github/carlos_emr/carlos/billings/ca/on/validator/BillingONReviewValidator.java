@@ -29,7 +29,6 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Pre-render validator for {@code billingONReview.jsp}. Replaces the
@@ -55,7 +54,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *
  * @since 2026-04-25
  */
-public final class BillingONReviewValidator {
+@org.springframework.stereotype.Component
+public class BillingONReviewValidator {
 
     /**
      * One validation message produced by the validator. Severity drives the
@@ -76,13 +76,6 @@ public final class BillingONReviewValidator {
     private final BillingONCHeader1Dao bCh1Dao;
     private final BillingServiceDao billingServiceDao;
     private final DiagnosticCodeDao diagnosticCodeDao;
-
-    /** Production constructor used via SpringUtils; tests use the package-private one. */
-    public BillingONReviewValidator() {
-        this(SpringUtils.getBean(BillingONCHeader1Dao.class),
-             SpringUtils.getBean(BillingServiceDao.class),
-             SpringUtils.getBean(DiagnosticCodeDao.class));
-    }
 
     public BillingONReviewValidator(BillingONCHeader1Dao bCh1Dao,
                              BillingServiceDao billingServiceDao,

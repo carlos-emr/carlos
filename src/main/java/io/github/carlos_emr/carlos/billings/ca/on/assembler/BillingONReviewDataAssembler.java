@@ -48,7 +48,6 @@ import io.github.carlos_emr.carlos.commn.model.Site;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONRequestParams;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingONReviewValidator;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewPrep;
@@ -74,27 +73,7 @@ public class BillingONReviewDataAssembler {
     private final BillingONLookupService lookupService;
     private final SiteDao siteDao;
 
-    public BillingONReviewDataAssembler() {
-        this(SpringUtils.getBean(DemographicDao.class),
-             SpringUtils.getBean(ProviderDao.class),
-             SpringUtils.getBean(BillingReviewPrep.class),
-             new BillingONReviewValidator(),
-             SpringUtils.getBean(BillingONServiceCodeService.class),
-             SpringUtils.getBean(BillingONLookupService.class),
-             SpringUtils.getBean(SiteDao.class));
-    }
-
-    BillingONReviewDataAssembler(DemographicDao demographicDao,
-                                 ProviderDao providerDao,
-                                 BillingReviewPrep reviewPrep,
-                                 BillingONReviewValidator validator) {
-        this(demographicDao, providerDao, reviewPrep, validator,
-             SpringUtils.getBean(BillingONServiceCodeService.class),
-             SpringUtils.getBean(BillingONLookupService.class),
-             SpringUtils.getBean(SiteDao.class));
-    }
-
-    BillingONReviewDataAssembler(DemographicDao demographicDao,
+    public BillingONReviewDataAssembler(DemographicDao demographicDao,
                                  ProviderDao providerDao,
                                  BillingReviewPrep reviewPrep,
                                  BillingONReviewValidator validator,

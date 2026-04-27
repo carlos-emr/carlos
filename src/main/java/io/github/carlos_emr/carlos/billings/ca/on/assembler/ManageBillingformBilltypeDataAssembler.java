@@ -18,7 +18,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.ManageBillingformBilltype
 import io.github.carlos_emr.carlos.commn.dao.CtlBillingTypeDao;
 import io.github.carlos_emr.carlos.commn.model.CtlBillingType;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Assembles a {@link ManageBillingformBilltypeViewModel} for
@@ -38,11 +37,7 @@ public class ManageBillingformBilltypeDataAssembler {
 
     private final CtlBillingTypeDao ctlBillingTypeDao;
 
-    public ManageBillingformBilltypeDataAssembler() {
-        this(SpringUtils.getBean(CtlBillingTypeDao.class));
-    }
-
-    ManageBillingformBilltypeDataAssembler(CtlBillingTypeDao ctlBillingTypeDao) {
+    public ManageBillingformBilltypeDataAssembler(CtlBillingTypeDao ctlBillingTypeDao) {
         this.ctlBillingTypeDao = ctlBillingTypeDao;
     }
 

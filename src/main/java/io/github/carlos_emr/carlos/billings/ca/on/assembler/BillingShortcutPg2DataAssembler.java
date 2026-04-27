@@ -42,7 +42,6 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Assembles {@link BillingShortcutPg2ViewModel} for {@code billingShortcutPg2.jsp},
@@ -79,17 +78,7 @@ public class BillingShortcutPg2DataAssembler {
     private final BillingPercLimitDao billingPercLimitDao;
     private final BillingSavePrep saveObj;
 
-    public BillingShortcutPg2DataAssembler() {
-        this(SpringUtils.getBean(BillingDao.class),
-             SpringUtils.getBean(BillingDetailDao.class),
-             SpringUtils.getBean(ProviderDao.class),
-             SpringUtils.getBean(DemographicDao.class),
-             SpringUtils.getBean(BillingServiceDao.class),
-             SpringUtils.getBean(BillingPercLimitDao.class),
-             SpringUtils.getBean(BillingSavePrep.class));
-    }
-
-    BillingShortcutPg2DataAssembler(BillingDao billingDao,
+    public BillingShortcutPg2DataAssembler(BillingDao billingDao,
                                     BillingDetailDao billingDetailDao,
                                     ProviderDao providerDao,
                                     DemographicDao demographicDao,

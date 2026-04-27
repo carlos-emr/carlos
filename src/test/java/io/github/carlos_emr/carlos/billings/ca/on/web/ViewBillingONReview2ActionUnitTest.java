@@ -120,7 +120,7 @@ class ViewBillingONReview2ActionUnitTest extends CarlosUnitTestBase {
              MockedConstruction<BillingONReviewDataAssembler> ignored = mockConstruction(
                 BillingONReviewDataAssembler.class,
                 (mock, ctx) -> when(mock.assemble(any(), any())).thenReturn(STUB_MODEL))) {
-            ViewBillingONReview2Action action = new ViewBillingONReview2Action(mockSecurityInfoManager, mockDxPersister, new BillingONReviewDataAssembler());
+            ViewBillingONReview2Action action = new ViewBillingONReview2Action(mockSecurityInfoManager, mockDxPersister, new io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONReviewDataAssembler(org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewPrep.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingONReviewValidator.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONServiceCodeService.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.SiteDao.class)));
             assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
             assertThat(action.getReviewModel()).isSameAs(STUB_MODEL);
         }
@@ -133,7 +133,7 @@ class ViewBillingONReview2ActionUnitTest extends CarlosUnitTestBase {
         try (MockedConstruction<BillingONReviewDxPersister> persisterIgnored = mockConstruction(BillingONReviewDxPersister.class);
              MockedConstruction<BillingONReviewDataAssembler> ignored =
                 mockConstruction(BillingONReviewDataAssembler.class)) {
-            ViewBillingONReview2Action action = new ViewBillingONReview2Action(mockSecurityInfoManager, mockDxPersister, new BillingONReviewDataAssembler());
+            ViewBillingONReview2Action action = new ViewBillingONReview2Action(mockSecurityInfoManager, mockDxPersister, new io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONReviewDataAssembler(org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewPrep.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingONReviewValidator.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONServiceCodeService.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.SiteDao.class)));
             assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
             assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
@@ -155,7 +155,7 @@ class ViewBillingONReview2ActionUnitTest extends CarlosUnitTestBase {
         try (MockedConstruction<BillingONReviewDxPersister> persisterIgnored = mockConstruction(BillingONReviewDxPersister.class);
              MockedConstruction<BillingONReviewDataAssembler> ignored =
                 mockConstruction(BillingONReviewDataAssembler.class)) {
-            ViewBillingONReview2Action action = new ViewBillingONReview2Action(mockSecurityInfoManager, mockDxPersister, new BillingONReviewDataAssembler());
+            ViewBillingONReview2Action action = new ViewBillingONReview2Action(mockSecurityInfoManager, mockDxPersister, new io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONReviewDataAssembler(org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewPrep.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingONReviewValidator.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONServiceCodeService.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.SiteDao.class)));
             assertThatThrownBy(action::execute)
                     .isInstanceOf(SecurityException.class)
                     .hasMessageContaining("session");
@@ -170,7 +170,7 @@ class ViewBillingONReview2ActionUnitTest extends CarlosUnitTestBase {
         try (MockedConstruction<BillingONReviewDxPersister> persisterIgnored = mockConstruction(BillingONReviewDxPersister.class);
              MockedConstruction<BillingONReviewDataAssembler> ignored =
                 mockConstruction(BillingONReviewDataAssembler.class)) {
-            ViewBillingONReview2Action action = new ViewBillingONReview2Action(mockSecurityInfoManager, mockDxPersister, new BillingONReviewDataAssembler());
+            ViewBillingONReview2Action action = new ViewBillingONReview2Action(mockSecurityInfoManager, mockDxPersister, new io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONReviewDataAssembler(org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewPrep.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingONReviewValidator.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONServiceCodeService.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.SiteDao.class)));
             assertThatThrownBy(action::execute)
                     .isInstanceOf(SecurityException.class)
                     .hasMessageContaining("_billing");
@@ -183,7 +183,7 @@ class ViewBillingONReview2ActionUnitTest extends CarlosUnitTestBase {
              MockedConstruction<BillingONReviewDataAssembler> ignored = mockConstruction(
                 BillingONReviewDataAssembler.class,
                 (mock, ctx) -> when(mock.assemble(any(), any())).thenReturn(STUB_MODEL))) {
-            ViewBillingONReview2Action action = new ViewBillingONReview2Action(mockSecurityInfoManager, mockDxPersister, new BillingONReviewDataAssembler());
+            ViewBillingONReview2Action action = new ViewBillingONReview2Action(mockSecurityInfoManager, mockDxPersister, new io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONReviewDataAssembler(org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewPrep.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingONReviewValidator.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONServiceCodeService.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.SiteDao.class)));
             action.execute();
             assertThat(mockRequest.getAttribute("reviewModel")).isSameAs(STUB_MODEL);
         }
@@ -202,14 +202,14 @@ class ViewBillingONReview2ActionUnitTest extends CarlosUnitTestBase {
      * which the {@link CarlosUnitTestBase} static intercept resolves to
      * {@link #mockDxPersister}). The assembler is intercepted via
      * {@link MockedConstruction} because the action's no-arg ctor instantiates
-     * it directly via {@code new BillingONReviewDataAssembler()}.</p>
+     * it directly via {@code new io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONReviewDataAssembler(org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewPrep.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingONReviewValidator.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONServiceCodeService.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.SiteDao.class))}.</p>
      */
     @Test
     void shouldRunPersister_beforeAssembler() throws Exception {
         try (MockedConstruction<BillingONReviewDataAssembler> assemblerMock = mockConstruction(
                 BillingONReviewDataAssembler.class,
                 (mock, ctx) -> when(mock.assemble(any(), any())).thenReturn(STUB_MODEL))) {
-            ViewBillingONReview2Action action = new ViewBillingONReview2Action(mockSecurityInfoManager, mockDxPersister, new BillingONReviewDataAssembler());
+            ViewBillingONReview2Action action = new ViewBillingONReview2Action(mockSecurityInfoManager, mockDxPersister, new io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONReviewDataAssembler(org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewPrep.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingONReviewValidator.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONServiceCodeService.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService.class), org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.SiteDao.class)));
             action.execute();
 
             assertThat(assemblerMock.constructed()).hasSize(1);
