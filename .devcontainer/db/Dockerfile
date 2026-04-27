@@ -9,7 +9,10 @@ LABEL description="OpenOSP-EMR Docker Image for Development Environment"
 RUN apt-get update && apt-get install -y dos2unix  \
     && apt-get autoclean \
     && apt-get clean \
-    && apt-get autoremove
+    && apt-get autoremove \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /var/lib/OscarDocument && chown -R mysql:mysql /var/lib/OscarDocument
 
 # Adding required files
 # Currently this needs the database configuration for post-scripts from the OpenOSP-EMR
