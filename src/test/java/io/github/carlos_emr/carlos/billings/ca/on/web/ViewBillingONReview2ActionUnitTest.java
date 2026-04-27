@@ -65,6 +65,9 @@ class ViewBillingONReview2ActionUnitTest extends CarlosUnitTestBase {
     @Mock
     private LoggedInInfo mockLoggedInInfo;
 
+    @Mock
+    private BillingONReviewDxPersister mockDxPersister;
+
     private MockHttpServletRequest mockRequest;
     private MockHttpServletResponse mockResponse;
 
@@ -77,8 +80,10 @@ class ViewBillingONReview2ActionUnitTest extends CarlosUnitTestBase {
         mockRequest.setMethod("POST");
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
-        registerMock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONReviewDxPersister.class,
-                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONReviewDxPersister.class));
+        // Persister is fetched via SpringUtils.getBean in the action's no-arg
+        // ctor; register the same instance the test holds so ordering can be
+        // verified against the same mock the action received.
+        registerMock(BillingONReviewDxPersister.class, mockDxPersister);
         registerMock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONServiceCodeService.class,
                 org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONServiceCodeService.class));
         registerMock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService.class,
@@ -191,23 +196,27 @@ class ViewBillingONReview2ActionUnitTest extends CarlosUnitTestBase {
      * page with the dx silently dropped. Uses {@code InOrder} so an accidental
      * swap of the two lines in {@code execute()} fails this test loudly
      * rather than passing on construction-count alone.
+     *
+     * <p>The persister comes from the registered mock (the action's no-arg
+     * ctor calls {@code SpringUtils.getBean(BillingONReviewDxPersister.class)},
+     * which the {@link CarlosUnitTestBase} static intercept resolves to
+     * {@link #mockDxPersister}). The assembler is intercepted via
+     * {@link MockedConstruction} because the action's no-arg ctor instantiates
+     * it directly via {@code new BillingONReviewDataAssembler()}.</p>
      */
     @Test
     void shouldRunPersister_beforeAssembler() throws Exception {
-        try (MockedConstruction<BillingONReviewDxPersister> persisterMock = mockConstruction(BillingONReviewDxPersister.class);
-             MockedConstruction<BillingONReviewDataAssembler> assemblerMock = mockConstruction(
+        try (MockedConstruction<BillingONReviewDataAssembler> assemblerMock = mockConstruction(
                 BillingONReviewDataAssembler.class,
                 (mock, ctx) -> when(mock.assemble(any(), any())).thenReturn(STUB_MODEL))) {
             ViewBillingONReview2Action action = new ViewBillingONReview2Action();
             action.execute();
 
-            assertThat(persisterMock.constructed()).hasSize(1);
             assertThat(assemblerMock.constructed()).hasSize(1);
 
-            BillingONReviewDxPersister persister = persisterMock.constructed().get(0);
             BillingONReviewDataAssembler assembler = assemblerMock.constructed().get(0);
-            org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(persister, assembler);
-            inOrder.verify(persister).persistIfRequested(any(), any());
+            org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(mockDxPersister, assembler);
+            inOrder.verify(mockDxPersister).persistIfRequested(any(), any());
             inOrder.verify(assembler).assemble(any(), any());
         }
     }
