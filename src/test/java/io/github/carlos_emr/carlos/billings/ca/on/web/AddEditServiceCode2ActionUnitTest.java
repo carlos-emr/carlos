@@ -12,6 +12,9 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
+import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingPercLimitDao;
+import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
+import io.github.carlos_emr.carlos.commn.dao.CSSStylesDAO;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -81,6 +84,11 @@ class AddEditServiceCode2ActionUnitTest extends CarlosUnitTestBase {
         mockRequest.setMethod("GET");
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
+        // AddEditServiceCodeDataAssembler's no-arg ctor resolves three DAOs
+        // via SpringUtils.getBean — empty mocks suffice for gate testing.
+        registerMock(BillingServiceDao.class, org.mockito.Mockito.mock(BillingServiceDao.class));
+        registerMock(BillingPercLimitDao.class, org.mockito.Mockito.mock(BillingPercLimitDao.class));
+        registerMock(CSSStylesDAO.class, org.mockito.Mockito.mock(CSSStylesDAO.class));
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);

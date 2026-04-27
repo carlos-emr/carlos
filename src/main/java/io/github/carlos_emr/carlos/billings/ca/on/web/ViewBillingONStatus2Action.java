@@ -97,9 +97,31 @@ public final class ViewBillingONStatus2Action extends ActionSupport {
             return NONE;
         }
 
+        // Status page rendering must not be cached — the underlying data
+        // (RA error rows, settled bills) changes whenever a clinic edits a
+        // claim, and stale views cause stale-state confusion. Sets are the
+        // exact pre-existing contract from the legacy JSP scriptlet.
+        applyNoCacheHeaders(response);
+
         this.statusModel = assembler.assemble(request, loggedInInfo);
         request.setAttribute("statusModel", this.statusModel);
         return SUCCESS;
+    }
+
+    private static void applyNoCacheHeaders(HttpServletResponse response) {
+        // Preserves the exact legacy header sequence from the
+        // billingONStatus.jsp scriptlet. NB: the Servlet API contract for
+        // setHeader replaces (not appends), so only the final Cache-Control
+        // value (max-stale=0) actually survives — the no-cache/private/
+        // no-store directives are overwritten. Pragma + Expires DO get
+        // through. Tightening the cache contract is out of scope for the
+        // JSP-to-action move and tracked separately.
+        response.setHeader("Pragma", "no-cache");           // HTTP 1.0
+        response.setHeader("Cache-Control", "no-cache");    // HTTP 1.1
+        response.setDateHeader("Expires", 0);               // proxy-side
+        response.setHeader("Cache-Control", "private");     // HTTP 1.1
+        response.setHeader("Cache-Control", "no-store");    // HTTP 1.1
+        response.setHeader("Cache-Control", "max-stale=0"); // HTTP 1.1
     }
 
     public BillingONStatusViewModel getStatusModel() {

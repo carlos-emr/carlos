@@ -110,6 +110,21 @@ class ViewBillingONStatus2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldApplyLegacyNoCacheHeaders_onSuccess() throws Exception {
+        // Replaces the legacy in-JSP scriptlet that set Pragma/Cache-Control
+        // headers — moved into the action so the JSP is pure presentation.
+        // setHeader replaces (Servlet contract), so only the final
+        // Cache-Control value survives, matching legacy JSP behavior.
+        ViewBillingONStatus2Action action = new ViewBillingONStatus2Action();
+
+        action.execute();
+
+        assertThat(mockResponse.getHeader("Pragma")).isEqualTo("no-cache");
+        assertThat(mockResponse.getHeader("Cache-Control")).isEqualTo("max-stale=0");
+        assertThat(mockResponse.getDateHeader("Expires")).isEqualTo(0L);
+    }
+
+    @Test
     void shouldDefaultDatesToSumDateRange_whenParamsMissing() throws Exception {
         ViewBillingONStatus2Action action = new ViewBillingONStatus2Action();
         action.execute();
