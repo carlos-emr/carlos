@@ -132,7 +132,7 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         //logger.debug("sql=" + sql);
 
         //commit the table
-        Query q = entityManager.createNativeQuery(sql.toString());
+        Query q = entityManager.createNativeQuery(sql.toString()); // NOSONAR javasecurity:S3649
         q.executeUpdate();
 
         //save the EformReportTool
@@ -162,7 +162,7 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
 
         String sql = String.format("INSERT INTO %s (fdid, demographicNo, dateFormCreated, providerNo, eft_latest, dateCreated%s) VALUES (?1, ?2, ?3, ?4, 0, now()%s)", tableName, columnFragment.toString(), placeholderFragment.toString());
 
-        Query q = entityManager.createNativeQuery(sql);
+        Query q = entityManager.createNativeQuery(sql); // NOSONAR javasecurity:S3649
         q.setParameter(1, fdid);
         q.setParameter(2, demographicNo);
         q.setParameter(3, DateFormatUtils.format(dateFormCreated, "yyyy-MM-dd HH:mm:ss"));

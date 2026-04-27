@@ -74,7 +74,7 @@
 <%@ page import="java.util.*" %>
 <%@ page import="org.w3c.dom.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.Doc2PDF" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>

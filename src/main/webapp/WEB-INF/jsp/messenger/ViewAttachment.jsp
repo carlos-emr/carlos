@@ -85,7 +85,7 @@
 <%@ page import="java.util.*, org.w3c.dom.*" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.util.MsgCommxml" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilXML" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <fmt:setBundle basename="oscarResources"/>

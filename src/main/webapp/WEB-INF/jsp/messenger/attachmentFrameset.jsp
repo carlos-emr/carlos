@@ -50,7 +50,7 @@
 --%>
 
 <%@ page import="io.github.carlos_emr.carlos.util.*" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
