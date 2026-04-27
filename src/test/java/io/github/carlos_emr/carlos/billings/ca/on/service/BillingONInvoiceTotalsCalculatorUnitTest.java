@@ -13,12 +13,9 @@
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -26,152 +23,52 @@ import org.mockito.Mockito;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
-import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 /**
- * Direct unit tests for {@link BillingONInvoiceTotalsCalculator}. The class
- * holds the two pure-calculation methods that used to live on the deleted
- * {@code BillingONService} catch-all.
+ * Direct unit tests for {@link BillingONInvoiceTotalsCalculator}, which now
+ * holds only the cross-DAO {@code calculateBalanceOwing} method (the
+ * "sum the active items" recompute lives on {@link BillingONCHeader1} as
+ * pure entity arithmetic and is covered by {@code BillingONCHeader1UnitTest}).
  *
  * @since 2026-04-27
  */
-@DisplayName("BillingONInvoiceTotalsCalculator")
+@DisplayName("BillingONInvoiceTotalsCalculator.calculateBalanceOwing")
 @Tag("unit")
 @Tag("billing")
 class BillingONInvoiceTotalsCalculatorUnitTest {
 
-    @Nested
-    @DisplayName("calculateBalanceOwing")
-    class CalculateBalanceOwing {
+    @Test
+    void shouldReturnNull_whenInvoiceDoesNotResolve() {
+        BillingONCHeader1Dao headerDao = Mockito.mock(BillingONCHeader1Dao.class);
+        BillingONPaymentDao paymentDao = Mockito.mock(BillingONPaymentDao.class);
+        // The DAO has overloaded find(int) and find(Object); production
+        // passes Integer (auto-boxed) so the Object overload is selected.
+        // Stub via any(Integer.class) which targets that overload.
+        when(headerDao.find(any(Integer.class))).thenReturn(null);
 
-        @Test
-        void shouldReturnNull_whenInvoiceDoesNotResolve() {
-            BillingONCHeader1Dao headerDao = Mockito.mock(BillingONCHeader1Dao.class);
-            BillingONPaymentDao paymentDao = Mockito.mock(BillingONPaymentDao.class);
-            // The DAO has overloaded find(int) and find(Object); production
-            // passes Integer so the Object overload is selected. Stub via the
-            // typed matcher rather than a literal int.
-            // The DAO has overloaded find(int) and find(Object); production
-            // passes Integer so the Object overload is selected. Stub via
-            // any(Integer.class) which targets that overload.
-            when(headerDao.find(org.mockito.ArgumentMatchers.any(Integer.class))).thenReturn(null);
+        BillingONInvoiceTotalsCalculator calc =
+                new BillingONInvoiceTotalsCalculator(headerDao, paymentDao);
 
-            BillingONInvoiceTotalsCalculator calc =
-                    new BillingONInvoiceTotalsCalculator(headerDao, paymentDao);
-
-            assertThat(calc.calculateBalanceOwing(42)).isNull();
-        }
-
-        @Test
-        void shouldReturnTotal_whenNoPaymentsExist() {
-            BillingONCHeader1Dao headerDao = Mockito.mock(BillingONCHeader1Dao.class);
-            BillingONPaymentDao paymentDao = Mockito.mock(BillingONPaymentDao.class);
-            BillingONCHeader1 header = new BillingONCHeader1();
-            header.setTotal(new BigDecimal("100.00"));
-            when(headerDao.find(org.mockito.ArgumentMatchers.any(Integer.class))).thenReturn(header);
-            when(paymentDao.find3rdPartyPayRecordsByBill(any())).thenReturn(List.of());
-
-            BillingONInvoiceTotalsCalculator calc =
-                    new BillingONInvoiceTotalsCalculator(headerDao, paymentDao);
-
-            // total - 0 + 0 = total
-            assertThat(calc.calculateBalanceOwing(1)).isEqualByComparingTo("100.00");
-        }
+        assertThat(calc.calculateBalanceOwing(42)).isNull();
     }
 
-    @Nested
-    @DisplayName("recomputeTotal")
-    class RecomputeTotal {
+    @Test
+    void shouldReturnTotal_whenNoPaymentsExist() {
+        BillingONCHeader1Dao headerDao = Mockito.mock(BillingONCHeader1Dao.class);
+        BillingONPaymentDao paymentDao = Mockito.mock(BillingONPaymentDao.class);
+        BillingONCHeader1 header = new BillingONCHeader1();
+        header.setTotal(new BigDecimal("100.00"));
+        when(headerDao.find(any(Integer.class))).thenReturn(header);
+        when(paymentDao.find3rdPartyPayRecordsByBill(any())).thenReturn(List.of());
 
-        @Test
-        void shouldReturnEmpty_forNullHeader() {
-            BillingONInvoiceTotalsCalculator calc = newCalculator();
-            assertThat(calc.recomputeTotal(null)).isEmpty();
-        }
+        BillingONInvoiceTotalsCalculator calc =
+                new BillingONInvoiceTotalsCalculator(headerDao, paymentDao);
 
-        @Test
-        void shouldReturnZero_whenItemsCollectionIsEmpty() {
-            BillingONCHeader1 header = new BillingONCHeader1();
-            // Default-constructed entity has an empty (non-null) items list.
-            BillingONInvoiceTotalsCalculator calc = newCalculator();
-            Optional<BigDecimal> result = calc.recomputeTotal(header);
-            assertThat(result).isPresent();
-            assertThat(result.get()).isEqualByComparingTo("0");
-        }
-
-        @Test
-        void shouldReturnZero_whenNoActiveItems() {
-            BillingONCHeader1 header = new BillingONCHeader1();
-            header.setBillingItems(new ArrayList<>(List.of(deletedItem("10.00"))));
-
-            BillingONInvoiceTotalsCalculator calc = newCalculator();
-            Optional<BigDecimal> result = calc.recomputeTotal(header);
-
-            assertThat(result).isPresent();
-            assertThat(result.get()).isEqualByComparingTo("0");
-        }
-
-        @Test
-        void shouldSumActiveItemFees() {
-            BillingONCHeader1 header = new BillingONCHeader1();
-            header.setBillingItems(new ArrayList<>(List.of(
-                    activeItem("10.00"),
-                    activeItem("25.50"),
-                    deletedItem("999.99")))); // skipped
-
-            BillingONInvoiceTotalsCalculator calc = newCalculator();
-            Optional<BigDecimal> result = calc.recomputeTotal(header);
-
-            assertThat(result).isPresent();
-            assertThat(result.get()).isEqualByComparingTo("35.50");
-        }
-
-        @Test
-        void shouldReturnEmpty_whenAFeeCannotBeParsed() {
-            BillingONCHeader1 header = new BillingONCHeader1();
-            header.setBillingItems(new ArrayList<>(List.of(
-                    activeItem("10.00"),
-                    activeItem("not-a-number"))));
-
-            BillingONInvoiceTotalsCalculator calc = newCalculator();
-            assertThat(calc.recomputeTotal(header)).isEmpty();
-        }
-
-        @Test
-        void shouldReturnEmpty_whenFeeIsNull() {
-            BillingONCHeader1 header = new BillingONCHeader1();
-            BillingONItem item = new BillingONItem();
-            item.setStatus("O");
-            item.setFee(null);
-            header.setBillingItems(new ArrayList<>(List.of(item)));
-
-            BillingONInvoiceTotalsCalculator calc = newCalculator();
-            // BigDecimal(null) throws NumberFormatException -> Optional.empty()
-            assertThat(calc.recomputeTotal(header)).isEmpty();
-        }
-
-        private BillingONInvoiceTotalsCalculator newCalculator() {
-            return new BillingONInvoiceTotalsCalculator(
-                    Mockito.mock(BillingONCHeader1Dao.class),
-                    Mockito.mock(BillingONPaymentDao.class));
-        }
-
-        private BillingONItem activeItem(String fee) {
-            BillingONItem item = new BillingONItem();
-            item.setStatus("O");
-            item.setFee(fee);
-            return item;
-        }
-
-        private BillingONItem deletedItem(String fee) {
-            BillingONItem item = new BillingONItem();
-            item.setStatus(BillingONItem.DELETED);
-            item.setFee(fee);
-            return item;
-        }
+        // total - 0 + 0 = total
+        assertThat(calc.calculateBalanceOwing(1)).isEqualByComparingTo("100.00");
     }
 }

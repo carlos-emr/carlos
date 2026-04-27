@@ -328,7 +328,7 @@ public class BillingONCorrectionRenderComposer {
         // than round-tripping through the DAO. Same status check the
         // legacy service used.
         List<BillingONItem> items = bCh1.getBillingItems().stream()
-                .filter(i -> !"D".equals(i.getStatus()))
+                .filter(BillingONItem::isActive)
                 .toList();
         List<BillingONCorrectionViewModel.BillItemEntry> out = new ArrayList<>();
         for (BillingONItem item : items) {

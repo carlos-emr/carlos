@@ -91,7 +91,6 @@ public class BillingCorrectionService {
     private final BillingONCHeader1Dao bCh1Dao;
     private final BillingONExtDao billExtDao;
     private final BillingPaymentTypeDao billingPaymentTypeDao;
-    private final BillingONInvoiceTotalsCalculator totalsCalculator;
     private final BillingONRepoDao billRepoDao;
     private final ProviderDao providerDao;
     private final BillingServiceDao billingServiceDao;
@@ -105,7 +104,6 @@ public class BillingCorrectionService {
                              BillingONCHeader1Dao bCh1Dao,
                              BillingONExtDao billExtDao,
                              BillingPaymentTypeDao billingPaymentTypeDao,
-                             BillingONInvoiceTotalsCalculator totalsCalculator,
                              BillingONRepoDao billRepoDao,
                              ProviderDao providerDao,
                              BillingServiceDao billingServiceDao) {
@@ -113,7 +111,6 @@ public class BillingCorrectionService {
         this.bCh1Dao = bCh1Dao;
         this.billExtDao = billExtDao;
         this.billingPaymentTypeDao = billingPaymentTypeDao;
-        this.totalsCalculator = totalsCalculator;
         this.billRepoDao = billRepoDao;
         this.providerDao = providerDao;
         this.billingServiceDao = billingServiceDao;
@@ -246,9 +243,11 @@ public class BillingCorrectionService {
 
         if (!bCh1.getBillingItems().isEmpty()) {
             updateBillingItems(bCh1, request);
-            // Recompute the header total from active items; refuse the save
-            // if any fee fails to parse.
-            java.util.Optional<java.math.BigDecimal> newTotal = totalsCalculator.recomputeTotal(bCh1);
+            // Recompute the header total from its own active items; refuse
+            // the save if any fee fails to parse. The arithmetic lives on
+            // the entity (rich-domain query) since it reads only the
+            // entity's own state.
+            java.util.Optional<java.math.BigDecimal> newTotal = bCh1.recomputeTotalFromItems();
             if (newTotal.isEmpty()) {
                 return "failure";
             }

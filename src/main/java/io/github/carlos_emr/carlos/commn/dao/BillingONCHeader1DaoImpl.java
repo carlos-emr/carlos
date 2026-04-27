@@ -109,7 +109,7 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         }
         List<BillingONItem> active = new ArrayList<>();
         for (BillingONItem item : header.getBillingItems()) {
-            if (!"D".equals(item.getStatus())) {
+            if (item.isActive()) {
                 active.add(item);
             }
         }

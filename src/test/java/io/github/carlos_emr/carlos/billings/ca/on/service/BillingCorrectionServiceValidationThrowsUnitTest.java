@@ -22,7 +22,6 @@ import io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONInvoiceTotalsCalculator;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -67,7 +66,6 @@ class BillingCorrectionServiceValidationThrowsUnitTest {
     private BillingONPaymentDao bPaymentDao;
     private BillingPaymentTypeDao billingPaymentTypeDao;
     private BillingONExtDao billExtDao;
-    private BillingONInvoiceTotalsCalculator totalsCalculator;
     private BillingONRepoDao billRepoDao;
     private ProviderDao providerDao;
     private BillingServiceDao billingServiceDao;
@@ -79,7 +77,7 @@ class BillingCorrectionServiceValidationThrowsUnitTest {
     private BillingCorrectionService newService() {
         return new BillingCorrectionService(
                 bPaymentDao, bCh1Dao, billExtDao, billingPaymentTypeDao,
-                totalsCalculator, billRepoDao, providerDao, billingServiceDao);
+                billRepoDao, providerDao, billingServiceDao);
     }
 
     @BeforeEach
@@ -89,7 +87,6 @@ class BillingCorrectionServiceValidationThrowsUnitTest {
         bPaymentDao = Mockito.mock(BillingONPaymentDao.class);
         billingPaymentTypeDao = Mockito.mock(BillingPaymentTypeDao.class);
         billExtDao = Mockito.mock(BillingONExtDao.class);
-        totalsCalculator = Mockito.mock(BillingONInvoiceTotalsCalculator.class);
         billRepoDao = Mockito.mock(BillingONRepoDao.class);
         providerDao = Mockito.mock(ProviderDao.class);
         billingServiceDao = Mockito.mock(BillingServiceDao.class);

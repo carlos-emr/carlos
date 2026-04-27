@@ -279,7 +279,7 @@ public class BillingONPaymentDataAssembler {
             String bItemFee = "D";
             if (bItem != null) {
                 dxCode = nullToEmpty(bItem.getDx());
-                if (!BillingONItem.DELETED.equals(bItem.getStatus())) {
+                if (bItem.isActive()) {
                     bItemFee = nullToEmpty(bItem.getFee());
                 }
                 if (bItem.equals(prevItem)) {

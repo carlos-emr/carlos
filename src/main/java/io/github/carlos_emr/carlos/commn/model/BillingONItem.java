@@ -169,6 +169,21 @@ public class BillingONItem extends AbstractModel<Integer> implements Serializabl
         this.status = status;
     }
 
+    /**
+     * @return {@code true} when this item has not been soft-deleted
+     *         (status != {@link #DELETED}). Replaces inline
+     *         {@code !"D".equals(item.getStatus())} comparisons across
+     *         the codebase.
+     */
+    public boolean isActive() {
+        return !DELETED.equals(this.status);
+    }
+
+    /** @return {@code true} when this item has been soft-deleted. */
+    public boolean isDeleted() {
+        return DELETED.equals(this.status);
+    }
+
     public Date getLastEditDT() {
         return lastEditDT;
     }

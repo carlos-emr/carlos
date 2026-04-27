@@ -430,7 +430,17 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
         return this.total;
     }
 
+    /**
+     * @throws IllegalArgumentException if {@code total} is negative — invoice
+     *         totals are always non-negative; a negative value indicates a
+     *         calling-side bug (refunds are tracked on payments, not by
+     *         negating the total).
+     */
     public void setTotal(BigDecimal total) {
+        if (total != null && total.signum() < 0) {
+            throw new IllegalArgumentException(
+                    "BillingONCHeader1.setTotal: refusing negative total (refunds belong on the payments table)");
+        }
         this.total = total;
     }
 
@@ -448,6 +458,87 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
 
     public void setStatus(String value) {
         this.status = value;
+    }
+
+    // --- domain queries (pure, no DAO calls) -----------------------------
+
+    /**
+     * @return {@code true} when this header pays through OHIP (the
+     *         {@code payProgram} column carries {@code "HCP"} for ON-resident
+     *         OHIP claims, {@code "RMB"} for out-of-province reciprocal billing).
+     */
+    public boolean isOhipBill() {
+        return "HCP".equals(this.payProgram);
+    }
+
+    /**
+     * @return {@code true} when this claim has been marked settled by the
+     *         remittance-advice import flow ({@link #SETTLED}).
+     */
+    public boolean isSettled() {
+        return SETTLED.equals(this.status);
+    }
+
+    /** @return {@code true} when this claim has not been soft-deleted. */
+    public boolean isActive() {
+        return !DELETED.equals(this.status);
+    }
+
+    /** @return {@code true} when this claim has been soft-deleted. */
+    public boolean isDeleted() {
+        return DELETED.equals(this.status);
+    }
+
+    /**
+     * Marks this claim as settled. Callers that previously did
+     * {@code header.setStatus(BillingONCHeader1.SETTLED)} should call this
+     * instead so any future "what else happens on settle?" logic
+     * (audit, event, derived field) has one home.
+     */
+    public void markSettled() {
+        this.status = SETTLED;
+    }
+
+    /**
+     * @return {@code true} iff {@code paidTotal >= total}. Pure check on
+     *         supplied values — caller resolves payments through the
+     *         payment DAO and passes the sum.
+     */
+    public boolean isPaidInFull(BigDecimal paidTotal) {
+        if (this.total == null || paidTotal == null) {
+            return false;
+        }
+        return paidTotal.compareTo(this.total) >= 0;
+    }
+
+    /**
+     * Sums the active items' fees onto a new BigDecimal. Pure read of the
+     * managed collection — does <em>not</em> mutate {@link #total} or call
+     * the DAO. Returns {@link java.util.Optional#empty()} if any active
+     * item's fee is null or unparseable.
+     *
+     * <p>Callers that need to persist the recomputed total should:</p>
+     * <pre>
+     *   header.recomputeTotalFromItems().ifPresent(header::setTotal);
+     *   dao.merge(header);
+     * </pre>
+     */
+    public java.util.Optional<BigDecimal> recomputeTotalFromItems() {
+        if (this.billingItems == null) {
+            return java.util.Optional.of(BigDecimal.ZERO);
+        }
+        BigDecimal sum = BigDecimal.ZERO;
+        for (BillingONItem item : this.billingItems) {
+            if (item.isDeleted()) continue;
+            String fee = item.getFee();
+            if (fee == null) return java.util.Optional.empty();
+            try {
+                sum = sum.add(new BigDecimal(fee));
+            } catch (NumberFormatException e) {
+                return java.util.Optional.empty();
+            }
+        }
+        return java.util.Optional.of(sum);
     }
 
     public String getComment() {

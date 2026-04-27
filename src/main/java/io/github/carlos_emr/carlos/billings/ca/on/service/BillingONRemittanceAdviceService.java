@@ -558,7 +558,7 @@ public class BillingONRemittanceAdviceService {
     public boolean updateBillingStatus(String id, String status) {
         BillingONCHeader1 h = cheader1Dao.find(Integer.parseInt(id));
         if (h != null) {
-            if (!h.getStatus().equals("D")) {
+            if (h.isActive()) {
                 h.setStatus(status);
                 cheader1Dao.merge(h);
             }
