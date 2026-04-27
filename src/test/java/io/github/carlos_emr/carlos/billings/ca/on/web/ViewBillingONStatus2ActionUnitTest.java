@@ -13,6 +13,9 @@
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONStatusViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONErrorReportService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingStatusPrep;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -72,6 +75,9 @@ class ViewBillingONStatus2ActionUnitTest extends CarlosUnitTestBase {
         mockRequest.setMethod("GET");
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
+        registerMock(BillingONLookupService.class, org.mockito.Mockito.mock(BillingONLookupService.class));
+        registerMock(BillingStatusPrep.class, org.mockito.Mockito.mock(BillingStatusPrep.class));
+        registerMock(BillingONErrorReportService.class, org.mockito.Mockito.mock(BillingONErrorReportService.class));
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);

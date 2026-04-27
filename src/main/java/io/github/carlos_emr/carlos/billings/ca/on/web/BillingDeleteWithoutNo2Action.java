@@ -56,6 +56,7 @@ public final class BillingDeleteWithoutNo2Action extends ActionSupport {
     private BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
     private AppointmentArchiveDao appointmentArchiveDao = SpringUtils.getBean(AppointmentArchiveDao.class);
     private OscarAppointmentDao appointmentDao = SpringUtils.getBean(OscarAppointmentDao.class);
+    private BillingCorrectionPrep correctionPrep = SpringUtils.getBean(BillingCorrectionPrep.class);
 
     @Override
     public String execute() {
@@ -92,8 +93,7 @@ public final class BillingDeleteWithoutNo2Action extends ActionSupport {
         int rowsAffected = 0;
         CarlosProperties props = CarlosProperties.getInstance();
         if (props.getProperty("isNewONbilling", "").equals("true")) {
-            BillingCorrectionPrep dbObj = SpringUtils.getBean(BillingCorrectionPrep.class);
-            List<String> billStatus = dbObj.getBillingNoStatusByAppt(apptNoStr);
+            List<String> billStatus = correctionPrep.getBillingNoStatusByAppt(apptNoStr);
             if (billStatus != null && ((billStatus.size() == 0) || (billStatus.size() > 1 && billStatus.get(billStatus.size() - 1).startsWith("B")))) {
                 request.setAttribute("cannotDelete", Boolean.TRUE);
                 return "cannotDelete";
@@ -101,7 +101,7 @@ public final class BillingDeleteWithoutNo2Action extends ActionSupport {
                 for (int idx = 0; idx < billStatus.size(); idx += 2) {
                     // idx = billing header ID, idx+1 = status
                     if (idx + 1 < billStatus.size() && !billStatus.get(idx + 1).equals("D")) {
-                        if (dbObj.deleteBilling(billStatus.get(idx), "D", curUserNo)) {
+                        if (correctionPrep.deleteBilling(billStatus.get(idx), "D", curUserNo)) {
                             rowsAffected++;
                         }
                     }

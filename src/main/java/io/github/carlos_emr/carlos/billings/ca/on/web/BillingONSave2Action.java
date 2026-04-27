@@ -66,6 +66,9 @@ public final class BillingONSave2Action extends ActionSupport {
     private BillingONExtDao extDao = SpringUtils.getBean(BillingONExtDao.class);
     private UserPropertyDAO userPropertyDAO = SpringUtils.getBean(UserPropertyDAO.class);
     private BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
+    private BillingSavePrep bObj = SpringUtils.getBean(BillingSavePrep.class);
+    private io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionPrep correctionPrep =
+            SpringUtils.getBean(io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionPrep.class);
 
     @Override
     public String execute() {
@@ -105,7 +108,6 @@ public final class BillingONSave2Action extends ActionSupport {
             return SUCCESS;
         }
 
-        BillingSavePrep bObj = SpringUtils.getBean(BillingSavePrep.class);
         ArrayList vecObj = bObj.getBillingClaimObj(request);
         boolean ret = bObj.addABillingRecord(vecObj);
 
@@ -145,7 +147,7 @@ public final class BillingONSave2Action extends ActionSupport {
             }
 
             // Replace the old <jsp:include page="billingDeleteWithBillNo.jsp"/> with a direct call
-            BillingDeleteWithBillNo2Action.deleteBillingByBillNo(request, loggedInInfo.getLoggedInProviderNo(), billingDao);
+            BillingDeleteWithBillNo2Action.deleteBillingByBillNo(request, loggedInInfo.getLoggedInProviderNo(), billingDao, correctionPrep);
 
             request.setAttribute("billingNo", billingNo);
 

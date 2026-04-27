@@ -47,6 +47,7 @@ public final class BillingDeleteNoAppt2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
+    private BillingCorrectionPrep correctionPrep = SpringUtils.getBean(BillingCorrectionPrep.class);
 
     @Override
     public String execute() {
@@ -71,8 +72,7 @@ public final class BillingDeleteNoAppt2Action extends ActionSupport {
         CarlosProperties props = CarlosProperties.getInstance();
 
         if (props.getProperty("isNewONbilling", "").equals("true")) {
-            BillingCorrectionPrep dbObj = SpringUtils.getBean(BillingCorrectionPrep.class);
-            dbObj.deleteBilling(billingNoStr, "D", curUserNo);
+            correctionPrep.deleteBilling(billingNoStr, "D", curUserNo);
         } else {
             try {
                 Billing b = billingDao.find(Integer.parseInt(billingNoStr));

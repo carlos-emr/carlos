@@ -77,6 +77,14 @@ class ViewBillingONReview2ActionUnitTest extends CarlosUnitTestBase {
         mockRequest.setMethod("POST");
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
+        registerMock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONReviewDxPersister.class,
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONReviewDxPersister.class));
+        registerMock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONServiceCodeService.class,
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONServiceCodeService.class));
+        registerMock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService.class,
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService.class));
+        registerMock(io.github.carlos_emr.carlos.commn.dao.SiteDao.class,
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.SiteDao.class));
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);

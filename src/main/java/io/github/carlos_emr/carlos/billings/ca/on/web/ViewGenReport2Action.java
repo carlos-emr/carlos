@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.OhipReportGenerationSe
 public final class ViewGenReport2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private OhipReportGenerationService service = SpringUtils.getBean(OhipReportGenerationService.class);
 
     @Override
     public String execute() throws Exception {
@@ -55,7 +56,6 @@ public final class ViewGenReport2Action extends ActionSupport {
             return NONE;
         }
 
-        OhipReportGenerationService service = SpringUtils.getBean(OhipReportGenerationService.class);
         service.generateReport(request, OhipReportGenerationService.Mode.SOLO_REPORT);
 
         // Hybrid clinics need a follow-up GROUP_REPORT pass for the group

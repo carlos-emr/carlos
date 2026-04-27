@@ -48,6 +48,7 @@ public final class ViewSearchRefDoc2Action extends ActionSupport {
             "^document\\.forms\\[(\\d+)\\]\\.elements\\['([a-zA-Z0-9_.]+)'\\]\\.value$");
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private ProfessionalSpecialistDao professionalSpecialistDao = SpringUtils.getBean(ProfessionalSpecialistDao.class);
 
     @Override
     public String execute() throws Exception {
@@ -88,7 +89,6 @@ public final class ViewSearchRefDoc2Action extends ActionSupport {
         SearchRefDocViewModel.JsPath fld5 = extractJsPath(fld5Val, "tophone");
         SearchRefDocViewModel.JsPath fld6 = extractJsPath(fld6Val, "tofax");
 
-        ProfessionalSpecialistDao dao = SpringUtils.getBean(ProfessionalSpecialistDao.class);
         List<ProfessionalSpecialist> results = null;
         if (submit != null && (submit.equals("Search") || submit.equals("Next Page") || submit.equals("Last Page"))) {
             String searchMode = request.getParameter("search_mode") == null
@@ -97,18 +97,18 @@ public final class ViewSearchRefDoc2Action extends ActionSupport {
             if ("search_name".equals(searchMode)) {
                 String[] temp = keyword == null ? new String[]{""} : keyword.split("\\,\\p{Space}*");
                 if (temp.length > 1) {
-                    results = dao.findByFullName(temp[0], temp[1]);
+                    results = professionalSpecialistDao.findByFullName(temp[0], temp[1]);
                 } else {
-                    results = dao.findByLastName(temp[0]);
+                    results = professionalSpecialistDao.findByLastName(temp[0]);
                 }
             } else if ("specialty".equals(searchMode)) {
-                results = dao.findBySpecialty(keyword);
+                results = professionalSpecialistDao.findBySpecialty(keyword);
             } else if ("referral_no".equals(searchMode)) {
-                results = dao.findByReferralNo(keyword);
+                results = professionalSpecialistDao.findByReferralNo(keyword);
             }
         }
         if (results == null) {
-            results = dao.findAll();
+            results = professionalSpecialistDao.findAll();
         }
 
         List<SearchRefDocViewModel.SpecialistEntry> specialists = new ArrayList<>();

@@ -55,6 +55,7 @@ public final class BillingDeleteWithBillNo2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
+    private BillingCorrectionPrep correctionPrep = SpringUtils.getBean(BillingCorrectionPrep.class);
 
     @Override
     public String execute() {
@@ -64,19 +65,21 @@ public final class BillingDeleteWithBillNo2Action extends ActionSupport {
         }
 
         String curUserNo = loggedInInfo.getLoggedInProviderNo();
-        return deleteBillingByBillNo(request, curUserNo, billingDao);
+        return deleteBillingByBillNo(request, curUserNo, billingDao, correctionPrep);
     }
 
     /**
      * Performs the delete-by-bill-number logic. Called both from {@link #execute()}
      * and from {@link BillingONSave2Action} to replace the old {@code <jsp:include>} pattern.
      *
-     * @param request    the current HTTP request
-     * @param curUserNo  the logged-in provider number
-     * @param billingDao the billing DAO
+     * @param request        the current HTTP request
+     * @param curUserNo      the logged-in provider number
+     * @param billingDao     the billing DAO
+     * @param correctionPrep the billing-correction prep service
      * @return Struts result name: {@code "success"}, {@code "cannotDelete"}, or {@code "error"}
      */
-    public static String deleteBillingByBillNo(HttpServletRequest request, String curUserNo, BillingDao billingDao) {
+    public static String deleteBillingByBillNo(HttpServletRequest request, String curUserNo,
+                                                BillingDao billingDao, BillingCorrectionPrep correctionPrep) {
         String apptNoStr = request.getParameter("appointment_no");
         String billNoParam = request.getParameter("billNo_old");
         String billStatusParam = request.getParameter("billStatus_old");
@@ -106,15 +109,14 @@ public final class BillingDeleteWithBillNo2Action extends ActionSupport {
 
         CarlosProperties props = CarlosProperties.getInstance();
         if (props.getProperty("isNewONbilling", "").equals("true")) {
-            BillingCorrectionPrep dbObj = SpringUtils.getBean(BillingCorrectionPrep.class);
-            List billStatus = dbObj.getBillingNoStatusByBillNo(billNo);
+            List billStatus = correctionPrep.getBillingNoStatusByBillNo(billNo);
             if (billStatus != null && ((billStatus.size() == 0) || (billStatus.size() > 1 && ((String) billStatus.get(billStatus.size() - 1)).startsWith("B")))) {
                 return "cannotDelete";
             } else if (billStatus != null) {
                 for (int idx = 0; idx < billStatus.size(); idx += 2) {
                     // idx = billing header ID, idx+1 = status; bounds check prevents IOOBE on odd-sized list
                     if (idx + 1 < billStatus.size() && !((String) billStatus.get(idx + 1)).equals("D")) {
-                        dbObj.deleteBilling((String) billStatus.get(idx), "D", curUserNo);
+                        correctionPrep.deleteBilling((String) billStatus.get(idx), "D", curUserNo);
                     }
                 }
             }

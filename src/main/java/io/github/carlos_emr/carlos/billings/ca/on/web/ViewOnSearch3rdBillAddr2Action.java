@@ -52,6 +52,7 @@ public final class ViewOnSearch3rdBillAddr2Action extends ActionSupport {
             "province", "postcode", "telephone", "fax");
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private Billing3rdPartyAddressDao billing3rdPartyAddressDao = SpringUtils.getBean(Billing3rdPartyAddressDao.class);
 
     @Override
     public String execute() throws Exception {
@@ -95,10 +96,9 @@ public final class ViewOnSearch3rdBillAddr2Action extends ActionSupport {
             String searchMode = (searchModeParam == null || !VALID_SEARCH_MODES.contains(searchModeParam))
                     ? "search_name" : searchModeParam;
 
-            Billing3rdPartyAddressDao dao = SpringUtils.getBean(Billing3rdPartyAddressDao.class);
             // searchMode and orderBy validated against allowlists above to
             // satisfy the deepcode SqlInjection check the legacy JSP marked.
-            for (Billing3rdPartyAddress ba : dao.findAddresses(searchMode, orderBy, keyword, strLimit1, strLimit2)) {
+            for (Billing3rdPartyAddress ba : billing3rdPartyAddressDao.findAddresses(searchMode, orderBy, keyword, strLimit1, strLimit2)) {
                 Properties prop = new Properties();
                 prop.setProperty("id", String.valueOf(ba.getId()));
                 prop.setProperty("attention", nullToEmpty(ba.getAttention()));

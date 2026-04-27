@@ -86,6 +86,26 @@ class SiblingViewBillingONActionPrivilegeUnitTest extends CarlosUnitTestBase {
         mockRequest.setMethod("GET");
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
+        registerMock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewPrep.class,
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewPrep.class));
+        registerMock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService.class,
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService.class));
+        registerMock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONRemittanceAdviceService.class,
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONRemittanceAdviceService.class));
+        registerMock(io.github.carlos_emr.carlos.billings.ca.on.service.OhipClaimFileService.class,
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.OhipClaimFileService.class));
+        registerMock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class,
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class));
+        registerMock(io.github.carlos_emr.carlos.commn.dao.ReportProviderDao.class,
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.ReportProviderDao.class));
+        registerMock(io.github.carlos_emr.carlos.billing.CA.dao.BillActivityDao.class,
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billing.CA.dao.BillActivityDao.class));
+        registerMock(io.github.carlos_emr.carlos.commn.dao.SiteDao.class,
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.SiteDao.class));
+        registerMock(io.github.carlos_emr.carlos.commn.dao.ProviderDataDao.class,
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.ProviderDataDao.class));
+        registerMock(io.github.carlos_emr.carlos.commn.dao.ProviderBillCenterDao.class,
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.ProviderBillCenterDao.class));
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
