@@ -471,17 +471,21 @@
         </action>
         <!-- ===== ON billing JSP gating actions (migration slice) ===== -->
         <action name="billing/CA/ON/ViewBillingCodeSearchAjax" class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingCodeSearchAjax2Action">
-            <result name="success">/WEB-INF/jsp/billing/CA/ON/billingCodeSearchAjax.jsp</result>
+            <!-- Action writes the JSON array response body directly and
+                 returns NONE; no result mapping needed. -->
         </action>
         <action name="billing/CA/ON/ViewBillingDigSearchAjax" class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingDigSearchAjax2Action">
-            <result name="success">/WEB-INF/jsp/billing/CA/ON/billingDigSearchAjax.jsp</result>
+            <!-- Action writes the JSON array response body directly and
+                 returns NONE; no result mapping needed. -->
         </action>
         <action name="billing/CA/ON/ViewSearchRefDocAjax" class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewSearchRefDocAjax2Action">
             <!-- Action writes the JSON array response body directly and
                  returns NONE; no result mapping needed. -->
         </action>
         <action name="billing/CA/ON/ViewBillStatus" class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillStatus2Action">
-            <!-- billStatus.jsp is a <jsp:forward> shim; chain through Struts to avoid empty-body dispatch. -->
+            <!-- Chains directly to ViewBillingONStatus. Preserves the legacy
+                 ViewBillStatus URL contract while delegating to the canonical
+                 status action. -->
             <result name="success" type="chain">billing/CA/ON/ViewBillingONStatus</result>
         </action>
         <action name="billing/CA/ON/ViewBillingCalendarPopup" class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingCalendarPopup2Action">
@@ -497,7 +501,8 @@
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingDigSearch.jsp</result>
         </action>
         <action name="billing/CA/ON/ViewBillingOHIPreport" class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingOHIPreport2Action">
-            <!-- billingOHIPreport.jsp is a <jsp:forward> shim; chain through Struts to avoid empty-body dispatch. -->
+            <!-- Chains directly to ViewBillingONMRI. Preserves the legacy
+                 ViewBillingOHIPreport URL contract. -->
             <result name="success" type="chain">billing/CA/ON/ViewBillingONMRI</result>
         </action>
         <action name="billing/CA/ON/ViewBillingOHIPsimulation" class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingOHIPsimulation2Action">
@@ -525,7 +530,8 @@
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingONNewReport.jsp</result>
         </action>
         <action name="billing/CA/ON/ViewBillingONReport" class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingONReport2Action">
-            <!-- billingONReport.jsp is a <jsp:forward> shim; chain through Struts to avoid empty-body dispatch. -->
+            <!-- Chains directly to ViewBillingONNewReport. Preserves the
+                 legacy ViewBillingONReport URL contract. -->
             <result name="success" type="chain">billing/CA/ON/ViewBillingONNewReport</result>
         </action>
         <action name="billing/CA/ON/ViewBillingONReview" class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingONReview2Action">
@@ -557,10 +563,8 @@
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingResearchCodeSearch.jsp</result>
         </action>
         <action name="billing/CA/ON/ViewGenRA" class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewGenRA2Action">
-            <!-- genRA.jsp is just a <jsp:forward> to ViewOnGenRA - a JSP forward
-                 cannot re-dispatch into a Struts action URL, so the admin menu's
-                 'genRA' link silently rendered an empty body. Chain directly
-                 through Struts instead. -->
+            <!-- Chains directly to ViewOnGenRA. Preserves the legacy
+                 ViewGenRA URL contract (admin menu's 'genRA' link). -->
             <result name="success" type="chain">billing/CA/ON/ViewOnGenRA</result>
         </action>
         <action name="billing/CA/ON/ViewGenRADesc" class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewGenRADesc2Action">
@@ -626,7 +630,8 @@
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingON3rdPayments.jsp</result>
         </action>
         <action name="billing/CA/ON/ViewBillingCorrection" class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingCorrection2Action">
-            <!-- billingCorrection.jsp is a <jsp:forward> shim; chain through Struts to avoid empty-body dispatch. -->
+            <!-- Chains directly to BillingONCorrection. Preserves the legacy
+                 ViewBillingCorrection URL contract. -->
             <result name="success" type="chain">billing/CA/ON/BillingONCorrection</result>
         </action>
         <action name="billing/CA/ON/BillingCorrectionReview" class="io.github.carlos_emr.carlos.billings.ca.on.web.BillingCorrectionReview2Action">

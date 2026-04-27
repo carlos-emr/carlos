@@ -28,13 +28,6 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%
-    if (session.getAttribute("user") == null) {
-        response.sendRedirect(request.getContextPath() + "/logout.htm");
-        return;
-    }
-    %>
-
 <html>
     <head>
         <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>

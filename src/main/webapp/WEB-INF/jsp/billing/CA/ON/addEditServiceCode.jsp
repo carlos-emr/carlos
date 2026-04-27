@@ -29,13 +29,6 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%
-    if (session.getAttribute("user") == null) {
-        response.sendRedirect(request.getContextPath() + "/logoutPage");
-        return;
-    }
-    %>
-
 <html>
     <head>
         <title><fmt:message key="admin.admin.manageBillingServiceCode"/></title>

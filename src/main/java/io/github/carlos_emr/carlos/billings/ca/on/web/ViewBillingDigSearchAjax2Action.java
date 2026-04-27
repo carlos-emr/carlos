@@ -12,44 +12,95 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
-import jakarta.servlet.http.HttpServletRequest;
+import java.io.IOException;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingDxCodeDataAssembler;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDigSearchAjaxViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingDxCodeDataAssembler;
 
 /**
- * View gate for {@code billing/CA/ON/billingDigSearchAjax.jsp}, the
- * jQuery-UI Autocomplete endpoint for ICD-9 diagnostic codes.
+ * AJAX endpoint for jQuery-UI Autocomplete on ICD-9 diagnostic codes.
+ * Replaces the former {@code billingDigSearchAjax.jsp} controller-in-a-JSP.
  *
- * <p>Enforces {@code _billing r}, then assembles a
+ * <p>Reads the {@code term} request parameter, builds a
  * {@link BillingDigSearchAjaxViewModel} via
- * {@link BillingDxCodeDataAssembler#assembleAjax}.</p>
+ * {@link BillingDxCodeDataAssembler#assembleAjax}, and writes the JSON
+ * array body directly using a Jackson {@link ArrayNode}. Each suggestion
+ * is rendered as
+ * {@code {"value": "...", "label": "...", "code": "...", "description": "..."}}.</p>
  *
- * @since 2026-04-13
+ * @since 2026-04-26
  */
 public final class ViewBillingDigSearchAjax2Action extends ActionSupport {
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
+
+    private final SecurityInfoManager securityInfoManager;
+    private final BillingDxCodeDataAssembler assembler;
+
+    /** Production constructor used by Struts2's Spring object factory. */
+    public ViewBillingDigSearchAjax2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class),
+             new BillingDxCodeDataAssembler());
+    }
+
+    /** Test-friendly constructor — call with mocks. Package-private. */
+    ViewBillingDigSearchAjax2Action(SecurityInfoManager securityInfoManager,
+                                    BillingDxCodeDataAssembler assembler) {
+        this.securityInfoManager = securityInfoManager;
+        this.assembler = assembler;
+    }
 
     @Override
-    public String execute() throws Exception {
+    public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();
+        HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
+        if (loggedInInfo == null) {
+            try {
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+            } catch (IOException ignore) {
+                // Container is shutting down or response already committed.
+            }
+            return NONE;
+        }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        BillingDigSearchAjaxViewModel model = new BillingDxCodeDataAssembler()
-                .assembleAjax(request.getParameter("term"));
-        request.setAttribute("ajaxModel", model);
+        BillingDigSearchAjaxViewModel model = assembler.assembleAjax(request.getParameter("term"));
 
-        return SUCCESS;
+        ArrayNode array = JSON_MAPPER.createArrayNode();
+        for (BillingDigSearchAjaxViewModel.Suggestion s : model.getSuggestions()) {
+            ObjectNode node = JSON_MAPPER.createObjectNode();
+            node.put("value", s.value());
+            node.put("label", s.label());
+            node.put("code", s.code());
+            node.put("description", s.description());
+            array.add(node);
+        }
+
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        try {
+            response.getWriter().print(array.toString());
+        } catch (IOException e) {
+            MiscUtils.getLogger().warn("Failed to write dx code search response", e);
+        }
+        return NONE;
     }
 }
