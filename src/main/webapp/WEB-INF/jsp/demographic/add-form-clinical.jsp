@@ -23,15 +23,17 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<fmt:setBundle basename="oscarResources"/>
+
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <c:set var="ctx" value="${ pageContext.request.contextPath }"/>
+
 <%-- Retrieve variables from request attributes (set by DemographicAdd2Action) --%>
 <%
     String curUser_no = (String) request.getAttribute("curUser_no");
@@ -93,7 +95,7 @@
                                         for (Provider p : providerDao.getActiveProvidersByRole("doctor")) {
                                             String docProviderNo = p.getProviderNo();
                                     %>
-                                    <option id="doc<%=docProviderNo%>" value="<%=docProviderNo%>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/></option>
+                                    <option id="doc<%= Encode.forHtmlAttribute(docProviderNo) %>" value="<%= Encode.forHtmlAttribute(docProviderNo) %>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/></option>
                                     <%
                                         }
                                     %>
@@ -176,8 +178,8 @@
                                     <% for (int k = 0; k < vecRef.size(); k++) {
                                         prop = (Properties) vecRef.get(k);
                                     %>
-                                    <option value="<%=prop.getProperty("last_name")+","+prop.getProperty("first_name")%>">
-                                        <%=Misc.getShortStr((prop.getProperty("last_name") + "," + prop.getProperty("first_name")), "", nStrShowLen)%>
+                                    <option value="<%=Encode.forJavaScript(prop.getProperty("last_name")+","+prop.getProperty("first_name"))%>">
+                                      <%= Encode.forHtml(Misc.getShortStr((prop.getProperty("last_name") + "," + prop.getProperty("first_name")), "", nStrShowLen)) %>
                                     </option>
                                     <% } %>
                                 </select>
@@ -188,8 +190,8 @@
                                         <% for(int k=0; k<vecRef.size(); k++) {
                                             prop= (Properties) vecRef.get(k);
                                         %>
-                                        if (refName.indexOf("<%=prop.getProperty("last_name")+","+prop.getProperty("first_name")%>") >= 0) {
-                                            refNo = '<%=prop.getProperty("referral_no", "")%>';
+                                        if (refName.indexOf("<%= Encode.forJavaScript(prop.getProperty("last_name")+","+prop.getProperty("first_name")) %>") >= 0) {
+                                            refNo = '<%= Encode.forJavaScript(prop.getProperty("referral_no", "")) %>';
                                         }
                                         <% } %>
                                         document.forms[1].r_doctor_ohip.value = refNo;
@@ -224,7 +226,7 @@
                                         <option value="FS"><fmt:message key="demographic.demographicaddrecordhtm.FS-feeforservice"/></option>
                                         <%
                                             for (String status : demographicDao.getRosterStatuses()) {%>
-                                        <option value="<%=status%>"><%=status%></option>
+                                        <option value="<%= Encode.forHtmlAttribute(status) %>"><%= Encode.forHtml(status) %></option>
                                         <% } // end while %>
                                     </select>
                                     <input type="button" onClick="newStatus1();" class="btn btn-outline-secondary btn-sm"
@@ -254,7 +256,7 @@
                                         for (Provider p : providerDao.getActiveProvidersByRole("doctor")) {
                                             String docProviderNo = p.getProviderNo();
                                     %>
-                                    <option id="<%=docProviderNo%>" value="<%=docProviderNo%>"><%=p.getFormattedName()%></option>
+                                    <option id="<%= Encode.forHtmlAttribute(docProviderNo) %>" value="<%= Encode.forHtmlAttribute(docProviderNo) %>"><%= Encode.forHtml(p.getFormattedName()) %></option>
                                     <%
                                         }
                                     %>
@@ -412,7 +414,7 @@
                                 for (int k = 0; k < propDemoExt.length; k = k + 2) {
                         %>
                         <div class="row mb-2 align-items-center">
-                            <div class="col-sm-2 text-end"><label class="fw-bold col-form-label py-0"><%=propDemoExt[k] %>:</label></div>
+                            <div class="col-sm-2 text-end"><label class="fw-bold col-form-label py-0"><%= Encode.forHtml(propDemoExt[k]) %>:</label></div>
                             <div class="col-sm-4">
                                 <% if (bExtForm) {
                                     out.println(propDemoExtForm[k]);
@@ -471,7 +473,7 @@
                                                 <%
                                                     for (WaitingListName wln : waitingListNameDao.findCurrentByGroup(((ProviderPreference) session.getAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE)).getMyGroupNo())) {
                                                 %>
-                                                <option value="<%=wln.getId()%>"><%=wln.getName()%></option>
+                                                <option value="<%= Encode.forHtmlAttribute(wln.getId().toString()) %>"><%= Encode.forHtml(wln.getName()) %></option>
                                                 <%
                                                     }
                                                 %>
@@ -490,7 +492,7 @@
                                         </div>
                                         <div class="col-sm-4">
                                             <div class="d-flex gap-1 align-items-center">
-                                                <input type="text" placeholder="yyyy-mm-dd"
+                                                <input type="text" placeholder="<fmt:message key="yyyy-mm-dd"/>"
                                                        name="waiting_list_referral_date"
                                                        id="waiting_list_referral_date"
                                                        class="form-control"
@@ -541,7 +543,9 @@
                                             <c:set var="patientConsent" value="${ consent }"/>
                                         </c:if>
                                     </c:forEach>
-                                    <div class="row mb-2 align-items-start privacyConsentRow" id="${ count.index }">
+                                     <c:set var="rawConsentTypeKey" value="${ consentType.type }"/>
+                                     <c:set var="safeConsentTypeKey" value="${ fn:replace(rawConsentTypeKey, ' ', '_') }"/>
+                                    <div class="row mb-2 align-items-start privacyConsentRow" id="privacyConsentRow_${count.index}">
                                         <div class="col-sm-2 text-end">
                                             <span class="fw-bold">${carlos:forHtml(consentType.name)}</span>
                                         </div>
@@ -550,16 +554,16 @@
                                         </div>
                                         <div class="col-sm-4" id="consentStatusDate">
                                             <div class="form-check form-check-inline">
-                                                <input type="radio" name="${ consentType.type }" id="optin_${ consentType.type }" value="0" class="form-check-input"/>
-                                                <label class="form-check-label" for="optin_${ consentType.type }"><fmt:message key="demographic.demographicaddrecordhtm.optIn"/></label>
+                                                 <input type="radio" name="${ safeConsentTypeKey }" id="optin_${safeConsentTypeKey}" value="0" class="form-check-input"/>
+                                                 <label class="form-check-label" for="optin_${ safeConsentTypeKey }"><fmt:message key="demographic.demographicaddrecordhtm.optIn"/></label>
                                             </div>
                                             <div class="form-check form-check-inline">
-                                                <input type="radio" name="${ consentType.type }" id="optout_${ consentType.type }" value="1" class="form-check-input"/>
-                                                <label class="form-check-label" for="optout_${ consentType.type }"><fmt:message key="demographic.demographicaddrecordhtm.optOut"/></label>
+                                                 <input type="radio" name="${ safeConsentTypeKey }" id="optout_${safeConsentTypeKey}" value="1" class="form-check-input"/>
+                                                 <label class="form-check-label" for="optout_${ safeConsentTypeKey }"><fmt:message key="demographic.demographicaddrecordhtm.optOut"/></label>
                                             </div>
                                             <input type="button" class="btn btn-outline-secondary btn-sm"
-                                                   name="clearRadio_${consentType.type}_btn"
-                                                   onclick="consentClearBtn('${consentType.type}')" value="<fmt:message key='demographic.demographicaddrecordhtm.clear'/>"/>
+                                                    name="clearRadio_${safeConsentTypeKey}_btn"
+                                                    onclick="consentClearBtn('${safeConsentTypeKey}')" value="<fmt:message key='demographic.demographicaddrecordhtm.clear'/>"/>
                                         </div>
                                     </div>
                                 </c:forEach>
@@ -593,7 +597,7 @@
                                                                 continue;
                                                             }
                                                     %>
-                                                    <option value="<%=_p.getId()%>"><%=_p.getName()%></option>
+                                                    <option value="<%= Encode.forHtmlAttribute(_p.getId().toString()) %>"><%= Encode.forHtml(_p.getName()) %></option>
                                                     <%
                                                         }
 
@@ -616,7 +620,7 @@
                                                     <li>
                                                         <div class="form-check">
                                                             <input type="checkbox" name="sp" value="<%=_p.getId()%>" class="form-check-input"/>
-                                                            <label class="form-check-label"><%=_p.getName()%></label>
+                                                            <label class="form-check-label"><%= Encode.forHtml(_p.getName()) %></label>
                                                         </div>
                                                     </li>
                                                     <%}%>
