@@ -278,7 +278,7 @@
                                 </div>
                                 <% } else { %>
                                 <select id="province" name="province" class="form-select">
-                                    <option value="OT" <%=defaultProvince.equals("") || defaultProvince.equals("OT") ? " selected" : ""%>>Other</option>
+                                    <option value="OT" <%=defaultProvince.equals("") || defaultProvince.equals("OT") ? " selected" : ""%>><fmt:message key="demographic.demographiceditdemographic.optOther"/></option>
                                     <%-- <option value="">None Selected</option> --%>
                                     <% if (pNames.isDefined()) {
                                         for (ListIterator li = pNames.listIterator(); li.hasNext(); ) {
@@ -409,7 +409,7 @@
                                 </div>
                                 <% } else { %>
                                 <select id="residentialProvince" name="residentialProvince" class="form-select">
-                                    <option value="OT" <%=defaultProvince.equals("") || defaultProvince.equals("OT") ? " selected" : ""%>>Other</option>
+                                    <option value="OT" <%=defaultProvince.equals("") || defaultProvince.equals("OT") ? " selected" : ""%>><fmt:message key="demographic.demographiceditdemographic.optOther"/></option>
                                     <% if (pNames.isDefined()) {
                                         for (ListIterator li = pNames.listIterator(); li.hasNext(); ) {
                                             String province = (String) li.next(); %>
@@ -697,7 +697,7 @@
                             </div>
                             <div class="col-sm-4" id="hcType">
                                 <select name="hc_type" id="hc_type" class="form-select">
-                                    <option value="OT" <%=HCType.equals("") || HCType.equals("OT") ? " selected" : ""%>>Other</option>
+                                    <option value="OT" <%=HCType.equals("") || HCType.equals("OT") ? " selected" : ""%>><fmt:message key="demographic.demographiceditdemographic.optOther"/></option>
                                     <% if (pNames.isDefined()) {
                                         for (ListIterator li = pNames.listIterator(); li.hasNext(); ) {
                                             String province = (String) li.next(); %>
