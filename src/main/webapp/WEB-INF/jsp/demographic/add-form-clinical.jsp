@@ -99,7 +99,7 @@
                                     <%
                                         }
                                     %>
-                                    <option value=""></option>
+
                                 </select>
                             </div>
                             <div class="col-sm-2 text-end" id="nurseLbl">
@@ -587,68 +587,19 @@
                                 </c:forEach>
                             </oscar:oscarPropertiesCheck>
                         </oscar:oscarPropertiesCheck>
+                        <%
+                        // CAISI program has been deprecated, just a stub to leave here
+                        String _pvid = loggedInInfo.getLoggedInProviderNo();
+                        Program[] bedP = new Program[0];
+                        Program oscarProgram = programDao.getProgramByName("OSCAR");
+                        String programId = "";
+                        if (oscarProgram != null) {
+                          programId = oscarProgram.getId();
+                        }
+                        %>                
+                        <input type="hidden" name="rps" value="<%=programId%>" >
+                        <input type="hidden" name="sp" value="<%=programId%>" >
 
-                        <div class="row mb-2">
-                            <div class="col-12">
-                                <div class="card">
-                                    <div class="card-header fw-bold"><fmt:message key="demographic.demographicaddrecordhtm.programAdmissions"/></div>
-                                    <div class="card-body p-2">
-                                        <div class="row">
-                                            <div class="col-sm-6">
-                                                <label class="fw-bold"><fmt:message key="demographic.demographicaddrecordhtm.residentialStatus"/></label>
-                                                <select id="rsid" name="rps" class="form-select mt-1">
-                                                    <%
-                                                        String _pvid = loggedInInfo.getLoggedInProviderNo();
-                                                        Program[] bedP = new Program[0];
-                                                        Program oscarProgram = programDao.getProgramByName("OSCAR");
-
-                                                        // Always use OSCAR program as default if it exists
-                                                        if (oscarProgram != null) {
-                                                    %>
-                                                    <option value="<%=oscarProgram.getId()%>" selected="selected"><%=oscarProgram.getName()%></option>
-                                                    <%
-                                                        }
-
-                                                        for (Program _p : bedP) {
-                                                            // Skip OSCAR program since we already added it
-                                                            if (oscarProgram != null && _p.getId().equals(oscarProgram.getId())) {
-                                                                continue;
-                                                            }
-                                                    %>
-                                                    <option value="<%= Encode.forHtmlAttribute(_p.getId().toString()) %>"><%= Encode.forHtml(_p.getName()) %></option>
-                                                    <%
-                                                        }
-
-                                                        // If no OSCAR program and no bed programs, still need a value
-                                                        if (oscarProgram == null && bedP.length == 0) {
-                                                    %>
-                                                    <option value=""><fmt:message key="demographic.demographicaddrecordhtm.noProgramsAvailable"/></option>
-                                                    <%
-                                                        }
-                                                    %>
-                                                </select>
-                                            </div>
-                                            <div class="col-sm-6">
-                                                <label class="fw-bold"><fmt:message key="demographic.demographicaddrecordhtm.servicePrograms"/></label>
-                                                <ul class="list-unstyled mt-1">
-                                                    <%
-                                                        List<Program> servP = pm.getServicePrograms();
-                                                        for (Program _p : servP) {
-                                                    %>
-                                                    <li>
-                                                        <div class="form-check">
-                                                            <input type="checkbox" name="sp" value="<%=_p.getId()%>" class="form-check-input"/>
-                                                            <label class="form-check-label"><%= Encode.forHtml(_p.getName()) %></label>
-                                                        </div>
-                                                    </li>
-                                                    <%}%>
-                                                </ul>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
 
                         <div class="row mb-2">
                             <div class="col-12">
