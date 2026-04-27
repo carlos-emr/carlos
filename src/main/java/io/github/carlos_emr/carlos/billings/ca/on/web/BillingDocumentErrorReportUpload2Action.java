@@ -55,7 +55,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimsErrorReportB
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.net.URLEncoder;
 import java.util.List;
@@ -64,9 +63,6 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class BillingDocumentErrorReportUpload2Action extends ActionSupport implements UploadedFilesAware {
     private final SecurityInfoManager securityInfoManager;
-    HttpServletRequest request = ServletActionContext.getRequest();
-    HttpServletResponse response = ServletActionContext.getResponse();
-
     private final BatchEligibilityDao batchEligibilityDao;
     private final DemographicCustDao demographicCustDao;
     private final DemographicManager demographicManager;
@@ -81,6 +77,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
         this.demographicCustDao = demographicCustDao;
     }
     public String execute() throws ServletException, IOException {
+        HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");

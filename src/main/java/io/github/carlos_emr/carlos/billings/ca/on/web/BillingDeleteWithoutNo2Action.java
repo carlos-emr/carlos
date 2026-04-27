@@ -49,8 +49,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionPrep;
  */
 public class BillingDeleteWithoutNo2Action extends ActionSupport {
 
-    HttpServletRequest request = ServletActionContext.getRequest();
-
     private final SecurityInfoManager securityInfoManager;
     private final BillingDao billingDao;
     private final AppointmentArchiveDao appointmentArchiveDao;
@@ -70,6 +68,7 @@ public class BillingDeleteWithoutNo2Action extends ActionSupport {
     }
     @Override
     public String execute() {
+        HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
