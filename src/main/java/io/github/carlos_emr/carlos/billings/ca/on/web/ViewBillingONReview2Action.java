@@ -11,6 +11,7 @@
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -18,7 +19,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONReviewViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -43,24 +43,16 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONReviewDxPersi
  * @since 2026-04-13
  *        2026-04-24 (view-model assembly + dx side-effect migration)
  */
-public final class ViewBillingONReview2Action extends ActionSupport {
-
-    // Dual-constructor DI: SpringUtils.getBean confined to the no-arg ctor.
+public class ViewBillingONReview2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
     private final BillingONReviewDxPersister dxPersister;
     private final BillingONReviewDataAssembler assembler;
 
     private BillingONReviewViewModel reviewModel;
 
-    /** Production constructor used by Struts2's Spring object factory. */
-    public ViewBillingONReview2Action() {
-        this(SpringUtils.getBean(SecurityInfoManager.class),
-             SpringUtils.getBean(BillingONReviewDxPersister.class),
-             new BillingONReviewDataAssembler());
-    }
-
-    /** Test-friendly constructor — call with mocks. Package-private. */
-    ViewBillingONReview2Action(SecurityInfoManager securityInfoManager,
+    /** Constructor injection used by Spring + Struts2's SpringObjectFactory. */
+    @Autowired
+    public ViewBillingONReview2Action(SecurityInfoManager securityInfoManager,
                                BillingONReviewDxPersister dxPersister,
                                BillingONReviewDataAssembler assembler) {
         this.securityInfoManager = securityInfoManager;

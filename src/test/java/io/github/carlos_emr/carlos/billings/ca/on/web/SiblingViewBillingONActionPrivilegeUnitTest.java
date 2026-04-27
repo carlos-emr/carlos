@@ -24,6 +24,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
@@ -63,6 +64,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("Sibling ON billing view-action privilege parity")
 @Tag("unit")
 @Tag("billing")
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)  // Allows non-static @MethodSource that closes over @Mock fields
 class SiblingViewBillingONActionPrivilegeUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
@@ -121,23 +123,23 @@ class SiblingViewBillingONActionPrivilegeUnitTest extends CarlosUnitTestBase {
         if (mockitoCloseable != null) mockitoCloseable.close();
     }
 
-    static Stream<org.junit.jupiter.params.provider.Arguments> actions() {
+    Stream<org.junit.jupiter.params.provider.Arguments> actions() {
         return Stream.of(
                 org.junit.jupiter.params.provider.Arguments.of(
                         "ViewBillingONMRI2Action",
-                        (Callable<String>) () -> new ViewBillingONMRI2Action().execute()),
+                        (Callable<String>) () -> new ViewBillingONMRI2Action(mockSecurityInfoManager).execute()),
                 org.junit.jupiter.params.provider.Arguments.of(
                         "ViewBillingONNewReport2Action",
-                        (Callable<String>) () -> new ViewBillingONNewReport2Action().execute()),
+                        (Callable<String>) () -> new ViewBillingONNewReport2Action(mockSecurityInfoManager).execute()),
                 org.junit.jupiter.params.provider.Arguments.of(
                         "ViewBillingON3rdPayments2Action",
-                        (Callable<String>) () -> new ViewBillingON3rdPayments2Action().execute()),
+                        (Callable<String>) () -> new ViewBillingON3rdPayments2Action(mockSecurityInfoManager).execute()),
                 org.junit.jupiter.params.provider.Arguments.of(
                         "ViewBillingOHIPsimulation2Action",
-                        (Callable<String>) () -> new ViewBillingOHIPsimulation2Action().execute()),
+                        (Callable<String>) () -> new ViewBillingOHIPsimulation2Action(mockSecurityInfoManager).execute()),
                 org.junit.jupiter.params.provider.Arguments.of(
                         "ViewOnGenRA2Action",
-                        (Callable<String>) () -> new ViewOnGenRA2Action().execute()));
+                        (Callable<String>) () -> new ViewOnGenRA2Action(mockSecurityInfoManager).execute()));
     }
 
     @ParameterizedTest(name = "{0} — sessionless throws SecurityException")

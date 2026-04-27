@@ -12,6 +12,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONStatusDataAssembler;
+
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONStatusViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONErrorReportService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
@@ -100,7 +102,7 @@ class ViewBillingONStatus2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldReturnSuccess_andStashStatusModelOnRequest() throws Exception {
-        ViewBillingONStatus2Action action = new ViewBillingONStatus2Action();
+        ViewBillingONStatus2Action action = new ViewBillingONStatus2Action(mockSecurityInfoManager, new BillingONStatusDataAssembler());
 
         assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
 
@@ -115,7 +117,7 @@ class ViewBillingONStatus2ActionUnitTest extends CarlosUnitTestBase {
         // headers — moved into the action so the JSP is pure presentation.
         // setHeader replaces (Servlet contract), so only the final
         // Cache-Control value survives, matching legacy JSP behavior.
-        ViewBillingONStatus2Action action = new ViewBillingONStatus2Action();
+        ViewBillingONStatus2Action action = new ViewBillingONStatus2Action(mockSecurityInfoManager, new BillingONStatusDataAssembler());
 
         action.execute();
 
@@ -126,7 +128,7 @@ class ViewBillingONStatus2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldDefaultDatesToSumDateRange_whenParamsMissing() throws Exception {
-        ViewBillingONStatus2Action action = new ViewBillingONStatus2Action();
+        ViewBillingONStatus2Action action = new ViewBillingONStatus2Action(mockSecurityInfoManager, new BillingONStatusDataAssembler());
         action.execute();
         BillingONStatusViewModel m = action.getStatusModel();
 
@@ -137,7 +139,7 @@ class ViewBillingONStatus2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldDefaultStatusType_toCapitalO_whenParamMissing() throws Exception {
-        ViewBillingONStatus2Action action = new ViewBillingONStatus2Action();
+        ViewBillingONStatus2Action action = new ViewBillingONStatus2Action(mockSecurityInfoManager, new BillingONStatusDataAssembler());
         action.execute();
         assertThat(action.getStatusModel().getStatusType()).isEqualTo("O");
     }
@@ -147,7 +149,7 @@ class ViewBillingONStatus2ActionUnitTest extends CarlosUnitTestBase {
         mockRequest.setParameter("statusType", "_");
         mockRequest.setParameter("demographicNo", "1");
 
-        ViewBillingONStatus2Action action = new ViewBillingONStatus2Action();
+        ViewBillingONStatus2Action action = new ViewBillingONStatus2Action(mockSecurityInfoManager, new BillingONStatusDataAssembler());
         action.execute();
 
         assertThat(action.getStatusModel().getDemoNo()).isEmpty();
@@ -155,7 +157,7 @@ class ViewBillingONStatus2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldUseDefaultBillTypes_whenNoBillTypeParamProvided() throws Exception {
-        ViewBillingONStatus2Action action = new ViewBillingONStatus2Action();
+        ViewBillingONStatus2Action action = new ViewBillingONStatus2Action(mockSecurityInfoManager, new BillingONStatusDataAssembler());
         action.execute();
 
         assertThat(action.getStatusModel().getBillTypes())
@@ -167,7 +169,7 @@ class ViewBillingONStatus2ActionUnitTest extends CarlosUnitTestBase {
     void shouldSetSearch_andUseProvidedBillTypes_whenBillTypeParamProvided() throws Exception {
         mockRequest.setParameter("billType", new String[]{"HCP", "PAT"});
 
-        ViewBillingONStatus2Action action = new ViewBillingONStatus2Action();
+        ViewBillingONStatus2Action action = new ViewBillingONStatus2Action(mockSecurityInfoManager, new BillingONStatusDataAssembler());
         action.execute();
 
         assertThat(action.getStatusModel().getBillTypes()).containsExactly("HCP", "PAT");
@@ -177,13 +179,13 @@ class ViewBillingONStatus2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldDefaultServiceCode_toPercent_whenParamMissingOrEmpty() throws Exception {
         // missing
-        ViewBillingONStatus2Action action = new ViewBillingONStatus2Action();
+        ViewBillingONStatus2Action action = new ViewBillingONStatus2Action(mockSecurityInfoManager, new BillingONStatusDataAssembler());
         action.execute();
         assertThat(action.getStatusModel().getServiceCode()).isEqualTo("%");
 
         // empty
         mockRequest.setParameter("serviceCode", "");
-        action = new ViewBillingONStatus2Action();
+        action = new ViewBillingONStatus2Action(mockSecurityInfoManager, new BillingONStatusDataAssembler());
         action.execute();
         assertThat(action.getStatusModel().getServiceCode()).isEqualTo("%");
     }
@@ -193,7 +195,7 @@ class ViewBillingONStatus2ActionUnitTest extends CarlosUnitTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("r"), isNull()))
                 .thenReturn(false);
 
-        ViewBillingONStatus2Action action = new ViewBillingONStatus2Action();
+        ViewBillingONStatus2Action action = new ViewBillingONStatus2Action(mockSecurityInfoManager, new BillingONStatusDataAssembler());
         assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_billing");
@@ -211,7 +213,7 @@ class ViewBillingONStatus2ActionUnitTest extends CarlosUnitTestBase {
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(null);
 
-        ViewBillingONStatus2Action action = new ViewBillingONStatus2Action();
+        ViewBillingONStatus2Action action = new ViewBillingONStatus2Action(mockSecurityInfoManager, new BillingONStatusDataAssembler());
         assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("session");
@@ -226,7 +228,7 @@ class ViewBillingONStatus2ActionUnitTest extends CarlosUnitTestBase {
         mockRequest.setParameter("billing_form", "GP");
         mockRequest.setParameter("xml_location", "1234");
 
-        ViewBillingONStatus2Action action = new ViewBillingONStatus2Action();
+        ViewBillingONStatus2Action action = new ViewBillingONStatus2Action(mockSecurityInfoManager, new BillingONStatusDataAssembler());
         action.execute();
         BillingONStatusViewModel m = action.getStatusModel();
 

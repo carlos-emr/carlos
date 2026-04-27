@@ -120,7 +120,7 @@ class ViewBillingONReview2ActionUnitTest extends CarlosUnitTestBase {
              MockedConstruction<BillingONReviewDataAssembler> ignored = mockConstruction(
                 BillingONReviewDataAssembler.class,
                 (mock, ctx) -> when(mock.assemble(any(), any())).thenReturn(STUB_MODEL))) {
-            ViewBillingONReview2Action action = new ViewBillingONReview2Action();
+            ViewBillingONReview2Action action = new ViewBillingONReview2Action(mockSecurityInfoManager, mockDxPersister, new BillingONReviewDataAssembler());
             assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
             assertThat(action.getReviewModel()).isSameAs(STUB_MODEL);
         }
@@ -133,7 +133,7 @@ class ViewBillingONReview2ActionUnitTest extends CarlosUnitTestBase {
         try (MockedConstruction<BillingONReviewDxPersister> persisterIgnored = mockConstruction(BillingONReviewDxPersister.class);
              MockedConstruction<BillingONReviewDataAssembler> ignored =
                 mockConstruction(BillingONReviewDataAssembler.class)) {
-            ViewBillingONReview2Action action = new ViewBillingONReview2Action();
+            ViewBillingONReview2Action action = new ViewBillingONReview2Action(mockSecurityInfoManager, mockDxPersister, new BillingONReviewDataAssembler());
             assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
             assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
@@ -155,7 +155,7 @@ class ViewBillingONReview2ActionUnitTest extends CarlosUnitTestBase {
         try (MockedConstruction<BillingONReviewDxPersister> persisterIgnored = mockConstruction(BillingONReviewDxPersister.class);
              MockedConstruction<BillingONReviewDataAssembler> ignored =
                 mockConstruction(BillingONReviewDataAssembler.class)) {
-            ViewBillingONReview2Action action = new ViewBillingONReview2Action();
+            ViewBillingONReview2Action action = new ViewBillingONReview2Action(mockSecurityInfoManager, mockDxPersister, new BillingONReviewDataAssembler());
             assertThatThrownBy(action::execute)
                     .isInstanceOf(SecurityException.class)
                     .hasMessageContaining("session");
@@ -170,7 +170,7 @@ class ViewBillingONReview2ActionUnitTest extends CarlosUnitTestBase {
         try (MockedConstruction<BillingONReviewDxPersister> persisterIgnored = mockConstruction(BillingONReviewDxPersister.class);
              MockedConstruction<BillingONReviewDataAssembler> ignored =
                 mockConstruction(BillingONReviewDataAssembler.class)) {
-            ViewBillingONReview2Action action = new ViewBillingONReview2Action();
+            ViewBillingONReview2Action action = new ViewBillingONReview2Action(mockSecurityInfoManager, mockDxPersister, new BillingONReviewDataAssembler());
             assertThatThrownBy(action::execute)
                     .isInstanceOf(SecurityException.class)
                     .hasMessageContaining("_billing");
@@ -183,7 +183,7 @@ class ViewBillingONReview2ActionUnitTest extends CarlosUnitTestBase {
              MockedConstruction<BillingONReviewDataAssembler> ignored = mockConstruction(
                 BillingONReviewDataAssembler.class,
                 (mock, ctx) -> when(mock.assemble(any(), any())).thenReturn(STUB_MODEL))) {
-            ViewBillingONReview2Action action = new ViewBillingONReview2Action();
+            ViewBillingONReview2Action action = new ViewBillingONReview2Action(mockSecurityInfoManager, mockDxPersister, new BillingONReviewDataAssembler());
             action.execute();
             assertThat(mockRequest.getAttribute("reviewModel")).isSameAs(STUB_MODEL);
         }
@@ -209,7 +209,7 @@ class ViewBillingONReview2ActionUnitTest extends CarlosUnitTestBase {
         try (MockedConstruction<BillingONReviewDataAssembler> assemblerMock = mockConstruction(
                 BillingONReviewDataAssembler.class,
                 (mock, ctx) -> when(mock.assemble(any(), any())).thenReturn(STUB_MODEL))) {
-            ViewBillingONReview2Action action = new ViewBillingONReview2Action();
+            ViewBillingONReview2Action action = new ViewBillingONReview2Action(mockSecurityInfoManager, mockDxPersister, new BillingONReviewDataAssembler());
             action.execute();
 
             assertThat(assemblerMock.constructed()).hasSize(1);

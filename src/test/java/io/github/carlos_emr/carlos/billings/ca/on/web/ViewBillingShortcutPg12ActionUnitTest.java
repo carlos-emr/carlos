@@ -105,7 +105,7 @@ class ViewBillingShortcutPg12ActionUnitTest extends CarlosUnitTestBase {
         try (MockedConstruction<BillingShortcutPg1DataAssembler> ignored = mockConstruction(
                 BillingShortcutPg1DataAssembler.class,
                 (mock, ctx) -> when(mock.assemble(any(), any())).thenReturn(STUB_MODEL))) {
-            ViewBillingShortcutPg12Action action = new ViewBillingShortcutPg12Action();
+            ViewBillingShortcutPg12Action action = new ViewBillingShortcutPg12Action(mockSecurityInfoManager, new BillingShortcutPg1DataAssembler());
             assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
             assertThat(action.getShortcutPg1Model()).isSameAs(STUB_MODEL);
             assertThat(mockRequest.getAttribute("shortcutPg1Model")).isSameAs(STUB_MODEL);
@@ -119,7 +119,7 @@ class ViewBillingShortcutPg12ActionUnitTest extends CarlosUnitTestBase {
         try (MockedConstruction<BillingShortcutPg1DataAssembler> ignored = mockConstruction(
                 BillingShortcutPg1DataAssembler.class,
                 (mock, ctx) -> when(mock.assemble(any(), any())).thenReturn(STUB_MODEL))) {
-            ViewBillingShortcutPg12Action action = new ViewBillingShortcutPg12Action();
+            ViewBillingShortcutPg12Action action = new ViewBillingShortcutPg12Action(mockSecurityInfoManager, new BillingShortcutPg1DataAssembler());
             assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
         }
     }
@@ -129,7 +129,7 @@ class ViewBillingShortcutPg12ActionUnitTest extends CarlosUnitTestBase {
         try (MockedConstruction<BillingShortcutPg1DataAssembler> construction = mockConstruction(
                 BillingShortcutPg1DataAssembler.class,
                 (mock, ctx) -> when(mock.assemble(any(), any())).thenReturn(STUB_MODEL))) {
-            ViewBillingShortcutPg12Action action = new ViewBillingShortcutPg12Action();
+            ViewBillingShortcutPg12Action action = new ViewBillingShortcutPg12Action(mockSecurityInfoManager, new BillingShortcutPg1DataAssembler());
             action.execute();
             assertThat(construction.constructed()).hasSize(1);
         }
@@ -141,7 +141,7 @@ class ViewBillingShortcutPg12ActionUnitTest extends CarlosUnitTestBase {
 
         try (MockedConstruction<BillingShortcutPg1DataAssembler> ignored =
                 mockConstruction(BillingShortcutPg1DataAssembler.class)) {
-            ViewBillingShortcutPg12Action action = new ViewBillingShortcutPg12Action();
+            ViewBillingShortcutPg12Action action = new ViewBillingShortcutPg12Action(mockSecurityInfoManager, new BillingShortcutPg1DataAssembler());
             assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
             assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             assertThat(mockResponse.getHeader("Allow")).isEqualTo("GET, HEAD, POST");
@@ -162,7 +162,7 @@ class ViewBillingShortcutPg12ActionUnitTest extends CarlosUnitTestBase {
 
         try (MockedConstruction<BillingShortcutPg1DataAssembler> ignored =
                 mockConstruction(BillingShortcutPg1DataAssembler.class)) {
-            ViewBillingShortcutPg12Action action = new ViewBillingShortcutPg12Action();
+            ViewBillingShortcutPg12Action action = new ViewBillingShortcutPg12Action(mockSecurityInfoManager, new BillingShortcutPg1DataAssembler());
             assertThatThrownBy(action::execute)
                     .isInstanceOf(SecurityException.class)
                     .hasMessageContaining("session");
@@ -176,7 +176,7 @@ class ViewBillingShortcutPg12ActionUnitTest extends CarlosUnitTestBase {
 
         try (MockedConstruction<BillingShortcutPg1DataAssembler> ignored =
                 mockConstruction(BillingShortcutPg1DataAssembler.class)) {
-            ViewBillingShortcutPg12Action action = new ViewBillingShortcutPg12Action();
+            ViewBillingShortcutPg12Action action = new ViewBillingShortcutPg12Action(mockSecurityInfoManager, new BillingShortcutPg1DataAssembler());
             assertThatThrownBy(action::execute)
                     .isInstanceOf(SecurityException.class)
                     .hasMessageContaining("_billing");

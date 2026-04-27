@@ -11,6 +11,7 @@
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -18,7 +19,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.carlos.billings.ca.on.data.AddEditServiceCodeViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -36,18 +36,11 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.AddEditServiceCodeDa
  *        2026-04-24 (relax strict POST-only - GET form display was 405'd
  *                    via the admin menu's popupPage call)
  */
-public final class AddEditServiceCode2Action extends ActionSupport {
-
-    // Dual-constructor DI: SpringUtils.getBean confined to the no-arg ctor.
+public class AddEditServiceCode2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
-
-    /** Production constructor used by Struts2's Spring object factory. */
-    public AddEditServiceCode2Action() {
-        this(SpringUtils.getBean(SecurityInfoManager.class));
-    }
-
-    /** Test-friendly constructor — call with mock. Package-private. */
-    AddEditServiceCode2Action(SecurityInfoManager securityInfoManager) {
+    /** Constructor injection used by Spring + Struts2's SpringObjectFactory. */
+    @Autowired
+    public AddEditServiceCode2Action(SecurityInfoManager securityInfoManager) {
         this.securityInfoManager = securityInfoManager;
     }
 

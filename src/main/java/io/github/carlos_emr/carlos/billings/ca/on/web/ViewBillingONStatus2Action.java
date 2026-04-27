@@ -11,6 +11,7 @@
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -18,7 +19,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONStatusViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -43,22 +43,15 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONStatusDataA
  *
  * @since 2026-04-13
  */
-public final class ViewBillingONStatus2Action extends ActionSupport {
-
-    // Dual-constructor DI: SpringUtils.getBean confined to the no-arg ctor.
+public class ViewBillingONStatus2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
     private final BillingONStatusDataAssembler assembler;
 
     private BillingONStatusViewModel statusModel;
 
-    /** Production constructor used by Struts2's Spring object factory. */
-    public ViewBillingONStatus2Action() {
-        this(SpringUtils.getBean(SecurityInfoManager.class),
-             new BillingONStatusDataAssembler());
-    }
-
-    /** Test-friendly constructor — call with mocks. Package-private. */
-    ViewBillingONStatus2Action(SecurityInfoManager securityInfoManager,
+    /** Constructor injection used by Spring + Struts2's SpringObjectFactory. */
+    @Autowired
+    public ViewBillingONStatus2Action(SecurityInfoManager securityInfoManager,
                                BillingONStatusDataAssembler assembler) {
         this.securityInfoManager = securityInfoManager;
         this.assembler = assembler;

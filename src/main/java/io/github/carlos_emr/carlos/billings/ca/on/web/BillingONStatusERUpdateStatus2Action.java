@@ -11,6 +11,7 @@
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
 
@@ -21,7 +22,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONErrorReportSe
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -38,19 +38,14 @@ import org.apache.struts2.ServletActionContext;
  *
  * @since 2026-04-26
  */
-public final class BillingONStatusERUpdateStatus2Action extends ActionSupport {
+public class BillingONStatusERUpdateStatus2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
     private final BillingONErrorReportService errorReportService;
 
-    /** Production constructor used by Struts2's Spring object factory. */
-    public BillingONStatusERUpdateStatus2Action() {
-        this(SpringUtils.getBean(SecurityInfoManager.class),
-             SpringUtils.getBean(BillingONErrorReportService.class));
-    }
-
-    /** Test-friendly constructor — call with mocks. Package-private. */
-    BillingONStatusERUpdateStatus2Action(SecurityInfoManager securityInfoManager,
+    /** Constructor injection used by Spring + Struts2's SpringObjectFactory. */
+    @Autowired
+    public BillingONStatusERUpdateStatus2Action(SecurityInfoManager securityInfoManager,
                                          BillingONErrorReportService errorReportService) {
         this.securityInfoManager = securityInfoManager;
         this.errorReportService = errorReportService;

@@ -11,6 +11,7 @@
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -18,7 +19,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingShortcutPg1ViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -42,22 +42,15 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingShortcutPg1Da
  *
  * @since 2026-04-24
  */
-public final class ViewBillingShortcutPg12Action extends ActionSupport {
-
-    // Dual-constructor DI: SpringUtils.getBean confined to the no-arg ctor.
+public class ViewBillingShortcutPg12Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
     private final BillingShortcutPg1DataAssembler assembler;
 
     private BillingShortcutPg1ViewModel shortcutPg1Model;
 
-    /** Production constructor used by Struts2's Spring object factory. */
-    public ViewBillingShortcutPg12Action() {
-        this(SpringUtils.getBean(SecurityInfoManager.class),
-             new BillingShortcutPg1DataAssembler());
-    }
-
-    /** Test-friendly constructor — call with mocks. Package-private. */
-    ViewBillingShortcutPg12Action(SecurityInfoManager securityInfoManager,
+    /** Constructor injection used by Spring + Struts2's SpringObjectFactory. */
+    @Autowired
+    public ViewBillingShortcutPg12Action(SecurityInfoManager securityInfoManager,
                                   BillingShortcutPg1DataAssembler assembler) {
         this.securityInfoManager = securityInfoManager;
         this.assembler = assembler;

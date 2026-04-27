@@ -11,6 +11,7 @@
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -32,7 +33,6 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -50,7 +50,7 @@ import org.apache.struts2.ServletActionContext;
  *
  * @since 2026-04-26
  */
-public final class ViewInrOnGenINRbilling2Action extends ActionSupport {
+public class ViewInrOnGenINRbilling2Action extends ActionSupport {
 
     private static final DateTimeFormatter UPDATE_TS_FMT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -59,15 +59,9 @@ public final class ViewInrOnGenINRbilling2Action extends ActionSupport {
     private final BillingInrDao billingInrDao;
     private final BillingONClaimPersistenceService persistenceService;
 
-    /** Production constructor used by Struts2's Spring object factory. */
-    public ViewInrOnGenINRbilling2Action() {
-        this(SpringUtils.getBean(SecurityInfoManager.class),
-             SpringUtils.getBean(BillingInrDao.class),
-             SpringUtils.getBean(BillingONClaimPersistenceService.class));
-    }
-
-    /** Test-friendly constructor — call with mocks. Package-private. */
-    ViewInrOnGenINRbilling2Action(SecurityInfoManager securityInfoManager,
+    /** Constructor injection used by Spring + Struts2's SpringObjectFactory. */
+    @Autowired
+    public ViewInrOnGenINRbilling2Action(SecurityInfoManager securityInfoManager,
                                   BillingInrDao billingInrDao,
                                   BillingONClaimPersistenceService persistenceService) {
         this.securityInfoManager = securityInfoManager;

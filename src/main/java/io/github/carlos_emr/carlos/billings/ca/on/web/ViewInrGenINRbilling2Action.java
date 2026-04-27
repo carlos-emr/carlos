@@ -11,6 +11,7 @@
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
 import java.text.ParseException;
@@ -32,7 +33,6 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -52,23 +52,16 @@ import org.apache.struts2.ServletActionContext;
  *
  * @since 2026-04-26
  */
-public final class ViewInrGenINRbilling2Action extends ActionSupport {
+public class ViewInrGenINRbilling2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
     private final BillingInrDao billingInrDao;
     private final BillingDao billingDao;
     private final BillingDetailDao billingDetailDao;
 
-    /** Production constructor used by Struts2's Spring object factory. */
-    public ViewInrGenINRbilling2Action() {
-        this(SpringUtils.getBean(SecurityInfoManager.class),
-             SpringUtils.getBean(BillingInrDao.class),
-             SpringUtils.getBean(BillingDao.class),
-             SpringUtils.getBean(BillingDetailDao.class));
-    }
-
-    /** Test-friendly constructor — call with mocks. Package-private. */
-    ViewInrGenINRbilling2Action(SecurityInfoManager securityInfoManager,
+    /** Constructor injection used by Spring + Struts2's SpringObjectFactory. */
+    @Autowired
+    public ViewInrGenINRbilling2Action(SecurityInfoManager securityInfoManager,
                                 BillingInrDao billingInrDao,
                                 BillingDao billingDao,
                                 BillingDetailDao billingDetailDao) {

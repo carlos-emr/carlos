@@ -11,6 +11,7 @@
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
 
@@ -26,7 +27,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDigSearchAjaxViewM
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -44,21 +44,16 @@ import org.apache.struts2.ServletActionContext;
  *
  * @since 2026-04-26
  */
-public final class ViewBillingDigSearchAjax2Action extends ActionSupport {
+public class ViewBillingDigSearchAjax2Action extends ActionSupport {
 
     private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
 
     private final SecurityInfoManager securityInfoManager;
     private final BillingDxCodeDataAssembler assembler;
 
-    /** Production constructor used by Struts2's Spring object factory. */
-    public ViewBillingDigSearchAjax2Action() {
-        this(SpringUtils.getBean(SecurityInfoManager.class),
-             new BillingDxCodeDataAssembler());
-    }
-
-    /** Test-friendly constructor — call with mocks. Package-private. */
-    ViewBillingDigSearchAjax2Action(SecurityInfoManager securityInfoManager,
+    /** Constructor injection used by Spring + Struts2's SpringObjectFactory. */
+    @Autowired
+    public ViewBillingDigSearchAjax2Action(SecurityInfoManager securityInfoManager,
                                     BillingDxCodeDataAssembler assembler) {
         this.securityInfoManager = securityInfoManager;
         this.assembler = assembler;

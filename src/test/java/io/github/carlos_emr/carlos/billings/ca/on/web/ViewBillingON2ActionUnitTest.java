@@ -105,7 +105,7 @@ class ViewBillingON2ActionUnitTest extends CarlosUnitTestBase {
         try (MockedConstruction<BillingONFormDataAssembler> ignored = mockConstruction(
                 BillingONFormDataAssembler.class,
                 (mock, ctx) -> when(mock.assemble(any(), any())).thenReturn(STUB_MODEL))) {
-            ViewBillingON2Action action = new ViewBillingON2Action();
+            ViewBillingON2Action action = new ViewBillingON2Action(mockSecurityInfoManager, new BillingONFormDataAssembler());
 
             assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
             assertThat(action.getModel()).isSameAs(STUB_MODEL);
@@ -119,7 +119,7 @@ class ViewBillingON2ActionUnitTest extends CarlosUnitTestBase {
         try (MockedConstruction<BillingONFormDataAssembler> ignored = mockConstruction(
                 BillingONFormDataAssembler.class,
                 (mock, ctx) -> when(mock.assemble(any(), any())).thenReturn(STUB_MODEL))) {
-            ViewBillingON2Action action = new ViewBillingON2Action();
+            ViewBillingON2Action action = new ViewBillingON2Action(mockSecurityInfoManager, new BillingONFormDataAssembler());
             assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
         }
     }
@@ -131,7 +131,7 @@ class ViewBillingON2ActionUnitTest extends CarlosUnitTestBase {
         try (MockedConstruction<BillingONFormDataAssembler> ignored = mockConstruction(
                 BillingONFormDataAssembler.class,
                 (mock, ctx) -> when(mock.assemble(any(), any())).thenReturn(STUB_MODEL))) {
-            ViewBillingON2Action action = new ViewBillingON2Action();
+            ViewBillingON2Action action = new ViewBillingON2Action(mockSecurityInfoManager, new BillingONFormDataAssembler());
             assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
         }
     }
@@ -142,7 +142,7 @@ class ViewBillingON2ActionUnitTest extends CarlosUnitTestBase {
 
         try (MockedConstruction<BillingONFormDataAssembler> ignored =
                 mockConstruction(BillingONFormDataAssembler.class)) {
-            ViewBillingON2Action action = new ViewBillingON2Action();
+            ViewBillingON2Action action = new ViewBillingON2Action(mockSecurityInfoManager, new BillingONFormDataAssembler());
 
             assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
             assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
@@ -157,7 +157,7 @@ class ViewBillingON2ActionUnitTest extends CarlosUnitTestBase {
 
         try (MockedConstruction<BillingONFormDataAssembler> ignored =
                 mockConstruction(BillingONFormDataAssembler.class)) {
-            ViewBillingON2Action action = new ViewBillingON2Action();
+            ViewBillingON2Action action = new ViewBillingON2Action(mockSecurityInfoManager, new BillingONFormDataAssembler());
 
             assertThatThrownBy(action::execute)
                     .isInstanceOf(SecurityException.class)
@@ -172,7 +172,7 @@ class ViewBillingON2ActionUnitTest extends CarlosUnitTestBase {
 
         try (MockedConstruction<BillingONFormDataAssembler> ignored =
                 mockConstruction(BillingONFormDataAssembler.class)) {
-            ViewBillingON2Action action = new ViewBillingON2Action();
+            ViewBillingON2Action action = new ViewBillingON2Action(mockSecurityInfoManager, new BillingONFormDataAssembler());
 
             assertThatThrownBy(action::execute)
                     .isInstanceOf(SecurityException.class)
@@ -185,7 +185,7 @@ class ViewBillingON2ActionUnitTest extends CarlosUnitTestBase {
         try (MockedConstruction<BillingONFormDataAssembler> construction = mockConstruction(
                 BillingONFormDataAssembler.class,
                 (mock, ctx) -> when(mock.assemble(any(), any())).thenReturn(STUB_MODEL))) {
-            ViewBillingON2Action action = new ViewBillingON2Action();
+            ViewBillingON2Action action = new ViewBillingON2Action(mockSecurityInfoManager, new BillingONFormDataAssembler());
 
             assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
             assertThat(construction.constructed()).hasSize(1);
@@ -198,7 +198,7 @@ class ViewBillingON2ActionUnitTest extends CarlosUnitTestBase {
         try (MockedConstruction<BillingONFormDataAssembler> ignored = mockConstruction(
                 BillingONFormDataAssembler.class,
                 (mock, ctx) -> when(mock.assemble(any(), any())).thenReturn(STUB_MODEL))) {
-            ViewBillingON2Action action = new ViewBillingON2Action();
+            ViewBillingON2Action action = new ViewBillingON2Action(mockSecurityInfoManager, new BillingONFormDataAssembler());
             action.execute();
 
             Object attr = mockRequest.getAttribute("formModel");

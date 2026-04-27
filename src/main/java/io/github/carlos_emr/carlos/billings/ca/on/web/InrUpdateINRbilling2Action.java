@@ -11,6 +11,7 @@
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
 
@@ -21,7 +22,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.InrUpdateINRBillingD
 import io.github.carlos_emr.carlos.billings.ca.on.data.InrUpdateINRBillingViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -37,19 +37,14 @@ import org.apache.struts2.ServletActionContext;
  *
  * @since 2026-04-13
  */
-public final class InrUpdateINRbilling2Action extends ActionSupport {
+public class InrUpdateINRbilling2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
     private final InrUpdateINRBillingDataAssembler assembler;
 
-    /** Production constructor used by Struts2's Spring object factory. */
-    public InrUpdateINRbilling2Action() {
-        this(SpringUtils.getBean(SecurityInfoManager.class),
-             new InrUpdateINRBillingDataAssembler());
-    }
-
-    /** Test-friendly constructor — call with mocks. Package-private. */
-    InrUpdateINRbilling2Action(SecurityInfoManager securityInfoManager,
+    /** Constructor injection used by Spring + Struts2's SpringObjectFactory. */
+    @Autowired
+    public InrUpdateINRbilling2Action(SecurityInfoManager securityInfoManager,
                                InrUpdateINRBillingDataAssembler assembler) {
         this.securityInfoManager = securityInfoManager;
         this.assembler = assembler;
