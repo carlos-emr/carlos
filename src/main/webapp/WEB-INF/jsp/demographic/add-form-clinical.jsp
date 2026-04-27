@@ -188,9 +188,6 @@
                                     function changeRefDoc() {
                                         var option = document.forms[1].r_doctor.options[document.forms[1].r_doctor.selectedIndex];
                                         document.forms[1].r_doctor_ohip.value = option ? (option.getAttribute("data-referral-no") || "") : "";
-                                     }
-                                        <% } %>
-                                        document.forms[1].r_doctor_ohip.value = refNo;
                                     }
                                 </script>
                                 <% } else { %>
