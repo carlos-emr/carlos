@@ -38,7 +38,6 @@ import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
 import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 
 @org.springframework.stereotype.Service
-@org.springframework.context.annotation.Lazy
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
 public class BillingReviewLoader {
     private static final Logger _logger = MiscUtils.getLogger();

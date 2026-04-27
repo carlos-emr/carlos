@@ -36,7 +36,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 @org.springframework.stereotype.Service
-@org.springframework.context.annotation.Lazy
 @org.springframework.transaction.annotation.Transactional
 public class BillingSpecService {
     private static final Logger _logger = MiscUtils.getLogger();

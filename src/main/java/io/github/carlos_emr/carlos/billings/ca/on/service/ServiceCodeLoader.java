@@ -16,7 +16,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,7 +33,6 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
  * @since 2026-04-27
  */
 @Service
-@Lazy
 @Transactional(readOnly = true)
 public class ServiceCodeLoader {
 

@@ -40,7 +40,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCorrectionReviewVi
  * @since 2026-04-25
  */
 @org.springframework.stereotype.Service
-@org.springframework.context.annotation.Lazy
 public class BillingCorrectionReviewDataAssembler {
 
     /**

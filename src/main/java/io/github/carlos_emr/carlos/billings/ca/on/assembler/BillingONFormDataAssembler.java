@@ -71,7 +71,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONRequestParams;
  * @since 2026-04-24
  */
 @org.springframework.stereotype.Service
-@org.springframework.context.annotation.Lazy
 public class BillingONFormDataAssembler {
 
     // Direct refs only for the small bits the orchestrator still inlines
@@ -93,7 +92,6 @@ public class BillingONFormDataAssembler {
                                UserPropertyDAO userPropertyDao,
                                ProviderDao providerDao,
                                BillingONLookupService lookupService,
-                               @org.springframework.context.annotation.Lazy
                                BillingONClaimLoader claimQueryService,
                                BillingONFormDemographicLoader demographicLoader,
                                BillingONFormBillFormResolver billFormResolver,

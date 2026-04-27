@@ -35,7 +35,6 @@ import io.github.carlos_emr.carlos.commn.model.BillingService;
  * @since 2026-04-26
  */
 @org.springframework.stereotype.Service
-@org.springframework.context.annotation.Lazy
 public class BillingCodeSearchAjaxDataAssembler {
 
     private static final int MAX_SUGGESTIONS = 20;

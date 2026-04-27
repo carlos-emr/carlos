@@ -27,7 +27,6 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.appt.JdbcApptImpl;
 
 @org.springframework.stereotype.Service
-@org.springframework.context.annotation.Lazy
 public class BillingSiteIdService {
     private final String NO_SITE = "NONE";
     JdbcApptImpl dbObj = new JdbcApptImpl();

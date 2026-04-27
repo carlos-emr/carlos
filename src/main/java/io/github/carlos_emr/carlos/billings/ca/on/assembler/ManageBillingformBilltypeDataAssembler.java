@@ -32,7 +32,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  * @since 2026-04-25
  */
 @org.springframework.stereotype.Service
-@org.springframework.context.annotation.Lazy
 public class ManageBillingformBilltypeDataAssembler {
 
     private final CtlBillingTypeDao ctlBillingTypeDao;

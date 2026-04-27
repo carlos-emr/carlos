@@ -33,7 +33,6 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
  * @since 2026-04-26
  */
 @org.springframework.stereotype.Service
-@org.springframework.context.annotation.Lazy
 public class InrUpdateINRBillingDataAssembler {
 
     private final DemographicDao demographicDao;

@@ -60,7 +60,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  * @since 2026-04-26
  */
 @org.springframework.stereotype.Service
-@org.springframework.context.annotation.Lazy
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
 public class PatientEndYearStatementService {
 

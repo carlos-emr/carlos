@@ -32,7 +32,6 @@ import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONProc;
  * @since 2026-04-26
  */
 @org.springframework.stereotype.Service
-@org.springframework.context.annotation.Lazy
 @org.springframework.transaction.annotation.Transactional
 public class BillingONAuditLogService {
 

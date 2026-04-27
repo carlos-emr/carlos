@@ -38,7 +38,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 @org.springframework.stereotype.Service
-@org.springframework.context.annotation.Lazy
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
 public class BillingDiskCreationService {
     private static final Logger _logger = MiscUtils.getLogger();

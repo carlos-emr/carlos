@@ -25,7 +25,6 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 import java.util.Properties;
 
 @org.springframework.stereotype.Service
-@org.springframework.context.annotation.Lazy
 @org.springframework.transaction.annotation.Transactional
 public class Billing3rdPartyRecordService {
 

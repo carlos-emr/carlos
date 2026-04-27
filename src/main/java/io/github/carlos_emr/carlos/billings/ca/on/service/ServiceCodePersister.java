@@ -14,7 +14,6 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.util.List;
 
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,7 +30,6 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
  * @since 2026-04-27
  */
 @Service
-@Lazy
 @Transactional
 public class ServiceCodePersister {
 

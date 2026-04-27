@@ -68,7 +68,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONRequestParams;
  * @since 2026-04-24
  */
 @org.springframework.stereotype.Service
-@org.springframework.context.annotation.Lazy
 public class BillingShortcutPg1DataAssembler {
 
     private final DemographicDao demographicDao;
@@ -99,7 +98,6 @@ public class BillingShortcutPg1DataAssembler {
                                     io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao ctlBillingServiceDao,
                                     io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao diagnosticCodeDao,
                                     io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao clinicNbrDao,
-                                    @org.springframework.context.annotation.Lazy
                                     BillingONClaimLoader billingClaimQueryService) {
         this.demographicDao = demographicDao;
         this.providerDao = providerDao;

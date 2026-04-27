@@ -62,7 +62,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewLoader;
  * @since 2026-04-26
  */
 @org.springframework.stereotype.Service
-@org.springframework.context.annotation.Lazy
 public class BillingONMRIDataAssembler {
 
     /** Color cycle the legacy JSP used to highlight the selected year row. */

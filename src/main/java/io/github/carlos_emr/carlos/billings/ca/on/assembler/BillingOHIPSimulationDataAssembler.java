@@ -54,7 +54,6 @@ import org.springframework.beans.factory.ObjectFactory;
  * @since 2026-04-25
  */
 @org.springframework.stereotype.Service
-@org.springframework.context.annotation.Lazy
 public class BillingOHIPSimulationDataAssembler {
 
     private static final int PROVIDER_BILLINGNO_LENGTH = 6;

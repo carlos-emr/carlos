@@ -37,7 +37,6 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * @since 2026-04-25
  */
 @org.springframework.stereotype.Service
-@org.springframework.context.annotation.Lazy
 public class BillingONHistorySpecDataAssembler {
 
     private final BillingONClaimLoader dbObj;

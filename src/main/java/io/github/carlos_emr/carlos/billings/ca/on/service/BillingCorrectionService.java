@@ -83,7 +83,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.web.BillingCorrection2Action;
  * @since 2026-04-25
  */
 @org.springframework.stereotype.Service
-@org.springframework.context.annotation.Lazy
 @org.springframework.transaction.annotation.Transactional
 public class BillingCorrectionService {
 

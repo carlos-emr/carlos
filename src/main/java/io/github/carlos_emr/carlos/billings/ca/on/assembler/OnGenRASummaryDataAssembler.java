@@ -37,7 +37,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingRAReportService
  * @since 2026-04-26
  */
 @org.springframework.stereotype.Service
-@org.springframework.context.annotation.Lazy
 public class OnGenRASummaryDataAssembler {
 
     private static final String OB_CODES =

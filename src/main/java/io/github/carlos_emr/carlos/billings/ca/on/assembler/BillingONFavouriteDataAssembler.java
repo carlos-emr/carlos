@@ -39,7 +39,6 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
  * @since 2026-04-25
  */
 @org.springframework.stereotype.Service
-@org.springframework.context.annotation.Lazy
 public class BillingONFavouriteDataAssembler {
 
     private static final String SUFFIX_TYPE_TO_SEARCH =

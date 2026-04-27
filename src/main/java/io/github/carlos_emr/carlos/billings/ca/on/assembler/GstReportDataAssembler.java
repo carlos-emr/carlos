@@ -20,7 +20,6 @@ import java.util.Properties;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import io.github.carlos_emr.carlos.billings.ca.on.administration.GstReport;
@@ -43,7 +42,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  * @since 2026-04-27
  */
 @Service
-@Lazy
 public class GstReportDataAssembler {
 
     private final SecurityInfoManager securityInfoManager;

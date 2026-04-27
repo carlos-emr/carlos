@@ -30,7 +30,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 @org.springframework.stereotype.Service
-@org.springframework.context.annotation.Lazy
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
 public class BillingStatusLoader {
     private static final String ANY_PROVIDER = "all";

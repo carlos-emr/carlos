@@ -32,7 +32,6 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 
 @org.springframework.stereotype.Service
-@org.springframework.context.annotation.Lazy
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
 public class BillingRAReportService {
     private static final Logger _logger = MiscUtils.getLogger();

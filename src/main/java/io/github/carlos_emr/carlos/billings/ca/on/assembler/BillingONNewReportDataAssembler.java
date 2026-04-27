@@ -47,7 +47,6 @@ import org.apache.commons.lang3.StringUtils;
  * @since 2026-04-26
  */
 @org.springframework.stereotype.Service
-@org.springframework.context.annotation.Lazy
 public class BillingONNewReportDataAssembler {
 
     /*

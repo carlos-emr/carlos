@@ -54,7 +54,6 @@ import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 @org.springframework.stereotype.Service
-@org.springframework.context.annotation.Lazy
 @org.springframework.transaction.annotation.Transactional
 public class BillingCorrectionRecordService {
     private static final Logger _logger = MiscUtils.getLogger();

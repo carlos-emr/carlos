@@ -37,7 +37,6 @@ import io.github.carlos_emr.carlos.commn.model.Ichppccode;
  * @since 2026-04-26
  */
 @org.springframework.stereotype.Service
-@org.springframework.context.annotation.Lazy
 public class BillingCodeSearchDataAssembler {
 
     /** Which DAO to query — pick via {@link #assembleService} or

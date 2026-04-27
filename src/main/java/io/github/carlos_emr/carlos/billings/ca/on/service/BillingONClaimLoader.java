@@ -44,7 +44,6 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 
 @org.springframework.stereotype.Service
-@org.springframework.context.annotation.Lazy
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
 public class BillingONClaimLoader {
     private static final Logger _logger = MiscUtils.getLogger();
