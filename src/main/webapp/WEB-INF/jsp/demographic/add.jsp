@@ -261,9 +261,7 @@
                 var typeInOK = false;
                 if (document.adddemographic.last_name.value != "" && document.adddemographic.first_name.value != "" && document.adddemographic.last_name.value != " " && document.adddemographic.first_name.value != " ") {
                     typeInOK = true;
-                } else {
-                    alert("<fmt:message key='demographic.demographiceditdemographic.msgNameRequired'/>");
-                }
+                } 
                 return typeInOK;
             }
 
@@ -326,7 +324,7 @@
                 var sex = document.adddemographic.sex.value;
 
                 if (sex.length == 0) {
-                    alert(i18n.msgSexRequired);
+                    //alert(i18n.msgSexRequired);  //handelled by Boostrap validation
                     return (false);
                 }
 
@@ -552,6 +550,30 @@
                 document.getElementById(`${fieldId}_day`).value = day;
             }
 
+
+
+    //  JavaScript for disabling form submissions if there are invalid fields
+    (() => {
+      'use strict'
+    
+      // Fetch all the forms we want to apply custom Bootstrap validation styles to
+      const forms = document.querySelectorAll('.needs-validation')
+    
+      // Loop over them and prevent submission
+      Array.from(forms).forEach(form => {
+        form.addEventListener('submit', event => {
+          if (!form.checkValidity()) {
+            event.preventDefault()
+            event.stopPropagation()
+          }
+    
+          form.classList.add('was-validated')
+        }, false)
+      })
+    })()
+
+
+
             <%
             if("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled","false"))) {
             %>
@@ -667,7 +689,7 @@
 
                 <jsp:include page="/demographic/ViewZdemographicFullTitleSearch" />
 
-                <form method="post" id="adddemographic" name="adddemographic" action="DemographicAddRecord"
+                <form method="post" id="adddemographic" name="adddemographic" action="DemographicAddRecord" novalidate class="needs-validation">
 
                     <jsp:include page="add-form-personal.jsp"/>
                     <jsp:include page="add-form-clinical.jsp"/>
