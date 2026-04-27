@@ -577,55 +577,15 @@
                             </div>
                             <div class="col-sm-4" id="dobTbl">
                                 <div class="d-flex gap-1 align-items-center">
-                                    <input type="text" name="year_of_birth" placeholder="yyyy" id="year_of_birth"
-                                           maxlength="4" class="form-control" style="width:5em">
-                                    <select name="month_of_birth" id="month_of_birth" class="form-select w-auto">
-                                        <option value="01">01</option>
-                                        <option value="02">02</option>
-                                        <option value="03">03</option>
-                                        <option value="04">04</option>
-                                        <option value="05">05</option>
-                                        <option selected value="06">06</option>
-                                        <option value="07">07</option>
-                                        <option value="08">08</option>
-                                        <option value="09">09</option>
-                                        <option value="10">10</option>
-                                        <option value="11">11</option>
-                                        <option value="12">12</option>
-                                    </select>
-                                    <select name="date_of_birth" id="date_of_birth" class="form-select w-auto">
-                                        <option value="01">01</option>
-                                        <option value="02">02</option>
-                                        <option value="03">03</option>
-                                        <option value="04">04</option>
-                                        <option value="05">05</option>
-                                        <option value="06">06</option>
-                                        <option value="07">07</option>
-                                        <option value="08">08</option>
-                                        <option value="09">09</option>
-                                        <option value="10">10</option>
-                                        <option value="11">11</option>
-                                        <option value="12">12</option>
-                                        <option value="13">13</option>
-                                        <option value="14">14</option>
-                                        <option selected value="15">15</option>
-                                        <option value="16">16</option>
-                                        <option value="17">17</option>
-                                        <option value="18">18</option>
-                                        <option value="19">19</option>
-                                        <option value="20">20</option>
-                                        <option value="21">21</option>
-                                        <option value="22">22</option>
-                                        <option value="23">23</option>
-                                        <option value="24">24</option>
-                                        <option value="25">25</option>
-                                        <option value="26">26</option>
-                                        <option value="27">27</option>
-                                        <option value="28">28</option>
-                                        <option value="29">29</option>
-                                        <option value="30">30</option>
-                                        <option value="31">31</option>
-                                    </select>
+                                    <input type="text" placeholder="<fmt:message key="yyyy-mm-dd"/>"
+                                           name="inputDOB" id="inputDOB"
+                                           class="form-control"
+                                           size="12"
+                                           onchange="parsedob_date();">
+                                    <img src="<%= request.getContextPath() %>/images/cal.gif" id="inputDOB_cal">
+                                    <input type="hidden" name="year_of_birth">
+                                    <input type="hidden" name="month_of_birth">
+                                    <input type="hidden" name="date_of_birth">
                                 </div>
                             </div>
                             <div class="col-sm-2 text-end">
@@ -684,9 +644,15 @@
                             </div>
                             <div class="col-sm-4" id="effDate">
                                 <div class="d-flex gap-1">
-                                    <input type="text" placeholder="yyyy" id="eff_date_year" name="eff_date_year" class="form-control" maxlength="4" style="width:5em">
-                                    <input type="text" placeholder="mm" id="eff_date_month" name="eff_date_month" class="form-control" maxlength="2" style="width:3.5em">
-                                    <input type="text" placeholder="dd" id="eff_date_date" name="eff_date_date" class="form-control" maxlength="2" style="width:3.5em">
+                                    <input type="text" placeholder="<fmt:message key="yyyy-mm-dd"/>"
+                                           name="eff_date" id="eff_date"
+                                           class="form-control"
+                                           value="<%=today %>" size="12"
+                                           onchange="parseDateField('eff_date');">
+                                    <img src="<%= request.getContextPath() %>/images/cal.gif" id="eff_date_cal">
+                                    <input type="hidden" name="eff_date_year">
+                                    <input type="hidden" name="eff_month">
+                                    <input type="hidden" name="eff">
                                 </div>
                             </div>
                         </div>
@@ -782,9 +748,15 @@
                             </div>
                             <div class="col-sm-4" id="renewDate">
                                 <div class="d-flex gap-1">
-                                    <input type="text" placeholder="yyyy" id="hc_renew_date_year" name="hc_renew_date_year" class="form-control" maxlength="4" value="" style="width:5em">
-                                    <input type="text" placeholder="mm" id="hc_renew_date_month" name="hc_renew_date_month" class="form-control" maxlength="2" value="" style="width:3.5em">
-                                    <input type="text" placeholder="dd" id="hc_renew_date_date" name="hc_renew_date_date" class="form-control" maxlength="2" value="" style="width:3.5em">
+                                    <input type="text" placeholder="<fmt:message key="yyyy-mm-dd"/>"
+                                           name="hc_renew_date" id="hc_renew_date"
+                                           class="form-control"
+                                           value="<%=today %>" size="12"
+                                           onchange="parseDateField('hc_renew_date');">
+                                    <img src="<%= request.getContextPath() %>/images/cal.gif" id="hc_renew_date_cal">
+                                    <input type="hidden" name="hc_renew_date_year">
+                                    <input type="hidden" name="hc_renew_date_month">
+                                    <input type="hidden" name="hc_renew_date_date">
                                 </div>
                             </div>
                         </div>
