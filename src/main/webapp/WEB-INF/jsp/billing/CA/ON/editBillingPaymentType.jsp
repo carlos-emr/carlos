@@ -64,8 +64,8 @@
             $.ajax({
                 type: "POST",
                 async: true,
-                data: {method: "<carlos:encode value='${paymentTypeModel.method}' context='javaScriptBlock'/>", paymentType: document.getElementById("paymentType").value},
-                url: "${pageContext.request.contextPath}/billing/CA/ON/managePaymentType",
+                data: {paymentType: document.getElementById("paymentType").value},
+                url: "${pageContext.request.contextPath}/billing/CA/ON/createPaymentType",
                 dataType: "json",
                 success: function (ret) {
                     if (!ret) {
@@ -97,12 +97,11 @@
                 type: "POST",
                 async: true,
                 data: {
-                    method: "<carlos:encode value='${paymentTypeModel.method}' context='javaScriptBlock'/>",
                     id: "<carlos:encode value='${paymentTypeModel.id}' context='javaScriptBlock'/>",
                     oldPaymentType: "<carlos:encode value='${paymentTypeModel.type}' context='javaScriptBlock'/>",
                     paymentType: document.getElementById("paymentType").value
                 },
-                url: "${pageContext.request.contextPath}/billing/CA/ON/managePaymentType",
+                url: "${pageContext.request.contextPath}/billing/CA/ON/updatePaymentType",
                 dataType: "json",
                 success: function (ret) {
                     if (!ret) {

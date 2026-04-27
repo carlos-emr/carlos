@@ -52,7 +52,7 @@
         function demographicSearch() {
             var search_param = document.getElementById('nameForlooksOnly').value;
             var url = '${pageContext.request.contextPath}/demographic/ViewDemographicSearch2ReportResults';
-            url += '?originalpage=' + encodeURIComponent('${pageContext.request.contextPath}/billing/CA/ON/endYearStatement?demosearch=true');
+            url += '?originalpage=' + encodeURIComponent('${pageContext.request.contextPath}/billing/CA/ON/endYearStatement/demosearch');
             url += '&search_mode=search_name';
             url += '&orderby=last_name, first_name';
             url += '&limit1=0&limit2=5';
@@ -107,7 +107,7 @@
 <div class="container-fluid">
 
     <div class="row card card-body bg-body-tertiary">
-        <form action="${pageContext.request.contextPath}/billing/CA/ON/endYearStatement" method="post">
+        <form action="${pageContext.request.contextPath}/billing/CA/ON/endYearStatement/search" method="post">
             <input type="hidden" name="demographicNoParam" id="demographicNoParam"/>
 
             <div class="col-md-5">
@@ -145,10 +145,11 @@
             </div>
 
             <div class="col-md-10">
-                <input class="btn btn-secondary" type="submit" name="search" value="Create Statement"
+                <input class="btn btn-secondary" type="submit" value="Create Statement"
                        onclick="return validateFields();">
 
-                <input class="btn btn-secondary" type="submit" name="pdf" value="Print PDF"
+                <input class="btn btn-secondary" type="submit" value="Print PDF"
+                       formaction="${pageContext.request.contextPath}/billing/CA/ON/endYearStatement/pdf"
                        <c:if test="${empty result}">disabled="disabled"</c:if> >
             </div>
         </form>

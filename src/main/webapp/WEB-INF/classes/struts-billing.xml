@@ -200,10 +200,23 @@
         <action name="billing/CA/ON/moveMOHFiles" class="io.github.carlos_emr.carlos.billing.CA.ON.web.MoveMOHFiles2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/viewMOHFiles.jsp</result>
         </action>
-        <action name="billing/CA/ON/managePaymentType" class="io.github.carlos_emr.carlos.billings.ca.on.web.PaymentType2Action" method="execute">
+        <action name="billing/CA/ON/managePaymentType" class="io.github.carlos_emr.carlos.billings.ca.on.web.PaymentType2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/manageBillingPaymentType.jsp</result>
         </action>
+        <action name="billing/CA/ON/createPaymentType" class="io.github.carlos_emr.carlos.billings.ca.on.web.CreatePaymentType2Action"/>
+        <action name="billing/CA/ON/updatePaymentType" class="io.github.carlos_emr.carlos.billings.ca.on.web.UpdatePaymentType2Action"/>
+        <action name="billing/CA/ON/removePaymentType" class="io.github.carlos_emr.carlos.billings.ca.on.web.RemovePaymentType2Action"/>
         <action name="billing/CA/ON/endYearStatement" class="io.github.carlos_emr.carlos.billings.ca.on.web.PatientEndYearStatement2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/ON/endYearStatement.jsp</result>
+        </action>
+        <action name="billing/CA/ON/endYearStatement/search" class="io.github.carlos_emr.carlos.billings.ca.on.web.SearchEndYearStatement2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/ON/endYearStatement.jsp</result>
+            <result name="failure">/WEB-INF/jsp/billing/CA/ON/endYearStatement.jsp</result>
+        </action>
+        <action name="billing/CA/ON/endYearStatement/pdf" class="io.github.carlos_emr.carlos.billings.ca.on.web.PrintEndYearStatementPdf2Action">
+            <result name="failure">/WEB-INF/jsp/billing/CA/ON/endYearStatement.jsp</result>
+        </action>
+        <action name="billing/CA/ON/endYearStatement/demosearch" class="io.github.carlos_emr.carlos.billings.ca.on.web.DemoSearchEndYearStatement2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/endYearStatement.jsp</result>
             <result name="failure">/WEB-INF/jsp/billing/CA/ON/endYearStatement.jsp</result>
         </action>

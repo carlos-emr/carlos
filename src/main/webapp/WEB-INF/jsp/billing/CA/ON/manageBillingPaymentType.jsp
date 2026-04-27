@@ -111,19 +111,19 @@
     jQuery(document).ready(function () {
         jQuery("tr td:nth-child(4)").on("click", "a", function (event) {
             jQuery.ajax({
-                url: "${pageContext.request.contextPath}/billing/CA/ON/managePaymentType",
+                url: "${pageContext.request.contextPath}/billing/CA/ON/removePaymentType",
                 type: "post",
                 async: false,
                 timeout: 30000,
                 dataType: "json",
-                data: {method: "removeType", paymentTypeId: event.target.getAttribute("data-paymentTypeId")},
+                data: {paymentTypeId: event.target.getAttribute("data-paymentTypeId")},
                 success: function (data) {
                     if (data == null) {
                         alert("Error happened after getting response!");
                     }
                     if (parseInt(data.ret) == 0) {
                         alert("Successed deleting the payment type!");
-                        location.href = "${pageContext.request.contextPath}/billing/CA/ON/managePaymentType?method=listAllType";
+                        location.href = "${pageContext.request.contextPath}/billing/CA/ON/managePaymentType";
                     } else {
                         alert("Failed to delete the payment type, reason:" + data.reason);
                     }

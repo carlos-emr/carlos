@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -28,189 +28,49 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
-import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-
-
-import io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao;
-
 import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Lists all billing payment types for the admin Manage Payment Types page.
+ * Renders {@code manageBillingPaymentType.jsp}.
+ *
+ * <p>Mutation paths (create / update / remove) live in their own dedicated
+ * action classes ({@link CreatePaymentType2Action},
+ * {@link UpdatePaymentType2Action}, {@link RemovePaymentType2Action}) so
+ * each URL has a single responsibility — replacing the legacy
+ * {@code method=...} dispatcher.</p>
+ *
+ * @since 2026
+ */
 public class PaymentType2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
-    HttpServletRequest request = ServletActionContext.getRequest();
-    HttpServletResponse response = ServletActionContext.getResponse();
-
     private final BillingPaymentTypeDao billingPaymentTypeDao;
-    private final BillingONPaymentDao billPaymentDao;
 
     public PaymentType2Action(SecurityInfoManager securityInfoManager,
-                              BillingPaymentTypeDao billingPaymentTypeDao,
-                              BillingONPaymentDao billPaymentDao) {
+                              BillingPaymentTypeDao billingPaymentTypeDao) {
         this.securityInfoManager = securityInfoManager;
         this.billingPaymentTypeDao = billingPaymentTypeDao;
-        this.billPaymentDao = billPaymentDao;
     }
-    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() {
+        HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        String method = request.getParameter("method");
-        if ("listAllType".equals(method)) {
-            return listAllType();
-        } else if ("createType".equals(method)) {
-            return createType();
-        } else if ("editType".equals(method)) {
-            return editType();
-        } else if ("removeType".equals(method)) {
-            return removeType();
-        }
-
-        return listAllType();
-    }
-
-    public String listAllType() {
-        try {
-            List<BillingPaymentType> paymentTypeList = billingPaymentTypeDao.findAll();
-            request.setAttribute("paymentTypeList", paymentTypeList);
-            return SUCCESS;
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to list payment types", e);
-            return ERROR;
-        }
-    }
-
-    public String createType() {
-
-        String paymentType = request.getParameter("paymentType");
-        if (null != paymentType && !paymentType.isEmpty()) {
-            BillingPaymentType billingPaymentType = null;
-            Map<String, String> retMap = new HashMap<String, String>();
-            ObjectNode json = null;
-            try {
-                billingPaymentType = billingPaymentTypeDao.getPaymentTypeByName(paymentType);
-
-                if (billingPaymentType != null) {
-                    retMap.put("ret", "1");
-                    retMap.put("reason", "Payment type: " + paymentType + " already exists!");
-                } else {
-                    billingPaymentType = new BillingPaymentType();
-                    billingPaymentType.setPaymentType(paymentType);
-                    billingPaymentTypeDao.persist(billingPaymentType);
-                    retMap.put("ret", "0");
-                    //return actionMapping.findForward("success");
-                }
-            } catch (Exception e) {
-                retMap.put("ret", "1");
-                retMap.put("reason", e.toString());
-            }
-
-            try {
-                json = objectMapper.valueToTree(retMap);
-                response.setContentType("application/json");
-                response.setCharacterEncoding("UTF-8");
-                response.getWriter().write(json.toString()); // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- JSON API response with application/json content-type
-            } catch (IOException e) {
-                // TODO Auto-generated catch block
-                MiscUtils.getLogger().info(e.toString());
-            }
-        }
-
-        return null;
-    }
-
-    public String editType() {
-        String oldPaymentType = request.getParameter("oldPaymentType");
-        String paymentType = request.getParameter("paymentType");
-        if (oldPaymentType != null && !oldPaymentType.isEmpty() && null != paymentType && !paymentType.isEmpty()) {
-            BillingPaymentType old = null;
-            Map<String, String> retMap = new HashMap<String, String>();
-            ObjectNode json = null;
-            try {
-                old = billingPaymentTypeDao.getPaymentTypeByName(oldPaymentType);
-                if (old == null) {
-                    retMap.put("ret", "1");
-                    retMap.put("reason", "Old payment type: " + oldPaymentType + " doesn't exist!");
-                } else {
-                    BillingPaymentType newType = billingPaymentTypeDao.getPaymentTypeByName(paymentType);
-                    if (newType != null) {
-                        retMap.put("ret", "1");
-                        retMap.put("reason", "Payment type: " + paymentType + " already exists!");
-                    } else {
-                        old.setPaymentType(paymentType);
-                        billingPaymentTypeDao.merge(old);
-                        retMap.put("ret", "0");
-                    }
-                }
-            } catch (Exception e) {
-                retMap.put("ret", "1");
-                retMap.put("reason", e.toString());
-            }
-
-            try {
-                json = objectMapper.valueToTree(retMap);
-                response.setContentType("application/json");
-                response.setCharacterEncoding("UTF-8");
-                response.getWriter().write(json.toString()); // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- JSON API response with application/json content-type
-            } catch (IOException e) {
-                // TODO Auto-generated catch block
-                MiscUtils.getLogger().info(e.toString());
-            }
-        }
-
-        return null;
-    }
-
-    public String removeType() {
-        int paymentTypeId = 0;
-        ObjectNode ret = objectMapper.createObjectNode();
-        try {
-            paymentTypeId = Integer.parseInt(request.getParameter("paymentTypeId"));
-        } catch (Exception e) {
-            MiscUtils.getLogger().info(e.toString());
-            ret.put("ret", 1);
-            ret.put("reason", e.toString());
-        }
-        if (paymentTypeId != 0) {
-            int count = billPaymentDao.getCountOfPaymentByPaymentTypeId(paymentTypeId);
-            if (count == 0) {
-                billingPaymentTypeDao.remove(paymentTypeId);
-                ret.put("ret", 0);
-            } else {
-                ret.put("ret", 1);
-                ret.put("reason", "This payment type has been used in some payment!");
-            }
-        }
-
-        response.setCharacterEncoding("utf-8");
-        response.setContentType("application/json");
-        try {
-            response.getWriter().print(ret);
-            response.getWriter().flush();
-            response.getWriter().close();
-        } catch (Exception e) {
-            MiscUtils.getLogger().info(e.toString());
-        }
-
-        return null;
+        List<BillingPaymentType> paymentTypeList = billingPaymentTypeDao.findAll();
+        request.setAttribute("paymentTypeList", paymentTypeList);
+        return SUCCESS;
     }
 }
