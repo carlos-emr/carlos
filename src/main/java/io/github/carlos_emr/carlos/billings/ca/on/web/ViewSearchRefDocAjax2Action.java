@@ -12,37 +12,212 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
-import jakarta.servlet.http.HttpServletRequest;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao;
+import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
+import io.github.carlos_emr.carlos.commn.model.ConsultationServices;
+import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * View gate for {@code billing/CA/ON/searchRefDocAjax.jsp}. Enforces {@code _billing}
- * {@code r} privilege before forwarding to the JSP at its
- * {@code /WEB-INF/jsp/} location. Created as part of the ON billing migration
- * to gate direct-access paths behind Struts2 actions (same pattern as
- * PR #1632 for BC billing).
+ * AJAX endpoint for the referring-doctor autocomplete on
+ * {@code billingON.jsp}. Returns a JSON array of suggestion objects
+ * built by merging up to five search modes against
+ * {@link ProfessionalSpecialistDao} and resolving the numeric
+ * specialty code through {@link ConsultationServiceDao}.
  *
- * @since 2026-04-13
+ * <p>Replaces the former {@code searchRefDocAjax.jsp} controller-in-a-JSP.
+ * The specialty-name map is cached in {@link ServletContext} attribute
+ * {@code specialtyNamesCache} so repeated keystrokes don't re-hit the DB.</p>
+ *
+ * <p>Returned shape (array element):
+ * {@code {"value": "...", "lastName": "...", "firstName": "...",
+ *         "specialtyType": "...", "streetAddress": "...",
+ *         "phoneNumber": "...", "referralNo": "..."}}</p>
+ *
+ * @since 2026-04-26
  */
 public final class ViewSearchRefDocAjax2Action extends ActionSupport {
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private static final int MAX_RESULTS = 20;
+    private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
+    private static final String SPECIALTY_CACHE_ATTR = "specialtyNamesCache";
+
+    private final SecurityInfoManager securityInfoManager;
+    private final ProfessionalSpecialistDao professionalSpecialistDao;
+    private final ConsultationServiceDao consultationServiceDao;
+
+    /** Production constructor used by Struts2's Spring object factory. */
+    public ViewSearchRefDocAjax2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class),
+             SpringUtils.getBean(ProfessionalSpecialistDao.class),
+             SpringUtils.getBean(ConsultationServiceDao.class));
+    }
+
+    /** Test-friendly constructor — call with mocks. Package-private. */
+    ViewSearchRefDocAjax2Action(SecurityInfoManager securityInfoManager,
+                                ProfessionalSpecialistDao professionalSpecialistDao,
+                                ConsultationServiceDao consultationServiceDao) {
+        this.securityInfoManager = securityInfoManager;
+        this.professionalSpecialistDao = professionalSpecialistDao;
+        this.consultationServiceDao = consultationServiceDao;
+    }
 
     @Override
-    public String execute() throws Exception {
+    public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();
+        HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
+        if (loggedInInfo == null) {
+            try {
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+            } catch (IOException ignore) {
+                // Container is shutting down or response already committed.
+            }
+            return NONE;
+        }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        return SUCCESS;
+        String term = request.getParameter("term");
+        if (term == null) term = "";
+        term = term.trim();
+
+        Map<String, String> specialtyNames = getOrLoadSpecialtyNames(request.getServletContext());
+        Map<String, ProfessionalSpecialist> merged = mergeSearchResults(term);
+
+        List<ProfessionalSpecialist> results = new ArrayList<>(merged.values());
+        int limit = Math.min(results.size(), MAX_RESULTS);
+
+        ArrayNode array = JSON_MAPPER.createArrayNode();
+        for (int i = 0; i < limit; i++) {
+            array.add(toJsonNode(results.get(i), specialtyNames));
+        }
+
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        try {
+            response.getWriter().print(array.toString());
+        } catch (IOException e) {
+            MiscUtils.getLogger().warn("Failed to write referring-doctor search response", e);
+        }
+        return NONE;
+    }
+
+    /**
+     * Loads the specialty serviceId → serviceDesc map, caching it in
+     * application scope so repeated keystrokes don't re-hit the DB.
+     * Specialties change infrequently; lookup is best-effort and returns
+     * an empty map if the DAO call fails.
+     */
+    private Map<String, String> getOrLoadSpecialtyNames(ServletContext application) {
+        @SuppressWarnings("unchecked")
+        Map<String, String> cached = (Map<String, String>) application.getAttribute(SPECIALTY_CACHE_ATTR);
+        if (cached != null) {
+            return cached;
+        }
+        synchronized (application) {
+            @SuppressWarnings("unchecked")
+            Map<String, String> recheck = (Map<String, String>) application.getAttribute(SPECIALTY_CACHE_ATTR);
+            if (recheck != null) {
+                return recheck;
+            }
+            Map<String, String> fresh = new HashMap<>();
+            try {
+                List<ConsultationServices> all = consultationServiceDao.findAll();
+                if (all != null) {
+                    for (ConsultationServices cs : all) {
+                        if (cs.getServiceId() != null && cs.getServiceDesc() != null) {
+                            fresh.put(String.valueOf(cs.getServiceId()), cs.getServiceDesc());
+                        }
+                    }
+                }
+            } catch (Exception ignore) {
+                // Specialty lookup is best-effort; proceed with an empty map.
+            }
+            application.setAttribute(SPECIALTY_CACHE_ATTR, fresh);
+            return fresh;
+        }
+    }
+
+    private Map<String, ProfessionalSpecialist> mergeSearchResults(String term) {
+        LinkedHashMap<String, ProfessionalSpecialist> merged = new LinkedHashMap<>();
+        if (term.length() < 2) {
+            return merged;
+        }
+        addAll(merged, professionalSpecialistDao.findByFullName(term, ""));
+        addAll(merged, professionalSpecialistDao.findByFullName("", term));
+        addAll(merged, professionalSpecialistDao.findByReferralNo(term + "%"));
+        addAll(merged, professionalSpecialistDao.findByFullNameAndSpecialtyAndAddress(
+                "", "", "", term, true));
+        try {
+            addAll(merged, professionalSpecialistDao.findByPhoneContains(term, MAX_RESULTS));
+        } catch (Exception ignore) {
+            // Phone search is best-effort; some DAO impls may not support it.
+        }
+        return merged;
+    }
+
+    private static void addAll(Map<String, ProfessionalSpecialist> merged,
+                               List<ProfessionalSpecialist> rows) {
+        if (rows == null) return;
+        for (ProfessionalSpecialist ps : rows) {
+            merged.putIfAbsent(dedupKey(ps), ps);
+        }
+    }
+
+    private static String dedupKey(ProfessionalSpecialist ps) {
+        String refNo = ps.getReferralNo();
+        if (refNo != null && !refNo.isEmpty()) {
+            return refNo;
+        }
+        return ps.getLastName() + "|" + ps.getFirstName();
+    }
+
+    private static ObjectNode toJsonNode(ProfessionalSpecialist ps,
+                                         Map<String, String> specialtyNames) {
+        String lastName     = nullToEmpty(ps.getLastName());
+        String firstName    = nullToEmpty(ps.getFirstName());
+        String specCode     = nullToEmpty(ps.getSpecialtyType());
+        String specialty    = specialtyNames.getOrDefault(specCode, specCode);
+        String address      = nullToEmpty(ps.getStreetAddress());
+        String phone        = nullToEmpty(ps.getPhoneNumber());
+        String referralNo   = nullToEmpty(ps.getReferralNo());
+
+        ObjectNode node = JSON_MAPPER.createObjectNode();
+        node.put("value", referralNo);
+        node.put("lastName", lastName);
+        node.put("firstName", firstName);
+        node.put("specialtyType", specialty);
+        node.put("streetAddress", address);
+        node.put("phoneNumber", phone);
+        node.put("referralNo", referralNo);
+        return node;
+    }
+
+    private static String nullToEmpty(String s) {
+        return s == null ? "" : s;
     }
 }

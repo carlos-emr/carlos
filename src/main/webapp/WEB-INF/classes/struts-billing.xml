@@ -477,7 +477,8 @@
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingDigSearchAjax.jsp</result>
         </action>
         <action name="billing/CA/ON/ViewSearchRefDocAjax" class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewSearchRefDocAjax2Action">
-            <result name="success">/WEB-INF/jsp/billing/CA/ON/searchRefDocAjax.jsp</result>
+            <!-- Action writes the JSON array response body directly and
+                 returns NONE; no result mapping needed. -->
         </action>
         <action name="billing/CA/ON/ViewBillStatus" class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillStatus2Action">
             <!-- billStatus.jsp is a <jsp:forward> shim; chain through Struts to avoid empty-body dispatch. -->
@@ -681,7 +682,8 @@
             <result name="success" type="chain">billing/CA/ON/ViewBillingOHIPreport</result>
         </action>
         <action name="billing/CA/ON/ViewInrGenINRbilling" class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewInrGenINRbilling2Action">
-            <result name="success">/WEB-INF/jsp/billing/CA/ON/inr/genINRbilling.jsp</result>
+            <!-- Action persists Billing/BillingDetail rows and writes a
+                 self.close() script directly; returns NONE. -->
         </action>
         <action name="billing/CA/ON/ViewInrOnGenINRbilling" class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewInrOnGenINRbilling2Action">
             <result name="success" type="redirectAction">
