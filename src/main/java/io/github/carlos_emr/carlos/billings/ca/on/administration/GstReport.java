@@ -41,25 +41,19 @@ import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+@org.springframework.stereotype.Service
 public class GstReport {
 
     private final BillingONExtDao dao;
     private final DemographicManager demographicManager;
     private final BillingServiceDao billingServiceDao;
 
-    /** Production constructor — resolves dependencies from the Spring context. */
-    public GstReport() {
-        this(SpringUtils.getBean(BillingONExtDao.class),
-             SpringUtils.getBean(DemographicManager.class),
-             SpringUtils.getBean(BillingServiceDao.class));
-    }
-
-    /** Test-friendly constructor — takes mocks directly. */
-    GstReport(BillingONExtDao dao, DemographicManager demographicManager, BillingServiceDao billingServiceDao) {
+    public GstReport(BillingONExtDao dao,
+                     DemographicManager demographicManager,
+                     BillingServiceDao billingServiceDao) {
         this.dao = dao;
         this.demographicManager = demographicManager;
         this.billingServiceDao = billingServiceDao;

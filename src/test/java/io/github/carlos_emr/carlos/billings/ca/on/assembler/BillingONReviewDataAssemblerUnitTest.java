@@ -87,14 +87,6 @@ class BillingONReviewDataAssemblerUnitTest extends CarlosUnitTestBase {
         SiteDao siteDao = Mockito.mock(SiteDao.class);
         registerMock(SiteDao.class, siteDao);
 
-        // The assembler instantiates `new GstReport()` whose no-arg ctor
-        // now resolves these three collaborators via SpringUtils.
-        registerMock(io.github.carlos_emr.carlos.commn.dao.BillingONExtDao.class,
-                Mockito.mock(io.github.carlos_emr.carlos.commn.dao.BillingONExtDao.class));
-        registerMock(io.github.carlos_emr.carlos.managers.DemographicManager.class,
-                Mockito.mock(io.github.carlos_emr.carlos.managers.DemographicManager.class));
-        registerMock(io.github.carlos_emr.carlos.commn.dao.BillingServiceDao.class,
-                Mockito.mock(io.github.carlos_emr.carlos.commn.dao.BillingServiceDao.class));
         // The assembler also instantiates `new BillingSortComparator()` which
         // resolves BillingONClaimQueryService via SpringUtils.
         registerMock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimQueryService.class,
@@ -106,8 +98,10 @@ class BillingONReviewDataAssemblerUnitTest extends CarlosUnitTestBase {
         io.github.carlos_emr.carlos.billings.ca.on.administration.GstSettingsService gstSettingsService =
                 Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.administration.GstSettingsService.class);
         when(gstSettingsService.readDatabase()).thenReturn(new java.util.Properties());
+        io.github.carlos_emr.carlos.billings.ca.on.administration.GstReport gstReport =
+                Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.administration.GstReport.class);
         assembler = new BillingONReviewDataAssembler(demographicDao, providerDao, reviewPrep, stubValidator,
-                serviceCodeService, lookupService, siteDao, gstSettingsService);
+                serviceCodeService, lookupService, siteDao, gstSettingsService, gstReport);
         request = new MockHttpServletRequest();
     }
 

@@ -23,7 +23,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.OnAddEdit3rdAddrViewModel
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -42,9 +41,12 @@ import org.apache.struts2.ServletActionContext;
 public class OnAddEdit3rdAddr2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
+    private final Billing3rdPartyService thirdPartyService;
 
-    public OnAddEdit3rdAddr2Action(SecurityInfoManager securityInfoManager) {
+    public OnAddEdit3rdAddr2Action(SecurityInfoManager securityInfoManager,
+                                   Billing3rdPartyService thirdPartyService) {
         this.securityInfoManager = securityInfoManager;
+        this.thirdPartyService = thirdPartyService;
     }
     @Override
     public String execute() throws Exception {
@@ -79,7 +81,7 @@ public class OnAddEdit3rdAddr2Action extends ActionSupport {
         String message = "Type in a name and search first to see if it is available.";
         String action = "search";
         Properties prop = new Properties();
-        Billing3rdPartyService dbObj = SpringUtils.getBean(Billing3rdPartyService.class);
+        Billing3rdPartyService dbObj = thirdPartyService;
 
         if ("Save".equals(submit)) {
             String actionParam = request.getParameter("action");

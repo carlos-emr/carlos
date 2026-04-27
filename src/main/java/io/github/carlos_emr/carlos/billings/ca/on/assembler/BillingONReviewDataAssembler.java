@@ -73,6 +73,7 @@ public class BillingONReviewDataAssembler {
     private final BillingONLookupService lookupService;
     private final SiteDao siteDao;
     private final GstSettingsService gstSettingsService;
+    private final GstReport gstReport;
 
     public BillingONReviewDataAssembler(DemographicDao demographicDao,
                                  ProviderDao providerDao,
@@ -81,7 +82,8 @@ public class BillingONReviewDataAssembler {
                                  BillingONServiceCodeService serviceCodeService,
                                  BillingONLookupService lookupService,
                                  SiteDao siteDao,
-                                 GstSettingsService gstSettingsService) {
+                                 GstSettingsService gstSettingsService,
+                                 GstReport gstReport) {
         this.demographicDao = demographicDao;
         this.providerDao = providerDao;
         this.reviewPrep = reviewPrep;
@@ -90,6 +92,7 @@ public class BillingONReviewDataAssembler {
         this.lookupService = lookupService;
         this.siteDao = siteDao;
         this.gstSettingsService = gstSettingsService;
+        this.gstReport = gstReport;
     }
 
     public BillingONReviewViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
@@ -321,7 +324,7 @@ public class BillingONReviewDataAssembler {
         }
         String percent = gstProp.getProperty("gstPercent", "");
         b.gstPercent(percent);
-        GstReport gstRep = new GstReport();
+        GstReport gstRep = gstReport;
 
         @SuppressWarnings("unchecked")
         ArrayList<String>[] vecServiceParam = new ArrayList[3];

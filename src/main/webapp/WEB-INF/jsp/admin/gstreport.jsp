@@ -68,7 +68,7 @@
 </security:oscarSec>
 
 <%
-    GstReport gstReport = new GstReport();
+    GstReport gstReport = SpringUtils.getBean(GstReport.class);
     Properties props = new Properties();
     String providerNo = request.getParameter("providerview");
     String startDate = request.getParameter("xml_vdate");
