@@ -476,7 +476,7 @@ public final class MessageUploader {
 				List<String> sqlParams = new ArrayList<>();
                 
                 // if no hin but there is a dob try for a complete match against the full name DOB and gender
-				if( ( hinMod == null || hinMod.equals("") ) && (dob != null && !dob.isEmpty() && !dob.equalsIgnoreCase("UNKNOWN"))  ) {
+				if( ( hinMod == null || hinMod.isEmpty() ) && (dob != null && !dob.isEmpty() && !dob.equalsIgnoreCase("UNKNOWN"))  ) {
 					// Avoid logging PHI (name/DOB/sex). Lab id and match outcome are sufficient diagnostics.
 					logger.debug("Attempting no-HIN demographic match by name+DOB+sex for lab " + labId);
 					sql = "select demographic_no, provider_no from demographic where year_of_birth like ? and month_of_birth like ? and date_of_birth like ? and ( sex like ? OR sex NOT IN ('F', 'M') ) and last_name = ? and first_name = ?";
