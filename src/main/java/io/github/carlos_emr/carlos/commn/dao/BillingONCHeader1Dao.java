@@ -55,15 +55,6 @@ public interface BillingONCHeader1Dao extends AbstractDao<BillingONCHeader1> {
 
     public void createBills(List<BillingONCHeader1> lBills);
 
-    public String createBill(String provider, Integer demographic, String code, String clinicRefCode, Date serviceDate,
-                             String curUser);
-
-    public String createBill(String provider, Integer demographic, String code, String dxCode, String clinicRefCode,
-                             Date serviceDate, String curUser);
-
-    public String createBills(String provider, List<String> demographic_nos, List<String> codes, List<String> dxcodes,
-                              String clinicRefCode, Date serviceDate, String curUser);
-
     public boolean billedBetweenTheseDays(String serviceCode, Integer demographicNo, Date startDate, Date endDate);
 
     public int getDaysSinceBilled(String serviceCode, Integer demographicNo);

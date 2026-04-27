@@ -43,8 +43,8 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.commons.lang3.time.DateUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BatchBillingViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONHeaderCreationService;
 import io.github.carlos_emr.carlos.commn.dao.BatchBillingDAO;
-import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.model.BatchBilling;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -62,7 +62,7 @@ public class BatchBill2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
-    private BillingONCHeader1Dao billingONCHeader1Dao = (BillingONCHeader1Dao) SpringUtils.getBean(BillingONCHeader1Dao.class);
+    private BillingONHeaderCreationService headerCreationService = SpringUtils.getBean(BillingONHeaderCreationService.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
 
@@ -134,7 +134,7 @@ public class BatchBill2Action extends ActionSupport {
 
             for (int idx = 0; idx < billingInfo.length; ++idx) {
                 String[] temp = billingInfo[idx].split(";");
-                this.billingONCHeader1Dao.createBill(temp[2], Integer.parseInt(temp[1]), temp[0], clinic_view, billingDate, curUser);
+                this.headerCreationService.createBill(temp[2], Integer.parseInt(temp[1]), temp[0], clinic_view, billingDate, curUser);
             }
 
         }
@@ -211,7 +211,7 @@ public class BatchBill2Action extends ActionSupport {
             for (int idx = 0; idx < billingInfo.length; ++idx) {
                 temp = billingInfo[idx].split(";");
                 //passed in order is billing providers, demographic no, service code, dx code
-                total = this.billingONCHeader1Dao.createBill(temp[3], Integer.parseInt(temp[2]), temp[0], temp[1], clinic_view, billingDate, curUser);
+                total = this.headerCreationService.createBill(temp[3], Integer.parseInt(temp[2]), temp[0], temp[1], clinic_view, billingDate, curUser);
 
                 batchBillingList = batchBillingDAO.find(Integer.parseInt(temp[2]), temp[0]);
                 batchBilling = batchBillingList.get(0);

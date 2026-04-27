@@ -31,7 +31,6 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
-import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -47,23 +46,14 @@ import jakarta.persistence.Query;
 
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.billings.dto.BillingONCListItemDTO;
-import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.utility.DateUtils;
-import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingPercLimit;
-import io.github.carlos_emr.carlos.billing.CA.dao.GstControlDao;
-import io.github.carlos_emr.carlos.billing.CA.model.GstControl;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
-import io.github.carlos_emr.carlos.commn.model.BillingService;
-import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.DateRange;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
-import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingStatusPrep;
 import io.github.carlos_emr.carlos.util.ParamAppender;
 
@@ -74,15 +64,6 @@ import io.github.carlos_emr.carlos.util.ParamAppender;
 @Repository
 @SuppressWarnings("unchecked")
 public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1> implements BillingONCHeader1Dao {
-
-    @Autowired
-    private DemographicDao demographicDao;
-    @Autowired
-    private ProviderDao providerDao;
-    @Autowired
-    private BillingServiceDao billingServiceDao;
-    @Autowired
-    private GstControlDao gstControlDao;
 
     public BillingONCHeader1DaoImpl() {
         super(BillingONCHeader1.class);
@@ -118,203 +99,6 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         for (BillingONCHeader1 b : lBills) {
             this.persist(b);
         }
-    }
-
-    @Override
-    public String createBill(String provider, Integer demographic, String code, String clinicRefCode, Date serviceDate,
-                             String curUser) {
-        BillingONCHeader1 header1 = null;
-        Provider prov = providerDao.getProvider(provider);
-        CarlosProperties properties = CarlosProperties.getInstance();
-        ArrayList<String> codes = new ArrayList<String>();
-        ArrayList<String> dxCodes = new ArrayList<String>();
-
-        codes.add(code);
-        String total = this.calcTotal(codes, serviceDate);
-
-        header1 = this.assembleHeader1(prov, demographic, clinicRefCode, serviceDate, total, curUser, properties);
-        if (header1 == null)
-            return null;
-        this.addItems(header1, codes, dxCodes, serviceDate);
-        this.persist(header1);
-
-        return total;
-    }
-
-    @Override
-    public String createBill(String provider, Integer demographic, String code, String dxCode, String clinicRefCode,
-                             Date serviceDate, String curUser) {
-        BillingONCHeader1 header1 = null;
-        Provider prov = providerDao.getProvider(provider);
-        CarlosProperties properties = CarlosProperties.getInstance();
-        ArrayList<String> codes = new ArrayList<String>();
-        ArrayList<String> dxCodes = new ArrayList<String>();
-
-        codes.add(code);
-        dxCodes.add(dxCode);
-
-        String total = this.calcTotal(codes, serviceDate);
-
-        header1 = this.assembleHeader1(prov, demographic, clinicRefCode, serviceDate, total, curUser, properties);
-        if (header1 == null)
-            return null;
-        this.addItems(header1, codes, dxCodes, serviceDate);
-        this.persist(header1);
-
-        return total;
-    }
-
-    @Override
-    public String createBills(String provider, List<String> demographic_nos, List<String> codes, List<String> dxcodes,
-                              String clinicRefCode, Date serviceDate, String curUser) {
-        BillingONCHeader1 header1 = null;
-        Provider prov = providerDao.getProvider(provider);
-        CarlosProperties properties = CarlosProperties.getInstance();
-
-        String total = calcTotal(codes, serviceDate);
-        for (String demographic : demographic_nos) {
-            header1 = this.assembleHeader1(prov, Integer.parseInt(demographic), clinicRefCode, serviceDate, total,
-                    curUser, properties);
-            if (header1 == null)
-                continue;
-            this.addItems(header1, codes, dxcodes, serviceDate);
-            this.persist(header1);
-        }
-
-        return total;
-    }
-
-    private BillingONCHeader1 assembleHeader1(Provider prov, Integer demographic, String clinicRefCode,
-                                              Date serviceDate, String total, String curUser, CarlosProperties properties) {
-
-        BillingONCHeader1 header1 = new BillingONCHeader1();
-        header1.setTranscId(BillingDataHlp.CLAIMHEADER1_TRANSACTIONIDENTIFIER);
-        header1.setRecId(BillingDataHlp.CLAIMHEADER1_REORDIDENTIFICATION);
-        header1.setHeaderId(0);
-
-        Demographic demo = demographicDao.getDemographicById(demographic);
-
-        if (demo == null) {
-            return null;
-        }
-        header1.setHin(demo.getHin());
-        header1.setVer(demo.getVer());
-        header1.setDob(demo.getDateOfBirth());
-        String payProg = demo.getHcType().equals("ON") ? "HCP" : "RMB";
-        header1.setPayProgram(payProg);
-        header1.setPayee(BillingDataHlp.CLAIMHEADER1_PAYEE);
-        header1.setRefNum("");
-        header1.setFaciltyNum(clinicRefCode);
-        // header1.setAdmissionDate(null);
-        header1.setRefLabNum("");
-        header1.setManReview("");
-        header1.setLocation(properties.getProperty("clinic_no", ""));
-        header1.setDemographicNo(Integer.valueOf(demographic));
-        header1.setProviderNo(prov.getProviderNo());
-        header1.setAppointmentNo(0);
-        header1.setDemographicName(demo.getLastName() + "," + demo.getFirstName());
-        header1.setSex(demo.getSex());
-        header1.setProvince(demo.getHcType());
-        header1.setBillingDate(serviceDate);
-        header1.setBillingTime(serviceDate);
-        header1.setPaid(new BigDecimal("0.00"));
-        header1.setStatus("O");
-        header1.setComment("");
-        header1.setVisitType("00");
-        header1.setProviderOhipNo(prov.getOhipNo());
-        header1.setProviderRmaNo(prov.getRmaNo());
-        header1.setApptProviderNo("");
-        header1.setAsstProviderNo("");
-        header1.setCreator(curUser);
-        header1.setTotal(new BigDecimal(total));
-
-        return header1;
-    }
-
-    private void addItems(BillingONCHeader1 h1, List<String> codes, List<String> dxcodes, Date serviceDate) {
-
-        BillingService billingService = null;
-        BillingONItem item = null;
-        for (String code : codes) {
-            item = new BillingONItem();
-            item.setTranscId(BillingDataHlp.ITEM_TRANSACTIONIDENTIFIER);
-            item.setRecId(BillingDataHlp.ITEM_REORDIDENTIFICATION);
-            item.setServiceCode(code);
-
-            billingService = billingServiceDao.searchBillingCode(code, "ON", serviceDate);
-            item.setFee(billingService.getValue());
-            item.setServiceCount("1");
-            item.setServiceDate(serviceDate);
-            item.setStatus("O");
-
-            if (dxcodes.size() == 1) {
-                item.setDx(dxcodes.get(0));
-                item.setDx1("");
-                item.setDx2("");
-            } else if (dxcodes.size() == 2) {
-                item.setDx(dxcodes.get(0));
-                item.setDx1(dxcodes.get(1));
-                item.setDx2("");
-            } else if (dxcodes.size() == 3) {
-                item.setDx(dxcodes.get(0));
-                item.setDx1(dxcodes.get(1));
-                item.setDx2(dxcodes.get(2));
-            } else {
-                item.setDx("");
-                item.setDx1("");
-                item.setDx2("");
-            }
-
-            h1.getBillingItems().add(item);
-        }
-    }
-
-    private String calcTotal(List<String> codes, Date serviceDate) {
-        GstControl gstControl = gstControlDao.find(Integer.valueOf(1));
-        BigDecimal gst;
-        BigDecimal gstTotal;
-        BigDecimal total = new BigDecimal(0.0);
-        BigDecimal percent = new BigDecimal(0.0);
-        BillingPercLimit billingPerc;
-        ArrayList<BillingService> aPercentCodes = new ArrayList<BillingService>();
-        BillingService billingservice = null;
-        for (String code : codes) {
-            billingservice = billingServiceDao.searchBillingCode(code, "ON", serviceDate);
-
-            if (billingservice != null && billingservice.getPercentage() != null
-                    && !billingservice.getPercentage().equalsIgnoreCase("")) {
-                // billingPerc = billingservice
-                aPercentCodes.add(billingservice);
-
-            } else {
-                if (billingservice != null && billingservice.getGstFlag()) {
-                    gst = gstControl.getGstPercent();
-                    gst = gst.divide(new BigDecimal(100.0));
-                    gstTotal = gst.multiply(new BigDecimal(Double.parseDouble(billingservice.getValue())));
-                    total = total.add(gstTotal).setScale(2, BigDecimal.ROUND_HALF_UP);
-                }
-
-                if (billingservice != null)
-                    total = total.add(new BigDecimal(billingservice.getValue()));
-            }
-        }
-
-        BigDecimal percBase = total;
-        BigDecimal percentCalc;
-        for (BillingService percentcode : aPercentCodes) {
-            percent = new BigDecimal(Double.parseDouble(percentcode.getPercentage())).setScale(2,
-                    BigDecimal.ROUND_HALF_UP);
-            percentCalc = percBase.multiply(percent).setScale(2, BigDecimal.ROUND_HALF_UP);
-            billingPerc = percentcode.getBillingPercLimit();
-            if (billingPerc != null) {
-                percentCalc = percentCalc.min(new BigDecimal(Double.parseDouble(billingPerc.getMax())));
-                percentCalc = percentCalc.max(new BigDecimal(Double.parseDouble(billingPerc.getMin())));
-            }
-
-            total = total.add(percentCalc);
-        }
-        total.setScale(2, BigDecimal.ROUND_UP);
-        return total.toString();
     }
 
     @Override
@@ -440,16 +224,6 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
 
         return q.getResultList();
     }
-
-    // @Override
-    // public GstControlDao getGstControlDao() {
-    //     return gstControlDao;
-    // }
-
-    // @Override
-    // public void setGstControlDao(GstControlDao gstControlDao) {
-    //     this.gstControlDao = gstControlDao;
-    // }
 
     @Override
     public BillingONItem findBillingONItemByServiceCode(BillingONCHeader1 ch1, String serviceCode) {
