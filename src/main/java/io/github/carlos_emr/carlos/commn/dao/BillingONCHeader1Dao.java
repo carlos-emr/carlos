@@ -63,6 +63,26 @@ public interface BillingONCHeader1Dao extends AbstractDao<BillingONCHeader1> {
      */
     public List<BillingONItem> findActiveItems(Integer invoiceNo);
 
+    /**
+     * Loads a {@link BillingONCHeader1} together with its {@code billingItems}
+     * collection in a single {@code LEFT JOIN FETCH} query. Use this in code
+     * paths that touch {@link BillingONCHeader1#getBillingItems()} <em>outside</em>
+     * an open Hibernate session (e.g., REST converters, non-{@code @Transactional}
+     * assemblers) — the plain {@link AbstractDao#find} returns a header whose
+     * collection is uninitialised under {@code FetchType.LAZY}.
+     *
+     * @return the header (with items) or {@code null} if no row matches.
+     */
+    public BillingONCHeader1 findWithItems(Integer id);
+
+    /**
+     * Variant of {@link #findByDemoNo} that also fetches each row's
+     * {@code billingItems} collection in one query — for callers that
+     * post-process the items (e.g., REST {@code BillingDetailConverter})
+     * outside a Hibernate session.
+     */
+    public List<BillingONCHeader1> findByDemoNoWithItems(Integer demoNo, int iOffSet, int pageSize);
+
     public boolean billedBetweenTheseDays(String serviceCode, Integer demographicNo, Date startDate, Date endDate);
 
     public int getDaysSinceBilled(String serviceCode, Integer demographicNo);

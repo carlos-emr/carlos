@@ -1034,4 +1034,103 @@ public class BillingONCHeader1DaoIntegrationTest extends CarlosTestBase {
             assertThat(h2.getId()).isNotNull();
         }
     }
+
+    // ========================================================================
+    // findWithItems / findByDemoNoWithItems — JOIN FETCH companions added when
+    // BillingONCHeader1.billingItems was flipped from EAGER to LAZY.
+    // ========================================================================
+
+    @Nested
+    @DisplayName("findWithItems")
+    @Tag("read")
+    class FindWithItems {
+
+        @Test
+        @DisplayName("should return null when invoice does not exist")
+        void shouldReturnNull_whenInvoiceMissing() {
+            assertThat(billingONCHeader1Dao.findWithItems(999_999_999)).isNull();
+        }
+
+        @Test
+        @DisplayName("should return null when id is null")
+        void shouldReturnNull_whenIdIsNull() {
+            assertThat(billingONCHeader1Dao.findWithItems(null)).isNull();
+        }
+
+        @Test
+        @DisplayName("should populate billingItems collection in one query")
+        void shouldPopulateItems_inOneQuery() {
+            // Given
+            BillingONCHeader1 h = createAndPersist(DEMO_NO, PROVIDER_NO, "O", today);
+            createAndPersistItem(h.getId(), "A007", "789", today);
+            createAndPersistItem(h.getId(), "A008", "789", today);
+            entityManager.flush();
+            entityManager.clear(); // detach so a subsequent .find would lazy-init
+
+            // When
+            BillingONCHeader1 loaded = billingONCHeader1Dao.findWithItems(h.getId());
+
+            // Then
+            assertThat(loaded).isNotNull();
+            assertThat(loaded.getBillingItems()).hasSize(2);
+            assertThat(loaded.getBillingItems())
+                    .extracting(BillingONItem::getServiceCode)
+                    .containsExactlyInAnyOrder("A007", "A008");
+        }
+
+        @Test
+        @DisplayName("should return header with empty items when none exist")
+        void shouldReturnHeader_whenNoItems() {
+            BillingONCHeader1 h = createAndPersist(DEMO_NO, PROVIDER_NO, "O", today);
+            entityManager.flush();
+            entityManager.clear();
+
+            BillingONCHeader1 loaded = billingONCHeader1Dao.findWithItems(h.getId());
+
+            assertThat(loaded).isNotNull();
+            assertThat(loaded.getBillingItems()).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("findByDemoNoWithItems")
+    @Tag("read")
+    class FindByDemoNoWithItems {
+
+        @Test
+        @DisplayName("should return matching headers each with items populated")
+        void shouldReturnHeaders_withItems() {
+            // Given — two non-deleted headers for the demo, each with items
+            BillingONCHeader1 h1 = createAndPersist(DEMO_NO, PROVIDER_NO, "O", today);
+            createAndPersistItem(h1.getId(), "A001", "789", today);
+            BillingONCHeader1 h2 = createAndPersist(DEMO_NO, PROVIDER_NO, "S", yesterday);
+            createAndPersistItem(h2.getId(), "A002", "789", yesterday);
+            createAndPersistItem(h2.getId(), "A003", "789", yesterday);
+            entityManager.flush();
+            entityManager.clear();
+
+            // When
+            List<BillingONCHeader1> result =
+                    billingONCHeader1Dao.findByDemoNoWithItems(DEMO_NO, 0, 50);
+
+            // Then — DISTINCT keeps the parent count correct despite the
+            // one-row-per-child cartesian product from LEFT JOIN FETCH.
+            assertThat(result).hasSize(2);
+            int totalItems = result.stream().mapToInt(h -> h.getBillingItems().size()).sum();
+            assertThat(totalItems).isEqualTo(3);
+        }
+
+        @Test
+        @DisplayName("should exclude deleted headers")
+        void shouldExcludeDeletedHeaders() {
+            createAndPersist(DEMO_NO, PROVIDER_NO, "D", today);
+            entityManager.flush();
+            entityManager.clear();
+
+            List<BillingONCHeader1> result =
+                    billingONCHeader1Dao.findByDemoNoWithItems(DEMO_NO, 0, 50);
+
+            assertThat(result).isEmpty();
+        }
+    }
 }

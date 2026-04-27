@@ -55,7 +55,11 @@ public class BillingONPayment extends AbstractModel<Integer> implements Serializ
     @Column(name = "payment_id", nullable = false)
     private Integer id;
 
-    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    // LAZY: every caller that mutates this collection (BillingONClaimPersister,
+    // BillingONPaymentDaoImpl) does so on a freshly created entity or inside
+    // an open Hibernate session, so lazy initialisation works correctly. No
+    // outside-session readers exist as of 2026-04-27.
+    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JoinColumn(name = "payment_id", referencedColumnName = "payment_id")
     private List<BillingONExt> billingONExtItems = new ArrayList<BillingONExt>();
 

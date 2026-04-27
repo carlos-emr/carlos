@@ -119,7 +119,12 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
     @Temporal(TemporalType.TIMESTAMP)
     private Date timestamp;
     private String clinic = null;
-    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    // LAZY: callers that need the items must load via
+    // BillingONCHeader1Dao.findWithItems / findByDemoNoWithItems, or be
+    // inside an open Hibernate session. Plain DAO.find() returns a header
+    // whose collection is uninitialised — accessing it outside a session
+    // throws LazyInitializationException.
+    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JoinColumn(name = "ch1_id", referencedColumnName = "id")
     private List<BillingONItem> billingItems = new ArrayList<BillingONItem>();
 

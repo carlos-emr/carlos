@@ -229,11 +229,7 @@ class BillingONCorrectionDataAssemblerUnitTest extends CarlosUnitTestBase {
         bCh1.setStatus("X");
         bCh1.setManReview("");
         bCh1.setProviderNo("999998");
-        // Stub the find(Object) overload — the assembler passes an Integer
-        // (not a primitive int), and AbstractDao has both find(int) and
-        // find(Object). Java overload resolution picks find(Object) for
-        // Integer args, so stubbing find(int) here would never match.
-        when(bCh1Dao.find((Object) Integer.valueOf(12345))).thenReturn(bCh1);
+        when(bCh1Dao.findWithItems(Integer.valueOf(12345))).thenReturn(bCh1);
 
         BillingONCorrectionViewModel m = assembler.assemble(request, loggedInInfo);
 
@@ -260,7 +256,7 @@ class BillingONCorrectionDataAssemblerUnitTest extends CarlosUnitTestBase {
         when(providerDao.getProvider(any())).thenReturn(new Provider());
 
         request.setParameter("billing_no", "99999");
-        when(bCh1Dao.find((Object) Integer.valueOf(99999))).thenReturn(null);
+        when(bCh1Dao.findWithItems(Integer.valueOf(99999))).thenReturn(null);
 
         BillingONCorrectionViewModel m = assembler.assemble(request, loggedInInfo);
 
@@ -294,11 +290,7 @@ class BillingONCorrectionDataAssemblerUnitTest extends CarlosUnitTestBase {
         bCh1.setManReview("");
         bCh1.setClinic("OtherClinic");
         request.setParameter("billing_no", "12345");
-        // Stub the find(Object) overload — the assembler passes an Integer
-        // (not a primitive int), and AbstractDao has both find(int) and
-        // find(Object). Java overload resolution picks find(Object) for
-        // Integer args, so stubbing find(int) here would never match.
-        when(bCh1Dao.find((Object) Integer.valueOf(12345))).thenReturn(bCh1);
+        when(bCh1Dao.findWithItems(Integer.valueOf(12345))).thenReturn(bCh1);
 
         BillingONCorrectionViewModel m = assembler.assemble(request, loggedInInfo);
 

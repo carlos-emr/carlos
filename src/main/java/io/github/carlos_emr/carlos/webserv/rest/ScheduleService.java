@@ -284,7 +284,11 @@ public class ScheduleService extends AbstractServiceImpl {
     }
 
     private Map<Integer, BillingDetailTo1> getAppointmentIdToBillingDetailMap(Integer demographicNo) {
-        List<BillingONCHeader1> billingHeaders = billingONCHeader1Dao.findByDemoNo(demographicNo, 0, OscarAppointmentDao.MAX_LIST_RETURN_SIZE);
+        // findByDemoNoWithItems eagerly fetches each header's billingItems —
+        // BillingDetailConverter copies the collection into the REST DTO,
+        // which would otherwise trip a LazyInitializationException now that
+        // BillingONCHeader1.billingItems is FetchType.LAZY.
+        List<BillingONCHeader1> billingHeaders = billingONCHeader1Dao.findByDemoNoWithItems(demographicNo, 0, OscarAppointmentDao.MAX_LIST_RETURN_SIZE);
         if (billingHeaders.size() == OscarAppointmentDao.MAX_LIST_RETURN_SIZE) {
             logger.warn("Billing history over MAX_LIST_RETURN_SIZE for demographic " + demographicNo);
         }

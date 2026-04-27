@@ -229,7 +229,11 @@ public class BillingCorrectionService {
                     "Bill change rejected: invalid bill identifier ("
                     + LogSanitizer.sanitizeForDisplay(rawBillingNo) + ")", e);
         }
-        BillingONCHeader1 bCh1 = bCh1Dao.find(billingNo);
+        // findWithItems eagerly fetches the items collection — applyCorrection
+        // walks them below to apply edits and recompute the total. The service
+        // is not (yet) @Transactional, so the lazy collection wouldn't
+        // initialise on access outside a session.
+        BillingONCHeader1 bCh1 = bCh1Dao.findWithItems(billingNo);
         if (bCh1 == null) {
             MiscUtils.getLogger().error("updateInvoice: bill {} not found",
                     LogSanitizer.sanitize(rawBillingNo));

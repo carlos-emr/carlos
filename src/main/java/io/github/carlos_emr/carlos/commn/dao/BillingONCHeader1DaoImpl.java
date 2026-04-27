@@ -103,17 +103,38 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
 
     @Override
     public List<BillingONItem> findActiveItems(Integer invoiceNo) {
-        BillingONCHeader1 header = find(invoiceNo);
-        if (header == null) {
+        if (invoiceNo == null) {
             return java.util.Collections.emptyList();
         }
-        List<BillingONItem> active = new ArrayList<>();
-        for (BillingONItem item : header.getBillingItems()) {
-            if (item.isActive()) {
-                active.add(item);
-            }
+        // Direct query — sidesteps the parent entity's billingItems collection
+        // entirely, so this works (and is efficient) regardless of the
+        // BillingONCHeader1.billingItems fetch type.
+        Query q = entityManager.createQuery("SELECT i FROM BillingONItem i WHERE i.ch1Id = ?1 AND i.status != 'D'");
+        q.setParameter(1, invoiceNo);
+        return q.getResultList();
+    }
+
+    @Override
+    public BillingONCHeader1 findWithItems(Integer id) {
+        if (id == null) {
+            return null;
         }
-        return active;
+        Query q = entityManager.createQuery("SELECT DISTINCT h FROM BillingONCHeader1 h LEFT JOIN FETCH h.billingItems WHERE h.id = ?1");
+        q.setParameter(1, id);
+        List<BillingONCHeader1> rows = q.getResultList();
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    @Override
+    public List<BillingONCHeader1> findByDemoNoWithItems(Integer demoNo, int iOffSet, int pageSize) {
+        // DISTINCT keeps the parent count correct when LEFT JOIN FETCH produces
+        // one row per child item; the items collection is still populated
+        // correctly in each returned entity.
+        Query query = entityManager.createQuery("SELECT DISTINCT h FROM BillingONCHeader1 h LEFT JOIN FETCH h.billingItems WHERE h.demographicNo = ?1 AND h.status != 'D' ORDER BY h.billingDate DESC, h.billingTime DESC, h.id DESC");
+        query.setParameter(1, demoNo);
+        query.setFirstResult(iOffSet);
+        query.setMaxResults(pageSize);
+        return query.getResultList();
     }
 
     @Override

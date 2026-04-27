@@ -378,7 +378,10 @@ public class BillingONCorrectionDataAssembler {
             return new BillRecordContext(null, billNo, false, "", "");
         }
 
-        BillingONCHeader1 bCh1 = bCh1Dao.find(billingNo);
+        // findWithItems eagerly loads the billingItems collection — required
+        // because the renderComposer iterates them outside any @Transactional
+        // boundary (this assembler isn't transactional).
+        BillingONCHeader1 bCh1 = bCh1Dao.findWithItems(billingNo);
         if (bCh1 == null) {
             b.billNoErr(true);
             return new BillRecordContext(null, billNo, false, "", "");
