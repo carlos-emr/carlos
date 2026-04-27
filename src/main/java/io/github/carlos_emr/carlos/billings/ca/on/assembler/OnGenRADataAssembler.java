@@ -38,7 +38,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *
  * @since 2026-04-25
  */
-public final class OnGenRADataAssembler {
+@org.springframework.stereotype.Service
+@org.springframework.context.annotation.Lazy
+public class OnGenRADataAssembler {
 
     private final SecurityInfoManager securityInfoManager;
     private final BillingONRemittanceAdviceService dbObj;

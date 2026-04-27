@@ -40,7 +40,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *
  * @since 2026-04-25
  */
-public final class BillingEditWithApptNoDataAssembler {
+@org.springframework.stereotype.Service
+@org.springframework.context.annotation.Lazy
+public class BillingEditWithApptNoDataAssembler {
 
     private final BillingONClaimQueryService claimQueryService;
     private final BillingONItemDao itemDao;

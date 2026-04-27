@@ -59,7 +59,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *
  * @since 2026-04-26
  */
-public final class GenRADescDataAssembler {
+@org.springframework.stereotype.Service
+@org.springframework.context.annotation.Lazy
+public class GenRADescDataAssembler {
 
     private final RaHeaderDao raHeaderDao;
     private final BillingONPremiumDao billingONPremiumDao;

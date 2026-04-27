@@ -33,7 +33,9 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  *
  * @since 2026-04-25
  */
-public final class EditBillingPaymentTypeDataAssembler {
+@org.springframework.stereotype.Service
+@org.springframework.context.annotation.Lazy
+public class EditBillingPaymentTypeDataAssembler {
 
     public EditBillingPaymentTypeViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
         String id = request.getParameter("id");

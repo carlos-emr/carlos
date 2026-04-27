@@ -47,7 +47,9 @@ import org.apache.commons.lang3.StringUtils;
  *
  * @since 2026-04-26
  */
-public final class BillingONNewReportDataAssembler {
+@org.springframework.stereotype.Service
+@org.springframework.context.annotation.Lazy
+public class BillingONNewReportDataAssembler {
 
     /*
      * SQL queries — all parameterized via JDBC '?' placeholders. The IN-clause

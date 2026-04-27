@@ -37,7 +37,9 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingRAPrep;
  *
  * @since 2026-04-26
  */
-public final class OnGenRASummaryDataAssembler {
+@org.springframework.stereotype.Service
+@org.springframework.context.annotation.Lazy
+public class OnGenRASummaryDataAssembler {
 
     private static final String OB_CODES =
             "'P006A','P020A','P022A','P028A','P023A','P007A','P009A','P011A','P008B','P018B','E502A','C989A','E409A','E410A','E411A','H001A'";

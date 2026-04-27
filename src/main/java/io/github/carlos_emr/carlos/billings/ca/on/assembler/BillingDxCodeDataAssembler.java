@@ -43,7 +43,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *
  * @since 2026-04-26
  */
-public final class BillingDxCodeDataAssembler {
+@org.springframework.stereotype.Service
+@org.springframework.context.annotation.Lazy
+public class BillingDxCodeDataAssembler {
 
     private static final int MAX_AJAX_SUGGESTIONS = 20;
     private static final int MIN_AJAX_TERM_LENGTH = 2;

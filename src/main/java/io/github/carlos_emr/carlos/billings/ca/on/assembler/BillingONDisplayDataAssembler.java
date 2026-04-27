@@ -44,7 +44,9 @@ import io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingONDisplay2Actio
  *
  * @since 2026-04-25
  */
-public final class BillingONDisplayDataAssembler {
+@org.springframework.stereotype.Service
+@org.springframework.context.annotation.Lazy
+public class BillingONDisplayDataAssembler {
 
     private final ClinicNbrDao clinicNbrDao;
     private final BillingCorrectionPrep prep;

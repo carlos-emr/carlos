@@ -62,7 +62,9 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewPrep;
  * @since 2026-04-24
  *        2026-04-25 (full body-scriptlet drain expansion)
  */
-public final class BillingONReviewDataAssembler {
+@org.springframework.stereotype.Service
+@org.springframework.context.annotation.Lazy
+public class BillingONReviewDataAssembler {
 
     private final DemographicDao demographicDao;
     private final ProviderDao providerDao;

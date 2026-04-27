@@ -46,7 +46,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *
  * @since 2026-04-25
  */
-public final class BillingONHistoryDataAssembler {
+@org.springframework.stereotype.Service
+@org.springframework.context.annotation.Lazy
+public class BillingONHistoryDataAssembler {
 
     private final BillingONPaymentDao billingOnPaymentDao;
     private final BillingONCHeader1Dao bCh1Dao;

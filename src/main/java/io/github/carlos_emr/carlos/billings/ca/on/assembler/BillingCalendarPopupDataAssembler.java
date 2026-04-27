@@ -30,7 +30,9 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCalendarPopupViewM
  *
  * @since 2026-04-25
  */
-public final class BillingCalendarPopupDataAssembler {
+@org.springframework.stereotype.Service
+@org.springframework.context.annotation.Lazy
+public class BillingCalendarPopupDataAssembler {
 
     /**
      * Build the view model from raw request parameters.

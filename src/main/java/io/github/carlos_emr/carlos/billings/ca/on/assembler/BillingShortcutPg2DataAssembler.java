@@ -67,7 +67,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *
  * @since 2026-04-26
  */
-public final class BillingShortcutPg2DataAssembler {
+@org.springframework.stereotype.Service
+@org.springframework.context.annotation.Lazy
+public class BillingShortcutPg2DataAssembler {
 
     private final BillingDao billingDao;
     private final BillingDetailDao billingDetailDao;

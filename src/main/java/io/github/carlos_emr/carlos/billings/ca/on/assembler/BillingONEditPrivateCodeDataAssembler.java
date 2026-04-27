@@ -47,7 +47,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *
  * @since 2026-04-25
  */
-public final class BillingONEditPrivateCodeDataAssembler {
+@org.springframework.stereotype.Service
+@org.springframework.context.annotation.Lazy
+public class BillingONEditPrivateCodeDataAssembler {
 
     private static final String SUFFIX_TYPE_TO_SEARCH =
             "Type in a service code and search first to see if it is available.";

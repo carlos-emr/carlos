@@ -47,7 +47,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *
  * @since 2026-04-26
  */
-public final class BillingReportFragmentDataAssembler {
+@org.springframework.stereotype.Service
+@org.springframework.context.annotation.Lazy
+public class BillingReportFragmentDataAssembler {
 
     private final BillingDao billingDao;
     private final BillingDetailDao billingDetailDao;

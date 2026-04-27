@@ -37,7 +37,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *
  * @since 2026-04-26
  */
-public final class BillingCodeSearchDataAssembler {
+@org.springframework.stereotype.Service
+@org.springframework.context.annotation.Lazy
+public class BillingCodeSearchDataAssembler {
 
     /** Which DAO to query — pick via {@link #assembleService} or
      *  {@link #assembleResearch}. */

@@ -35,7 +35,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *
  * @since 2026-04-26
  */
-public final class BillingCodeSearchAjaxDataAssembler {
+@org.springframework.stereotype.Service
+@org.springframework.context.annotation.Lazy
+public class BillingCodeSearchAjaxDataAssembler {
 
     private static final int MAX_SUGGESTIONS = 20;
     private static final int MIN_TERM_LENGTH = 2;
