@@ -55,7 +55,16 @@ public class ScheduleOfBenefits {
     int newfees, oldfees, total;
     BillingCodeData bc;
 
+    private final BillingServiceDao billingServiceDao;
+
+    /** Production constructor — resolves the DAO from the Spring context. */
     public ScheduleOfBenefits() {
+        this(SpringUtils.getBean(BillingServiceDao.class));
+    }
+
+    /** Test-friendly constructor — takes the DAO mock directly. */
+    ScheduleOfBenefits(BillingServiceDao billingServiceDao) {
+        this.billingServiceDao = billingServiceDao;
     }
 
 
@@ -94,8 +103,7 @@ public class ScheduleOfBenefits {
                         ")  (anaes:" + getJBD((String) newPricingInfo.get("anaesthetistFee")) +
                         ")  (non-a:" + getJBD((String) newPricingInfo.get("nonAnaesthetistFee")) + ")";
 
-                BillingServiceDao bsd = (BillingServiceDao) SpringUtils.getBean(BillingServiceDao.class);
-                String defaultDescription = bsd.searchDescBillingCode((String) newPricingInfo.get("feeCode"), "ON");
+                String defaultDescription = billingServiceDao.searchDescBillingCode((String) newPricingInfo.get("feeCode"), "ON");
 
                 String newPrice = (String) newPricingInfo.get("gpFees");
                 double newDoub = (Double.parseDouble(newPrice)) / 10000;

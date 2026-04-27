@@ -87,6 +87,19 @@ class BillingONReviewDataAssemblerUnitTest extends CarlosUnitTestBase {
         registerMock(BillingONLookupService.class, Mockito.mock(BillingONLookupService.class));
         registerMock(SiteDao.class, Mockito.mock(SiteDao.class));
 
+        // The assembler instantiates `new GstReport()` whose no-arg ctor
+        // now resolves these three collaborators via SpringUtils.
+        registerMock(io.github.carlos_emr.carlos.commn.dao.BillingONExtDao.class,
+                Mockito.mock(io.github.carlos_emr.carlos.commn.dao.BillingONExtDao.class));
+        registerMock(io.github.carlos_emr.carlos.managers.DemographicManager.class,
+                Mockito.mock(io.github.carlos_emr.carlos.managers.DemographicManager.class));
+        registerMock(io.github.carlos_emr.carlos.commn.dao.BillingServiceDao.class,
+                Mockito.mock(io.github.carlos_emr.carlos.commn.dao.BillingServiceDao.class));
+        // The assembler also instantiates `new BillingSortComparator()` which
+        // resolves BillingONClaimQueryService via SpringUtils.
+        registerMock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimQueryService.class,
+                Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimQueryService.class));
+
         BillingONReviewValidator stubValidator = Mockito.mock(BillingONReviewValidator.class);
         when(stubValidator.validate(any(), any(), any())).thenReturn(
                 new BillingONReviewValidator.Result(java.util.Collections.emptyList(), true));

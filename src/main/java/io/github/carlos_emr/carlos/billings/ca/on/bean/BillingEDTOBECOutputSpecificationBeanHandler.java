@@ -48,12 +48,28 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 public class BillingEDTOBECOutputSpecificationBeanHandler {
 
-    private BatchEligibilityDao batchEligibilityDao = (BatchEligibilityDao) SpringUtils.getBean(BatchEligibilityDao.class);
+    private final BatchEligibilityDao batchEligibilityDao;
+    private final DemographicManager demographicManager;
+    private final ProviderDao providerDao;
 
     ArrayList<BillingEDTOBECOutputSpecificationBean> EDTOBECOutputSecifiationBeanVector = new ArrayList<BillingEDTOBECOutputSpecificationBean>();
     public boolean verdict = true;
 
     public BillingEDTOBECOutputSpecificationBeanHandler(LoggedInInfo loggedInInfo, FileInputStream file) {
+        this(loggedInInfo, file,
+             SpringUtils.getBean(BatchEligibilityDao.class),
+             SpringUtils.getBean(DemographicManager.class),
+             SpringUtils.getBean(ProviderDao.class));
+    }
+
+    /** Test-friendly constructor — takes DAO/Manager mocks directly. */
+    BillingEDTOBECOutputSpecificationBeanHandler(LoggedInInfo loggedInInfo, FileInputStream file,
+                                                 BatchEligibilityDao batchEligibilityDao,
+                                                 DemographicManager demographicManager,
+                                                 ProviderDao providerDao) {
+        this.batchEligibilityDao = batchEligibilityDao;
+        this.demographicManager = demographicManager;
+        this.providerDao = providerDao;
         init(loggedInInfo, file);
     }
 
@@ -74,7 +90,6 @@ public class BillingEDTOBECOutputSpecificationBeanHandler {
                     String obecResponse = nextline.substring(12, 14);
                     BillingEDTOBECOutputSpecificationBean osBean = new BillingEDTOBECOutputSpecificationBean(obecHIN, obecVer, obecResponse);
 
-                    DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
                     List<Demographic> demos = demographicManager.searchByHealthCard(loggedInInfo, obecHIN);
                     if (!demos.isEmpty()) {
                         Demographic demo = demos.get(0);
@@ -83,7 +98,6 @@ public class BillingEDTOBECOutputSpecificationBeanHandler {
                         osBean.setDOB(demo.getDateOfBirth());
                         osBean.setSex(demo.getSex());
 
-                        ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
                         Provider provider = providerDao.getProvider(StringUtils.trimToNull(demo.getProviderNo()));
 
                         if (provider != null) {

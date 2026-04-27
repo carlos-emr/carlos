@@ -46,10 +46,16 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
  */
 public class RAData {
 
-    /**
-     * Creates a new instance of RAData
-     */
+    private final RaDetailDao dao;
+
+    /** Production constructor — resolves the DAO from the Spring context. */
     public RAData() {
+        this(SpringUtils.getBean(RaDetailDao.class));
+    }
+
+    /** Test-friendly constructor — takes the DAO mock directly. */
+    RAData(RaDetailDao dao) {
+        this.dao = dao;
     }
 
     // select * from radetail limit 100,10;
@@ -58,7 +64,6 @@ public class RAData {
     // | billtype |
     public ArrayList<HashMap<String, String>> getRAData(String billingNo) {
         ArrayList<HashMap<String, String>> list = new ArrayList<HashMap<String, String>>();
-        RaDetailDao dao = SpringUtils.getBean(RaDetailDao.class);
         for (RaDetail ra : dao.findByBillingNo(ConversionUtils.fromIntString(billingNo))) {
             list.add(getAsMap(ra));
         }
@@ -84,7 +89,6 @@ public class RAData {
 
     public ArrayList<HashMap<String, String>> getRADataIntern(String billingNo, String service_date, String ohip_no) {
         ArrayList<HashMap<String, String>> list = new ArrayList<HashMap<String, String>>();
-        RaDetailDao dao = SpringUtils.getBean(RaDetailDao.class);
         for (RaDetail ra : dao.findByBillingNoServiceDateAndProviderNo(ConversionUtils.fromIntString(billingNo), service_date, ohip_no)) {
             list.add(getAsMap(ra));
         }
@@ -142,7 +146,6 @@ public class RAData {
     }
 
     public boolean isErrorCode(String billingNo, String errorCode) {
-        RaDetailDao dao = SpringUtils.getBean(RaDetailDao.class);
         List<RaDetail> ras = dao.findByBillingNoAndErrorCode(ConversionUtils.fromIntString(billingNo), errorCode);
         return !ras.isEmpty();
     }

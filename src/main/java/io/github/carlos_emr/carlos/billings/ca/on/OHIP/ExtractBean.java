@@ -58,7 +58,6 @@ public class ExtractBean implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private static Logger logger = MiscUtils.getLogger();
-    private BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
 
     private String apptDate;
     private String batchCount = "";
@@ -134,7 +133,17 @@ public class ExtractBean implements Serializable {
     private java.sql.Date visitDate;
     private String visitType;
 
+    private final BillingDao billingDao;
+    private final BillingDetailDao billingDetailDao;
+
     public ExtractBean() {
+        this(SpringUtils.getBean(BillingDao.class), SpringUtils.getBean(BillingDetailDao.class));
+    }
+
+    /** Test-friendly constructor — takes the DAO mocks directly. */
+    ExtractBean(BillingDao billingDao, BillingDetailDao billingDetailDao) {
+        this.billingDao = billingDao;
+        this.billingDetailDao = billingDetailDao;
         formatter = new SimpleDateFormat("yyyyMMdd"); //yyyyMMddHmm");
         today = new java.util.Date();
         output = formatter.format(today);
@@ -348,9 +357,7 @@ public class ExtractBean implements Serializable {
             // start here
             value = batchHeader;
 
-            BillingDao dao = SpringUtils.getBean(BillingDao.class);
-            BillingDetailDao bdDao = SpringUtils.getBean(BillingDetailDao.class);
-            for (Billing b : dao.findByProviderStatusAndDates(providerNo, Arrays.asList(new String[]{"O", "W"}), dateRange)) {
+            for (Billing b : billingDao.findByProviderStatusAndDates(providerNo, Arrays.asList(new String[]{"O", "W"}), dateRange)) {
                 patientCount++;
                 invNo = "" + b.getId();
                 //   ohipVer = b.getorganization_spec_code");
@@ -369,7 +376,7 @@ public class ExtractBean implements Serializable {
                 htmlContent += printErrorPartMsg();
                 // build billing detail
                 invCount = 0;
-                for (BillingDetail bd : bdDao.findByBillingNoAndStatus(ConversionUtils.fromIntString(invNo), specCode)) {
+                for (BillingDetail bd : billingDetailDao.findByBillingNoAndStatus(ConversionUtils.fromIntString(invNo), specCode)) {
                     recordCount++;
                     count = 0;
                     serviceCode = bd.getServiceCode();

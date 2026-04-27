@@ -37,10 +37,19 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONErrorReportSe
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 public class BillingClaimsErrorReportBeanHandlerSave {
 
+    private final BillingONErrorReportService erRepObj;
+
     ArrayList claimsErrorReportBeanVector = new ArrayList();
     public boolean verdict = true;
 
     public BillingClaimsErrorReportBeanHandlerSave(FileInputStream file, String filename) {
+        this(file, filename, SpringUtils.getBean(BillingONErrorReportService.class));
+    }
+
+    /** Test-friendly constructor — takes the service mock directly. */
+    BillingClaimsErrorReportBeanHandlerSave(FileInputStream file, String filename,
+                                            BillingONErrorReportService erRepObj) {
+        this.erRepObj = erRepObj;
         init(file, filename);
     }
 
@@ -58,7 +67,6 @@ public class BillingClaimsErrorReportBeanHandlerSave {
         BillingClaimsErrorReportBean CERBean = new BillingClaimsErrorReportBean();
         boolean isNewHin = false;
 
-        BillingONErrorReportService erRepObj = SpringUtils.getBean(BillingONErrorReportService.class);
         BillingErrorRepData erObj = null;
         String claimError = "";
         try {

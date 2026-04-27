@@ -37,18 +37,22 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimQuerySer
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 public class BillingSortComparator implements Comparator {
 
-    /**
-     * Creates a new instance of BillingSortComparator
-     */
+    private final BillingONClaimQueryService dbObj;
+
+    /** Production constructor — resolves the service from the Spring context. */
     public BillingSortComparator() {
+        this(SpringUtils.getBean(BillingONClaimQueryService.class));
+    }
+
+    /** Test-friendly constructor — takes the service mock directly. */
+    BillingSortComparator(BillingONClaimQueryService dbObj) {
+        this.dbObj = dbObj;
     }
 
     public int compare(Object obj1, Object obj2) {
         HashMap h1 = (HashMap) obj1;
         HashMap h2 = (HashMap) obj2;
         String billReferenceDate = (String) h1.get("billReferenceDate");
-
-        BillingONClaimQueryService dbObj = SpringUtils.getBean(BillingONClaimQueryService.class);
 
         String fee1 = dbObj.getCodeFee((String) h1.get("serviceCode"), billReferenceDate);
         String fee2 = dbObj.getCodeFee((String) h2.get("serviceCode"), billReferenceDate);

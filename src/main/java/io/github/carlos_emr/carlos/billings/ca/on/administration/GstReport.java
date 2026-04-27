@@ -47,14 +47,29 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 public class GstReport {
 
+    private final BillingONExtDao dao;
+    private final DemographicManager demographicManager;
+    private final BillingServiceDao billingServiceDao;
+
+    /** Production constructor — resolves dependencies from the Spring context. */
+    public GstReport() {
+        this(SpringUtils.getBean(BillingONExtDao.class),
+             SpringUtils.getBean(DemographicManager.class),
+             SpringUtils.getBean(BillingServiceDao.class));
+    }
+
+    /** Test-friendly constructor — takes mocks directly. */
+    GstReport(BillingONExtDao dao, DemographicManager demographicManager, BillingServiceDao billingServiceDao) {
+        this.dao = dao;
+        this.demographicManager = demographicManager;
+        this.billingServiceDao = billingServiceDao;
+    }
+
     public ArrayList<Properties> getGST(LoggedInInfo loggedInInfo, String providerNo, String startDate, String endDate) {
         Properties props;
         ArrayList<String> billno = new ArrayList<String>();
         ArrayList<Properties> list = new ArrayList<Properties>();
         // First find all the billing_no referring to the selected provider_no.
-        BillingONExtDao dao = SpringUtils.getBean(BillingONExtDao.class);
-        DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
-
         for (BillingONExt e : dao.find("provider_no", providerNo)) {
             billno.add("" + e.getBillingNo());
         }
@@ -82,8 +97,7 @@ public class GstReport {
     }
 
     public String getGstFlag(String code, String date) {
-        BillingServiceDao dao = SpringUtils.getBean(BillingServiceDao.class);
-        for (BillingService bs : dao.findGst(code, ConversionUtils.fromDateString(date))) {
+        for (BillingService bs : billingServiceDao.findGst(code, ConversionUtils.fromDateString(date))) {
             return ConversionUtils.toBoolString(bs.getGstFlag());
         }
         return "";
