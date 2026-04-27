@@ -60,14 +60,15 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  *
  * @since 2026-04-26
  */
-final class BillingONFormSiteContextComposer {
+@org.springframework.stereotype.Service
+public class BillingONFormSiteContextComposer {
 
     private final SiteDao siteDao;
     private final OscarAppointmentDao oscarAppointmentDao;
     private final ClinicNbrDao clinicNbrDao;
     private final ProviderDao providerDao;
 
-    BillingONFormSiteContextComposer(SiteDao siteDao,
+    public BillingONFormSiteContextComposer(SiteDao siteDao,
                                      OscarAppointmentDao oscarAppointmentDao,
                                      ClinicNbrDao clinicNbrDao,
                                      ProviderDao providerDao) {

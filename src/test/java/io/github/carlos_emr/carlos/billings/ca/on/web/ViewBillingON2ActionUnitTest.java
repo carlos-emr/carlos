@@ -12,6 +12,7 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONFormDataAssembler;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONFormViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -28,7 +29,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
-import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -39,10 +39,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONFormDataAssembler;
 
 /**
  * Unit tests for {@link ViewBillingON2Action}.
@@ -64,8 +64,14 @@ class ViewBillingON2ActionUnitTest extends CarlosUnitTestBase {
     @Mock
     private LoggedInInfo mockLoggedInInfo;
 
+    @Mock
+    private BillingONFormDataAssembler mockAssembler;
+
     private MockHttpServletRequest mockRequest;
     private MockHttpServletResponse mockResponse;
+
+    private static final BillingONFormViewModel STUB_MODEL =
+            BillingONFormViewModel.builder().demographicNo("stub").build();
 
     @BeforeEach
     void setUp() {
@@ -87,6 +93,7 @@ class ViewBillingON2ActionUnitTest extends CarlosUnitTestBase {
 
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("r"), isNull()))
                 .thenReturn(true);
+        when(mockAssembler.assemble(any(), any())).thenReturn(STUB_MODEL);
     }
 
     @AfterEach
@@ -96,58 +103,40 @@ class ViewBillingON2ActionUnitTest extends CarlosUnitTestBase {
         if (mockitoCloseable != null) mockitoCloseable.close();
     }
 
-    /** A pre-built stub DTO the mocked assembler returns for the happy path. */
-    private static final BillingONFormViewModel STUB_MODEL =
-            BillingONFormViewModel.builder().demographicNo("stub").build();
+    private ViewBillingON2Action newAction() {
+        return new ViewBillingON2Action(mockSecurityInfoManager, mockAssembler);
+    }
 
     @Test
     void shouldReturnSuccess_whenAuthorizedGetRequest() throws Exception {
-        try (MockedConstruction<BillingONFormDataAssembler> ignored = mockConstruction(
-                BillingONFormDataAssembler.class,
-                (mock, ctx) -> when(mock.assemble(any(), any())).thenReturn(STUB_MODEL))) {
-            ViewBillingON2Action action = new ViewBillingON2Action(mockSecurityInfoManager, new BillingONFormDataAssembler());
-
-            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
-            assertThat(action.getModel()).isSameAs(STUB_MODEL);
-        }
+        ViewBillingON2Action action = newAction();
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(action.getModel()).isSameAs(STUB_MODEL);
     }
 
     @Test
     void shouldReturnSuccess_whenAuthorizedPostRequest() throws Exception {
         mockRequest.setMethod("POST");
-
-        try (MockedConstruction<BillingONFormDataAssembler> ignored = mockConstruction(
-                BillingONFormDataAssembler.class,
-                (mock, ctx) -> when(mock.assemble(any(), any())).thenReturn(STUB_MODEL))) {
-            ViewBillingON2Action action = new ViewBillingON2Action(mockSecurityInfoManager, new BillingONFormDataAssembler());
-            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
-        }
+        ViewBillingON2Action action = newAction();
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
     }
 
     @Test
     void shouldReturnSuccess_whenAuthorizedHeadRequest() throws Exception {
         mockRequest.setMethod("HEAD");
-
-        try (MockedConstruction<BillingONFormDataAssembler> ignored = mockConstruction(
-                BillingONFormDataAssembler.class,
-                (mock, ctx) -> when(mock.assemble(any(), any())).thenReturn(STUB_MODEL))) {
-            ViewBillingON2Action action = new ViewBillingON2Action(mockSecurityInfoManager, new BillingONFormDataAssembler());
-            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
-        }
+        ViewBillingON2Action action = newAction();
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
     }
 
     @Test
     void shouldSendMethodNotAllowedAndReturnNone_whenDeleteRequest() throws Exception {
         mockRequest.setMethod("DELETE");
+        ViewBillingON2Action action =
+                new ViewBillingON2Action(mockSecurityInfoManager, mock(BillingONFormDataAssembler.class));
 
-        try (MockedConstruction<BillingONFormDataAssembler> ignored =
-                mockConstruction(BillingONFormDataAssembler.class)) {
-            ViewBillingON2Action action = new ViewBillingON2Action(mockSecurityInfoManager, new BillingONFormDataAssembler());
-
-            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
-            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            assertThat(mockResponse.getHeader("Allow")).isEqualTo("GET, HEAD, POST");
-        }
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("GET, HEAD, POST");
     }
 
     @Test
@@ -155,14 +144,11 @@ class ViewBillingON2ActionUnitTest extends CarlosUnitTestBase {
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(null);
 
-        try (MockedConstruction<BillingONFormDataAssembler> ignored =
-                mockConstruction(BillingONFormDataAssembler.class)) {
-            ViewBillingON2Action action = new ViewBillingON2Action(mockSecurityInfoManager, new BillingONFormDataAssembler());
-
-            assertThatThrownBy(action::execute)
-                    .isInstanceOf(SecurityException.class)
-                    .hasMessageContaining("_billing");
-        }
+        ViewBillingON2Action action =
+                new ViewBillingON2Action(mockSecurityInfoManager, mock(BillingONFormDataAssembler.class));
+        assertThatThrownBy(action::execute)
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_billing");
     }
 
     @Test
@@ -170,40 +156,29 @@ class ViewBillingON2ActionUnitTest extends CarlosUnitTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("r"), isNull()))
                 .thenReturn(false);
 
-        try (MockedConstruction<BillingONFormDataAssembler> ignored =
-                mockConstruction(BillingONFormDataAssembler.class)) {
-            ViewBillingON2Action action = new ViewBillingON2Action(mockSecurityInfoManager, new BillingONFormDataAssembler());
-
-            assertThatThrownBy(action::execute)
-                    .isInstanceOf(SecurityException.class)
-                    .hasMessageContaining("_billing");
-        }
+        ViewBillingON2Action action =
+                new ViewBillingON2Action(mockSecurityInfoManager, mock(BillingONFormDataAssembler.class));
+        assertThatThrownBy(action::execute)
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_billing");
     }
 
     @Test
     void shouldDelegateToAssembler_andExposeItsModel() throws Exception {
-        try (MockedConstruction<BillingONFormDataAssembler> construction = mockConstruction(
-                BillingONFormDataAssembler.class,
-                (mock, ctx) -> when(mock.assemble(any(), any())).thenReturn(STUB_MODEL))) {
-            ViewBillingON2Action action = new ViewBillingON2Action(mockSecurityInfoManager, new BillingONFormDataAssembler());
+        ViewBillingON2Action action = newAction();
 
-            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
-            assertThat(construction.constructed()).hasSize(1);
-            assertThat(action.getModel()).isSameAs(STUB_MODEL);
-        }
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(mockAssembler).assemble(any(), any());
+        assertThat(action.getModel()).isSameAs(STUB_MODEL);
     }
 
     @Test
     void shouldExposeModel_asRequestAttribute() throws Exception {
-        try (MockedConstruction<BillingONFormDataAssembler> ignored = mockConstruction(
-                BillingONFormDataAssembler.class,
-                (mock, ctx) -> when(mock.assemble(any(), any())).thenReturn(STUB_MODEL))) {
-            ViewBillingON2Action action = new ViewBillingON2Action(mockSecurityInfoManager, new BillingONFormDataAssembler());
-            action.execute();
+        ViewBillingON2Action action = newAction();
+        action.execute();
 
-            Object attr = mockRequest.getAttribute("formModel");
-            assertThat(attr).isInstanceOf(BillingONFormViewModel.class);
-            assertThat(attr).isSameAs(action.getModel());
-        }
+        Object attr = mockRequest.getAttribute("formModel");
+        assertThat(attr).isInstanceOf(BillingONFormViewModel.class);
+        assertThat(attr).isSameAs(action.getModel());
     }
 }

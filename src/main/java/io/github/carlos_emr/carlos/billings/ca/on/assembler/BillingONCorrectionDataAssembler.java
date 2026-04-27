@@ -33,18 +33,10 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONRemittanceAdviceService;
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
-import io.github.carlos_emr.carlos.commn.dao.BillingONEAReportDao;
-import io.github.carlos_emr.carlos.commn.dao.BillingONErrorCodeDao;
-import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
-import io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao;
-import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
-import io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao;
-import io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao;
 import io.github.carlos_emr.carlos.commn.dao.RaDetailDao;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
-import io.github.carlos_emr.carlos.commn.service.BillingONService;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
@@ -57,7 +49,6 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.web.BillingCorrection2Action;
 
 /**
@@ -97,80 +88,20 @@ public class BillingONCorrectionDataAssembler {
     private final BillingONCHeader1Dao bCh1Dao;
     private final RaDetailDao raDetailDao;
     private final ProfessionalSpecialistDao professionalSpecialistDao;
-    private final BillingONCorrectionRenderStep renderContextComposer;
+    private final BillingONCorrectionRenderComposer renderContextComposer;
     private final BillingONLookupService lookupService;
     private final BillingONRemittanceAdviceService raService;
 
-    /**
-     * Production constructor used by Struts; resolves dependencies from the
-     * Spring context via {@link SpringUtils#getBean}. Tests use the
-     * package-private constructor below to inject mocks directly.
-     */
-    public BillingONCorrectionDataAssembler() {
-        this(SpringUtils.getBean(SecurityInfoManager.class),
-             SpringUtils.getBean(ProviderDao.class),
-             SpringUtils.getBean(ProviderSiteDao.class),
-             SpringUtils.getBean(SiteDao.class),
-             SpringUtils.getBean(BillingONCHeader1Dao.class),
-             SpringUtils.getBean(RaDetailDao.class),
-             SpringUtils.getBean(ProfessionalSpecialistDao.class),
-             SpringUtils.getBean(BillingServiceDao.class),
-             SpringUtils.getBean(BillingONService.class),
-             SpringUtils.getBean(BillingONExtDao.class),
-             SpringUtils.getBean(BillingONPaymentDao.class),
-             SpringUtils.getBean(BillingONEAReportDao.class),
-             SpringUtils.getBean(BillingONErrorCodeDao.class),
-             SpringUtils.getBean(ClinicLocationDao.class),
-             SpringUtils.getBean(ClinicNbrDao.class),
-             SpringUtils.getBean(io.github.carlos_emr.carlos.billings.ca.on.service.Billing3rdPartPrep.class),
-             SpringUtils.getBean(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService.class),
-             SpringUtils.getBean(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONRemittanceAdviceService.class));
-    }
-
-    /**
-     * Test constructor: 7-arg shape for legacy tests that only need
-     * user-context + bill-record assembly. The render-context composer is
-     * left {@code null}; {@link #assemble} skips it when null, mirroring
-     * the test-mode short-circuit already used elsewhere in the billing
-     * assembler family.
-     */
-    BillingONCorrectionDataAssembler(SecurityInfoManager securityInfoManager,
-                                     ProviderDao providerDao,
-                                     ProviderSiteDao providerSiteDao,
-                                     SiteDao siteDao,
-                                     BillingONCHeader1Dao bCh1Dao,
-                                     RaDetailDao raDetailDao,
-                                     ProfessionalSpecialistDao professionalSpecialistDao) {
-        this.securityInfoManager = securityInfoManager;
-        this.providerDao = providerDao;
-        this.providerSiteDao = providerSiteDao;
-        this.siteDao = siteDao;
-        this.bCh1Dao = bCh1Dao;
-        this.raDetailDao = raDetailDao;
-        this.professionalSpecialistDao = professionalSpecialistDao;
-        this.lookupService = null;
-        this.raService = null;
-        this.renderContextComposer = null;
-    }
-
-    BillingONCorrectionDataAssembler(SecurityInfoManager securityInfoManager,
+    public BillingONCorrectionDataAssembler(SecurityInfoManager securityInfoManager,
                                      ProviderDao providerDao,
                                      ProviderSiteDao providerSiteDao,
                                      SiteDao siteDao,
                                      BillingONCHeader1Dao bCh1Dao,
                                      RaDetailDao raDetailDao,
                                      ProfessionalSpecialistDao professionalSpecialistDao,
-                                     BillingServiceDao billingServiceDao,
-                                     BillingONService billingONService,
-                                     BillingONExtDao bExtDao,
-                                     BillingONPaymentDao billingONPaymentDao,
-                                     BillingONEAReportDao billingONEAReportDao,
-                                     BillingONErrorCodeDao billingONErrorCodeDao,
-                                     ClinicLocationDao clinicLocationDao,
-                                     ClinicNbrDao clinicNbrDao,
-                                     io.github.carlos_emr.carlos.billings.ca.on.service.Billing3rdPartPrep thirdPartPrep,
                                      BillingONLookupService lookupService,
-                                     BillingONRemittanceAdviceService raService) {
+                                     BillingONRemittanceAdviceService raService,
+                                     BillingONCorrectionRenderComposer renderContextComposer) {
         this.securityInfoManager = securityInfoManager;
         this.providerDao = providerDao;
         this.providerSiteDao = providerSiteDao;
@@ -180,18 +111,7 @@ public class BillingONCorrectionDataAssembler {
         this.professionalSpecialistDao = professionalSpecialistDao;
         this.lookupService = lookupService;
         this.raService = raService;
-        this.renderContextComposer = new BillingONCorrectionRenderStep(
-                securityInfoManager,
-                billingServiceDao,
-                billingONService,
-                bExtDao,
-                billingONPaymentDao,
-                billingONEAReportDao,
-                billingONErrorCodeDao,
-                raDetailDao,
-                clinicLocationDao,
-                clinicNbrDao,
-                thirdPartPrep);
+        this.renderContextComposer = renderContextComposer;
     }
 
     /**

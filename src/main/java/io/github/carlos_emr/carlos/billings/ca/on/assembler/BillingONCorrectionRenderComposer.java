@@ -78,7 +78,8 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.Billing3rdPartPrep;
  *
  * @since 2026-04-25
  */
-final class BillingONCorrectionRenderStep {
+@org.springframework.stereotype.Service
+public class BillingONCorrectionRenderComposer {
 
     // First-party "Paid/Refund" form-input HTML, identical bytes to the
     // legacy inline JSP scriptlet so the rendered output and the form's
@@ -109,7 +110,7 @@ final class BillingONCorrectionRenderStep {
     private final ClinicNbrDao clinicNbrDao;
     private final Billing3rdPartPrep thirdPartPrep;
 
-    BillingONCorrectionRenderStep(SecurityInfoManager securityInfoManager,
+    public BillingONCorrectionRenderComposer(SecurityInfoManager securityInfoManager,
                                              BillingServiceDao billingServiceDao,
                                              BillingONService billingONService,
                                              BillingONExtDao bExtDao,

@@ -95,7 +95,10 @@ class BillingONCorrectionDataAssemblerUnitTest extends CarlosUnitTestBase {
                 siteDao,
                 bCh1Dao,
                 raDetailDao,
-                professionalSpecialistDao);
+                professionalSpecialistDao,
+                null,   // lookupService — user-context tests skip the bill-record path
+                null,   // raService — same
+                null);  // renderContextComposer — same
     }
 
     @Test

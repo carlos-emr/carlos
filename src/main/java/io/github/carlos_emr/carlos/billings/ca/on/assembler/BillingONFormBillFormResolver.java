@@ -45,13 +45,14 @@ import io.github.carlos_emr.CarlosProperties;
  *
  * @since 2026-04-25
  */
-final class BillingONFormBillFormStep {
+@org.springframework.stereotype.Service
+public class BillingONFormBillFormResolver {
 
     private final CtlBillingServiceDao ctlBillingServiceDao;
     private final ProviderPreferenceDao providerPreferenceDao;
     private final MyGroupDao myGroupDao;
 
-    BillingONFormBillFormStep(CtlBillingServiceDao ctlBillingServiceDao,
+    public BillingONFormBillFormResolver(CtlBillingServiceDao ctlBillingServiceDao,
                                   ProviderPreferenceDao providerPreferenceDao,
                                   MyGroupDao myGroupDao) {
         this.ctlBillingServiceDao = ctlBillingServiceDao;

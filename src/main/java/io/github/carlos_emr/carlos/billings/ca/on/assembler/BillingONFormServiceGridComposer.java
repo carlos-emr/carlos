@@ -62,7 +62,8 @@ import static io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONForm
  *
  * @since 2026-04-25
  */
-final class BillingONFormServiceGridStep {
+@org.springframework.stereotype.Service
+public class BillingONFormServiceGridComposer {
 
     /**
      * Whitelist for {@code displayStyle} values rendered into a service-grid
@@ -81,7 +82,7 @@ final class BillingONFormServiceGridStep {
     private final CtlBillingTypeDao ctlBillingTypeDao;
     private final DiagnosticCodeDao diagnosticCodeDao;
 
-    BillingONFormServiceGridStep(CtlBillingServiceDao ctlBillingServiceDao,
+    public BillingONFormServiceGridComposer(CtlBillingServiceDao ctlBillingServiceDao,
                                      BillingServiceDao billingServiceDao,
                                      CtlBillingServicePremiumDao ctlBillingServicePremiumDao,
                                      CSSStylesDAO cssStylesDAO,

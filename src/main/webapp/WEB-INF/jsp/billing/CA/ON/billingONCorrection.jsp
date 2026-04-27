@@ -703,7 +703,7 @@
 
                     <tbody>
                     <%-- Per-row line-item table; correctionModel.billItems is
-                         pre-resolved by BillingONCorrectionRenderStep.
+                         pre-resolved by BillingONCorrectionRenderComposer.
                          Display at least MAXRECORDS (6) rows; pad with empty
                          rows if fewer items exist. --%>
                     <c:if test="${__bFlag and correctionModel.multiSiteProvider and not empty correctionModel.billItems}">

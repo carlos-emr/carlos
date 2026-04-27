@@ -74,6 +74,7 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
 
     private MockHttpServletRequest request;
     private LoggedInInfo loggedInInfo;
+    private BillingONFormDataAssembler assembler;
 
     @BeforeEach
     void setUp() {
@@ -162,6 +163,20 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
         request = new MockHttpServletRequest();
         request.getSession(true).setAttribute("user", "999998");
         loggedInInfo = Mockito.mock(LoggedInInfo.class);
+
+        assembler = new BillingONFormDataAssembler(
+                dxresearchDAO,
+                userPropertyDAO,
+                providerDao,
+                billingONLookupService,
+                Mockito.mock(BillingONClaimQueryService.class),
+                new BillingONFormDemographicLoader(demographicManager, professionalSpecialistDao),
+                new BillingONFormBillFormResolver(ctlBillingServiceDao, providerPreferenceDao, myGroupDao),
+                new BillingONFormServiceGridComposer(
+                        ctlBillingServiceDao, billingServiceDao, ctlBillingServicePremiumDao,
+                        cssStylesDAO, codeFilterManager, ctlBillingTypeDao, diagnosticCodeDao),
+                new BillingONFormSiteContextComposer(
+                        siteDao, oscarAppointmentDao, clinicNbrDao, providerDao));
     }
 
     @Test
@@ -171,7 +186,7 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
         request.setParameter("service_date", "2026-04-24");
         request.setParameter("billForm", "GP");
 
-        BillingONFormDataAssembler assembler = new BillingONFormDataAssembler();
+        // assembler built in setUp
         BillingONFormViewModel model = assembler.assemble(request, loggedInInfo);
 
         assertThat(model).isNotNull();
@@ -187,7 +202,7 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
         request.setParameter("service_date", "2026-04-24");
         request.setParameter("billForm", "GP");
 
-        BillingONFormDataAssembler assembler = new BillingONFormDataAssembler();
+        // assembler built in setUp
         BillingONFormViewModel model = assembler.assemble(request, loggedInInfo);
 
         assertThat(model.getDemoHcType()).isEqualTo("ON");
@@ -200,7 +215,7 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
         request.setParameter("service_date", "2026-04-24");
         request.setParameter("billForm", "GP");
 
-        BillingONFormDataAssembler assembler = new BillingONFormDataAssembler();
+        // assembler built in setUp
         BillingONFormViewModel model = assembler.assemble(request, loggedInInfo);
 
         assertThat(model.getErrorFlag()).isEqualTo("1");
@@ -215,7 +230,7 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
         request.setParameter("service_date", "2026-04-24");
         request.setParameter("billForm", "GP");
 
-        BillingONFormDataAssembler assembler = new BillingONFormDataAssembler();
+        // assembler built in setUp
         BillingONFormViewModel model = assembler.assemble(request, loggedInInfo);
 
         // The pipe is stripped — JSP's behaviour preserved.
@@ -233,7 +248,7 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
         request.setParameter("service_date", "2026-04-24");
         request.setParameter("billForm", "GP");
 
-        BillingONFormDataAssembler assembler = new BillingONFormDataAssembler();
+        // assembler built in setUp
         BillingONFormViewModel model = assembler.assemble(request, loggedInInfo);
 
         assertThat(model.getProviderNo()).isEqualTo("999998");
@@ -247,7 +262,7 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
         request.setParameter("service_date", "2026-04-24");
         request.setParameter("billForm", "GP");
 
-        BillingONFormDataAssembler assembler = new BillingONFormDataAssembler();
+        // assembler built in setUp
         BillingONFormViewModel model = assembler.assemble(request, loggedInInfo);
 
         assertThat(model.getProviderNo()).isEqualTo("111111");
@@ -261,7 +276,7 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
         request.setParameter("service_date", "2026-04-24");
         request.setParameter("billForm", "GP");
 
-        BillingONFormDataAssembler assembler = new BillingONFormDataAssembler();
+        // assembler built in setUp
         BillingONFormViewModel model = assembler.assemble(request, loggedInInfo);
 
         assertThat(model.getProviderNo()).isEqualTo("222222");

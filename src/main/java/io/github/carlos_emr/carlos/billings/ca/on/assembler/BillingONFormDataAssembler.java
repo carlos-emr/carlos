@@ -20,23 +20,13 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
-import io.github.carlos_emr.carlos.billing.CA.filters.CodeFilterManager;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingMultisiteContext;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONFormViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimQueryService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
-import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
-import io.github.carlos_emr.carlos.commn.dao.CSSStylesDAO;
-import io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao;
-import io.github.carlos_emr.carlos.commn.dao.CtlBillingServicePremiumDao;
-import io.github.carlos_emr.carlos.commn.dao.CtlBillingTypeDao;
-import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
 import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
-import io.github.carlos_emr.carlos.commn.dao.MyGroupDao;
-import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
-import io.github.carlos_emr.carlos.commn.dao.ProviderPreferenceDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
@@ -44,11 +34,9 @@ import io.github.carlos_emr.carlos.commn.model.Dxresearch;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
-import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONRequestParams;
 
@@ -60,14 +48,14 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONRequestParams;
  *
  * <p>Composer breakdown:</p>
  * <ul>
- *   <li>{@link BillingONFormDemographicStep} — demographic, age,
+ *   <li>{@link BillingONFormDemographicLoader} — demographic, age,
  *       referral doctor, validation messages</li>
  *   <li>the inlined {@link #recommendBillingGuidelines} step — Drools billing
  *       guidelines</li>
- *   <li>{@link BillingONFormBillFormStep} — {@code ctlBillForm}
+ *   <li>{@link BillingONFormBillFormResolver} — {@code ctlBillForm}
  *       priority chain (curBillForm → roster → preference → group →
  *       default)</li>
- *   <li>{@link BillingONFormServiceGridStep} — service-code grid +
+ *   <li>{@link BillingONFormServiceGridComposer} — service-code grid +
  *       billing-form menu + dx codes by type (the ~120-line block in
  *       the legacy implementation)</li>
  * </ul>
@@ -97,95 +85,30 @@ public class BillingONFormDataAssembler {
     private final BillingONClaimQueryService claimQueryService;
 
     // Inner steps — built once per assembler instance.
-    private final BillingONFormDemographicStep demographicLoader;
-    private final BillingONFormBillFormStep billFormResolver;
-    private final BillingONFormServiceGridStep serviceGridComposer;
+    private final BillingONFormDemographicLoader demographicLoader;
+    private final BillingONFormBillFormResolver billFormResolver;
+    private final BillingONFormServiceGridComposer serviceGridComposer;
     private final BillingONFormSiteContextComposer siteContextComposer;
 
-    /**
-     * Production constructor used by Struts; resolves every dependency from
-     * the Spring context via {@link SpringUtils#getBean}. Tests use the
-     * package-private constructor below to inject mocks directly.
-     */
-    public BillingONFormDataAssembler() {
-        this(SpringUtils.getBean(DemographicManager.class),
-             SpringUtils.getBean(ProfessionalSpecialistDao.class),
-             SpringUtils.getBean(DxresearchDAO.class),
-             SpringUtils.getBean(UserPropertyDAO.class),
-             SpringUtils.getBean(ProviderDao.class),
-             SpringUtils.getBean(CtlBillingServiceDao.class),
-             SpringUtils.getBean(ProviderPreferenceDao.class),
-             SpringUtils.getBean(MyGroupDao.class),
-             SpringUtils.getBean(BillingServiceDao.class),
-             SpringUtils.getBean(CtlBillingServicePremiumDao.class),
-             SpringUtils.getBean(CSSStylesDAO.class),
-             SpringUtils.getBean(CodeFilterManager.class),
-             SpringUtils.getBean(CtlBillingTypeDao.class),
-             SpringUtils.getBean(DiagnosticCodeDao.class),
-             SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.SiteDao.class),
-             SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao.class),
-             SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao.class),
-             SpringUtils.getBean(BillingONLookupService.class),
-             SpringUtils.getBean(BillingONClaimQueryService.class));
-    }
-
-    /** Test-friendly ctor with the legacy 14-DAO arg list. Site-context fields default to empty. */
-    BillingONFormDataAssembler(DemographicManager demographicManager,
-                               ProfessionalSpecialistDao professionalSpecialistDao,
-                               DxresearchDAO dxresearchDao,
+    public BillingONFormDataAssembler(DxresearchDAO dxresearchDao,
                                UserPropertyDAO userPropertyDao,
                                ProviderDao providerDao,
-                               CtlBillingServiceDao ctlBillingServiceDao,
-                               ProviderPreferenceDao providerPreferenceDao,
-                               MyGroupDao myGroupDao,
-                               BillingServiceDao billingServiceDao,
-                               CtlBillingServicePremiumDao ctlBillingServicePremiumDao,
-                               CSSStylesDAO cssStylesDao,
-                               CodeFilterManager codeFilterManager,
-                               CtlBillingTypeDao ctlBillingTypeDao,
-                               DiagnosticCodeDao diagnosticCodeDao) {
-        this(demographicManager, professionalSpecialistDao, dxresearchDao, userPropertyDao,
-             providerDao, ctlBillingServiceDao, providerPreferenceDao, myGroupDao,
-             billingServiceDao, ctlBillingServicePremiumDao, cssStylesDao, codeFilterManager,
-             ctlBillingTypeDao, diagnosticCodeDao, null, null, null, null, null);
-    }
-
-    BillingONFormDataAssembler(DemographicManager demographicManager,
-                               ProfessionalSpecialistDao professionalSpecialistDao,
-                               DxresearchDAO dxresearchDao,
-                               UserPropertyDAO userPropertyDao,
-                               ProviderDao providerDao,
-                               CtlBillingServiceDao ctlBillingServiceDao,
-                               ProviderPreferenceDao providerPreferenceDao,
-                               MyGroupDao myGroupDao,
-                               BillingServiceDao billingServiceDao,
-                               CtlBillingServicePremiumDao ctlBillingServicePremiumDao,
-                               CSSStylesDAO cssStylesDao,
-                               CodeFilterManager codeFilterManager,
-                               CtlBillingTypeDao ctlBillingTypeDao,
-                               DiagnosticCodeDao diagnosticCodeDao,
-                               io.github.carlos_emr.carlos.commn.dao.SiteDao siteDao,
-                               io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao oscarAppointmentDao,
-                               io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao clinicNbrDao,
                                BillingONLookupService lookupService,
-                               BillingONClaimQueryService claimQueryService) {
-        // Hold only what the orchestrator still consumes directly.
+                               @org.springframework.context.annotation.Lazy
+                               BillingONClaimQueryService claimQueryService,
+                               BillingONFormDemographicLoader demographicLoader,
+                               BillingONFormBillFormResolver billFormResolver,
+                               BillingONFormServiceGridComposer serviceGridComposer,
+                               BillingONFormSiteContextComposer siteContextComposer) {
         this.dxresearchDao = dxresearchDao;
         this.userPropertyDao = userPropertyDao;
         this.providerDao = providerDao;
         this.lookupService = lookupService;
         this.claimQueryService = claimQueryService;
-
-        // The remaining DAOs flow into the inner steps and aren't held here.
-        this.demographicLoader = new BillingONFormDemographicStep(
-                demographicManager, professionalSpecialistDao);
-        this.billFormResolver = new BillingONFormBillFormStep(
-                ctlBillingServiceDao, providerPreferenceDao, myGroupDao);
-        this.serviceGridComposer = new BillingONFormServiceGridStep(
-                ctlBillingServiceDao, billingServiceDao, ctlBillingServicePremiumDao,
-                cssStylesDao, codeFilterManager, ctlBillingTypeDao, diagnosticCodeDao);
-        this.siteContextComposer = new BillingONFormSiteContextComposer(
-                siteDao, oscarAppointmentDao, clinicNbrDao, providerDao);
+        this.demographicLoader = demographicLoader;
+        this.billFormResolver = billFormResolver;
+        this.serviceGridComposer = serviceGridComposer;
+        this.siteContextComposer = siteContextComposer;
     }
 
     /**
@@ -307,7 +230,7 @@ public class BillingONFormDataAssembler {
 
         // ---- demographic + age + referral + validation messages ----
 
-        BillingONFormDemographicStep.LoadedDemographic loaded =
+        BillingONFormDemographicLoader.LoadedDemographic loaded =
                 demographicLoader.load(b, loggedInInfo, demoNo);
         Demographic demo = loaded.demo();
         String rosterStatus = loaded.rosterStatus();
@@ -365,7 +288,7 @@ public class BillingONFormDataAssembler {
                 .xmlVisitType(nullToEmpty(xmlVisitType));
 
         // ---- ctlBillForm priority-chain resolution ----
-        BillingONFormBillFormStep.ResolvedBillForm resolved = billFormResolver.resolve(
+        BillingONFormBillFormResolver.ResolvedBillForm resolved = billFormResolver.resolve(
                 b, request, visitType, rosterStatus, providerNo, userNo, apptProviderNo);
         String ctlBillForm = resolved.ctlBillForm();
 

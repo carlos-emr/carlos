@@ -35,12 +35,13 @@ import static io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONForm
  *
  * @since 2026-04-25
  */
-final class BillingONFormDemographicStep {
+@org.springframework.stereotype.Service
+public class BillingONFormDemographicLoader {
 
     private final DemographicManager demographicManager;
     private final ProfessionalSpecialistDao professionalSpecialistDao;
 
-    BillingONFormDemographicStep(DemographicManager demographicManager,
+    public BillingONFormDemographicLoader(DemographicManager demographicManager,
                                    ProfessionalSpecialistDao professionalSpecialistDao) {
         this.demographicManager = demographicManager;
         this.professionalSpecialistDao = professionalSpecialistDao;
