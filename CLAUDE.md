@@ -246,7 +246,7 @@ Full policy + decision rules + retired-suffix migration guidance: **`docs/archit
 
 **Core Medical Modules**:
 - **PMmodule/**: Program management and case management
-- **billing/**: Province-specific billing (BC, ON) with diagnostic codes
+- **billing/**: Province-specific billing (BC, ON) with diagnostic codes. Ontario-specific architecture, layer conventions, fetch policies, and refactor history are documented in **[`docs/billing-ontario-module.md`](docs/billing-ontario-module.md)** — read this before extending `billings/ca/on/**`.
 - **prescription/**: Drug management with ATC codes, interaction checking
 - **lab/**: HL7 lab results
 - **prevention/**: Immunization tracking with provincial schedules
@@ -1081,6 +1081,7 @@ src/main/java/io/github/carlos_emr/carlos/commn/dao/DemographicDao.java       # 
 # Provincial Healthcare Integration
 src/main/java/io/github/carlos_emr/carlos/billing/CA/BC/                      # BC-specific billing
 src/main/java/io/github/carlos_emr/carlos/billing/CA/ON/                      # Ontario-specific billing
+docs/billing-ontario-module.md                                                 # Ontario billing architecture, fetch policy, recipe
 src/main/java/io/github/carlos_emr/carlos/olis/                               # Ontario Labs integration
 
 # HL7 & FHIR Examples
@@ -1228,7 +1229,7 @@ README.md                                          # Project setup and overview
 - **Security Patterns**: Check `SecurityInfoManager.java` and existing 2Action implementations
 - **Database Access**: Look at DAO implementations in `commn.dao` package
 - **Healthcare Standards**: Examine `hl7/` and `fhir/` packages for integration patterns
-- **Provincial Variations**: Study `billing/CA/BC/` vs `billing/CA/ON/` implementations
+- **Provincial Variations**: Study `billing/CA/BC/` vs `billing/CA/ON/` implementations. The Ontario module has a dedicated architecture doc — see [`docs/billing-ontario-module.md`](docs/billing-ontario-module.md) for layer conventions, entity domain methods, fetch policy (LAZY + JOIN FETCH companions), service/loader/persister suffix grammar, and the new-feature recipe.
 - **Spring Configuration**: Reference the multiple `applicationContext*.xml` files
 - **2Action Migration**: Compare legacy Action classes with their 2Action equivalents
 - **New JSP-backed pages**: Follow `docs/struts-web-endpoints.md`
