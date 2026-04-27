@@ -198,7 +198,7 @@
 %>
 
 <!DOCTYPE html>
-<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
+<html lang="${e:forHtmlAttribute(pageContext.request.locale.language)}">
 <head>
     <meta charset="UTF-8">
     <title>CARLOS - <fmt:message key="messenger.generatePreviewPDF.title"/></title>
@@ -207,7 +207,7 @@
     <script>
         // i18n message strings for JavaScript dialogs
         var MSGS = {
-            exitConfirm: '${carlos:forJavaScript(exitConfirmMsg)}'
+            exitConfirm: '${e:forJavaScript(exitConfirmMsg)}'
         };
 
         /**
@@ -349,7 +349,7 @@
         <div class="d-flex align-items-center gap-3">
             <span class="text-muted small">
                 <fmt:message key="messenger.generatePreviewPDF.attachDocFor"/>
-                ${carlos:forHtml(demoName)}
+                ${e:forHtml(demoName)}
             </span>
             <a href="javascript:popupStart(300,400,'About.jsp')" class="small text-decoration-none">
                 <fmt:message key="global.about"/>
@@ -392,11 +392,11 @@
                                value="<%= demoIndex %>"
                                <%= selectedIndexes.contains(demoIndex) ? "checked" : "" %>/>
                         <input type="checkbox" name="titleArray"
-                               value="${carlos:forHtmlAttribute(demoTitleValue)}"
+                               value="${e:forHtmlAttribute(demoTitleValue)}"
                                style="display:none"/>
                     </td>
                     <td class="align-middle">
-                        ${carlos:forHtml(demoName)}
+                        ${e:forHtml(demoName)}
                         <fmt:message key="messenger.generatePreviewPDF.information"/>
                     </td>
                     <td class="align-middle" style="width:8rem;">
@@ -428,10 +428,10 @@
                                value="<%= encounterIndex %>"
                                <%= selectedIndexes.contains(encounterIndex) ? "checked" : "" %>/>
                         <input type="checkbox" name="titleArray"
-                               value="${carlos:forHtmlAttribute(ecTitleValue)}"
+                               value="${e:forHtmlAttribute(ecTitleValue)}"
                                style="display:none"/>
                     </td>
-                    <td class="align-middle">${carlos:forHtml(ecTimestamp)}</td>
+                    <td class="align-middle">${e:forHtml(ecTimestamp)}</td>
                     <td class="align-middle">
                         <% if (request.getParameter("isAttaching") == null) { %>
                         <button type="button"
@@ -461,7 +461,7 @@
                                value="<%= prescriptionIndex %>"
                                <%= selectedIndexes.contains(prescriptionIndex) ? "checked" : "" %>/>
                         <input type="checkbox" name="titleArray"
-                               value="${carlos:forHtmlAttribute(currentPrescTitle)}"
+                               value="${e:forHtmlAttribute(currentPrescTitle)}"
                                style="display:none"/>
                     </td>
                     <td class="align-middle">
@@ -529,7 +529,7 @@
                     j++;
                 }
             }
-            var attachingTemplate = '${carlos:forJavaScript(jsAttachingTemplate)}';
+            var attachingTemplate = '${e:forJavaScript(jsAttachingTemplate)}';
             document.forms[0].status.value = attachingTemplate
                 .replace('{0}', <%=(msgSessionBean != null ? msgSessionBean.getCurrentAttachmentCount() + 1 : 1)%>)
                 .replace('{1}', j);

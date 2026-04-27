@@ -57,7 +57,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <!DOCTYPE html>
-<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
+<html lang="${e:forHtmlAttribute(pageContext.request.locale.language)}">
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <%
