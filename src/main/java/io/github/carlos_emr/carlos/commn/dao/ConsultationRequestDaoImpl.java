@@ -36,7 +36,6 @@ import java.util.List;
 
 import jakarta.persistence.Query;
 
-import org.apache.commons.lang3.time.DateFormatUtils;
 import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.consultation.dto.ConsultationRequestListItemDTO;
@@ -88,22 +87,22 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
         }
 
         if (!team.isEmpty()) {
-            sql.append("and cr.sendTo = '" + team + "' ");
+            sql.append("and cr.sendTo = :team ");
         }
 
         if (startDate != null) {
             if (searchDate != null && searchDate.equals("1")) {
-                sql.append("and cr.appointmentDate >= '" + DateFormatUtils.ISO_DATETIME_FORMAT.format(startDate) + "' ");
+                sql.append("and cr.appointmentDate >= :startDate ");
             } else {
-                sql.append("and cr.referralDate >= '" + DateFormatUtils.ISO_DATETIME_FORMAT.format(startDate) + "' ");
+                sql.append("and cr.referralDate >= :startDate ");
             }
         }
 
         if (endDate != null) {
             if (searchDate != null && searchDate.equals("1")) {
-                sql.append("and cr.appointmentDate <= '" + DateFormatUtils.ISO_DATETIME_FORMAT.format(endDate) + "' ");
+                sql.append("and cr.appointmentDate <= :endDate ");
             } else {
-                sql.append("and cr.referralDate <= '" + DateFormatUtils.ISO_DATETIME_FORMAT.format(endDate) + "' ");
+                sql.append("and cr.referralDate <= :endDate ");
             }
         }
 
@@ -135,6 +134,18 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
 
 
         Query query = entityManager.createQuery(sql.toString());
+
+        if (!team.isEmpty()) {
+            query.setParameter("team", team);
+        }
+
+        if (startDate != null) {
+            query.setParameter("startDate", startDate);
+        }
+
+        if (endDate != null) {
+            query.setParameter("endDate", endDate);
+        }
         query.setFirstResult(offset != null ? offset : 0);
 
         //need to never send more than MAX_LIST_RETURN_SIZE
