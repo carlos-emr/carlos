@@ -23,59 +23,33 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ page
-        import="java.util.*,io.github.carlos_emr.carlos.report.data.*, java.util.Properties, io.github.carlos_emr.carlos.billing.ca.on.administration.*" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.administration.GstSettingsService" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
-
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%
-    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
-    boolean authed = true;
-%>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.billing" rights="w" reverse="<%=true%>">
-    <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.billing");%>
-</security:oscarSec>
-<%
-    if (!authed) {
-        return;
-    }
-%>
-
 <html>
-
-    <%
-
-        Properties props = SpringUtils.getBean(GstSettingsService.class).readDatabase();
-        String percent = props.getProperty("gstPercent");
-
-    %>
-
-    <script type="text/javascript">
-        function submitcheck() {
-            document.getElementById("gstPercent").value = extractNums(document.getElementById("gstPercent").value);
-        }
-
-        function extractNums(str) {
-            return str.replace(/\D/g, "");
-        }
-    </script>
     <head>
         <title><fmt:message key="admin.admin.manageGSTControl"/></title>
-        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+        <script type="text/javascript">
+            function submitcheck() {
+                document.getElementById("gstPercent").value = extractNums(document.getElementById("gstPercent").value);
+            }
+
+            function extractNums(str) {
+                return str.replace(/\D/g, "");
+            }
+        </script>
     </head>
-    <body onload="loadData()">
+    <body>
 
     <h3><fmt:message key="admin.admin.manageGSTControl"/></h3>
 
-    <form action="<%=request.getContextPath() %>/admin/GstControl" method="post">
+    <form action="${pageContext.request.contextPath}/admin/GstControl" method="post">
         GST:<br>
         <div class="input-group">
-            <input type="text" class="form-control" maxlength="3" id="gstPercent" name="gstPercent" value="<%=percent%>"/>
+            <input type="text" class="form-control" maxlength="3" id="gstPercent" name="gstPercent"
+                   value="<carlos:encode value='${gstControlModel.gstPercent}' context='htmlAttribute'/>"/>
             <span class="input-group-text">%</span>
         </div>
         <br>

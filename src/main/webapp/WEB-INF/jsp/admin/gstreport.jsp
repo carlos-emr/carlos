@@ -23,115 +23,43 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page
-        import="java.math.*, java.util.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.billing.ca.on.administration.*, io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.administration.GstReport" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
-
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="carlos" prefix="carlos" %>
-
-<%
-    String curProvider_no = (String) session.getAttribute("user");
-    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
-
-    boolean isSiteAccessPrivacy = false;
-    boolean isTeamAccessPrivacy = false;
-
-    boolean authed = true;
-%>
-
-<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.reporting,_admin.billing" rights="w"
-                   reverse="<%=true%>">
-    <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.billing&type=_admin.reporting");%>
-</security:oscarSec>
-<%
-    if (!authed) {
-        return;
-    }
-%>
-
-<security:oscarSec objectName="_site_access_privacy" roleName="<%=roleName$%>" rights="r" reverse="false">
-    <%isSiteAccessPrivacy = true; %>
-</security:oscarSec>
-
-<security:oscarSec objectName="_team_access_privacy" roleName="<%=roleName$%>" rights="r" reverse="false">
-    <%isTeamAccessPrivacy = true; %>
-</security:oscarSec>
-
-<%
-    GstReport gstReport = SpringUtils.getBean(GstReport.class);
-    Properties props = new Properties();
-    String providerNo = request.getParameter("providerview");
-    String startDate = request.getParameter("xml_vdate");
-    String endDate = request.getParameter("xml_appointment_date");
-    if (providerNo == null) {
-        providerNo = "";
-    }
-    if (startDate == null) {
-        startDate = "";
-    }
-    if (endDate == null) {
-        endDate = "";
-    }
-    int i;
-    String bgColour;
-    BigDecimal gsttotal = new BigDecimal(0);
-    BigDecimal billedtotal = new BigDecimal(0);
-    BigDecimal earnedtotal = new BigDecimal(0);
-    BigDecimal earned;
-    BigDecimal billed;
-    BigDecimal gst = new BigDecimal(0);
-    List<Properties> list = gstReport.getGST(LoggedInInfo.getLoggedInInfoFromSession(request), providerNo, startDate, endDate);
-
-    BillingONLookupService lookupService = SpringUtils.getBean(BillingONLookupService.class);
-    List<String> pList = new ArrayList<String>();
-    if (isTeamAccessPrivacy) {
-        pList = lookupService.getCurTeamProviderStr(curProvider_no);
-    } else if (isSiteAccessPrivacy) {
-        pList = lookupService.getCurSiteProviderStr(curProvider_no);
-    } else {
-        pList = lookupService.getCurProviderStr();
-    }
-%>
 <html>
 <head>
     <title><fmt:message key="admin.admin.gstReport"/></title>
 
-    <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
-    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
-    <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+    <script src="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.js"></script>
 
-    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
-    <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+    <link href="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
 </head>
 <body>
-<FORM name="gstform" action="<%=request.getContextPath()%>/admin/GstReport" class="d-flex flex-wrap align-items-center gap-2">
+<form name="gstform" action="${pageContext.request.contextPath}/admin/GstReport" class="d-flex flex-wrap align-items-center gap-2">
 
     <h3><fmt:message key="admin.admin.gstReport"/></h3>
 
     <div class="container-fluid card card-body bg-body-tertiary">
         <div class="row">
-        <div class="col-md-2"><fmt:message key="admin.gstReport.date"/>: <%=DateUtils.sumDate("yyyy-MM-dd", "0")%>
+        <div class="col-md-2"><fmt:message key="admin.gstReport.date"/>: ${gstReportModel.today}
         </div>
         <div class="col-md-2 float-end">
-            <button class="btn btn-secondary" type="button" value="<fmt:message key='global.btnPrint'/>" onclick="window.print()"/>
+            <button class="btn btn-secondary" type="button" value="<fmt:message key='global.btnPrint'/>" onclick="window.print()">
             <i class="fa-solid fa-print icon-white"></i> <fmt:message key="global.btnPrint"/></button></div>
 
         <div class="col-md-12">
             <div class="col-md-2">
                 <fmt:message key="admin.gstReport.start"/>:
                 <div class="input-group">
-                    <input type="text" name="xml_vdate" id="xml_vdate" value="<carlos:encode value='<%= startDate %>' context="htmlAttribute"/>"
+                    <input type="text" name="xml_vdate" id="xml_vdate"
+                           value="<carlos:encode value='${gstReportModel.startDate}' context='htmlAttribute'/>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off" style="width:90px"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -139,7 +67,8 @@
             <div class="col-md-2">
                 <fmt:message key="admin.gstReport.end"/>:
                 <div class="input-group">
-                    <input type="text" name="xml_appointment_date" id="xml_appointment_date" value="<carlos:encode value='<%= endDate %>' context="htmlAttribute"/>"
+                    <input type="text" name="xml_appointment_date" id="xml_appointment_date"
+                           value="<carlos:encode value='${gstReportModel.endDate}' context='htmlAttribute'/>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off" style="width:90px"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -149,25 +78,24 @@
                 <fmt:message key="admin.gstReport.provider"/>
                 <div>
                     <select name="providerview">
-                        <%
-                            if (pList.size() == 1) {
-                                String temp[] = ((String) pList.get(0)).split("\\|");
-                        %>
-                        <option value="<%=temp[0]%>"><%=temp[1]%>, <%=temp[2]%>
-                        </option>
-                        <%
-                        } else {
-                        %>
-                        <option value="all">-- <fmt:message key="admin.gstReport.selectProvider"/> --</option>
-                        <% for (i = 0; i < pList.size(); i++) {
-                            String temp[] = ((String) pList.get(i)).split("\\|");
-                        %>
-                        <option value="<%=temp[0]%>"
-                                <%=providerNo.equals(temp[0]) ? "selected" : ""%>><%=temp[1]%>,
-                            <%=temp[2]%>
-                        </option>
-                        <% }
-                        } %>
+                        <c:choose>
+                            <c:when test="${fn:length(gstReportModel.providerOptions) == 1}">
+                                <c:forEach var="opt" items="${gstReportModel.providerOptions}">
+                                    <option value="<carlos:encode value='${opt.value}' context='htmlAttribute'/>">
+                                        <carlos:encode value="${opt.lastName}"/>, <carlos:encode value="${opt.firstName}"/>
+                                    </option>
+                                </c:forEach>
+                            </c:when>
+                            <c:otherwise>
+                                <option value="all">-- <fmt:message key="admin.gstReport.selectProvider"/> --</option>
+                                <c:forEach var="opt" items="${gstReportModel.providerOptions}">
+                                    <option value="<carlos:encode value='${opt.value}' context='htmlAttribute'/>"
+                                            <c:if test="${gstReportModel.providerView eq opt.value}">selected</c:if>>
+                                        <carlos:encode value="${opt.lastName}"/>, <carlos:encode value="${opt.firstName}"/>
+                                    </option>
+                                </c:forEach>
+                            </c:otherwise>
+                        </c:choose>
                     </select>
                     <input class="btn btn-primary" type="submit" value="<fmt:message key='admin.gstReport.search'/>"/>
                 </div>
@@ -184,70 +112,35 @@
         </div><!--row-->
     </div>
 
-    <TABLE class="table table-striped  table-sm">
-        <TR style="font-weight:bold;">
-            <TD align="center"><fmt:message key="admin.gstReport.table.serviceDate"/></TD>
-            <TD align="center"><fmt:message key="admin.gstReport.table.patient"/></TD>
-            <TD align="center"><fmt:message key="admin.gstReport.table.patientName"/></TD>
-            <TD align="center"><fmt:message key="admin.gstReport.table.gstBilled"/></TD>
-            <TD align="center"><fmt:message key="admin.gstReport.table.revenue"/></TD>
-            <TD align="center"><fmt:message key="admin.gstReport.table.totalWithOnlyGst"/></TD>
-        </TR>
-        <% for (i = 0; i < list.size(); i++) {
-            if (i % 2 == 1)        // If odd, then have colour,
-                bgColour = "#CCFFCC";
-            else                    // Otherwise, white background
-                bgColour = "";
-            props = (Properties) list.get(i);
-            // Calculate billed, and add into billedtotal
-            if (props.getProperty("total", "") != null) {
-                billed = new BigDecimal(props.getProperty("total", "")).setScale(2, BigDecimal.ROUND_HALF_UP);
-                billedtotal = billedtotal.add(billed);
-            } else {
-                billed = new BigDecimal("0.00");
-            }
-            // Calculate gst, and add into gsttotal
-            if (props.getProperty("gst", "") != null) {     // If gst is avaliable, then add to total
-                gst = new BigDecimal(props.getProperty("gst", "")).setScale(2, BigDecimal.ROUND_HALF_UP);
-                gsttotal = gsttotal.add(gst);
-            } else {
-                gst = new BigDecimal("0.00");
-            }
-            // Calculate earned, and earnedtotal
-            earned = billed.subtract(gst);
-            earnedtotal = earnedtotal.add(earned);
-        %>
-        <% if (gst.doubleValue() > 0) {%>
-        <TR>
-            <TD width="20%" align="center"><%=props.getProperty("date", "")%>
-            </TD>
-            <TD width="10%" align="center"><%=props.getProperty("demographic_no", "")%>
-            </TD>
-            <TD width="15%" align="center"><%=props.getProperty("name", "")%>
-            </TD>
-            <TD width="15%" align="center"><%=gst%>
-            </TD>
-            <%//Perhaps show 0.00 if no gst...%>
-            <TD width="15%" align="center"><%=earned%>
-            </TD>
-            <TD width="15%" align="center"><%=billed%>
-            </TD>
-            <%}%>
-        </TR>
-        <%}%>
-        <TR align="center" style="font-weight:bold;">
-            <TD width="20%">Totals:</TD>
-            <TD></TD>
-            <TD></TD>
-            <TD width="15%" align="center"><%=gsttotal%>
-            </TD>
-            <TD width="15%"><%=earnedtotal%>
-            </TD>
-            <TD width="15%"><%=billedtotal%>
-            </TD>
-        </TR>
-    </TABLE>
-</FORM>
+    <table class="table table-striped table-sm">
+        <tr style="font-weight:bold;">
+            <td align="center"><fmt:message key="admin.gstReport.table.serviceDate"/></td>
+            <td align="center"><fmt:message key="admin.gstReport.table.patient"/></td>
+            <td align="center"><fmt:message key="admin.gstReport.table.patientName"/></td>
+            <td align="center"><fmt:message key="admin.gstReport.table.gstBilled"/></td>
+            <td align="center"><fmt:message key="admin.gstReport.table.revenue"/></td>
+            <td align="center"><fmt:message key="admin.gstReport.table.totalWithOnlyGst"/></td>
+        </tr>
+        <c:forEach var="row" items="${gstReportModel.rows}">
+            <tr>
+                <td width="20%" align="center"><carlos:encode value="${row.serviceDate}"/></td>
+                <td width="10%" align="center"><carlos:encode value="${row.demographicNo}"/></td>
+                <td width="15%" align="center"><carlos:encode value="${row.patientName}"/></td>
+                <td width="15%" align="center">${row.gstBilled}</td>
+                <td width="15%" align="center">${row.earned}</td>
+                <td width="15%" align="center">${row.billed}</td>
+            </tr>
+        </c:forEach>
+        <tr align="center" style="font-weight:bold;">
+            <td width="20%">Totals:</td>
+            <td></td>
+            <td></td>
+            <td width="15%" align="center">${gstReportModel.gstTotal}</td>
+            <td width="15%">${gstReportModel.earnedTotal}</td>
+            <td width="15%">${gstReportModel.billedTotal}</td>
+        </tr>
+    </table>
+</form>
 </body>
 <script type="text/javascript">
     flatpickr("#xml_vdate", {dateFormat: "Y-m-d", allowInput: true});

@@ -34,6 +34,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.administration;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import io.github.carlos_emr.carlos.billings.ca.on.data.GstControlViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -64,10 +65,16 @@ public class GstControl2Action extends ActionSupport implements ServletRequestAw
             throw new SecurityException("missing required sec object (_admin.billing)");
         }
 
-        String percent = this.getGstPercent();
-        if (percent != null && !percent.isEmpty()) {
-            gstSettingsService.writeDatabase(percent);
+        String submittedPercent = this.getGstPercent();
+        if (submittedPercent != null && !submittedPercent.isEmpty()) {
+            gstSettingsService.writeDatabase(submittedPercent);
         }
+
+        // Always re-read the persisted value so the JSP renders the source-of-
+        // truth (post-save value when this came in as a POST, or the existing
+        // value on a fresh GET).
+        String currentPercent = gstSettingsService.readDatabase().getProperty("gstPercent", "");
+        request.setAttribute("gstControlModel", new GstControlViewModel(currentPercent));
 
         return SUCCESS;
     }

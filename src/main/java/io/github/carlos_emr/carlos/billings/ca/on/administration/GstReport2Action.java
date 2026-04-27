@@ -24,6 +24,8 @@ package io.github.carlos_emr.carlos.billings.ca.on.administration;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.GstReportDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.data.GstReportViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -31,17 +33,22 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * Setup action that renders the GST Report page. Enforces admin billing
- * write privilege before forwarding to the JSP.
+ * View gate for the GST Report page. Enforces {@code _admin.billing w}
+ * privilege, then delegates to {@link GstReportDataAssembler} to build
+ * the view model the JSP renders. The model is exposed as request
+ * attribute {@code gstReportModel}; the JSP body is 100% EL.
  *
  * @since 2026-04-05
  */
 public final class GstReport2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
+    private final GstReportDataAssembler assembler;
 
-    public GstReport2Action(SecurityInfoManager securityInfoManager) {
+    public GstReport2Action(SecurityInfoManager securityInfoManager,
+                            GstReportDataAssembler assembler) {
         this.securityInfoManager = securityInfoManager;
+        this.assembler = assembler;
     }
 
     @Override
@@ -53,6 +60,8 @@ public final class GstReport2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin.billing)");
         }
 
+        GstReportViewModel model = assembler.assemble(request, loggedInInfo);
+        request.setAttribute("gstReportModel", model);
         return SUCCESS;
     }
 }
