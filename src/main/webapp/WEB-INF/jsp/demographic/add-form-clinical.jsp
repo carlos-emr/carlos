@@ -237,10 +237,16 @@
                                 <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formPCNDateJoined"/>:</label>
                             </div>
                             <div class="col-sm-4">
-                                <div class="d-flex gap-1">
-                                    <input type="text" name="roster_date_year" class="form-control" size="4" maxlength="4" style="width:5em">
-                                    <input type="text" name="roster_date_month" class="form-control" size="2" maxlength="2" style="width:3.5em">
-                                    <input type="text" name="roster_date_date" class="form-control" size="2" maxlength="2" style="width:3.5em">
+                                <div class="d-flex gap-1 align-items-center">
+                                    <input type="text" placeholder="<fmt:message key="yyyy-mm-dd"/>"
+                                           name="roster_date" id="roster_date"
+                                           class="form-control"
+                                           value="<%=today %>" size="12"
+                                           onchange="parseDateField('roster_date');">
+                                    <img src="<%= request.getContextPath() %>/images/cal.gif" id="roster_date_cal">
+                                    <input type="hidden" name="roster_date_year">
+                                    <input type="hidden" name="roster_date_month">
+                                    <input type="hidden" name="roster_date_date">
                                 </div>
                             </div>
                         </div>
@@ -298,7 +304,7 @@
                             </div>
                             <div class="col-sm-4">
                                 <div class="d-flex gap-1 align-items-center">
-                                    <input type="text" placeholder="yyyy-mm-dd"
+                                    <input type="text" placeholder="<fmt:message key="yyyy-mm-dd"/>"
                                            name="patient_status_date" id="patient_status_date"
                                            class="form-control"
                                            value="<%=today %>" size="12">
@@ -312,20 +318,32 @@
                                 <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formDateJoined"/>:</label>
                             </div>
                             <div class="col-sm-4" id="joinDateCell">
-                                <div class="d-flex gap-1">
-                                    <input type="text" name="date_joined_year" placeholder="yyyy" class="form-control" maxlength="4" value="<%=curYear%>" style="width:5em">
-                                    <input type="text" name="date_joined_month" placeholder="mm" class="form-control" maxlength="2" value="<%=curMonth%>" style="width:3.5em">
-                                    <input type="text" name="date_joined_date" placeholder="dd" class="form-control" maxlength="2" value="<%=curDay%>" style="width:3.5em">
+                                <div class="d-flex gap-1 align-items-center">
+                                    <input type="text" placeholder="<fmt:message key="yyyy-mm-dd"/>"
+                                           name="date_joined" id="date_joined"
+                                           class="form-control"
+                                           value="<%=today %>" size="12"
+                                           onchange="parseDateField('date_joined');">
+                                    <img src="<%= request.getContextPath() %>/images/cal.gif" id="date_joined_cal">
+                                    <input type="hidden" name="date_joined_year">
+                                    <input type="hidden" name="date_joined_month">
+                                    <input type="hidden" name="date_joined_date">
                                 </div>
                             </div>
                             <div class="col-sm-2 text-end" id="endDateLbl">
                                 <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formEndDate"/>:</label>
                             </div>
                             <div class="col-sm-4" id="endDateCell">
-                                <div class="d-flex gap-1">
-                                    <input type="text" placeholder="yyyy" name="end_date_year" class="form-control" maxlength="4" style="width:5em">
-                                    <input type="text" placeholder="mm" name="end_date_month" class="form-control" maxlength="2" style="width:3.5em">
-                                    <input type="text" placeholder="dd" name="end_date_date" class="form-control" maxlength="2" style="width:3.5em">
+                                <div class="d-flex gap-1 align-items-center">
+                                    <input type="text" placeholder="<fmt:message key="yyyy-mm-dd"/>"
+                                           name="end_date" id="end_date"
+                                           class="form-control"
+                                           value="<%=today %>" size="12"
+                                           onchange="parseDateField('end_date');">
+                                    <img src="<%= request.getContextPath() %>/images/cal.gif" id="end_date_cal">
+                                    <input type="hidden" name="end_date_year">
+                                    <input type="hidden" name="end_date_month">
+                                    <input type="hidden" name="end_date_date">
                                 </div>
                             </div>
                         </div>
