@@ -650,7 +650,8 @@
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingONUpload.jsp</result>
         </action>
         <action name="billing/CA/ON/BillingONStatusERUpdateStatus" class="io.github.carlos_emr.carlos.billings.ca.on.web.BillingONStatusERUpdateStatus2Action">
-            <result name="success">/WEB-INF/jsp/billing/CA/ON/billingONStatusERUpdateStatus.jsp</result>
+            <!-- Action writes the plain-text "checked"/"uncheck" response body
+                 directly and returns NONE; no result mapping needed. -->
         </action>
         <action name="billing/CA/ON/OnAddEdit3rdAddr" class="io.github.carlos_emr.carlos.billings.ca.on.web.OnAddEdit3rdAddr2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/onAddEdit3rdAddr.jsp</result>
@@ -683,7 +684,10 @@
             <result name="success">/WEB-INF/jsp/billing/CA/ON/inr/genINRbilling.jsp</result>
         </action>
         <action name="billing/CA/ON/ViewInrOnGenINRbilling" class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewInrOnGenINRbilling2Action">
-            <result name="success">/WEB-INF/jsp/billing/CA/ON/inr/onGenINRbilling.jsp</result>
+            <result name="success" type="redirectAction">
+                <param name="actionName">billing/CA/ON/ViewInrReportINR</param>
+                <param name="provider_no">all</param>
+            </result>
         </action>
         <action name="billing/CA/ON/ViewInrReportINR" class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewInrReportINR2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/inr/reportINR.jsp</result>
