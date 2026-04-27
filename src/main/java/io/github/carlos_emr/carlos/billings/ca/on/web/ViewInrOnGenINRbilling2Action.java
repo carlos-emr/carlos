@@ -27,7 +27,7 @@ import io.github.carlos_emr.carlos.billing.CA.model.BillingInr;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimPersistenceService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimPersister;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -43,7 +43,7 @@ import org.apache.struts2.ServletActionContext;
  * <p>POST-only. For each {@code inrbilling<id>} request parameter, looks up
  * the matching {@link BillingInr}/{@link Demographic} pair via
  * {@link BillingInrDao#search_inrbilling_dt_billno}, builds a claim header,
- * persists it through {@link BillingONClaimPersistenceService}, marks the
+ * persists it through {@link BillingONClaimPersister}, marks the
  * INR row {@code A}ccepted, and persists a single billing item line.
  * Redirects to the INR report on completion.</p>
  *
@@ -56,11 +56,11 @@ public class ViewInrOnGenINRbilling2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
     private final BillingInrDao billingInrDao;
-    private final BillingONClaimPersistenceService persistenceService;
+    private final BillingONClaimPersister persistenceService;
 
     public ViewInrOnGenINRbilling2Action(SecurityInfoManager securityInfoManager,
                                   BillingInrDao billingInrDao,
-                                  BillingONClaimPersistenceService persistenceService) {
+                                  BillingONClaimPersister persistenceService) {
         this.securityInfoManager = securityInfoManager;
         this.billingInrDao = billingInrDao;
         this.persistenceService = persistenceService;

@@ -88,8 +88,8 @@ class SiblingViewBillingONActionPrivilegeUnitTest extends CarlosUnitTestBase {
         mockRequest.setMethod("GET");
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
-        registerMock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewService.class,
-                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewService.class));
+        registerMock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewLoader.class,
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewLoader.class));
         registerMock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService.class,
                 org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService.class));
         registerMock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONRemittanceAdviceService.class,

@@ -42,13 +42,13 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
 public class BillingDiskCreationService {
     private static final Logger _logger = MiscUtils.getLogger();
-    private final BillingONClaimPersistenceService dbObj;
-    private final BillingONDiskQueryService diskQuery;
+    private final BillingONClaimPersister dbObj;
+    private final BillingONDiskLoader diskQuery;
     private final BillingONLookupService lookupService;
     Properties propProOHIP = null;
 
-    BillingDiskCreationService(BillingONClaimPersistenceService dbObj,
-                          BillingONDiskQueryService diskQuery,
+    BillingDiskCreationService(BillingONClaimPersister dbObj,
+                          BillingONDiskLoader diskQuery,
                           BillingONLookupService lookupService) {
         this.dbObj = dbObj;
         this.diskQuery = diskQuery;

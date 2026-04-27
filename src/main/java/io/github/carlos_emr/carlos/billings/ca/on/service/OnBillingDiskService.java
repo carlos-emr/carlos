@@ -55,12 +55,12 @@ public class OnBillingDiskService {
 
     private final ProviderDao providerDao;
     private final BillingDiskCreationService prep;
-    private final BillingONDiskQueryService diskQueryService;
+    private final BillingONDiskLoader diskQueryService;
     private final ObjectFactory<OhipClaimFileService> ohipClaimFileFactory;
 
     OnBillingDiskService(ProviderDao providerDao,
                          BillingDiskCreationService prep,
-                         BillingONDiskQueryService diskQueryService,
+                         BillingONDiskLoader diskQueryService,
                          ObjectFactory<OhipClaimFileService> ohipClaimFileFactory) {
         this.providerDao = providerDao;
         this.prep = prep;

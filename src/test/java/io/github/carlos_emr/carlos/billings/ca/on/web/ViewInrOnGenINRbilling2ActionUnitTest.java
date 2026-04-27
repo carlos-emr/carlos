@@ -19,7 +19,7 @@ import io.github.carlos_emr.carlos.billing.CA.dao.BillingInrDao;
 import io.github.carlos_emr.carlos.billing.CA.model.BillingInr;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimPersistenceService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimPersister;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -60,7 +60,7 @@ import static org.mockito.Mockito.when;
  *
  * <p>Covers the gate contract (null-session, missing-privilege, 405 on
  * non-POST), the per-{@code inrbilling<id>}-param iteration, and
- * delegation to {@link BillingONClaimPersistenceService} with a
+ * delegation to {@link BillingONClaimPersister} with a
  * correctly-shaped {@link BillingClaimHeader1Data}.</p>
  *
  * @since 2026-04-26
@@ -84,7 +84,7 @@ class ViewInrOnGenINRbilling2ActionUnitTest extends CarlosUnitTestBase {
     private BillingInrDao mockBillingInrDao;
 
     @Mock
-    private BillingONClaimPersistenceService mockPersistenceService;
+    private BillingONClaimPersister mockPersistenceService;
 
     private MockHttpServletRequest mockRequest;
     private MockHttpServletResponse mockResponse;

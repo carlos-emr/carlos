@@ -28,7 +28,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * Query-side counterpart to {@link BillingONClaimPersistenceService} —
+ * Query-side counterpart to {@link BillingONClaimPersister} —
  * holds the read methods that previously lived on the persistence service
  * but never participated in its writes. CQRS-lite: persistence stays focused
  * on the {@code add*}/{@code update*} surface; this class exposes the disk-
@@ -44,13 +44,13 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 @org.springframework.stereotype.Service
 @org.springframework.context.annotation.Lazy
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
-public class BillingONDiskQueryService {
+public class BillingONDiskLoader {
 
     private final BillingONHeaderDao headerDao;
     private final BillingONDiskNameDao diskNameDao;
     private final BillingONFilenameDao filenameDao;
 
-    public BillingONDiskQueryService(BillingONHeaderDao headerDao, BillingONDiskNameDao diskNameDao, BillingONFilenameDao filenameDao) {
+    public BillingONDiskLoader(BillingONHeaderDao headerDao, BillingONDiskNameDao diskNameDao, BillingONFilenameDao filenameDao) {
         this.headerDao = headerDao;
         this.diskNameDao = diskNameDao;
         this.filenameDao = filenameDao;

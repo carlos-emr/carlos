@@ -32,20 +32,20 @@ package io.github.carlos_emr.carlos.billings.ca.on.data;
 
 import java.util.Comparator;
 import java.util.HashMap;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimQueryService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimLoader;
 
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 public class BillingSortComparator implements Comparator {
 
-    private final BillingONClaimQueryService dbObj;
+    private final BillingONClaimLoader dbObj;
 
     /** Production constructor — resolves the service from the Spring context. */
     public BillingSortComparator() {
-        this(SpringUtils.getBean(BillingONClaimQueryService.class));
+        this(SpringUtils.getBean(BillingONClaimLoader.class));
     }
 
     /** Test-friendly constructor — takes the service mock directly. */
-    BillingSortComparator(BillingONClaimQueryService dbObj) {
+    BillingSortComparator(BillingONClaimLoader dbObj) {
         this.dbObj = dbObj;
     }
 

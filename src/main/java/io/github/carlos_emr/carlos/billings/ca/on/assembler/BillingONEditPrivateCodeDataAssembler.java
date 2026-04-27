@@ -20,7 +20,8 @@ import java.util.Map;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONEditPrivateCodeViewModel;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONServiceCodeService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.ServiceCodeLoader;
+import io.github.carlos_emr.carlos.billings.ca.on.service.ServiceCodePersister;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
@@ -33,11 +34,11 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
  *
  * <ul>
  *   <li>{@code submit=Save} with {@code action.startsWith("edit")} &rarr;
- *       {@link BillingONServiceCodeService#updateCodeByName}</li>
+ *       {@link ServiceCodePersister#updateCodeByName}</li>
  *   <li>{@code submit=Save} with {@code action.startsWith("add")} &rarr;
- *       {@link BillingONServiceCodeService#addCodeByStr}</li>
- *   <li>{@code submit=Search} &rarr; {@link BillingONServiceCodeService#getBillingCodeAttr}</li>
- *   <li>{@code submit=Delete} &rarr; {@link BillingONServiceCodeService#deletePrivateCode}</li>
+ *       {@link ServiceCodePersister#addCodeByStr}</li>
+ *   <li>{@code submit=Search} &rarr; {@link ServiceCodeLoader#getBillingCodeAttr}</li>
+ *   <li>{@code submit=Delete} &rarr; {@link ServiceCodePersister#deletePrivateCode}</li>
  * </ul>
  *
  * <p>The legacy code prefixed all stored service codes with an underscore
@@ -57,11 +58,14 @@ public class BillingONEditPrivateCodeDataAssembler {
     private static final String VERB_DELETED = "d" + "eleted";
     private static final String VERB_ADDED = "added";
 
-    private final BillingONServiceCodeService dbObj;
+    private final ServiceCodeLoader codeLoader;
+    private final ServiceCodePersister codePersister;
 
     /** Production constructor — Struts no-arg shape. */
-    public BillingONEditPrivateCodeDataAssembler(BillingONServiceCodeService dbObj) {
-        this.dbObj = dbObj;
+    public BillingONEditPrivateCodeDataAssembler(ServiceCodeLoader codeLoader,
+                                                 ServiceCodePersister codePersister) {
+        this.codeLoader = codeLoader;
+        this.codePersister = codePersister;
     }
 
     /** Build the view model. Mirrors all four legacy submit modes. */
@@ -73,20 +77,20 @@ public class BillingONEditPrivateCodeDataAssembler {
 
         String submit = request.getParameter("submit");
         if ("Save".equals(submit)) {
-            FormResult r = handleSave(request, dbObj, formFields);
+            FormResult r = handleSave(request, formFields);
             msg = r.msg; action = r.action; alert = r.alert;
         } else if ("Search".equals(submit)) {
-            FormResult r = handleSearch(request, dbObj, formFields);
+            FormResult r = handleSearch(request, formFields);
             msg = r.msg; action = r.action;
         } else if ("Delete".equals(submit)) {
-            FormResult r = handleDelete(request, dbObj, formFields);
+            FormResult r = handleDelete(request, formFields);
             msg = r.msg; action = r.action;
         }
 
         // Dropdown of all existing private codes.
         List<BillingONEditPrivateCodeViewModel.PrivateCodeOption> options = new ArrayList<>();
         @SuppressWarnings("rawtypes")
-        List sL = dbObj.getPrivateBillingCodeDesc();
+        List sL = codeLoader.getPrivateBillingCodeDesc();
         for (int i = 0; i + 1 < sL.size(); i = i + 2) {
             String strCode;
             try {
@@ -122,8 +126,7 @@ public class BillingONEditPrivateCodeDataAssembler {
                 .build();
     }
 
-    private FormResult handleSave(HttpServletRequest request, BillingONServiceCodeService dbObj,
-                                  Map<String, String> formFields) {
+    private FormResult handleSave(HttpServletRequest request, Map<String, String> formFields) {
         String actionParam = nullToEmpty(request.getParameter("action"));
         String valuePara = nullToEmpty(request.getParameter("value"));
         if (actionParam.startsWith("edit")) {
@@ -136,7 +139,7 @@ public class BillingONEditPrivateCodeDataAssembler {
                         .append(". Please search the service code first.").toString();
                 return new FormResult(mismatchMsg, "search", "info");
             }
-            boolean ok = dbObj.updateCodeByName(serviceCode,
+            boolean ok = codePersister.updateCodeByName(serviceCode,
                     request.getParameter("description"), valuePara, "0.00",
                     request.getParameter("billingservice_date"),
                     request.getParameter("gstFlag"));
@@ -170,7 +173,7 @@ public class BillingONEditPrivateCodeDataAssembler {
                         .append(". Please search the service code first.").toString();
                 return new FormResult(mismatchMsg, "search", "error");
             }
-            int rc = dbObj.addCodeByStr(serviceCode,
+            int rc = codePersister.addCodeByStr(serviceCode,
                     request.getParameter("description"), valuePara, "0.00",
                     request.getParameter("billingservice_date"),
                     request.getParameter("gstFlag"));
@@ -195,14 +198,13 @@ public class BillingONEditPrivateCodeDataAssembler {
                 "search", "error");
     }
 
-    private FormResult handleSearch(HttpServletRequest request, BillingONServiceCodeService dbObj,
-                                    Map<String, String> formFields) {
+    private FormResult handleSearch(HttpServletRequest request, Map<String, String> formFields) {
         if (request.getParameter("service_code") == null) {
             return new FormResult("Please type in a right service code.", "search", "info");
         }
         String serviceCode = "_" + nullToEmpty(request.getParameter("service_code"));
         @SuppressWarnings("rawtypes")
-        List ls = dbObj.getBillingCodeAttr(serviceCode);
+        List ls = codeLoader.getBillingCodeAttr(serviceCode);
         if (ls != null && ls.size() > 0) {
             formFields.put("service_code", serviceCode);
             Object descObj = ls.size() > 1 ? ls.get(1) : null;
@@ -220,13 +222,12 @@ public class BillingONEditPrivateCodeDataAssembler {
                 "add" + serviceCode, "info");
     }
 
-    private FormResult handleDelete(HttpServletRequest request, BillingONServiceCodeService dbObj,
-                                    Map<String, String> formFields) {
+    private FormResult handleDelete(HttpServletRequest request, Map<String, String> formFields) {
         if (request.getParameter("service_code") == null) {
             return new FormResult("Please type in a right service code.", "search", "info");
         }
         String serviceCode = "_" + nullToEmpty(request.getParameter("service_code"));
-        if (dbObj.deletePrivateCode(serviceCode)) {
+        if (codePersister.deletePrivateCode(serviceCode)) {
             formFields.put("service_code", "_");
             String okMsg = new StringBuilder().append(SafeEncode.forHtml(serviceCode))
                     .append(" is ").append(VERB_DELETED).append(".<br>")

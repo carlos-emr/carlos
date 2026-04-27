@@ -44,11 +44,11 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 @org.springframework.transaction.annotation.Transactional
 public class BillingSaveService {
     private static final Logger _logger = MiscUtils.getLogger();
-    private final BillingONClaimPersistenceService dbObj;
+    private final BillingONClaimPersister dbObj;
     private final BillingONLookupService lookupService;
     int billingId = 0;
 
-    BillingSaveService(BillingONClaimPersistenceService dbObj, BillingONLookupService lookupService) {
+    BillingSaveService(BillingONClaimPersister dbObj, BillingONLookupService lookupService) {
         this.dbObj = dbObj;
         this.lookupService = lookupService;
     }

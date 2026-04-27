@@ -46,7 +46,7 @@ import java.util.*;
 @org.springframework.stereotype.Service
 @org.springframework.context.annotation.Lazy
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
-public class BillingONClaimQueryService {
+public class BillingONClaimLoader {
     private static final Logger _logger = MiscUtils.getLogger();
 
     private final ClinicLocationDao clinicLocationDao;
@@ -62,7 +62,7 @@ public class BillingONClaimQueryService {
     private final CtlBillingServiceDao ctlBillingServiceDao;
 
     /** Test-friendly constructor — package-private, takes DAO mocks directly. */
-    BillingONClaimQueryService(ClinicLocationDao clinicLocationDao,
+    BillingONClaimLoader(ClinicLocationDao clinicLocationDao,
                                BillingONCHeader1Dao dao,
                                BillingONExtDao extDao,
                                BillingONPaymentDao payDao,

@@ -49,7 +49,7 @@ import io.github.carlos_emr.carlos.util.LabelValueBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingStatusService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingStatusLoader;
 import io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingONStatus2Action;
 
 /**
@@ -70,12 +70,12 @@ public class BillingONStatusDataAssembler {
 
     private final SecurityInfoManager securityInfoManager;
     private final BillingONLookupService lookupService;
-    private final BillingStatusService statusPrep;
+    private final BillingStatusLoader statusPrep;
     private final BillingONErrorReportService errorRepImpl;
 
     public BillingONStatusDataAssembler(SecurityInfoManager securityInfoManager,
                                  BillingONLookupService lookupService,
-                                 BillingStatusService statusPrep,
+                                 BillingStatusLoader statusPrep,
                                  BillingONErrorReportService errorRepImpl) {
         this.securityInfoManager = securityInfoManager;
         this.lookupService = lookupService;
@@ -255,8 +255,8 @@ public class BillingONStatusDataAssembler {
         List<BillingClaimHeader1Data> bList;
         if ((serviceCode == null || billingForm == null)
                 && dx.length() < 2 && visitType.length() < 2) {
-            // deepcode ignore SqlInjection: BillingStatusService delegates to
-            // BillingONClaimQueryService which uses JPA criteria queries (parameterized)
+            // deepcode ignore SqlInjection: BillingStatusLoader delegates to
+            // BillingONClaimLoader which uses JPA criteria queries (parameterized)
             bList = search
                     ? statusPrep.getBills(billTypes, statusType, providerNo, startDate, endDate,
                             demoNo, visitLocation, paymentStartDate, paymentEndDate)

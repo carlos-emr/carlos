@@ -41,7 +41,7 @@ public final class BillingONStatusViewModel {
     /** Visit-location dropdown entry. */
     public record VisitLocationOption(String code, String label) { }
 
-    /** Billing form dropdown entry (label/value from {@code BillingStatusService}). */
+    /** Billing form dropdown entry (label/value from {@code BillingStatusLoader}). */
     public record BillingFormOption(String label, String value) { }
 
     /** Rejected-bill row (statusType "_") rendered as one {@code <tr>}. */

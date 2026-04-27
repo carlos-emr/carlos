@@ -20,7 +20,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingEditWithApptNoViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimQueryService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimLoader;
 import io.github.carlos_emr.carlos.commn.dao.BillingONItemDao;
 import io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
@@ -43,12 +43,12 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 @org.springframework.context.annotation.Lazy
 public class BillingEditWithApptNoDataAssembler {
 
-    private final BillingONClaimQueryService claimQueryService;
+    private final BillingONClaimLoader claimQueryService;
     private final BillingONItemDao itemDao;
     private final CtlBillingServiceDao ctlBillingServiceDao;
 
     /** Production constructor — Struts no-arg shape. */
-    public BillingEditWithApptNoDataAssembler(BillingONClaimQueryService claimQueryService,
+    public BillingEditWithApptNoDataAssembler(BillingONClaimLoader claimQueryService,
                                        BillingONItemDao itemDao,
                                        CtlBillingServiceDao ctlBillingServiceDao) {
         this.claimQueryService = claimQueryService;
@@ -83,7 +83,7 @@ public class BillingEditWithApptNoDataAssembler {
 
         // Pull the most recent active billing record + its first item for
         // this appointment. The legacy scriptlet did this inline via
-        // BillingONClaimQueryService.getBillingByApptNo(...) which returns a
+        // BillingONClaimLoader.getBillingByApptNo(...) which returns a
         // List<Object> of length >= 2 when a record is found: [0] is a
         // BillingClaimHeader1Data, [1] is a BillingItemData.
         List<Object> aL = claimQueryService.getBillingByApptNo(appointmentNo);

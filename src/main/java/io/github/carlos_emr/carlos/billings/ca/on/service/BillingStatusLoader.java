@@ -32,16 +32,16 @@ import java.util.List;
 @org.springframework.stereotype.Service
 @org.springframework.context.annotation.Lazy
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
-public class BillingStatusService {
+public class BillingStatusLoader {
     private static final String ANY_PROVIDER = "all";
     private static final String ANY_STATUS_TYPE = "%";
     private static final String ANY_SERVICE_CODE = "%";
     private static final String ANY_BILLING_FORM = "---";
     public static final String ANY_VISIT_LOCATION = "0000";
 
-    private final BillingONClaimQueryService bObj;
+    private final BillingONClaimLoader bObj;
 
-    BillingStatusService(BillingONClaimQueryService bObj) {
+    BillingStatusLoader(BillingONClaimLoader bObj) {
         this.bObj = bObj;
     }
 

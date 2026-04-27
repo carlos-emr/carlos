@@ -65,9 +65,9 @@ public class BillingCorrectionRecordService {
     private final BillingONExtDao billOnExtDao;
     private final BillingONLookupService lookupService;
     private final Billing3rdPartyService thirdPartyService;
-    private final BillingONServiceCodeService serviceCodeService;
-    private final BillingONClaimPersistenceService claimPersistenceService;
-    private final BillingONClaimQueryService claimQueryService;
+    private final ServiceCodeLoader serviceCodeLoader;
+    private final BillingONClaimPersister claimPersistenceService;
+    private final BillingONClaimLoader claimQueryService;
     private final BillingOnTransactionDao billOnTransDao;
     private final BillingOnItemPaymentDao billOnItemPaymentDao;
 
@@ -77,9 +77,9 @@ public class BillingCorrectionRecordService {
                           BillingONExtDao billOnExtDao,
                           BillingONLookupService lookupService,
                           Billing3rdPartyService thirdPartyService,
-                          BillingONServiceCodeService serviceCodeService,
-                          BillingONClaimPersistenceService claimPersistenceService,
-                          BillingONClaimQueryService claimQueryService,
+                          ServiceCodeLoader serviceCodeLoader,
+                          BillingONClaimPersister claimPersistenceService,
+                          BillingONClaimLoader claimQueryService,
                           BillingOnTransactionDao billOnTransDao,
                           BillingOnItemPaymentDao billOnItemPaymentDao) {
         this.dbObj = dbObj;
@@ -88,7 +88,7 @@ public class BillingCorrectionRecordService {
         this.billOnExtDao = billOnExtDao;
         this.lookupService = lookupService;
         this.thirdPartyService = thirdPartyService;
-        this.serviceCodeService = serviceCodeService;
+        this.serviceCodeLoader = serviceCodeLoader;
         this.claimPersistenceService = claimPersistenceService;
         this.claimQueryService = claimQueryService;
         this.billOnTransDao = billOnTransDao;
@@ -361,7 +361,7 @@ public class BillingCorrectionRecordService {
     // billing correction
     public String getBillingCodeDesc(String codeName) {
         String ret = null;
-        List descL = serviceCodeService.getBillingCodeAttr(codeName);
+        List descL = serviceCodeLoader.getBillingCodeAttr(codeName);
         ret = descL.size() > 1 ? (String) descL.get(1) : "Unknown";
         return ret;
     }
@@ -370,7 +370,7 @@ public class BillingCorrectionRecordService {
     public Properties getBillingCodeDesc(List codeName) {
         Properties ret = new Properties();
         for (int i = 0; i < codeName.size(); i++) {
-            List descL = serviceCodeService.getBillingCodeAttr((String) codeName.get(i));
+            List descL = serviceCodeLoader.getBillingCodeAttr((String) codeName.get(i));
             String desc = descL.size() > 1 ? (String) descL.get(1) : "Unknown";
             ret.setProperty((String) codeName.get(i), desc);
         }

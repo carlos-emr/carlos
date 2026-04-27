@@ -32,7 +32,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDemographicSummary
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReferralDoctor;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingShortcutPg1ViewModel;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimQueryService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimLoader;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao;
@@ -86,7 +86,7 @@ public class BillingShortcutPg1DataAssembler {
     private final io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao ctlBillingServiceDao;
     private final io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao diagnosticCodeDao;
     private final io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao clinicNbrDao;
-    private final BillingONClaimQueryService billingClaimQueryService;
+    private final BillingONClaimLoader billingClaimQueryService;
 
     public BillingShortcutPg1DataAssembler(DemographicDao demographicDao,
                                     ProviderDao providerDao,
@@ -100,7 +100,7 @@ public class BillingShortcutPg1DataAssembler {
                                     io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao diagnosticCodeDao,
                                     io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao clinicNbrDao,
                                     @org.springframework.context.annotation.Lazy
-                                    BillingONClaimQueryService billingClaimQueryService) {
+                                    BillingONClaimLoader billingClaimQueryService) {
         this.demographicDao = demographicDao;
         this.providerDao = providerDao;
         this.billingDao = billingDao;

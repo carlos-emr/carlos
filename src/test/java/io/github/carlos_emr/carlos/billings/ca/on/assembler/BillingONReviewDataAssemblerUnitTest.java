@@ -35,9 +35,9 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONReviewDxPersister;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONServiceCodeService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.ServiceCodeLoader;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingONReviewValidator;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewLoader;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
 
 /**
@@ -58,7 +58,7 @@ class BillingONReviewDataAssemblerUnitTest extends CarlosUnitTestBase {
     @Mock
     private ProviderDao providerDao;
     @Mock
-    private BillingReviewService reviewPrep;
+    private BillingReviewLoader reviewPrep;
 
     private BillingONReviewDataAssembler assembler;
     private MockHttpServletRequest request;
@@ -79,18 +79,18 @@ class BillingONReviewDataAssemblerUnitTest extends CarlosUnitTestBase {
         when(reviewPrep.getRequestFormCodeVec(any(), any(), any(), any())).thenReturn(emptyVec);
         when(reviewPrep.getRequestCodeVec(any(), any(), any(), any(), anyInt())).thenReturn(emptyVec);
 
-        BillingONServiceCodeService serviceCodeService = Mockito.mock(BillingONServiceCodeService.class);
-        when(serviceCodeService.getCodeDescByNames(any())).thenReturn(new java.util.Properties());
-        registerMock(BillingONServiceCodeService.class, serviceCodeService);
+        ServiceCodeLoader serviceCodeLoader = Mockito.mock(ServiceCodeLoader.class);
+        when(serviceCodeLoader.getCodeDescByNames(any())).thenReturn(new java.util.Properties());
+        registerMock(ServiceCodeLoader.class, serviceCodeLoader);
         BillingONLookupService lookupService = Mockito.mock(BillingONLookupService.class);
         registerMock(BillingONLookupService.class, lookupService);
         SiteDao siteDao = Mockito.mock(SiteDao.class);
         registerMock(SiteDao.class, siteDao);
 
         // The assembler also instantiates `new BillingSortComparator()` which
-        // resolves BillingONClaimQueryService via SpringUtils.
-        registerMock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimQueryService.class,
-                Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimQueryService.class));
+        // resolves BillingONClaimLoader via SpringUtils.
+        registerMock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimLoader.class,
+                Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimLoader.class));
 
         BillingONReviewValidator stubValidator = Mockito.mock(BillingONReviewValidator.class);
         when(stubValidator.validate(any(), any(), any())).thenReturn(
@@ -101,7 +101,7 @@ class BillingONReviewDataAssemblerUnitTest extends CarlosUnitTestBase {
         io.github.carlos_emr.carlos.billings.ca.on.administration.GstReport gstReport =
                 Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.administration.GstReport.class);
         assembler = new BillingONReviewDataAssembler(demographicDao, providerDao, reviewPrep, stubValidator,
-                serviceCodeService, lookupService, siteDao, gstSettingsService, gstReport);
+                serviceCodeLoader, lookupService, siteDao, gstSettingsService, gstReport);
         request = new MockHttpServletRequest();
     }
 

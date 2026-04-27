@@ -40,16 +40,16 @@ import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 @org.springframework.stereotype.Service
 @org.springframework.context.annotation.Lazy
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
-public class BillingReviewService {
+public class BillingReviewLoader {
     private static final Logger _logger = MiscUtils.getLogger();
 
-    private final BillingONClaimQueryService dbObj;
-    private final BillingONDiskQueryService diskQueryService;
+    private final BillingONClaimLoader dbObj;
+    private final BillingONDiskLoader diskQueryService;
     private final BillingONLookupService lookupService;
     private final DiagnosticCodeDao diagnosticCodeDao;
 
-    BillingReviewService(BillingONClaimQueryService dbObj,
-                      BillingONDiskQueryService diskQueryService,
+    BillingReviewLoader(BillingONClaimLoader dbObj,
+                      BillingONDiskLoader diskQueryService,
                       BillingONLookupService lookupService,
                       DiagnosticCodeDao diagnosticCodeDao) {
         this.dbObj = dbObj;

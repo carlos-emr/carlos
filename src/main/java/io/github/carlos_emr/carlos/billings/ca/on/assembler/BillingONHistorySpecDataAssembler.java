@@ -21,7 +21,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONHistorySpecViewModel;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimQueryService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimLoader;
 import io.github.carlos_emr.carlos.utility.DateRange;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -31,7 +31,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * history popup.
  *
  * <p>Owns the date-range computation, the request-parameter echoes, and
- * the {@link BillingONClaimQueryService#getBillingHist} call. Mirrors the
+ * the {@link BillingONClaimLoader#getBillingHist} call. Mirrors the
  * service-code substring filter the legacy JSP applied client-side.</p>
  *
  * @since 2026-04-25
@@ -40,10 +40,10 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 @org.springframework.context.annotation.Lazy
 public class BillingONHistorySpecDataAssembler {
 
-    private final BillingONClaimQueryService dbObj;
+    private final BillingONClaimLoader dbObj;
 
     /** Production constructor — Struts no-arg shape. */
-    public BillingONHistorySpecDataAssembler(BillingONClaimQueryService dbObj) {
+    public BillingONHistorySpecDataAssembler(BillingONClaimLoader dbObj) {
         this.dbObj = dbObj;
     }
 

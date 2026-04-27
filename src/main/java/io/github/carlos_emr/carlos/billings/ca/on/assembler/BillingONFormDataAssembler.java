@@ -24,7 +24,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingMultisiteContext;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONFormViewModel;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimQueryService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimLoader;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
 import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
@@ -81,7 +81,7 @@ public class BillingONFormDataAssembler {
     private final UserPropertyDAO userPropertyDao;
     private final ProviderDao providerDao;
     private final BillingONLookupService lookupService;
-    private final BillingONClaimQueryService claimQueryService;
+    private final BillingONClaimLoader claimQueryService;
 
     // Inner steps — built once per assembler instance.
     private final BillingONFormDemographicLoader demographicLoader;
@@ -94,7 +94,7 @@ public class BillingONFormDataAssembler {
                                ProviderDao providerDao,
                                BillingONLookupService lookupService,
                                @org.springframework.context.annotation.Lazy
-                               BillingONClaimQueryService claimQueryService,
+                               BillingONClaimLoader claimQueryService,
                                BillingONFormDemographicLoader demographicLoader,
                                BillingONFormBillFormResolver billFormResolver,
                                BillingONFormServiceGridComposer serviceGridComposer,
@@ -599,7 +599,7 @@ public class BillingONFormDataAssembler {
 
     /**
      * Loads the recent-billing history rows the JSP renders at the bottom of
-     * the form. Up to 5 (claim, item) pairs from {@link BillingONClaimQueryService}.
+     * the form. Up to 5 (claim, item) pairs from {@link BillingONClaimLoader}.
      */
     private List<BillingONFormViewModel.BillingHistoryRow> loadHistoryRows(String demoNo) {
         List<BillingONFormViewModel.BillingHistoryRow> rows = new ArrayList<>();
@@ -701,10 +701,10 @@ public class BillingONFormDataAssembler {
     }
 
     /**
-     * Loads up to 5 recent billing-history entries via BillingONClaimQueryService.
+     * Loads up to 5 recent billing-history entries via BillingONClaimLoader.
      * The JSP only reads the first record's visitType / clinic_ref_code, so
      * we surface only that. Split exception handling: ClassCastException is
-     * loud at ERROR (data-shape regression in BillingONClaimQueryService);
+     * loud at ERROR (data-shape regression in BillingONClaimLoader);
      * RuntimeException is also ERROR (DB outage stripping the visit-context
      * hint is high-impact for clinical workflow — provider may
      * duplicate-bill the same encounter).
@@ -727,7 +727,7 @@ public class BillingONFormDataAssembler {
             }
         } catch (ClassCastException ccEx) {
             MiscUtils.getLogger().error(
-                    "Billing history data-shape regression for demo={} — BillingONClaimQueryService returned unexpected types",
+                    "Billing history data-shape regression for demo={} — BillingONClaimLoader returned unexpected types",
                     LogSanitizer.sanitize(demoNo), ccEx);
         } catch (RuntimeException rtEx) {
             MiscUtils.getLogger().error(

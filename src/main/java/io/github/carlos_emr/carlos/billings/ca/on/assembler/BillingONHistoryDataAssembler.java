@@ -21,7 +21,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONHistoryViewModel;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimQueryService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimLoader;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
@@ -53,13 +53,13 @@ public class BillingONHistoryDataAssembler {
     private final BillingONCHeader1Dao bCh1Dao;
     private final DemographicManager demographicManager;
     private final SecurityInfoManager securityInfoManager;
-    private final BillingONClaimQueryService claimQueryService;
+    private final BillingONClaimLoader claimQueryService;
 
     public BillingONHistoryDataAssembler(BillingONPaymentDao billingOnPaymentDao,
                                   BillingONCHeader1Dao bCh1Dao,
                                   DemographicManager demographicManager,
                                   SecurityInfoManager securityInfoManager,
-                                  BillingONClaimQueryService claimQueryService) {
+                                  BillingONClaimLoader claimQueryService) {
         this.billingOnPaymentDao = billingOnPaymentDao;
         this.bCh1Dao = bCh1Dao;
         this.demographicManager = demographicManager;

@@ -37,7 +37,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReferralDoctor;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReviewCodeItem;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReviewPercItem;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingSortComparator;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONServiceCodeService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.ServiceCodeLoader;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
@@ -50,7 +50,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONRequestParams;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingONReviewValidator;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewLoader;
 
 /**
  * Assembles {@link BillingONReviewViewModel} for {@code billingONReview.jsp}.
@@ -67,9 +67,9 @@ public class BillingONReviewDataAssembler {
 
     private final DemographicDao demographicDao;
     private final ProviderDao providerDao;
-    private final BillingReviewService reviewPrep;
+    private final BillingReviewLoader reviewPrep;
     private final BillingONReviewValidator validator;
-    private final BillingONServiceCodeService serviceCodeService;
+    private final ServiceCodeLoader serviceCodeLoader;
     private final BillingONLookupService lookupService;
     private final SiteDao siteDao;
     private final GstSettingsService gstSettingsService;
@@ -77,9 +77,9 @@ public class BillingONReviewDataAssembler {
 
     public BillingONReviewDataAssembler(DemographicDao demographicDao,
                                  ProviderDao providerDao,
-                                 BillingReviewService reviewPrep,
+                                 BillingReviewLoader reviewPrep,
                                  BillingONReviewValidator validator,
-                                 BillingONServiceCodeService serviceCodeService,
+                                 ServiceCodeLoader serviceCodeLoader,
                                  BillingONLookupService lookupService,
                                  SiteDao siteDao,
                                  GstSettingsService gstSettingsService,
@@ -88,7 +88,7 @@ public class BillingONReviewDataAssembler {
         this.providerDao = providerDao;
         this.reviewPrep = reviewPrep;
         this.validator = validator;
-        this.serviceCodeService = serviceCodeService;
+        this.serviceCodeLoader = serviceCodeLoader;
         this.lookupService = lookupService;
         this.siteDao = siteDao;
         this.gstSettingsService = gstSettingsService;
@@ -376,7 +376,7 @@ public class BillingONReviewDataAssembler {
         ArrayList vecPercCodeItem = reviewPrep.getPercCodeReviewVec(
                 vecServiceParam[0], vecServiceParam[1], vecCodeItem, billReferalDate);
 
-        Properties propCodeDesc = serviceCodeService.getCodeDescByNames(vecServiceParam[0]);
+        Properties propCodeDesc = serviceCodeLoader.getCodeDescByNames(vecServiceParam[0]);
         Map<String, String> codeDescMap = new HashMap<>();
         for (String key : propCodeDesc.stringPropertyNames()) {
             codeDescMap.put(key, propCodeDesc.getProperty(key, ""));

@@ -67,7 +67,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 @org.springframework.stereotype.Service
 @org.springframework.context.annotation.Lazy
 @org.springframework.transaction.annotation.Transactional
-public class BillingONClaimPersistenceService {
+public class BillingONClaimPersister {
     private static final Logger _logger = MiscUtils.getLogger();
     private final BillingONHeaderDao dao;
     private final BillingONCHeader1Dao cheaderDao;
@@ -81,7 +81,7 @@ public class BillingONClaimPersistenceService {
     private final BillingONPaymentDao billingONPaymentDao;
     private final BillingPaymentTypeDao billingPaymentTypeDao;
 
-    public BillingONClaimPersistenceService(BillingONHeaderDao dao,
+    public BillingONClaimPersister(BillingONHeaderDao dao,
                                             BillingONCHeader1Dao cheaderDao,
                                             BillingONItemDao itemDao,
                                             BillingONExtDao extDao,
