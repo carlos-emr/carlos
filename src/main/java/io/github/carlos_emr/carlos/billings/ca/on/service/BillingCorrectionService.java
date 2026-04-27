@@ -83,7 +83,10 @@ import io.github.carlos_emr.carlos.billings.ca.on.web.BillingCorrection2Action;
  *
  * @since 2026-04-25
  */
-public final class BillingCorrectionService {
+@org.springframework.stereotype.Service
+@org.springframework.context.annotation.Lazy
+@org.springframework.transaction.annotation.Transactional
+public class BillingCorrectionService {
 
     private final BillingONPaymentDao bPaymentDao;
     private final BillingONCHeader1Dao bCh1Dao;
@@ -95,10 +98,11 @@ public final class BillingCorrectionService {
     private final BillingServiceDao billingServiceDao;
 
     /**
-     * Test-friendly constructor — call directly with mocks.
-     * Package-private to discourage external production use.
+     * Constructor-injection ctor used by Spring. Public so Struts2's
+     * {@code SpringObjectFactory} (and {@code SpringUtils.getBean})
+     * can resolve and instantiate the bean.
      */
-    BillingCorrectionService(BillingONPaymentDao bPaymentDao,
+    public BillingCorrectionService(BillingONPaymentDao bPaymentDao,
                              BillingONCHeader1Dao bCh1Dao,
                              BillingONExtDao billExtDao,
                              BillingPaymentTypeDao billingPaymentTypeDao,

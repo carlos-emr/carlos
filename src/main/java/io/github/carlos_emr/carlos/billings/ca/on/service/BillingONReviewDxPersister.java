@@ -36,11 +36,18 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  *
  * @since 2026-04-25
  */
-public final class BillingONReviewDxPersister {
+@org.springframework.stereotype.Service
+@org.springframework.context.annotation.Lazy
+@org.springframework.transaction.annotation.Transactional
+public class BillingONReviewDxPersister {
 
     private final DxresearchDAO dxresearchDAO;
 
-    BillingONReviewDxPersister(DxresearchDAO dxresearchDAO) {
+    /**
+     * Constructor-injection ctor used by Spring. Public so Struts2's
+     * {@code SpringObjectFactory} can also instantiate the bean directly.
+     */
+    public BillingONReviewDxPersister(DxresearchDAO dxresearchDAO) {
         this.dxresearchDAO = dxresearchDAO;
     }
 

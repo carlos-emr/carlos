@@ -276,4 +276,40 @@ class BillingONReviewDxPersisterUnitTest extends CarlosUnitTestBase {
             return events;
         }
     }
+
+    /**
+     * Locks in the Spring {@link org.springframework.stereotype.Service}
+     * annotation. The production no-arg ctor of
+     * {@code ViewBillingONReview2Action} resolves this class via
+     * {@code SpringUtils.getBean(BillingONReviewDxPersister.class)} — without
+     * the {@code @Service} stereotype the bean isn't registered and the
+     * constructor throws {@code NoSuchBeanDefinitionException}, which Struts
+     * surfaces as a 500 on {@code billing/CA/ON/ViewBillingONReview} (issue
+     * #1921). Mock-mode unit tests don't catch this because they
+     * {@code registerMock(BillingONReviewDxPersister.class, ...)} on the
+     * test SpringUtils stub.
+     */
+    @Test
+    void shouldBeAnnotatedAsSpringServiceBean_so1921StaysFixed() {
+        assertThat(BillingONReviewDxPersister.class)
+                .as("BillingONReviewDxPersister must be a registered Spring bean " +
+                    "for ViewBillingONReview2Action's no-arg ctor to succeed (#1921)")
+                .hasAnnotation(org.springframework.stereotype.Service.class);
+    }
+
+    /**
+     * The constructor-injection ctor must be {@code public} so Struts2's
+     * {@code SpringObjectFactory} (and Spring's autowire-by-constructor) can
+     * instantiate the bean. A package-private ctor was the secondary cause of
+     * #1921 — even with {@code @Service} present, Spring can't always
+     * reflectively invoke a package-private ctor across class loaders.
+     */
+    @Test
+    void shouldExposePublicConstructor_forSpringInstantiation() throws Exception {
+        java.lang.reflect.Constructor<BillingONReviewDxPersister> ctor =
+                BillingONReviewDxPersister.class.getDeclaredConstructor(DxresearchDAO.class);
+        assertThat(java.lang.reflect.Modifier.isPublic(ctor.getModifiers()))
+                .as("DxresearchDAO-arg ctor must be public for Spring DI (#1921)")
+                .isTrue();
+    }
 }
