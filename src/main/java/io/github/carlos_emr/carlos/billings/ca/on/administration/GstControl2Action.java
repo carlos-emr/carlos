@@ -32,6 +32,8 @@
 
 package io.github.carlos_emr.carlos.billings.ca.on.administration;
 
+import java.math.BigDecimal;
+
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.billings.ca.on.data.GstControlViewModel;
@@ -67,13 +69,14 @@ public class GstControl2Action extends ActionSupport implements ServletRequestAw
 
         String submittedPercent = this.getGstPercent();
         if (submittedPercent != null && !submittedPercent.isEmpty()) {
-            gstSettingsService.writeDatabase(submittedPercent);
+            gstSettingsService.setCurrentPercent(new BigDecimal(submittedPercent));
         }
 
         // Always re-read the persisted value so the JSP renders the source-of-
         // truth (post-save value when this came in as a POST, or the existing
         // value on a fresh GET).
-        String currentPercent = gstSettingsService.readDatabase().getProperty("gstPercent", "");
+        BigDecimal current = gstSettingsService.getCurrentPercent();
+        String currentPercent = current == null ? "" : current.toPlainString();
         request.setAttribute("gstControlModel", new GstControlViewModel(currentPercent));
 
         return SUCCESS;

@@ -159,7 +159,8 @@
         request.setAttribute("invoiceNo", String.valueOf(bm.getBillingNo()));
     }
     GstReport gstReport = new GstReport();
-    String gstPercent = io.github.carlos_emr.carlos.utility.SpringUtils.getBean(GstSettingsService.class).readDatabase().getProperty("gstPercent", "");
+    java.math.BigDecimal __gstBd = io.github.carlos_emr.carlos.utility.SpringUtils.getBean(GstSettingsService.class).getCurrentPercent();
+    String gstPercent = __gstBd == null ? "" : __gstBd.toPlainString();
 
 %>
 <html>

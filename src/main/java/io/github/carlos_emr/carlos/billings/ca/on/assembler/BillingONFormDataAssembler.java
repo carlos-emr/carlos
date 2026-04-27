@@ -62,12 +62,11 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONRequestParams;
  *
  * <p>Pre-refactor, every concern lived inline in a 600-line
  * {@code assemble} method. The split brings the orchestrator to ~250
- * lines and lets each concern be unit-tested independently. The static
- * helpers ({@link #calculateAge}, {@link #sanitizeIdToken},
- * {@link AgeResult}) remain on this class because the existing test
- * surface ({@code BillingONFormDataAssemblerCalculateAgeUnitTest},
- * {@code BillingONFormDataAssemblerSanitizeIdTokenUnitTest}) targets
- * them by name and the composers reference them via static imports.</p>
+ * lines and lets each concern be unit-tested independently. The
+ * dependency-free helpers (DOB age math, id-token sanitisation) live in
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.data.BillingDobs}
+ * and {@link io.github.carlos_emr.carlos.billings.ca.on.data.BillingONIdTokens}
+ * respectively.</p>
  *
  * @since 2026-04-24
  */
@@ -644,53 +643,6 @@ public class BillingONFormDataAssembler {
      * future caller can't fabricate a "partially-computed but flagged"
      * result.</p>
      */
-    record AgeResult(int age, boolean invalid) {
-        AgeResult {
-            if (age < 0) {
-                throw new IllegalArgumentException("age must be >= 0; got " + age);
-            }
-            if (invalid && age != 0) {
-                throw new IllegalArgumentException(
-                        "invalid=true must imply age==0; got age=" + age);
-            }
-        }
-    }
-
-    static AgeResult calculateAge(String dobYyyymmdd) {
-        if (dobYyyymmdd == null || dobYyyymmdd.isEmpty()) {
-            // Empty DOB is the "no patient yet" case, not a parse failure.
-            return new AgeResult(0, false);
-        }
-        // PHI hygiene: never log the DOB itself. Logging length is enough
-        // for ops to confirm the data shape regression without leaking
-        // patient data per CLAUDE.md.
-        if (dobYyyymmdd.length() != 8) {
-            MiscUtils.getLogger().warn(
-                    "calculateAge: DOB has length {} (expected 8); flagging invalid",
-                    dobYyyymmdd.length());
-            return new AgeResult(0, true);
-        }
-        try {
-            int year = Integer.parseInt(dobYyyymmdd.substring(0, 4));
-            int month = Integer.parseInt(dobYyyymmdd.substring(4, 6));
-            int day = Integer.parseInt(dobYyyymmdd.substring(6, 8));
-            java.time.LocalDate dob = java.time.LocalDate.of(year, month, day);
-            return new AgeResult(
-                    java.time.Period.between(dob, java.time.LocalDate.now()).getYears(),
-                    false);
-        } catch (NumberFormatException | java.time.DateTimeException e) {
-            // A malformed DOB that survived the length()==8 guard (e.g.,
-            // "99999999" parses but throws DateTimeException at LocalDate.of)
-            // would silently emit a 0-year-old patient on the form, which
-            // drives downstream visit-type defaults and premium codes off
-            // bad input. Flag invalid so the JSP renders a warning banner.
-            MiscUtils.getLogger().warn(
-                    "calculateAge: 8-char DOB rejected by LocalDate.of ({}); flagging invalid",
-                    e.getClass().getSimpleName());
-            return new AgeResult(0, true);
-        }
-    }
-
     /**
      * Inlined Drools billing-guidelines step (formerly the
      * {@code BillingONFormDroolsRecommender} composer — collapsed inline
@@ -800,22 +752,6 @@ public class BillingONFormDataAssembler {
      *  attribute the multisite-provider HTML emits. */
     private static String escapeForHtmlAttr(String s) {
         return io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(s);
-    }
-
-    /**
-     * Reduces a DB-supplied service-type / bill-form code to a safe HTML id
-     * token. Replaces every character outside {@code [A-Za-z0-9_-]} with
-     * {@code _}. Service-type codes are conventionally short alphanumerics
-     * in the {@code ctl_billservice} table, so this is a no-op in practice;
-     * it exists to keep the rendered DOM ids well-formed if a malformed row
-     * ever makes it into the table. Package-private to allow direct
-     * unit-testing of the regex behavior.
-     */
-    static String sanitizeIdToken(String s) {
-        if (s == null) {
-            return "";
-        }
-        return s.replaceAll("[^A-Za-z0-9_-]", "_");
     }
 
     private static String firstNonNull(String primary, String fallback) {

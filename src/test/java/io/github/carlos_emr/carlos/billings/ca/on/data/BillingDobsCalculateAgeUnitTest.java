@@ -10,7 +10,7 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.billings.ca.on.assembler;
+package io.github.carlos_emr.carlos.billings.ca.on.data;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -19,12 +19,12 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Direct unit tests for {@link BillingONFormDataAssembler#calculateAge}.
+ * Direct unit tests for {@link BillingDobs#calculateAge}.
  *
- * <p>The helper is package-private + static, so no Spring or DAO mock setup
- * is required. Three failure modes (length≠8, NumberFormatException,
- * DateTimeException) must all set {@code invalid=true}; the empty-input case
- * must return {@code invalid=false} (no patient yet ≠ parse failure).</p>
+ * <p>Three failure modes (length≠8, NumberFormatException,
+ * DateTimeException) must all set {@code invalid=true}; the empty-input
+ * case must return {@code invalid=false} (no patient yet ≠ parse
+ * failure).</p>
  *
  * <p>Regression armor for the silent-age=0 bug: visit-type defaults and
  * age-keyed premium codes branch off {@code AgeResult.age()}, so any future
@@ -33,15 +33,14 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * @since 2026-04-25
  */
-@DisplayName("BillingONFormDataAssembler.calculateAge")
+@DisplayName("BillingDobs.calculateAge")
 @Tag("unit")
 @Tag("billing")
-class BillingONFormDataAssemblerCalculateAgeUnitTest {
+class BillingDobsCalculateAgeUnitTest {
 
     @Test
     void shouldReturnZeroAndNotInvalid_whenDobIsNull() {
-        BillingONFormDataAssembler.AgeResult result =
-                BillingONFormDataAssembler.calculateAge(null);
+        BillingDobs.AgeResult result = BillingDobs.calculateAge(null);
 
         assertThat(result.age()).isEqualTo(0);
         assertThat(result.invalid()).isFalse();
@@ -49,8 +48,7 @@ class BillingONFormDataAssemblerCalculateAgeUnitTest {
 
     @Test
     void shouldReturnZeroAndNotInvalid_whenDobIsEmpty() {
-        BillingONFormDataAssembler.AgeResult result =
-                BillingONFormDataAssembler.calculateAge("");
+        BillingDobs.AgeResult result = BillingDobs.calculateAge("");
 
         assertThat(result.age()).isEqualTo(0);
         assertThat(result.invalid()).isFalse();
@@ -58,8 +56,7 @@ class BillingONFormDataAssemblerCalculateAgeUnitTest {
 
     @Test
     void shouldFlagInvalid_whenDobIsTooShort() {
-        BillingONFormDataAssembler.AgeResult result =
-                BillingONFormDataAssembler.calculateAge("1985");
+        BillingDobs.AgeResult result = BillingDobs.calculateAge("1985");
 
         assertThat(result.age()).isEqualTo(0);
         assertThat(result.invalid()).isTrue();
@@ -67,8 +64,7 @@ class BillingONFormDataAssemblerCalculateAgeUnitTest {
 
     @Test
     void shouldFlagInvalid_whenDobIsTooLong() {
-        BillingONFormDataAssembler.AgeResult result =
-                BillingONFormDataAssembler.calculateAge("198506150000");
+        BillingDobs.AgeResult result = BillingDobs.calculateAge("198506150000");
 
         assertThat(result.age()).isEqualTo(0);
         assertThat(result.invalid()).isTrue();
@@ -80,8 +76,7 @@ class BillingONFormDataAssemblerCalculateAgeUnitTest {
      */
     @Test
     void shouldFlagInvalid_whenDobIsAllNinesAndDateTimeRejects() {
-        BillingONFormDataAssembler.AgeResult result =
-                BillingONFormDataAssembler.calculateAge("99999999");
+        BillingDobs.AgeResult result = BillingDobs.calculateAge("99999999");
 
         assertThat(result.age()).isEqualTo(0);
         assertThat(result.invalid()).isTrue();
@@ -89,8 +84,7 @@ class BillingONFormDataAssemblerCalculateAgeUnitTest {
 
     @Test
     void shouldFlagInvalid_whenDobContainsNonDigits() {
-        BillingONFormDataAssembler.AgeResult result =
-                BillingONFormDataAssembler.calculateAge("19AB0615");
+        BillingDobs.AgeResult result = BillingDobs.calculateAge("19AB0615");
 
         assertThat(result.age()).isEqualTo(0);
         assertThat(result.invalid()).isTrue();
@@ -100,8 +94,7 @@ class BillingONFormDataAssemblerCalculateAgeUnitTest {
     void shouldComputeAgeAndNotInvalid_forValidDob() {
         // Use a fixed historical year so the test is stable across runs.
         // 1900-01-01 is far enough back that age > 100 always.
-        BillingONFormDataAssembler.AgeResult result =
-                BillingONFormDataAssembler.calculateAge("19000101");
+        BillingDobs.AgeResult result = BillingDobs.calculateAge("19000101");
 
         assertThat(result.age()).isGreaterThan(100);
         assertThat(result.invalid()).isFalse();

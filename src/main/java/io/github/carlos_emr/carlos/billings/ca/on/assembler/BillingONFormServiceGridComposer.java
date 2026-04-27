@@ -35,7 +35,7 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import static io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONFormDataAssembler.sanitizeIdToken;
+import static io.github.carlos_emr.carlos.billings.ca.on.data.BillingONIdTokens.sanitize;
 
 /**
  * Composer for the service-code grid + adjacent menu / dx-codes structures.
@@ -127,7 +127,7 @@ public class BillingONFormServiceGridComposer {
             // Sanitize the code at ingest so the same string flows through
             // every downstream surface (HTML element ids, EL ${st}, scriptlet
             // <%=st%>, JS args).
-            String ctlcode = sanitizeIdToken(String.valueOf(typeRow[1]));
+            String ctlcode = sanitize(String.valueOf(typeRow[1]));
             String ctlcodename = typeRow[0] == null ? "" : String.valueOf(typeRow[0]);
 
             if (ctlcode.equals(ctlBillForm)) {
@@ -213,7 +213,7 @@ public class BillingONFormServiceGridComposer {
             if (typeRow == null || typeRow[1] == null) {
                 continue; // already logged in the grid loop above
             }
-            String menuCode = sanitizeIdToken(String.valueOf(typeRow[1]));
+            String menuCode = sanitize(String.valueOf(typeRow[1]));
             String menuName = typeRow[0] == null ? "" : String.valueOf(typeRow[0]);
             String menuBillType = "";
             for (CtlBillingType t : ctlBillingTypeDao.findByServiceType(menuCode)) {

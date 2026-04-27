@@ -315,14 +315,14 @@ public class BillingONReviewDataAssembler {
                                                 BillingONReviewViewModel.Builder b,
                                                 boolean codeValid) {
         Properties oscarVariables = CarlosProperties.getInstance();
-        Properties gstProp;
+        BigDecimal currentGst;
         try {
-            gstProp = gstSettingsService.readDatabase();
+            currentGst = gstSettingsService.getCurrentPercent();
         } catch (RuntimeException e) {
-            MiscUtils.getLogger().warn("BillingONReviewDataAssembler: GstSettingsService.readDatabase failed", e);
-            gstProp = new Properties();
+            MiscUtils.getLogger().warn("BillingONReviewDataAssembler: GstSettingsService.getCurrentPercent failed", e);
+            currentGst = null;
         }
-        String percent = gstProp.getProperty("gstPercent", "");
+        String percent = currentGst == null ? "" : currentGst.toPlainString();
         b.gstPercent(percent);
         GstReport gstRep = gstReport;
 

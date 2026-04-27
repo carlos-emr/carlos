@@ -13,7 +13,6 @@
 package io.github.carlos_emr.carlos.billings.ca.on.administration;
 
 import java.math.BigDecimal;
-import java.util.Properties;
 
 import org.springframework.stereotype.Service;
 
@@ -21,10 +20,15 @@ import io.github.carlos_emr.carlos.billing.CA.dao.GstControlDao;
 import io.github.carlos_emr.carlos.billing.CA.model.GstControl;
 
 /**
- * Read/write helper for the single-row GST control table. Extracted from
+ * Typed read/write for the single-row GST control table. Extracted from
  * {@link GstControl2Action} so non-action callers (assemblers, managers)
  * can read the configured GST percent without instantiating a Struts
  * action class.
+ *
+ * <p>The legacy {@code Properties}-bag surface ({@code readDatabase()} +
+ * {@code writeDatabase(String)}) was retired on 2026-04-27 in favour of
+ * {@link BigDecimal} accessors so callers don't string-fumble a numeric
+ * setting at every site.</p>
  *
  * @since 2026-04-27
  */
@@ -37,17 +41,21 @@ public class GstSettingsService {
         this.dao = dao;
     }
 
-    public Properties readDatabase() {
-        Properties props = new Properties();
+    /**
+     * @return the configured GST percent (e.g. {@code 5.00} for 5%), or
+     *         {@code null} if the {@code billing_gst} table is empty.
+     */
+    public BigDecimal getCurrentPercent() {
         for (GstControl g : dao.findAll()) {
-            props.setProperty("gstPercent", g.getGstPercent().toString());
+            return g.getGstPercent();
         }
-        return props;
+        return null;
     }
 
-    public void writeDatabase(String percent) {
+    /** Persists {@code percent} as the new GST percent for every existing row. */
+    public void setCurrentPercent(BigDecimal percent) {
         for (GstControl g : dao.findAll()) {
-            g.setGstPercent(BigDecimal.valueOf(Double.valueOf(percent)));
+            g.setGstPercent(percent);
             dao.merge(g);
         }
     }

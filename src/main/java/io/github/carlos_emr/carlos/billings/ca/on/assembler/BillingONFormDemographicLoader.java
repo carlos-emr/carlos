@@ -21,7 +21,8 @@ import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.SxmlMisc;
 
-import static io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONFormDataAssembler.calculateAge;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDobs;
+import static io.github.carlos_emr.carlos.billings.ca.on.data.BillingDobs.calculateAge;
 
 /**
  * Composer that loads patient context onto the billing form view model:
@@ -88,7 +89,7 @@ public class BillingONFormDemographicLoader {
             rosterStatus = nullToEmpty(demo.getRosterStatus());
         }
 
-        BillingONFormDataAssembler.AgeResult ageResult = calculateAge(summary.dob());
+        BillingDobs.AgeResult ageResult = calculateAge(summary.dob());
         // Flat setters accumulate into the builder's fields; the build()
         // step composes them into a {@link BillingDemographicSummary} record
         // unless the orchestrator (or a later composer) calls .demographic()
