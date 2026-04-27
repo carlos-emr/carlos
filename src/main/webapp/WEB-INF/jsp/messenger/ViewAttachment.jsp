@@ -281,7 +281,7 @@
         void DrawDoc(Element root, JspWriter out, String rootLabel)
                 throws jakarta.servlet.jsp.JspException, java.io.IOException {
             String safeRootLabel = rootLabel == null ? "" : rootLabel;
-            out.print(spanStartRoot + Encode.forHtml(safeRootLabel) + spanEnd);
+            out.print(spanStartRoot + SafeEncode.forHtml(safeRootLabel) + spanEnd);
             out.print(tblStartRoot);
 
             NodeList lst = root.getChildNodes();
@@ -296,7 +296,7 @@
 
         void DrawTable(Element tbl, JspWriter out)
                 throws jakarta.servlet.jsp.JspException, java.io.IOException {
-            out.print(spanStart + Encode.forHtml(tbl.getAttribute("name")) + spanEnd);
+            out.print(spanStart + SafeEncode.forHtml(tbl.getAttribute("name")) + spanEnd);
             out.print(tblStart);
 
             NodeList lst = tbl.getChildNodes();
@@ -315,8 +315,8 @@
                 // String sName = "item" + item.getAttribute("itemId");
                 // out.print("<input type=checkbox name='" + sName + "' onclick='javascript:chkClick();'/>");
             }
-            out.print(Encode.forHtml(item.getAttribute("name")) + ": "
-                    + Encode.forHtml(item.getAttribute("value")) + spanEnd);
+            out.print(SafeEncode.forHtml(item.getAttribute("name")) + ": "
+                    + SafeEncode.forHtml(item.getAttribute("value")) + spanEnd);
             out.print(tblStartContent);
 
             NodeList lst = item.getChildNodes();
@@ -338,9 +338,9 @@
                     Element fld = (Element) lst.item(i);
                     if (fld.getTagName().equals("fld")) {
                         out.print("<tr><td style='font-weight:bold'>");
-                        out.print(Encode.forHtml(fld.getAttribute("name")) + ": ");
+                        out.print(SafeEncode.forHtml(fld.getAttribute("name")) + ": ");
                         out.print("</td><td>");
-                        out.print(Encode.forHtml(fld.getAttribute("value")));
+                        out.print(SafeEncode.forHtml(fld.getAttribute("value")));
                         out.print("</td></tr>");
                     }
                 }
@@ -394,15 +394,15 @@
         <div class="mb-2">
             <button type="button"
                     class="btn btn-outline-secondary btn-sm"
-                    onclick="if (confirm('<%= Encode.forJavaScript((String) pageContext.getAttribute("closeConfirmMsg")) %>')) { top.window.close(); }">
+                    onclick="if (confirm('<%= SafeEncode.forJavaScript((String) pageContext.getAttribute("closeConfirmMsg")) %>')) { top.window.close(); }">
                 <i class="fa-regular fa-circle-xmark" aria-hidden="true"></i>
                 <fmt:message key="messenger.generatePreviewPDF.btnClose"/>
             </button>
         </div>
             <form method="POST" action="<%= request.getContextPath() %>/messenger/AdjustAttachments"><input
                     type="hidden" name="xmlDoc"
-                    value="<%= Encode.forHtmlAttribute(MsgCommxml.encode64(MsgCommxml.toXML(root))) %>"/> <input
-                    type="hidden" name="id" value="<%= Encode.forHtmlAttribute(String.valueOf(request.getAttribute("attId"))) %>"/>
+                    value="<%= SafeEncode.forHtmlAttribute(MsgCommxml.encode64(MsgCommxml.toXML(root))) %>"/> <input
+                    type="hidden" name="id" value="<%= SafeEncode.forHtmlAttribute(String.valueOf(request.getAttribute("attId"))) %>"/>
 
 <table class="MainTable" id="scrollNumber1" name="encounterTable">
 
