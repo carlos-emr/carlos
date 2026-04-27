@@ -71,8 +71,11 @@ class BillingONAuditLogServiceUnitTest {
         assertThat(persisted.getComment()).isEqualTo("manual reconcile");
         assertThat(persisted.getObject()).isEqualTo("12345");
         // The timestamp is server-side new Date() — must lie in the test window.
+        // Use explicit inclusive bounds: AssertJ's two-arg isBetween treats the
+        // upper bound as exclusive, which races when both Dates land in the
+        // same millisecond.
         assertThat(persisted.getCreateDateTime())
-                .isBetween(before, new Date());
+                .isBetween(before, new Date(), true, true);
     }
 
     @Test
