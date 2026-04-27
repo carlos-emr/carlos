@@ -122,6 +122,9 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         sql.append("eft_latest tinyint(1) NOT NULL, ");
         sql.append("dateCreated timestamp NOT NULL ");
         for (String field : fields) {
+            if (field == null || field.matches(".*[`].*")) {
+                throw new IllegalArgumentException("Invalid eform var name: " + field);
+            }
             sql.append(",`" + field + "` text");
         }
         sql.append(")");
@@ -150,7 +153,7 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         StringBuilder placeholderFragment = new StringBuilder();
         for (int i = 0; i < values.size(); i++) {
             String varName = values.get(i).getVarName();
-            if (varName == null || !VALID_IDENTIFIER_PATTERN.matcher(varName).matches()) {
+            if (varName == null || varName.matches(".*[`].*")) {
                 throw new IllegalArgumentException("Invalid eform var name: " + varName);
             }
             columnFragment.append(", `").append(varName).append("`");
