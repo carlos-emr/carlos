@@ -1,3 +1,0 @@
-## 2026-04-27 - Pre-compile Regex Patterns for Performance
-**Learning:** In Java, dynamically compiling regular expressions using `Pattern.compile()` inside frequently called methods (like `DSValue.createDSValue` which parses condition values) can create a significant performance bottleneck due to the repeated compilation overhead.
-**Action:** Always extract `Pattern.compile()` calls into `private static final Pattern` fields when the regex string is static. This ensures the regex engine only compiles the pattern once during class loading, drastically improving runtime execution speed. Note that while `Pattern` is thread-safe, `Matcher` is not and should still be instantiated locally.
