@@ -544,35 +544,13 @@
                     month = m || "";
                     day = d || "";
                 }
-            
-                document.getElementById(`${fieldId}_year`).value = year;
-                document.getElementById(`${fieldId}_month`).value = month;
-                document.getElementById(`${fieldId}_day`).value = day;
+                const yearField = document.querySelector(`input[name="${fieldId}_year"]`);
+                const monthField = document.querySelector(`input[name="${fieldId}_month"]`);
+                const dateField = document.querySelector(`input[name="${fieldId}_date"]`);
+                if (yearField) yearField.value = year;
+                if (monthField) monthField.value = month;
+                if (dateField) dateField.value = day;
             }
-
-
-
-    //  JavaScript for disabling form submissions if there are invalid fields
-    (() => {
-      'use strict'
-    
-      // Fetch all the forms we want to apply custom Bootstrap validation styles to
-      const forms = document.querySelectorAll('.needs-validation')
-    
-      // Loop over them and prevent submission
-      Array.from(forms).forEach(form => {
-        form.addEventListener('submit', event => {
-          if (!form.checkValidity()) {
-            event.preventDefault()
-            event.stopPropagation()
-          }
-    
-          form.classList.add('was-validated')
-        }, false)
-      })
-    })()
-
-
 
             <%
             if("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled","false"))) {
@@ -699,6 +677,23 @@
     </div><%-- /.container-fluid --%>
 
     <script type="text/javascript">
+      document.addEventListener('DOMContentLoaded', () => {
+        'use strict'
+        // Fetch all the forms we want to apply custom Bootstrap validation styles to
+        const forms = document.querySelectorAll('.needs-validation')
+        // Loop over them and prevent submission
+        Array.from(forms).forEach(form => {
+          form.addEventListener('submit', event => {
+            if (!form.checkValidity()) {
+              event.preventDefault()
+              event.stopPropagation()
+            }
+            form.classList.add('was-validated')
+          }, false)
+        })
+      })
+
+
         Calendar.setup({
             inputField: "inputDOB",
             ifFormat: "%Y-%m-%d",
