@@ -84,6 +84,10 @@ public class BillingONInvoiceTotalsCalculator {
                 continue;
             }
             String feeStr = bItem.getFee();
+            if (feeStr == null) {
+                MiscUtils.getLogger().error("Fee is null on active item; refusing recompute");
+                return Optional.empty();
+            }
             try {
                 feeTotal = feeTotal.add(new BigDecimal(feeStr));
             } catch (NumberFormatException e) {
