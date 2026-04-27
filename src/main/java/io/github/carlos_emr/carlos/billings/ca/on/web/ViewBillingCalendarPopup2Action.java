@@ -17,7 +17,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCalendarPopupViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -38,10 +37,13 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingCalendarPopup
  *
  * @since 2026-04-13
  */
-public final class ViewBillingCalendarPopup2Action extends ActionSupport {
+public class ViewBillingCalendarPopup2Action extends ActionSupport {
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final SecurityInfoManager securityInfoManager;
 
+    public ViewBillingCalendarPopup2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();

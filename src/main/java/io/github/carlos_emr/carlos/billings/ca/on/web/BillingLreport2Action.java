@@ -23,7 +23,6 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.struts2.ActionSupport;
@@ -47,10 +46,13 @@ import org.apache.struts2.ServletActionContext;
  *
  * @since 2026-04-25
  */
-public final class BillingLreport2Action extends ActionSupport {
+public class BillingLreport2Action extends ActionSupport {
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final SecurityInfoManager securityInfoManager;
 
+    public BillingLreport2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();

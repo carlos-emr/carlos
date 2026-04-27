@@ -34,10 +34,13 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.OnGenRAsettleService;
  *
  * @since 2026-04-13
  */
-public final class ViewOnGenRAsettle352Action extends ActionSupport {
+public class ViewOnGenRAsettle352Action extends ActionSupport {
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final SecurityInfoManager securityInfoManager;
 
+    public ViewOnGenRAsettle352Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();

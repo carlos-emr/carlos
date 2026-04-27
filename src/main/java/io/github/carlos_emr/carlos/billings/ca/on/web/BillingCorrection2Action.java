@@ -28,7 +28,6 @@
  */
 
 package io.github.carlos_emr.carlos.billings.ca.on.web;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -71,8 +70,6 @@ public class BillingCorrection2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
     private final BillingONCorrectionDataAssembler assembler;
 
-    /** Constructor injection used by Spring + Struts2's SpringObjectFactory. */
-    @Autowired
     public BillingCorrection2Action(SecurityInfoManager securityInfoManager,
                              BillingONCorrectionDataAssembler assembler) {
         this.securityInfoManager = securityInfoManager;

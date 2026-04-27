@@ -20,7 +20,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.ManageBillingLocationView
 import io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -34,11 +33,16 @@ import org.apache.struts2.ServletActionContext;
  *
  * @since 2026-04-13
  */
-public final class ManageBillingLocation2Action extends ActionSupport {
+public class ManageBillingLocation2Action extends ActionSupport {
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private ClinicLocationDao clinicLocationDao = SpringUtils.getBean(ClinicLocationDao.class);
+    private final SecurityInfoManager securityInfoManager;
+    private final ClinicLocationDao clinicLocationDao;
 
+    public ManageBillingLocation2Action(SecurityInfoManager securityInfoManager,
+                                        ClinicLocationDao clinicLocationDao) {
+        this.securityInfoManager = securityInfoManager;
+        this.clinicLocationDao = clinicLocationDao;
+    }
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();

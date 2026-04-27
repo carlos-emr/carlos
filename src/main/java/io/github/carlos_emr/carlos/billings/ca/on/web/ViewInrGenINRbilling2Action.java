@@ -11,7 +11,6 @@
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
 import java.text.ParseException;
@@ -59,8 +58,6 @@ public class ViewInrGenINRbilling2Action extends ActionSupport {
     private final BillingDao billingDao;
     private final BillingDetailDao billingDetailDao;
 
-    /** Constructor injection used by Spring + Struts2's SpringObjectFactory. */
-    @Autowired
     public ViewInrGenINRbilling2Action(SecurityInfoManager securityInfoManager,
                                 BillingInrDao billingInrDao,
                                 BillingDao billingDao,

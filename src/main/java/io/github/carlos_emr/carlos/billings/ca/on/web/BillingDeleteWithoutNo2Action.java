@@ -31,7 +31,6 @@ import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -48,16 +47,27 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionPrep;
  *
  * @since 2026
  */
-public final class BillingDeleteWithoutNo2Action extends ActionSupport {
+public class BillingDeleteWithoutNo2Action extends ActionSupport {
 
     HttpServletRequest request = ServletActionContext.getRequest();
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
-    private AppointmentArchiveDao appointmentArchiveDao = SpringUtils.getBean(AppointmentArchiveDao.class);
-    private OscarAppointmentDao appointmentDao = SpringUtils.getBean(OscarAppointmentDao.class);
-    private BillingCorrectionPrep correctionPrep = SpringUtils.getBean(BillingCorrectionPrep.class);
+    private final SecurityInfoManager securityInfoManager;
+    private final BillingDao billingDao;
+    private final AppointmentArchiveDao appointmentArchiveDao;
+    private final OscarAppointmentDao appointmentDao;
+    private final BillingCorrectionPrep correctionPrep;
 
+    public BillingDeleteWithoutNo2Action(SecurityInfoManager securityInfoManager,
+                                         BillingDao billingDao,
+                                         AppointmentArchiveDao appointmentArchiveDao,
+                                         OscarAppointmentDao appointmentDao,
+                                         BillingCorrectionPrep correctionPrep) {
+        this.securityInfoManager = securityInfoManager;
+        this.billingDao = billingDao;
+        this.appointmentArchiveDao = appointmentArchiveDao;
+        this.appointmentDao = appointmentDao;
+        this.correctionPrep = correctionPrep;
+    }
     @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

@@ -32,7 +32,6 @@ import io.github.carlos_emr.carlos.commn.model.BillingONExt;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.logging.log4j.LogManager;
 import org.apache.struts2.ActionSupport;
@@ -57,21 +56,35 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingSavePrep;
  *
  * @since 2026
  */
-public final class BillingONSave2Action extends ActionSupport {
+public class BillingONSave2Action extends ActionSupport {
 
-    HttpServletRequest request = ServletActionContext.getRequest();
+    private final SecurityInfoManager securityInfoManager;
+    private final BillingONCHeader1Dao cheader1Dao;
+    private final BillingONExtDao extDao;
+    private final UserPropertyDAO userPropertyDAO;
+    private final BillingDao billingDao;
+    private final BillingSavePrep bObj;
+    private final io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionPrep correctionPrep;
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private BillingONCHeader1Dao cheader1Dao = SpringUtils.getBean(BillingONCHeader1Dao.class);
-    private BillingONExtDao extDao = SpringUtils.getBean(BillingONExtDao.class);
-    private UserPropertyDAO userPropertyDAO = SpringUtils.getBean(UserPropertyDAO.class);
-    private BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
-    private BillingSavePrep bObj = SpringUtils.getBean(BillingSavePrep.class);
-    private io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionPrep correctionPrep =
-            SpringUtils.getBean(io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionPrep.class);
-
+    @org.springframework.beans.factory.annotation.Autowired
+    public BillingONSave2Action(SecurityInfoManager securityInfoManager,
+                                BillingONCHeader1Dao cheader1Dao,
+                                BillingONExtDao extDao,
+                                UserPropertyDAO userPropertyDAO,
+                                BillingDao billingDao,
+                                BillingSavePrep bObj,
+                                io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionPrep correctionPrep) {
+        this.securityInfoManager = securityInfoManager;
+        this.cheader1Dao = cheader1Dao;
+        this.extDao = extDao;
+        this.userPropertyDAO = userPropertyDAO;
+        this.billingDao = billingDao;
+        this.bObj = bObj;
+        this.correctionPrep = correctionPrep;
+    }
     @Override
     public String execute() {
+        HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");

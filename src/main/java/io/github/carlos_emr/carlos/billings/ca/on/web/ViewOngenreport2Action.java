@@ -35,10 +35,13 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.OnBillingDiskService;
  *
  * @since 2026-04-13
  */
-public final class ViewOngenreport2Action extends ActionSupport {
+public class ViewOngenreport2Action extends ActionSupport {
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final SecurityInfoManager securityInfoManager;
 
+    public ViewOngenreport2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();

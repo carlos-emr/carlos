@@ -26,7 +26,6 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -38,7 +37,7 @@ import org.apache.struts2.ServletActionContext;
  *
  * @since 2026-04-13
  */
-public final class ViewSearchRefDoc2Action extends ActionSupport {
+public class ViewSearchRefDoc2Action extends ActionSupport {
 
     /**
      * Recognised opener-form-field path expressions. Allows dots in element
@@ -47,9 +46,14 @@ public final class ViewSearchRefDoc2Action extends ActionSupport {
     private static final Pattern PATH_PATTERN = Pattern.compile(
             "^document\\.forms\\[(\\d+)\\]\\.elements\\['([a-zA-Z0-9_.]+)'\\]\\.value$");
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private ProfessionalSpecialistDao professionalSpecialistDao = SpringUtils.getBean(ProfessionalSpecialistDao.class);
+    private final SecurityInfoManager securityInfoManager;
+    private final ProfessionalSpecialistDao professionalSpecialistDao;
 
+    public ViewSearchRefDoc2Action(SecurityInfoManager securityInfoManager,
+                                   ProfessionalSpecialistDao professionalSpecialistDao) {
+        this.securityInfoManager = securityInfoManager;
+        this.professionalSpecialistDao = professionalSpecialistDao;
+    }
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();

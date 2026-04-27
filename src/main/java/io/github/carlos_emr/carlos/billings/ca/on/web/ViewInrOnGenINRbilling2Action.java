@@ -11,7 +11,6 @@
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -59,8 +58,6 @@ public class ViewInrOnGenINRbilling2Action extends ActionSupport {
     private final BillingInrDao billingInrDao;
     private final BillingONClaimPersistenceService persistenceService;
 
-    /** Constructor injection used by Spring + Struts2's SpringObjectFactory. */
-    @Autowired
     public ViewInrOnGenINRbilling2Action(SecurityInfoManager securityInfoManager,
                                   BillingInrDao billingInrDao,
                                   BillingONClaimPersistenceService persistenceService) {

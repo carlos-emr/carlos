@@ -11,7 +11,6 @@
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
 
@@ -51,8 +50,6 @@ public class ViewBillingCodeSearchAjax2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
     private final BillingCodeSearchAjaxDataAssembler assembler;
 
-    /** Constructor injection used by Spring + Struts2's SpringObjectFactory. */
-    @Autowired
     public ViewBillingCodeSearchAjax2Action(SecurityInfoManager securityInfoManager,
                                      BillingCodeSearchAjaxDataAssembler assembler) {
         this.securityInfoManager = securityInfoManager;

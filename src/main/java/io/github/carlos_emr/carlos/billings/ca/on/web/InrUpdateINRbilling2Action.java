@@ -11,7 +11,6 @@
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
 
@@ -42,8 +41,6 @@ public class InrUpdateINRbilling2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
     private final InrUpdateINRBillingDataAssembler assembler;
 
-    /** Constructor injection used by Spring + Struts2's SpringObjectFactory. */
-    @Autowired
     public InrUpdateINRbilling2Action(SecurityInfoManager securityInfoManager,
                                InrUpdateINRBillingDataAssembler assembler) {
         this.securityInfoManager = securityInfoManager;

@@ -64,16 +64,20 @@ import java.util.ArrayList;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class BillingDocumentErrorReportUpload2Action extends ActionSupport implements UploadedFilesAware {
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-
+    private final SecurityInfoManager securityInfoManager;
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
     private BatchEligibilityDao batchEligibilityDao = (BatchEligibilityDao) SpringUtils.getBean(BatchEligibilityDao.class);
     private DemographicCustDao demographicCustDao = (DemographicCustDao) SpringUtils.getBean(DemographicCustDao.class);
-    private DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
+    private final DemographicManager demographicManager;
 
+    public BillingDocumentErrorReportUpload2Action(SecurityInfoManager securityInfoManager,
+                                                   DemographicManager demographicManager) {
+        this.securityInfoManager = securityInfoManager;
+        this.demographicManager = demographicManager;
+    }
     public String execute() throws ServletException, IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {

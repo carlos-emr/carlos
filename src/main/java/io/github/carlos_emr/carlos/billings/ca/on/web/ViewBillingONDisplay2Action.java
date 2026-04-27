@@ -11,7 +11,6 @@
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -42,8 +41,6 @@ public class ViewBillingONDisplay2Action extends ActionSupport {
 
     private BillingONDisplayViewModel displayModel;
 
-    /** Constructor injection used by Spring + Struts2's SpringObjectFactory. */
-    @Autowired
     public ViewBillingONDisplay2Action(SecurityInfoManager securityInfoManager,
                                 BillingONDisplayDataAssembler assembler) {
         this.securityInfoManager = securityInfoManager;

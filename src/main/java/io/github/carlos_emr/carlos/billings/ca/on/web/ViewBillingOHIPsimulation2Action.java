@@ -11,7 +11,6 @@
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -37,8 +36,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOHIPSimulatio
  */
 public class ViewBillingOHIPsimulation2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
-    /** Constructor injection used by Spring + Struts2's SpringObjectFactory. */
-    @Autowired
     public ViewBillingOHIPsimulation2Action(SecurityInfoManager securityInfoManager) {
         this.securityInfoManager = securityInfoManager;
     }

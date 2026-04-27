@@ -17,7 +17,6 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -36,11 +35,16 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.OhipReportGenerationSe
  *
  * @since 2026-04-13
  */
-public final class ViewGenReport2Action extends ActionSupport {
+public class ViewGenReport2Action extends ActionSupport {
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private OhipReportGenerationService service = SpringUtils.getBean(OhipReportGenerationService.class);
+    private final SecurityInfoManager securityInfoManager;
+    private final OhipReportGenerationService service;
 
+    public ViewGenReport2Action(SecurityInfoManager securityInfoManager,
+                                OhipReportGenerationService service) {
+        this.securityInfoManager = securityInfoManager;
+        this.service = service;
+    }
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();

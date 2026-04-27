@@ -35,7 +35,6 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -55,15 +54,24 @@ import java.util.ListIterator;
  *
  * @since 2026
  */
-public final class BillingCorrectionSubmit2Action extends ActionSupport {
+public class BillingCorrectionSubmit2Action extends ActionSupport {
 
     HttpServletRequest request = ServletActionContext.getRequest();
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private BillingDetailDao billingDetailDao = SpringUtils.getBean(BillingDetailDao.class);
-    private RecycleBinDao recycleBinDao = SpringUtils.getBean(RecycleBinDao.class);
-    private BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
+    private final SecurityInfoManager securityInfoManager;
+    private final BillingDetailDao billingDetailDao;
+    private final RecycleBinDao recycleBinDao;
+    private final BillingDao billingDao;
 
+    public BillingCorrectionSubmit2Action(SecurityInfoManager securityInfoManager,
+                                          BillingDetailDao billingDetailDao,
+                                          RecycleBinDao recycleBinDao,
+                                          BillingDao billingDao) {
+        this.securityInfoManager = securityInfoManager;
+        this.billingDetailDao = billingDetailDao;
+        this.recycleBinDao = recycleBinDao;
+        this.billingDao = billingDao;
+    }
     @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

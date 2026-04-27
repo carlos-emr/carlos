@@ -11,7 +11,6 @@
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -40,8 +39,6 @@ public class EditBillingPaymentType2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
     private final EditBillingPaymentTypeDataAssembler assembler;
 
-    /** Constructor injection used by Spring + Struts2's SpringObjectFactory. */
-    @Autowired
     public EditBillingPaymentType2Action(SecurityInfoManager securityInfoManager,
                                   EditBillingPaymentTypeDataAssembler assembler) {
         this.securityInfoManager = securityInfoManager;

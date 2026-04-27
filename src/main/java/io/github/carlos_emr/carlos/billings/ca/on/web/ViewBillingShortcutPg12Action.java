@@ -11,7 +11,6 @@
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -48,8 +47,6 @@ public class ViewBillingShortcutPg12Action extends ActionSupport {
 
     private BillingShortcutPg1ViewModel shortcutPg1Model;
 
-    /** Constructor injection used by Spring + Struts2's SpringObjectFactory. */
-    @Autowired
     public ViewBillingShortcutPg12Action(SecurityInfoManager securityInfoManager,
                                   BillingShortcutPg1DataAssembler assembler) {
         this.securityInfoManager = securityInfoManager;

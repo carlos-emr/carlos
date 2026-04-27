@@ -45,7 +45,6 @@ import io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao;
 
 import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -53,15 +52,20 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class PaymentType2Action extends ActionSupport {
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-
+    private final SecurityInfoManager securityInfoManager;
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private BillingPaymentTypeDao billingPaymentTypeDao = SpringUtils.getBean(BillingPaymentTypeDao.class);
-    private BillingONPaymentDao billPaymentDao = SpringUtils.getBean(BillingONPaymentDao.class);
+    private final BillingPaymentTypeDao billingPaymentTypeDao;
+    private final BillingONPaymentDao billPaymentDao;
 
-    
+    public PaymentType2Action(SecurityInfoManager securityInfoManager,
+                              BillingPaymentTypeDao billingPaymentTypeDao,
+                              BillingONPaymentDao billPaymentDao) {
+        this.securityInfoManager = securityInfoManager;
+        this.billingPaymentTypeDao = billingPaymentTypeDao;
+        this.billPaymentDao = billPaymentDao;
+    }
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() {

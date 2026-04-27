@@ -11,7 +11,6 @@
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
 
@@ -43,8 +42,6 @@ public class BillingONStatusERUpdateStatus2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
     private final BillingONErrorReportService errorReportService;
 
-    /** Constructor injection used by Spring + Struts2's SpringObjectFactory. */
-    @Autowired
     public BillingONStatusERUpdateStatus2Action(SecurityInfoManager securityInfoManager,
                                          BillingONErrorReportService errorReportService) {
         this.securityInfoManager = securityInfoManager;

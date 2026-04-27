@@ -26,7 +26,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingShortcutPg2ViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -46,10 +45,13 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingShortcutPg2Da
  *
  * @since 2026
  */
-public final class BillingShortcutPg2Save2Action extends ActionSupport {
+public class BillingShortcutPg2Save2Action extends ActionSupport {
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final SecurityInfoManager securityInfoManager;
 
+    public BillingShortcutPg2Save2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
     @Override
     public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();

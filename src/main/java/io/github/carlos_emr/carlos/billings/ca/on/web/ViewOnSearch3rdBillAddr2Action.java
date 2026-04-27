@@ -27,7 +27,6 @@ import io.github.carlos_emr.carlos.commn.dao.Billing3rdPartyAddressDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -41,7 +40,7 @@ import org.apache.struts2.ServletActionContext;
  *
  * @since 2026-04-13
  */
-public final class ViewOnSearch3rdBillAddr2Action extends ActionSupport {
+public class ViewOnSearch3rdBillAddr2Action extends ActionSupport {
 
     /** Allowlist replicated from the legacy JSP — keep in sync if extended. */
     private static final Set<String> VALID_ORDER_BY_COLUMNS = Set.of(
@@ -51,9 +50,14 @@ public final class ViewOnSearch3rdBillAddr2Action extends ActionSupport {
             "search_name", "company_name", "attention", "address", "city",
             "province", "postcode", "telephone", "fax");
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private Billing3rdPartyAddressDao billing3rdPartyAddressDao = SpringUtils.getBean(Billing3rdPartyAddressDao.class);
+    private final SecurityInfoManager securityInfoManager;
+    private final Billing3rdPartyAddressDao billing3rdPartyAddressDao;
 
+    public ViewOnSearch3rdBillAddr2Action(SecurityInfoManager securityInfoManager,
+                                          Billing3rdPartyAddressDao billing3rdPartyAddressDao) {
+        this.securityInfoManager = securityInfoManager;
+        this.billing3rdPartyAddressDao = billing3rdPartyAddressDao;
+    }
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();

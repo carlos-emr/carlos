@@ -22,7 +22,6 @@ import io.github.carlos_emr.carlos.commn.dao.ReportProviderDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -45,11 +44,16 @@ import org.apache.struts2.ServletActionContext;
  *
  * @since 2026-04-13
  */
-public final class ViewBillingReportCenter2Action extends ActionSupport {
+public class ViewBillingReportCenter2Action extends ActionSupport {
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private ReportProviderDao reportProviderDao = SpringUtils.getBean(ReportProviderDao.class);
+    private final SecurityInfoManager securityInfoManager;
+    private final ReportProviderDao reportProviderDao;
 
+    public ViewBillingReportCenter2Action(SecurityInfoManager securityInfoManager,
+                                          ReportProviderDao reportProviderDao) {
+        this.securityInfoManager = securityInfoManager;
+        this.reportProviderDao = reportProviderDao;
+    }
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();

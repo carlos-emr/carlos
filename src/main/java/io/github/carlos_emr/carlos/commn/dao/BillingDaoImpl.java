@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 @Repository
+@org.springframework.context.annotation.Primary
 @SuppressWarnings("unchecked")
 public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingDao {
 

@@ -11,7 +11,6 @@
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -67,8 +66,6 @@ public class ViewSearchRefDocAjax2Action extends ActionSupport {
     private final ProfessionalSpecialistDao professionalSpecialistDao;
     private final ConsultationServiceDao consultationServiceDao;
 
-    /** Constructor injection used by Spring + Struts2's SpringObjectFactory. */
-    @Autowired
     public ViewSearchRefDocAjax2Action(SecurityInfoManager securityInfoManager,
                                 ProfessionalSpecialistDao professionalSpecialistDao,
                                 ConsultationServiceDao consultationServiceDao) {
