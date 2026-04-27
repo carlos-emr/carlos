@@ -32,7 +32,7 @@ import java.util.List;
 @org.springframework.stereotype.Service
 @org.springframework.context.annotation.Lazy
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
-public class BillingStatusPrep {
+public class BillingStatusService {
     private static final String ANY_PROVIDER = "all";
     private static final String ANY_STATUS_TYPE = "%";
     private static final String ANY_SERVICE_CODE = "%";
@@ -41,7 +41,7 @@ public class BillingStatusPrep {
 
     private final BillingONClaimQueryService bObj;
 
-    BillingStatusPrep(BillingONClaimQueryService bObj) {
+    BillingStatusService(BillingONClaimQueryService bObj) {
         this.bObj = bObj;
     }
 

@@ -34,11 +34,11 @@ import org.apache.logging.log4j.Logger;
 @org.springframework.stereotype.Service
 @org.springframework.context.annotation.Lazy
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
-public class BillingRAPrep {
+public class BillingRAReportService {
     private static final Logger _logger = MiscUtils.getLogger();
     private final BillingONRemittanceAdviceService dbObj;
 
-    BillingRAPrep(BillingONRemittanceAdviceService dbObj) {
+    BillingRAReportService(BillingONRemittanceAdviceService dbObj) {
         this.dbObj = dbObj;
     }
 

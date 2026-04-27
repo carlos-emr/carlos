@@ -231,6 +231,17 @@ The deprecated `com.opensymphony.xwork2.*` packages from Struts 6.x were migrate
 - Struts 6.8.0 → 7.1.1 (March 2026) — Jakarta EE namespace migration, `com.opensymphony.xwork2.*` → `org.apache.struts2.*`
 - Caffeine 3.2.3 cache dependency required by Struts for internal caching
 
+## Layer Names — class naming policy
+
+**Suffix == role + lifecycle.** Pick the most specific verb-suffix that fits; fall back to `*Service` only when nothing more specific applies. **Never** combine two role-suffixes (no `*LoaderService`, `*ServiceManager`).
+
+Sanctioned suffixes for new code:
+`*Action`, `*DataAssembler`, `*ViewModel`, `*Loader`, `*Resolver`, `*Composer`, `*Validator`, `*Persister`, `*Calculator`, `*Service`, `*Dao`. Static-utility classes use a domain noun with no suffix.
+
+Forbidden in new code: `*Prep`, `*Manager`, `*Helper`, `*Utils`, compound suffixes. DAOs may not inject other DAOs (cross-DAO orchestration goes in a `*Service`).
+
+Full policy + decision rules + retired-suffix migration guidance: **`docs/architecture/layer-names.md`**.
+
 ## Healthcare Domain Context
 
 **Core Medical Modules**:

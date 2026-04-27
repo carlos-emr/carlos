@@ -56,7 +56,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 @org.springframework.stereotype.Service
 @org.springframework.context.annotation.Lazy
 @org.springframework.transaction.annotation.Transactional
-public class BillingCorrectionPrep {
+public class BillingCorrectionRecordService {
     private static final Logger _logger = MiscUtils.getLogger();
 
     private final BillingONCorrectionPersistenceService dbObj;
@@ -71,7 +71,7 @@ public class BillingCorrectionPrep {
     private final BillingOnTransactionDao billOnTransDao;
     private final BillingOnItemPaymentDao billOnItemPaymentDao;
 
-    BillingCorrectionPrep(BillingONCorrectionPersistenceService dbObj,
+    BillingCorrectionRecordService(BillingONCorrectionPersistenceService dbObj,
                           BillingONCHeader1Dao cheader1Dao,
                           BillingONItemDao billOnItemDao,
                           BillingONExtDao billOnExtDao,

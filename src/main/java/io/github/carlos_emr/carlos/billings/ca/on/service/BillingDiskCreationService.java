@@ -40,14 +40,14 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 @org.springframework.stereotype.Service
 @org.springframework.context.annotation.Lazy
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
-public class BillingDiskCreatePrep {
+public class BillingDiskCreationService {
     private static final Logger _logger = MiscUtils.getLogger();
     private final BillingONClaimPersistenceService dbObj;
     private final BillingONDiskQueryService diskQuery;
     private final BillingONLookupService lookupService;
     Properties propProOHIP = null;
 
-    BillingDiskCreatePrep(BillingONClaimPersistenceService dbObj,
+    BillingDiskCreationService(BillingONClaimPersistenceService dbObj,
                           BillingONDiskQueryService diskQuery,
                           BillingONLookupService lookupService) {
         this.dbObj = dbObj;

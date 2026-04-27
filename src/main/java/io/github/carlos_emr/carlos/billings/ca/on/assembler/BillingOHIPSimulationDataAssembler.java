@@ -31,7 +31,7 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.DateRange;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewPrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewService;
 
 import org.springframework.beans.factory.ObjectFactory;
 /**
@@ -61,12 +61,12 @@ public class BillingOHIPSimulationDataAssembler {
     private static final int PROVIDER_SPECIALTYCODE_LENGTH = 2;
     private static final int PROVIDER_GROUPNO_LENGTH = 4;
 
-    private final BillingReviewPrep reviewPrep;
+    private final BillingReviewService reviewPrep;
     private final BillingONLookupService lookupService;
     private final ObjectFactory<OhipClaimFileService> ohipClaimFileFactory;
 
     /** Production constructor — Struts no-arg shape. */
-    public BillingOHIPSimulationDataAssembler(BillingReviewPrep reviewPrep,
+    public BillingOHIPSimulationDataAssembler(BillingReviewService reviewPrep,
                                        BillingONLookupService lookupService,
                                        ObjectFactory<OhipClaimFileService> ohipClaimFileFactory) {
         this.reviewPrep = reviewPrep;

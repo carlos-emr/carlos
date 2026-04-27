@@ -37,7 +37,7 @@ import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingSavePrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingSaveService;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -51,7 +51,7 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
  *   <li>Reads provider + demographic context to render the patient header.</li>
  *   <li>On submit ({@code addition=Confirm}): calculates per-line and percent-code
  *       totals, persists the {@code Billing} + {@code BillingDetail} rows (or
- *       delegates to {@code BillingSavePrep} for the new-billing pipeline), and
+ *       delegates to {@code BillingSaveService} for the new-billing pipeline), and
  *       hands the JSP a navigation directive (close window / redirect to pg1).</li>
  * </ol>
  *
@@ -76,7 +76,7 @@ public class BillingShortcutPg2DataAssembler {
     private final DemographicDao demographicDao;
     private final BillingServiceDao billingServiceDao;
     private final BillingPercLimitDao billingPercLimitDao;
-    private final BillingSavePrep saveObj;
+    private final BillingSaveService saveObj;
 
     public BillingShortcutPg2DataAssembler(BillingDao billingDao,
                                     BillingDetailDao billingDetailDao,
@@ -84,7 +84,7 @@ public class BillingShortcutPg2DataAssembler {
                                     DemographicDao demographicDao,
                                     BillingServiceDao billingServiceDao,
                                     BillingPercLimitDao billingPercLimitDao,
-                                    BillingSavePrep saveObj) {
+                                    BillingSaveService saveObj) {
         this.billingDao = billingDao;
         this.billingDetailDao = billingDetailDao;
         this.providerDao = providerDao;

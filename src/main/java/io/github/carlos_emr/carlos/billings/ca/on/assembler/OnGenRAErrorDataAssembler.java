@@ -17,14 +17,14 @@ import java.util.List;
 import java.util.Properties;
 
 import io.github.carlos_emr.carlos.billings.ca.on.data.OnGenRAErrorViewModel;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingRAPrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingRAReportService;
 
 /**
  * Assembles {@link OnGenRAErrorViewModel} for
  * {@code billing/CA/ON/onGenRAError.jsp}, the Billing Reconciliation Error
  * Report. Hoists the inline DAO calls the JSP body used to perform: provider
- * dropdown lookup ({@link BillingRAPrep#getProviderListFromRAReport}) and
- * the per-provider error rows ({@link BillingRAPrep#getRAErrorReport}).
+ * dropdown lookup ({@link BillingRAReportService#getProviderListFromRAReport}) and
+ * the per-provider error rows ({@link BillingRAReportService#getRAErrorReport}).
  *
  * <p>The legacy JSP did an early return when {@code rano} was missing —
  * here we set {@code valid=false} on the model and the JSP body skips
@@ -38,11 +38,11 @@ public class OnGenRAErrorDataAssembler {
 
     private static final String[] NOT_ERROR_CODES = new String[]{"I2"};
 
-    private final BillingRAPrep prep;
+    private final BillingRAReportService prep;
 
     /** Production constructor — Struts no-arg shape. */
     /** Test-friendly constructor. */
-    public OnGenRAErrorDataAssembler(BillingRAPrep prep) {
+    public OnGenRAErrorDataAssembler(BillingRAReportService prep) {
         this.prep = prep;
     }
 

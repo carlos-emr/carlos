@@ -1,0 +1,83 @@
+# Layer Names — naming policy for new classes
+
+**Goal:** when you reach for a new class name, the suffix tells the next reader its lifecycle and role at a glance. Mixed suffixes (`*ServiceManager`, `*LoaderService`) are forbidden — pick one.
+
+This policy was written against the Ontario billing module (`io.github.carlos_emr.carlos.billings.ca.on.*`); it applies to all new code.
+
+## The principle
+
+**Suffix = role + lifecycle.** Pick the most specific verb that fits. Only fall back to `*Service` when nothing more specific applies. Never combine two role-suffixes.
+
+## The 11 sanctioned suffixes
+
+| Suffix | Lifecycle | What it does | Example |
+|---|---|---|---|
+| `*Action` | per-request (Struts2) | Privilege check + parse params + delegate + return result string. **No business logic.** | `ViewBillingON2Action` |
+| `*DataAssembler` | `@Service @Lazy` | Builds the `*ViewModel` for **exactly one** JSP. Read-only orchestration. | `BillingONFormDataAssembler` |
+| `*ViewModel` | DTO/record | Immutable view-state for one JSP. No behavior beyond accessors. | `BillingONFormViewModel` |
+| `*Loader` | `@Service` | Loads **one slice** of state onto a builder passed in. Used inside assemblers. | `BillingONFormDemographicLoader` |
+| `*Resolver` | `@Service` | Picks **one value** through a priority chain or rule. | `BillingONFormBillFormResolver` |
+| `*Composer` | `@Service` | Assembles a **complex sub-structure** onto a builder. Bigger than a Loader. | `BillingONFormServiceGridComposer` |
+| `*Validator` | `@Service` / `@Component` | Pure validation → typed `Result(messages, valid)`. No side effects. | `BillingONReviewValidator` |
+| `*Persister` | `@Service @Transactional` | **Side-effect-only writer** split out from a sibling reader. | `BillingONReviewDxPersister` |
+| `*Calculator` | `@Service` or static | Pure math/derivation. Typed in, typed out. | (`BillingTotalCalculator`) |
+| `*Service` | `@Service` (often `@Transactional`) | **Default fallback.** Multi-step business operation no single verb captures. | `BillingONHeaderCreationService`, `GstSettingsService` |
+| `*Dao` | `@Repository` | Data access for one entity/table. **No cross-DAO calls.** | `BillingONCHeader1Dao` |
+
+Plus utility classes — static-only, no Spring annotation. Use a domain noun (plural is fine):
+
+| Pattern | Example |
+|---|---|
+| Static helpers, dependency-free | `BillingDobs`, `BillingONIdTokens` |
+
+**Don't** use `*Utils` or `*Helper` — those names attract clutter; a domain noun keeps focus.
+
+## Decision rules — first match wins
+
+1. **Does it expose a Struts2 URL?** → `*Action`
+2. **Does it have zero deps + only static methods?** → utility class (no suffix; domain noun)
+3. **Does it return a `*ViewModel` for one specific JSP?** → `*DataAssembler`
+4. **Does it write / mutate state / call across DAOs?**
+   - …as a side-effect-only sibling of a reader → `*Persister`
+   - …as the main verb of a single business op → `*Service`
+5. **Does it produce read-only state without writing?**
+   - …one slice onto someone else's builder → `*Loader`
+   - …a complex sub-structure → `*Composer`
+   - …one decision through a priority chain → `*Resolver`
+   - …pure math → `*Calculator`
+   - …pure validation result → `*Validator`
+6. **Does it do data access on one entity?** → `*Dao` (and only that — no cross-DAO calls)
+7. **Otherwise** → `*Service`
+
+## Forbidden / retired suffixes
+
+- **`*Prep`** — not a role, not a lifecycle. Use `*Loader` for read-side prep, `*Service` for write-side prep, or absorb into the consumer.
+- **`*Manager`** as a new class. Existing `*Manager` classes in the codebase (e.g., `DemographicManager`) are legacy domain managers; don't add new ones. Use `*Service` for new code.
+- **`*Helper`, `*Utils`** — too generic. Use a domain noun for utility classes.
+- **Compound suffixes** — `*LoaderService`, `*ServiceManager`, `*ResolverService`, etc. The annotation carries the infrastructure role; the suffix carries the conceptual role. Doubling up is noise.
+
+## Cross-DAO orchestration
+
+A `*Dao` may not inject other DAOs. If a query needs another entity's data, the orchestration goes in a `*Service`. The DAO method is removed or split.
+
+This rule eliminates a common drift pattern where DAOs grow business logic ("just one cross-table calc") and become god classes.
+
+## When in doubt
+
+Ask "what's the verb?":
+- A reader that builds view state → `*DataAssembler` (per JSP) or `*Loader` / `*Composer` / `*Resolver` (per slice).
+- A writer that does one thing → `*Service`.
+- A side-effect-only writer paired with a reader → `*Persister`.
+- A pure function on typed inputs → `*Calculator` or `*Validator`.
+- A static utility → noun class, no suffix.
+
+If multiple options fit, pick the **smallest** scope name. `*DataAssembler` is bigger than `*Composer` is bigger than `*Loader`.
+
+## Migration policy
+
+When you touch an existing class with a non-conforming name (e.g., a `*Prep`):
+- If the change is a one-line bug fix, leave the name.
+- If you're modifying ≥30% of the class or its public API, rename in the same PR. Note the rename in the commit message.
+- Bulk renames (everything-`*Prep`-at-once) need their own PR with no other changes.
+
+The point is to drift toward conformance, not to gate every edit on a rename.

@@ -25,7 +25,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.OnGenRASummaryDataAs
 
 /**
  * Mutation gate for {@code billing/CA/ON/onGenRASummary.jsp}. The legacy JSP
- * performed multiple BillingRAPrep DAO lookups, computed running totals, and
+ * performed multiple BillingRAReportService DAO lookups, computed running totals, and
  * called {@code raHeaderDao.merge(...)} to write the recalculated totals back
  * into the RA header content XML. The data assembly + audit merge now live in
  * {@link OnGenRASummaryDataAssembler}; this action enforces {@code _billing}

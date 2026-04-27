@@ -36,7 +36,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 import java.util.List;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionPrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionRecordService;
 
 /**
  * Struts 2Action for Ontario billing removal (unbill).
@@ -53,13 +53,13 @@ public class BillingDeleteWithoutNo2Action extends ActionSupport {
     private final BillingDao billingDao;
     private final AppointmentArchiveDao appointmentArchiveDao;
     private final OscarAppointmentDao appointmentDao;
-    private final BillingCorrectionPrep correctionPrep;
+    private final BillingCorrectionRecordService correctionPrep;
 
     public BillingDeleteWithoutNo2Action(SecurityInfoManager securityInfoManager,
                                          BillingDao billingDao,
                                          AppointmentArchiveDao appointmentArchiveDao,
                                          OscarAppointmentDao appointmentDao,
-                                         BillingCorrectionPrep correctionPrep) {
+                                         BillingCorrectionRecordService correctionPrep) {
         this.securityInfoManager = securityInfoManager;
         this.billingDao = billingDao;
         this.appointmentArchiveDao = appointmentArchiveDao;

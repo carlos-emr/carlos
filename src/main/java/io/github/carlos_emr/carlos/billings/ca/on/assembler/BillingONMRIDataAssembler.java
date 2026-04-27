@@ -42,7 +42,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewPrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewService;
 
 /**
  * Assembles {@link BillingONMRIViewModel} for {@code billingONMRI.jsp}, the
@@ -56,7 +56,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewPrep;
  * and one for the older-records OHIP-number→name lookup (using
  * {@code getActiveProviders}). Both are consolidated here.</p>
  *
- * <p>The {@code BillingReviewPrep} and {@code BillingONLookupService} helpers
+ * <p>The {@code BillingReviewService} and {@code BillingONLookupService} helpers
  * remain plain {@code new} instantiations — they aren't Spring beans.</p>
  *
  * @since 2026-04-26
@@ -74,7 +74,7 @@ public class BillingONMRIDataAssembler {
     private final ProviderDataDao providerDataDao;
     private final ProviderBillCenterDao providerBillCenterDao;
     private final SecurityInfoManager securityInfoManager;
-    private final BillingReviewPrep reviewPrep;
+    private final BillingReviewService reviewPrep;
     private final BillingONLookupService lookupService;
 
     public BillingONMRIDataAssembler(ProviderDao providerDao,
@@ -82,7 +82,7 @@ public class BillingONMRIDataAssembler {
                               ProviderDataDao providerDataDao,
                               ProviderBillCenterDao providerBillCenterDao,
                               SecurityInfoManager securityInfoManager,
-                              BillingReviewPrep reviewPrep,
+                              BillingReviewService reviewPrep,
                               BillingONLookupService lookupService) {
         this.providerDao = providerDao;
         this.billActivityDao = billActivityDao;
@@ -178,7 +178,7 @@ public class BillingONMRIDataAssembler {
      * Load the provider dropdown options. Three modes mirror the legacy
      * scriptlet: team-billing-only / site-access-privacy each restrict
      * to the user's team or site; otherwise show all billable providers.
-     * The returned list is in {@code BillingReviewPrep}'s pipe-delimited
+     * The returned list is in {@code BillingReviewService}'s pipe-delimited
      * "no|last|first" format — split here into structured records.
      */
     @SuppressWarnings("unchecked")

@@ -379,11 +379,11 @@ public class BillingONFormDataAssembler {
         }
         b.defaultLocation(nullToEmpty(resolvedLocation));
 
-        // ---- legacy non-multisite "site" dropdown (BillingSiteIdPrep) ----
+        // ---- legacy non-multisite "site" dropdown (BillingSiteIdService) ----
         if (!IsPropertiesOn.isMultisitesEnable()) {
             String scheduleSiteId = oscarVars.getProperty("scheduleSiteID", "");
             if (scheduleSiteId != null && !scheduleSiteId.isEmpty()) {
-                BillingSiteIdPrep sitePrep = new BillingSiteIdPrep();
+                BillingSiteIdService sitePrep = new BillingSiteIdService();
                 String[] siteList = sitePrep.getSiteList();
                 if (siteList != null && siteList.length > 0) {
                     String strServDate = firstNonNull(

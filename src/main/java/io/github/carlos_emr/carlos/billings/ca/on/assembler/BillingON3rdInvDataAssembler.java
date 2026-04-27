@@ -47,7 +47,7 @@ import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.billings.ca.on.service.Billing3rdPartPrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.Billing3rdPartyRecordService;
 
 /**
  * Assembles {@link BillingON3rdInvViewModel} for {@code billingON3rdInv.jsp},
@@ -74,7 +74,7 @@ public class BillingON3rdInvDataAssembler {
     private final ProviderDao providerDao;
     private final SiteDao siteDao;
     private final BillingONService billingONService;
-    private final Billing3rdPartPrep privateObj;
+    private final Billing3rdPartyRecordService privateObj;
 
     public BillingON3rdInvDataAssembler(BillingONCHeader1Dao bCh1Dao,
                                  BillingONExtDao bExtDao,
@@ -85,7 +85,7 @@ public class BillingON3rdInvDataAssembler {
                                  ProviderDao providerDao,
                                  SiteDao siteDao,
                                  BillingONService billingONService,
-                                 Billing3rdPartPrep privateObj) {
+                                 Billing3rdPartyRecordService privateObj) {
         this.bCh1Dao = bCh1Dao;
         this.bExtDao = bExtDao;
         this.bPaymentDao = bPaymentDao;
@@ -261,7 +261,7 @@ public class BillingON3rdInvDataAssembler {
             }
         }
         // Non-multisite path or missing site — fall back to clinic_*
-        // properties pre-loaded by Billing3rdPartPrep.getLocalClinicAddr.
+        // properties pre-loaded by Billing3rdPartyRecordService.getLocalClinicAddr.
         b.clinicName(propClinic.getProperty("clinic_name", ""))
                 .clinicAddress(propClinic.getProperty("clinic_address", ""))
                 .clinicCity(propClinic.getProperty("clinic_city", ""))

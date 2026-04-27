@@ -50,7 +50,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONRequestParams;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingONReviewValidator;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewPrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewService;
 
 /**
  * Assembles {@link BillingONReviewViewModel} for {@code billingONReview.jsp}.
@@ -67,7 +67,7 @@ public class BillingONReviewDataAssembler {
 
     private final DemographicDao demographicDao;
     private final ProviderDao providerDao;
-    private final BillingReviewPrep reviewPrep;
+    private final BillingReviewService reviewPrep;
     private final BillingONReviewValidator validator;
     private final BillingONServiceCodeService serviceCodeService;
     private final BillingONLookupService lookupService;
@@ -77,7 +77,7 @@ public class BillingONReviewDataAssembler {
 
     public BillingONReviewDataAssembler(DemographicDao demographicDao,
                                  ProviderDao providerDao,
-                                 BillingReviewPrep reviewPrep,
+                                 BillingReviewService reviewPrep,
                                  BillingONReviewValidator validator,
                                  BillingONServiceCodeService serviceCodeService,
                                  BillingONLookupService lookupService,

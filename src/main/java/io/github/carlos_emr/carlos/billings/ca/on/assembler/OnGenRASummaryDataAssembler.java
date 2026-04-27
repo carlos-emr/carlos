@@ -24,13 +24,13 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.OnGenRASummaryViewModel;
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import io.github.carlos_emr.carlos.commn.dao.RaHeaderDao;
 import io.github.carlos_emr.carlos.commn.model.RaHeader;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingRAPrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingRAReportService;
 
 /**
  * Builds the {@link OnGenRASummaryViewModel} for {@code onGenRASummary.jsp} and
  * runs the RA-header content audit merge. Hoists the inline scriptlet logic
  * the JSP body used to perform: provider list lookup, OB/CO billing-no
- * lookups, the {@link BillingRAPrep#getRASummary} aggregation, and the
+ * lookups, the {@link BillingRAReportService#getRASummary} aggregation, and the
  * {@link RaHeaderDao#merge} write that updated the RA header's content XML
  * with the recalculated totals.
  *
@@ -46,16 +46,16 @@ public class OnGenRASummaryDataAssembler {
             "'A004A','A005A','Z731A','Z666A','Z730A','Z720A'";
 
     private final RaHeaderDao raHeaderDao;
-    private final BillingRAPrep prep;
+    private final BillingRAReportService prep;
 
-    public OnGenRASummaryDataAssembler(RaHeaderDao raHeaderDao, BillingRAPrep prep) {
+    public OnGenRASummaryDataAssembler(RaHeaderDao raHeaderDao, BillingRAReportService prep) {
         this.raHeaderDao = raHeaderDao;
         this.prep = prep;
     }
 
     /**
      * Build the view model for the requested RA report. Invokes the same
-     * {@link BillingRAPrep#getRASummary} aggregation the JSP body used to
+     * {@link BillingRAReportService#getRASummary} aggregation the JSP body used to
      * perform, and merges the recalculated totals back into the
      * {@link RaHeader#getContent} XML so the audit trail stays current.
      */
@@ -95,7 +95,7 @@ public class OnGenRASummaryDataAssembler {
 
     @SuppressWarnings("rawtypes")
     private static List<OnGenRASummaryViewModel.ProviderOption> loadProviderOptions(
-            BillingRAPrep prep, String raNo) {
+            BillingRAReportService prep, String raNo) {
         List raw = prep.getProviderListFromRAReport(raNo);
         List<OnGenRASummaryViewModel.ProviderOption> out = new ArrayList<>(raw.size());
         for (Object o : raw) {

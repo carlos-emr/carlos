@@ -21,13 +21,13 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDiskCreatePrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDiskCreationService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.OnBillingDiskService;
 
 /**
  * Mutation gate for {@code billing/CA/ON/onregenreport.jsp}. The legacy JSP
  * regenerated an existing MOH disk (keyed by {@code diskId}) by calling
- * {@link BillingDiskCreatePrep} and
+ * {@link BillingDiskCreationService} and
  * {@link io.github.carlos_emr.carlos.billings.ca.on.service.OhipClaimFileService}
  * to rewrite the OHIP claim file + HTML preview, then forwarded to
  * {@code ViewBillingONMRI}. The regeneration logic now lives in

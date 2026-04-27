@@ -30,7 +30,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionPrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionRecordService;
 
 /**
  * Struts 2Action for Ontario billing deletion by billing number without appointment.
@@ -44,11 +44,11 @@ public class BillingDeleteNoAppt2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
     private final BillingDao billingDao;
-    private final BillingCorrectionPrep correctionPrep;
+    private final BillingCorrectionRecordService correctionPrep;
 
     public BillingDeleteNoAppt2Action(SecurityInfoManager securityInfoManager,
                                       BillingDao billingDao,
-                                      BillingCorrectionPrep correctionPrep) {
+                                      BillingCorrectionRecordService correctionPrep) {
         this.securityInfoManager = securityInfoManager;
         this.billingDao = billingDao;
         this.correctionPrep = correctionPrep;

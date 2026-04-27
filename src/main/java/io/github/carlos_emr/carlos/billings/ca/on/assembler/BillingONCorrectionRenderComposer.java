@@ -45,7 +45,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.billings.ca.on.service.Billing3rdPartPrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.Billing3rdPartyRecordService;
 
 /**
  * Composer that owns the 11 inline DAO/service lookups
@@ -108,7 +108,7 @@ public class BillingONCorrectionRenderComposer {
     private final RaDetailDao raDetailDao;
     private final ClinicLocationDao clinicLocationDao;
     private final ClinicNbrDao clinicNbrDao;
-    private final Billing3rdPartPrep thirdPartPrep;
+    private final Billing3rdPartyRecordService thirdPartPrep;
 
     public BillingONCorrectionRenderComposer(SecurityInfoManager securityInfoManager,
                                              BillingServiceDao billingServiceDao,
@@ -120,7 +120,7 @@ public class BillingONCorrectionRenderComposer {
                                              RaDetailDao raDetailDao,
                                              ClinicLocationDao clinicLocationDao,
                                              ClinicNbrDao clinicNbrDao,
-                                             Billing3rdPartPrep thirdPartPrep) {
+                                             Billing3rdPartyRecordService thirdPartPrep) {
         this.securityInfoManager = securityInfoManager;
         this.billingServiceDao = billingServiceDao;
         this.billingONService = billingONService;

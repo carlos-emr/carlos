@@ -42,13 +42,13 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 @org.springframework.stereotype.Service
 @org.springframework.context.annotation.Lazy
 @org.springframework.transaction.annotation.Transactional
-public class BillingSavePrep {
+public class BillingSaveService {
     private static final Logger _logger = MiscUtils.getLogger();
     private final BillingONClaimPersistenceService dbObj;
     private final BillingONLookupService lookupService;
     int billingId = 0;
 
-    BillingSavePrep(BillingONClaimPersistenceService dbObj, BillingONLookupService lookupService) {
+    BillingSaveService(BillingONClaimPersistenceService dbObj, BillingONLookupService lookupService) {
         this.dbObj = dbObj;
         this.lookupService = lookupService;
     }

@@ -26,5 +26,5 @@
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%-- Empty stub. ViewOngenreport2Action enforces _billing w + POST and runs the
      MOH disk-creation pass via OnBillingDiskService.generateNewDisk
-     (BillingDiskCreatePrep + JdbcBillingCreateBillingFile, solo + group),
+     (BillingDiskCreationService + JdbcBillingCreateBillingFile, solo + group),
      then chains to ViewBillingONMRI. --%>

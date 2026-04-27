@@ -37,7 +37,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONReviewDxPersister;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONServiceCodeService;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingONReviewValidator;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewPrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewService;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
 
 /**
@@ -58,7 +58,7 @@ class BillingONReviewDataAssemblerUnitTest extends CarlosUnitTestBase {
     @Mock
     private ProviderDao providerDao;
     @Mock
-    private BillingReviewPrep reviewPrep;
+    private BillingReviewService reviewPrep;
 
     private BillingONReviewDataAssembler assembler;
     private MockHttpServletRequest request;

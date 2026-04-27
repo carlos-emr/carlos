@@ -36,7 +36,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 import java.util.List;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionPrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionRecordService;
 
 /**
  * Struts 2Action for Ontario billing deletion by bill number (with bill number known).
@@ -52,11 +52,11 @@ public class BillingDeleteWithBillNo2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
     private final BillingDao billingDao;
-    private final BillingCorrectionPrep correctionPrep;
+    private final BillingCorrectionRecordService correctionPrep;
 
     public BillingDeleteWithBillNo2Action(SecurityInfoManager securityInfoManager,
                                           BillingDao billingDao,
-                                          BillingCorrectionPrep correctionPrep) {
+                                          BillingCorrectionRecordService correctionPrep) {
         this.securityInfoManager = securityInfoManager;
         this.billingDao = billingDao;
         this.correctionPrep = correctionPrep;
@@ -84,7 +84,7 @@ public class BillingDeleteWithBillNo2Action extends ActionSupport {
      * @return Struts result name: {@code "success"}, {@code "cannotDelete"}, or {@code "error"}
      */
     public static String deleteBillingByBillNo(HttpServletRequest request, String curUserNo,
-                                                BillingDao billingDao, BillingCorrectionPrep correctionPrep) {
+                                                BillingDao billingDao, BillingCorrectionRecordService correctionPrep) {
         String apptNoStr = request.getParameter("appointment_no");
         String billNoParam = request.getParameter("billNo_old");
         String billStatusParam = request.getParameter("billStatus_old");

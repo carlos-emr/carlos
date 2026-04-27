@@ -34,7 +34,7 @@ import org.springframework.beans.factory.ObjectFactory;
  * Shared mutation service for the two MOH disk-creation forward-shim JSPs:
  * {@code ongenreport.jsp} (new disk for current period) and
  * {@code onregenreport.jsp} (regenerate an existing disk by id). Both pages
- * iterated providers, used {@link BillingDiskCreatePrep} +
+ * iterated providers, used {@link BillingDiskCreationService} +
  * {@link OhipClaimFileService} to write OHIP/HTML disk files, and
  * {@code <jsp:forward>}'d to {@code ViewBillingONMRI}.
  *
@@ -54,12 +54,12 @@ public class OnBillingDiskService {
     private static final String[] BILLING_STATUS_REGEN = new String[]{"B"};
 
     private final ProviderDao providerDao;
-    private final BillingDiskCreatePrep prep;
+    private final BillingDiskCreationService prep;
     private final BillingONDiskQueryService diskQueryService;
     private final ObjectFactory<OhipClaimFileService> ohipClaimFileFactory;
 
     OnBillingDiskService(ProviderDao providerDao,
-                         BillingDiskCreatePrep prep,
+                         BillingDiskCreationService prep,
                          BillingONDiskQueryService diskQueryService,
                          ObjectFactory<OhipClaimFileService> ohipClaimFileFactory) {
         this.providerDao = providerDao;
@@ -164,7 +164,7 @@ public class OnBillingDiskService {
                 ConversionUtils.fromDateString(dateEnd));
     }
 
-    private void writeSoloDisks(BillingDiskCreatePrep prep, List<BillingProviderData> soloProviders,
+    private void writeSoloDisks(BillingDiskCreationService prep, List<BillingProviderData> soloProviders,
                                  LoggedInInfo loggedInInfo, HttpServletRequest request,
                                  DateRange dateRange, String mohOffice, String useProviderMOH,
                                  String currentUser) {
@@ -186,7 +186,7 @@ public class OnBillingDiskService {
         }
     }
 
-    private void writeGroupDisks(BillingDiskCreatePrep prep, List<BillingProviderData> grpProviders,
+    private void writeGroupDisks(BillingDiskCreationService prep, List<BillingProviderData> grpProviders,
                                   LoggedInInfo loggedInInfo, HttpServletRequest request,
                                   DateRange dateRange, String mohOffice, String useProviderMOH,
                                   String currentUser, boolean groupReport, String provider) {
@@ -202,7 +202,7 @@ public class OnBillingDiskService {
 
         for (Iterator<String> it = groupNos.iterator(); it.hasNext(); ) {
             String groupNo = it.next();
-            // BillingDiskCreatePrep#createNewGrpDiskName casts these to ArrayList
+            // BillingDiskCreationService#createNewGrpDiskName casts these to ArrayList
             // — pass ArrayList to preserve legacy behavior.
             ArrayList<String> providerNoCopy = new ArrayList<>();
             ArrayList<String> ohipNoCopy = new ArrayList<>();
@@ -228,7 +228,7 @@ public class OnBillingDiskService {
         }
     }
 
-    private String writeGroupMembers(BillingDiskCreatePrep prep,
+    private String writeGroupMembers(BillingDiskCreationService prep,
                                       List<BillingProviderData> grpProviders, String groupNo,
                                       int diskId, LoggedInInfo loggedInInfo,
                                       HttpServletRequest request, DateRange dateRange,
@@ -256,7 +256,7 @@ public class OnBillingDiskService {
         return wroteAny ? value.toString() : null;
     }
 
-    private void writeSingleSoloDisk(BillingDiskCreatePrep prep, BillingProviderData dataProvider,
+    private void writeSingleSoloDisk(BillingDiskCreationService prep, BillingProviderData dataProvider,
                                       LoggedInInfo loggedInInfo, HttpServletRequest request,
                                       DateRange dateRange, String mohOffice,
                                       String useProviderMOH, String currentUser) {
@@ -274,7 +274,7 @@ public class OnBillingDiskService {
         objFile.updateDisknameSum(diskId);
     }
 
-    private void regenerateGroupDisk(BillingDiskCreatePrep prep,
+    private void regenerateGroupDisk(BillingDiskCreationService prep,
                                       List<BillingProviderData> lProvider,
                                       LoggedInInfo loggedInInfo, HttpServletRequest request,
                                       DateRange dateRange, String mohOffice, String diskId,
@@ -303,14 +303,14 @@ public class OnBillingDiskService {
         }
     }
 
-    private static int createSoloHeader(BillingDiskCreatePrep prep, BillingProviderData dataProvider,
+    private static int createSoloHeader(BillingDiskCreationService prep, BillingProviderData dataProvider,
                                          int diskId, ProviderBillCenter oriBillCenter,
                                          String mohOffice, String currentUser) {
         return createSoloHeader(prep, dataProvider, diskId, oriBillCenter, mohOffice, currentUser,
                 "1");
     }
 
-    private static int createSoloHeader(BillingDiskCreatePrep prep, BillingProviderData dataProvider,
+    private static int createSoloHeader(BillingDiskCreationService prep, BillingProviderData dataProvider,
                                          int diskId, ProviderBillCenter oriBillCenter,
                                          String mohOffice, String currentUser, String seqNum) {
         boolean existBillCenter = oriBillCenter.hasBillCenter(dataProvider.getProviderNo());

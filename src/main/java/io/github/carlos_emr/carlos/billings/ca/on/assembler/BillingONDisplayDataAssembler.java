@@ -30,7 +30,7 @@ import io.github.carlos_emr.carlos.commn.model.BillingONErrorCode;
 import io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao;
 import io.github.carlos_emr.carlos.commn.model.ClinicNbr;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionPrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionRecordService;
 import io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingONDisplay2Action;
 
 /**
@@ -48,12 +48,12 @@ import io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingONDisplay2Actio
 public class BillingONDisplayDataAssembler {
 
     private final ClinicNbrDao clinicNbrDao;
-    private final BillingCorrectionPrep prep;
+    private final BillingCorrectionRecordService prep;
     private final BillingONErrorCodeDao errorCodeDao;
     private final BillingONLookupService lookupService;
 
     public BillingONDisplayDataAssembler(ClinicNbrDao clinicNbrDao,
-                                  BillingCorrectionPrep prep,
+                                  BillingCorrectionRecordService prep,
                                   BillingONErrorCodeDao errorCodeDao,
                                   BillingONLookupService lookupService) {
         this.clinicNbrDao = clinicNbrDao;

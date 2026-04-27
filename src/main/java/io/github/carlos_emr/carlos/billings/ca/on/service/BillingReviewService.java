@@ -40,7 +40,7 @@ import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 @org.springframework.stereotype.Service
 @org.springframework.context.annotation.Lazy
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
-public class BillingReviewPrep {
+public class BillingReviewService {
     private static final Logger _logger = MiscUtils.getLogger();
 
     private final BillingONClaimQueryService dbObj;
@@ -48,7 +48,7 @@ public class BillingReviewPrep {
     private final BillingONLookupService lookupService;
     private final DiagnosticCodeDao diagnosticCodeDao;
 
-    BillingReviewPrep(BillingONClaimQueryService dbObj,
+    BillingReviewService(BillingONClaimQueryService dbObj,
                       BillingONDiskQueryService diskQueryService,
                       BillingONLookupService lookupService,
                       DiagnosticCodeDao diagnosticCodeDao) {

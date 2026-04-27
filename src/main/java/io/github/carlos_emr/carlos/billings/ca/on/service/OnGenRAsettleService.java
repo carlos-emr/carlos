@@ -29,7 +29,7 @@ import io.github.carlos_emr.carlos.commn.model.RaHeader;
  *
  * <p>Owns the 3 inline {@code SpringUtils.getBean} lookups each JSP used
  * to perform (RaHeaderDao, BillingDao, RaDetailDao) plus the
- * {@code BillingRAPrep.updateBillingStatus} mutation. Both pages emit a
+ * {@code BillingRAReportService.updateBillingStatus} mutation. Both pages emit a
  * single client-side {@code self.close()} script after the mutation —
  * no view-model state is exposed; the action layer just calls
  * {@link #settle} and forwards to a tiny rendering JSP.</p>
@@ -60,9 +60,9 @@ public class OnGenRAsettleService {
 
     private final RaHeaderDao raHeaderDao;
     private final RaDetailDao raDetailDao;
-    private final BillingRAPrep billingRAPrep;
+    private final BillingRAReportService billingRAPrep;
 
-    OnGenRAsettleService(RaHeaderDao raHeaderDao, RaDetailDao raDetailDao, BillingRAPrep billingRAPrep) {
+    OnGenRAsettleService(RaHeaderDao raHeaderDao, RaDetailDao raDetailDao, BillingRAReportService billingRAPrep) {
         this.raHeaderDao = raHeaderDao;
         this.raDetailDao = raDetailDao;
         this.billingRAPrep = billingRAPrep;

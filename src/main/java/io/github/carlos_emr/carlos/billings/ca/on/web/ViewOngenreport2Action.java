@@ -21,12 +21,12 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDiskCreatePrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDiskCreationService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.OnBillingDiskService;
 
 /**
  * Mutation gate for {@code billing/CA/ON/ongenreport.jsp}. The legacy JSP
- * iterated providers (solo + group), used {@link BillingDiskCreatePrep} +
+ * iterated providers (solo + group), used {@link BillingDiskCreationService} +
  * {@link io.github.carlos_emr.carlos.billings.ca.on.service.OhipClaimFileService}
  * to write the MOH disk/billing files, then {@code <jsp:forward>}'d to
  * {@code ViewBillingONMRI}. The full disk-creation pass now lives in

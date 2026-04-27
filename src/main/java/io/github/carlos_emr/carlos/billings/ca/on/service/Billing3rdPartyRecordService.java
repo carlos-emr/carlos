@@ -27,11 +27,11 @@ import java.util.Properties;
 @org.springframework.stereotype.Service
 @org.springframework.context.annotation.Lazy
 @org.springframework.transaction.annotation.Transactional
-public class Billing3rdPartPrep {
+public class Billing3rdPartyRecordService {
 
     private final Billing3rdPartyService dbObj;
 
-    Billing3rdPartPrep(Billing3rdPartyService dbObj) {
+    Billing3rdPartyRecordService(Billing3rdPartyService dbObj) {
         this.dbObj = dbObj;
     }
 

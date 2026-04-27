@@ -1200,7 +1200,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                                         <input type="hidden" name="billForm" id="billForm"
                                                value="<carlos:encode value='${formModel.ctlBillForm}' context="htmlAttribute"/>"/></td>
                                 </tr>
-                                <%-- Legacy non-multisite "site" dropdown (BillingSiteIdPrep +
+                                <%-- Legacy non-multisite "site" dropdown (BillingSiteIdService +
                                      JdbcApptImpl.getLocationFromSchedule) now driven by
                                      formModel.legacySiteContextEnabled / legacySiteOptions. --%>
                                 <c:if test="${formModel.legacySiteContextEnabled}">

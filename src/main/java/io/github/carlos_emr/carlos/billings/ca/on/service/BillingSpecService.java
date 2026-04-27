@@ -38,12 +38,12 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 @org.springframework.stereotype.Service
 @org.springframework.context.annotation.Lazy
 @org.springframework.transaction.annotation.Transactional
-public class BillingSpecPrep {
+public class BillingSpecService {
     private static final Logger _logger = MiscUtils.getLogger();
     private final BillingONClaimPersistenceService dbObj;
     private final BillingONServiceCodeService serviceCodeService;
 
-    BillingSpecPrep(BillingONClaimPersistenceService dbObj, BillingONServiceCodeService serviceCodeService) {
+    BillingSpecService(BillingONClaimPersistenceService dbObj, BillingONServiceCodeService serviceCodeService) {
         this.dbObj = dbObj;
         this.serviceCodeService = serviceCodeService;
     }

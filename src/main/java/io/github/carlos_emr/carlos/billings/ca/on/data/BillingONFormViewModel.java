@@ -99,7 +99,7 @@ public final class BillingONFormViewModel {
     /**
      * One entry in the legacy non-multisite "site" dropdown rendered when
      * {@code scheduleSiteID} is set in the props file. Resolved via
-     * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingSiteIdPrep}.
+     * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingSiteIdService}.
      */
     public record LegacySiteOption(String name, boolean suggested) { }
 
@@ -169,7 +169,7 @@ public final class BillingONFormViewModel {
 
     // Round-A6: residual body-DAO data — pulled from the assembler so the JSP
     // body no longer reaches into BillingONLookupService / BillingONClaimQueryService /
-    // BillingSiteIdPrep / DemographicData / JdbcApptImpl directly.
+    // BillingSiteIdService / DemographicData / JdbcApptImpl directly.
     /** All recent-history rows the bottom table renders (was {@code aL} in JSP). */
     private final List<BillingHistoryRow> billingHistoryRows;
     /** Visit-location dropdown options (was {@code tdbObj.getFacilty_num()}). */
@@ -178,7 +178,7 @@ public final class BillingONFormViewModel {
     private final String defaultLocation;
     /** Cut-list super-code options (was {@code tdbObj.getBillingFavouriteList()}). */
     private final List<BillingFavouriteOption> billingFavouriteOptions;
-    /** Legacy non-multisite site dropdown context (was {@code BillingSiteIdPrep}). */
+    /** Legacy non-multisite site dropdown context (was {@code BillingSiteIdService}). */
     private final boolean legacySiteContextEnabled;
     private final List<LegacySiteOption> legacySiteOptions;
     /** Admission-date pre-fill (was {@code DemographicData.getDemographicDateJoined}). */

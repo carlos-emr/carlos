@@ -40,7 +40,7 @@ import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 import java.util.ArrayList;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingSavePrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingSaveService;
 
 /**
  * Struts 2Action for Ontario billing save and post-save routing.
@@ -63,8 +63,8 @@ public class BillingONSave2Action extends ActionSupport {
     private final BillingONExtDao extDao;
     private final UserPropertyDAO userPropertyDAO;
     private final BillingDao billingDao;
-    private final BillingSavePrep bObj;
-    private final io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionPrep correctionPrep;
+    private final BillingSaveService bObj;
+    private final io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionRecordService correctionPrep;
 
     @org.springframework.beans.factory.annotation.Autowired
     public BillingONSave2Action(SecurityInfoManager securityInfoManager,
@@ -72,8 +72,8 @@ public class BillingONSave2Action extends ActionSupport {
                                 BillingONExtDao extDao,
                                 UserPropertyDAO userPropertyDAO,
                                 BillingDao billingDao,
-                                BillingSavePrep bObj,
-                                io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionPrep correctionPrep) {
+                                BillingSaveService bObj,
+                                io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionRecordService correctionPrep) {
         this.securityInfoManager = securityInfoManager;
         this.cheader1Dao = cheader1Dao;
         this.extDao = extDao;
