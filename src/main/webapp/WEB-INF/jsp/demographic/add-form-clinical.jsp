@@ -95,8 +95,7 @@
                                         for (Provider p : providerDao.getActiveProvidersByRole("doctor")) {
                                             String docProviderNo = p.getProviderNo();
                                     %>
-                                    <option id="doc<%= Encode.forHtmlAttribute(docProviderNo) %>" value="<%= Encode.forHtmlAttribute(docProviderNo) %>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/></option>
-                                    <%
+                                    <option id="doc<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(docProviderNo) %>" value="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(docProviderNo) %>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/></option>                                    <%
                                         }
                                     %>
 
@@ -178,21 +177,18 @@
                                     <% for (int k = 0; k < vecRef.size(); k++) {
                                         prop = (Properties) vecRef.get(k);
                                     %>
-                                    <option value="<%=Encode.forJavaScript(prop.getProperty("last_name")+","+prop.getProperty("first_name"))%>">
-                                      <%= Encode.forHtml(Misc.getShortStr((prop.getProperty("last_name") + "," + prop.getProperty("first_name")), "", nStrShowLen)) %>
+                                    <option
+                                            value="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(prop.getProperty("last_name") + "," + prop.getProperty("first_name")) %>"
+                                            data-referral-no="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(prop.getProperty("referral_no", "")) %>">
+                                      <%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtml(Misc.getShortStr((prop.getProperty("last_name") + "," + prop.getProperty("first_name")), "", nStrShowLen)) %>
                                     </option>
                                     <% } %>
                                 </select>
                                 <script>
                                     function changeRefDoc() {
-                                        var refName = document.forms[1].r_doctor.options[document.forms[1].r_doctor.selectedIndex].value;
-                                        var refNo = "";
-                                        <% for(int k=0; k<vecRef.size(); k++) {
-                                            prop= (Properties) vecRef.get(k);
-                                        %>
-                                        if (refName.indexOf("<%= Encode.forJavaScript(prop.getProperty("last_name")+","+prop.getProperty("first_name")) %>") >= 0) {
-                                            refNo = '<%= Encode.forJavaScript(prop.getProperty("referral_no", "")) %>';
-                                        }
+                                        var option = document.forms[1].r_doctor.options[document.forms[1].r_doctor.selectedIndex];
+                                        document.forms[1].r_doctor_ohip.value = option ? (option.getAttribute("data-referral-no") || "") : "";
+                                     }
                                         <% } %>
                                         document.forms[1].r_doctor_ohip.value = refNo;
                                     }
