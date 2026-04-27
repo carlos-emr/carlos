@@ -148,20 +148,26 @@
 
                         <div class="row mb-2 align-items-center" id="rowWithLastName">
                             <div class="col-sm-2 text-end">
-                                <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formLastName"/><span style="color:red;">:</span></label>
+                                <label class="fw-bold col-form-label py-0"><span style="color:red;">*</span><fmt:message key="demographic.demographicaddrecordhtm.formLastName"/>:</label>
                             </div>
                             <div class="col-sm-4" id="lastName">
                                 <input type="text" name="last_name" id="last_name" onBlur="upCaseCtrl(this)"
-                                       class="form-control"
+                                       class="form-control" required
                                        value="<carlos:encode value='<%= lastNameVal %>' context="htmlAttribute"/>">
+                                <div class="invalid-feedback">
+                                  <fmt:message key='demographic.demographiceditdemographic.msgNameRequired'/>
+                                </div>
                             </div>
                             <div class="col-sm-2 text-end" id="firstNameLbl">
-                                <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formFirstName"/><span style="color:red;">:</span></label>
+                                <label class="fw-bold col-form-label py-0"><span style="color:red;">*</span><fmt:message key="demographic.demographicaddrecordhtm.formFirstName"/>:</label>
                             </div>
                             <div class="col-sm-4" id="firstName">
                                 <input type="text" name="first_name" id="first_name" onBlur="upCaseCtrl(this)"
-                                       class="form-control"
+                                       class="form-control" required
                                        value="<carlos:encode value='<%= firstNameVal %>' context="htmlAttribute"/>">
+                                <div class="invalid-feedback">
+                                  <fmt:message key='demographic.demographiceditdemographic.msgNameRequired'/>
+                                </div>
                             </div>
                         </div>
 
@@ -363,17 +369,24 @@
                             <div class="col-sm-2 text-end">
                                 <label class="fw-bold col-form-label py-0">
                                     <% if (oscarProps.getProperty("demographicLabelPostal") == null) { %>
-                                    <fmt:message key="demographic.demographicaddrecordhtm.formPostal"/>
                                     <% if ("false".equals(CarlosProperties.getInstance().getProperty("skip_postal_code_validation", "false"))) { %>
                                     <span style="color:red">*</span>
                                     <% } %>
+                                    <fmt:message key="demographic.demographicaddrecordhtm.formPostal"/>
                                     <% } else {
                                         out.print(oscarProps.getProperty("demographicLabelPostal"));
                                     } %>:
                                 </label>
                             </div>
                             <div class="col-sm-4">
-                                <input type="text" id="postal" name="postal" class="form-control" onBlur="upCaseCtrl(this)">
+                                <input type="text" id="postal" name="postal" class="form-control" 
+                                    <% if ("false".equals(CarlosProperties.getInstance().getProperty("skip_postal_code_validation", "false"))) { %>
+                                    required
+                                    <% } %>
+                                    onBlur="upCaseCtrl(this)">
+                                <div class="invalid-feedback">
+                                   <fmt:message key="global.msgInvalidPrefix"/>&nbsp;<fmt:message key="demographic.demographicaddrecordhtm.formPostal"/>
+                                </div>
                             </div>
                         </div>
 
@@ -573,16 +586,19 @@
 
                         <div class="row mb-2 align-items-center">
                             <div class="col-sm-2 text-end" id="dobLbl">
-                                <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formDOB"/>:<span style="color:red;"></span></label>
+                                <label class="fw-bold col-form-label py-0"><span style="color:red">*</span><fmt:message key="demographic.demographicaddrecordhtm.formDOB"/>:</label>
                             </div>
                             <div class="col-sm-4" id="dobTbl">
                                 <div class="d-flex gap-1 align-items-center">
                                     <input type="text" placeholder="<fmt:message key="yyyy-mm-dd"/>"
                                            name="inputDOB" id="inputDOB"
                                            class="form-control"
-                                           size="12"
+                                           size="12" required
                                            onchange="parsedob_date();">
                                     <img src="<%= request.getContextPath() %>/images/cal.gif" id="inputDOB_cal">
+                                    <div class="invalid-feedback">
+                                           <fmt:message key="demographic.add.msgInvalidDOB"/>
+                                    </div>
                                     <input type="hidden" name="year_of_birth">
                                     <input type="hidden" name="month_of_birth">
                                     <input type="hidden" name="date_of_birth">
@@ -598,7 +614,7 @@
 
                         <div class="row mb-2 align-items-center">
                             <div class="col-sm-2 text-end" id="genderLbl">
-                                <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formSex"/>:<font color="red"></font></label>
+                                <label class="fw-bold col-form-label py-0"><span style="color:red;">*</span><fmt:message key="demographic.demographicaddrecordhtm.formSex"/>:</label>
                             </div>
                             <% // Determine if curUser has selected a default sex in preferences
                                 UserProperty sexProp = userPropertyDAO.getProp(curUser_no, UserProperty.DEFAULT_SEX);
@@ -611,7 +627,7 @@
                                 }
                             %>
                             <div class="col-sm-4" id="gender">
-                                <select name="sex" id="sex" class="form-select">
+                                <select name="sex" id="sex" class="form-select" required>
                                     <option value=""></option>
                                     <% for (Gender gn : Gender.values()) {
                                         String genderDisplayText = DemographicEditHelper.getGenderDisplayText(request.getLocale(), gn.name());
@@ -619,6 +635,9 @@
                                     <option value="<%=gn.name()%>" <%=((sex.toUpperCase().equals(gn.name())) ? "selected=\"selected\"" : "") %>><%=genderDisplayText%></option>
                                     <% } %>
                                 </select>
+                                <div class="invalid-feedback">
+                                  <fmt:message key='demographic.add.msgSexRequired'/>
+                                </div>
                             </div>
                             <div class="col-sm-2 text-end">
                                 <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formGender"/></label>
