@@ -97,7 +97,7 @@ public final class BillingONCorrectionViewModel {
 
     // Render-time fields populated by BillingONCorrectionRenderComposer.
     // These remove the 11 inline SpringUtils.getBean lookups that used to live
-    // in the JSP body (BillingServiceDao / BillingONService / BillingONExtDao /
+    // in the JSP body (BillingServiceDao / BillingONInvoiceTotalsCalculator / BillingONExtDao /
     // BillingONPaymentDao / BillingONEAReportDao / BillingONErrorCodeDao /
     // RaDetailDao / ClinicLocationDao / ClinicNbrDao / SecurityInfoManager).
     private final boolean thirdParty;

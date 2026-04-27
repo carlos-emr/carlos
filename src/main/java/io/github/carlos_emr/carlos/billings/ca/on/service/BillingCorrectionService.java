@@ -35,7 +35,6 @@ import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.commn.model.Provider;
-import io.github.carlos_emr.carlos.commn.service.BillingONService;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -92,7 +91,7 @@ public class BillingCorrectionService {
     private final BillingONCHeader1Dao bCh1Dao;
     private final BillingONExtDao billExtDao;
     private final BillingPaymentTypeDao billingPaymentTypeDao;
-    private final BillingONService billingONService;
+    private final BillingONInvoiceTotalsCalculator totalsCalculator;
     private final BillingONRepoDao billRepoDao;
     private final ProviderDao providerDao;
     private final BillingServiceDao billingServiceDao;
@@ -106,7 +105,7 @@ public class BillingCorrectionService {
                              BillingONCHeader1Dao bCh1Dao,
                              BillingONExtDao billExtDao,
                              BillingPaymentTypeDao billingPaymentTypeDao,
-                             BillingONService billingONService,
+                             BillingONInvoiceTotalsCalculator totalsCalculator,
                              BillingONRepoDao billRepoDao,
                              ProviderDao providerDao,
                              BillingServiceDao billingServiceDao) {
@@ -114,7 +113,7 @@ public class BillingCorrectionService {
         this.bCh1Dao = bCh1Dao;
         this.billExtDao = billExtDao;
         this.billingPaymentTypeDao = billingPaymentTypeDao;
-        this.billingONService = billingONService;
+        this.totalsCalculator = totalsCalculator;
         this.billRepoDao = billRepoDao;
         this.providerDao = providerDao;
         this.billingServiceDao = billingServiceDao;
@@ -247,8 +246,16 @@ public class BillingCorrectionService {
 
         if (!bCh1.getBillingItems().isEmpty()) {
             updateBillingItems(bCh1, request);
-            if (!billingONService.updateTotal(bCh1))
+            // Recompute the header total from active items; refuse the save
+            // if any fee fails to parse.
+            java.util.Optional<java.math.BigDecimal> newTotal = totalsCalculator.recomputeTotal(bCh1);
+            if (newTotal.isEmpty()) {
                 return "failure";
+            }
+            java.math.BigDecimal current = bCh1.getTotal();
+            if (current == null || current.compareTo(newTotal.get()) != 0) {
+                bCh1.setTotal(newTotal.get());
+            }
         }
 
         bCh1Dao.merge(bCh1);

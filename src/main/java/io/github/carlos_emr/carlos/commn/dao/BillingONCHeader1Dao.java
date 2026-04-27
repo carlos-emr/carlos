@@ -55,6 +55,14 @@ public interface BillingONCHeader1Dao extends AbstractDao<BillingONCHeader1> {
 
     public void createBills(List<BillingONCHeader1> lBills);
 
+    /**
+     * Returns the bill items for the given invoice that are still active
+     * (status != 'D'). Replaces the misnamed
+     * {@code BillingONService.getNonDeletedInvoices} (which returned items,
+     * not invoices). Returns an empty list when the invoice doesn't resolve.
+     */
+    public List<BillingONItem> findActiveItems(Integer invoiceNo);
+
     public boolean billedBetweenTheseDays(String serviceCode, Integer demographicNo, Date startDate, Date endDate);
 
     public int getDaysSinceBilled(String serviceCode, Integer demographicNo);

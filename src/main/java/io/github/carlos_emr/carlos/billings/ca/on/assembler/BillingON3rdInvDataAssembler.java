@@ -42,7 +42,7 @@ import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Site;
-import io.github.carlos_emr.carlos.commn.service.BillingONService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONInvoiceTotalsCalculator;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -73,7 +73,7 @@ public class BillingON3rdInvDataAssembler {
     private final DemographicDao demographicDao;
     private final ProviderDao providerDao;
     private final SiteDao siteDao;
-    private final BillingONService billingONService;
+    private final BillingONInvoiceTotalsCalculator totalsCalculator;
     private final Billing3rdPartyRecordService privateObj;
 
     public BillingON3rdInvDataAssembler(BillingONCHeader1Dao bCh1Dao,
@@ -84,7 +84,7 @@ public class BillingON3rdInvDataAssembler {
                                  DemographicDao demographicDao,
                                  ProviderDao providerDao,
                                  SiteDao siteDao,
-                                 BillingONService billingONService,
+                                 BillingONInvoiceTotalsCalculator totalsCalculator,
                                  Billing3rdPartyRecordService privateObj) {
         this.bCh1Dao = bCh1Dao;
         this.bExtDao = bExtDao;
@@ -94,7 +94,7 @@ public class BillingON3rdInvDataAssembler {
         this.demographicDao = demographicDao;
         this.providerDao = providerDao;
         this.siteDao = siteDao;
-        this.billingONService = billingONService;
+        this.totalsCalculator = totalsCalculator;
         this.privateObj = privateObj;
     }
 
@@ -185,7 +185,7 @@ public class BillingON3rdInvDataAssembler {
         }
 
         // Line items + service descriptions
-        List<BillingONItem> billingItems = billingONService.getNonDeletedInvoices(bCh1.getId());
+        List<BillingONItem> billingItems = bCh1Dao.findActiveItems(bCh1.getId());
         List<BillingON3rdInvViewModel.InvoiceItem> itemRows = new ArrayList<>();
         for (BillingONItem item : billingItems) {
             BillingService bs;
@@ -224,13 +224,13 @@ public class BillingON3rdInvDataAssembler {
                 .balanceAmount(balance.toPlainString());
 
         // Side-effect parity: the legacy JSP also called find3rdPartyPayRecordsByBill
-        // and BillingONService.calculateBalanceOwing. The values weren't actually
+        // and BillingONInvoiceTotalsCalculator.calculateBalanceOwing. The values weren't actually
         // displayed (the rendered Balance comes from the prop3rdPart math above),
         // but the call kept any logging/audit side effects active. Preserved here.
         List<BillingONPayment> ignoredPayments = bPaymentDao.find3rdPartyPayRecordsByBill(bCh1);
         BillingONPaymentDao.calculatePaymentTotal(ignoredPayments);
         BillingONPaymentDao.calculateRefundTotal(ignoredPayments);
-        billingONService.calculateBalanceOwing(bCh1.getId());
+        totalsCalculator.calculateBalanceOwing(bCh1.getId());
 
         // Logo: only used when not in multisite mode.
         if (!isMultisite) {

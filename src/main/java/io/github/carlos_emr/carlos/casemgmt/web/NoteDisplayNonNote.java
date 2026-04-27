@@ -40,7 +40,7 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.commn.model.Provider;
-import io.github.carlos_emr.carlos.commn.service.BillingONService;
+import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.encounter.data.EctFormData.PatientForm;
@@ -122,8 +122,8 @@ public class NoteDisplayNonNote implements NoteDisplay {
         }
 
         StringBuilder tmpNote = new StringBuilder();
-        BillingONService billingONService = (BillingONService) SpringUtils.getBean(BillingONService.class);
-        List<BillingONItem> items = billingONService.getNonDeletedInvoices(h1.getId());
+        BillingONCHeader1Dao bCh1Dao = SpringUtils.getBean(BillingONCHeader1Dao.class);
+        List<BillingONItem> items = bCh1Dao.findActiveItems(h1.getId());
         BillingONItem item;
 
         int size = items.size();

@@ -27,7 +27,7 @@ import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
-import io.github.carlos_emr.carlos.commn.service.BillingONService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONInvoiceTotalsCalculator;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -90,7 +90,7 @@ public class BillingCorrectionServiceIntegrationTest extends CarlosTestBase {
     // Mocked rather than autowired so this test doesn't need to register
     // the @Service-annotated BillingONService in the test context (which
     // only auto-scans @Repository beans).
-    private BillingONService billingONService;
+    private BillingONInvoiceTotalsCalculator totalsCalculator;
     private BillingONRepoDao billRepoDao;
     private ProviderDao providerDao;
     private BillingServiceDao billingServiceDao;
@@ -107,14 +107,14 @@ public class BillingCorrectionServiceIntegrationTest extends CarlosTestBase {
 
     @BeforeEach
     void setUp() {
-        billingONService = Mockito.mock(BillingONService.class);
+        totalsCalculator = Mockito.mock(BillingONInvoiceTotalsCalculator.class);
         billRepoDao = Mockito.mock(BillingONRepoDao.class);
         providerDao = Mockito.mock(ProviderDao.class);
         billingServiceDao = Mockito.mock(BillingServiceDao.class);
 
         service = new BillingCorrectionService(
                 bPaymentDao, bCh1Dao, billExtDao, billingPaymentTypeDao,
-                billingONService, billRepoDao, providerDao, billingServiceDao);
+                totalsCalculator, billRepoDao, providerDao, billingServiceDao);
 
         request = new MockHttpServletRequest();
         loggedInInfo = Mockito.mock(LoggedInInfo.class);

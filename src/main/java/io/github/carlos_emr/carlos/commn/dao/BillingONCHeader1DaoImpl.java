@@ -102,6 +102,21 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
     }
 
     @Override
+    public List<BillingONItem> findActiveItems(Integer invoiceNo) {
+        BillingONCHeader1 header = find(invoiceNo);
+        if (header == null) {
+            return java.util.Collections.emptyList();
+        }
+        List<BillingONItem> active = new ArrayList<>();
+        for (BillingONItem item : header.getBillingItems()) {
+            if (!"D".equals(item.getStatus())) {
+                active.add(item);
+            }
+        }
+        return active;
+    }
+
+    @Override
     public boolean billedBetweenTheseDays(String serviceCode, Integer demographicNo, Date startDate, Date endDate) {
         boolean hasBeenBilled = false;
         String sql = "select b from BillingONCHeader1 h1, BillingONItem b where b.ch1Id = h1.id and b.serviceCode = ?1 and"

@@ -38,7 +38,6 @@ import io.github.carlos_emr.carlos.commn.model.BillingONPremium;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.RaDetail;
-import io.github.carlos_emr.carlos.commn.service.BillingONService;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -75,7 +74,6 @@ public class BillingONPaymentDataAssembler {
     private final BillingONPaymentDao bPaymentDao;
     private final BillingOnItemPaymentDao bItemPaymentDao;
     private final DemographicDao demographicDao;
-    private final BillingONService billingONService;
 
     public BillingONPaymentDataAssembler(ProviderDao providerDao,
                                   RaDetailDao raDetailDao,
@@ -83,8 +81,7 @@ public class BillingONPaymentDataAssembler {
                                   BillingONPremiumDao bPremiumDao,
                                   BillingONPaymentDao bPaymentDao,
                                   BillingOnItemPaymentDao bItemPaymentDao,
-                                  DemographicDao demographicDao,
-                                  BillingONService billingONService) {
+                                  DemographicDao demographicDao) {
         this.providerDao = providerDao;
         this.raDetailDao = raDetailDao;
         this.bCh1Dao = bCh1Dao;
@@ -92,7 +89,6 @@ public class BillingONPaymentDataAssembler {
         this.bPaymentDao = bPaymentDao;
         this.bItemPaymentDao = bItemPaymentDao;
         this.demographicDao = demographicDao;
-        this.billingONService = billingONService;
     }
 
     /**
@@ -437,7 +433,7 @@ public class BillingONPaymentDataAssembler {
             // its own payment/refund totals from the per-item payment table.
             BigDecimal totalBilled = ZERO;
             List<BillingONPaymentViewModel.ThirdPartyItemRow> itemRows = new ArrayList<>();
-            for (BillingONItem bItem : billingONService.getNonDeletedInvoices(bCh1.getId())) {
+            for (BillingONItem bItem : bCh1Dao.findActiveItems(bCh1.getId())) {
                 String amtBilled = nullToEmpty(bItem.getFee());
                 try {
                     if (!amtBilled.isEmpty()) {

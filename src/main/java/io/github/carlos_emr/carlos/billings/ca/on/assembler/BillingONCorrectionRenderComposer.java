@@ -40,7 +40,6 @@ import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.commn.model.ClinicLocation;
 import io.github.carlos_emr.carlos.commn.model.ClinicNbr;
-import io.github.carlos_emr.carlos.commn.service.BillingONService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
@@ -58,7 +57,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.Billing3rdPartyRecordS
  * <p>Lookups consolidated here:</p>
  * <ul>
  *   <li>{@link BillingServiceDao} — service-code descriptions per bill item</li>
- *   <li>{@link BillingONService#getNonDeletedInvoices} — bill items for the loaded bill</li>
+ *   <li>active items filtered from the loaded {@code bCh1}'s billingItems collection</li>
  *   <li>{@link BillingONEAReportDao#getBillingErrorList} +
  *       {@link RaDetailDao#getBillingExplanatoryList} +
  *       {@link BillingONErrorCodeDao#find} — combined RA error-code report</li>
@@ -100,7 +99,6 @@ public class BillingONCorrectionRenderComposer {
 
     private final SecurityInfoManager securityInfoManager;
     private final BillingServiceDao billingServiceDao;
-    private final BillingONService billingONService;
     private final BillingONExtDao bExtDao;
     private final BillingONPaymentDao billingONPaymentDao;
     private final BillingONEAReportDao billingONEAReportDao;
@@ -112,7 +110,6 @@ public class BillingONCorrectionRenderComposer {
 
     public BillingONCorrectionRenderComposer(SecurityInfoManager securityInfoManager,
                                              BillingServiceDao billingServiceDao,
-                                             BillingONService billingONService,
                                              BillingONExtDao bExtDao,
                                              BillingONPaymentDao billingONPaymentDao,
                                              BillingONEAReportDao billingONEAReportDao,
@@ -123,7 +120,6 @@ public class BillingONCorrectionRenderComposer {
                                              Billing3rdPartyRecordService thirdPartPrep) {
         this.securityInfoManager = securityInfoManager;
         this.billingServiceDao = billingServiceDao;
-        this.billingONService = billingONService;
         this.bExtDao = bExtDao;
         this.billingONPaymentDao = billingONPaymentDao;
         this.billingONEAReportDao = billingONEAReportDao;
@@ -328,7 +324,12 @@ public class BillingONCorrectionRenderComposer {
         if (!multiSiteProvider) {
             return List.of();
         }
-        List<BillingONItem> items = billingONService.getNonDeletedInvoices(bCh1.getId());
+        // The header is already loaded; filter its items in-memory rather
+        // than round-tripping through the DAO. Same status check the
+        // legacy service used.
+        List<BillingONItem> items = bCh1.getBillingItems().stream()
+                .filter(i -> !"D".equals(i.getStatus()))
+                .toList();
         List<BillingONCorrectionViewModel.BillItemEntry> out = new ArrayList<>();
         for (BillingONItem item : items) {
             BillingService bService;

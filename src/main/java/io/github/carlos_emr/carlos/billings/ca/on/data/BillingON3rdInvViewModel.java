@@ -33,7 +33,7 @@ import java.util.List;
  * <p>Eliminates the 9 inline {@code SpringUtils.getBean} lookups the JSP
  * used to perform across its scriptlet body (BillingONCHeader1Dao,
  * ClinicDAO, BillingONExtDao, BillingONPaymentDao, DemographicDao,
- * ProviderDao, BillingONService, SiteDao, BillingServiceDao).</p>
+ * ProviderDao, BillingONInvoiceTotalsCalculator, SiteDao, BillingServiceDao).</p>
  *
  * @since 2026-04-26
  */
