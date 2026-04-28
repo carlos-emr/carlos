@@ -210,8 +210,8 @@
             }
 
             function newStatus() {
-                newOpt = prompt(i18n.promptNewStatus, "");
-                if (newOpt != "") {
+                let newOpt = prompt(i18n.promptNewStatus, "");
+                if (newOpt !== null && newOpt.trim() !== "") {
                     document.adddemographic.patient_status.options[document.adddemographic.patient_status.length] = new Option(newOpt, newOpt);
                     document.adddemographic.patient_status.options[document.adddemographic.patient_status.length - 1].selected = true;
                 } else {
@@ -220,8 +220,8 @@
             }
 
             function newStatus1() {
-                newOpt = prompt(i18n.promptNewStatus, "");
-                if (newOpt != "") {
+                let newOpt = prompt(i18n.promptNewStatus, "");
+                if (newOpt !== null && newOpt.trim() !== "") {
                     document.adddemographic.roster_status.options[document.adddemographic.roster_status.length] = new Option(newOpt, newOpt);
                     document.adddemographic.roster_status.options[document.adddemographic.roster_status.length - 1].selected = true;
                 } else {
@@ -700,7 +700,8 @@
             showsTime: false,
             button: "inputDOB_cal",
             singleClick: true,
-            step: 1
+            step: 1,
+            onSelect: function() { parsedob_date(); }
         });
         Calendar.setup({
             inputField: "waiting_list_referral_date",
@@ -724,7 +725,8 @@
             showsTime: false,
             button: "roster_date_cal",
             singleClick: true,
-            step: 1
+            step: 1,
+            onSelect: function() { parseDateField('roster_date'); }
         });
         Calendar.setup({
             inputField: "end_date",
@@ -732,7 +734,8 @@
             showsTime: false,
             button: "end_date_cal",
             singleClick: true,
-            step: 1
+            step: 1,
+            onSelect: function() { parseDateField('end_date'); }
         });
         Calendar.setup({
             inputField: "date_joined",
@@ -740,7 +743,8 @@
             showsTime: false,
             button: "date_joined_cal",
             singleClick: true,
-            step: 1
+            step: 1,
+            onSelect: function() { parseDateField('date_joined'); }
         });
         Calendar.setup({
             inputField: "hc_renew_date",
@@ -748,7 +752,8 @@
             showsTime: false,
             button: "hc_renew_date_cal",
             singleClick: true,
-            step: 1
+            step: 1,
+            onSelect: function() { parseDateField('hc_renew_date'); }
         });
         Calendar.setup({
             inputField: "eff_date",
@@ -756,7 +761,8 @@
             showsTime: false,
             button: "eff_date_cal",
             singleClick: true,
-            step: 1
+            step: 1,
+            onSelect: function() { parseDateField('eff_date'); }
         });
         <%
         if (privateConsentEnabled) {

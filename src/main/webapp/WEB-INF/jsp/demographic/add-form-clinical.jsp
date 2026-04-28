@@ -111,7 +111,7 @@
                                     <%
                                         for (Provider p : providerDao.getActiveProvidersByRole("nurse")) {
                                     %>
-                                    <option value="<%=p.getProviderNo()%>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/></option>
+                                    <option value="<%= SafeEncode.forHtmlAttribute(p.getProviderNo()) %>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/></option>
                                     <%
                                         }
                                     %>
@@ -129,7 +129,7 @@
                                     <%
                                         for (Provider p : providerDao.getActiveProvidersByRole("midwife")) {
                                     %>
-                                    <option value="<%=p.getProviderNo()%>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/></option>
+                                    <option value="<%= SafeEncode.forHtmlAttribute(p.getProviderNo()) %>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/></option>
                                     <%
                                         }
                                     %>
@@ -144,7 +144,7 @@
                                     <%
                                         for (Provider p : providerDao.getActiveProvidersByRole("doctor")) {
                                     %>
-                                    <option value="<%=p.getProviderNo()%>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/></option>
+                                    <option value="<%= SafeEncode.forHtmlAttribute(p.getProviderNo()) %>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/></option>
                                     <%
                                         }
                                     %>
@@ -362,7 +362,7 @@
                                                         selected = " selected=\"selected\" ";
                                                     }
                                     %>
-                                    <option value="<%=llItem.getValue()%>" <%=selected%>><%=llItem.getLabel()%></option>
+                                    <option value="<%= SafeEncode.forHtmlAttribute(llItem.getValue()) %>" <%=selected%>><%= SafeEncode.forHtmlContent(llItem.getLabel()) %></option>
                                     <%
                                             }
                                         }
@@ -426,19 +426,19 @@
                                 for (int k = 0; k < propDemoExt.length; k = k + 2) {
                         %>
                         <div class="row mb-2 align-items-center">
-                            <div class="col-sm-2 text-end"><label class="fw-bold col-form-label py-0"><%= SafeEncode.forHtml(propDemoExt[k]) %>:</label></div>
+                            <div class="col-sm-2 text-end"><label class="fw-bold col-form-label py-0"><%= SafeEncode.forHtmlContent(propDemoExt[k]) %>:</label></div>
                             <div class="col-sm-4">
                                 <% if (bExtForm) {
-                                    out.println(propDemoExtForm[k]);
+                                    out.println(SafeEncode.forHtmlContent(propDemoExtForm[k]));
                                 } else { %>
-                                <input type="text" name="<%=propDemoExt[k].replace(' ', '_') %>" class="form-control" value="">
+                                <input type="text" name="<%= SafeEncode.forHtmlAttribute(propDemoExt[k].replace(' ', '_')) %>" class="form-control" value="">
                                 <% } %>
                             </div>
-                            <div class="col-sm-2 text-end"><%=(k + 1) < propDemoExt.length ? ("<label class=\"fw-bold col-form-label py-0\">" + propDemoExt[k + 1] + ":</label>") : "&nbsp;" %></div>
+                            <div class="col-sm-2 text-end"><%=(k + 1) < propDemoExt.length ? ("<label class=\"fw-bold col-form-label py-0\">" + SafeEncode.forHtmlContent(propDemoExt[k + 1]) + ":</label>") : "&nbsp;" %></div>
                             <div class="col-sm-4">
                                 <% if (bExtForm && (k + 1) < propDemoExt.length) {
-                                    out.println(propDemoExtForm[k + 1]);
-                                } else { %> <%=(k + 1) < propDemoExt.length ? "<input type=\"text\" name=\"" + propDemoExt[k + 1].replace(' ', '_') + "\" class=\"form-control\" value=''>" : "&nbsp;" %>
+                                    out.println(SafeEncode.forHtmlContent(propDemoExtForm[k + 1]));
+                                } else { %> <%=(k + 1) < propDemoExt.length ? "<input type=\"text\" name=\"" + SafeEncode.forHtmlAttribute(propDemoExt[k + 1].replace(' ', '_')) + "\" class=\"form-control\" value=''>" : "&nbsp;" %>
                                 <% } %>
                             </div>
                         </div>
