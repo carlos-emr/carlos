@@ -44,7 +44,7 @@
         </global-results>
         <global-exception-mappings>
             <exception-mapping result="billingValidationError"
-                exception="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingValidationException"/>
+                exception="io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException"/>
         </global-exception-mappings>
 
         <action name="quickBillingBC" class="io.github.carlos_emr.carlos.billings.ca.bc.quickbilling.QuickBillingBC2Action">
