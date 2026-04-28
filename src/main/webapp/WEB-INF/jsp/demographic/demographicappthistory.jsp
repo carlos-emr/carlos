@@ -302,7 +302,10 @@
                      Contains navigation links / contextual actions. -->
                 <div class="col-12 col-md-2">
                     <nav class="d-flex flex-column gap-1" aria-label="Sidebar navigation">
-                        <fmt:message key="demographic.demographicappthistory.msgShowDeleted"/><input type="checkbox" name="showDeleted" id="showDeleted" onChange="toggleShowDeleted(this.checked);"/>
+                        <label for="showDeleted">
+                            <input type="checkbox" name="showDeleted" id="showDeleted" onChange="toggleShowDeleted(this.checked);"/>
+                            <fmt:message key="demographic.demographicappthistory.msgShowDeleted"/>
+                        </label>
                     </nav>
                 </div>
 
@@ -336,9 +339,16 @@
                             try { iRSOffSet = Integer.parseInt(request.getParameter("limit1")); }
                             catch (NumberFormatException ignored) { /* keep default */ }
                         }
-                        if (request.getParameter("limit2") != null) {
-                            try { iPageSize = Integer.parseInt(request.getParameter("limit2")); }
-                            catch (NumberFormatException ignored) { /* keep default */ }
+                        // Use already-sanitized strLimit2 (capped at 1000 above)
+                        try {
+                            iPageSize = Integer.parseInt(strLimit2);
+                            // Clamp to 1000 maximum
+                            if (iPageSize > 1000) {
+                                iPageSize = 1000;
+                            }
+                        } catch (NumberFormatException e) {
+                            // Default to 10 on parse failure
+                            iPageSize = 10;
                         }
                         List<Object> appointmentList;
                         AppointmentManager appointmentManager = SpringUtils.getBean(AppointmentManager.class);
@@ -426,7 +436,10 @@
                         <td><%=(reasonCodeName != null && !reasonCodeName.isEmpty()) ? SafeEncode.forHtml(reasonCodeName) : ""%><%=(appointment.getReason() != null && !appointment.getReason().isEmpty()) ? ((reasonCodeName != null && !reasonCodeName.isEmpty()) ? " - " : "") + SafeEncode.forHtml(appointment.getReason()) : ""%>
                         </td>
                         <% if (provider != null) {%>
-                        <td><carlos:encode value='<%= (provider.getLastName() == null ? "N/A" : provider.getLastName()) + "," + (provider.getFirstName() == null ? "N/A" : provider.getFirstName()) %>' context="html"/>&nbsp;
+                        <td>
+                        <fmt:message key="global.na" var="naText"/>
+                        <c:set var="providerName" value='<%= (provider.getLastName() == null ? pageContext.getAttribute("naText") : provider.getLastName()) + "," + (provider.getFirstName() == null ? pageContext.getAttribute("naText") : provider.getFirstName()) %>'/>
+                        <carlos:encode value='${providerName}' context="html"/>&nbsp;
                         </td>
                         <%} else { %>
                         <td><fmt:message key="global.na"/></td>
