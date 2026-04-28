@@ -209,12 +209,12 @@
                                 var job = arr[i];
                                 var extraClass = (job.cronExpression != undefined) ? "blue" : "red";
                                 var html = '<tr>';
-                                html += '<td><a onclick="scheduleJob(' + job.id + ');"><i class="fa-solid fa-calendar ' + extraClass + '"></i></a></td>';
-                                html += '<td><u><a href="javascript:void();" onclick="editJob(' + job.id + ');">' + job.name + '</a></u></td>';
-                                html += '<td><a onclick="cancelJob(' + job.id + ');"><fmt:message key="admin.jobs.cancel"/></a></td>';
+                                html += '<td><a href="javascript:void(0);" aria-label="<fmt:message key="admin.jobs.scheduleJob"/>" onclick="scheduleJob(' + job.id + ');"><i class="fa-solid fa-calendar ' + extraClass + '" aria-hidden="true"></i></a></td>';
+                                html += '<td><u><a href="javascript:void(0);" onclick="editJob(' + job.id + ');">' + job.name + '</a></u></td>';
+                                html += '<td><a href="javascript:void(0);" onclick="cancelJob(' + job.id + ');"><fmt:message key="admin.jobs.cancel"/></a></td>';
                                 html += '<td>' + ((job.enabled == true)
-                                    ? '<fmt:message key="admin.jobs.enabledStatus"/> (<a onclick="updateJobStatus(' + job.id + ',false)"><fmt:message key="admin.jobs.disable"/></a>)'
-                                    : '<span color="red"><fmt:message key="admin.jobs.disabledStatus"/></span> (<a onclick="updateJobStatus(' + job.id + ',true)"><fmt:message key="admin.jobs.enable"/></a>)') + '</td>';
+                                    ? '<fmt:message key="admin.jobs.enabledStatus"/> (<a href="javascript:void(0);" onclick="updateJobStatus(' + job.id + ',false)"><fmt:message key="admin.jobs.disable"/></a>)'
+                                    : '<span color="red"><fmt:message key="admin.jobs.disabledStatus"/></span> (<a href="javascript:void(0);" onclick="updateJobStatus(' + job.id + ',true)"><fmt:message key="admin.jobs.enable"/></a>)') + '</td>';
                                 html += '<td><fmt:message key="admin.jobs.notAvailable"/></td>';
                                 html += '<td>' + ((job.nextPlannedExecutionDate == null) ? '<fmt:message key="admin.jobs.notAvailable"/>' : new Date(job.nextPlannedExecutionDate)) + '</td>';
                                 html += '</tr>';
