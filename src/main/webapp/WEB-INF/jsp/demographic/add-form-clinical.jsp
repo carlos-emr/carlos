@@ -286,7 +286,7 @@
                                         <option value="FI"><fmt:message key="demographic.demographicaddrecordhtm.FI-Fired"/></option>
                                         <%
                                             for (String status : demographicDao.search_ptstatus()) { %>
-                                        <option value="<%=status%>"><%=status%></option>
+                                        <option value="<%= SafeEncode.forHtmlAttribute(status) %>"><%= SafeEncode.forHtml(status) %></option>
                                         <% } // end while %>
                                     </select>
                                     <input type="button" onClick="newStatus();" class="btn btn-outline-secondary btn-sm"
