@@ -453,7 +453,7 @@ public final class MessageUploader {
 
 
 			try {
-				if (hin.equalsIgnoreCase("UNKNOWN")) { hin = ""; }
+				if (hin != null && hin.equalsIgnoreCase("UNKNOWN")) { hin = ""; }
 				if (hin != null) {
 					hinMod = new String(hin);
                     // Ontario may be bare 10 digits or have the version code concacted 1234567890XX
@@ -503,15 +503,17 @@ public final class MessageUploader {
 				 * and fatal patient mismatches that occurred in previous iterations.
 				 *
 				 * A no-HIN matching path is allowed ONLY when an exact match is found on all three demographic identifiers:
-				 * full legal name (first and last), date of birth (year, month, day), and gender. This strict requirement
-				 * reduces the risk of misidentification when HIN is unavailable.
+				 * full legal name (first and last), date of birth (year, month, day), and gender. Gender matching is applied
+				 * EXCEPT when the stored sex value is not 'M' or 'F' - those non-binary/unspecified stored values act as a
+				 * wildcard and permit a match with any incoming lab gender value.
 				 *
 				 * For HIN-based matching (below), the LAB_NOMATCH_NAMES property controls whether name verification is required
-				 * in addition to HIN + DOB + gender validation.
+				 * in addition to HIN + DOB + gender validation. When LAB_NOMATCH_NAMES is "no", only the first letter of names
+				 * is used for matching.
 				 */
 				if (hinMod != null && !hinMod.trim().isEmpty()) {
-                    // Relax gender matching to include non-binary individuals.
-                    // This will match the provided sex or any sex not explicitly 'F' or 'M'.
+                    // Gender matching allows the provided sex OR any stored sex value not explicitly 'F' or 'M'.
+                    // This permits matching when the stored demographic has non-binary/unspecified gender.
 					if (CarlosProperties.getInstance().getBooleanProperty("LAB_NOMATCH_NAMES", "yes")) {
 						sql = "select demographic_no, provider_no from demographic where hin=? and year_of_birth like ? and month_of_birth like ? and date_of_birth like ? and ( sex like ? OR sex NOT IN ('F','M') )";
 						sqlParams.add(hinMod);
