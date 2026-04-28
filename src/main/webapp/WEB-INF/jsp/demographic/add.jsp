@@ -667,7 +667,7 @@
 
                 <jsp:include page="/demographic/ViewZdemographicFullTitleSearch" />
 
-                <form method="post" id="adddemographic" name="adddemographic" action="DemographicAddRecord" novalidate class="needs-validation">
+                <form method="post" id="adddemographic" name="adddemographic" action="DemographicAddRecord" novalidate class="needs-validation" onsubmit="return aSubmit()" autocomplete="off">
 
                     <jsp:include page="add-form-personal.jsp"/>
                     <jsp:include page="add-form-clinical.jsp"/>
