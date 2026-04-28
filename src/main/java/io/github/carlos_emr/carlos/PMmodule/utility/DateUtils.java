@@ -29,20 +29,15 @@ package io.github.carlos_emr.carlos.PMmodule.utility;
 
 import java.text.DateFormat;
 import java.text.ParseException;
-import java.time.DateTimeException;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
-import java.time.temporal.TemporalAccessor;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.DateTimeParseUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
@@ -59,26 +54,6 @@ public class DateUtils {
 
     private static ZonedDateTime toZoned(Date date) {
         return date.toInstant().atZone(ZoneId.systemDefault());
-    }
-
-    /**
-     * Thread-safe parse helper using {@link DateTimeFormatter}.
-     */
-    private static Date parseWithFormatter(String s, String pattern) {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern);
-        TemporalAccessor parsed = formatter.parse(s);
-        ZoneId zone = ZoneId.systemDefault();
-        Instant instant;
-        try {
-            instant = LocalDateTime.from(parsed).atZone(zone).toInstant();
-        } catch (DateTimeException e) {
-            try {
-                instant = LocalDate.from(parsed).atStartOfDay(zone).toInstant();
-            } catch (DateTimeException e2) {
-                instant = Instant.from(parsed);
-            }
-        }
-        return Date.from(instant);
     }
 
 //##########################################################################
@@ -178,7 +153,7 @@ public class DateUtils {
 
         try {
 
-            Date data = parseWithFormatter(date, formatAtual);
+            Date data = DateTimeParseUtils.parseToDate(date, DateTimeFormatter.ofPattern(formatAtual));
 
             if (cat.isDebugEnabled()) {
                 cat.debug("[DateUtils] - formatDate: data formatada: {}",
@@ -187,7 +162,7 @@ public class DateUtils {
 
             return DateTimeFormatter.ofPattern(format).format(toZoned(data));
 
-        } catch (DateTimeParseException e) {
+        } catch (ParseException e) {
 
             cat.error("[DateUtils] - formatDate: ", e);
 

@@ -124,21 +124,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     }
 
     private static Date parseAsDate(String text, DateTimeFormatter formatter) throws ParseException {
-        try {
-            return Date.from(java.time.LocalDateTime.parse(text, formatter)
-                    .atZone(ZoneId.systemDefault()).toInstant());
-        } catch (java.time.format.DateTimeParseException e) {
-            try {
-                return Date.from(java.time.LocalDate.parse(text, formatter)
-                        .atStartOfDay(ZoneId.systemDefault()).toInstant());
-            } catch (java.time.format.DateTimeParseException e2) {
-                int errorIndex = e2.getErrorIndex();
-                if (errorIndex < 0) {
-                    errorIndex = 0;
-                }
-                throw (ParseException) new ParseException(e2.getMessage(), errorIndex).initCause(e2);
-            }
-        }
+        return DateTimeParseUtils.parseToDate(text, formatter);
     }
 
     static {

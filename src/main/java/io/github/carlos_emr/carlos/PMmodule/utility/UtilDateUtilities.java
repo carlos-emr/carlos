@@ -27,20 +27,17 @@
 
 package io.github.carlos_emr.carlos.PMmodule.utility;
 
-import java.time.DateTimeException;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
-import java.time.temporal.TemporalAccessor;
+import java.text.ParseException;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.Locale;
 import java.util.ResourceBundle;
+
+import io.github.carlos_emr.carlos.utility.DateTimeParseUtils;
 
 /**
  * @deprecated 2013-04-28 use io.github.carlos_emr.carlos.util.DateUtils instead
@@ -66,7 +63,7 @@ public class UtilDateUtilities {
 
     public static Date StringToDate(String s, String spattern, Locale locale) {
         try {
-            return parseToDate(s, spattern, locale);
+            return DateTimeParseUtils.parseToDate(s, DateTimeFormatter.ofPattern(spattern, locale));
         } catch (Exception exception) {
             return null;
         }
@@ -198,30 +195,10 @@ public class UtilDateUtilities {
      */
     public static Date getDateFromString(String dateStr, String datePattern) {
         try {
-            return parseToDate(dateStr, datePattern, defaultLocale);
-        } catch (DateTimeParseException e) {
+            return DateTimeParseUtils.parseToDate(dateStr, DateTimeFormatter.ofPattern(datePattern, defaultLocale));
+        } catch (ParseException e) {
             return null;
         }
-    }
-
-    /**
-     * Thread-safe parse helper using {@link DateTimeFormatter}.
-     */
-    private static Date parseToDate(String s, String pattern, Locale locale) {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern, locale);
-        TemporalAccessor parsed = formatter.parse(s);
-        ZoneId zone = ZoneId.systemDefault();
-        Instant instant;
-        try {
-            instant = LocalDateTime.from(parsed).atZone(zone).toInstant();
-        } catch (DateTimeException e) {
-            try {
-                instant = LocalDate.from(parsed).atStartOfDay(zone).toInstant();
-            } catch (DateTimeException e2) {
-                instant = Instant.from(parsed);
-            }
-        }
-        return Date.from(instant);
     }
 
 

@@ -29,15 +29,10 @@
 package io.github.carlos_emr.carlos.utility;
 
 import java.text.ParseException;
-import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
-import java.time.temporal.TemporalAccessor;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -86,42 +81,6 @@ public final class DateUtils {
 
     private static ZonedDateTime toZoned(Date date) {
         return date.toInstant().atZone(ZoneId.systemDefault());
-    }
-
-    /**
-     * Thread-safe parse helper using a pre-built {@link DateTimeFormatter}.
-     *
-     * <p>The helper preserves legacy {@code SimpleDateFormat} compatibility for patterns that may
-     * include a zone or offset by trying, in order: {@link ZonedDateTime}, {@link OffsetDateTime},
-     * {@link LocalDateTime}, then {@link LocalDate}. Parsed values that do not carry explicit
-     * zone/offset information are interpreted in the system default zone.</p>
-     */
-    private static Date parseWithFormatter(String s, DateTimeFormatter formatter) throws ParseException {
-        try {
-            TemporalAccessor parsed = formatter.parseBest(s,
-                    ZonedDateTime::from,
-                    OffsetDateTime::from,
-                    LocalDateTime::from,
-                    LocalDate::from,
-                    Instant::from);
-            ZoneId zone = ZoneId.systemDefault();
-            Instant instant;
-            if (parsed instanceof ZonedDateTime) {
-                instant = ((ZonedDateTime) parsed).toInstant();
-            } else if (parsed instanceof OffsetDateTime) {
-                instant = ((OffsetDateTime) parsed).toInstant();
-            } else if (parsed instanceof LocalDateTime) {
-                instant = ((LocalDateTime) parsed).atZone(zone).toInstant();
-            } else if (parsed instanceof LocalDate) {
-                instant = ((LocalDate) parsed).atStartOfDay(zone).toInstant();
-            } else {
-                instant = Instant.from(parsed);
-            }
-            return Date.from(instant);
-        } catch (DateTimeParseException e) {
-            int idx = Math.max(0, e.getErrorIndex());
-            throw (ParseException) new ParseException(e.getMessage(), idx).initCause(e);
-        }
     }
 
     /**
@@ -216,7 +175,7 @@ public final class DateUtils {
         if (s == null) {
             return null;
         } else {
-            return parseWithFormatter(s, ISO_DATE_FORMATTER);
+            return DateTimeParseUtils.parseToDate(s, ISO_DATE_FORMATTER);
         }
     }
 
@@ -237,7 +196,7 @@ public final class DateUtils {
         if (s == null) {
             return null;
         } else {
-            return parseWithFormatter(s, ISO_DATETIME_FORMATTER);
+            return DateTimeParseUtils.parseToDate(s, ISO_DATETIME_FORMATTER);
         }
     }
 
@@ -284,7 +243,7 @@ public final class DateUtils {
         if (s == null) {
             return null;
         } else {
-            return parseWithFormatter(s, JS_DATETIME_NO_SEC_FORMATTER);
+            return DateTimeParseUtils.parseToDate(s, JS_DATETIME_NO_SEC_FORMATTER);
         }
     }
 }

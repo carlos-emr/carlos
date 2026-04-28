@@ -32,15 +32,9 @@ package io.github.carlos_emr.carlos.util;
 
 import java.text.DateFormat;
 import java.text.ParseException;
-import java.time.DateTimeException;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
-import java.time.temporal.TemporalAccessor;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -49,6 +43,7 @@ import java.util.Objects;
 
 import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.DateTimeParseUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -70,30 +65,6 @@ public final class DateUtils {
 
     private static ZonedDateTime toZoned(Date date) {
         return date.toInstant().atZone(ZoneId.systemDefault());
-    }
-
-    /**
-     * Thread-safe parse helper using {@link DateTimeFormatter}. Accepts either a date or
-     * date-time pattern and returns a {@link Date} for the resulting instant in the
-     * system default zone.
-     */
-    private static Date parseWithFormatter(String s, String pattern, Locale locale) {
-        DateTimeFormatter formatter = (locale == null)
-                ? getDefaultFormatter(pattern)
-                : DateTimeFormatter.ofPattern(pattern, locale);
-        TemporalAccessor parsed = formatter.parse(s);
-        ZoneId zone = ZoneId.systemDefault();
-        Instant instant;
-        try {
-            instant = LocalDateTime.from(parsed).atZone(zone).toInstant();
-        } catch (DateTimeException e) {
-            try {
-                instant = LocalDate.from(parsed).atStartOfDay(zone).toInstant();
-            } catch (DateTimeException e2) {
-                instant = Instant.from(parsed);
-            }
-        }
-        return Date.from(instant);
     }
 
     private static DateTimeFormatter getDefaultFormatter(String pattern) {
@@ -152,11 +123,10 @@ public final class DateUtils {
             return null;
         }
 
-        try {
-            return parseWithFormatter(s, dateFormatString, locale);
-        } catch (DateTimeParseException e) {
-            throw (ParseException) new ParseException(e.getMessage(), e.getErrorIndex()).initCause(e);
-        }
+        DateTimeFormatter formatter = (locale == null)
+                ? getDefaultFormatter(dateFormatString)
+                : DateTimeFormatter.ofPattern(dateFormatString, locale);
+        return DateTimeParseUtils.parseToDate(s, formatter);
     }
 
     /**
@@ -167,11 +137,11 @@ public final class DateUtils {
     public static Date parseDateTime(String s, Locale locale) throws ParseException {
         if (s == null) return (null);
 
-        try {
-            return parseWithFormatter(s, dateFormatString + " " + timeFormatString, locale);
-        } catch (DateTimeParseException e) {
-            throw (ParseException) new ParseException(e.getMessage(), e.getErrorIndex()).initCause(e);
-        }
+        String dateTimePattern = dateFormatString + " " + timeFormatString;
+        DateTimeFormatter formatter = (locale == null)
+                ? getDefaultFormatter(dateTimePattern)
+                : DateTimeFormatter.ofPattern(dateTimePattern, locale);
+        return DateTimeParseUtils.parseToDate(s, formatter);
     }
 
     /**
@@ -302,7 +272,7 @@ public final class DateUtils {
 
         try {
 
-            Date data = parseWithFormatter(date, formatAtual, null);
+            Date data = DateTimeParseUtils.parseToDate(date, getDefaultFormatter(formatAtual));
 
             if (logger.isDebugEnabled()) {
                 logger.debug("[DateUtils] - formatDate: data formatada: {}",
@@ -311,7 +281,7 @@ public final class DateUtils {
 
             return DateTimeFormatter.ofPattern(format).format(toZoned(data));
 
-        } catch (DateTimeParseException e) {
+        } catch (ParseException e) {
 
             logger.error("[DateUtils] - formatDate: ", e);
 
