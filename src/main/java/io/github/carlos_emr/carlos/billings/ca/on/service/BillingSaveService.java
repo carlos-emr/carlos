@@ -23,12 +23,14 @@
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.ArrayList;
 import jakarta.servlet.http.HttpServletRequest;
 
+import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -335,11 +337,9 @@ public class BillingSaveService {
         // _logger.info("No billing item for billing # " + itemNum);
 
         for (int i = 0; i < vecServiceCode.size(); i++) { // recordCount
-            BigDecimal bdEachPrice = new BigDecimal(Double.parseDouble((String) vecServiceCodePrice.get(i))).setScale(
-                    2, BigDecimal.ROUND_HALF_UP);
-            BigDecimal bdEachUnit = new BigDecimal(Double.parseDouble((String) vecServiceCodeUnit.get(i))).setScale(2,
-                    BigDecimal.ROUND_HALF_UP);
-            BigDecimal bdEachTotal = bdEachPrice.multiply(bdEachUnit).setScale(2, BigDecimal.ROUND_HALF_UP);
+            BigDecimal bdEachPrice = BillingMoney.amount((String) vecServiceCodePrice.get(i));
+            BigDecimal bdEachUnit = BillingMoney.amount((String) vecServiceCodeUnit.get(i));
+            BigDecimal bdEachTotal = bdEachPrice.multiply(bdEachUnit).setScale(2, RoundingMode.HALF_UP);
 
             claimItem[i] = new BillingItemData();
             claimItem[i].setTransc_id(BillingDataHlp.ITEM_TRANSACTIONIDENTIFIER);

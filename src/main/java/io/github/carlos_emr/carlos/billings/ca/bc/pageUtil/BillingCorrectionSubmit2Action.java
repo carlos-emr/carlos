@@ -27,7 +27,6 @@ import io.github.carlos_emr.BillingDataBean;
 import io.github.carlos_emr.BillingItemBean;
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao;
-import io.github.carlos_emr.carlos.billings.ca.on.web.BillingSessionUtils;
 import io.github.carlos_emr.carlos.billing.CA.model.BillingDetail;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.dao.RecycleBinDao;

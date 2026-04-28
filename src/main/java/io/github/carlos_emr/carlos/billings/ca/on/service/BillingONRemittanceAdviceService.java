@@ -34,6 +34,7 @@ import java.util.Properties;
 import java.util.Set;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingRAData;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.RaDetailDao;
@@ -521,7 +522,7 @@ public class BillingONRemittanceAdviceService {
                 String amountsubmit = r.getAmountClaim();
                 String amountpay = r.getAmountPay();
                 try {
-                    Double.parseDouble(amountpay);
+                    BillingMoney.amount(amountpay);
                 } catch (NumberFormatException e) {
                     amountpay = "0.00";
                     MiscUtils.getLogger().error("RA HEADER " + id + " had bad amount pay value " + r.getAmountPay());

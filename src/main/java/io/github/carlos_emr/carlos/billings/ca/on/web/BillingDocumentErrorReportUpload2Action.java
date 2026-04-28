@@ -29,6 +29,7 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.BatchEligibilityDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicCustDao;
 import io.github.carlos_emr.carlos.commn.model.BatchEligibility;
@@ -44,6 +45,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.bean.BillingClaimsErrorReportB
 import io.github.carlos_emr.carlos.billings.ca.on.bean.BillingEDTOBECOutputSpecificationBean;
 import io.github.carlos_emr.carlos.billings.ca.on.bean.BillingEDTOBECOutputSpecificationBeanHandler;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimsErrorReportBeanHandlerSave;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONErrorReportService;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -66,15 +68,21 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
     private final BatchEligibilityDao batchEligibilityDao;
     private final DemographicCustDao demographicCustDao;
     private final DemographicManager demographicManager;
+    private final ProviderDao providerDao;
+    private final BillingONErrorReportService errorReportService;
 
     public BillingDocumentErrorReportUpload2Action(SecurityInfoManager securityInfoManager,
                                                    DemographicManager demographicManager,
                                                    BatchEligibilityDao batchEligibilityDao,
-                                                   DemographicCustDao demographicCustDao) {
+                                                   DemographicCustDao demographicCustDao,
+                                                   ProviderDao providerDao,
+                                                   BillingONErrorReportService errorReportService) {
         this.securityInfoManager = securityInfoManager;
         this.demographicManager = demographicManager;
         this.batchEligibilityDao = batchEligibilityDao;
         this.demographicCustDao = demographicCustDao;
+        this.providerDao = providerDao;
+        this.errorReportService = errorReportService;
     }
     public String execute() throws ServletException, IOException {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -280,7 +288,8 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
     private BillingClaimsErrorReportBeanHandler generateReportE(FileInputStream file, boolean bB, String filename) {
         BillingClaimsErrorReportBeanHandler hd = null;
         if (bB) {
-            hd = (new BillingClaimsErrorReportBeanHandlerSave(file, filename)).getErrorReportBeanObj(file);
+            hd = (new BillingClaimsErrorReportBeanHandlerSave(file, filename, errorReportService))
+                    .getErrorReportBeanObj(file);
         } else {
             hd = new BillingClaimsErrorReportBeanHandler(file);
         }
@@ -359,7 +368,9 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
      */
     @SuppressWarnings("unchecked")
     private BillingEDTOBECOutputSpecificationBeanHandler generateReportR(LoggedInInfo loggedInInfo, FileInputStream file) {
-        BillingEDTOBECOutputSpecificationBeanHandler hd = new BillingEDTOBECOutputSpecificationBeanHandler(loggedInInfo, file);
+        BillingEDTOBECOutputSpecificationBeanHandler hd =
+                new BillingEDTOBECOutputSpecificationBeanHandler(loggedInInfo, file,
+                        batchEligibilityDao, demographicManager, providerDao);
         ArrayList<BillingEDTOBECOutputSpecificationBean> outputSpecVector = hd.getEDTOBECOutputSecifiationBeanVector();
 
         for (int i = 0; i < outputSpecVector.size(); i++) {

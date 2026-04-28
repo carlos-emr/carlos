@@ -654,6 +654,7 @@
         </action>
         <action name="billing/CA/ON/BillingCorrectionValid" class="io.github.carlos_emr.carlos.billings.ca.on.web.BillingCorrectionValid2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingCorrectionValid.jsp</result>
+            <result name="review">/WEB-INF/jsp/billing/CA/ON/billingCorrectionReview.jsp</result>
         </action>
         <action name="billing/CA/ON/BillingCodeUpdate" class="io.github.carlos_emr.carlos.billings.ca.on.web.BillingCodeUpdate2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingCodeUpdate.jsp</result>

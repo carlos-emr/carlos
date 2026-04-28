@@ -27,27 +27,24 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
+import org.springframework.stereotype.Service;
+
+import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.commn.dao.RaDetailDao;
 import io.github.carlos_emr.carlos.commn.model.RaDetail;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
  * @author jay
  */
+@Service
 public class RAData {
 
     private final RaDetailDao dao;
 
-    /** Production constructor — resolves the DAO from the Spring context. */
-    public RAData() {
-        this(SpringUtils.getBean(RaDetailDao.class));
-    }
-
-    /** Test-friendly constructor — takes the DAO mock directly. */
-    RAData(RaDetailDao dao) {
+    public RAData(RaDetailDao dao) {
         this.dao = dao;
     }
 
@@ -99,43 +96,39 @@ public class RAData {
     }
 
     public String getAmountPaid(ArrayList<HashMap<String, String>> a) {
-        BigDecimal total = new BigDecimal("0.00").setScale(2, BigDecimal.ROUND_HALF_UP);
+        BigDecimal total = BillingMoney.zero();
         for (int i = 0; i < a.size(); i++) {
             HashMap<String, String> h = a.get(i);
-            BigDecimal valueToAdd = new BigDecimal("0.00");
+            BigDecimal valueToAdd = BillingMoney.zero();
             try {
-                String amount = "" + h.get("amountpay");
-                amount = amount.trim();
-                valueToAdd = new BigDecimal(amount).setScale(2, BigDecimal.ROUND_HALF_UP);
+                valueToAdd = BillingMoney.amount(h.get("amountpay"));
             } catch (Exception badValueException) {
                 MiscUtils.getLogger().debug(" Error calculating value for " + h.get("billing_no"));
                 MiscUtils.getLogger().error("Error", badValueException);
             }
             total = total.add(valueToAdd);
         }
-        return total.toString();
+        return BillingMoney.format(total);
     }
 
     public String getAmountPaid(ArrayList<HashMap<String, String>> a, String billingNo, String serviceCode) {
-        BigDecimal total = new BigDecimal("0.00").setScale(2, BigDecimal.ROUND_HALF_UP);
+        BigDecimal total = BillingMoney.zero();
         for (int i = 0; i < a.size(); i++) {
             HashMap<String, String> h = a.get(i);
             if (!(h.get("billing_no").equals(billingNo)) || !(h.get("service_code").equals(serviceCode))) {
                 continue;
             }
 
-            BigDecimal valueToAdd = new BigDecimal("0.00");
+            BigDecimal valueToAdd = BillingMoney.zero();
             try {
-                String amount = "" + h.get("amountpay");
-                amount = amount.trim();
-                valueToAdd = new BigDecimal(amount).setScale(2, BigDecimal.ROUND_HALF_UP);
+                valueToAdd = BillingMoney.amount(h.get("amountpay"));
             } catch (Exception badValueException) {
                 MiscUtils.getLogger().debug(" Error calculating value for " + h.get("billing_no"));
                 MiscUtils.getLogger().error("Error", badValueException);
             }
             total = total.add(valueToAdd);
         }
-        return total.toString();
+        return BillingMoney.format(total);
     }
 
     public boolean isErrorCode(String billingNo, String errorCode) {

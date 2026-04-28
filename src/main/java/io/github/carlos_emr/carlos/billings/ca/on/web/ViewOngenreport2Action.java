@@ -26,7 +26,6 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -47,9 +46,12 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.OnBillingDiskService;
 public class ViewOngenreport2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
+    private final OnBillingDiskService onBillingDiskService;
 
-    public ViewOngenreport2Action(SecurityInfoManager securityInfoManager) {
+    public ViewOngenreport2Action(SecurityInfoManager securityInfoManager,
+                                  OnBillingDiskService onBillingDiskService) {
         this.securityInfoManager = securityInfoManager;
+        this.onBillingDiskService = onBillingDiskService;
     }
     @Override
     public String execute() throws Exception {
@@ -69,7 +71,7 @@ public class ViewOngenreport2Action extends ActionSupport {
             return NONE;
         }
 
-        SpringUtils.getBean(OnBillingDiskService.class).generateNewDisk(request);
+        onBillingDiskService.generateNewDisk(request);
         return SUCCESS;
     }
 }

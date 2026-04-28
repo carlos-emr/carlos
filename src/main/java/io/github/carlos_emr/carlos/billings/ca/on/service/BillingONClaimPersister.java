@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.ArrayList;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingBatchHeaderData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
@@ -243,22 +244,10 @@ public class BillingONClaimPersister {
             billOnItemPayment.setBillingOnItemId(Integer.parseInt(val.getId()));
             billOnItemPayment.setBillingOnPaymentId(paymentId);
             billOnItemPayment.setCh1Id(id);
-            try {
-                billOnItemPayment.setDiscount(new BigDecimal(val.getDiscount()).setScale(2, BigDecimal.ROUND_HALF_UP));
-            } catch (Exception e) {
-                billOnItemPayment.setDiscount(new BigDecimal("0.00"));
-            }
-            try {
-                billOnItemPayment.setPaid(new BigDecimal(val.getPaid()).setScale(2, BigDecimal.ROUND_HALF_UP));
-            } catch (Exception e) {
-                billOnItemPayment.setPaid(new BigDecimal("0.00"));
-            }
+            billOnItemPayment.setDiscount(BillingMoney.amountOrZero(val.getDiscount()));
+            billOnItemPayment.setPaid(BillingMoney.amountOrZero(val.getPaid()));
             billOnItemPayment.setPaymentTimestamp(ts);
-            try {
-                billOnItemPayment.setRefund(new BigDecimal(val.getRefund()).setScale(2, BigDecimal.ROUND_HALF_UP));
-            } catch (Exception e) {
-                billOnItemPayment.setRefund(new BigDecimal("0.00"));
-            }
+            billOnItemPayment.setRefund(BillingMoney.amountOrZero(val.getRefund()));
             billOnItemPaymentDao.persist(billOnItemPayment);
             val.setId(billOnItemPayment.getId().toString());
         }
@@ -434,9 +423,9 @@ public class BillingONClaimPersister {
 
             if (paymentSumParam != null) {
                 payment = new BillingONPayment();
-                payment.setTotal_payment(BigDecimal.valueOf(Double.parseDouble(paymentSumParam)));
-                payment.setTotal_discount(BigDecimal.valueOf(Double.parseDouble(mVal.get("total_discount"))));
-                payment.setTotal_refund(new BigDecimal(0));
+                payment.setTotal_payment(BillingMoney.amount(paymentSumParam));
+                payment.setTotal_discount(BillingMoney.amount(mVal.get("total_discount")));
+                payment.setTotal_refund(BillingMoney.zero());
                 payment.setPaymentDate(paymentDate);
                 payment.setBillingOnCheader1(ch1);
                 payment.setBillingNo(id);

@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyMap;
@@ -111,5 +112,47 @@ class BillingSaveServiceUnitTest extends CarlosUnitTestBase {
 
         assertThat(saved).isTrue();
         verify(mockPersister).add3rdBillExt(anyMap(), eq(4321), same(claim));
+    }
+
+    @Test
+    void shouldBuildHospitalItemTotalsWithoutBinaryFloatingPointRounding() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.getSession().setAttribute("user", "999998");
+        request.setParameter("hin", "1234567890AB");
+        request.setParameter("demographic_dob", "1980-01-01");
+        request.setParameter("xml_billtype", "ODP");
+        request.setParameter("hc_type", "ON");
+        request.setParameter("payMethod", "P");
+        request.setParameter("referralCode", "");
+        request.setParameter("xml_location", "0000 Hospital");
+        request.setParameter("xml_vdate", "2026-04-28");
+        request.setParameter("xml_slicode", "00");
+        request.setParameter("demographic_no", "123");
+        request.setParameter("xml_provider", "999998|123456");
+        request.setParameter("appointment_no", "456");
+        request.setParameter("demographic_name", "Doe,Jane");
+        request.setParameter("sex", "F");
+        request.setParameter("start_time", "09:00");
+        request.setParameter("xml_visittype", "00");
+        request.setParameter("proOHIPNO", "123456");
+        request.setParameter("apptProvider_no", "999998");
+        request.setParameter("site", "site");
+        request.setParameter("dxCode", "250");
+        request.setParameter("dxCode1", "");
+        request.setParameter("dxCode2", "");
+        request.setParameter("payment", "");
+        request.setParameter("refund", "");
+        request.setParameter("discount", "");
+
+        ArrayList<String> serviceCodes = new ArrayList<>(List.of("A001"));
+        ArrayList<String> units = new ArrayList<>(List.of("1"));
+        ArrayList<String> prices = new ArrayList<>(List.of("1.005"));
+
+        ArrayList claim = service.getBillingClaimHospObj(request, "2026-04-28", "1.01",
+                serviceCodes, units, prices);
+        List<BillingItemData> items = (List<BillingItemData>) claim.get(1);
+
+        assertThat(items).singleElement()
+                .satisfies(item -> assertThat(item.getFee()).isEqualTo("1.01"));
     }
 }

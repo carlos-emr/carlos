@@ -44,6 +44,10 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
+import io.github.carlos_emr.carlos.billings.ca.on.service.FeeScheduleImportRequest;
+import io.github.carlos_emr.carlos.billings.ca.on.service.FeeScheduleImportResult;
+import io.github.carlos_emr.carlos.billings.ca.on.service.FeeScheduleImportService;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -58,9 +62,12 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class ScheduleOfBenefitsUpload2Action extends ActionSupport implements UploadedFilesAware {
     private final SecurityInfoManager securityInfoManager;
+    private final FeeScheduleImportService feeScheduleImportService;
 
-    public ScheduleOfBenefitsUpload2Action(SecurityInfoManager securityInfoManager) {
+    public ScheduleOfBenefitsUpload2Action(SecurityInfoManager securityInfoManager,
+                                           FeeScheduleImportService feeScheduleImportService) {
         this.securityInfoManager = securityInfoManager;
+        this.feeScheduleImportService = feeScheduleImportService;
     }
 
     Logger _logger = MiscUtils.getLogger();
@@ -84,16 +91,13 @@ public class ScheduleOfBenefitsUpload2Action extends ActionSupport implements Up
         String outcome = "";
 
         boolean forceUpdate = false;
-        boolean updateAssistantFees = checkBox(request.getParameter("updateAssistantFees"));
-        boolean updateAnaesthetistFees = checkBox(request.getParameter("updateAnaesthetistFees"));
-        BigDecimal updateAssistantFeesValue = updateAssistantFees ? getBDValue(request.getParameter("updateAssistantFeesValue")) : null;
-        BigDecimal updateAnaesthetistFeesValue = updateAnaesthetistFees ? getBDValue(request.getParameter("updateAnaesthetistFeesValue")) : null;
         try {
+            boolean updateAssistantFees = checkBox(request.getParameter("updateAssistantFees"));
+            boolean updateAnaesthetistFees = checkBox(request.getParameter("updateAnaesthetistFees"));
+            BigDecimal updateAssistantFeesValue = updateAssistantFees ? getBDValue(request.getParameter("updateAssistantFeesValue")) : null;
+            BigDecimal updateAnaesthetistFeesValue = updateAnaesthetistFees ? getBDValue(request.getParameter("updateAnaesthetistFeesValue")) : null;
 
             importFile = PathValidationUtils.validateUpload(importFile);
-            InputStream is = new java.io.FileInputStream(importFile);
-
-            ScheduleOfBenefits sob = new ScheduleOfBenefits();
             String codeChanges = request.getParameter("showChangedCodes");
             String newCodes = request.getParameter("showNewCodes");
 
@@ -101,9 +105,17 @@ public class ScheduleOfBenefitsUpload2Action extends ActionSupport implements Up
             boolean showChangedCodes = checkBox(codeChanges);
             forceUpdate = checkBox(request.getParameter("forceUpdate"));
 
-            warnings = sob.processNewFeeSchedule(is, showNewCodes, showChangedCodes, forceUpdate, updateAssistantFeesValue, updateAnaesthetistFeesValue);
+            FeeScheduleImportRequest importRequest = new FeeScheduleImportRequest(showNewCodes, showChangedCodes,
+                    forceUpdate, updateAssistantFeesValue, updateAnaesthetistFeesValue);
+            try (InputStream is = new java.io.FileInputStream(importFile)) {
+                FeeScheduleImportResult result = feeScheduleImportService.preview(is, importRequest);
+                warnings = result.warningMaps();
+                request.setAttribute("feeScheduleChanges", result.changes());
+                request.setAttribute("validationErrors", result.validationErrors());
+                outcome = result.validationErrors().isEmpty() ? "success" : "exception";
+                forceUpdate = result.forceUpdate();
+            }
 
-            outcome = "success";
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
             outcome = "exception";
@@ -122,7 +134,7 @@ public class ScheduleOfBenefitsUpload2Action extends ActionSupport implements Up
         if (value == null || value.trim().equals("")) {
             return BigDecimal.ZERO;
         }
-        return new BigDecimal(value).setScale(2, BigDecimal.ROUND_HALF_UP);
+        return BillingMoney.amount(value);
     }
 
 

@@ -26,7 +26,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -49,9 +48,12 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.OhipReportGenerationSe
 public class ViewGenSimulation2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
+    private final OhipReportGenerationService ohipReportGenerationService;
 
-    public ViewGenSimulation2Action(SecurityInfoManager securityInfoManager) {
+    public ViewGenSimulation2Action(SecurityInfoManager securityInfoManager,
+                                    OhipReportGenerationService ohipReportGenerationService) {
         this.securityInfoManager = securityInfoManager;
+        this.ohipReportGenerationService = ohipReportGenerationService;
     }
     @Override
     public String execute() throws Exception {
@@ -63,7 +65,7 @@ public class ViewGenSimulation2Action extends ActionSupport {
         }
 
         OhipReportGenerationService.SimulationResult sim =
-                SpringUtils.getBean(OhipReportGenerationService.class).generateSimulation(request);
+                ohipReportGenerationService.generateSimulation(request);
         request.setAttribute("html", formatSimulationHtml(sim));
 
         return SUCCESS;

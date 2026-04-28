@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReferralDoctor;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReviewCodeItem;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReviewPercItem;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingSortComparator;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimLoader;
 import io.github.carlos_emr.carlos.billings.ca.on.service.ServiceCodeLoader;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
@@ -82,6 +83,7 @@ public class BillingONReviewDataAssembler {
     private final SiteDao siteDao;
     private final GstSettingsService gstSettingsService;
     private final GstReport gstReport;
+    private final BillingONClaimLoader claimLoader;
 
     public BillingONReviewDataAssembler(DemographicDao demographicDao,
                                  ProviderDao providerDao,
@@ -91,7 +93,8 @@ public class BillingONReviewDataAssembler {
                                  BillingONLookupService lookupService,
                                  SiteDao siteDao,
                                  GstSettingsService gstSettingsService,
-                                 GstReport gstReport) {
+                                 GstReport gstReport,
+                                 BillingONClaimLoader claimLoader) {
         this.demographicDao = demographicDao;
         this.providerDao = providerDao;
         this.reviewPrep = reviewPrep;
@@ -101,6 +104,7 @@ public class BillingONReviewDataAssembler {
         this.siteDao = siteDao;
         this.gstSettingsService = gstSettingsService;
         this.gstReport = gstReport;
+        this.claimLoader = claimLoader;
     }
 
     public BillingONReviewViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
@@ -366,7 +370,7 @@ public class BillingONReviewDataAssembler {
             h.put("billReferenceDate", nullToEmpty(billReferalDate));
             v.add(h);
         }
-        Collections.sort(v, new BillingSortComparator());
+        Collections.sort(v, new BillingSortComparator(claimLoader));
 
         vecServiceParam[0] = new ArrayList<>();
         vecServiceParam[1] = new ArrayList<>();

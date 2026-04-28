@@ -1,0 +1,249 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.billings.ca.on.service;
+
+import io.github.carlos_emr.carlos.billings.ca.on.BillingDates;
+import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
+import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
+import io.github.carlos_emr.carlos.commn.model.BillingService;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.time.Clock;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
+@Service
+public class FeeScheduleImportService {
+    private static final String REGION_ON = "ON";
+
+    private final BillingServiceDao billingServiceDao;
+    private final Clock clock;
+
+    @Autowired
+    public FeeScheduleImportService(BillingServiceDao billingServiceDao) {
+        this(billingServiceDao, Clock.systemDefaultZone());
+    }
+
+    FeeScheduleImportService(BillingServiceDao billingServiceDao, Clock clock) {
+        this.billingServiceDao = Objects.requireNonNull(billingServiceDao, "billingServiceDao");
+        this.clock = Objects.requireNonNull(clock, "clock");
+    }
+
+    @Transactional(readOnly = true)
+    public FeeScheduleImportResult preview(InputStream stream, FeeScheduleImportRequest request) {
+        List<FeeScheduleChange> changes = new ArrayList<>();
+        List<FeeScheduleValidationError> errors = new ArrayList<>();
+
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+            String rawLine;
+            int lineNumber = 0;
+            while ((rawLine = reader.readLine()) != null) {
+                lineNumber++;
+                FeeScheduleLine line = parseLine(rawLine, lineNumber, errors);
+                if (line == null) {
+                    continue;
+                }
+                changes.addAll(previewLine(line, request));
+            }
+        } catch (IOException e) {
+            MiscUtils.getLogger().error("SOB Upload error", e);
+            errors.add(new FeeScheduleValidationError(0, "", "stream", e.getMessage()));
+        }
+
+        return new FeeScheduleImportResult(changes, errors, request.forceUpdate());
+    }
+
+    @Transactional
+    public FeeScheduleApplyResult applyAll(List<FeeScheduleChange> changes) {
+        List<FeeScheduleAppliedChange> applied = new ArrayList<>();
+        for (FeeScheduleChange change : changes) {
+            persistBillingCode(change.feeCode(), change.newPrice(), change.effectiveDate(), change.terminationDate(),
+                    change.description());
+            applied.add(new FeeScheduleAppliedChange(change.feeCode(), change.newPrice()));
+        }
+        return new FeeScheduleApplyResult(applied, List.of());
+    }
+
+    @Transactional
+    public FeeScheduleApplyResult applySelected(List<FeeScheduleSelectedChange> changes) {
+        List<FeeScheduleAppliedChange> applied = new ArrayList<>();
+        for (FeeScheduleSelectedChange change : changes) {
+            persistBillingCode(change.feeCode(), change.newPrice(), change.effectiveDate(), change.terminationDate(),
+                    change.description());
+            applied.add(new FeeScheduleAppliedChange(change.feeCode(), change.newPrice()));
+        }
+        return new FeeScheduleApplyResult(applied, List.of());
+    }
+
+    private List<FeeScheduleChange> previewLine(FeeScheduleLine line, FeeScheduleImportRequest request) {
+        List<FeeScheduleChange> changes = new ArrayList<>();
+        String morePrices = line.pricesSummary();
+        String defaultDescription = billingServiceDao.searchDescBillingCode(line.feeCode(), REGION_ON);
+
+        BigDecimal newPrice = firstNonZero(line.gpFee(), line.specialistFee(), line.assistantCompFee());
+        addChange(changes, compareBillingCode(line, "A", newPrice, morePrices, defaultDescription, request));
+
+        if (BillingMoney.isNonZero(request.updateAssistantFeesValue())) {
+            addChange(changes, compareBillingCode(line, "B", request.updateAssistantFeesValue(), morePrices,
+                    defaultDescription, request));
+        }
+
+        if (BillingMoney.isNonZero(request.updateAnaesthetistFeesValue())) {
+            addChange(changes, compareBillingCode(line, "C", request.updateAnaesthetistFeesValue(), morePrices,
+                    defaultDescription, request));
+        }
+
+        return changes;
+    }
+
+    private FeeScheduleChange compareBillingCode(FeeScheduleLine line, String feeType, BigDecimal fee,
+                                                 String morePrices, String defaultDescription,
+                                                 FeeScheduleImportRequest request) {
+        String serviceCode = line.feeCode() + feeType;
+        List<BillingService> existingServices = billingServiceDao.findMostRecentByServiceCode(serviceCode);
+        BillingService existing = latest(existingServices);
+        boolean feeNonZero = fee.compareTo(BigDecimal.ZERO) != 0;
+
+        if (existing == null && !request.forceUpdate() && !request.addNewCodes()) {
+            return null;
+        }
+        if (existing == null && (request.addNewCodes() || request.forceUpdate()) && !feeNonZero) {
+            return null;
+        }
+        if (existing != null && !request.forceUpdate() && !request.addChangedCodes()) {
+            return null;
+        }
+
+        BigDecimal oldPrice = existing == null ? null : BillingMoney.amountOrZero(existing.getValue());
+        boolean feeChanged = oldPrice == null || oldPrice.compareTo(fee) != 0;
+        if (existing != null && request.addChangedCodes() && !feeChanged) {
+            return null;
+        }
+        if (existing != null && BillingDates.toOhipDate(existing.getBillingserviceDate()).equals(line.effectiveDate())) {
+            return null;
+        }
+
+        boolean newCode = existing == null;
+        BigDecimal diff = newCode ? null : fee.subtract(oldPrice);
+        String description = newCode || isEmptyDescription(existing.getDescription())
+                ? nullToEmpty(defaultDescription)
+                : existing.getDescription();
+
+        return new FeeScheduleChange(serviceCode, oldPrice, fee, diff, morePrices, line.effectiveDate(),
+                line.terminationDate(), description, existingServices.size(), newCode);
+    }
+
+    private void persistBillingCode(String code, BigDecimal value, String effectiveDate, String terminationDate,
+                                    String description) {
+        LocalDate today = LocalDate.now(clock);
+        String serviceDate = BillingDates.ohipEffectiveDate(effectiveDate, today);
+        String termDate = BillingDates.ohipTerminationDate(terminationDate);
+
+        BillingService billingService = new BillingService();
+        billingService.setServiceCompositecode("");
+        billingService.setServiceCode(code);
+        billingService.setDescription(description);
+        billingService.setValue(BillingMoney.format(value));
+        billingService.setPercentage("");
+        billingService.setBillingserviceDate(BillingDates.serviceDate(serviceDate));
+        billingService.setSpecialty("");
+        billingService.setRegion(REGION_ON);
+        billingService.setAnaesthesia("00");
+        billingService.setTerminationDate(BillingDates.serviceDate(termDate));
+        billingService.setGstFlag(false);
+        billingService.setSliFlag(false);
+        billingServiceDao.persist(billingService);
+    }
+
+    private FeeScheduleLine parseLine(String rawLine, int lineNumber, List<FeeScheduleValidationError> errors) {
+        if (rawLine == null || rawLine.length() != 75) {
+            errors.add(new FeeScheduleValidationError(lineNumber, rawLine, "line",
+                    "Expected fixed-width fee schedule line with 75 characters"));
+            return null;
+        }
+
+        try {
+            return new FeeScheduleLine(
+                    rawLine.substring(0, 4),
+                    rawLine.substring(4, 12),
+                    rawLine.substring(12, 20),
+                    BillingMoney.ohipFeeAmount(rawLine.substring(20, 31)),
+                    BillingMoney.ohipFeeAmount(rawLine.substring(31, 42)),
+                    BillingMoney.ohipFeeAmount(rawLine.substring(42, 53)),
+                    BillingMoney.ohipFeeAmount(rawLine.substring(53, 64)),
+                    BillingMoney.ohipFeeAmount(rawLine.substring(64, 75)));
+        } catch (RuntimeException e) {
+            errors.add(new FeeScheduleValidationError(lineNumber, rawLine, "line", e.getMessage()));
+            return null;
+        }
+    }
+
+    private BigDecimal firstNonZero(BigDecimal first, BigDecimal second, BigDecimal third) {
+        if (first.compareTo(BigDecimal.ZERO) != 0) {
+            return first;
+        }
+        if (second.compareTo(BigDecimal.ZERO) != 0) {
+            return second;
+        }
+        return third;
+    }
+
+    private BillingService latest(List<BillingService> services) {
+        return services == null || services.isEmpty() ? null : services.get(services.size() - 1);
+    }
+
+    private void addChange(List<FeeScheduleChange> changes, FeeScheduleChange change) {
+        if (change != null) {
+            changes.add(change);
+        }
+    }
+
+    private boolean isEmptyDescription(String description) {
+        return description == null || description.trim().isEmpty() || "----".equals(description.trim());
+    }
+
+    private String nullToEmpty(String value) {
+        return value == null ? "" : value;
+    }
+
+    private record FeeScheduleLine(
+            String feeCode,
+            String effectiveDate,
+            String terminationDate,
+            BigDecimal gpFee,
+            BigDecimal assistantCompFee,
+            BigDecimal specialistFee,
+            BigDecimal anaesthetistFee,
+            BigDecimal nonAnaesthetistFee) {
+
+        private String pricesSummary() {
+            return "(gp.:" + gpFee +
+                    ")  (asst.:" + assistantCompFee +
+                    ")  (spec.:" + specialistFee +
+                    ")  (anaes:" + anaesthetistFee +
+                    ")  (non-a:" + nonAnaesthetistFee + ")";
+        }
+    }
+}

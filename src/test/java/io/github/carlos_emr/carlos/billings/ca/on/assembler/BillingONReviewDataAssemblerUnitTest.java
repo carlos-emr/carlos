@@ -42,6 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimLoader;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONReviewDxPersister;
 import io.github.carlos_emr.carlos.billings.ca.on.service.ServiceCodeLoader;
@@ -96,10 +97,7 @@ class BillingONReviewDataAssemblerUnitTest extends CarlosUnitTestBase {
         SiteDao siteDao = Mockito.mock(SiteDao.class);
         registerMock(SiteDao.class, siteDao);
 
-        // The assembler also instantiates `new BillingSortComparator()` which
-        // resolves BillingONClaimLoader via SpringUtils.
-        registerMock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimLoader.class,
-                Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimLoader.class));
+        BillingONClaimLoader claimLoader = Mockito.mock(BillingONClaimLoader.class);
 
         BillingONReviewValidator stubValidator = Mockito.mock(BillingONReviewValidator.class);
         when(stubValidator.validate(any(), any(), any())).thenReturn(
@@ -110,7 +108,7 @@ class BillingONReviewDataAssemblerUnitTest extends CarlosUnitTestBase {
         io.github.carlos_emr.carlos.billings.ca.on.administration.GstReport gstReport =
                 Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.administration.GstReport.class);
         assembler = new BillingONReviewDataAssembler(demographicDao, providerDao, reviewPrep, stubValidator,
-                serviceCodeLoader, lookupService, siteDao, gstSettingsService, gstReport);
+                serviceCodeLoader, lookupService, siteDao, gstSettingsService, gstReport, claimLoader);
         request = new MockHttpServletRequest();
     }
 

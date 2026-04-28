@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.ArrayList;
+import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 /**
@@ -70,17 +71,15 @@ public class BillingRAReportService {
     public List getRASummary(String raNo, String providerOhipNo, List OBbilling_no, List CObilling_no, Map map) {
         List rett = new ArrayList();
         List ret = dbObj.getRASummary(raNo, providerOhipNo);
-        double dCFee = 0.0;
-        double dPFee = 0.0;
-        BigDecimal BigCTotal = new BigDecimal(0.).setScale(2, BigDecimal.ROUND_HALF_UP);
-        BigDecimal BigPTotal = new BigDecimal(0.).setScale(2, BigDecimal.ROUND_HALF_UP);
-        BigDecimal BigOBTotal = new BigDecimal(0.).setScale(2, BigDecimal.ROUND_HALF_UP);
-        BigDecimal BigCOTotal = new BigDecimal(0.).setScale(2, BigDecimal.ROUND_HALF_UP);
-        BigDecimal BigHTotal = new BigDecimal(0.).setScale(2, BigDecimal.ROUND_HALF_UP);
-        BigDecimal BigLocalHTotal = new BigDecimal(0.).setScale(2, BigDecimal.ROUND_HALF_UP);
-        BigDecimal BigTotal = new BigDecimal(0.).setScale(2, BigDecimal.ROUND_HALF_UP);
-        BigDecimal BigOTotal = new BigDecimal(0.).setScale(2, BigDecimal.ROUND_HALF_UP);
-        BigDecimal BigLTotal = new BigDecimal(0.).setScale(2, BigDecimal.ROUND_HALF_UP);
+        BigDecimal BigCTotal = BillingMoney.zero();
+        BigDecimal BigPTotal = BillingMoney.zero();
+        BigDecimal BigOBTotal = BillingMoney.zero();
+        BigDecimal BigCOTotal = BillingMoney.zero();
+        BigDecimal BigHTotal = BillingMoney.zero();
+        BigDecimal BigLocalHTotal = BillingMoney.zero();
+        BigDecimal BigTotal = BillingMoney.zero();
+        BigDecimal BigOTotal = BillingMoney.zero();
+        BigDecimal BigLTotal = BillingMoney.zero();
         // Billing No Provider Patient HIN Service Date Service Code Invoiced :
         // new BigDecimal(0)
         // Paid Clinic Pay Hospital Pay OB Error
@@ -103,12 +102,10 @@ public class BillingRAReportService {
             String hospitalPay = "";
             String obPay = "";
 
-            dCFee = Double.parseDouble(amountsubmit);
-            BigDecimal bdCFee = new BigDecimal(dCFee).setScale(2, BigDecimal.ROUND_HALF_UP);
+            BigDecimal bdCFee = BillingMoney.amount(amountsubmit);
             BigCTotal = BigCTotal.add(bdCFee);
 
-            dPFee = Double.parseDouble(amountpay);
-            BigDecimal bdPFee = new BigDecimal(dPFee).setScale(2, BigDecimal.ROUND_HALF_UP);
+            BigDecimal bdPFee = BillingMoney.amount(amountpay);
             BigPTotal = BigPTotal.add(bdPFee);
             String COflag = "0";
             String OBflag = "0";
@@ -131,8 +128,7 @@ public class BillingRAReportService {
 
             if (OBflag.equals("1")) {
                 String amountOB = amountpay;
-                double dOBFee = Double.parseDouble(amountOB);
-                BigDecimal bdOBFee = new BigDecimal(dOBFee).setScale(2, BigDecimal.ROUND_HALF_UP);
+                BigDecimal bdOBFee = BillingMoney.amount(amountOB);
                 BigOBTotal = BigOBTotal.add(bdOBFee);
                 obPay = amountpay;
             } else {
@@ -142,8 +138,7 @@ public class BillingRAReportService {
 
             if (COflag.equals("1")) {
                 String amountCO = amountpay;
-                double dCOFee = Double.parseDouble(amountCO);
-                BigDecimal bdCOFee = new BigDecimal(dCOFee).setScale(2, BigDecimal.ROUND_HALF_UP);
+                BigDecimal bdCOFee = BillingMoney.amount(amountCO);
                 BigCOTotal = BigCOTotal.add(bdCOFee);
             } else {
                 // amountCO = "N/A";
@@ -155,8 +150,7 @@ public class BillingRAReportService {
             }
 
             if (location.compareTo("02") == 0) {
-                double dHFee = Double.parseDouble(amountpay);
-                BigDecimal bdHFee = new BigDecimal(dHFee).setScale(2, BigDecimal.ROUND_HALF_UP);
+                BigDecimal bdHFee = BillingMoney.amount(amountpay);
                 BigHTotal = BigHTotal.add(bdHFee);
                 clinicPay = "N/A";
                 hospitalPay = "N/A";
@@ -168,14 +162,12 @@ public class BillingRAReportService {
                 }
             } else {
                 if (location.compareTo("00") == 0 && demo_hin.length() > 1 && servicedate.equals(localServiceDate)) {
-                    double dFee = Double.parseDouble(amountpay);
-                    BigDecimal bdFee = new BigDecimal(dFee).setScale(2, BigDecimal.ROUND_HALF_UP);
+                    BigDecimal bdFee = BillingMoney.amount(amountpay);
                     BigTotal = BigTotal.add(bdFee);
                     clinicPay = amountpay;
                     hospitalPay = "N/A";
                 } else {
-                    double dOFee = Double.parseDouble(amountpay);
-                    BigDecimal bdOFee = new BigDecimal(dOFee).setScale(2, BigDecimal.ROUND_HALF_UP);
+                    BigDecimal bdOFee = BillingMoney.amount(amountpay);
                     BigOTotal = BigOTotal.add(bdOFee);
                     clinicPay = "N/A";
                     hospitalPay = "N/A";

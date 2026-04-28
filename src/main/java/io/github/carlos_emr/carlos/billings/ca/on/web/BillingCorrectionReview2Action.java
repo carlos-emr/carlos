@@ -2,53 +2,19 @@
  * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  *
  * This software is published under the GPL GNU General Public License.
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- *
- * CARLOS EMR Project
- * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-
-import io.github.carlos_emr.BillingBean;
-import io.github.carlos_emr.BillingDataBean;
-import io.github.carlos_emr.BillingPatientDataBean;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCorrectionReviewViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingCorrectionReviewDataAssembler;
 
 /**
- * Mutation gate for {@code billing/CA/ON/billingCorrectionReview.jsp}. Enforces {@code _billing}
- * w privilege AND POST-only before forwarding to the JSP. GET requests return
- * 405 Method Not Allowed.
- *
- * <p>Also reads the three session-scoped beans populated by the upstream
- * {@code billingCorrectionValid.jsp} step ({@link BillingBean},
- * {@link BillingDataBean}, {@link BillingPatientDataBean}) and assembles a
- * {@link BillingCorrectionReviewViewModel} via
- * {@link BillingCorrectionReviewDataAssembler}, exposing it to the JSP as
- * request attribute {@code reviewModel}. This drains the JSP body of the
- * scriptlet that reused those beans inline.</p>
- *
- * @since 2026-04-13
+ * Compatibility Struts boundary for the ON correction review URL.
  */
 public class BillingCorrectionReview2Action extends ActionSupport {
 
@@ -57,8 +23,9 @@ public class BillingCorrectionReview2Action extends ActionSupport {
     public BillingCorrectionReview2Action(SecurityInfoManager securityInfoManager) {
         this.securityInfoManager = securityInfoManager;
     }
+
     @Override
-    public String execute() throws Exception {
+    public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -67,19 +34,13 @@ public class BillingCorrectionReview2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        if (!BillingRequestGuards.requirePost(request, response)) {
             return NONE;
         }
 
-        BillingBean billing = (BillingBean) request.getSession().getAttribute("billing");
-        BillingDataBean billingDataBean = (BillingDataBean) request.getSession().getAttribute("billingDataBean");
-        BillingPatientDataBean patient = (BillingPatientDataBean) request.getSession().getAttribute("billingPatientDataBean");
-
-        BillingCorrectionReviewViewModel model = new BillingCorrectionReviewDataAssembler()
-                .assemble(billing, billingDataBean, patient);
-        request.setAttribute("reviewModel", model);
-
+        if (request.getAttribute("reviewModel") == null) {
+            request.setAttribute("reviewModel", BillingCorrectionReviewViewModel.builder().build());
+        }
         return SUCCESS;
     }
 }

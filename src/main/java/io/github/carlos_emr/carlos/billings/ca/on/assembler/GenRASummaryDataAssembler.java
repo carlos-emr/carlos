@@ -34,6 +34,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.billings.ca.on.data.GenRASummaryViewModel;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.dao.RaDetailDao;
@@ -282,7 +283,7 @@ public class GenRASummaryDataAssembler {
     private static BigDecimal parseBigDecimal(String s) {
         if (s == null || s.isEmpty()) return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         try {
-            return new BigDecimal(Double.parseDouble(s)).setScale(2, RoundingMode.HALF_UP);
+            return BillingMoney.amount(s);
         } catch (NumberFormatException e) {
             return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         }

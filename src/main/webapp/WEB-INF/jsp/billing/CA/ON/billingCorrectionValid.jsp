@@ -27,21 +27,15 @@
 --%>
 <%--
     billingCorrectionValid.jsp (view) - Ontario billing correction
-    session-staging fallback view.
+    defensive fallback view.
 
     BillingCorrectionValid2Action handles the heavy lifting:
       - enforces _billing w + POST-only
-      - rebuilds the BillingBean / BillingDataBean / BillingPatientDataBean
-        from request parameters using the legacy pricing/diagnostic
-        normalisation
-      - stashes them on the session under the legacy keys
-      - issues a redirect to /billing/CA/ON/BillingCorrectionReview
+      - maps request parameters into typed correction commands
+      - prepares reviewModel through the Spring service layer
+      - forwards directly to billingCorrectionReview.jsp
 
-    The action returns NONE (no view) on the normal POST path, so this
-    JSP is only reached by the defensive-fallback case (e.g. someone
-    chained to the success result without going through the action).
-    The body intentionally renders nothing — control should already have
-    been redirected by the time anything here is evaluated.
+    The body intentionally renders nothing.
     @since 2006
 --%>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>

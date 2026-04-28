@@ -30,16 +30,12 @@ import java.util.List;
  * pending changes before they are POSTed to
  * {@code BillingCorrectionSubmit2Action}.
  *
- * <p>The legacy JSP read three session-scoped beans
- * ({@code billing}, {@code billingDataBean}, {@code billingPatientDataBean})
- * inline; this view model captures only the projected fields the JSP
- * actually renders. The submit action still consumes the original session
- * beans on POST &mdash; this view model is render-only.</p>
+ * <p>This view model captures the projected fields the JSP renders and the
+ * typed hidden-field payload posted to the submit action.</p>
  *
  * <p>Populated by
  * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingCorrectionReviewDataAssembler}
- * (invoked from
- * {@link io.github.carlos_emr.carlos.billings.ca.on.web.BillingCorrectionReview2Action})
+ * (invoked from the correction preparation service)
  * and exposed as request attribute {@code reviewModel}.</p>
  *
  * @since 2026-04-25
@@ -48,7 +44,7 @@ public final class BillingCorrectionReviewViewModel {
 
     private final boolean dataLoaded;
 
-    // Patient (from billingPatientDataBean + billingDataBean)
+    // Patient.
     private final String demoName;
     private final String hin;
     private final String demoSex;
@@ -60,7 +56,7 @@ public final class BillingCorrectionReviewViewModel {
     private final String referralDoctor;
     private final String referralDoctorOhip;
 
-    // Additional info (parsed out of billingDataBean.content)
+    // Additional info.
     private final String hcType;
     private final String manualReviewLabel;
     private final String referralCheckedLabel;
@@ -80,6 +76,8 @@ public final class BillingCorrectionReviewViewModel {
     private final List<Item> billingItems;
     private final String diagCode;
     private final String formattedTotal;
+    private final String content;
+    private final String storedTotal;
 
     private BillingCorrectionReviewViewModel(Builder b) {
         this.dataLoaded = b.dataLoaded;
@@ -110,6 +108,8 @@ public final class BillingCorrectionReviewViewModel {
                 : Collections.unmodifiableList(b.billingItems);
         this.diagCode = nullToEmpty(b.diagCode);
         this.formattedTotal = nullToEmpty(b.formattedTotal);
+        this.content = nullToEmpty(b.content);
+        this.storedTotal = nullToEmpty(b.storedTotal);
     }
 
     private static String nullToEmpty(String s) { return s == null ? "" : s; }
@@ -142,6 +142,8 @@ public final class BillingCorrectionReviewViewModel {
     public List<Item> getBillingItems() { return billingItems; }
     public String getDiagCode() { return diagCode; }
     public String getFormattedTotal() { return formattedTotal; }
+    public String getContent() { return content; }
+    public String getStoredTotal() { return storedTotal; }
 
     /** Per-line-item projection used by the review table. */
     public static final class Item {
@@ -149,13 +151,22 @@ public final class BillingCorrectionReviewViewModel {
         private final String description;
         private final String quantity;
         private final String formattedFee;
+        private final String storedFee;
+        private final String percentage;
         private final String diagCode;
 
         public Item(String serviceCode, String description, String quantity, String formattedFee, String diagCode) {
+            this(serviceCode, description, quantity, formattedFee, "", "", diagCode);
+        }
+
+        public Item(String serviceCode, String description, String quantity, String formattedFee,
+                    String storedFee, String percentage, String diagCode) {
             this.serviceCode = nullToEmpty(serviceCode);
             this.description = nullToEmpty(description);
             this.quantity = nullToEmpty(quantity);
             this.formattedFee = nullToEmpty(formattedFee);
+            this.storedFee = nullToEmpty(storedFee);
+            this.percentage = nullToEmpty(percentage);
             this.diagCode = nullToEmpty(diagCode);
         }
 
@@ -163,6 +174,8 @@ public final class BillingCorrectionReviewViewModel {
         public String getDescription() { return description; }
         public String getQuantity() { return quantity; }
         public String getFormattedFee() { return formattedFee; }
+        public String getStoredFee() { return storedFee; }
+        public String getPercentage() { return percentage; }
         public String getDiagCode() { return diagCode; }
     }
 
@@ -193,6 +206,8 @@ public final class BillingCorrectionReviewViewModel {
         private List<Item> billingItems;
         private String diagCode;
         private String formattedTotal;
+        private String content;
+        private String storedTotal;
 
         public Builder dataLoaded(boolean v) { this.dataLoaded = v; return this; }
         public Builder demoName(String v) { this.demoName = v; return this; }
@@ -220,6 +235,8 @@ public final class BillingCorrectionReviewViewModel {
         public Builder billingItems(List<Item> v) { this.billingItems = v; return this; }
         public Builder diagCode(String v) { this.diagCode = v; return this; }
         public Builder formattedTotal(String v) { this.formattedTotal = v; return this; }
+        public Builder content(String v) { this.content = v; return this; }
+        public Builder storedTotal(String v) { this.storedTotal = v; return this; }
 
         public BillingCorrectionReviewViewModel build() { return new BillingCorrectionReviewViewModel(this); }
     }

@@ -27,6 +27,7 @@ import java.io.FileOutputStream;
 import java.io.PrintStream;
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.Date;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
@@ -35,12 +36,12 @@ import io.github.carlos_emr.SxmlMisc;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao;
 import io.github.carlos_emr.carlos.billing.CA.model.BillingDetail;
+import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.utility.DateRange;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -57,13 +58,15 @@ public class ExtractBean implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private static Logger logger = MiscUtils.getLogger();
+    private static final BigDecimal FEE_TOTAL_MULTIPLIER =
+            new BigDecimal("0.01").setScale(2, RoundingMode.HALF_UP);
 
     private String apptDate;
     private String batchCount = "";
     private String batchHeader;
     private int batchOrder = 0;
-    private BigDecimal bdFee = new BigDecimal((double) 0).setScale(2, BigDecimal.ROUND_HALF_UP);
-    private BigDecimal BigTotal = new BigDecimal((double) 0).setScale(2, BigDecimal.ROUND_HALF_UP);
+    private BigDecimal bdFee = BillingMoney.zero();
+    private BigDecimal BigTotal = BillingMoney.zero();
     private String billingUnit;
     private String content;
     private int count = 0;
@@ -71,7 +74,6 @@ public class ExtractBean implements Serializable {
     public String[] dbParam;
     private String demoName;
     private String demoSex = "";
-    private double dFee;
     private String diagcode;
     private String dob;
     private String eFlag = "";
@@ -114,7 +116,7 @@ public class ExtractBean implements Serializable {
     private String patientHeader;
     private String patientHeader2;
     private String pCount = "";
-    private BigDecimal percent = new BigDecimal((double) 0).setScale(2, BigDecimal.ROUND_HALF_UP);
+    private BigDecimal percent = BillingMoney.zero();
     private String providerNo;
     private String rCount = "";
     private int recordCount = 0;
@@ -135,12 +137,7 @@ public class ExtractBean implements Serializable {
     private final BillingDao billingDao;
     private final BillingDetailDao billingDetailDao;
 
-    public ExtractBean() {
-        this(SpringUtils.getBean(BillingDao.class), SpringUtils.getBean(BillingDetailDao.class));
-    }
-
-    /** Test-friendly constructor — takes the DAO mocks directly. */
-    ExtractBean(BillingDao billingDao, BillingDetailDao billingDetailDao) {
+    public ExtractBean(BillingDao billingDao, BillingDetailDao billingDetailDao) {
         this.billingDao = billingDao;
         this.billingDetailDao = billingDetailDao;
         formatter = new SimpleDateFormat("yyyyMMdd"); //yyyyMMddHmm");
@@ -387,8 +384,7 @@ public class ExtractBean implements Serializable {
                     billingUnit = bd.getBillingUnit();
                     count = 6 - fee.length();
                     apptDate = UtilDateUtilities.DateToString(bd.getAppointmentDate(), "yyyyMMdd");
-                    dFee = Double.parseDouble(fee);
-                    bdFee = new BigDecimal(dFee).setScale(2, BigDecimal.ROUND_HALF_UP);
+                    bdFee = BillingMoney.amount(fee);
                     BigTotal = BigTotal.add(bdFee);
                     checkItem();
                     value += buildItem();
@@ -408,7 +404,7 @@ public class ExtractBean implements Serializable {
             flagOrder = 4 - pCount.length();
             secondFlag = 5 - rCount.length();
             thirdFlag = 4 - hcCount.length();
-            percent = new BigDecimal(.01).setScale(2, BigDecimal.ROUND_HALF_UP);
+            percent = FEE_TOTAL_MULTIPLIER;
             BigTotal = BigTotal.multiply(percent);
             value += buildTrailer();
             htmlCode = buildHTMLContentTrailer();

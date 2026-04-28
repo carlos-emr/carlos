@@ -24,6 +24,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.ArrayList;
@@ -111,7 +112,7 @@ public class BillingReviewLoader {
 
             bigFee = bigFee.multiply(bigCodeAt);
 
-            bigFee = bigFee.setScale(2, BigDecimal.ROUND_HALF_UP);
+            bigFee = bigFee.setScale(2, RoundingMode.HALF_UP);
             // bigFee = bigFee.round(new MathContext(2));
             MiscUtils.getLogger().debug("big end: " + bigFee.toString());
 
@@ -193,7 +194,7 @@ public class BillingReviewLoader {
 
                 // bigFee = bigFee.multiply(bigCodeAt);
 
-                bigFee = bigFee.setScale(4, BigDecimal.ROUND_HALF_UP);
+                bigFee = bigFee.setScale(4, RoundingMode.HALF_UP);
                 // bigFee = bigFee.round(new MathContext(2));
                 vecCodeTotal.add(bigFee.toString());
             }

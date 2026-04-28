@@ -33,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billing.CA.dao.GstControlDao;
 import io.github.carlos_emr.carlos.billing.CA.model.GstControl;
+import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
@@ -216,22 +217,21 @@ public class BillingONHeaderCreationService {
 
             if (bs.getGstFlag()) {
                 BigDecimal gst = gstControl.getGstPercent()
-                        .divide(new BigDecimal(100.0))
-                        .multiply(new BigDecimal(Double.parseDouble(bs.getValue())));
+                        .divide(new BigDecimal("100"))
+                        .multiply(BillingMoney.amount(bs.getValue()));
                 total = total.add(gst).setScale(2, RoundingMode.HALF_UP);
             }
-            total = total.add(new BigDecimal(bs.getValue()));
+            total = total.add(BillingMoney.amount(bs.getValue()));
         }
 
         BigDecimal percBase = total;
         for (BillingService percentcode : percentCodes) {
-            BigDecimal percent = new BigDecimal(Double.parseDouble(percentcode.getPercentage()))
-                    .setScale(2, RoundingMode.HALF_UP);
+            BigDecimal percent = BillingMoney.amount(percentcode.getPercentage());
             BigDecimal percentCalc = percBase.multiply(percent).setScale(2, RoundingMode.HALF_UP);
             BillingPercLimit limit = percentcode.getBillingPercLimit();
             if (limit != null) {
-                percentCalc = percentCalc.min(new BigDecimal(Double.parseDouble(limit.getMax())));
-                percentCalc = percentCalc.max(new BigDecimal(Double.parseDouble(limit.getMin())));
+                percentCalc = percentCalc.min(BillingMoney.amount(limit.getMax()));
+                percentCalc = percentCalc.max(BillingMoney.amount(limit.getMin()));
             }
             total = total.add(percentCalc);
         }

@@ -1,0 +1,279 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ */
+package io.github.carlos_emr.carlos.billings.ca.on.service;
+
+import io.github.carlos_emr.SxmlMisc;
+import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingCorrectionReviewDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCorrectionLineCommand;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCorrectionReviewDraft;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCorrectionReviewItemDraft;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCorrectionReviewViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCorrectionValidationCommand;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Builds the typed ON correction review payload from submitted form data.
+ */
+@Service
+@Transactional(readOnly = true)
+public class BillingCorrectionReviewPreparationService {
+
+    private final ServiceCodeLoader serviceCodeLoader;
+    private final BillingCorrectionReviewDataAssembler reviewDataAssembler;
+
+    public BillingCorrectionReviewPreparationService(ServiceCodeLoader serviceCodeLoader,
+                                                     BillingCorrectionReviewDataAssembler reviewDataAssembler) {
+        this.serviceCodeLoader = serviceCodeLoader;
+        this.reviewDataAssembler = reviewDataAssembler;
+    }
+
+    public BillingCorrectionReviewViewModel prepareReview(BillingCorrectionValidationCommand command) {
+        return reviewDataAssembler.assemble(prepareDraft(command));
+    }
+
+    BillingCorrectionReviewDraft prepareDraft(BillingCorrectionValidationCommand command) {
+        BigDecimal billingunit = BillingMoney.zero();
+        BigDecimal percentPremium = BillingMoney.zero();
+        BigDecimal bigTotal = BillingMoney.zero();
+
+        String diagnosticCode = command.diagnosticDetail();
+        String diagcode;
+        if (diagnosticCode == null || diagnosticCode.isEmpty()) {
+            diagnosticCode = "000|Other code";
+            diagcode = "000";
+        } else {
+            diagcode = diagnosticCode.length() >= 3 ? diagnosticCode.substring(0, 3) : diagnosticCode;
+            StringBuilder numCode = new StringBuilder();
+            for (int i = 0; i < diagcode.length(); i++) {
+                char c = diagcode.charAt(i);
+                if (c >= 48 && c <= 58) {
+                    numCode.append(c);
+                }
+            }
+            if (numCode.length() < 3) {
+                diagnosticCode = "000|Other code";
+                diagcode = "000";
+            }
+        }
+
+        String content = buildContent(command);
+
+        String pValue = "0";
+        String eCode = "";
+        String eDesc = "";
+        String ePerc = "";
+        String eUnit = "";
+        String xCode = "";
+        String xDesc = "";
+        String xPerc = "";
+        String xUnit = "";
+        boolean eFlag = false;
+        boolean xFlag = false;
+        BigDecimal pValue1 = BillingMoney.zero();
+        List<BillingCorrectionReviewItemDraft> items = new ArrayList<>();
+
+        for (BillingCorrectionLineCommand line : command.serviceLines()) {
+            if (line.serviceCode().isEmpty()) {
+                continue;
+            }
+            ServiceCodeDetails details = loadServiceCode(line.serviceCode());
+            if (details == null) {
+                continue;
+            }
+
+            String scode = details.serviceCode();
+            String desc = details.description();
+            String value = details.value();
+            String percentage = details.percentage();
+            if (!line.billingAmount().isEmpty()) {
+                value = line.billingAmount();
+            }
+
+            BigDecimal otherunit2 = BillingMoney.amount(value);
+            billingunit = BillingMoney.amount(line.billingUnit());
+            otherunit2 = billingunit.multiply(otherunit2).setScale(2, RoundingMode.HALF_UP);
+
+            if (isPremiumServiceCode(scode)) {
+                pValue1 = pValue1.add(otherunit2);
+                pValue = pValue1.toString();
+                if (!eCode.isEmpty()) {
+                    eFlag = true;
+                }
+            }
+
+            if (".00".equals(value)) {
+                if ("E411A".equals(scode)) {
+                    eCode = scode;
+                    eDesc = desc;
+                    ePerc = percentage;
+                    eUnit = line.billingUnit();
+                    eFlag = true;
+                } else {
+                    xCode = scode;
+                    xDesc = desc;
+                    xPerc = percentage;
+                    xUnit = line.billingUnit();
+                    xFlag = true;
+                }
+            } else {
+                bigTotal = bigTotal.add(otherunit2);
+                items.add(new BillingCorrectionReviewItemDraft(
+                        scode,
+                        desc,
+                        line.billingUnit(),
+                        stripDecimalPoint(otherunit2.toString()),
+                        percentage,
+                        diagcode));
+            }
+        }
+
+        if (eFlag) {
+            BigDecimal ecodeunit = BillingMoney.amount(pValue);
+            BigDecimal percent = new BigDecimal(ePerc).setScale(4, RoundingMode.HALF_UP);
+            percentPremium = ecodeunit.multiply(percent).setScale(2, RoundingMode.HALF_UP);
+            bigTotal = bigTotal.add(percentPremium);
+            items.add(new BillingCorrectionReviewItemDraft(
+                    eCode,
+                    eDesc,
+                    eUnit,
+                    stripDecimalPoint(percentPremium.toString()),
+                    ePerc,
+                    diagcode));
+        }
+
+        if (xFlag) {
+            BigDecimal xcodeunit = BillingMoney.amount(pValue, 4);
+            bigTotal = bigTotal.subtract(percentPremium);
+            BigDecimal xpercent = new BigDecimal(xPerc).setScale(4, RoundingMode.HALF_UP);
+            BigDecimal xpercentPremium = xpercent.multiply(xcodeunit).setScale(2, RoundingMode.HALF_UP);
+            xpercentPremium = billingunit.multiply(xpercentPremium).setScale(2, RoundingMode.HALF_UP);
+            bigTotal = bigTotal.add(percentPremium);
+            bigTotal = bigTotal.add(xpercentPremium);
+            items.add(new BillingCorrectionReviewItemDraft(
+                    xCode,
+                    xDesc,
+                    xUnit,
+                    stripDecimalPoint(xpercentPremium.toString()),
+                    xPerc,
+                    diagcode));
+        }
+
+        return new BillingCorrectionReviewDraft(
+                true,
+                content,
+                command.billingNo(),
+                command.hin(),
+                command.dob(),
+                command.visitType(),
+                command.visitDate(),
+                command.status(),
+                command.clinicRefCode(),
+                command.providerNo(),
+                command.billingDate(),
+                command.updateDate(),
+                stripDecimalPoint(bigTotal.toString()),
+                command.demoName(),
+                command.demoAddress(),
+                command.demoProvince(),
+                command.demoCity(),
+                command.demoPostal(),
+                command.demoSex(),
+                command.referralDoctor(),
+                command.referralDoctorOhip(),
+                command.hcType(),
+                command.manualReview() ? "Yes" : "N/A",
+                command.referralChecked() ? "Yes" : "N/A",
+                command.rosterStatus(),
+                diagcode,
+                items);
+    }
+
+    private String buildContent(BillingCorrectionValidationCommand command) {
+        StringBuilder content = new StringBuilder();
+        content.append("<rdohip>").append(command.referralDoctorOhip()).append("</rdohip>")
+                .append("<rd>").append(command.referralDoctor()).append("</rd>");
+        content.append("<xml_referral>").append(command.referralChecked() ? "checked" : "").append("</xml_referral>")
+                .append("<mreview>").append(command.manualReview() ? "checked" : "").append("</mreview>");
+        content.append("<hctype>").append(command.hcType()).append("</hctype>")
+                .append("<demosex>").append(command.hcSex()).append("</demosex>");
+        content.append("<specialty>").append(command.specialty()).append("</specialty>");
+        content.append("<xml_roster>").append(command.rosterStatus()).append("</xml_roster>");
+
+        for (Map.Entry<String, String> entry : command.xmlParameters().entrySet()) {
+            content.append("<").append(entry.getKey()).append(">")
+                    .append(SxmlMisc.replaceHTMLContent(entry.getValue()))
+                    .append("</").append(entry.getKey()).append(">");
+        }
+        return content.toString();
+    }
+
+    private ServiceCodeDetails loadServiceCode(String serviceCode) {
+        List<?> attrs = serviceCodeLoader.getBillingCodeAttr(serviceCode);
+        if (attrs == null || attrs.size() < 4) {
+            return null;
+        }
+        return new ServiceCodeDetails(
+                stringAt(attrs, 0),
+                stringAt(attrs, 1),
+                stringAt(attrs, 2),
+                stringAt(attrs, 3));
+    }
+
+    private static String stringAt(List<?> attrs, int index) {
+        Object value = attrs.get(index);
+        return value == null ? "" : value.toString();
+    }
+
+    /**
+     * Mirrors the premium-eligible service-code list from the old correction JSP.
+     */
+    private static boolean isPremiumServiceCode(String scode) {
+        if (scode == null) return false;
+        if ("A001A".equals(scode) || "A003A".equals(scode)
+                || "A004A".equals(scode) || "A007A".equals(scode)
+                || "A008A".equals(scode) || "A888A".equals(scode)
+                || "Z777A".equals(scode) || "P029A".equals(scode)
+                || "P028A".equals(scode) || "Z776A".equals(scode)
+                || "P042A".equals(scode) || "S768A".equals(scode)
+                || "S756A".equals(scode) || "S757A".equals(scode)
+                || "S784A".equals(scode) || "S745A".equals(scode)
+                || "P010A".equals(scode) || "P009A".equals(scode)
+                || "P006A".equals(scode) || "P011A".equals(scode)
+                || "P041A".equals(scode) || "P018A".equals(scode)
+                || "P038A".equals(scode) || "P020A".equals(scode)
+                || "P031A".equals(scode) || "Z552A".equals(scode)
+                || "P022A".equals(scode) || "P023A".equals(scode)
+                || "P030A".equals(scode) || "Z716A".equals(scode)) {
+            return true;
+        }
+        if (scode.startsWith("S")) return true;
+        return scode.endsWith("B") && !scode.endsWith("C988B")
+                && !scode.endsWith("C998B") && !scode.endsWith("C999B");
+    }
+
+    private static String stripDecimalPoint(String s) {
+        StringBuilder sb = new StringBuilder(s);
+        int dot = s.indexOf('.');
+        if (dot >= 0) {
+            sb.deleteCharAt(dot);
+        }
+        return sb.toString();
+    }
+
+    private record ServiceCodeDetails(String serviceCode,
+                                      String description,
+                                      String value,
+                                      String percentage) {
+    }
+}

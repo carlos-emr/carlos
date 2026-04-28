@@ -7,6 +7,8 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingReportControlDataAssembler;
 import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingReportFragmentDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.service.OnBillingDiskService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.OnGenRAsettleService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.OhipReportGenerationService;
 import io.github.carlos_emr.carlos.commn.dao.ReportProviderDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -88,11 +90,25 @@ class ReportActionSessionGuardUnitTest extends CarlosUnitTestBase {
                                 securityInfoManager,
                                 mock(OhipReportGenerationService.class)).execute()),
                 Arguments.of("ViewGenGroupReport2Action",
-                        (Callable<String>) () -> new ViewGenGroupReport2Action(securityInfoManager).execute()),
+                        (Callable<String>) () -> new ViewGenGroupReport2Action(
+                                securityInfoManager,
+                                mock(OhipReportGenerationService.class)).execute()),
                 Arguments.of("ViewOngenreport2Action",
-                        (Callable<String>) () -> new ViewOngenreport2Action(securityInfoManager).execute()),
+                        (Callable<String>) () -> new ViewOngenreport2Action(
+                                securityInfoManager,
+                                mock(OnBillingDiskService.class)).execute()),
                 Arguments.of("ViewOnregenreport2Action",
-                        (Callable<String>) () -> new ViewOnregenreport2Action(securityInfoManager).execute()),
+                        (Callable<String>) () -> new ViewOnregenreport2Action(
+                                securityInfoManager,
+                                mock(OnBillingDiskService.class)).execute()),
+                Arguments.of("ViewOnGenRAsettle2Action",
+                        (Callable<String>) () -> new ViewOnGenRAsettle2Action(
+                                securityInfoManager,
+                                mock(OnGenRAsettleService.class)).execute()),
+                Arguments.of("ViewOnGenRAsettle352Action",
+                        (Callable<String>) () -> new ViewOnGenRAsettle352Action(
+                                securityInfoManager,
+                                mock(OnGenRAsettleService.class)).execute()),
                 Arguments.of("ViewBillingReportCenter2Action",
                         (Callable<String>) () -> new ViewBillingReportCenter2Action(
                                 securityInfoManager,

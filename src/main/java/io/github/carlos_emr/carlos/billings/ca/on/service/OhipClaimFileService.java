@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.io.RandomAccessFile;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.text.NumberFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -45,6 +46,7 @@ import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONHeaderDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONDiskName;
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONFilename;
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONHeader;
+import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingBatchHeaderData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
@@ -167,11 +169,10 @@ public class OhipClaimFileService {
     }
 
     private String batchHeader;
-    private BigDecimal bdFee = new BigDecimal((double) 0).setScale(2, BigDecimal.ROUND_HALF_UP);
-    private BigDecimal BigTotal = new BigDecimal((double) 0).setScale(2, BigDecimal.ROUND_HALF_UP);
+    private BigDecimal bdFee = BillingMoney.zero();
+    private BigDecimal BigTotal = BillingMoney.zero();
     private DateRange dateRange;
     public String[] dbParam;
-    private double dFee;
     private String diagcode;
     private String eFlag = "1";
     public String errorMsg = "";
@@ -538,7 +539,7 @@ public class OhipClaimFileService {
             // start here
             value = batchHeader;
 
-            BigDecimal proTotal = new BigDecimal(0.0).setScale(2, BigDecimal.ROUND_HALF_UP);
+            BigDecimal proTotal = BillingMoney.zero();
             int proItem = 0;
             String ohipNo = "";
 
@@ -637,8 +638,7 @@ public class OhipClaimFileService {
                         }
                     }
 
-                    dFee = Double.parseDouble(fee);
-                    bdFee = new BigDecimal(dFee).setScale(2, BigDecimal.ROUND_HALF_UP);
+                    bdFee = BillingMoney.amount(fee);
                     proTotal = proTotal.add(bdFee);
                     BigTotal = BigTotal.add(bdFee);
                     _logger.info("createBillingFileStr(BigTotal = " + BigTotal + ")");
@@ -667,9 +667,7 @@ public class OhipClaimFileService {
             hcCount = hcCount + healthcardCount;
             pCount = pCount + patientCount;
             rCount = rCount + recordCount;
-            // percent = new BigDecimal((double) 0.01).setScale(2,
-            // BigDecimal.ROUND_HALF_UP);
-            // BigTotal = BigTotal.multiply(percent);
+            // Historical total multiplier was removed; totals are already stored in dollars.
 
             if (summaryView) {
                 String items = htmlContent;
@@ -680,7 +678,7 @@ public class OhipClaimFileService {
                 htmlContent += items;
             }
 
-            BigTotal = BigTotal.setScale(2, BigDecimal.ROUND_HALF_UP);
+            BigTotal = BigTotal.setScale(2, RoundingMode.HALF_UP);
             value += buildTrailer();
 
             htmlCode = buildHTMLContentTrailer(simulation);
@@ -790,8 +788,7 @@ public class OhipClaimFileService {
                     itemObj.setDx2(i.getDx2());
                     itemObj.setStatus(i.getStatus());
                     fee = i.getFee();
-                    dFee = Double.parseDouble(fee);
-                    bdFee = new BigDecimal(dFee).setScale(2, BigDecimal.ROUND_HALF_UP);
+                    bdFee = BillingMoney.amount(fee);
                     BigTotal = BigTotal.add(bdFee);
                     _logger.info("createBillingFileStr(BigTotal = " + BigTotal + ")");
                     checkItem();
@@ -810,10 +807,8 @@ public class OhipClaimFileService {
             hcCount = hcCount + healthcardCount;
             pCount = pCount + patientCount;
             rCount = rCount + recordCount;
-            // percent = new BigDecimal((double) 0.01).setScale(2,
-            // BigDecimal.ROUND_HALF_UP);
-            // BigTotal = BigTotal.multiply(percent);
-            BigTotal = BigTotal.setScale(2, BigDecimal.ROUND_HALF_UP);
+            // Historical total multiplier was removed; totals are already stored in dollars.
+            BigTotal = BigTotal.setScale(2, RoundingMode.HALF_UP);
             value += buildTrailer();
 
             htmlCode = buildSiteHTMLContentTrailer();

@@ -37,7 +37,6 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * Bean handler for {@code BillingEDTOBECOutputSpecificationBeanHandler}.
  *
@@ -55,18 +54,10 @@ public class BillingEDTOBECOutputSpecificationBeanHandler {
     ArrayList<BillingEDTOBECOutputSpecificationBean> EDTOBECOutputSecifiationBeanVector = new ArrayList<BillingEDTOBECOutputSpecificationBean>();
     public boolean verdict = true;
 
-    public BillingEDTOBECOutputSpecificationBeanHandler(LoggedInInfo loggedInInfo, FileInputStream file) {
-        this(loggedInInfo, file,
-             SpringUtils.getBean(BatchEligibilityDao.class),
-             SpringUtils.getBean(DemographicManager.class),
-             SpringUtils.getBean(ProviderDao.class));
-    }
-
-    /** Test-friendly constructor — takes DAO/Manager mocks directly. */
-    BillingEDTOBECOutputSpecificationBeanHandler(LoggedInInfo loggedInInfo, FileInputStream file,
-                                                 BatchEligibilityDao batchEligibilityDao,
-                                                 DemographicManager demographicManager,
-                                                 ProviderDao providerDao) {
+    public BillingEDTOBECOutputSpecificationBeanHandler(LoggedInInfo loggedInInfo, FileInputStream file,
+                                                        BatchEligibilityDao batchEligibilityDao,
+                                                        DemographicManager demographicManager,
+                                                        ProviderDao providerDao) {
         this.batchEligibilityDao = batchEligibilityDao;
         this.demographicManager = demographicManager;
         this.providerDao = providerDao;

@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao;
 import io.github.carlos_emr.carlos.billing.CA.model.BillingDetail;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingPercLimitDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingPercLimit;
+import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingShortcutPg2ViewModel;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
@@ -350,7 +351,7 @@ public class BillingShortcutPg2DataAssembler {
                 String desc = bs.getDescription();
                 String price = bs.getValue() == null ? "" : bs.getValue();
                 String perc = bs.getPercentage();
-                if ((!price.isEmpty() && Double.parseDouble(price) > 0.) || perc == null || perc.isEmpty()) {
+                if ((!price.isEmpty() && BillingMoney.isPositive(price)) || perc == null || perc.isEmpty()) {
                     vecServiceCode.add(billrec[i]);
                     vecServiceCodeDesc.add(desc);
                     vecServiceCodePrice.add(price);
@@ -382,7 +383,7 @@ public class BillingShortcutPg2DataAssembler {
             String tempUnit = request.getParameter("unit_" + temp);
             if (tempUnit == null || tempUnit.isEmpty()) tempUnit = "1";
             String code = temp.substring("xml_".length()).toUpperCase();
-            if ((fee != null && !fee.isEmpty() && Double.parseDouble(fee) > 0.)
+            if ((fee != null && !fee.isEmpty() && BillingMoney.isPositive(fee))
                     || perc == null || perc.isEmpty()) {
                 vecServiceCodePrice.add(fee == null ? "" : fee);
                 vecServiceCodeUnit.add(tempUnit);
@@ -414,8 +415,8 @@ public class BillingShortcutPg2DataAssembler {
         BigDecimal bdTotal = new BigDecimal("0").setScale(2, RoundingMode.HALF_UP);
         BigDecimal bdPercBase = new BigDecimal("0").setScale(2, RoundingMode.HALF_UP);
         for (int i = 0; i < vecServiceCodePrice.size(); i++) {
-            BigDecimal price = new BigDecimal(Double.parseDouble(vecServiceCodePrice.get(i))).setScale(2, RoundingMode.HALF_UP);
-            BigDecimal unit = new BigDecimal(Double.parseDouble(vecServiceCodeUnit.get(i))).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal price = BillingMoney.amount(vecServiceCodePrice.get(i));
+            BigDecimal unit = BillingMoney.amount(vecServiceCodeUnit.get(i));
             bdTotal = bdTotal.add(price.multiply(unit).setScale(2, RoundingMode.HALF_UP));
             if (i == rulePercLabelNum) {
                 bdPercBase = bdTotal;
@@ -434,7 +435,7 @@ public class BillingShortcutPg2DataAssembler {
         codeIdx = 1;
         BigDecimal[] bdPercs = new BigDecimal[size];
         for (int idx3 = 0; idx3 < size; idx3++) {
-            BigDecimal perc = new BigDecimal(Double.parseDouble(vecServiceCodePerc.get(codeIdx))).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal perc = BillingMoney.amount(vecServiceCodePerc.get(codeIdx));
             BigDecimal bdPerc = bdPercBase.multiply(perc).setScale(2, RoundingMode.HALF_UP);
             msg.append("<tr bgcolor='#EEEEFF'><td align='right'>")
                     .append(SafeEncode.forHtml(String.valueOf(vecServiceCodePerc.get(codeIdx - 1))))
@@ -442,8 +443,8 @@ public class BillingShortcutPg2DataAssembler {
                     .append(bdPercBase).append(" x ").append(perc).append(" = ")
                     .append(bdPerc).append("</td></tr>");
             if (aLimits[idx3]) {
-                bdPerc = bdPerc.min(new BigDecimal(Double.parseDouble(aMaxFee[idx3])).setScale(2, RoundingMode.HALF_UP));
-                bdPerc = bdPerc.max(new BigDecimal(Double.parseDouble(aMinFee[idx3])).setScale(2, RoundingMode.HALF_UP));
+                bdPerc = bdPerc.min(BillingMoney.amount(aMaxFee[idx3]));
+                bdPerc = bdPerc.max(BillingMoney.amount(aMinFee[idx3]));
                 msg.append("<tr bgcolor='ivory'><td align='right' colspan='2'>Adjust to (")
                         .append(aMinFee[idx3]).append(", ").append(aMaxFee[idx3]).append("): </td>")
                         .append("<td align='right'>").append(bdPerc).append("</td></tr>");
@@ -547,10 +548,8 @@ public class BillingShortcutPg2DataAssembler {
         }
 
         for (int i = 0; i < calc.vecServiceCode.size(); i++) {
-            BigDecimal bdEachPrice = new BigDecimal(Double.parseDouble(calc.vecServiceCodePrice.get(i)))
-                    .setScale(2, RoundingMode.HALF_UP);
-            BigDecimal bdEachUnit = new BigDecimal(Double.parseDouble(calc.vecServiceCodeUnit.get(i)))
-                    .setScale(2, RoundingMode.HALF_UP);
+            BigDecimal bdEachPrice = BillingMoney.amount(calc.vecServiceCodePrice.get(i));
+            BigDecimal bdEachUnit = BillingMoney.amount(calc.vecServiceCodeUnit.get(i));
             BigDecimal bdEachTotal = bdEachPrice.multiply(bdEachUnit).setScale(2, RoundingMode.HALF_UP);
 
             BillingDetail bd = new BillingDetail();

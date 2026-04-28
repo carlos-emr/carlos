@@ -26,7 +26,6 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -48,9 +47,12 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.OhipReportGenerationSe
 public class ViewGenGroupReport2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
+    private final OhipReportGenerationService ohipReportGenerationService;
 
-    public ViewGenGroupReport2Action(SecurityInfoManager securityInfoManager) {
+    public ViewGenGroupReport2Action(SecurityInfoManager securityInfoManager,
+                                     OhipReportGenerationService ohipReportGenerationService) {
         this.securityInfoManager = securityInfoManager;
+        this.ohipReportGenerationService = ohipReportGenerationService;
     }
     @Override
     public String execute() throws Exception {
@@ -88,8 +90,7 @@ public class ViewGenGroupReport2Action extends ActionSupport {
             return NONE;
         }
 
-        SpringUtils.getBean(OhipReportGenerationService.class).generateReport(request,
-                OhipReportGenerationService.Mode.GROUP_REPORT);
+        ohipReportGenerationService.generateReport(request, OhipReportGenerationService.Mode.GROUP_REPORT);
 
         return SUCCESS;
     }

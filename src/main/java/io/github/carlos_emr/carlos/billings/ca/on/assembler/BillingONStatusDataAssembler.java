@@ -36,9 +36,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.springframework.web.context.WebApplicationContext;
-import org.springframework.web.context.support.WebApplicationContextUtils;
-
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingErrorRepData;
@@ -57,7 +54,6 @@ import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingStatusLoader;
 import io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingONStatus2Action;
 
@@ -80,15 +76,21 @@ public class BillingONStatusDataAssembler {
     private final BillingONLookupService lookupService;
     private final BillingStatusLoader statusPrep;
     private final BillingONErrorReportService errorRepImpl;
+    private final SiteDao siteDao;
+    private final RAData raData;
 
     public BillingONStatusDataAssembler(SecurityInfoManager securityInfoManager,
                                  BillingONLookupService lookupService,
                                  BillingStatusLoader statusPrep,
-                                 BillingONErrorReportService errorRepImpl) {
+                                 BillingONErrorReportService errorRepImpl,
+                                 SiteDao siteDao,
+                                 RAData raData) {
         this.securityInfoManager = securityInfoManager;
         this.lookupService = lookupService;
         this.statusPrep = statusPrep;
         this.errorRepImpl = errorRepImpl;
+        this.siteDao = siteDao;
+        this.raData = raData;
     }
 
     /**
@@ -177,7 +179,6 @@ public class BillingONStatusDataAssembler {
         List<BillingMultisiteContext.MultisiteSite> multisiteSites = new ArrayList<>();
         Map<String, String> multisiteProviderHtml = new LinkedHashMap<>();
         if (multisitesEnabled) {
-            SiteDao siteDao = lookupSiteDao(request);
             if (siteDao != null) {
                 List<Site> allSites = siteDao.getAllSites();
                 if (allSites != null) {
@@ -346,17 +347,6 @@ public class BillingONStatusDataAssembler {
                 .build();
     }
 
-    private SiteDao lookupSiteDao(HttpServletRequest request) {
-        try {
-            WebApplicationContext ctx = WebApplicationContextUtils
-                    .getWebApplicationContext(request.getServletContext());
-            return ctx == null ? SpringUtils.getBean(SiteDao.class) : ctx.getBean(SiteDao.class);
-        } catch (RuntimeException ex) {
-            MiscUtils.getLogger().error("Failed to resolve SiteDao", ex);
-            return null;
-        }
-    }
-
     private List<BillingONStatusViewModel.RejectedBillRow> buildRejectedRows(
             List<String> pList, String providerNo, String startDate, String endDate,
             String filename) {
@@ -450,7 +440,6 @@ public class BillingONStatusDataAssembler {
                     "0.00", "0.00");
         }
 
-        RAData raData = new RAData();
         NumberFormat formatter = new DecimalFormat("#0.00");
         String invoiceNo = "";
         boolean nC = false;

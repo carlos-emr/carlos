@@ -30,6 +30,7 @@ import java.util.List;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingBatchHeaderData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingOHIPSimulationViewModel;
@@ -226,7 +227,7 @@ public class BillingOHIPSimulationDataAssembler {
             providerList.add(pro);
         }
 
-        BigDecimal bigTotal = new BigDecimal((double) 0).setScale(2, java.math.RoundingMode.HALF_UP);
+        BigDecimal bigTotal = BillingMoney.zero();
         int recordCount = 0;
         int errorCount = 0;
         StringBuilder htmlValue = new StringBuilder();

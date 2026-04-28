@@ -26,11 +26,11 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
@@ -39,7 +39,11 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
  */
 public class BillingCodeData {
 
-    private BillingServiceDao billingServiceDao = SpringUtils.getBean(BillingServiceDao.class);
+    private final BillingServiceDao billingServiceDao;
+
+    public BillingCodeData(BillingServiceDao billingServiceDao) {
+        this.billingServiceDao = Objects.requireNonNull(billingServiceDao, "billingServiceDao");
+    }
 
     public List<HashMap<String, String>> search(String str) {
         ArrayList<HashMap<String, String>> list = new ArrayList<HashMap<String, String>>();

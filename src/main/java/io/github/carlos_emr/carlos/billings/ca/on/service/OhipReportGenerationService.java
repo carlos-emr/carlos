@@ -33,8 +33,10 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillActivityDao;
+import io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao;
 import io.github.carlos_emr.carlos.billing.CA.model.BillActivity;
 import io.github.carlos_emr.carlos.billings.ca.on.OHIP.ExtractBean;
+import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.DateRange;
@@ -75,10 +77,17 @@ public class OhipReportGenerationService {
 
     private final BillActivityDao billActivityDao;
     private final ProviderDao providerDao;
+    private final BillingDao billingDao;
+    private final BillingDetailDao billingDetailDao;
 
-    OhipReportGenerationService(BillActivityDao billActivityDao, ProviderDao providerDao) {
+    OhipReportGenerationService(BillActivityDao billActivityDao,
+                                ProviderDao providerDao,
+                                BillingDao billingDao,
+                                BillingDetailDao billingDetailDao) {
         this.billActivityDao = billActivityDao;
         this.providerDao = providerDao;
+        this.billingDao = billingDao;
+        this.billingDetailDao = billingDetailDao;
     }
 
     /**
@@ -133,7 +142,7 @@ public class OhipReportGenerationService {
             String groupKey = mode == Mode.GROUP_REPORT ? groupNo : proOHIP;
             String batchCount = nextBatchCount(monthCode, groupKey, curYear);
 
-            ExtractBean extract = new ExtractBean();
+            ExtractBean extract = new ExtractBean(billingDao, billingDetailDao);
             extract.seteFlag("1");
             extract.setOhipVer(request.getParameter("verCode"));
             extract.setProviderNo(proOHIP);
@@ -195,7 +204,7 @@ public class OhipReportGenerationService {
                 groupNo = "0000";
             }
 
-            ExtractBean extract = new ExtractBean();
+            ExtractBean extract = new ExtractBean(billingDao, billingDetailDao);
             extract.seteFlag("0");
             extract.setDateRange(dateRange);
             extract.setOhipVer(request.getParameter("verCode"));

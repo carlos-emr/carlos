@@ -26,7 +26,6 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -47,15 +46,21 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.OnGenRAsettleService;
 public class ViewOnGenRAsettle2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
+    private final OnGenRAsettleService onGenRAsettleService;
 
-    public ViewOnGenRAsettle2Action(SecurityInfoManager securityInfoManager) {
+    public ViewOnGenRAsettle2Action(SecurityInfoManager securityInfoManager,
+                                    OnGenRAsettleService onGenRAsettleService) {
         this.securityInfoManager = securityInfoManager;
+        this.onGenRAsettleService = onGenRAsettleService;
     }
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("missing session");
+        }
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
@@ -66,8 +71,7 @@ public class ViewOnGenRAsettle2Action extends ActionSupport {
             return NONE;
         }
 
-        SpringUtils.getBean(OnGenRAsettleService.class).settle(request.getParameter("rano"),
-                OnGenRAsettleService.Mode.STANDARD);
+        onGenRAsettleService.settle(request.getParameter("rano"), OnGenRAsettleService.Mode.STANDARD);
 
         return SUCCESS;
     }

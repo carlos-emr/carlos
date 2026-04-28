@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -563,7 +564,7 @@ public class BillingCorrectionService {
                         } else {
                             fee = bService.getValue();
                             BigDecimal feeAmt = new BigDecimal(fee);
-                            feeAmt = feeAmt.multiply(unitAmt).setScale(2, BigDecimal.ROUND_HALF_UP);
+                            feeAmt = feeAmt.multiply(unitAmt).setScale(2, RoundingMode.HALF_UP);
                             fee = feeAmt.toPlainString();
                         }
                     }
@@ -608,7 +609,7 @@ public class BillingCorrectionService {
                 if (!fee.equals("defunct") && !bItemExisting.getServiceCount().equals(unit)) {
                     BigDecimal feeAmt = new BigDecimal(fee);
                     BigDecimal unitAmt = new BigDecimal(unit);
-                    feeAmt = feeAmt.multiply(unitAmt).setScale(2, BigDecimal.ROUND_HALF_UP);
+                    feeAmt = feeAmt.multiply(unitAmt).setScale(2, RoundingMode.HALF_UP);
                     fee = feeAmt.toPlainString();
                 }
 

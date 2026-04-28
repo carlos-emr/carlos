@@ -32,8 +32,6 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.bean.BillingClaimsErrorReportBean;
 import io.github.carlos_emr.carlos.billings.ca.on.bean.BillingClaimsErrorReportBeanHandler;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONErrorReportService;
-
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * Data carrier for {@code BillingClaimsErrorReportBeanHandlerSave}.
  *
@@ -48,13 +46,8 @@ public class BillingClaimsErrorReportBeanHandlerSave {
     ArrayList claimsErrorReportBeanVector = new ArrayList();
     public boolean verdict = true;
 
-    public BillingClaimsErrorReportBeanHandlerSave(FileInputStream file, String filename) {
-        this(file, filename, SpringUtils.getBean(BillingONErrorReportService.class));
-    }
-
-    /** Test-friendly constructor — takes the service mock directly. */
-    BillingClaimsErrorReportBeanHandlerSave(FileInputStream file, String filename,
-                                            BillingONErrorReportService erRepObj) {
+    public BillingClaimsErrorReportBeanHandlerSave(FileInputStream file, String filename,
+                                                   BillingONErrorReportService erRepObj) {
         this.erRepObj = erRepObj;
         init(file, filename);
     }

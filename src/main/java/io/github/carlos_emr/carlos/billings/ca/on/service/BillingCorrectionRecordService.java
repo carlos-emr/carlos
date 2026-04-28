@@ -23,6 +23,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.Timestamp;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -45,6 +46,7 @@ import io.github.carlos_emr.carlos.commn.model.BillingOnItemPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingOnTransaction;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
@@ -787,8 +789,7 @@ public class BillingCorrectionRecordService {
 
     private String sumFee(ArrayList vecFee) {
         String ret = "";
-        BigDecimal fee = new BigDecimal(Double.parseDouble("0.00")).setScale(4,
-                BigDecimal.ROUND_HALF_UP);
+        BigDecimal fee = BillingMoney.amount("0.00", 4);
         for (int i = 0; i < vecFee.size(); i++) {
             String temp = (String) vecFee.get(i);
             if (temp == null || temp.isEmpty()) {
@@ -797,11 +798,10 @@ public class BillingCorrectionRecordService {
             if (temp.indexOf(".") < 0) {
                 temp = temp + ".00";
             }
-            BigDecimal tFee = new BigDecimal(Double.parseDouble(temp))
-                    .setScale(4, BigDecimal.ROUND_HALF_UP);
+            BigDecimal tFee = BillingMoney.amount(temp, 4);
             fee = fee.add(tFee);
         }
-        ret = fee.setScale(2, BigDecimal.ROUND_HALF_UP).toString();
+        ret = fee.setScale(2, RoundingMode.HALF_UP).toString();
         return ret;
     }
 
@@ -829,7 +829,7 @@ public class BillingCorrectionRecordService {
             BigDecimal bigCodeFee = new BigDecimal(fee);
             BigDecimal bigCodeUnit = new BigDecimal(unit);
             BigDecimal bigFee = bigCodeFee.multiply(bigCodeUnit);
-            bigFee = bigFee.setScale(2, BigDecimal.ROUND_HALF_UP);
+            bigFee = bigFee.setScale(2, RoundingMode.HALF_UP);
             // bigFee = bigFee.round(new MathContext(2));
             ret = bigFee.toString();
         }
