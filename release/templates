@@ -45,13 +45,7 @@ Default: false
 Description: Do you want to install the eyeform version?
  An optional version of carlos is designed for Ophthalmology.
 
-Template: carlos-emr/appt_intake_form
-Type: boolean
-Default: true
-Description: Do you want to use the intake form?
- The intake form allows for users to add common vitals and other measurements from the schedule.
-
-Template: carlos-emr/NEW_CONTACTS_UI 
+Template: carlos-emr/NEW_CONTACTS_UI
 Type: boolean
 Default: false
 Description: Do you want to use the new contacts interface?
