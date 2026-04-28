@@ -63,7 +63,6 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.demographic.data.DemographicMerged;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
-import org.apache.commons.lang3.StringUtils;
 
 public final class MessageUploader {
 
@@ -484,8 +483,8 @@ public final class MessageUploader {
 					sqlParams.add(dobMonth);
 					sqlParams.add(dobDay);
 					sqlParams.add(sex + "%");
-                    sqlParams.add(lastName");
-					sqlParams.add(firstName");
+                    sqlParams.add(lastName);
+					sqlParams.add(firstName);
 				}
                 
 				// only the first letter of names used for LAB_NOMATCH_NAMES=no
