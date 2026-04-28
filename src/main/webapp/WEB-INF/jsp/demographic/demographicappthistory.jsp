@@ -74,7 +74,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="org.springframework.beans.BeanUtils" %>
 <%@ page import="org.springframework.web.context.WebApplicationContext" %>
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
@@ -83,7 +82,6 @@
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -120,11 +118,21 @@
     String curProvider_no = (String) session.getAttribute("user");
     String demographic_no = request.getParameter("demographic_no");
     String strLimit1 = "0";
-    String strLimit2 = "50000";
+    String strLimit2 = "1000";
     if (request.getParameter("limit1") != null)
         strLimit1 = request.getParameter("limit1");
-    if (request.getParameter("limit2") != null)
+    if (request.getParameter("limit2") != null) {
         strLimit2 = request.getParameter("limit2");
+        // Cap at maximum of 1000 to prevent oversized server-rendered payloads
+        try {
+            int limit2Val = Integer.parseInt(strLimit2);
+            if (limit2Val > 1000) {
+                strLimit2 = "1000";
+            }
+        } catch (NumberFormatException e) {
+            strLimit2 = "1000";
+        }
+    }
 
     DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
     Demographic patientDemo = (demographic_no != null && !demographic_no.isEmpty()) ? demographicManager.getDemographic(loggedInInfo, demographic_no) : null;
@@ -203,8 +211,7 @@
                     //don't show deleted
                     <c:set var="__enc_3"><carlos:encode value='<%= demographic_no %>' context="uriComponent"/></c:set>
                     <c:set var="__enc_4"><carlos:encode value='<%= orderby %>' context="uriComponent"/></c:set>
-                    location.hr                    
-ef = '<%=request.getContextPath()%>/demographic/DemographicApptHistory?demographic_no=<carlos:encode value='${__enc_3}' context="javaScript"/>&orderby=<carlos:encode value='${__enc_4}' context="javaScript"/>&dboperation=appt_history&limit1=<carlos:encode value='<%= strLimit1 %>' context="javaScript"/>&limit2=<carlos:encode value='<%= strLimit2 %>' context="javaScript"/>';
+                    location.href = '<%=request.getContextPath()%>/demographic/DemographicApptHistory?demographic_no=<carlos:encode value='${__enc_3}' context="javaScript"/>&orderby=<carlos:encode value='${__enc_4}' context="javaScript"/>&dboperation=appt_history&limit1=<carlos:encode value='<%= strLimit1 %>' context="javaScript"/>&limit2=<carlos:encode value='<%= strLimit2 %>' context="javaScript"/>';
                 }
     }
 
