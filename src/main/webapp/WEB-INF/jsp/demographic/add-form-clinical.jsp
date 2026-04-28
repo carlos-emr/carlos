@@ -566,11 +566,11 @@
                                         </div>
                                         <div class="col-sm-4" id="consentStatusDate">
                                             <div class="form-check form-check-inline">
-                                                 <input type="radio" name="${ safeConsentTypeKey }" id="optin_${safeConsentTypeKey}" value="0" class="form-check-input"/>
+                                                 <input type="radio" name="${ rawConsentTypeKey }" id="optin_${safeConsentTypeKey}" value="0" class="form-check-input"/>
                                                  <label class="form-check-label" for="optin_${ safeConsentTypeKey }"><fmt:message key="demographic.demographicaddrecordhtm.optIn"/></label>
                                             </div>
                                             <div class="form-check form-check-inline">
-                                                 <input type="radio" name="${ safeConsentTypeKey }" id="optout_${safeConsentTypeKey}" value="1" class="form-check-input"/>
+                                                 <input type="radio" name="${ rawConsentTypeKey }" id="optout_${safeConsentTypeKey}" value="1" class="form-check-input"/>
                                                  <label class="form-check-label" for="optout_${ safeConsentTypeKey }"><fmt:message key="demographic.demographicaddrecordhtm.optOut"/></label>
                                             </div>
                                             <input type="button" class="btn btn-outline-secondary btn-sm"
