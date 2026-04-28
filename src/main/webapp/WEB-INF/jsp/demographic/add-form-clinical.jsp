@@ -429,7 +429,7 @@
                             <div class="col-sm-2 text-end"><label class="fw-bold col-form-label py-0"><%= SafeEncode.forHtmlContent(propDemoExt[k]) %>:</label></div>
                             <div class="col-sm-4">
                                 <% if (bExtForm) {
-                                    out.println(SafeEncode.forHtmlContent(propDemoExtForm[k]));
+                                    out.println(propDemoExtForm[k]); //do not encode as you will break HTML field templates
                                 } else { %>
                                 <input type="text" name="<%= SafeEncode.forHtmlAttribute(propDemoExt[k].replace(' ', '_')) %>" class="form-control" value="">
                                 <% } %>
@@ -437,7 +437,7 @@
                             <div class="col-sm-2 text-end"><%=(k + 1) < propDemoExt.length ? ("<label class=\"fw-bold col-form-label py-0\">" + SafeEncode.forHtmlContent(propDemoExt[k + 1]) + ":</label>") : "&nbsp;" %></div>
                             <div class="col-sm-4">
                                 <% if (bExtForm && (k + 1) < propDemoExt.length) {
-                                    out.println(SafeEncode.forHtmlContent(propDemoExtForm[k + 1]));
+                                    out.println(propDemoExtForm[k + 1]); //do not encode as you will break HTML field templates
                                 } else { %> <%=(k + 1) < propDemoExt.length ? "<input type=\"text\" name=\"" + SafeEncode.forHtmlAttribute(propDemoExt[k + 1].replace(' ', '_')) + "\" class=\"form-control\" value=''>" : "&nbsp;" %>
                                 <% } %>
                             </div>
