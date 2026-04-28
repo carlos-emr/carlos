@@ -38,6 +38,8 @@ import java.util.Date;
 /**
  * Shared date parsing helpers for CARLOS EMR utility classes that still expose
  * legacy {@link Date}-based APIs.
+ *
+ * @since 2026-04-28
  */
 public final class DateTimeParseUtils {
 
@@ -53,9 +55,9 @@ public final class DateTimeParseUtils {
      * as {@code yyyy} and {@code yyyy-MM} preserve the old {@code SimpleDateFormat} behavior by
      * defaulting missing month/day fields to January/1.</p>
      *
-     * @param text String the text to parse
-     * @param formatter DateTimeFormatter the formatter to use
-     * @return Date the parsed date
+     * @param text the text to parse
+     * @param formatter the formatter to use
+     * @return the parsed date
      * @throws ParseException if the text cannot be parsed with the provided formatter
      */
     public static Date parseToDate(String text, DateTimeFormatter formatter) throws ParseException {
