@@ -76,7 +76,7 @@
 <jsp:useBean id="apptMainBean" class="io.github.carlos_emr.AppointmentMainBean" scope="session"/>
 
 <%-- === Original content === --%>
-                      onsubmit="return aSubmit()" autocomplete="off">
+
                     <input type="hidden" name="fromAppt" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("fromAppt")) %>' context="htmlAttribute"/>">
                     <input type="hidden" name="originalPage" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("originalPage")) %>' context="htmlAttribute"/>">
                     <input type="hidden" name="bFirstDisp" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("bFirstDisp")) %>' context="htmlAttribute"/>">
