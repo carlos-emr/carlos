@@ -1,0 +1,4 @@
+## 2024-05-24 - SQL Injection in Dynamic ORDER BY Clauses
+**Vulnerability:** A critical SQL injection vulnerability was found in `Hl7LinkDao.java`. Unsanitized user input (`orderby`) was concatenated into an `ORDER BY` clause, and `provider_no` was replaced into the string without parameterization.
+**Learning:** JPA/Hibernate native queries (`createNativeQuery`) cannot parameterize `ORDER BY` clauses dynamically. Direct string replacement via `replaceAll` for parameters like `provider_no` bypasses query parameterization entirely.
+**Prevention:** Always use `setParameter("paramName", value)` for values in native queries. For dynamic `ORDER BY` clauses or column names, validate user input against a strict allowlist or a targeted blocklist (e.g., `.*[`';\\-].*`) before string concatenation to prevent injection.

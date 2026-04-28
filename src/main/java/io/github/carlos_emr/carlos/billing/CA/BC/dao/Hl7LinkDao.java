@@ -97,28 +97,38 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
 
     @NativeSql({"hl7_pid", "hl7_link", "hl7_obr", "hl7_message"})
     public List<Object[]> findReports(Date start, Date end, String provider_no, String orderby, String command) {
-        String select_reports_by_provider = "SELECT DISTINCT hl7_pid.pid_id, hl7_pid.patient_name, hl7_obr.ordering_provider, hl7_obr.result_copies_to, hl7_link.status, hl7_link.signed_on, provider.last_name, provider.first_name, hl7_message.date_time  FROM hl7_link, demographic, hl7_pid, hl7_obr, hl7_message, provider WHERE demographic.provider_no = provider.provider_no AND hl7_link.pid_id=hl7_obr.pid_id AND hl7_link.pid_id=hl7_pid.pid_id AND demographic.provider_no='@provider_no' AND hl7_message.message_id=hl7_pid.message_id AND demographic.demographic_no=hl7_link.demographic_no AND hl7_link.status!='P'";
+        String select_reports_by_provider = "SELECT DISTINCT hl7_pid.pid_id, hl7_pid.patient_name, hl7_obr.ordering_provider, hl7_obr.result_copies_to, hl7_link.status, hl7_link.signed_on, provider.last_name, provider.first_name, hl7_message.date_time  FROM hl7_link, demographic, hl7_pid, hl7_obr, hl7_message, provider WHERE demographic.provider_no = provider.provider_no AND hl7_link.pid_id=hl7_obr.pid_id AND hl7_link.pid_id=hl7_pid.pid_id AND demographic.provider_no=:providerNo AND hl7_message.message_id=hl7_pid.message_id AND demographic.demographic_no=hl7_link.demographic_no AND hl7_link.status!='P'";
         String select_reports_linked_to_providers = "SELECT DISTINCT hl7_pid.pid_id, hl7_pid.patient_name, hl7_obr.ordering_provider, hl7_obr.result_copies_to, hl7_link.status, hl7_link.signed_on, provider.last_name, provider.first_name, hl7_message.date_time  FROM hl7_link, demographic, hl7_pid, hl7_obr, hl7_message, provider WHERE demographic.provider_no = provider.provider_no AND hl7_link.pid_id=hl7_obr.pid_id AND hl7_link.pid_id=hl7_pid.pid_id AND hl7_message.message_id=hl7_pid.message_id AND demographic.demographic_no=hl7_link.demographic_no AND hl7_link.status!='P'";
         String select_unlinked_labs = "SELECT DISTINCT hl7_pid.pid_id, hl7_pid.patient_name, hl7_obr.ordering_provider, hl7_obr.result_copies_to, hl7_link.status, hl7_link.signed_on, hl7_message.date_time, '' as `last_name`, '' as `first_name` FROM hl7_pid left join hl7_link on hl7_link.pid_id=hl7_pid.pid_id left join hl7_obr on hl7_pid.pid_id=hl7_obr.pid_id left join hl7_message on hl7_message.message_id=hl7_pid.message_id WHERE hl7_link.status='P' OR hl7_link.status is null";
         String sqlWhere = (start != null ? " AND hl7_message.date_time >= '" + ConversionUtils.toDateString(start) + " 00:00:00'" : "") +
                 (end != null ? " AND hl7_message.date_time <= '" + ConversionUtils.toTimeString(end) + " 23:59:59'" : "");
-        String sqlOrderBy = " ORDER BY @orderby";
+
+        // Prevent SQL injection by verifying orderby against a blocklist for dynamic injection characters
+        if (orderby != null && orderby.matches(".*[`';\\-].*")) {
+            throw new IllegalArgumentException("Invalid orderby parameter");
+        }
+        String sqlOrderBy = " ORDER BY " + (orderby != null && !orderby.trim().isEmpty() ? orderby : "pid_id");
 
         String sql = null;
         if (command != null && !command.equals("")) {
+            boolean useProviderParam = false;
             if ("-ULL".equals(provider_no)) {
                 sql = select_unlinked_labs;
             } else if ("-APL".equals(provider_no)) {
                 sql = select_reports_linked_to_providers;
             } else if ("-UAP".equals(provider_no)) {
                 sql = select_reports_by_provider;
+                useProviderParam = true;
             } else {
                 sql = select_reports_by_provider;
+                useProviderParam = true;
             }
             sql += sqlWhere + sqlOrderBy;
-            sql = sql.replaceAll("@provider_no", provider_no.replaceAll("-UAP", "")).replaceAll("@orderby", orderby);
 
             Query query = entityManager.createNativeQuery(sql);
+            if (useProviderParam) {
+                query.setParameter("providerNo", provider_no != null ? provider_no.replace("-UAP", "") : "");
+            }
             return query.getResultList();
         }
 
