@@ -83,7 +83,7 @@
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -120,7 +120,7 @@
     String curProvider_no = (String) session.getAttribute("user");
     String demographic_no = request.getParameter("demographic_no");
     String strLimit1 = "0";
-    String strLimit2 = "500";
+    String strLimit2 = "50000";
     if (request.getParameter("limit1") != null)
         strLimit1 = request.getParameter("limit1");
     if (request.getParameter("limit2") != null)
@@ -139,7 +139,7 @@
     Map<String, ProviderData> providerMap = new HashMap<String, ProviderData>();
 %>
 
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -281,7 +281,6 @@ ef = '<%=request.getContextPath()%>/demographic/DemographicApptHistory?demograph
          ============================================================ -->
     <div class="bg-light border rounded p-2">
 
-        <form action="/something.do" method="post">
 
             <!-- ==================================================
                  CONTENT ROW — two-column layout:
@@ -492,7 +491,7 @@ ef = '<%=request.getContextPath()%>/demographic/DemographicApptHistory?demograph
                 </div><!-- end right column -->
             </div><!-- end .row -->
 
-        </form>
+ 
 
     </div><!-- end .bg-light -->
 
