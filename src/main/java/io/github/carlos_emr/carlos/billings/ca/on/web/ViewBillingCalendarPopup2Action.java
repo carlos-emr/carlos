@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCalendarPopupViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -56,7 +57,11 @@ public class ViewBillingCalendarPopup2Action extends ActionSupport {
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
+        HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("missing session");
+        }
 
         boolean allowed =
                 securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)
@@ -66,11 +71,17 @@ public class ViewBillingCalendarPopup2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing | _report | _tickler)");
         }
 
-        BillingCalendarPopupViewModel model = new BillingCalendarPopupDataAssembler().assemble(
-                request.getParameter("year"),
-                request.getParameter("month"),
-                request.getParameter("delta"),
-                request.getParameter("type"));
+        BillingCalendarPopupViewModel model;
+        try {
+            model = new BillingCalendarPopupDataAssembler().assemble(
+                    request.getParameter("year"),
+                    request.getParameter("month"),
+                    request.getParameter("delta"),
+                    request.getParameter("type"));
+        } catch (IllegalArgumentException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
+            return NONE;
+        }
         request.setAttribute("billingCalendarPopupModel", model);
 
         return SUCCESS;

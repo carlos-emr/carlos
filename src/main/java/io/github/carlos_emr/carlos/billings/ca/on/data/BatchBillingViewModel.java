@@ -67,15 +67,15 @@ public final class BatchBillingViewModel {
         this.serviceCode = nullToEmpty(b.serviceCode);
         this.clinicView = nullToEmpty(b.clinicView);
         this.providers = b.providers == null ? Collections.<ProviderOption>emptyList()
-                : Collections.unmodifiableList(b.providers);
+                : List.copyOf(b.providers);
         this.serviceCodes = b.serviceCodes == null ? Collections.<String>emptyList()
-                : Collections.unmodifiableList(b.serviceCodes);
+                : List.copyOf(b.serviceCodes);
         this.clinicLocations = b.clinicLocations == null ? Collections.<ClinicOption>emptyList()
-                : Collections.unmodifiableList(b.clinicLocations);
+                : List.copyOf(b.clinicLocations);
         this.rowsAvailable = b.rowsAvailable;
         this.filterApplied = b.filterApplied;
         this.rows = b.rows == null ? Collections.<Row>emptyList()
-                : Collections.unmodifiableList(b.rows);
+                : List.copyOf(b.rows);
     }
 
     private static String nullToEmpty(String s) { return s == null ? "" : s; }

@@ -85,6 +85,9 @@ public class BillingReportControlDataAssembler {
 
     private List<BillingReportControlViewModel.ProviderOption> loadProviderOptions() {
         List<Object[]> raw = reportProviderDao.search_reportprovider("billingreport");
+        if (raw == null) {
+            return List.of();
+        }
         List<BillingReportControlViewModel.ProviderOption> out = new ArrayList<>(raw.size());
         for (Object[] res : raw) {
             // res[0] is ReportProvider (unused — only Provider names rendered).

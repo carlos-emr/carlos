@@ -30,6 +30,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import java.util.Locale;
+
 /**
  * Unit tests for {@link BillingDemographicSummary} — locks the canonical
  * projection behavior the 5 ON billing assemblers depend on, especially
@@ -94,6 +96,21 @@ class BillingDemographicSummaryUnitTest {
             Demographic d = new Demographic();
             d.setHcType("ontario");
             assertThat(BillingDemographicSummary.fromDemographic(d).hcType()).isEqualTo("ON");
+        }
+
+        @Test
+        @DisplayName("should uppercase HC type independently of default JVM locale")
+        void shouldNormalizeHcType_withLocaleRoot() {
+            Locale original = Locale.getDefault();
+            try {
+                Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+                Demographic d = new Demographic();
+                d.setHcType("in");
+
+                assertThat(BillingDemographicSummary.fromDemographic(d).hcType()).isEqualTo("IN");
+            } finally {
+                Locale.setDefault(original);
+            }
         }
 
         @Test

@@ -51,10 +51,12 @@ public final class BillingONRequestParams {
      * <p>Pure function; no side effects on the request.</p>
      */
     public static String extractProviderNo(String xmlProvider, String providerView) {
-        String s = xmlProvider != null && !xmlProvider.isEmpty()
-                ? xmlProvider
-                : (providerView != null ? providerView : "");
+        String xml = xmlProvider == null ? "" : xmlProvider.trim();
+        String s = !xml.isEmpty()
+                ? xml
+                : (providerView != null ? providerView.trim() : "");
         int pipe = s.indexOf('|');
-        return pipe >= 0 ? s.substring(0, pipe) : s;
+        String providerNo = pipe >= 0 ? s.substring(0, pipe) : s;
+        return providerNo.trim();
     }
 }

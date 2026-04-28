@@ -49,7 +49,7 @@ public final class BillingCalendarPopupViewModel {
     /** A week row — always 7 cells. */
     public record WeekRow(List<DayCell> cells) {
         public WeekRow {
-            cells = List.copyOf(cells);
+            cells = cells == null ? Collections.emptyList() : List.copyOf(cells);
         }
     }
 

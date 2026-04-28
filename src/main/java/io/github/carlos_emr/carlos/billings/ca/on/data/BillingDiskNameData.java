@@ -23,6 +23,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.data;
 
 import java.util.ArrayList;
+
 /**
  * Data carrier for {@code BillingDiskNameData}.
  *
@@ -42,13 +43,13 @@ public class BillingDiskNameData {
     String status;
     String total;
     String updatedatetime;
-    ArrayList vecFilenameId;
-    ArrayList htmlfilename;
-    ArrayList providerohipno;
-    ArrayList providerno;
-    ArrayList vecClaimrecord;
-    ArrayList vecStatus;
-    ArrayList vecTotal;
+    ArrayList<String> vecFilenameId;
+    ArrayList<String> htmlfilename;
+    ArrayList<String> providerohipno;
+    ArrayList<String> providerno;
+    ArrayList<String> vecClaimrecord;
+    ArrayList<String> vecStatus;
+    ArrayList<String> vecTotal;
 
     public String getBatchcount() {
         return batchcount;
@@ -90,11 +91,11 @@ public class BillingDiskNameData {
         this.groupno = groupno;
     }
 
-    public ArrayList getHtmlfilename() {
+    public ArrayList<String> getHtmlfilename() {
         return htmlfilename;
     }
 
-    public void setHtmlfilename(ArrayList htmlfilename) {
+    public void setHtmlfilename(ArrayList<String> htmlfilename) {
         this.htmlfilename = htmlfilename;
     }
 
@@ -122,11 +123,11 @@ public class BillingDiskNameData {
         this.ohipfilename = ohipfilename;
     }
 
-    public ArrayList getProviderohipno() {
+    public ArrayList<String> getProviderohipno() {
         return providerohipno;
     }
 
-    public void setProviderohipno(ArrayList providerohipno) {
+    public void setProviderohipno(ArrayList<String> providerohipno) {
         this.providerohipno = providerohipno;
     }
 
@@ -146,35 +147,35 @@ public class BillingDiskNameData {
         this.total = total;
     }
 
-    public ArrayList getVecClaimrecord() {
+    public ArrayList<String> getVecClaimrecord() {
         return vecClaimrecord;
     }
 
-    public void setVecClaimrecord(ArrayList vecClaimrecord) {
+    public void setVecClaimrecord(ArrayList<String> vecClaimrecord) {
         this.vecClaimrecord = vecClaimrecord;
     }
 
-    public ArrayList getVecStatus() {
+    public ArrayList<String> getVecStatus() {
         return vecStatus;
     }
 
-    public void setVecStatus(ArrayList vecStatus) {
+    public void setVecStatus(ArrayList<String> vecStatus) {
         this.vecStatus = vecStatus;
     }
 
-    public ArrayList getVecTotal() {
+    public ArrayList<String> getVecTotal() {
         return vecTotal;
     }
 
-    public void setVecTotal(ArrayList vecTotal) {
+    public void setVecTotal(ArrayList<String> vecTotal) {
         this.vecTotal = vecTotal;
     }
 
-    public ArrayList getProviderno() {
+    public ArrayList<String> getProviderno() {
         return providerno;
     }
 
-    public void setProviderno(ArrayList providerno) {
+    public void setProviderno(ArrayList<String> providerno) {
         this.providerno = providerno;
     }
 
@@ -186,11 +187,11 @@ public class BillingDiskNameData {
         this.updatedatetime = updatedatetime;
     }
 
-    public ArrayList getVecFilenameId() {
+    public ArrayList<String> getVecFilenameId() {
         return vecFilenameId;
     }
 
-    public void setVecFilenameId(ArrayList vecFilenameId) {
+    public void setVecFilenameId(ArrayList<String> vecFilenameId) {
         this.vecFilenameId = vecFilenameId;
     }
 

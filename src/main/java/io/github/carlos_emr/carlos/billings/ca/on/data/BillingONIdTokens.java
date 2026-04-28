@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.data;
 
+import java.util.regex.Pattern;
+
 /**
  * String sanitiser that turns a {@code ctl_billservice} service-type code
  * into a DOM-id-safe token. Replaces every character outside
@@ -33,12 +35,13 @@ package io.github.carlos_emr.carlos.billings.ca.on.data;
  * @since 2026-04-27
  */
 public final class BillingONIdTokens {
+    private static final Pattern UNSAFE_ID_CHARS = Pattern.compile("[^A-Za-z0-9_-]");
 
     private BillingONIdTokens() {}
 
     /** Returns a DOM-id-safe rendering of {@code s} (or empty if {@code s} is null). */
     public static String sanitize(String s) {
         if (s == null) return "";
-        return s.replaceAll("[^A-Za-z0-9_-]", "_");
+        return UNSAFE_ID_CHARS.matcher(s).replaceAll("_");
     }
 }

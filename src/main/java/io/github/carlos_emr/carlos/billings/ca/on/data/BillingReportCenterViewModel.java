@@ -48,7 +48,7 @@ public final class BillingReportCenterViewModel {
     private BillingReportCenterViewModel(Builder b) {
         this.providerRows = b.providerRows == null
                 ? Collections.<ProviderRow>emptyList()
-                : Collections.unmodifiableList(b.providerRows);
+                : List.copyOf(b.providerRows);
         this.selectedProviderView = nullToAll(b.selectedProviderView);
         this.xmlVdate = nullToEmpty(b.xmlVdate);
         this.xmlAppointmentDate = nullToEmpty(b.xmlAppointmentDate);

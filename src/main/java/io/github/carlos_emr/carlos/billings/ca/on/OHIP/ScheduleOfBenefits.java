@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -217,14 +218,13 @@ public class ScheduleOfBenefits {
     BigDecimal getBD4digit(String s) {
         double dgpFees = Double.parseDouble(s);
         BigDecimal bd = new BigDecimal((dgpFees / 10000));
-        bd.setScale(2, BigDecimal.ROUND_HALF_UP);
-        return bd;
+        return bd.setScale(2, RoundingMode.HALF_UP);
     }
 
 
     BigDecimal getJBD(String s) {
         double newDoub = (Double.parseDouble(s)) / 10000;
-        return new BigDecimal(newDoub).setScale(2, BigDecimal.ROUND_HALF_UP);
+        return new BigDecimal(newDoub).setScale(2, RoundingMode.HALF_UP);
     }
 
     HashMap breakLine(String s) {

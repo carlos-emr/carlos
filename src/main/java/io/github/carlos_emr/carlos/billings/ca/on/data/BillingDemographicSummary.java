@@ -23,6 +23,8 @@ package io.github.carlos_emr.carlos.billings.ca.on.data;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 
+import java.util.Locale;
+
 /**
  * Immutable demographic snapshot shared across the ON billing view models.
  * Replaces the {@code (demoFirst, demoLast, demoHin, demoVer, demoSex,
@@ -120,7 +122,7 @@ public record BillingDemographicSummary(
         String hcType = d.getHcType();
         String canonicalHcType = (hcType == null || hcType.length() < 2)
                 ? "ON"
-                : hcType.substring(0, 2).toUpperCase();
+                : hcType.substring(0, 2).toUpperCase(Locale.ROOT);
 
         String dobYy = nullToEmpty(d.getYearOfBirth());
         String dobMm = padTwo(nullToEmpty(d.getMonthOfBirth()));

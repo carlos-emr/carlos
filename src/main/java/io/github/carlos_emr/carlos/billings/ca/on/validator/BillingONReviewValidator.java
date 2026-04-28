@@ -115,7 +115,7 @@ public class BillingONReviewValidator {
             }
             // Replace _ with \_ so SQL LIKE doesn't treat it as wildcard.
             List<Object> svcCodes = billingServiceDao.findBillingCodesByCodeAndTerminationDate(
-                    serviceCode.trim().replaceAll("_", "\\\\_"), filterDate);
+                    serviceCode.trim().replace("_", "\\_"), filterDate);
             if (svcCodes.isEmpty()) {
                 codeValid = false;
                 messages.add(new Message(Message.Severity.ERROR,
@@ -150,10 +150,9 @@ public class BillingONReviewValidator {
 
     /**
      * A003A annual-physical guard: checks whether the patient was already
-     * billed A003A within the past year. Returns false if the guard
-     * couldn't run cleanly (caller defaults codeValid to true on failure
-     * — the legacy scriptlet didn't fail validation here, just emitted
-     * a warning).
+     * billed A003A within the past year. Legacy semantics are warning-only:
+     * the guard never blocks save and skips quietly when required context is
+     * missing or unparsable.
      */
     private boolean checkA003A(HttpServletRequest request, String demoNo, List<Message> messages) {
         Integer demoNoInt = parseDemoNo(demoNo);

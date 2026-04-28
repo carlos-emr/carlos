@@ -52,9 +52,9 @@ public class BillingCalendarPopupDataAssembler {
      */
     public BillingCalendarPopupViewModel assemble(String yearParam, String monthParam,
                                                    String deltaParam, String typeParam) {
-        int year = parseIntOrZero(yearParam);
-        int month = parseIntOrZero(monthParam);
-        int delta = parseIntOrZero(deltaParam);
+        int year = parseIntOrZero(yearParam, "year");
+        int month = parseIntOrZero(monthParam, "month");
+        int delta = parseIntOrZero(deltaParam, "delta");
         String type = typeParam == null ? "" : typeParam;
 
         // Mirror the legacy scriptlet: build a calendar at year/month-1/1, apply
@@ -84,8 +84,12 @@ public class BillingCalendarPopupDataAssembler {
                 .build();
     }
 
-    private static int parseIntOrZero(String s) {
+    private static int parseIntOrZero(String s, String parameterName) {
         if (s == null || s.isEmpty()) return 0;
-        try { return Integer.parseInt(s); } catch (NumberFormatException nfe) { return 0; }
+        try {
+            return Integer.parseInt(s);
+        } catch (NumberFormatException nfe) {
+            throw new IllegalArgumentException("Invalid " + parameterName + " parameter", nfe);
+        }
     }
 }

@@ -93,12 +93,20 @@ class BillingONRequestParamsUnitTest {
     }
 
     @Test
-    void shouldNotTrimWhitespace_butLockTheBehavior() {
-        // `extractProviderNo` does not trim — `"  999998  "` passes through
-        // verbatim and breaks the downstream `ProviderDao.getProvider()`
-        // lookup. This test locks the current contract; if a future change
-        // wants to trim, it must also update this test deliberately.
+    void shouldTrimWhitespace_whenNoPipePresent() {
         assertThat(BillingONRequestParams.extractProviderNo("  999998  ", null))
-                .isEqualTo("  999998  ");
+                .isEqualTo("999998");
+    }
+
+    @Test
+    void shouldTrimBeforeAndAfterPipeExtraction_whenXmlProviderHasWhitespace() {
+        assertThat(BillingONRequestParams.extractProviderNo(" 999998 | OHIP1234 ", null))
+                .isEqualTo("999998");
+    }
+
+    @Test
+    void shouldTrimBeforeAndAfterPipeExtraction_whenProviderViewFallbackHasWhitespace() {
+        assertThat(BillingONRequestParams.extractProviderNo(null, " 888888 | stuff "))
+                .isEqualTo("888888");
     }
 }

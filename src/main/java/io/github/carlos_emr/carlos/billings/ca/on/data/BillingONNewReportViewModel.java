@@ -45,7 +45,7 @@ public final class BillingONNewReportViewModel {
     /** Clinic option for the multisite "select clinic" dropdown. */
     public record SiteOption(String name, String bgColor, List<SiteProviderEntry> providers) {
         public SiteOption {
-            providers = List.copyOf(providers);
+            providers = copyOfOrEmpty(providers);
         }
     }
 
@@ -70,11 +70,15 @@ public final class BillingONNewReportViewModel {
         this.selectedSite = b.selectedSite;
         this.defaultBillForm = b.defaultBillForm;
         this.multisitesEnabled = b.multisitesEnabled;
-        this.columnHeaders = List.copyOf(b.columnHeaders);
-        this.rows = List.copyOf(b.rows);
-        this.totalRow = List.copyOf(b.totalRow);
-        this.providerOptions = List.copyOf(b.providerOptions);
-        this.siteOptions = List.copyOf(b.siteOptions);
+        this.columnHeaders = copyOfOrEmpty(b.columnHeaders);
+        this.rows = copyOfOrEmpty(b.rows);
+        this.totalRow = copyOfOrEmpty(b.totalRow);
+        this.providerOptions = copyOfOrEmpty(b.providerOptions);
+        this.siteOptions = copyOfOrEmpty(b.siteOptions);
+    }
+
+    private static <T> List<T> copyOfOrEmpty(List<T> values) {
+        return values == null ? Collections.emptyList() : List.copyOf(values);
     }
 
     public String getReportAction() { return reportAction; }
