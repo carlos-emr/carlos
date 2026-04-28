@@ -82,7 +82,6 @@
 <%-- Completes the cross-file row opened at the end of add-form-personal.jsp --%>
                             <div class="col-sm-2 text-end" id="demoDoctorLbl">
                                 <label class="fw-bold col-form-label py-0">
-                                    } else { %>
                                     <% if (oscarProps.getProperty("demographicLabelDoctor") != null) {
                                          out.print(SafeEncode.forHtml(oscarProps.getProperty("demographicLabelDoctor", "")));
                                     } else { %>
@@ -556,8 +555,7 @@
                                             <c:set var="patientConsent" value="${ consent }"/>
                                         </c:if>
                                     </c:forEach>
-                                     <c:set var="rawConsentTypeKey" value="${ consentType.type }"/>
-                                     <c:set var="safeConsentTypeKey" value="${ fn:replace(rawConsentTypeKey, ' ', '_') }"/>
+                                     <c:set var="stableConsentKey" value="consent_${consentType.id}"/>
                                     <div class="row mb-2 align-items-start privacyConsentRow" id="privacyConsentRow_${count.index}">
                                         <div class="col-sm-2 text-end">
                                             <span class="fw-bold">${carlos:forHtml(consentType.name)}</span>
@@ -567,16 +565,16 @@
                                         </div>
                                         <div class="col-sm-4" id="consentStatusDate">
                                             <div class="form-check form-check-inline">
-                                                 <input type="radio" name="${rawConsentTypeKey}" id="optin_${safeConsentTypeKey}" value="0" class="form-check-input"/>
-                                                 <label class="form-check-label" for="optin_${safeConsentTypeKey}"><fmt:message key="demographic.demographicaddrecordhtm.optIn"/></label>
+                                                 <input type="radio" name="${carlos:forHtmlAttribute(consentType.type)}" id="optin_${stableConsentKey}" value="0" class="form-check-input"/>
+                                                 <label class="form-check-label" for="optin_${stableConsentKey}"><fmt:message key="demographic.demographicaddrecordhtm.optIn"/></label>
                                             </div>
                                             <div class="form-check form-check-inline">
-                                                 <input type="radio" name="${rawConsentTypeKey}" id="optout_${safeConsentTypeKey}" value="1" class="form-check-input"/>
-                                                 <label class="form-check-label" for="optout_${safeConsentTypeKey}"><fmt:message key="demographic.demographicaddrecordhtm.optOut"/></label>
+                                                 <input type="radio" name="${carlos:forHtmlAttribute(consentType.type)}" id="optout_${stableConsentKey}" value="1" class="form-check-input"/>
+                                                 <label class="form-check-label" for="optout_${stableConsentKey}"><fmt:message key="demographic.demographicaddrecordhtm.optOut"/></label>
                                             </div>
                                             <input type="button" class="btn btn-outline-secondary btn-sm"
-                                                    name="clearRadio_${safeConsentTypeKey}_btn"
-                                                    onclick="consentClearBtn('${safeConsentTypeKey}')" value="<fmt:message key='demographic.demographicaddrecordhtm.clear'/>"/>
+                                                    name="clearRadio_${stableConsentKey}_btn"
+                                                    onclick="consentClearBtn('${carlos:forJavaScript(consentType.type)}')" value="<fmt:message key='demographic.demographicaddrecordhtm.clear'/>"/>
                                         </div>
                                     </div>
                                 </c:forEach>
