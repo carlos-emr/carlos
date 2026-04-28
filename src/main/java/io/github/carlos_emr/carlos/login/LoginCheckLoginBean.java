@@ -46,7 +46,6 @@ import io.github.carlos_emr.carlos.managers.MfaManager;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.model.security.LdapSecurity;
 import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
@@ -84,13 +83,6 @@ import io.github.carlos_emr.carlos.log.LogConst;
  *   <li>Failed migration is logged but does not prevent login</li>
  * </ul>
  *
- * <p>LDAP integration:
- * <ul>
- *   <li>If LDAP authentication is enabled, Security object is wrapped in {@link LdapSecurity}</li>
- *   <li>LDAP delegates password validation to LDAP server while maintaining local Security record</li>
- *   <li>LDAP configuration via {@link CarlosProperties#isLdapAuthenticationEnabled()}</li>
- * </ul>
- *
  * <p>Usage pattern:
  * <pre>
  * LoginCheckLoginBean bean = new LoginCheckLoginBean();
@@ -109,7 +101,6 @@ import io.github.carlos_emr.carlos.log.LogConst;
  * @see LoginCheckLogin for brute force protection and authentication coordination
  * @see SecurityManager for password hashing and validation
  * @see MfaManager for multi-factor authentication operations
- * @see LdapSecurity for LDAP authentication integration
  * @since 2026-02-10
  */
 public final class LoginCheckLoginBean {
@@ -359,7 +350,6 @@ public final class LoginCheckLoginBean {
      * <p>This method performs multiple database queries to collect all user information:
      * <ol>
      *   <li>Query security table for username to get Security record</li>
-     *   <li>Wrap with LdapSecurity if LDAP authentication is enabled</li>
      *   <li>Query provider table for first name, last name, profession, email</li>
      *   <li>Query sec_user_role table for comma-separated role list</li>
      * </ol>
@@ -373,16 +363,8 @@ public final class LoginCheckLoginBean {
      *   <li>rolename - Comma-separated list of role names (e.g., "doctor,admin")</li>
      * </ul>
      *
-     * <p>LDAP integration:
-     * <ul>
-     *   <li>If LDAP enabled, Security is wrapped in {@link LdapSecurity}</li>
-     *   <li>LdapSecurity delegates password validation to LDAP server</li>
-     *   <li>Local Security record maintained for session management</li>
-     * </ul>
-     *
-     * @return Security the user's security record (wrapped in LdapSecurity if LDAP enabled), or null if user not found
+     * @return Security the user's security record, or null if user not found
      * @see SecurityDao#findByUserName for database lookup
-     * @see LdapSecurity for LDAP authentication wrapper
      */
     private Security getUserID() {
 
@@ -393,10 +375,6 @@ public final class LoginCheckLoginBean {
 
         if (security == null) {
             return null;
-        }
-        // Wrap with LDAP authentication adapter if LDAP is enabled
-        else if (CarlosProperties.isLdapAuthenticationEnabled()) {
-            security = new LdapSecurity(security);
         }
 
         // Populate provider information from provider table
