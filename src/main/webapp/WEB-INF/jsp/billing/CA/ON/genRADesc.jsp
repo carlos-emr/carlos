@@ -71,17 +71,33 @@ Colposcopy Total :
 
 <br>
 <br>
-<%-- balanceForwardHtml + transactionHtml are pre-rendered HTML row blocks
-     assembled by the assembler from RA-file H6/H7 records. Emitted raw
-     (matches the legacy raw-HTML output behavior) since the content is
-     server-controlled (parsed from a server-side fixed-width OHIP file). --%>
 <table bgcolor="#EEEEEE" bordercolor="#666666" border="1">
-    ${raDescModel.balanceForwardHtml}
+    <tr><td colspan="4">Balance Forward Record - Amount Brought Forward (ABF)</td></tr>
+    <tr><td>Claims Adjustment</td><td>Advances</td><td>Reductions</td><td>Deductions</td></tr>
+    <tr>
+        <td><carlos:encode value="${raDescModel.balanceForwardRow.claimsAdjustment}" context="html"/></td>
+        <td><carlos:encode value="${raDescModel.balanceForwardRow.advances}" context="html"/></td>
+        <td><carlos:encode value="${raDescModel.balanceForwardRow.reductions}" context="html"/></td>
+        <td><carlos:encode value="${raDescModel.balanceForwardRow.deductions}" context="html"/></td>
+    </tr>
 </table>
 <br>
+<c:if test="${not empty raDescModel.transactionRows}">
 <table bgcolor="#EEEEFF" bordercolor="#666666" border="1">
-    ${raDescModel.transactionHtml}
+    <tr><td colspan="5">Accounting Transaction Record</td></tr>
+    <tr><td width="14%">Transaction</td><td width="12%">Transaction Date</td>
+        <td width="17%">Cheque Issued</td><td width="13%">Amount</td><td width="44%">Message</td></tr>
+    <c:forEach var="__txn" items="${raDescModel.transactionRows}">
+    <tr>
+        <td width="14%"><carlos:encode value="${__txn.transaction}" context="html"/></td>
+        <td width="12%"><carlos:encode value="${__txn.transactionDate}" context="html"/></td>
+        <td width="17%"><carlos:encode value="${__txn.chequeIssued}" context="html"/></td>
+        <td width="13%"><carlos:encode value="${__txn.amount}" context="html"/></td>
+        <td width="44%"><carlos:encode value="${__txn.message}" context="html"/></td>
+    </tr>
+    </c:forEach>
 </table>
+</c:if>
 
 <c:if test="${not empty raDescModel.premiumRows}">
 <form action="${pageContext.request.contextPath}/billing/CA/ON/ApplyPractitionerPremium" method="post">

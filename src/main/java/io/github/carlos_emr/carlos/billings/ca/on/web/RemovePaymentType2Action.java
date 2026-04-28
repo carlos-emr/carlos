@@ -72,6 +72,9 @@ public class RemovePaymentType2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
+        if (!BillingRequestGuards.requirePost(request, response)) {
+            return NONE;
+        }
 
         ObjectNode ret = objectMapper.createObjectNode();
         int paymentTypeId;

@@ -29,10 +29,9 @@ import java.util.List;
  * (Remittance Advice) reconciliation report.
  *
  * <p>Captures the parsed RA-file totals (cheque amount, local clinic,
- * other clinic, OB total, colposcopy total), the pre-rendered balance-
- * forward + transaction HTML blocks (assembled from the RA file headers),
- * any RA message text, and the per-practitioner premium rows (each with
- * its OHIP-mapped provider dropdown options).</p>
+ * other clinic, OB total, colposcopy total), structured balance-forward
+ * and transaction rows, any RA message text, and the per-practitioner
+ * premium rows (each with its OHIP-mapped provider dropdown options).</p>
  *
  * <p>Populated by
  * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.GenRADescDataAssembler#assemble}
@@ -55,13 +54,41 @@ public final class GenRADescViewModel {
     private final String otherTotal;
     private final String obTotal;
     private final String coTotal;
-    /** Pre-rendered balance-forward HTML row block. */
-    private final String balanceForwardHtml;
-    /** Pre-rendered accounting-transaction HTML row block. */
-    private final String transactionHtml;
+    private final BalanceForwardRow balanceForwardRow;
+    private final List<TransactionRow> transactionRows;
     /** Concatenated RA message text (RA file H8 header lines). */
     private final String messageTxt;
     private final List<PremiumRow> premiumRows;
+
+    public record BalanceForwardRow(String claimsAdjustment,
+                                    String advances,
+                                    String reductions,
+                                    String deductions) {
+        public BalanceForwardRow {
+            claimsAdjustment = nullToEmpty(claimsAdjustment);
+            advances = nullToEmpty(advances);
+            reductions = nullToEmpty(reductions);
+            deductions = nullToEmpty(deductions);
+        }
+
+        static BalanceForwardRow zero() {
+            return new BalanceForwardRow("0.000", "0.000", "0.000", "0.000");
+        }
+    }
+
+    public record TransactionRow(String transaction,
+                                 String transactionDate,
+                                 String chequeIssued,
+                                 String amount,
+                                 String message) {
+        public TransactionRow {
+            transaction = nullToEmpty(transaction);
+            transactionDate = nullToEmpty(transactionDate);
+            chequeIssued = nullToEmpty(chequeIssued);
+            amount = nullToEmpty(amount);
+            message = nullToEmpty(message);
+        }
+    }
 
     /**
      * One row in the per-practitioner premium table. Carries the OHIP-mapped
@@ -89,8 +116,10 @@ public final class GenRADescViewModel {
         this.otherTotal = nullToEmpty(b.otherTotal);
         this.obTotal = nullToEmpty(b.obTotal);
         this.coTotal = nullToEmpty(b.coTotal);
-        this.balanceForwardHtml = nullToEmpty(b.balanceForwardHtml);
-        this.transactionHtml = nullToEmpty(b.transactionHtml);
+        this.balanceForwardRow = b.balanceForwardRow == null
+                ? BalanceForwardRow.zero() : b.balanceForwardRow;
+        this.transactionRows = b.transactionRows == null
+                ? Collections.emptyList() : List.copyOf(b.transactionRows);
         this.messageTxt = nullToEmpty(b.messageTxt);
         this.premiumRows = b.premiumRows == null
                 ? Collections.emptyList() : List.copyOf(b.premiumRows);
@@ -106,8 +135,8 @@ public final class GenRADescViewModel {
     public String getOtherTotal() { return otherTotal; }
     public String getObTotal() { return obTotal; }
     public String getCoTotal() { return coTotal; }
-    public String getBalanceForwardHtml() { return balanceForwardHtml; }
-    public String getTransactionHtml() { return transactionHtml; }
+    public BalanceForwardRow getBalanceForwardRow() { return balanceForwardRow; }
+    public List<TransactionRow> getTransactionRows() { return transactionRows; }
     public String getMessageTxt() { return messageTxt; }
     public List<PremiumRow> getPremiumRows() { return premiumRows; }
 
@@ -118,8 +147,8 @@ public final class GenRADescViewModel {
         private String otherTotal;
         private String obTotal;
         private String coTotal;
-        private String balanceForwardHtml;
-        private String transactionHtml;
+        private BalanceForwardRow balanceForwardRow;
+        private List<TransactionRow> transactionRows;
         private String messageTxt;
         private List<PremiumRow> premiumRows;
 
@@ -129,8 +158,8 @@ public final class GenRADescViewModel {
         public Builder otherTotal(String v) { this.otherTotal = v; return this; }
         public Builder obTotal(String v) { this.obTotal = v; return this; }
         public Builder coTotal(String v) { this.coTotal = v; return this; }
-        public Builder balanceForwardHtml(String v) { this.balanceForwardHtml = v; return this; }
-        public Builder transactionHtml(String v) { this.transactionHtml = v; return this; }
+        public Builder balanceForwardRow(BalanceForwardRow v) { this.balanceForwardRow = v; return this; }
+        public Builder transactionRows(List<TransactionRow> v) { this.transactionRows = v == null ? null : List.copyOf(v); return this; }
         public Builder messageTxt(String v) { this.messageTxt = v; return this; }
         // Defensive copy at the setter — mirrors BillingONFormViewModel pattern.
         public Builder premiumRows(List<PremiumRow> v) { this.premiumRows = v == null ? null : List.copyOf(v); return this; }

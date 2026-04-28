@@ -150,21 +150,21 @@ public class BillingCodeSearchDataAssembler {
             q.desc = " ";
         } else {
             q.code = name + "%";
-            q.desc = "%" + q.code + "%";
+            q.desc = "%" + name + "%";
         }
         if (isEmpty(name1)) {
             q.code1 = " ";
             q.desc1 = " ";
         } else {
             q.code1 = name1 + "%";
-            q.desc1 = "%" + q.code1 + "%";
+            q.desc1 = "%" + name1 + "%";
         }
         if (isEmpty(name2)) {
             q.code2 = " ";
             q.desc2 = " ";
         } else {
             q.code2 = name2 + "%";
-            q.desc2 = "%" + q.code2 + "%";
+            q.desc2 = "%" + name2 + "%";
         }
         return q;
     }
@@ -172,11 +172,11 @@ public class BillingCodeSearchDataAssembler {
     private static QueryParams buildResearchQueryParams(String name, String name1, String name2) {
         QueryParams q = new QueryParams();
         if (isEmpty(name)) { q.code = " "; q.desc = " "; }
-        else { q.code = name + "%"; q.desc = q.code + "%"; }
+        else { q.code = name + "%"; q.desc = name + "%"; }
         if (isEmpty(name1)) { q.code1 = " "; q.desc1 = " "; }
-        else { q.code1 = name1 + "%"; q.desc1 = q.code1 + "%"; }
+        else { q.code1 = name1 + "%"; q.desc1 = name1 + "%"; }
         if (isEmpty(name2)) { q.code2 = " "; q.desc2 = " "; }
-        else { q.code2 = name2 + "%"; q.desc2 = q.code2 + "%"; }
+        else { q.code2 = name2 + "%"; q.desc2 = name2 + "%"; }
         return q;
     }
 

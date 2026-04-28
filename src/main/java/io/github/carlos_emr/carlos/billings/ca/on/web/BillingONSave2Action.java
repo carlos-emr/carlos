@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -86,9 +87,13 @@ public class BillingONSave2Action extends ActionSupport {
     @Override
     public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();
+        HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
+        }
+        if (!BillingRequestGuards.requirePost(request, response)) {
+            return NONE;
         }
 
         String apptNo = request.getParameter("appointment_no");
@@ -123,25 +128,27 @@ public class BillingONSave2Action extends ActionSupport {
         }
 
         ArrayList vecObj = bObj.getBillingClaimObj(request);
-        boolean ret = bObj.addABillingRecord(vecObj);
+        BillingSaveService.SaveResult saveResult = bObj.addABillingRecord(vecObj);
+        boolean ret = saveResult.saved();
+        int billingNo = saveResult.billingId();
 
         String xmlBillType = request.getParameter("xml_billtype");
-        if (xmlBillType != null
-                && xmlBillType.length() >= 3
-                && xmlBillType.substring(0, 3).matches(BillingDataHlp.BILLINGMATCHSTRING_3RDPARTY)) {
-            bObj.addPrivateBillExtRecord(request, vecObj);
-        } else {
-            bObj.addOhipInvoiceTrans(vecObj);
+        if (billingNo > 0) {
+            if (xmlBillType != null
+                    && xmlBillType.length() >= 3
+                    && xmlBillType.substring(0, 3).matches(BillingDataHlp.BILLINGMATCHSTRING_3RDPARTY)) {
+                bObj.addPrivateBillExtRecord(request, vecObj, billingNo);
+            } else {
+                bObj.addOhipInvoiceTrans(vecObj);
+            }
         }
-
-        int billingNo = bObj.getBillingId();
 
         String value = request.getParameter("payeename");
         if (value == null || value.trim().isEmpty()) {
             value = request.getParameter("payeename1");
         }
 
-        BillingONCHeader1 billing = cheader1Dao.find(billingNo);
+        BillingONCHeader1 billing = billingNo > 0 ? cheader1Dao.find(billingNo) : null;
         if (billing != null) {
             BillingONExt ext = new BillingONExt();
             ext.setBillingNo(billingNo);

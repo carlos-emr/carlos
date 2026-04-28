@@ -25,7 +25,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.regex.Pattern;
 
 import io.github.carlos_emr.carlos.billing.CA.filters.CodeFilterManager;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONFormViewModel;
@@ -77,11 +76,68 @@ public class BillingONFormServiceGridComposer {
     /**
      * Whitelist for {@code displayStyle} values rendered into a service-grid
      * {@code <td style="...">} attribute. Only {@code property:value;...}
-     * shape allowed — drops malformed DB rows that could break out of the
-     * attribute (CSS injection).
+     * shape is allowed. Implemented as a linear scan so malformed CSS cannot
+     * trigger regex backtracking.
      */
-    private static final Pattern SAFE_INLINE_STYLE = Pattern.compile(
-            "^(?:[A-Za-z-]+\\s*:\\s*[^;\"\\\\]+;?\\s*)+$");
+    static boolean isSafeInlineStyle(String style) {
+        if (style == null || style.isBlank()) {
+            return false;
+        }
+        int i = 0;
+        int len = style.length();
+        while (i < len) {
+            while (i < len && Character.isWhitespace(style.charAt(i))) {
+                i++;
+            }
+            if (i >= len) {
+                return true;
+            }
+            int propertyStart = i;
+            if (i >= len || !isAsciiLetter(style.charAt(i))) {
+                return false;
+            }
+            i++;
+            while (i < len) {
+                char c = style.charAt(i);
+                if (!isAsciiLetter(c) && c != '-') {
+                    break;
+                }
+                i++;
+            }
+            if (i == propertyStart) {
+                return false;
+            }
+            while (i < len && Character.isWhitespace(style.charAt(i))) {
+                i++;
+            }
+            if (i >= len || style.charAt(i) != ':') {
+                return false;
+            }
+            i++;
+            while (i < len && Character.isWhitespace(style.charAt(i))) {
+                i++;
+            }
+            int valueStart = i;
+            while (i < len && style.charAt(i) != ';') {
+                char c = style.charAt(i);
+                if (c == '"' || c == '\\') {
+                    return false;
+                }
+                i++;
+            }
+            if (i == valueStart || style.substring(valueStart, i).isBlank()) {
+                return false;
+            }
+            if (i < len && style.charAt(i) == ';') {
+                i++;
+            }
+        }
+        return true;
+    }
+
+    private static boolean isAsciiLetter(char c) {
+        return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+    }
 
     private final CtlBillingServiceDao ctlBillingServiceDao;
     private final BillingServiceDao billingServiceDao;
@@ -164,7 +220,7 @@ public class BillingONFormServiceGridComposer {
                             // Allow only the simple "property:value;property:value;"
                             // shape so a malformed DB row can't break out of the
                             // attribute (CSS injection).
-                            if (SAFE_INLINE_STYLE.matcher(cssStyle.getStyle()).matches()) {
+                            if (isSafeInlineStyle(cssStyle.getStyle())) {
                                 displayStyle = cssStyle.getStyle();
                             } else {
                                 MiscUtils.getLogger().warn(

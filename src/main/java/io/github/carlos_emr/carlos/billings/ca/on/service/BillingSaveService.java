@@ -51,35 +51,35 @@ public class BillingSaveService {
     private static final Logger _logger = MiscUtils.getLogger();
     private final BillingONClaimPersister dbObj;
     private final BillingONLookupService lookupService;
-    int billingId = 0;
 
     BillingSaveService(BillingONClaimPersister dbObj, BillingONLookupService lookupService) {
         this.dbObj = dbObj;
         this.lookupService = lookupService;
     }
 
+    public record SaveResult(boolean saved, int billingId) {}
+
     // save a billing record
     @SuppressWarnings("rawtypes")
-    public boolean addABillingRecord(ArrayList val) {
+    public SaveResult addABillingRecord(ArrayList val) {
         boolean ret = false;
         BillingClaimHeader1Data claim1Obj = (BillingClaimHeader1Data) val.get(0);
         int billingNo = dbObj.addOneClaimHeaderRecord(claim1Obj);
-        billingId = billingNo;
         if (billingNo == 0)
-            return false;
-        claim1Obj.setId(((Integer) billingId).toString());
+            return new SaveResult(false, 0);
+        claim1Obj.setId(Integer.toString(billingNo));
         if (val.size() > 1) {
             ret = dbObj.addItemRecord((List) val.get(1), billingNo);
             if (!ret)
-                return false;
+                return new SaveResult(false, billingNo);
         } else {
             _logger.error("No billing item for billing # " + billingNo);
         }
 
-        return ret;
+        return new SaveResult(ret, billingNo);
     }
 
-    public boolean addPrivateBillExtRecord(HttpServletRequest requestData) {
+    public boolean addPrivateBillExtRecord(HttpServletRequest requestData, int billingId) {
         boolean ret = false;
         Map<String, String> val = getPrivateBillExtObj(requestData);
         ret = dbObj.add3rdBillExt(val, billingId);
@@ -90,12 +90,9 @@ public class BillingSaveService {
     }
 
 
-    @SuppressWarnings("unchecked")
-    public boolean addPrivateBillExtRecord(HttpServletRequest requestData, ArrayList vecObj) {
+    public boolean addPrivateBillExtRecord(HttpServletRequest requestData, ArrayList vecObj, int billingId) {
         boolean ret = false;
-        boolean rat = false;
 
-        @SuppressWarnings("unused")
         Map<String, String> val = getPrivateBillExtObj(requestData);
         ret = dbObj.add3rdBillExt(val, billingId, vecObj);
         if (!ret)
@@ -456,14 +453,6 @@ public class BillingSaveService {
             }
         }
         return ret;
-    }
-
-    public int getBillingId() {
-        return billingId;
-    }
-
-    public void setBillingId(int billingId) {
-        this.billingId = billingId;
     }
 
 }

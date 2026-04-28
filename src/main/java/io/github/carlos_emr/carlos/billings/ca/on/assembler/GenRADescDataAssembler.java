@@ -56,7 +56,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * scriptlet ran the same writes inline. Specifically:</p>
  * <ul>
  *   <li>Re-parses the OHIP RA file pointed at by {@code RaHeader.filename},
- *       building the {@code xml_ra} content blob from H1/H6/H7/H8 records.</li>
+ *       building structured model rows from H1/H6/H7/H8 records.</li>
  *   <li>{@code RaHeaderDao.merge}: updates the RA header row with parsed
  *       totalAmount / records / claims / content.</li>
  *   <li>{@code BillingONPremiumDao.parseAndSaveRAPremiums}: idempotent —
@@ -120,22 +120,8 @@ public class GenRADescDataAssembler {
         String coTotal = nullToEmpty(SxmlMisc.getXmlContent(existingContent, "<xml_co_total>", "</xml_co_total>"));
         String newTotal = nullToEmpty(SxmlMisc.getXmlContent(existingContent, "<xml_total>", "</xml_total>"));
 
-        String transactionHtml = parsed.transactionsEmpty()
-                ? ""
-                : "<xml_transaction><table width='100%' border='0' cellspacing='0' cellpadding='0'>"
-                  + "<tr><td colspan='5'>Accounting Transaction Record</td></tr>"
-                  + "<tr><td width='14%'>Transaction</td><td width='12%'>Transaction Date</td>"
-                  + "<td width='17%'>Cheque Issued</td><td width='13%'>Amount</td>"
-                  + "<td width='44%'>Message</td></tr>"
-                  + parsed.transactionRows + "</table></xml_transaction>";
-
-        String balanceFwdHtml = "<xml_balancefwd><table width='100%' border='0' cellspacing='0' cellpadding='0'>"
-                + "<tr><td colspan='4'>Balance Forward Record - Amount Brought Forward (ABF)</td></tr>"
-                + "<tr><td>Claims Adjustment</td><td>Advances</td><td>Reductions</td><td>Deductions</td></tr>"
-                + "<tr><td>" + parsed.abfCa + "</td><td>" + parsed.abfAd + "</td>"
-                + "<td>" + parsed.abfRe + "</td><td>" + parsed.abfDe + "</td></tr></table></xml_balancefwd>";
-
-        String mergedContent = transactionHtml + balanceFwdHtml
+        String mergedContent = "<xml_transaction>" + transactionRowsXml(parsed.transactionRows) + "</xml_transaction>"
+                + "<xml_balancefwd>" + balanceForwardXml(parsed.balanceForwardRow) + "</xml_balancefwd>"
                 + "<xml_local>" + localTotal + "</xml_local>"
                 + "<xml_cheque>" + parsed.cheque + "</xml_cheque>"
                 + "<xml_total>" + newTotal + "</xml_total>"
@@ -153,24 +139,13 @@ public class GenRADescDataAssembler {
             raHeaderDao.merge(r);
         }
 
-        // Re-load to get the canonical balance-forward / transaction blocks
-        // from the merged content (matches the legacy second-load behavior).
-        rh = raHeaderDao.find(raNo);
-        String renderedBalance = "";
-        String renderedTransaction = "";
-        if (rh != null && !"D".equals(rh.getStatus())) {
-            String c = nullToEmpty(rh.getContent());
-            renderedBalance = nullToEmpty(SxmlMisc.getXmlContent(c, "<xml_balancefwd>", "</xml_balancefwd>"));
-            renderedTransaction = nullToEmpty(SxmlMisc.getXmlContent(c, "<xml_transaction>", "</xml_transaction>"));
-        }
-
         b.chequeTotal(parsed.cheque)
                 .localTotal(localTotal)
                 .otherTotal(otherTotal)
                 .obTotal(obTotal)
                 .coTotal(coTotal)
-                .balanceForwardHtml(renderedBalance)
-                .transactionHtml(renderedTransaction)
+                .balanceForwardRow(parsed.balanceForwardRow)
+                .transactionRows(parsed.transactionRows)
                 .messageTxt(parsed.messageTxt);
 
         // Practitioner premiums: lazy-populate then load the rows + each
@@ -230,7 +205,6 @@ public class GenRADescDataAssembler {
         }
 
         String docDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "").trim();
-        StringBuilder transactions = new StringBuilder();
         StringBuilder messages = new StringBuilder();
 
         try (FileInputStream file = new FileInputStream(docDir + filename);
@@ -247,7 +221,7 @@ public class GenRADescDataAssembler {
                     case "4" -> out.recordCount++;
                     case "5" -> out.claimCount++;
                     case "6" -> parseH6(nextline, out);
-                    case "7" -> parseH7(nextline, transactions);
+                    case "7" -> parseH7(nextline, out);
                     case "8" -> parseH8(nextline, messages);
                     default -> {
                         // unhandled header byte — skip
@@ -258,7 +232,6 @@ public class GenRADescDataAssembler {
             MiscUtils.getLogger().error("Failed to parse RA file '{}'", filename, e);
         }
 
-        out.transactionRows = transactions.toString();
         out.messageTxt = messages.toString();
         return out;
     }
@@ -288,20 +261,19 @@ public class GenRADescDataAssembler {
         out.abfAd = line.substring(13, 20) + "." + line.substring(20, 23);
         out.abfRe = line.substring(23, 30) + "." + line.substring(30, 33);
         out.abfDe = line.substring(33, 40) + "." + line.substring(40, 43);
+        out.balanceForwardRow = new GenRADescViewModel.BalanceForwardRow(
+                out.abfCa, out.abfAd, out.abfRe, out.abfDe);
     }
 
-    private static void parseH7(String line, StringBuilder transactions) {
+    private static void parseH7(String line, ParsedFile out) {
         if (line.length() < 73) return;
         String transCode = decodeTransCode(line.substring(3, 5));
         String chequeIndicator = decodeChequeIndicator(line.substring(5, 6));
         String transDate = line.substring(6, 14);
         String transAmount = line.substring(14, 20) + "." + line.substring(20, 23);
         String transMessage = line.substring(23, 73);
-        transactions.append("<tr><td width='14%'>").append(transCode)
-                .append("</td><td width='12%'>").append(transDate)
-                .append("</td><td width='17%'>").append(chequeIndicator)
-                .append("</td><td width='13%'>").append(transAmount)
-                .append("</td><td width='44%'>").append(transMessage).append("</td></tr>");
+        out.transactionRows.add(new GenRADescViewModel.TransactionRow(
+                transCode, transDate, chequeIndicator, transAmount, transMessage));
     }
 
     private static void parseH8(String line, StringBuilder messages) {
@@ -343,6 +315,38 @@ public class GenRADescDataAssembler {
 
     private static String nullToEmpty(String s) { return s == null ? "" : s; }
 
+    private static String balanceForwardXml(GenRADescViewModel.BalanceForwardRow row) {
+        GenRADescViewModel.BalanceForwardRow safe = row == null
+                ? new GenRADescViewModel.BalanceForwardRow("0.000", "0.000", "0.000", "0.000") : row;
+        return "<claimsAdjustment>" + xmlText(safe.claimsAdjustment()) + "</claimsAdjustment>"
+                + "<advances>" + xmlText(safe.advances()) + "</advances>"
+                + "<reductions>" + xmlText(safe.reductions()) + "</reductions>"
+                + "<deductions>" + xmlText(safe.deductions()) + "</deductions>";
+    }
+
+    private static String transactionRowsXml(List<GenRADescViewModel.TransactionRow> rows) {
+        StringBuilder out = new StringBuilder();
+        for (GenRADescViewModel.TransactionRow row : rows) {
+            out.append("<row>")
+                    .append("<transaction>").append(xmlText(row.transaction())).append("</transaction>")
+                    .append("<transactionDate>").append(xmlText(row.transactionDate())).append("</transactionDate>")
+                    .append("<chequeIssued>").append(xmlText(row.chequeIssued())).append("</chequeIssued>")
+                    .append("<amount>").append(xmlText(row.amount())).append("</amount>")
+                    .append("<message>").append(xmlText(row.message())).append("</message>")
+                    .append("</row>");
+        }
+        return out.toString();
+    }
+
+    private static String xmlText(String value) {
+        return nullToEmpty(value)
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&apos;");
+    }
+
     private static class ParsedFile {
         String paymentDate = "";
         String cheque = "0.00";
@@ -352,11 +356,9 @@ public class GenRADescDataAssembler {
         String abfDe = "0.000";
         int recordCount = 0;
         int claimCount = 0;
-        String transactionRows = "";
+        GenRADescViewModel.BalanceForwardRow balanceForwardRow =
+                new GenRADescViewModel.BalanceForwardRow("0.000", "0.000", "0.000", "0.000");
+        List<GenRADescViewModel.TransactionRow> transactionRows = new ArrayList<>();
         String messageTxt = "";
-
-        boolean transactionsEmpty() {
-            return transactionRows == null || transactionRows.isEmpty();
-        }
     }
 }

@@ -21,15 +21,22 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
-import io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao;
-import io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao;
+import java.util.ArrayList;
+
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionRecordService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingSaveService;
+import io.github.carlos_emr.carlos.commn.dao.BillingDao;
+import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
+import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
+import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
+import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
+import io.github.carlos_emr.carlos.commn.model.BillingONExt;
+import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
@@ -39,6 +46,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
@@ -46,35 +54,32 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-/**
- * Unit tests for {@link RemovePaymentType2Action}.
- *
- * @since 2026-04-27
- */
-@DisplayName("RemovePaymentType2Action")
+@DisplayName("BillingONSave2Action")
 @Tag("unit")
 @Tag("billing")
-class RemovePaymentType2ActionUnitTest extends CarlosUnitTestBase {
+class BillingONSave2ActionUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
     private AutoCloseable mockitoCloseable;
 
     @Mock private SecurityInfoManager mockSecurityInfoManager;
+    @Mock private BillingONCHeader1Dao mockCheader1Dao;
+    @Mock private BillingONExtDao mockExtDao;
+    @Mock private UserPropertyDAO mockUserPropertyDao;
+    @Mock private BillingDao mockBillingDao;
+    @Mock private BillingSaveService mockSaveService;
+    @Mock private BillingCorrectionRecordService mockCorrectionPrep;
     @Mock private LoggedInInfo mockLoggedInInfo;
-    @Mock private BillingPaymentTypeDao mockTypeDao;
-    @Mock private BillingONPaymentDao mockPaymentDao;
 
     private MockHttpServletRequest mockRequest;
     private MockHttpServletResponse mockResponse;
@@ -96,6 +101,7 @@ class RemovePaymentType2ActionUnitTest extends CarlosUnitTestBase {
 
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(true);
+        when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
     }
 
     @AfterEach
@@ -105,70 +111,67 @@ class RemovePaymentType2ActionUnitTest extends CarlosUnitTestBase {
         if (mockitoCloseable != null) mockitoCloseable.close();
     }
 
-    @Test
-    void shouldRemoveAndReturnRet0_whenTypeIsUnused() throws Exception {
-        mockRequest.setParameter("paymentTypeId", "5");
-        when(mockPaymentDao.getCountOfPaymentByPaymentTypeId(5)).thenReturn(0);
-
-        RemovePaymentType2Action action =
-                new RemovePaymentType2Action(mockSecurityInfoManager, mockTypeDao, mockPaymentDao);
-        assertThat(action.execute()).isNull();
-
-        verify(mockTypeDao, times(1)).remove(5);
-        assertThat(mockResponse.getContentAsString()).contains("\"ret\":0");
-    }
-
-    @Test
-    void shouldRefuseRemoveAndReturnRet1_whenTypeIsInUse() throws Exception {
-        mockRequest.setParameter("paymentTypeId", "5");
-        when(mockPaymentDao.getCountOfPaymentByPaymentTypeId(5)).thenReturn(3);
-
-        RemovePaymentType2Action action =
-                new RemovePaymentType2Action(mockSecurityInfoManager, mockTypeDao, mockPaymentDao);
-        action.execute();
-
-        verify(mockTypeDao, never()).remove(any());
-        assertThat(mockResponse.getContentAsString()).contains("\"ret\":1");
-        assertThat(mockResponse.getContentAsString()).contains("has been used");
-    }
-
-    @Test
-    void shouldReturnRet1_whenIdParamIsNonNumeric() throws Exception {
-        mockRequest.setParameter("paymentTypeId", "not-a-number");
-
-        RemovePaymentType2Action action =
-                new RemovePaymentType2Action(mockSecurityInfoManager, mockTypeDao, mockPaymentDao);
-        action.execute();
-
-        verify(mockTypeDao, never()).remove(any());
-        assertThat(mockResponse.getContentAsString()).contains("\"ret\":1");
-    }
-
-    @Test
-    void shouldThrowSecurityException_whenLackingBillingWritePrivilege() {
-        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
-                .thenReturn(false);
-
-        RemovePaymentType2Action action =
-                new RemovePaymentType2Action(mockSecurityInfoManager, mockTypeDao, mockPaymentDao);
-        assertThatThrownBy(action::execute)
-                .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("_billing");
+    private BillingONSave2Action newAction() {
+        return new BillingONSave2Action(
+                mockSecurityInfoManager,
+                mockCheader1Dao,
+                mockExtDao,
+                mockUserPropertyDao,
+                mockBillingDao,
+                mockSaveService,
+                mockCorrectionPrep);
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"GET", "HEAD"})
-    void shouldRejectNonPostMethods_beforeMutating(String method) {
+    void shouldRejectNonPostMethods_beforeSaving(String method) {
         mockRequest.setMethod(method);
-        mockRequest.setParameter("paymentTypeId", "5");
+        mockRequest.setParameter("submit", "Save");
 
-        RemovePaymentType2Action action =
-                new RemovePaymentType2Action(mockSecurityInfoManager, mockTypeDao, mockPaymentDao);
-        String result = action.execute();
+        String result = newAction().execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
-        verifyNoInteractions(mockTypeDao, mockPaymentDao);
+        verifyNoInteractions(mockSaveService, mockCheader1Dao, mockExtDao, mockUserPropertyDao,
+                mockBillingDao, mockCorrectionPrep);
+    }
+
+    @Test
+    void shouldUseReturnedBillingIdForPrivateExtensionAndPayeeExtension() {
+        mockRequest.setParameter("appointment_no", "");
+        mockRequest.setParameter("url_back", "");
+        mockRequest.setParameter("submit", "Save");
+        mockRequest.setParameter("xml_billtype", "PAT");
+        mockRequest.setParameter("payeename", "Acme Payee");
+        mockRequest.setParameter("billNo_old", "");
+        mockRequest.setParameter("billStatus_old", "O");
+        mockRequest.setParameter("curBillForm", "ON");
+
+        ArrayList<Object> claim = new ArrayList<>();
+        when(mockSaveService.getBillingClaimObj(mockRequest)).thenReturn(claim);
+        when(mockSaveService.addABillingRecord(claim))
+                .thenReturn(new BillingSaveService.SaveResult(true, 4321));
+
+        BillingONCHeader1 savedHeader = new BillingONCHeader1();
+        savedHeader.setDemographicNo(99);
+        when(mockCheader1Dao.find(4321)).thenReturn(savedHeader);
+        when(mockUserPropertyDao.getProp("999998", UserProperty.WORKLOAD_MANAGEMENT)).thenReturn(null);
+
+        String result = newAction().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(mockRequest.getAttribute("billingNo")).isEqualTo(4321);
+        verify(mockSaveService).addPrivateBillExtRecord(mockRequest, claim, 4321);
+        verify(mockSaveService, never()).addOhipInvoiceTrans(any());
+        verify(mockCheader1Dao).find(4321);
+
+        ArgumentCaptor<BillingONExt> extCaptor = ArgumentCaptor.forClass(BillingONExt.class);
+        verify(mockExtDao).persist(extCaptor.capture());
+        BillingONExt persistedExt = extCaptor.getValue();
+        assertThat(persistedExt.getBillingNo()).isEqualTo(4321);
+        assertThat(persistedExt.getDemographicNo()).isEqualTo(99);
+        assertThat(persistedExt.getKeyVal()).isEqualTo("payee");
+        assertThat(persistedExt.getValue()).isEqualTo("Acme Payee");
     }
 }

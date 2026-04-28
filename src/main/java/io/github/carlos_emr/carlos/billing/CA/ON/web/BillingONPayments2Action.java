@@ -231,8 +231,8 @@ public class BillingONPayments2Action extends ActionSupport {
                         nullToEmpty(billItemData.getId()),
                         nullToEmpty(billItemData.getService_code()),
                         nullToEmpty(billItemData.getFee()),
-                        realPaidSign + currency.format(realPaid),
-                        balanceSign + currency.format(itemBalance)));
+                        realPaidSign + currency.format(realPaid.abs()),
+                        balanceSign + currency.format(itemBalance.abs())));
             }
         }
 
@@ -272,7 +272,7 @@ public class BillingONPayments2Action extends ActionSupport {
                         String.valueOf(pmt.getTotal_discount()),
                         String.valueOf(pmt.getTotal_credit()),
                         String.valueOf(pmt.getTotal_refund()),
-                        rowBalSign + currency.format(rowBalance)));
+                        rowBalSign + currency.format(rowBalance.abs())));
             }
         }
 
@@ -280,7 +280,7 @@ public class BillingONPayments2Action extends ActionSupport {
         BigDecimal balanceForDisplay = balance == null ? BigDecimal.ZERO : balance;
         String totalDisplay = currency.format(totalForDisplay);
         String balanceDisplay = balanceForDisplay.compareTo(BigDecimal.ZERO) < 0
-                ? "-" + currency.format(balanceForDisplay)
+                ? "-" + currency.format(balanceForDisplay.abs())
                 : currency.format(balanceForDisplay);
 
         return BillingON3rdPaymentsViewModel.builder()

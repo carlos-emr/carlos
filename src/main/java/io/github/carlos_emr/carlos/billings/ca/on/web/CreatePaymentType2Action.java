@@ -72,6 +72,9 @@ public class CreatePaymentType2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
+        if (!BillingRequestGuards.requirePost(request, response)) {
+            return NONE;
+        }
 
         String paymentType = request.getParameter("paymentType");
         if (paymentType == null || paymentType.isEmpty()) {
