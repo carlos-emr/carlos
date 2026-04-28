@@ -26,7 +26,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -701,7 +701,7 @@
             button: "inputDOB_cal",
             singleClick: true,
             step: 1,
-            onSelect: function() { parsedob_date(); }
+            onUpdate: function() { parsedob_date(); }
         });
         Calendar.setup({
             inputField: "waiting_list_referral_date",
@@ -726,7 +726,7 @@
             button: "roster_date_cal",
             singleClick: true,
             step: 1,
-            onSelect: function() { parseDateField('roster_date'); }
+            onUpdate: function() { parseDateField('roster_date'); }
         });
         Calendar.setup({
             inputField: "end_date",
@@ -735,7 +735,7 @@
             button: "end_date_cal",
             singleClick: true,
             step: 1,
-            onSelect: function() { parseDateField('end_date'); }
+            onUpdate: function() { parseDateField('end_date'); }
         });
         Calendar.setup({
             inputField: "date_joined",
@@ -744,7 +744,7 @@
             button: "date_joined_cal",
             singleClick: true,
             step: 1,
-            onSelect: function() { parseDateField('date_joined'); }
+            onUpdate: function() { parseDateField('date_joined'); }
         });
         Calendar.setup({
             inputField: "hc_renew_date",
@@ -753,7 +753,7 @@
             button: "hc_renew_date_cal",
             singleClick: true,
             step: 1,
-            onSelect: function() { parseDateField('hc_renew_date'); }
+            onUpdate: function() { parseDateField('hc_renew_date'); }
         });
         Calendar.setup({
             inputField: "eff_date",
@@ -762,7 +762,7 @@
             button: "eff_date_cal",
             singleClick: true,
             step: 1,
-            onSelect: function() { parseDateField('eff_date'); }
+            onUpdate: function() { parseDateField('eff_date'); }
         });
         <%
         if (privateConsentEnabled) {
