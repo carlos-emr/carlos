@@ -1,30 +1,39 @@
 /**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  * Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- * <p>
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- 
- * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
+ *
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
  */
-
 package io.github.carlos_emr.carlos.billings.ca.on.data;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Properties;
-import java.util.ArrayList;
+/**
+ * Data carrier for {@code BillingDataHlp}.
+ *
+ * <p>These classes carry legacy billing state between services, actions, and
+ * JSPs. Prefer explicit fields and accessors here over loosely typed request
+ * attributes in the view layer.</p>
+ */
+
 public final class BillingDataHlp {
     public static int FIELD_SERVICE_NUM = 10;
     public static int FIELD_MAX_SERVICE_NUM = 20;
@@ -56,7 +65,28 @@ public final class BillingDataHlp {
     public static Properties propMonthCode = new Properties();
     public static Properties propBillingCenter = new Properties();
     public static Properties propBillingType = new Properties();
-    public static ArrayList vecPaymentType = new ArrayList();
+    public static final List<String> vecPaymentType = Collections.unmodifiableList(Arrays.asList(
+            "HCP",
+            "Bill OHIP",
+            "RMB",
+            "Reciprocal Medical Billing",
+            "WCB",
+            "Worker's Compensation Board",
+            "PAT",
+            "Bill Patient",
+            "OCF",
+            "OCF",
+            "ODS",
+            "ODS",
+            "CPP",
+            "Canada Pension Plan",
+            "STD",
+            "Short/Long Term Disability",
+            "IFH",
+            "Interm Federal Health",
+            "NOT",
+            "Do Not Bill"
+    ));
 
     static {
         propMonthCode.setProperty("1", "A");
@@ -91,27 +121,5 @@ public final class BillingDataHlp {
         propBillingType.setProperty("S", "Settled");
         propBillingType.setProperty("D", "Deleted");
         propBillingType.setProperty("X", "Bad Debt");
-
-        vecPaymentType.add("HCP");
-        vecPaymentType.add("Bill OHIP");
-        vecPaymentType.add("RMB");
-        vecPaymentType.add("Reciprocal Medical Billing");
-        vecPaymentType.add("WCB");
-        vecPaymentType.add("Worker's Compensation Board");
-        vecPaymentType.add("PAT");
-        vecPaymentType.add("Bill Patient");
-        vecPaymentType.add("OCF");
-        vecPaymentType.add("OCF");
-        vecPaymentType.add("ODS");
-        vecPaymentType.add("ODS");
-        vecPaymentType.add("CPP");
-        vecPaymentType.add("Canada Pension Plan");
-        vecPaymentType.add("STD");
-        vecPaymentType.add("Short/Long Term Disability");
-        vecPaymentType.add("IFH");
-        vecPaymentType.add("Interm Federal Health");
-        vecPaymentType.add("NOT");
-        vecPaymentType.add("Do Not Bill");
-
     }
 }

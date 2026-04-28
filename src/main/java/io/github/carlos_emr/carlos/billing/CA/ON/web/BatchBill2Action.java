@@ -1,31 +1,25 @@
 /**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- * <p>
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- * <p>
- * This software was written for
- * Centre for Research on Inner City Health, St. Michael's Hospital,
- * Toronto, Ontario, Canada
- 
- * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
+ *
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
  */
-
-
 package io.github.carlos_emr.carlos.billing.CA.ON.web;
 
 import java.io.IOException;
@@ -56,6 +50,14 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+/**
+ * Struts action for the {@code BatchBill2Action} request flow.
+ *
+ * <p>The action owns web-layer orchestration: privilege checks, request
+ * parameter normalization, delegation to services or assemblers, and the
+ * Struts result used to render the next JSP. Keep billing rules and database
+ * work outside the JSP when changing this flow.</p>
+ */
 
 public class BatchBill2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -69,6 +71,9 @@ public class BatchBill2Action extends ActionSupport {
     @Override
     public String execute() throws Exception {
         String method = request.getParameter("method");
+        if (isMutationRequest(method) && rejectNonPostMutation()) {
+            return NONE;
+        }
         if ("doBatchBill".equals(method)) {
             return doBatchBill();
         } else if ("remove".equals(method)) {
@@ -113,28 +118,21 @@ public class BatchBill2Action extends ActionSupport {
             // a generic 500 and no signal which bills posted. Validate-then-
             // execute keeps the batch atomic from the operator's perspective.
             for (int idx = 0; idx < billingInfo.length; ++idx) {
-                String[] temp = billingInfo[idx].split(";");
-                if (temp.length < 3) {
-                    MiscUtils.getLogger().error(
-                            "BatchBill execute: row {} malformed (expected 3 fields, got {})",
-                            idx, temp.length);
-                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Malformed bill row");
-                    return NONE;
-                }
                 try {
-                    Integer.parseInt(temp[1]);
-                } catch (NumberFormatException nfe) {
+                    parseBatchBillRow(billingInfo[idx]);
+                } catch (IllegalArgumentException nfe) {
                     MiscUtils.getLogger().error(
-                            "BatchBill execute: row {} demographic_no is non-numeric",
+                            "BatchBill execute: row {} malformed or invalid",
                             idx, nfe);
-                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Non-numeric demographic_no");
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Malformed bill row");
                     return NONE;
                 }
             }
 
             for (int idx = 0; idx < billingInfo.length; ++idx) {
-                String[] temp = billingInfo[idx].split(";");
-                this.headerCreationService.createBill(temp[2], Integer.parseInt(temp[1]), temp[0], clinic_view, billingDate, curUser);
+                BatchBillRow row = parseBatchBillRow(billingInfo[idx]);
+                this.headerCreationService.createBill(row.providerNo(), row.demographicNo(),
+                        row.serviceCode(), row.dxCode(), clinic_view, billingDate, curUser);
             }
 
         }
@@ -153,6 +151,9 @@ public class BatchBill2Action extends ActionSupport {
 
     public String doBatchBill() {
 
+        if (rejectNonPostMutation()) {
+            return NONE;
+        }
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
@@ -188,32 +189,24 @@ public class BatchBill2Action extends ActionSupport {
             // committed bills 0..N-1 and left the operator without a signal
             // which posted.
             for (int idx = 0; idx < billingInfo.length; ++idx) {
-                String[] temp = billingInfo[idx].split(";");
-                if (temp.length < 4) {
-                    MiscUtils.getLogger().error(
-                            "BatchBill doBatchBill: row {} malformed (expected 4 fields, got {})",
-                            idx, temp.length);
-                    request.setAttribute("error", oscarResource.getString("billing.batchbilling.badDate"));
-                    return "error";
-                }
                 try {
-                    Integer.parseInt(temp[2]);
-                } catch (NumberFormatException nfe) {
+                    parseBatchBillRow(billingInfo[idx]);
+                } catch (IllegalArgumentException nfe) {
                     MiscUtils.getLogger().error(
-                            "BatchBill doBatchBill: row {} demographic_no is non-numeric",
+                            "BatchBill doBatchBill: row {} malformed or invalid",
                             idx, nfe);
                     request.setAttribute("error", oscarResource.getString("billing.batchbilling.badDate"));
                     return "error";
                 }
             }
 
-            String[] temp;
             for (int idx = 0; idx < billingInfo.length; ++idx) {
-                temp = billingInfo[idx].split(";");
+                BatchBillRow row = parseBatchBillRow(billingInfo[idx]);
                 //passed in order is billing providers, demographic no, service code, dx code
-                total = this.headerCreationService.createBill(temp[3], Integer.parseInt(temp[2]), temp[0], temp[1], clinic_view, billingDate, curUser);
+                total = this.headerCreationService.createBill(row.providerNo(), row.demographicNo(),
+                        row.serviceCode(), row.dxCode(), clinic_view, billingDate, curUser);
 
-                batchBillingList = batchBillingDAO.find(Integer.parseInt(temp[2]), temp[0]);
+                batchBillingList = batchBillingDAO.find(row.demographicNo(), row.serviceCode());
                 batchBilling = batchBillingList.get(0);
                 batchBilling.setBillingAmount(total);
                 batchBilling.setLastBilledDate(billingDate);
@@ -241,6 +234,9 @@ public class BatchBill2Action extends ActionSupport {
     public String remove() {
 
 
+        if (rejectNonPostMutation()) {
+            return NONE;
+        }
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
@@ -253,11 +249,10 @@ public class BatchBill2Action extends ActionSupport {
         //create the invoice and update batch_billing table
         if (billingInfo != null) {
 
-            String[] temp;
             for (int idx = 0; idx < billingInfo.length; ++idx) {
-                temp = billingInfo[idx].split(";");
+                BatchBillRow row = parseBatchBillRow(billingInfo[idx]);
 
-                batchBillingList = batchBillingDAO.find(Integer.parseInt(temp[2]), temp[0]);
+                batchBillingList = batchBillingDAO.find(row.demographicNo(), row.serviceCode());
                 batchBilling = batchBillingList.get(0);
                 batchBillingDAO.remove(batchBilling.getId());
             }
@@ -281,6 +276,9 @@ public class BatchBill2Action extends ActionSupport {
     //Add demographic to batch billing table and allow update of record if already present
     public String add() {
 
+        if (rejectNonPostMutation()) {
+            return NONE;
+        }
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
@@ -355,4 +353,38 @@ public class BatchBill2Action extends ActionSupport {
         return "saved";
 
     }
+
+    private boolean isMutationRequest(String method) {
+        return "doBatchBill".equals(method)
+                || "remove".equals(method)
+                || "add".equals(method)
+                || request.getParameterValues("bill") != null;
+    }
+
+    private boolean rejectNonPostMutation() {
+        if ("POST".equalsIgnoreCase(request.getMethod())) {
+            return false;
+        }
+        response.setHeader("Allow", "POST");
+        try {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return true;
+    }
+
+    private BatchBillRow parseBatchBillRow(String raw) {
+        String[] temp = raw == null ? new String[0] : raw.split(";", -1);
+        if (temp.length != 4) {
+            throw new IllegalArgumentException("expected 4 fields, got " + temp.length);
+        }
+        try {
+            return new BatchBillRow(temp[0], temp[1], Integer.parseInt(temp[2]), temp[3]);
+        } catch (NumberFormatException nfe) {
+            throw new IllegalArgumentException("demographic_no is non-numeric", nfe);
+        }
+    }
+
+    private record BatchBillRow(String serviceCode, String dxCode, Integer demographicNo, String providerNo) { }
 }

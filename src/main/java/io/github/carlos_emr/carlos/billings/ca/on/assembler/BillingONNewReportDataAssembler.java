@@ -7,6 +7,15 @@
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
  *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
@@ -195,8 +204,8 @@ public class BillingONNewReportDataAssembler {
             Properties prop = new Properties();
             prop.setProperty("SERVICE DATE", rs.getString("appointment_date"));
             prop.setProperty("TIME", rs.getString("start_time").substring(0, 5));
-            prop.setProperty("PATIENT", SafeEncode.forHtml(rs.getString("name")));
-            prop.setProperty("DESCRIPTION", SafeEncode.forHtml(rs.getString("reason")));
+            prop.setProperty("PATIENT", htmlCell(rs.getString("name")));
+            prop.setProperty("DESCRIPTION", htmlCell(rs.getString("reason")));
             prop.setProperty("COMMENTS", buildBillLink(defaultBillForm, providerView, rs));
             out.values.add(prop);
         }
@@ -207,13 +216,13 @@ public class BillingONNewReportDataAssembler {
         String name = rs.getString("name");
         return "<a href=# onClick='popupPage(700,1000, \"/billing?billForm="
                 + URLEncoder.encode(defaultBillForm, StandardCharsets.UTF_8)
-                + "&hotclick=&appointment_no=" + rs.getString("appointment_no")
+                + "&hotclick=&appointment_no=" + urlParam(rs.getString("appointment_no"))
                 + "&demographic_name=" + URLEncoder.encode(name, StandardCharsets.UTF_8)
-                + "&demographic_no=" + rs.getString("demographic_no")
-                + "&user_no=" + rs.getString("provider_no")
-                + "&apptProvider_no=" + providerView
-                + "&appointment_date=" + rs.getString("appointment_date")
-                + "&start_time=" + rs.getString("start_time")
+                + "&demographic_no=" + urlParam(rs.getString("demographic_no"))
+                + "&user_no=" + urlParam(rs.getString("provider_no"))
+                + "&apptProvider_no=" + urlParam(providerView)
+                + "&appointment_date=" + urlParam(rs.getString("appointment_date"))
+                + "&start_time=" + urlParam(rs.getString("start_time"))
                 + "&bNewForm=1\"); return false;'>Bill ";
     }
 
@@ -232,12 +241,12 @@ public class BillingONNewReportDataAssembler {
             Properties prop = new Properties();
             prop.setProperty("SERVICE DATE", rs.getString("billing_date"));
             prop.setProperty("TIME", rs.getString("billing_time").substring(0, 5));
-            prop.setProperty("PATIENT", SafeEncode.forHtml(rs.getString("demographic_name")));
+            prop.setProperty("PATIENT", htmlCell(rs.getString("demographic_name")));
 
             String reason = describeStatus(rs.getString("status"));
             String note = describeApptDoctor(rs.getString("apptProvider_no"),
                     rs.getString("provider_no"));
-            prop.setProperty("DESCRIPTION", SafeEncode.forHtml(reason + "(" + note + ")"));
+            prop.setProperty("DESCRIPTION", htmlCell(reason + "(" + note + ")"));
             prop.setProperty("ACCOUNT", buildCorrectionLink(contextPath, rs.getString("id"), reason));
             out.values.add(prop);
         }
@@ -246,9 +255,9 @@ public class BillingONNewReportDataAssembler {
 
     private static String buildCorrectionLink(String contextPath, String id, String reason) {
         return "<a href=# onClick='popupPage(700,720, \"" + contextPath
-                + "/billing/CA/ON/ViewBillingCorrection?billing_no=" + id
+                + "/billing/CA/ON/ViewBillingCorrection?billing_no=" + urlParam(id)
                 + "&dboperation=search_bill&hotclick=0\"); return false;' title='"
-                + SafeEncode.forHtmlAttribute(reason) + "'>" + id + "</a>";
+                + SafeEncode.forHtmlAttribute(reason) + "'>" + htmlCell(id) + "</a>";
     }
 
     @SuppressWarnings("deprecation")
@@ -290,7 +299,7 @@ public class BillingONNewReportDataAssembler {
                 Properties prop = new Properties();
                 prop.setProperty("No", String.valueOf(nNo));
                 prop.setProperty("Billing No", buildBillingNoLink(contextPath, billingNo));
-                prop.setProperty("HIN", SafeEncode.forHtml(rs.getString("hin")));
+                prop.setProperty("HIN", htmlCell(rs.getString("hin")));
                 prop.setProperty("Claim", sAmountclaim);
                 prop.setProperty("Paid", sAmountpay);
                 prop.setProperty("Billing Date", formatDateStr(rs.getString("service_date")));
@@ -304,7 +313,7 @@ public class BillingONNewReportDataAssembler {
                 Properties prop = new Properties();
                 prop.setProperty("No", String.valueOf(nNo));
                 prop.setProperty("Billing No", buildBillingNoLink(contextPath, billingNo));
-                prop.setProperty("HIN", SafeEncode.forHtml(rs.getString("hin")));
+                prop.setProperty("HIN", htmlCell(rs.getString("hin")));
                 prop.setProperty("Claim", propTotal.getProperty(prevBillingNo));
                 prop.setProperty("Paid", sAmountpay);
                 prop.setProperty("Billing Date", formatDateStr(rs.getString("service_date")));
@@ -338,12 +347,12 @@ public class BillingONNewReportDataAssembler {
             prop.setProperty("No", String.valueOf(nNo));
             prop.setProperty("Service Date", rs.getString("billing_date"));
             prop.setProperty("Time", rs.getString("billing_time").substring(0, 5));
-            prop.setProperty("Patient", rs.getString("demographic_name"));
+            prop.setProperty("Patient", htmlCell(rs.getString("demographic_name")));
 
             String reason = describeStatus(rs.getString("status"));
             String note = describeApptDoctor(rs.getString("apptProvider_no"),
                     rs.getString("provider_no"));
-            prop.setProperty("Description", reason + "(" + note + ")");
+            prop.setProperty("Description", htmlCell(reason + "(" + note + ")"));
             prop.setProperty("Billing No", buildBillingNoLinkWithTitle(contextPath,
                     rs.getString("billing_no"), reason));
             String sAmountclaim = rs.getString("total");
@@ -360,17 +369,17 @@ public class BillingONNewReportDataAssembler {
 
     private static String buildBillingNoLink(String contextPath, String billingNo) {
         return "<a href=# onClick='popupPage(700,720, \"" + contextPath
-                + "/billing/CA/ON/ViewBillingOB2?billing_no=" + billingNo
+                + "/billing/CA/ON/ViewBillingOB2?billing_no=" + urlParam(billingNo)
                 + "&dboperation=search_bill&hotclick=0\"); return false;' >"
-                + billingNo + "</a>";
+                + htmlCell(billingNo) + "</a>";
     }
 
-    private static String buildBillingNoLinkWithTitle(String contextPath, String billingNo,
-                                                       String reason) {
+    static String buildBillingNoLinkWithTitle(String contextPath, String billingNo,
+                                              String reason) {
         return "<a href=# onClick='popupPage(700,720, \"" + contextPath
-                + "/billing/CA/ON/ViewBillingOB2?billing_no=" + billingNo
+                + "/billing/CA/ON/ViewBillingOB2?billing_no=" + urlParam(billingNo)
                 + "&dboperation=search_bill&hotclick=0\"); return false;' title='"
-                + SafeEncode.forHtmlAttribute(reason) + "'>" + billingNo + "</a>";
+                + SafeEncode.forHtmlAttribute(reason) + "'>" + htmlCell(billingNo) + "</a>";
     }
 
     private static String describeStatus(String status) {
@@ -400,6 +409,8 @@ public class BillingONNewReportDataAssembler {
         return str;
     }
 
+    static String htmlCell(String value) { return SafeEncode.forHtml(value); }
+    private static String urlParam(String value) { return URLEncoder.encode(nullToEmpty(value), StandardCharsets.UTF_8); }
     private static String nullToEmpty(String v) { return v == null ? "" : v; }
     private static String nullToDefault(String v, String d) { return v == null ? d : v; }
 }

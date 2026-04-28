@@ -7,6 +7,15 @@
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
  *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
@@ -79,6 +88,11 @@ public final class BillingDobs {
             int month = Integer.parseInt(dobYyyymmdd.substring(4, 6));
             int day = Integer.parseInt(dobYyyymmdd.substring(6, 8));
             LocalDate dob = LocalDate.of(year, month, day);
+            if (dob.isAfter(LocalDate.now())) {
+                MiscUtils.getLogger().warn(
+                        "BillingDobs.calculateAge: DOB is in the future; flagging invalid");
+                return new AgeResult(0, true);
+            }
             return new AgeResult(Period.between(dob, LocalDate.now()).getYears(), false);
         } catch (NumberFormatException | DateTimeException e) {
             MiscUtils.getLogger().warn(

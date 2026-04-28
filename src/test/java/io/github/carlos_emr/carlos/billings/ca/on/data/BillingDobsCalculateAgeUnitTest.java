@@ -7,6 +7,15 @@
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
  *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
@@ -98,5 +107,17 @@ class BillingDobsCalculateAgeUnitTest {
 
         assertThat(result.age()).isGreaterThan(100);
         assertThat(result.invalid()).isFalse();
+    }
+
+    @Test
+    void shouldFlagInvalid_whenDobIsInTheFuture() {
+        String futureDob = java.time.LocalDate.now()
+                .plusYears(1)
+                .format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
+
+        BillingDobs.AgeResult result = BillingDobs.calculateAge(futureDob);
+
+        assertThat(result.age()).isEqualTo(0);
+        assertThat(result.invalid()).isTrue();
     }
 }

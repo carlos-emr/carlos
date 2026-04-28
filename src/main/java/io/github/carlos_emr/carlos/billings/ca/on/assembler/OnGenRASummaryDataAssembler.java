@@ -7,6 +7,15 @@
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
  *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
@@ -19,20 +28,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
-import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.billings.ca.on.data.OnGenRASummaryViewModel;
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
-import io.github.carlos_emr.carlos.commn.dao.RaHeaderDao;
-import io.github.carlos_emr.carlos.commn.model.RaHeader;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingRAReportService;
 
 /**
- * Builds the {@link OnGenRASummaryViewModel} for {@code onGenRASummary.jsp} and
- * runs the RA-header content audit merge. Hoists the inline scriptlet logic
- * the JSP body used to perform: provider list lookup, OB/CO billing-no
- * lookups, the {@link BillingRAReportService#getRASummary} aggregation, and the
- * {@link RaHeaderDao#merge} write that updated the RA header's content XML
- * with the recalculated totals.
+ * Builds the {@link OnGenRASummaryViewModel} for {@code onGenRASummary.jsp}.
+ * Hoists the inline scriptlet logic the JSP body used to perform: provider
+ * list lookup, OB/CO billing-no lookups, and the
+ * {@link BillingRAReportService#getRASummary} aggregation.
  *
  * @since 2026-04-26
  */
@@ -44,19 +48,17 @@ public class OnGenRASummaryDataAssembler {
     private static final String COLPOSCOPY_CODES =
             "'A004A','A005A','Z731A','Z666A','Z730A','Z720A'";
 
-    private final RaHeaderDao raHeaderDao;
     private final BillingRAReportService prep;
 
-    public OnGenRASummaryDataAssembler(RaHeaderDao raHeaderDao, BillingRAReportService prep) {
-        this.raHeaderDao = raHeaderDao;
+    public OnGenRASummaryDataAssembler(BillingRAReportService prep) {
         this.prep = prep;
     }
 
     /**
      * Build the view model for the requested RA report. Invokes the same
      * {@link BillingRAReportService#getRASummary} aggregation the JSP body used to
-     * perform, and merges the recalculated totals back into the
-     * {@link RaHeader#getContent} XML so the audit trail stays current.
+     * perform. The action persists the recalculated totals via a service after
+     * assembly so this class remains read-only.
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
     public OnGenRASummaryViewModel assemble(String raNoParam, String proNoParam) {
@@ -87,8 +89,6 @@ public class OnGenRASummaryDataAssembler {
         builder.localTotal(localTotal).payTotal(payTotal).otherTotal(otherTotal)
                 .obTotal(obTotal).coTotal(coTotal);
 
-        mergeRaHeaderTotals(raNoParam, localTotal, payTotal, otherTotal, obTotal, coTotal);
-
         return builder.build();
     }
 
@@ -107,38 +107,4 @@ public class OnGenRASummaryDataAssembler {
         return out;
     }
 
-    private void mergeRaHeaderTotals(String raNoStr, BigDecimal localTotal, BigDecimal payTotal,
-                                      BigDecimal otherTotal, BigDecimal obTotal,
-                                      BigDecimal coTotal) {
-        int raNo;
-        try {
-            raNo = Integer.parseInt(raNoStr);
-        } catch (NumberFormatException e) {
-            return;
-        }
-        RaHeader header = raHeaderDao.find(raNo);
-        if (header == null) return;
-
-        String content = header.getContent();
-        String transaction = SxmlMisc.getXmlContent(content,
-                "<xml_transaction>", "</xml_transaction>");
-        String balanceFwd = SxmlMisc.getXmlContent(content,
-                "<xml_balancefwd>", "</xml_balancefwd>");
-
-        StringBuilder rebuilt = new StringBuilder();
-        rebuilt.append("<xml_transaction>").append(nullSafe(transaction)).append("</xml_transaction>");
-        rebuilt.append("<xml_balancefwd>").append(nullSafe(balanceFwd)).append("</xml_balancefwd>");
-        rebuilt.append("<xml_local>").append(localTotal).append("</xml_local>");
-        rebuilt.append("<xml_total>").append(payTotal).append("</xml_total>");
-        rebuilt.append("<xml_other_total>").append(otherTotal).append("</xml_other_total>");
-        rebuilt.append("<xml_ob_total>").append(obTotal).append("</xml_ob_total>");
-        rebuilt.append("<xml_co_total>").append(coTotal).append("</xml_co_total>");
-
-        header.setContent(rebuilt.toString());
-        raHeaderDao.merge(header);
-    }
-
-    private static String nullSafe(String v) {
-        return v == null ? "" : v;
-    }
 }

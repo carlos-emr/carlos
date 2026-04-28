@@ -1,27 +1,26 @@
 /**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
- * This software is published under the GPL GNU General Public License.
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * Copyright (c) 2008-2012 Indivica Inc.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * This software is made available under the terms of the
+ * GNU General Public License, Version 2, 1991 (GPLv2).
+ * License details are available via "indivica.ca/gplv2"
+ * and "gnu.org/licenses/gpl-2.0.html".
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
  *
  * This software was written for the
  * Department of Family Medicine
  * McMaster University
  * Hamilton
  * Ontario, Canada
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
  */
-
 package io.github.carlos_emr.carlos.billing.CA.ON.web;
 
 import org.apache.struts2.ActionSupport;
@@ -146,29 +145,33 @@ public class MoveMOHFiles2Action extends ActionSupport {
 
         if (isValid) {
             String folderPath = getFolderPath(folderParam);
-            for (String fileName : fileNames) {
-                File file = getFile(folderPath, fileName);
-                if (file == null) {
-                    logger.warn("Unable to get file {}{}{}", LogSanitizer.sanitize(folderPath), File.separator, LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            if (folderPath == null || folderPath.isEmpty()) {
+                errors.append("Invalid folder selection.<br/>");
+            } else {
+                for (String fileName : fileNames) {
+                    File file = getFile(folderPath, fileName);
+                    if (file == null) {
+                        logger.warn("Unable to get file {}{}{}", LogSanitizer.sanitize(folderPath), File.separator, LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
 
-                    errors.append("Unable to find file ").append(Encode.forHtml(fileName)).append(".<br/>");
-                    continue;
-                }
+                        errors.append("Unable to find file ").append(Encode.forHtml(fileName)).append(".<br/>");
+                        continue;
+                    }
 
-                boolean isValidFileLocation = validateFileLocation(file);
-                if (!isValidFileLocation) {
-                    logger.warn("Invalid file location {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                    boolean isValidFileLocation = validateFileLocation(file);
+                    if (!isValidFileLocation) {
+                        logger.warn("Invalid file location {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
 
-                    errors.append("File is not in a valid location: ").append(Encode.forHtml(fileName)).append(".<br/>");
-                    continue;
-                }
+                        errors.append("File is not in a valid location: ").append(Encode.forHtml(fileName)).append(".<br/>");
+                        continue;
+                    }
 
-                if (file.exists()) {
-                    boolean isMoved = moveFile(file);
-                    if (isMoved) {
-                        messages.append("Archived file ").append(Encode.forHtml(file.getName())).append(" successfully.<br/>");
-                    } else {
-                        errors.append("Unable to archive ").append(Encode.forHtml(file.getName()));
+                    if (file.exists()) {
+                        boolean isMoved = moveFile(file);
+                        if (isMoved) {
+                            messages.append("Archived file ").append(Encode.forHtml(file.getName())).append(" successfully.<br/>");
+                        } else {
+                            errors.append("Unable to archive ").append(Encode.forHtml(file.getName()));
+                        }
                     }
                 }
             }
@@ -180,16 +183,20 @@ public class MoveMOHFiles2Action extends ActionSupport {
         // Build the view model for the rendering JSP. The page is rendered both
         // on direct GET (folder listing) and after the POST that archives files,
         // so the assembler runs unconditionally before we forward.
-        request.setAttribute("mohModel", buildViewModel(folderParam));
-        request.setAttribute("__roleName", buildRoleName());
+        request.setAttribute("mohModel", buildViewModel(request, folderParam));
+        request.setAttribute("__roleName", buildRoleName(request));
 
         return "Success";
     }
 
     /** Builds the {@code roleName} string the {@code <security:oscarSec>} tag wants. */
-    private String buildRoleName() {
-        Object userRole = request.getSession().getAttribute("userrole");
-        Object userId = request.getSession().getAttribute("user");
+    private String buildRoleName(HttpServletRequest req) {
+        Object userRole = req.getSession().getAttribute("userrole");
+        Object userId = req.getSession().getAttribute("user");
+        if (userRole == null || userId == null) {
+            logger.warn("viewMOHFiles: missing session role context for security tag");
+            return ",";
+        }
         return String.valueOf(userRole) + "," + String.valueOf(userId);
     }
 
@@ -203,11 +210,7 @@ public class MoveMOHFiles2Action extends ActionSupport {
      */
     public ViewMOHFilesViewModel assembleViewModelForFallback(HttpServletRequest req) {
         String folderParam = req.getParameter("folder");
-        // The fallback path needs a request-scoped reference for the request
-        // field used by buildViewModel; the action's no-arg field initializer
-        // already pulled the live request from ServletActionContext, so we can
-        // delegate directly.
-        return buildViewModel(folderParam);
+        return buildViewModel(req, folderParam);
     }
 
     /**
@@ -219,8 +222,16 @@ public class MoveMOHFiles2Action extends ActionSupport {
      * @param folderParam folder name from the request ({@code "inbox"}, {@code "outbox"}, etc.)
      * @return populated view model (never null)
      */
-    private ViewMOHFilesViewModel buildViewModel(String folderParam) {
+    private ViewMOHFilesViewModel buildViewModel(HttpServletRequest req, String folderParam) {
         EDTFolder folder = EDTFolder.getFolder(folderParam);
+        if (folder == null) {
+            logger.warn("viewMOHFiles: invalid folder parameter '{}'", LogSanitizer.sanitize(folderParam));
+            return ViewMOHFilesViewModel.builder()
+                    .selectedFolder(folderParam == null ? "" : folderParam)
+                    .projectHome(CarlosProperties.getInstance().getProperty("project_home", ""))
+                    .unzipMessage("Invalid folder selection")
+                    .build();
+        }
         String folderPath = folder.getPath();
 
         if (folderPath == null || folderPath.isEmpty()) {
@@ -233,14 +244,14 @@ public class MoveMOHFiles2Action extends ActionSupport {
 
         // Preserved from the legacy JSP — DocumentUploadServlet reads the
         // current folder path off the session under this key.
-        request.getSession().setAttribute("backupfilepath", folderPath);
+        req.getSession().setAttribute("backupfilepath", folderPath);
 
         // Optional unzip (was inline in the JSP). Errors are swallowed onto
         // unzipMSG so each file row can render the warning suffix; we keep
         // the same per-page semantics by storing a single message that the
         // assembler attaches to every file entry.
         String unzipMSG = "";
-        String zname = request.getParameter("unzipfile");
+        String zname = req.getParameter("unzipfile");
         try {
             if (zname != null && !zname.isEmpty()) {
                 File safeZipFile = PathValidationUtils.validatePath(zname, new File(folderPath));
@@ -393,6 +404,10 @@ public class MoveMOHFiles2Action extends ActionSupport {
      */
     private String getFolderPath(String folderName) {
     EDTFolder folder = EDTFolder.getFolder(folderName);
+    if (folder == null) {
+        logger.warn("moveMOHFiles: invalid folder parameter '{}'", LogSanitizer.sanitize(folderName));
+        return null;
+    }
     return folder.getPath();
     }
 }

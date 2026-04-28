@@ -7,12 +7,24 @@
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
  *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.utility;
 
 import java.util.List;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
@@ -201,6 +213,31 @@ class ErrorPageLoggerUnitTest extends CarlosUnitTestBase {
 
         String msg = appender.events().get(0).getMessage().getFormattedMessage();
         assertThat(msg).contains("uri=/carlos/billing/CA/ON/billingView");
+    }
+
+    @Test
+    void shouldNotPrintSuppressedExceptionMessageToSystemErr_whenFallbackLoggingFails() {
+        MockHttpServletRequest req = new MockHttpServletRequest() {
+            @Override
+            public Object getAttribute(String name) {
+                throw new RuntimeException("demographic_no=42 claim_no=ABC123");
+            }
+        };
+        ByteArrayOutputStream err = new ByteArrayOutputStream();
+        PrintStream originalErr = System.err;
+        try {
+            System.setErr(new PrintStream(err, true, StandardCharsets.UTF_8));
+
+            ErrorPageLogger.logIfPresent(null, req);
+        } finally {
+            System.setErr(originalErr);
+        }
+
+        String output = err.toString(StandardCharsets.UTF_8);
+        assertThat(output).contains("java.lang.RuntimeException");
+        assertThat(output).doesNotContain("demographic_no");
+        assertThat(output).doesNotContain("claim_no");
+        assertThat(output).doesNotContain("ABC123");
     }
 
     /**

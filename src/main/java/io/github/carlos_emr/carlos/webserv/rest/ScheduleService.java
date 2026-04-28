@@ -99,7 +99,6 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.SearchConfigTo1;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.w3c.dom.Document;
-
 @Path("/schedule")
 @Component("scheduleService")
 @Consumes(MediaType.APPLICATION_JSON)

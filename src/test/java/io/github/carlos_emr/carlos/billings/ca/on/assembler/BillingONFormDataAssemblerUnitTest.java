@@ -7,11 +7,22 @@
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
  *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.billings.ca.on.assembler;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collections;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
@@ -280,5 +291,15 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
         BillingONFormViewModel model = assembler.assemble(request, loggedInInfo);
 
         assertThat(model.getProviderNo()).isEqualTo("222222");
+    }
+
+    @Test
+    void shouldNotLogPatientOrProviderIdentifiers_whenDroolsRecommendationsFail() throws Exception {
+        String source = Files.readString(Path.of(
+                "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingONFormDataAssembler.java"));
+
+        assertThat(source).doesNotContain("Drools billing-guidelines evaluation failed for demo={}");
+        assertThat(source).doesNotContain("LogSanitizer.sanitize(demoNo), userNo, e");
+        assertThat(source).doesNotContain("OutOfMemoryError-adjacent");
     }
 }

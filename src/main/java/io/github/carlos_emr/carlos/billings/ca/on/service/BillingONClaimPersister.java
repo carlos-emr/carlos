@@ -63,7 +63,6 @@ import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
-
 @org.springframework.stereotype.Service
 @org.springframework.transaction.annotation.Transactional
 public class BillingONClaimPersister {

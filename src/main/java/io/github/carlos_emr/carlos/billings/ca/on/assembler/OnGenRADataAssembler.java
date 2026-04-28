@@ -7,6 +7,15 @@
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
  *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
@@ -18,19 +27,15 @@ import java.util.Properties;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.DocumentBean;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONRemittanceAdviceService;
 import io.github.carlos_emr.carlos.billings.ca.on.data.OnGenRAViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * Assembles {@link OnGenRAViewModel} for {@code billing/CA/ON/onGenRA.jsp},
  * the Billing Reconciliation list page. Hoists the inline scriptlet logic the
- * JSP body used to perform: optional RA-file import (when {@code documentBean}
- * carries a filename), then a privacy-filtered Rahd lookup that decides
+ * JSP body used to perform: a privacy-filtered Rahd lookup that decides
  * between {@code getTeamRahd / getSiteRahd / getAllRahd} based on the
  * caller's {@code _team_billing_only}, {@code _team_access_privacy}, and
  * {@code _site_access_privacy} role privileges.
@@ -52,29 +57,10 @@ public class OnGenRADataAssembler {
     /**
      * Build the view model.
      *
-     * @param request live request — supplies the optional {@code documentBean}
-     *                request-scope bean (whose {@code filename} property
-     *                triggers an RA file import) and the session attribute
-     *                {@code user} which selects the privacy-filtered list.
+     * @param request live request — supplies the session attribute {@code user}
+     *                which selects the privacy-filtered list.
      */
     public OnGenRAViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
-        // Optional file-import side-effect — preserves the legacy JSP
-        // contract where the JSP would import an RA file when the
-        // request-scope {@code documentBean} carried a filename.
-        Object dbAttr = request.getAttribute("documentBean");
-        if (dbAttr instanceof DocumentBean documentBean) {
-            String filename = documentBean.getFilename();
-            if (filename != null && !filename.isEmpty()) {
-                try {
-                    String filepath = CarlosProperties.getInstance()
-                            .getProperty("DOCUMENT_DIR", "").trim();
-                    dbObj.importRAFile(filepath + filename);
-                } catch (Exception e) {
-                    MiscUtils.getLogger().error("Failed to import RA file: " + filename, e);
-                }
-            }
-        }
-
         boolean isTeamBillingOnly = securityInfoManager.hasPrivilege(
                 loggedInInfo, "_team_billing_only", "r", null);
         boolean isTeamAccessPrivacy = securityInfoManager.hasPrivilege(

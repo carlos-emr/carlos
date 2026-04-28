@@ -18,4 +18,4 @@
 INSERT IGNORE INTO `secObjPrivilege`
     (`roleUserGroup`, `objectName`, `privilege`, `priority`, `provider_no`)
 VALUES
-    ('admin', '_admin.billing', 'x', 0, '999998');
+    ('admin', '_admin.billing', 'w', 0, '999998');

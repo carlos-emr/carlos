@@ -7,6 +7,15 @@
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
  *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
@@ -647,8 +656,8 @@ public class BillingONFormDataAssembler {
      * because it was used by exactly one assembler and not reusable per
      * the package's scope contract). Catches broad {@code Exception} because
      * Drools rule compilation can throw {@code RuntimeException},
-     * {@code KieBaseException}, or {@code OutOfMemoryError}-adjacent shapes;
-     * the form must still render if the rule cache is corrupted.
+     * {@code KieBaseException}, or other rule-cache failures; the form must
+     * still render if billing-guideline evaluation is unavailable.
      */
     private void recommendBillingGuidelines(BillingONFormViewModel.Builder b,
                                              LoggedInInfo loggedInInfo,
@@ -669,8 +678,8 @@ public class BillingONFormDataAssembler {
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error(
-                    "Drools billing-guidelines evaluation failed for demo={} provider={}",
-                    LogSanitizer.sanitize(demoNo), userNo, e);
+                    "Drools billing-guidelines evaluation failed; rendering without recommendations",
+                    e);
         }
         b.billingRecommendations(recommendations.toString());
     }

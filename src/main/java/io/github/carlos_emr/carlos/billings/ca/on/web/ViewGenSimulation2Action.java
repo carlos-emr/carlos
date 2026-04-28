@@ -7,6 +7,15 @@
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
  *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
@@ -16,6 +25,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
@@ -54,11 +64,33 @@ public class ViewGenSimulation2Action extends ActionSupport {
 
         OhipReportGenerationService.SimulationResult sim =
                 SpringUtils.getBean(OhipReportGenerationService.class).generateSimulation(request);
-        String htmlOut = sim.errorMsg().isEmpty()
-                ? sim.htmlPreview()
-                : "<font color='red'>" + sim.errorMsg() + "</font>" + sim.htmlPreview();
-        request.setAttribute("html", htmlOut);
+        request.setAttribute("html", formatSimulationHtml(sim));
 
         return SUCCESS;
+    }
+
+    static String formatSimulationHtml(OhipReportGenerationService.SimulationResult sim) {
+        String preview = nullToEmpty(sim.htmlPreview());
+        String error = nullToEmpty(sim.errorMsg());
+        if (error.isEmpty()) {
+            return preview;
+        }
+        return "<font color='red'>" + encodeErrorHtml(error) + "</font>" + preview;
+    }
+
+    private static String encodeErrorHtml(String error) {
+        String[] lines = error.replaceAll("(?i)<br\\s*/?>", "\n").split("\n", -1);
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < lines.length; i++) {
+            out.append(SafeEncode.forHtml(lines[i]));
+            if (i < lines.length - 1) {
+                out.append("<br>");
+            }
+        }
+        return out.toString();
+    }
+
+    private static String nullToEmpty(String value) {
+        return value == null ? "" : value;
     }
 }

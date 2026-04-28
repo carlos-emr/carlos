@@ -28,7 +28,6 @@ import io.github.carlos_emr.carlos.util.LabelValueBean;
 
 import java.util.ArrayList;
 import java.util.List;
-
 @org.springframework.stereotype.Service
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
 public class BillingStatusLoader {

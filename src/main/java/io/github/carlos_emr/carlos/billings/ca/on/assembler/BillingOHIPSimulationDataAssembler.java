@@ -7,6 +7,15 @@
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
  *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
@@ -31,6 +40,7 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.DateRange;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewLoader;
 
 import org.springframework.beans.factory.ObjectFactory;
@@ -160,17 +170,17 @@ public class BillingOHIPSimulationDataAssembler {
 
         var proObj = lookupService.getProviderObj(pro);
         if (proObj.getOhipNo().length() != PROVIDER_BILLINGNO_LENGTH) {
-            errorMsg.append("The providers's billing code is not correct!<br>");
+            errorMsg.append(formatErrorLine("The providers's billing code is not correct!"));
         }
         String proOHIP = proObj.getOhipNo();
         String groupNo = proObj.getBillingGroupNo();
         String specialty = proObj.getSpecialtyCode();
         if (specialty.length() != PROVIDER_SPECIALTYCODE_LENGTH) {
-            errorMsg.append("The providers's specialty code is not correct!<br>");
+            errorMsg.append(formatErrorLine("The providers's specialty code is not correct!"));
             specialty = "00";
         }
         if (groupNo.length() != PROVIDER_GROUPNO_LENGTH) {
-            errorMsg.append("The providers's group no is not correct!<br>");
+            errorMsg.append(formatErrorLine("The providers's group no is not correct!"));
             groupNo = "0000";
         }
 
@@ -225,9 +235,8 @@ public class BillingOHIPSimulationDataAssembler {
             StringBuilder errorMsg = new StringBuilder();
             var proObj = lookupService.getProviderObj(provider);
             if (proObj.getOhipNo().length() != PROVIDER_BILLINGNO_LENGTH) {
-                errorMsg.append("The billing code (").append(proObj.getOhipNo())
-                        .append(") for providers (").append(provider)
-                        .append(") is not correct!<br>");
+                errorMsg.append(formatErrorLine("The billing code (" + proObj.getOhipNo()
+                        + ") for providers (" + provider + ") is not correct!"));
             }
             String proOHIP = proObj.getOhipNo();
             String groupNo = proObj.getBillingGroupNo();
@@ -235,15 +244,13 @@ public class BillingOHIPSimulationDataAssembler {
             DateRange dateRange = resolveDateRange(request);
 
             if (specialty.length() != PROVIDER_SPECIALTYCODE_LENGTH) {
-                errorMsg.append("The specialty code (").append(specialty)
-                        .append(") for providers (").append(provider)
-                        .append(") is not correct!<br>");
+                errorMsg.append(formatErrorLine("The specialty code (" + specialty
+                        + ") for providers (" + provider + ") is not correct!"));
                 specialty = "00";
             }
             if (groupNo.length() != PROVIDER_GROUPNO_LENGTH) {
-                errorMsg.append("The group no (").append(groupNo)
-                        .append(") for providers (").append(provider)
-                        .append(") is not correct!<br>");
+                errorMsg.append(formatErrorLine("The group no (" + groupNo
+                        + ") for providers (" + provider + ") is not correct!"));
                 groupNo = "0000";
             }
 
@@ -314,5 +321,9 @@ public class BillingOHIPSimulationDataAssembler {
         return new DateRange(
                 ConversionUtils.fromDateString(dateBegin),
                 ConversionUtils.fromDateString(dateEnd));
+    }
+
+    static String formatErrorLine(String message) {
+        return SafeEncode.forHtml(message) + "<br>";
     }
 }
