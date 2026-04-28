@@ -82,8 +82,9 @@
 <%-- Completes the cross-file row opened at the end of add-form-personal.jsp --%>
                             <div class="col-sm-2 text-end" id="demoDoctorLbl">
                                 <label class="fw-bold col-form-label py-0">
+                                    } else { %>
                                     <% if (oscarProps.getProperty("demographicLabelDoctor") != null) {
-                                        out.print(oscarProps.getProperty("demographicLabelDoctor", ""));
+                                         out.print(SafeEncode.forHtml(oscarProps.getProperty("demographicLabelDoctor", "")));
                                     } else { %>
                                     <fmt:message key="demographic.demographicaddrecordhtm.formDoctor"/>
                                     <% } %>:
