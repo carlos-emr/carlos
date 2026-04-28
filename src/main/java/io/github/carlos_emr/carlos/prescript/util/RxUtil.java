@@ -54,6 +54,13 @@ public class RxUtil {
     private static final Logger logger = MiscUtils.getLogger();
     private static String[] zeroToTen = {"(?i)zero", "(?i)one", "(?i)two", "(?i)three", "(?i)four", "(?i)five", "(?i)six", "(?i)seven", "(?i)eight", "(?i)nine", "(?i)ten"};
 
+    private static final Pattern PATTERN_DIGITS = Pattern.compile("\\d+");
+    private static final Pattern PATTERN_NUMBERS = Pattern.compile("[0-9]+");
+    private static final Pattern PATTERN_DECIMAL = Pattern.compile("(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)");
+    private static final Pattern PATTERN_DECIMAL_RANGE = Pattern.compile("(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)-\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)");
+    private static final Pattern PATTERN_FRACTION = Pattern.compile("[0-9]+(?:\\/[0-9]+)?");
+    private static final Pattern PATTERN_OD = Pattern.compile("\\s(?i)OD\\s*");
+
     public static void setDefaultQuantity(String quantity) {
         defaultQuantity = quantity;
     }
@@ -265,7 +272,7 @@ public class RxUtil {
 
     public static String getUnitNameFromQuantityText(String qStr) {
         if (qStr != null) {
-            Pattern p1 = Pattern.compile("\\d+");
+            Pattern p1 = PATTERN_DIGITS;
             Matcher m1 = p1.matcher(qStr);
             if (m1.find()) {
                 String qNum = qStr.substring(m1.start(), m1.end());
@@ -281,7 +288,7 @@ public class RxUtil {
 
     public static String getQuantityFromQuantityText(String qStr) {
         if (qStr != null) {
-            Pattern p1 = Pattern.compile("\\d+");
+            Pattern p1 = PATTERN_DIGITS;
             Matcher m1 = p1.matcher(qStr);
             if (m1.find()) {
                 String qNum = qStr.substring(m1.start(), m1.end());
@@ -321,7 +328,7 @@ public class RxUtil {
             Matcher m = p.matcher(qStr);
             if (m.find()) {
                 String foundStr = (qStr.substring(m.start(), m.end())).trim();
-                Pattern p2 = Pattern.compile("[0-9]+");
+                Pattern p2 = PATTERN_NUMBERS;
                 Matcher m2 = p2.matcher(foundStr);
                 if (m2.find()) {
                     String duration = (foundStr.substring(m2.start(), m2.end())).trim();
@@ -342,7 +349,7 @@ public class RxUtil {
             Matcher m = p.matcher(qStr);
             if (m.find()) {
                 String foundStr = (qStr.substring(m.start(), m.end())).trim();
-                Pattern p2 = Pattern.compile("[0-9]+");
+                Pattern p2 = PATTERN_NUMBERS;
                 Matcher m2 = p2.matcher(foundStr);
                 if (m2.find()) {
                     String duration = (foundStr.substring(m2.start(), m2.end())).trim();
@@ -366,7 +373,7 @@ public class RxUtil {
         if (rx.getUnitName() == null) {
             qStr = qStr.trim();
             double qtyD;
-            Pattern p1 = Pattern.compile("\\d+");
+            Pattern p1 = PATTERN_DIGITS;
             Matcher m1 = p1.matcher(qStr);
             if (m1.find()) {
                 String qNum = qStr.substring(m1.start(), m1.end());
@@ -546,7 +553,7 @@ public class RxUtil {
                     //if route =od, check if there is a valid frequency, there is one, then route is od.
                     //if not, set the route="", keep looping. then set frequency to be od;
                     p("part is " + part);
-                    Pattern fPattern = Pattern.compile("\\s(?i)OD\\s*");
+                    Pattern fPattern = PATTERN_OD;
                     Matcher fMatcher = fPattern.matcher(part);
                     String frequencyStr = "";
                     if (fMatcher.find()) {
@@ -591,7 +598,7 @@ public class RxUtil {
                 //since "\\s+[0-9]+-[0-9]+\\s+" is a case in "\\s+[0-9]+\\s+", check the latter regex first.
                 if (m4.find()) {
                     String str2 = instructions.substring(m4.start(), m4.end());
-                    Pattern p5 = Pattern.compile("(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)-\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)");
+                    Pattern p5 = PATTERN_DECIMAL_RANGE;
                     Matcher m5 = p5.matcher(str2);
                     if (m5.find()) {
                         String str3 = str2.substring(m5.start(), m5.end());
@@ -601,7 +608,7 @@ public class RxUtil {
                     }
                 } else if (m2.find()) {
                     String str = instructions.substring(m2.start(), m2.end());
-                    Pattern p3 = Pattern.compile("(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)");
+                    Pattern p3 = PATTERN_DECIMAL;
                     Matcher m3 = p3.matcher(str);
                     //     p("here22", str);
                     if (m3.find()) {
@@ -737,7 +744,7 @@ public class RxUtil {
                     String str1 = instructionToCheck.substring(m.start(), m.end());
                     MiscUtils.getLogger().debug("str1=" + str1);
                     //get numUnit out
-                    Pattern p1 = Pattern.compile("[0-9]+");
+                    Pattern p1 = PATTERN_NUMBERS;
                     Matcher m1 = p1.matcher(str1);
                     if (m1.find()) {
                         duration = str1.substring(m1.start(), m1.end());
@@ -904,7 +911,7 @@ public class RxUtil {
 
     public static boolean isStringToNumber(String s) {//see if string contains decimal or integer
         boolean retBool = false;
-        Pattern p1 = Pattern.compile("(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)");
+        Pattern p1 = PATTERN_DECIMAL;
         Matcher m1 = p1.matcher(s);
         if (m1.find()) {
             String numStr = s.substring(m1.start(), m1.end());
@@ -963,7 +970,7 @@ public class RxUtil {
 		if (m4.find()) {
 			p("else if 1");
 			String str2 = instructions.substring(m4.start(), m4.end());
-			Pattern p5 = Pattern.compile("(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)-\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)");
+			Pattern p5 = PATTERN_DECIMAL_RANGE;
 			Matcher m5 = p5.matcher(str2);
 			if (m5.find()) {
 				String str3 = str2.substring(m5.start(), m5.end());
@@ -975,7 +982,7 @@ public class RxUtil {
 			p("if 1");
 			String str = instructions.substring(m2.start(), m2.end());
 			p("str1 ", str);
-			Pattern p3 = Pattern.compile("(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)");
+			Pattern p3 = PATTERN_DECIMAL;
 			Matcher m3 = p3.matcher(str);
 			if (m3.find()) {
 				p("found1");
@@ -984,7 +991,7 @@ public class RxUtil {
 			}
 		} else if (mF1.find()) {
 			String partInstructions = instructions.substring(mF1.start(), mF1.end());
-			Pattern pF2 = Pattern.compile("[0-9]+(?:\\/[0-9]+)?");
+			Pattern pF2 = PATTERN_FRACTION;
 			Matcher mF2 = pF2.matcher(partInstructions);
 
 			if (mF2.find()) {
@@ -1162,7 +1169,7 @@ public class RxUtil {
 
     private static void setResultSpecialQuantityRepeat(RxPrescriptionData.Prescription rx, Drug d) {
         String qStr = d.getQuantity();
-        Pattern p1 = Pattern.compile("\\d+");
+        Pattern p1 = PATTERN_DIGITS;
         Matcher m1 = p1.matcher(qStr);
         if (m1.find()) {
             String qNum = qStr.substring(m1.start(), m1.end());
