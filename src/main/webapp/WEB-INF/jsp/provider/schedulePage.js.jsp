@@ -39,11 +39,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%
     String newticklerwarningwindow = null;
-    String cbiReminderWindow = null;
-
-    if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isCaisiEnable() && io.github.carlos_emr.carlos.commn.IsPropertiesOn.propertiesOn("CBI_REMINDER_WINDOW")) {
-        cbiReminderWindow = (String) session.getAttribute("cbiReminderWindow");
-    }
 
     // Load "Open Encounter in Tab" preference
     String curProviderNo = (String) session.getAttribute("user");
@@ -562,12 +557,6 @@ popupPage(700,720, url);
 
 //popup a new tickler warning window
 function load() {
-var cbi = "<%=cbiReminderWindow%>";
-if(cbi!="null" && cbi!="") {
-alert(cbi);
-<%request.getSession().setAttribute("cbiReminderWindow", "null");%>
-}
-
 if ("<%=newticklerwarningwindow%>"=="enabled") {
 if (IsPopupBlocker()) {
 <fmt:message var="popupBlockerMsg" key="provider.appointmentProviderAdminDay.popupBlockerAlert"/>
