@@ -179,12 +179,14 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_BRANCH: ${{ github.head_ref }}
           PR_BASE: ${{ github.base_ref }}
+          PR_KEY: ${{ github.event.pull_request.number }}
         run: |
           docker exec \
             -e GITHUB_TOKEN="$GITHUB_TOKEN" \
             -e SONAR_TOKEN="$SONAR_TOKEN" \
             -e PR_NUMBER="$PR_NUMBER" \
             -e PR_BRANCH="$PR_BRANCH" \
+            -e PR_KEY="$PR_KEY" \
             -e PR_BASE="$PR_BASE" \
             carlos-tomcat-dev bash -c "
               echo '========================================='
@@ -199,7 +201,7 @@ jobs:
                 -Dmaven.test.failure.ignore=true \
                 -Dsonar.host.url=https://sonarcloud.io \
                 -Dsonar.projectKey=carlos-emr_carlos \
-                \"-Dsonar.pullrequest.key=\$PR_NUMBER\" \
+                \"-Dsonar.pullrequest.key=\$PR_KEY\" \
                 \"-Dsonar.pullrequest.branch=\$PR_BRANCH\" \
                 \"-Dsonar.pullrequest.base=\$PR_BASE\" \
                             "

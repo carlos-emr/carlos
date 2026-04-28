@@ -13,6 +13,7 @@
 # Example:
 #   src/main/webapp/WEB-INF/jsp/some/file-where-null-string-is-desired.jsp
 #   src/main/webapp/legacy/**/*.jsp
+
 src/main/webapp/WEB-INF/jsp/appointment/appointmentsearch.jsp
 src/main/webapp/WEB-INF/jsp/messenger/ViewAttachment.jsp
 src/main/webapp/WEB-INF/jsp/messenger/ViewPDFAttachment.jsp
