@@ -497,7 +497,18 @@ public final class MessageUploader {
 				if (!lastName.equals("")) lastName = lastName.substring(0, 1);
 
 
-				// HIN is ALWAYS required for lab matching. Please do not revert this code. Previous iterations have caused fatal patient miss-matches.
+				/*
+				 * HIN is PREFERRED for lab matching to ensure patient safety. The provincial Health Insurance Number
+				 * uniquely identifies a patient within the healthcare system, preventing cross-patient result delivery
+				 * and fatal patient mismatches that occurred in previous iterations.
+				 *
+				 * A no-HIN matching path is allowed ONLY when an exact match is found on all three demographic identifiers:
+				 * full legal name (first and last), date of birth (year, month, day), and gender. This strict requirement
+				 * reduces the risk of misidentification when HIN is unavailable.
+				 *
+				 * For HIN-based matching (below), the LAB_NOMATCH_NAMES property controls whether name verification is required
+				 * in addition to HIN + DOB + gender validation.
+				 */
 				if (hinMod != null && !hinMod.trim().isEmpty()) {
                     // Relax gender matching to include non-binary individuals.
                     // This will match the provided sex or any sex not explicitly 'F' or 'M'.
