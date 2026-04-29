@@ -22,7 +22,6 @@
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.EditBillingPaymentTypeViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -33,13 +32,19 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.billings.ca.on.assembler.EditBillingPaymentTypeViewModelAssembler;
 
 /**
- * Mutation gate for {@code billing/CA/ON/editBillingPaymentType.jsp}. Enforces {@code _admin.billing}
- * w privilege AND POST-only before forwarding to the JSP. GET requests return
- * 405 Method Not Allowed.
+ * View-scope gate for {@code billing/CA/ON/editBillingPaymentType.jsp}. Enforces
+ * {@code _admin.billing} w privilege before forwarding to the JSP, then assembles
+ * the {@link EditBillingPaymentTypeViewModel} on the request as
+ * {@code paymentTypeModel} so the JSP body can render in pure EL (drained from
+ * 12 scriptlets in the round-2 billing-form refactor).
  *
- * <p>Also assembles the {@link EditBillingPaymentTypeViewModel} on the request
- * as {@code paymentTypeModel} so the JSP body can render in pure EL (drained
- * from 12 scriptlets in the round-2 billing-form refactor).</p>
+ * <p>This action is read-only: the assembler does not mutate any state, it only
+ * echoes the {@code id}/{@code type} request parameters into a viewmodel that
+ * the JSP renders. The actual create/update happens via separate, POST-only
+ * actions ({@code billing/CA/ON/createPaymentType},
+ * {@code billing/CA/ON/updatePaymentType}). GET is therefore allowed so the
+ * "Edit" / "Create" links on {@code manageBillingPaymentType.jsp} can open the
+ * form.</p>
  *
  * @since 2026-04-13
  */
@@ -57,16 +62,10 @@ public class EditBillingPaymentType2Action extends ActionSupport {
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
-        HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.billing)");
-        }
-
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            return NONE;
         }
 
         request.setAttribute("paymentTypeModel", assembler.assemble(request, loggedInInfo));

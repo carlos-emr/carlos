@@ -52,15 +52,15 @@
          import="java.util.*,java.sql.*,io.github.carlos_emr.*,java.text.*,java.net.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.service.Billing3rdPartyService" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.service.BillingThirdPartyService" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <% //
     int serviceCodeLen = 5;
     String msg = "Type in a name and search first to see if it is available.";
     String action = "search"; // add/edit
-    //BillingServiceCode serviceCodeObj = new BillingServiceCode();
     Properties prop = new Properties();
-    Billing3rdPartyService dbObj = new Billing3rdPartyService();
+    BillingThirdPartyService dbObj = SpringUtils.getBean(BillingThirdPartyService.class);
     if (request.getParameter("submit") != null && request.getParameter("submit").equals("Save")) {
         if (request.getParameter("action").startsWith("edit")) {
             // update the service code

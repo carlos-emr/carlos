@@ -252,7 +252,11 @@
     flatpickr("#xml_appointment_date", {dateFormat: "Y-m-d", allowInput: true});
 
     document.addEventListener('DOMContentLoaded', function () {
-        parent.resizeIframe(document.documentElement.scrollHeight);
+        // Page is normally embedded in an iframe inside the report dashboard.
+        // Guard so it still renders standalone when accessed directly.
+        if (parent !== window && typeof parent.resizeIframe === 'function') {
+            parent.resizeIframe(document.documentElement.scrollHeight);
+        }
     });
 
 </script>

@@ -61,7 +61,12 @@
                     </c:forEach>
                 </select>
                 <input type="submit" name="submit" value="Generate">
-                <a href="${pageContext.request.contextPath}/billing/CA/ON/ViewGenRASummary?rano=<carlos:encode value='${raSummaryModel.raNo}' context='uriComponent'/>&proNo=">Summary</a>
+                <button type="submit" name="submit" value="Summary"
+                        formaction="${pageContext.request.contextPath}/billing/CA/ON/ViewGenRASummary"
+                        formmethod="post"
+                        style="background:none;border:none;color:#cccccc;text-decoration:underline;cursor:pointer;padding:0 0 0 8px;font:inherit;">
+                    Summary
+                </button>
             </form>
         </th>
     </tr>

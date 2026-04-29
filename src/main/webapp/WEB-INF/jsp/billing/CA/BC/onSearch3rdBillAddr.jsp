@@ -332,7 +332,13 @@
         %>
         </form>
         <br>
-        <a href="<%= request.getContextPath() %>/billing/CA/BC/OnAddEdit3rdAddr">Add/Edit Address</a></center>
+        <form method="post" action="<%= request.getContextPath() %>/billing/CA/BC/OnAddEdit3rdAddr"
+              style="display:inline">
+            <button type="submit" class="link-button"
+                    style="background:none;border:none;color:#0066cc;text-decoration:underline;cursor:pointer;padding:0;font:inherit;">
+                Add/Edit Address
+            </button>
+        </form></center>
     </body>
 </html>
 <%!

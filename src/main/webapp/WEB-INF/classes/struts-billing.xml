@@ -400,10 +400,10 @@
         <action name="billing/CA/BC/BillingDigNewUpdate" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingDigNewUpdate2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/BC/billingDigNewUpdate.jsp</result>
         </action>
-        <action name="billing/CA/BC/ViewBillingDigSearch" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewBillingDiagSearch2Action">
+        <action name="billing/CA/BC/ViewBillingDigSearch" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewBillingDigSearch2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/BC/billingDigSearch.jsp</result>
         </action>
-        <action name="billing/CA/BC/ViewBillingDigUpdate" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewBillingDiagUpdate2Action">
+        <action name="billing/CA/BC/ViewBillingDigUpdate" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewBillingDigUpdate2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/BC/billingDigUpdate.jsp</result>
         </action>
         <action name="billing/CA/BC/ViewBillingGetPriceCode" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewBillingGetPriceCode2Action">
@@ -451,10 +451,10 @@
         <action name="billing/CA/BC/ViewGenTeleplanGroupReport" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewGenTeleplanGroupReport2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/BC/genTeleplanGroupReport.jsp</result>
         </action>
-        <action name="billing/CA/BC/OnAddEdit3rdAddr" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.OnThirdPartyAddressEdit2Action">
+        <action name="billing/CA/BC/OnAddEdit3rdAddr" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.OnAddEdit3rdAddr2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/BC/onAddEdit3rdAddr.jsp</result>
         </action>
-        <action name="billing/CA/BC/ViewOnSearch3rdBillAddr" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewOnThirdPartyBillingAddressSearch2Action">
+        <action name="billing/CA/BC/ViewOnSearch3rdBillAddr" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewOnSearch3rdBillAddr2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/BC/onSearch3rdBillAddr.jsp</result>
         </action>
         <action name="billing/CA/BC/ViewSettleBG" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewSettleBG2Action">

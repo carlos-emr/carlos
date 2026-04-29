@@ -189,6 +189,12 @@
             </c:if>
         </form>
         <br>
-        <a href="${pageContext.request.contextPath}/billing/CA/ON/OnAddEdit3rdAddr">Add/Edit Address</a></center>
+        <form method="post" action="${pageContext.request.contextPath}/billing/CA/ON/OnAddEdit3rdAddr"
+              style="display:inline">
+            <button type="submit" class="link-button"
+                    style="background:none;border:none;color:#0066cc;text-decoration:underline;cursor:pointer;padding:0;font:inherit;">
+                Add/Edit Address
+            </button>
+        </form></center>
     </body>
 </html>
