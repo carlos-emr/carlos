@@ -446,6 +446,13 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 
 ## Healthcare Integration Standards
 
+**Billing Identifier Abbreviations**:
+- Java class/member names use Java-style acronym casing: `On`, `Ohip`, `Ra`, `Moh`, `Inr`, `Gst`, `Mri`, `Edt`, and `Obec`.
+- `Diag` is the only accepted non-official short form in billing identifiers.
+- Keep regular domain words spelled out: `ThirdParty`, `Specialist`, `Report`, `Payment`, and `Address`.
+- Do not introduce legacy compressed names such as `3rd`, `Dig`, `Db`, `Obj`, `Hlp`, `Bean`, or `Handler`.
+- Official prose, UI labels, external protocols, and Ministry/OHIP document names may keep uppercase acronyms like `OHIP`, `RA`, `MOH`, `INR`, and `GST`.
+
 **Standards & Protocols**:
 - **HL7 v2/v3**: Full message processing with MSH, PID, OBX, ORC, OBR segment handlers
 - **FHIR R4**: HAPI FHIR 6.10.5 with resource filters and healthcare provider context

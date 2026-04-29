@@ -25,13 +25,13 @@
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.
 --%>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.OntarioRASummaryViewModelAssembler" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.OnRaSummaryViewModelAssembler" %>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%-- Data assembly + RaHeader audit merge run in ViewOnGenRASummary2Action via
-     OntarioRASummaryViewModelAssembler. The view model is stashed on the request as
+<%-- Data assembly + RaHeader audit merge run in ViewOnGenRaSummary2Action via
+     OnRaSummaryViewModelAssembler. The view model is stashed on the request as
      ${model}; this JSP only renders. The "no rano" early return in the legacy
      JSP becomes a no-op render. --%>
 <c:if test="${not empty model.raNo}">

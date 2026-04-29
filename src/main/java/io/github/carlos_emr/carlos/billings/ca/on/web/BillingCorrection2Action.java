@@ -30,7 +30,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONCorrectionViewModelAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOnCorrectionViewModelAssembler;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionService;
 
 /**
@@ -42,10 +42,10 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionServi
  *
  * <p>State-mutating POSTs go to dedicated sibling actions:</p>
  * <ul>
- *   <li>{@link UpdateBillingONCorrection2Action} —
+ *   <li>{@link UpdateBillingOnCorrection2Action} —
  *       {@code billing/CA/ON/UpdateBillingONCorrection} (Save /
  *       Save&amp;Correct Another / admin-submit)</li>
- *   <li>{@link Add3rdPartyPayment2Action} —
+ *   <li>{@link AddThirdPartyPayment2Action} —
  *       {@code billing/CA/ON/Add3rdPartyPayment} (record a 3rd-party
  *       payment or refund)</li>
  * </ul>
@@ -61,10 +61,10 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionServi
  */
 public class BillingCorrection2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
-    private final BillingONCorrectionViewModelAssembler assembler;
+    private final BillingOnCorrectionViewModelAssembler assembler;
 
     public BillingCorrection2Action(SecurityInfoManager securityInfoManager,
-                             BillingONCorrectionViewModelAssembler assembler) {
+                             BillingOnCorrectionViewModelAssembler assembler) {
         this.securityInfoManager = securityInfoManager;
         this.assembler = assembler;
     }

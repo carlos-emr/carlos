@@ -26,15 +26,15 @@
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.
 --%>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingONDiagDescriptionViewModel" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnDiagDescriptionViewModel" %>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingDiagCodeViewModelAssembler" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
-    // ViewBillingONDxDesc2Action enforces _billing r and assembles the
+    // ViewBillingOnDiagDesc2Action enforces _billing r and assembles the
     // truncated description via BillingDiagCodeViewModelAssembler.assembleDescription.
-    BillingONDiagDescriptionViewModel dxDescModel =
-            (BillingONDiagDescriptionViewModel) request.getAttribute("dxDescModel");
+    BillingOnDiagDescriptionViewModel dxDescModel =
+            (BillingOnDiagDescriptionViewModel) request.getAttribute("dxDescModel");
     if (dxDescModel == null) {
-        dxDescModel = BillingONDiagDescriptionViewModel.builder().build();
+        dxDescModel = BillingOnDiagDescriptionViewModel.builder().build();
     }
 %><carlos:encode value="${dxDescModel.description}" context="html"/>

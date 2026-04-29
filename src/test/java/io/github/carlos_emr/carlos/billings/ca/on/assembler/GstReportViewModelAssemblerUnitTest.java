@@ -2,9 +2,9 @@ package io.github.carlos_emr.carlos.billings.ca.on.assembler;
 
 import java.util.ArrayList;
 
-import io.github.carlos_emr.carlos.billings.ca.on.administration.GstReport;
+import io.github.carlos_emr.carlos.billings.ca.on.service.GstReportService;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.GstReportViewModel;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnLookupService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -28,8 +28,8 @@ class GstReportViewModelAssemblerUnitTest {
     @Test
     void shouldTreatNullProviderLookupAsEmptyList() {
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
-        GstReport gstReport = mock(GstReport.class);
-        BillingONLookupService lookupService = mock(BillingONLookupService.class);
+        GstReportService gstReport = mock(GstReportService.class);
+        BillingOnLookupService lookupService = mock(BillingOnLookupService.class);
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), any(String.class), eq("r"), isNull()))

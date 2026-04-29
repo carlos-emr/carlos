@@ -33,7 +33,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * BC-specific or ON-specific imports. Province-specific bean population,
  * decision-support evaluation, and form binding live behind the chain in
  * {@code ca.bc.pageUtil.BillingBCSetup2Action} and (for ON)
- * {@code ca.on.web.ViewBillingON2Action}, respectively.</p>
+ * {@code ca.on.web.ViewBillingOn2Action}, respectively.</p>
  *
  * <p>Region resolution: prefer the {@code billRegion} request parameter; fall
  * back to the deployment-wide {@code billregion} property. Anything not

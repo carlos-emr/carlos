@@ -26,8 +26,8 @@
   for dynamic output rendered by the page.
 --%>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%-- ViewOnGenRAsettle352Action enforces _billing w + POST and runs the
-     I2/35 settle mutation (with Q-code allow-list) via OntarioRASettlementService
+<%-- ViewOnGenRaSettle352Action enforces _billing w + POST and runs the
+     I2/35 settle mutation (with Q-code allow-list) via OnRaSettlementService
      — the 3 inline DAO lookups (RaHeaderDao, BillingDao, RaDetailDao)
      the JSP body used to perform are now in the assembler. --%>
 <script LANGUAGE="JavaScript">

@@ -1,0 +1,400 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.billings.ca.on.web;
+
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.sql.Timestamp;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
+import java.util.ResourceBundle;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import org.apache.commons.lang3.time.DateUtils;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BatchBillingViewModelAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BatchBillingViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnHeaderCreationService;
+import io.github.carlos_emr.carlos.commn.dao.BatchBillingDAO;
+import io.github.carlos_emr.carlos.commn.model.BatchBilling;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+/**
+ * @author rjonasz
+ */
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+/**
+ * Struts action for the {@code BatchBill2Action} request flow.
+ *
+ * <p>The action owns web-layer orchestration: privilege checks, request
+ * parameter normalization, delegation to services or assemblers, and the
+ * Struts result used to render the next JSP. Keep billing rules and database
+ * work outside the JSP when changing this flow.</p>
+ */
+
+public class BatchBill2Action extends ActionSupport {
+    HttpServletRequest request = ServletActionContext.getRequest();
+    HttpServletResponse response = ServletActionContext.getResponse();
+
+
+    private final BillingOnHeaderCreationService headerCreationService;
+    private final SecurityInfoManager securityInfoManager;
+    private final BatchBillingViewModelAssembler batchBillingAssembler;
+
+    public BatchBill2Action(BillingOnHeaderCreationService headerCreationService,
+                            SecurityInfoManager securityInfoManager,
+                            BatchBillingViewModelAssembler batchBillingAssembler) {
+        this.headerCreationService = headerCreationService;
+        this.securityInfoManager = securityInfoManager;
+        this.batchBillingAssembler = batchBillingAssembler;
+    }
+
+
+    @Override
+    public String execute() throws Exception {
+        String method = request.getParameter("method");
+        if (isMutationRequest(method) && rejectNonPostMutation()) {
+            return NONE;
+        }
+        if ("doBatchBill".equals(method)) {
+            return doBatchBill();
+        } else if ("remove".equals(method)) {
+            return remove();
+        } else if ("add".equals(method)) {
+            return add();
+        }
+
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+
+
+        Date billingDate;
+        SimpleDateFormat dateFmt = new SimpleDateFormat("yyyy-MM-dd");
+        String strDate = request.getParameter("BillDate");
+        if (strDate == null) {
+            billingDate = new Date();
+        } else {
+            try {
+                billingDate = dateFmt.parse(strDate);
+            } catch (ParseException e) {
+                // Send an explicit 400 with a body and return NONE so Struts
+                // doesn't try to resolve a result string. Returning null after
+                // setStatus produces an empty/ambiguous response — the same
+                // shape this PR fixed elsewhere.
+                MiscUtils.getLogger().error("BatchBill execute: invalid BillDate", e);
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid BillDate");
+                return NONE;
+            }
+        }
+
+        String clinic_view = request.getParameter("clinic_view");
+        String curUser = (String) request.getSession().getAttribute("user");
+        String[] billingInfo = request.getParameterValues("bill");
+
+        if (billingInfo != null) {
+            // Pre-validate the entire batch BEFORE the first DAO write. The
+            // legacy code parsed and persisted in the same loop, so a malformed
+            // row N (wrong split count or non-numeric demo no) crashed AFTER
+            // bills 0..N-1 were already committed — leaving the operator with
+            // a generic 500 and no signal which bills posted. Validate-then-
+            // execute keeps the batch atomic from the operator's perspective.
+            for (int idx = 0; idx < billingInfo.length; ++idx) {
+                try {
+                    parseBatchBillRow(billingInfo[idx]);
+                } catch (IllegalArgumentException nfe) {
+                    MiscUtils.getLogger().error(
+                            "BatchBill execute: row {} malformed or invalid",
+                            idx, nfe);
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Malformed bill row");
+                    return NONE;
+                }
+            }
+
+            for (int idx = 0; idx < billingInfo.length; ++idx) {
+                BatchBillRow row = parseBatchBillRow(billingInfo[idx]);
+                this.headerCreationService.createBill(row.providerNo(), row.demographicNo(),
+                        row.serviceCode(), row.dxCode(), clinic_view, billingDate, curUser);
+            }
+
+        }
+        // Assemble the JSP view model so batchBilling.jsp can render purely
+        // via EL/JSTL. The JSP scriptlet body previously called four
+        // SpringUtils.getBean lookups inline plus per-row provider /
+        // demographic resolution; that all moves into the assembler.
+        BatchBillingViewModel batchModel = batchBillingAssembler.assemble(request);
+        request.setAttribute("batchModel", batchModel);
+
+        // Returning null leaves Struts with no result to render -> empty body.
+        // Render the batch-billing form view. Saves return through the same path.
+        return SUCCESS;
+
+    }
+
+    public String doBatchBill() {
+
+        if (rejectNonPostMutation()) {
+            return NONE;
+        }
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+
+        ResourceBundle oscarResource = ResourceBundle.getBundle("oscarResources", request.getLocale());
+        Date billingDate;
+        SimpleDateFormat dateFmt = new SimpleDateFormat("yyyy-MM-dd");
+        String strDate = request.getParameter("BillDate");
+        if (strDate == null) {
+            billingDate = new Date();
+        } else {
+            try {
+                billingDate = dateFmt.parse(strDate);
+            } catch (ParseException e) {
+                MiscUtils.getLogger().error("Error", e);
+                request.setAttribute("error", oscarResource.getString("billing.batchbilling.badDate"));
+                return "error";
+            }
+        }
+
+        String clinic_view = request.getParameter("clinic_view");
+        String curUser = (String) request.getSession().getAttribute("user");
+        String[] billingInfo = request.getParameterValues("bill");
+        BatchBillingDAO batchBillingDAO = (BatchBillingDAO) SpringUtils.getBean(BatchBillingDAO.class);
+        List<BatchBilling> batchBillingList;
+        BatchBilling batchBilling;
+        String total;
+
+        //create the invoice and update batch_billing table
+        if (billingInfo != null) {
+            // Pre-validate every row's shape and demo-no parse BEFORE any
+            // createBill / merge fires. A mid-loop crash on row N otherwise
+            // committed bills 0..N-1 and left the operator without a signal
+            // which posted.
+            for (int idx = 0; idx < billingInfo.length; ++idx) {
+                try {
+                    parseBatchBillRow(billingInfo[idx]);
+                } catch (IllegalArgumentException nfe) {
+                    MiscUtils.getLogger().error(
+                            "BatchBill doBatchBill: row {} malformed or invalid",
+                            idx, nfe);
+                    request.setAttribute("error", oscarResource.getString("billing.batchbilling.badRow"));
+                    return "error";
+                }
+            }
+
+            for (int idx = 0; idx < billingInfo.length; ++idx) {
+                BatchBillRow row = parseBatchBillRow(billingInfo[idx]);
+                //passed in order is billing providers, demographic no, service code, dx code
+                total = this.headerCreationService.createBill(row.providerNo(), row.demographicNo(),
+                        row.serviceCode(), row.dxCode(), clinic_view, billingDate, curUser);
+
+                batchBillingList = batchBillingDAO.find(row.demographicNo(), row.serviceCode());
+                batchBilling = batchBillingList.get(0);
+                batchBilling.setBillingAmount(total);
+                batchBilling.setLastBilledDate(billingDate);
+                batchBillingDAO.merge(batchBilling);
+
+            }
+
+        }
+
+        try {
+            String providersParam = request.getParameter("providers");
+            String serviceCodeParam = request.getParameter("service_code");
+            response.sendRedirect(request.getContextPath()
+                    + "/billing/CA/ON/BatchBill?provider_no="
+                    + URLEncoder.encode(providersParam == null ? "" : providersParam, StandardCharsets.UTF_8)
+                    + "&service_code="
+                    + URLEncoder.encode(serviceCodeParam == null ? "" : serviceCodeParam, StandardCharsets.UTF_8));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return null;
+    }
+
+    //Remove demographics from batch billing table
+    public String remove() {
+
+
+        if (rejectNonPostMutation()) {
+            return NONE;
+        }
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+
+        String[] billingInfo = request.getParameterValues("bill");
+        BatchBillingDAO batchBillingDAO = (BatchBillingDAO) SpringUtils.getBean(BatchBillingDAO.class);
+        List<BatchBilling> batchBillingList;
+        BatchBilling batchBilling;
+
+        //create the invoice and update batch_billing table
+        if (billingInfo != null) {
+
+            for (int idx = 0; idx < billingInfo.length; ++idx) {
+                BatchBillRow row = parseBatchBillRow(billingInfo[idx]);
+
+                batchBillingList = batchBillingDAO.find(row.demographicNo(), row.serviceCode());
+                batchBilling = batchBillingList.get(0);
+                batchBillingDAO.remove(batchBilling.getId());
+            }
+        }
+
+        try {
+            String providersParam = request.getParameter("providers");
+            String serviceCodeParam = request.getParameter("service_code");
+            response.sendRedirect(request.getContextPath()
+                    + "/billing/CA/ON/BatchBill?provider_no="
+                    + URLEncoder.encode(providersParam == null ? "" : providersParam, StandardCharsets.UTF_8)
+                    + "&service_code="
+                    + URLEncoder.encode(serviceCodeParam == null ? "" : serviceCodeParam, StandardCharsets.UTF_8));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return null;
+
+    }
+
+    //Add demographic to batch billing table and allow update of record if already present
+    public String add() {
+
+        if (rejectNonPostMutation()) {
+            return NONE;
+        }
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+
+        BatchBillingDAO batchBillingDAO = (BatchBillingDAO) SpringUtils.getBean(BatchBillingDAO.class);
+        String demographicNoParam = request.getParameter("demographic_no");
+        if (demographicNoParam == null || demographicNoParam.trim().isEmpty()) {
+            request.setAttribute("error", "Missing required parameter: demographic_no");
+            return "error";
+        }
+        int demographicNo;
+        try {
+            demographicNo = Integer.parseInt(demographicNoParam.trim());
+        } catch (NumberFormatException e) {
+            request.setAttribute("error", "Invalid demographic_no format");
+            return "error";
+        }
+        String providersParam = request.getParameter("providers");
+        String billingProviderNo = providersParam != null ? providersParam.trim() : "";
+        String creatorParam = request.getParameter("creator");
+        String creatorProviderNo = creatorParam != null ? creatorParam.trim() : "";
+        // service_code may be absent for bulk batch billing entries; passed through as-is, no downstream validation
+        String serviceCodeParam = request.getParameter("xml_other1");
+        String service_code = serviceCodeParam != null ? serviceCodeParam.trim() : null;
+        String dxcodeRaw = request.getParameter("xml_diagnostic_detail");
+        String dxcode = dxcodeRaw != null ? dxcodeRaw : "";
+        String createdDate = request.getParameter("createdate");
+        if (createdDate == null || createdDate.trim().isEmpty()) {
+            request.setAttribute("error", "Missing required parameter: createdate");
+            return "error";
+        }
+        final String createdDateFormat = "yyyy/MM/dd HH:mm:ss";
+        Date date;
+        try {
+            date = DateUtils.parseDate(createdDate, new String[]{createdDateFormat});
+        } catch (ParseException e) {
+            request.setAttribute("error", "Invalid date format for createdate. Expected format: " + createdDateFormat);
+            return "error";
+        }
+        Timestamp created = new Timestamp(date.getTime());
+        int pipePos;
+
+        if ((pipePos = dxcode.indexOf("|")) != -1) {
+            dxcode = dxcode.substring(0, pipePos);
+        }
+
+        List<BatchBilling> batchBillingList = batchBillingDAO.find(demographicNo, service_code);
+        BatchBilling batchBilling;
+
+        if (batchBillingList.isEmpty()) {
+            batchBilling = new BatchBilling();
+
+            batchBilling.setDemographicNo(demographicNo);
+            batchBilling.setBillingProviderNo(billingProviderNo);
+            batchBilling.setServiceCode(service_code);
+            batchBilling.setDxcode(dxcode);
+            batchBilling.setCreateDate(created);
+            batchBilling.setCreator(creatorProviderNo);
+
+            batchBillingDAO.persist(batchBilling);
+        } else {
+            batchBilling = batchBillingList.get(0);
+            batchBilling.setBillingProviderNo(billingProviderNo);
+            batchBilling.setDxcode(dxcode);
+            batchBilling.setCreateDate(created);
+            batchBilling.setCreator(creatorProviderNo);
+
+            batchBillingDAO.merge(batchBilling);
+        }
+
+
+        return "saved";
+
+    }
+
+    private boolean isMutationRequest(String method) {
+        return "doBatchBill".equals(method)
+                || "remove".equals(method)
+                || "add".equals(method)
+                || request.getParameterValues("bill") != null;
+    }
+
+    private boolean rejectNonPostMutation() {
+        if ("POST".equalsIgnoreCase(request.getMethod())) {
+            return false;
+        }
+        response.setHeader("Allow", "POST");
+        try {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return true;
+    }
+
+    private BatchBillRow parseBatchBillRow(String raw) {
+        String[] temp = raw == null ? new String[0] : raw.split(";", -1);
+        if (temp.length != 4) {
+            throw new IllegalArgumentException("expected 4 fields, got " + temp.length);
+        }
+        try {
+            return new BatchBillRow(temp[0], temp[1], Integer.parseInt(temp[2]), temp[3]);
+        } catch (NumberFormatException nfe) {
+            throw new IllegalArgumentException("demographic_no is non-numeric", nfe);
+        }
+    }
+
+    private record BatchBillRow(String serviceCode, String dxCode, Integer demographicNo, String providerNo) { }
+}

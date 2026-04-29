@@ -309,7 +309,7 @@
         </c:if>
 
         <%-- Banners for the demoLoadError / raLookupError flags set by
-             BillingONCorrectionViewModelAssembler.loadBillRecord. Without these,
+             BillingOnCorrectionViewModelAssembler.loadBillRecord. Without these,
              the operator might mistake an empty patient context or empty
              claimNo for authoritative data. --%>
         <c:if test="${correctionModel.demoLoadError}">
@@ -373,7 +373,7 @@
         </table>
         </c:if>
 
-        <%-- Form posts to UpdateBillingONCorrection2Action (POST-only).
+        <%-- Form posts to UpdateBillingOnCorrection2Action (POST-only).
              The legacy URL was /BillingONCorrection with a hidden
              method=updateInvoice param; the new sibling action makes the
              update workflow its own URL endpoint, removing the
@@ -708,7 +708,7 @@
 
                     <tbody>
                     <%-- Per-row line-item table; correctionModel.billItems is
-                         pre-resolved by BillingONCorrectionRenderComposer.
+                         pre-resolved by BillingOnCorrectionRenderComposer.
                          Display at least MAXRECORDS (6) rows; pad with empty
                          rows if fewer items exist. --%>
                     <c:if test="${__bFlag and correctionModel.multiSiteProvider and not empty correctionModel.billItems}">

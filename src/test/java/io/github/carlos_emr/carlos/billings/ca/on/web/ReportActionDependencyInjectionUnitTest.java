@@ -5,8 +5,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
-import io.github.carlos_emr.carlos.billings.ca.on.service.OnBillingDiskService;
-import io.github.carlos_emr.carlos.billings.ca.on.service.OntarioRASettlementService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.OnRaSettlementService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.OhipReportGenerationService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -72,9 +72,9 @@ class ReportActionDependencyInjectionUnitTest {
     void shouldGenerateNewDiskThroughInjectedService() throws Exception {
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(true);
-        OnBillingDiskService service = mock(OnBillingDiskService.class);
+        BillingOnDiskService service = mock(BillingOnDiskService.class);
 
-        assertThat(new ViewOngenreport2Action(securityInfoManager, service).execute())
+        assertThat(new ViewOnReportGeneration2Action(securityInfoManager, service).execute())
                 .isEqualTo(ActionSupport.SUCCESS);
 
         verify(service).generateNewDisk(request);
@@ -84,9 +84,9 @@ class ReportActionDependencyInjectionUnitTest {
     void shouldRegenerateDiskThroughInjectedService() throws Exception {
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(true);
-        OnBillingDiskService service = mock(OnBillingDiskService.class);
+        BillingOnDiskService service = mock(BillingOnDiskService.class);
 
-        assertThat(new ViewOnregenreport2Action(securityInfoManager, service).execute())
+        assertThat(new ViewOnReportRegeneration2Action(securityInfoManager, service).execute())
                 .isEqualTo(ActionSupport.SUCCESS);
 
         verify(service).regenerateDisk(request);
@@ -126,12 +126,12 @@ class ReportActionDependencyInjectionUnitTest {
         request.setParameter("rano", "123");
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(true);
-        OntarioRASettlementService service = mock(OntarioRASettlementService.class);
+        OnRaSettlementService service = mock(OnRaSettlementService.class);
 
-        assertThat(new ViewOnGenRAsettle2Action(securityInfoManager, service).execute())
+        assertThat(new ViewOnGenRaSettle2Action(securityInfoManager, service).execute())
                 .isEqualTo(ActionSupport.SUCCESS);
 
-        verify(service).settle("123", OntarioRASettlementService.Mode.STANDARD);
+        verify(service).settle("123", OnRaSettlementService.Mode.STANDARD);
     }
 
     @Test
@@ -139,11 +139,11 @@ class ReportActionDependencyInjectionUnitTest {
         request.setParameter("rano", "123");
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(true);
-        OntarioRASettlementService service = mock(OntarioRASettlementService.class);
+        OnRaSettlementService service = mock(OnRaSettlementService.class);
 
-        assertThat(new ViewOnGenRAsettle352Action(securityInfoManager, service).execute())
+        assertThat(new ViewOnGenRaSettle352Action(securityInfoManager, service).execute())
                 .isEqualTo(ActionSupport.SUCCESS);
 
-        verify(service).settle("123", OntarioRASettlementService.Mode.I2_35_WITH_QCODES);
+        verify(service).settle("123", OnRaSettlementService.Mode.I2_35_WITH_QCODES);
     }
 }

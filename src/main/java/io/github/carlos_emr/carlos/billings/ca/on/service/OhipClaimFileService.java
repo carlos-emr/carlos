@@ -83,11 +83,11 @@ import org.owasp.encoder.Encode;
  *
  * <p>Used by:</p>
  * <ul>
- *   <li>{@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOHIPSimulationViewModelAssembler}
+ *   <li>{@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOhipSimulationViewModelAssembler}
  *       — dry-run preview ({@code eFlag="0"}).</li>
- *   <li>{@link OnBillingDiskService} — actual disk creation /
+ *   <li>{@link BillingOnDiskService} — actual disk creation /
  *       regeneration ({@code eFlag="1"}).</li>
- *   <li>{@code ViewOngenreport2Action} / {@code ViewOnregenreport2Action}
+ *   <li>{@code ViewOnReportGeneration2Action} / {@code ViewOnReportRegeneration2Action}
  *       — gate actions for the two report-generation pages.</li>
  * </ul>
  *
@@ -101,7 +101,7 @@ import org.owasp.encoder.Encode;
  * collaborators must therefore inject this via
  * {@link org.springframework.beans.factory.ObjectFactory}; each
  * {@code factory.getObject()} call yields a fresh instance (see
- * {@link OnBillingDiskService}).</p>
+ * {@link BillingOnDiskService}).</p>
  *
  * <p><strong>{@code @Transactional} note:</strong> the two write methods
  * ({@link #updateHeader1BilledBatchId}, {@link #updateDisknameSum}) each
@@ -132,7 +132,7 @@ public class OhipClaimFileService {
     private final BillingONItemDao itemDao;
     private final BillingServiceDao billingServiceDao;
     private final BillingONDiskNameDao diskNameDao;
-    private final BillingONLookupService lookupService;
+    private final BillingOnLookupService lookupService;
 
     public OhipClaimFileService(DemographicManager demographicManager,
                                 BillingONCHeader1Dao cheaderDao,
@@ -142,7 +142,7 @@ public class OhipClaimFileService {
                                 BillingONItemDao itemDao,
                                 BillingServiceDao billingServiceDao,
                                 BillingONDiskNameDao diskNameDao,
-                                BillingONLookupService lookupService) {
+                                BillingOnLookupService lookupService) {
         this.demographicManager = demographicManager;
         this.cheaderDao = cheaderDao;
         this.headerDao = headerDao;

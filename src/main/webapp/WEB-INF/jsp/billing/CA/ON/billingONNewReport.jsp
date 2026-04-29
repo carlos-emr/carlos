@@ -26,15 +26,15 @@
   for dynamic output rendered by the page.
 --%>
 <!DOCTYPE html>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONNewReportViewModelAssembler" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOnNewReportViewModelAssembler" %>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%-- Data assembly runs in ViewBillingONNewReport2Action via
-     BillingONNewReportViewModelAssembler. The view model is stashed on the request
+<%-- Data assembly runs in ViewBillingOnNewReport2Action via
+     BillingOnNewReportViewModelAssembler. The view model is stashed on the request
      as ${model}; this JSP only renders. The four inline JDBC queries (unbilled
      / billed / paid / unpaid) and the multisite + provider dropdown lookups
      the legacy JSP performed inline now live in the assembler. --%>

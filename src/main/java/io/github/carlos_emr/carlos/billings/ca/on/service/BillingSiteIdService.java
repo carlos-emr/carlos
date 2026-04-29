@@ -28,7 +28,7 @@ import io.github.carlos_emr.carlos.appt.JdbcApptImpl;
 /**
  * Resolves the legacy non-multisite "site" dropdown values from
  * {@code scheduleSiteID} in the props file. Used by
- * {@code BillingONFormViewModelAssembler} when multisite is disabled.
+ * {@code BillingOnFormViewModelAssembler} when multisite is disabled.
  *
  * @since 2026-04-28
  */

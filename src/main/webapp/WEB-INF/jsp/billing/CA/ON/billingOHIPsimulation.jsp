@@ -175,7 +175,7 @@
 <%--
   ${simulationModel.previewHtml} contains assembler-built trusted HTML — the
   OHIP file preview rendered as a <pre>-style code block. The producer
-  (BillingOHIPSimulationViewModelAssembler) builds it from constants and
+  (BillingOhipSimulationViewModelAssembler) builds it from constants and
   server-side BillingONCHeader1 / BillingItem state only; no raw request
   parameter reaches this rendering point. Do not change this contract
   without updating the assembler's safety invariant comment.

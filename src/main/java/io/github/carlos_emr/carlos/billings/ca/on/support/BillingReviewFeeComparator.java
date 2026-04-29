@@ -24,15 +24,15 @@ package io.github.carlos_emr.carlos.billings.ca.on.support;
 
 import java.util.Comparator;
 import java.util.HashMap;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimLoader;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnClaimLoader;
 /**
  * Legacy comparator used to order review service-code rows by claim-loader fee.
  */
 public class BillingReviewFeeComparator implements Comparator {
 
-    private final BillingONClaimLoader dbObj;
+    private final BillingOnClaimLoader dbObj;
 
-    public BillingReviewFeeComparator(BillingONClaimLoader dbObj) {
+    public BillingReviewFeeComparator(BillingOnClaimLoader dbObj) {
         this.dbObj = dbObj;
     }
 

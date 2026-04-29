@@ -28,8 +28,8 @@
 --%>
 <%--
     Ontario Billing History (service-code-filtered) popup. Posts to
-    ViewBillingONHistorySpec which builds a BillingONHistorySpecViewModel
-    via BillingONHistorySpecViewModelAssembler and exposes it as
+    ViewBillingONHistorySpec which builds a BillingOnHistorySpecialistViewModel
+    via BillingOnHistorySpecialistViewModelAssembler and exposes it as
     ${historySpecModel}.
 
     @since 2006

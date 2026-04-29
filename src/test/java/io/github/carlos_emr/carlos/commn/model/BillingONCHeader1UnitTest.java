@@ -28,7 +28,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * Unit tests for the pure-domain methods on {@link BillingONCHeader1}. These
  * methods previously lived on the deleted {@code BillingONService} catch-all
- * and on {@code BillingONInvoiceTotalsCalculator}; they belong on the entity
+ * and on {@code BillingOnInvoiceTotalsCalculator}; they belong on the entity
  * because they reason about its own state with no DAO calls.
  *
  * @since 2026-04-27

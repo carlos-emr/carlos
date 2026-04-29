@@ -40,7 +40,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionRecor
  * Struts 2Action for Ontario billing deletion by bill number (with bill number known).
  * Soft-deletes a billing record by setting its status to 'D'.
  * Previously used as a {@code <jsp:include>} target in billingONSave.jsp;
- * the delete logic is also called directly by {@link BillingONSave2Action}.
+ * the delete logic is also called directly by {@link BillingOnSave2Action}.
  *
  * <p>Migrated from {@code billing/CA/ON/billingDeleteWithBillNo.jsp}.
  *
@@ -77,7 +77,7 @@ public class BillingDeleteWithBillNo2Action extends ActionSupport {
 
     /**
      * Performs the delete-by-bill-number logic. Called both from {@link #execute()}
-     * and from {@link BillingONSave2Action} to replace the old {@code <jsp:include>} pattern.
+     * and from {@link BillingOnSave2Action} to replace the old {@code <jsp:include>} pattern.
      *
      * @param request        the current HTTP request
      * @param curUserNo      the logged-in provider number

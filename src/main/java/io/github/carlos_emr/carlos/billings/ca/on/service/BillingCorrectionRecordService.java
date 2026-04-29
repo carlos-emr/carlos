@@ -48,7 +48,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
-import io.github.carlos_emr.carlos.billings.ca.on.support.BillingONConstants;
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
 import io.github.carlos_emr.carlos.util.StringUtils;
@@ -67,30 +67,30 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 public class BillingCorrectionRecordService {
     private static final Logger _logger = MiscUtils.getLogger();
 
-    private final BillingONCorrectionPersistenceService dbObj;
+    private final BillingOnCorrectionPersistenceService correctionPersistenceService;
     private final BillingONCHeader1Dao cheader1Dao;
     private final BillingONItemDao billOnItemDao;
     private final BillingONExtDao billOnExtDao;
-    private final BillingONLookupService lookupService;
-    private final Billing3rdPartyService thirdPartyService;
+    private final BillingOnLookupService lookupService;
+    private final BillingThirdPartyService thirdPartyService;
     private final ServiceCodeLoader serviceCodeLoader;
-    private final BillingONClaimPersister claimPersistenceService;
-    private final BillingONClaimLoader claimQueryService;
+    private final BillingOnClaimPersister claimPersistenceService;
+    private final BillingOnClaimLoader claimQueryService;
     private final BillingOnTransactionDao billOnTransDao;
     private final BillingOnItemPaymentDao billOnItemPaymentDao;
 
-    BillingCorrectionRecordService(BillingONCorrectionPersistenceService dbObj,
+    BillingCorrectionRecordService(BillingOnCorrectionPersistenceService correctionPersistenceService,
                           BillingONCHeader1Dao cheader1Dao,
                           BillingONItemDao billOnItemDao,
                           BillingONExtDao billOnExtDao,
-                          BillingONLookupService lookupService,
-                          Billing3rdPartyService thirdPartyService,
+                          BillingOnLookupService lookupService,
+                          BillingThirdPartyService thirdPartyService,
                           ServiceCodeLoader serviceCodeLoader,
-                          BillingONClaimPersister claimPersistenceService,
-                          BillingONClaimLoader claimQueryService,
+                          BillingOnClaimPersister claimPersistenceService,
+                          BillingOnClaimLoader claimQueryService,
                           BillingOnTransactionDao billOnTransDao,
                           BillingOnItemPaymentDao billOnItemPaymentDao) {
-        this.dbObj = dbObj;
+        this.correctionPersistenceService = correctionPersistenceService;
         this.cheader1Dao = cheader1Dao;
         this.billOnItemDao = billOnItemDao;
         this.billOnExtDao = billOnExtDao;
@@ -104,19 +104,19 @@ public class BillingCorrectionRecordService {
     }
 
     public List getBillingRecordObj(String id) {
-        List ret = dbObj.getBillingRecordObj(id);
+        List ret = correctionPersistenceService.getBillingRecordObj(id);
         return ret;
     }
 
     // get error code
     public List getBillingExplanatoryList(String id) {
-        List ret = dbObj.getBillingExplanatoryList(id);
+        List ret = correctionPersistenceService.getBillingExplanatoryList(id);
         return ret;
     }
 
     // get rejected code
     public List getBillingRejectList(String id) {
-        List ret = dbObj.getBillingRejectList(id);
+        List ret = correctionPersistenceService.getBillingRejectList(id);
         return ret;
     }
 
@@ -167,7 +167,7 @@ public class BillingCorrectionRecordService {
             ch1Obj.setLocation(requestData.getParameter("xml_slicode"));
 
             ch1Obj.setPay_program(requestData.getParameter("payProgram"));
-            ret = dbObj.updateBillingClaimHeader(ch1Obj);
+            ret = correctionPersistenceService.updateBillingClaimHeader(ch1Obj);
 
             if ("D".equals(ch1Obj.getStatus())) {
                 // change status in billing_on_item table
@@ -195,7 +195,7 @@ public class BillingCorrectionRecordService {
         }
 
         // 3rd party elements
-        if (payProgram.matches(BillingONConstants.BILLINGMATCHSTRING_3RDPARTY)) {
+        if (payProgram.matches(BillingOnConstants.BILLINGMATCHSTRING_3RDPARTY)) {
             if (requestData.getParameter("payment") != null) {
                 ret = update3rdPartyItem(BillingONExtDao.KEY_DISCOUNT, requestData);
                 ret = update3rdPartyItem(BillingONExtDao.KEY_TOTAL, requestData);
@@ -204,7 +204,7 @@ public class BillingCorrectionRecordService {
                 ret = update3rdPartyItem(BillingONExtDao.KEY_PAY_DATE, requestData);
                 ret = update3rdPartyItem(BillingONExtDao.KEY_CREDIT, requestData);
                 ch1Obj.setPaid(requestData.getParameter("payment"));
-                ret = dbObj.updateBillingClaimHeader(ch1Obj);
+                ret = correctionPersistenceService.updateBillingClaimHeader(ch1Obj);
             }
 
             if (requestData.getParameter("billTo") != null) {
@@ -226,7 +226,7 @@ public class BillingCorrectionRecordService {
 
     public void setInactive(String key, HttpServletRequest request) {
         String billingNo = request.getParameter("xml_billing_no");
-        thirdPartyService.updateKeyStatus(billingNo, key, Billing3rdPartyService.INACTIVE);
+        thirdPartyService.updateKeyStatus(billingNo, key, BillingThirdPartyService.INACTIVE);
     }
 
     /*
@@ -263,7 +263,7 @@ public class BillingCorrectionRecordService {
     }
 
     public boolean updateBillingItem(List lItemObj, HttpServletRequest request) throws ParseException {
-        boolean ret = true; // dbObj.updateBillingClaimHeader(ch1Obj);
+        boolean ret = true; // thirdPartyService.updateBillingClaimHeader(ch1Obj);
         // _logger.info("updateBillingItem(old value = ");
 
         BillingClaimHeaderDto ch1Obj = (BillingClaimHeaderDto) lItemObj.get(0);
@@ -279,7 +279,7 @@ public class BillingCorrectionRecordService {
         dx = dx.length() > 2 ? dx.substring(0, 3) : dx;
         String serviceDate = request.getParameter("xml_appointment_date");
 
-        for (int i = 0; i < BillingONConstants.FIELD_MAX_SERVICE_NUM; i++) {
+        for (int i = 0; i < BillingOnConstants.FIELD_MAX_SERVICE_NUM; i++) {
             String code = request.getParameter("servicecode" + i);
             vecName.add(code);
             if (code == null || code.isEmpty()) {
@@ -343,7 +343,7 @@ public class BillingCorrectionRecordService {
 
         // update total field in billing_on_ext if pay_program is 3rd party
         if (ch1Obj.getPay_program().matches(
-                BillingONConstants.BILLINGMATCHSTRING_3RDPARTY)) {
+                BillingOnConstants.BILLINGMATCHSTRING_3RDPARTY)) {
             // BillingONExtDao billOnExtDao = SpringUtils.getBean(BillingONExtDao.class);
             if (null != billOnExtDao) {
                 int billingNo = Integer.parseInt(ch1Obj.getId());
@@ -587,7 +587,7 @@ public class BillingCorrectionRecordService {
                     || !oldObj.getService_date().equals(serviceDate)
                     || bStatusChange) {
                 /*
-                 * int j = dbObj.addRepoOneItem(oldObj);
+                 * int j = correctionPersistenceService.addRepoOneItem(oldObj);
                  * if (j == 0) {
                  * return null;
                  * }
@@ -597,18 +597,18 @@ public class BillingCorrectionRecordService {
                 oldObj.setService_date(serviceDate);
                 oldObj.setDx(sDx);
                 oldObj.setStatus(cStatus);
-                ret = dbObj.updateBillingOneItem(oldObj);
+                ret = correctionPersistenceService.updateBillingOneItem(oldObj);
                 if (ret) {
-                    dbObj.addUpdateOneBillItemTrans(ch1Obj, oldObj, updateProviderNo);
+                    correctionPersistenceService.addUpdateOneBillItemTrans(ch1Obj, oldObj, updateProviderNo);
                 }
             }
         } else {
             oldObj.setStatus("D");
-            ret = dbObj.updateBillingOneItem(oldObj);
+            ret = correctionPersistenceService.updateBillingOneItem(oldObj);
             // add one transaction: delete a service code
             BillingONCHeader1 billCheader1 = cheader1Dao.find(Integer.parseInt(oldObj.getCh1_id()));
             BillingOnTransaction billTrans = new BillingOnTransaction();
-            billTrans.setActionType(BillingONConstants.ACTION_TYPE.D.name());
+            billTrans.setActionType(BillingOnConstants.ACTION_TYPE.D.name());
             try {
                 billTrans.setAdmissionDate(billCheader1.getAdmissionDate());
             } catch (Exception e) {
@@ -645,7 +645,7 @@ public class BillingCorrectionRecordService {
                         status);
                 // add one transaction: add a service code
                 billTrans = new BillingOnTransaction();
-                billTrans.setActionType(BillingONConstants.ACTION_TYPE.C.name());
+                billTrans.setActionType(BillingOnConstants.ACTION_TYPE.C.name());
                 try {
                     billTrans.setAdmissionDate(billCheader1.getAdmissionDate());
                 } catch (Exception e) {
@@ -675,7 +675,7 @@ public class BillingCorrectionRecordService {
                 billTrans.setStatus(status);
                 billOnTransDao.persist(billTrans);
 
-                if (ch1Obj.getPay_program().matches(BillingONConstants.BILLINGMATCHSTRING_3RDPARTY)) {
+                if (ch1Obj.getPay_program().matches(BillingOnConstants.BILLINGMATCHSTRING_3RDPARTY)) {
                     // get which item_payments are associated to this service code
                     List<BillingOnItemPayment> billOnItemPaymentList = billOnItemPaymentDao
                             .getAllByItemId(Integer.parseInt(oldObj.getId()));
@@ -746,7 +746,7 @@ public class BillingCorrectionRecordService {
             if (0 == i) {
                 return false;
             }
-            dbObj.addInsertOneBillItemTrans(ch1Obj, newObj, updateProviderNo);
+            correctionPersistenceService.addInsertOneBillItemTrans(ch1Obj, newObj, updateProviderNo);
             lItemObj.add(newObj);
         }
 
@@ -756,18 +756,18 @@ public class BillingCorrectionRecordService {
 
     // for appt unbill; 0 - id, 1 - status
     public List<String> getBillingNoStatusByAppt(String apptNo) {
-        List<String> ret = dbObj.getBillingCH1NoStatusByAppt(apptNo);
+        List<String> ret = correctionPersistenceService.getBillingCH1NoStatusByAppt(apptNo);
         return ret;
     }
 
     public List getBillingNoStatusByBillNo(String billNo) {
-        List ret = dbObj.getBillingCH1NoStatusByBillNo(billNo);
+        List ret = correctionPersistenceService.getBillingCH1NoStatusByBillNo(billNo);
         return ret;
     }
 
     // for appt unbill;
     public boolean deleteBilling(String id, String status, String providerNo) {
-        boolean ret = dbObj.updateBillingStatus(id, status, providerNo);
+        boolean ret = correctionPersistenceService.updateBillingStatus(id, status, providerNo);
         if ("D".equals(status)) {
             // change status in billing_on_item table
 
@@ -803,9 +803,9 @@ public class BillingCorrectionRecordService {
     }
 
     private void updateAmount(String newAmount, String claimId, String updateProviderNo, String sDx) {
-        String oldTotal = dbObj.getBillingTotal(claimId);
+        String oldTotal = correctionPersistenceService.getBillingTotal(claimId);
         if (!newAmount.equals(oldTotal)) {
-            dbObj.updateBillingTotal(newAmount, claimId);
+            correctionPersistenceService.updateBillingTotal(newAmount, claimId);
         }
     }
 

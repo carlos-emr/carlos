@@ -22,25 +22,31 @@
 /**
  * Service tier for the Ontario billing module.
  *
- * <p>Houses domain operations that have <em>side effects</em> — the
- * complement of the read-side {@code billings.ca.on.assembler} package:</p>
+ * <p>Houses domain services that are not web gates, JSP view models, or
+ * dependency-free support utilities. That includes side-effect workflows,
+ * read/query loaders, fixed-format parsers, and calculators:</p>
  *
  * <ul>
  *   <li>Persistence mutations (DAO writes / merges / deletes)</li>
+ *   <li>Read/query loaders used by actions and assemblers</li>
+ *   <li>Fixed-format report parsers and import workflows</li>
  *   <li>File I/O (OHIP claim file generation, MOH disk creation)</li>
  *   <li>Audit-trail emission ({@code BillActivity} rows)</li>
  *   <li>External-system invocation (HRM, MCEDT, EDT)</li>
  * </ul>
  *
- * <p>If a class only <em>reads</em> from DAOs to build a view model, it
- * belongs in {@code billings.ca.on.assembler}, not here.</p>
+ * <p>If a class builds exactly one JSP-facing {@code *ViewModel}, it belongs
+ * in {@code billings.ca.on.assembler}; if it exposes reusable domain reads or
+ * file/report behavior, it belongs here.</p>
  *
  * <h2>Naming</h2>
  *
- * <p>Class names end in {@code *Service}. Methods are verb-phrase
- * imperatives (e.g. {@code generateReport}, {@code settle},
- * {@code regenerateDisk}) — not pseudo-getters. Each service is
- * stateless and instantiated on demand by the web tier.</p>
+ * <p>Class names use the most specific role suffix that fits:
+ * {@code *Service}, {@code *Loader}, {@code *QueryService},
+ * {@code *Persister}, {@code *Parser}, {@code *ImportService}, or
+ * {@code *Calculator}. Methods are verb phrases for side effects and
+ * query phrases for read-only services. Each service is stateless and
+ * constructor-injected.</p>
  *
  * @since 2026-04-26
  */

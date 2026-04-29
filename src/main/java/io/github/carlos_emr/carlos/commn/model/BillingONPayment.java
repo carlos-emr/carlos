@@ -55,7 +55,7 @@ public class BillingONPayment extends AbstractModel<Integer> implements Serializ
     @Column(name = "payment_id", nullable = false)
     private Integer id;
 
-    // LAZY: every caller that mutates this collection (BillingONClaimPersister,
+    // LAZY: every caller that mutates this collection (BillingOnClaimPersister,
     // BillingONPaymentDaoImpl) does so on a freshly created entity or inside
     // an open Hibernate session, so lazy initialisation works correctly. No
     // outside-session readers exist as of 2026-04-27.

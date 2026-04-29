@@ -41,7 +41,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingDemographicSu
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingReferralDoctor;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingShortcutPg1ViewModel;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimLoader;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnClaimLoader;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao;
@@ -60,7 +60,7 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.billings.ca.on.support.BillingONRequestParameters;
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnRequestParameters;
 
 /**
  * Assembles {@link BillingShortcutPg1ViewModel} for {@code billingShortcutPg1.jsp}.
@@ -69,7 +69,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.support.BillingONRequestParame
  * prep, and demographic-driven validation messaging that previously lived in
  * the 350-line top scriptlet of the legacy JSP. The shortcut page is the
  * fast-track hospital-billing variant of {@code billingON.jsp}, so the prep
- * shape mirrors {@link BillingONFormViewModelAssembler} where it can — both pull
+ * shape mirrors {@link BillingOnFormViewModelAssembler} where it can — both pull
  * provider lists, location lists, billing-service grids — with shortcut-only
  * differences (hospital-billing visit-type override, legacy
  * {@code BillingDao.findActiveBillingsByDemoNo} history walk).</p>
@@ -94,7 +94,7 @@ public class BillingShortcutPg1ViewModelAssembler {
     private final io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao ctlBillingServiceDao;
     private final io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao diagnosticCodeDao;
     private final io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao clinicNbrDao;
-    private final BillingONClaimLoader billingClaimQueryService;
+    private final BillingOnClaimLoader billingClaimQueryService;
 
     public BillingShortcutPg1ViewModelAssembler(DemographicDao demographicDao,
                                     ProviderDao providerDao,
@@ -107,7 +107,7 @@ public class BillingShortcutPg1ViewModelAssembler {
                                     io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao ctlBillingServiceDao,
                                     io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao diagnosticCodeDao,
                                     io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao clinicNbrDao,
-                                    BillingONClaimLoader billingClaimQueryService) {
+                                    BillingOnClaimLoader billingClaimQueryService) {
         this.demographicDao = demographicDao;
         this.providerDao = providerDao;
         this.billingDao = billingDao;
@@ -150,7 +150,7 @@ public class BillingShortcutPg1ViewModelAssembler {
         // when both params were absent; preserve that.
         // xml_provider is "providerNo|ohipNo" from the picker — strip the suffix
         // and don't let an empty value clobber a populated providerview.
-        String providerView = BillingONRequestParameters.extractProviderNo(
+        String providerView = BillingOnRequestParameters.extractProviderNo(
                 request.getParameter("xml_provider"),
                 request.getParameter("providerview"));
         if (providerView.isEmpty()) {
@@ -464,7 +464,7 @@ public class BillingShortcutPg1ViewModelAssembler {
 
         // assgProviderDisplay: legacy JSP looked up
         // providerBean.getProperty(assgProvider_no, "") from the session
-        // Properties; reuse the BillingONFormViewModelAssembler pattern but
+        // Properties; reuse the BillingOnFormViewModelAssembler pattern but
         // without the 15-char truncation (the shortcut JSP renders the
         // raw value).
         String assgProviderDisplay = resolveAssgProviderDisplay(request, assignedProviderNo);
@@ -541,7 +541,7 @@ public class BillingShortcutPg1ViewModelAssembler {
      * Resolves the assigned billing physician display string the legacy JSP
      * looked up via {@code providerBean.getProperty(assgProvider_no, "")} in
      * session scope. Mirrors the helper in
-     * {@link BillingONFormViewModelAssembler} but does not truncate (the shortcut
+     * {@link BillingOnFormViewModelAssembler} but does not truncate (the shortcut
      * JSP renders the raw value).
      */
     private String resolveAssgProviderDisplay(HttpServletRequest request, String assgProviderNo) {

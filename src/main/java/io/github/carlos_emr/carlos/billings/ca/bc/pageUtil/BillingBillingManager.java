@@ -31,7 +31,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
-import io.github.carlos_emr.carlos.billings.ca.on.administration.GstSettingsService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.GstSettingsService;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 

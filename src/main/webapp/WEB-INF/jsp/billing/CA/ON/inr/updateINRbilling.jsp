@@ -35,7 +35,7 @@
 
     Data binding:
         All dynamic values come from request attribute `inrUpdateModel`
-        (an InrUpdateINRBillingViewModel built by InrUpdateINRbilling2Action).
+        (an InrBillingUpdateViewModel built by InrBillingUpdate2Action).
         No scriptlets — DAO access lives in the assembler.
 
     @since 2026-04-26

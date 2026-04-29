@@ -84,7 +84,7 @@ public record BillingDemographicSummary(
     /**
      * Canonical projection from a {@link Demographic} model — replaces the
      * five separate inline projections that previously lived in
-     * {@code BillingONFormDemographicLoader}, {@code BillingONReviewViewModelAssembler},
+     * {@code BillingOnFormDemographicLoader}, {@code BillingOnReviewViewModelAssembler},
      * {@code BillingShortcutPg1ViewModelAssembler},
      * {@code BillingCorrectionReviewViewModelAssembler}, and the legacy JSP
      * scriptlets that drove them.

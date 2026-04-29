@@ -34,7 +34,7 @@ import java.util.List;
  * Populated by
  * {@link io.github.carlos_emr.carlos.billings.ca.on.web.BatchBill2Action}
  * (invoked from
- * {@link io.github.carlos_emr.carlos.billing.CA.ON.web.BatchBill2Action})
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.web.BatchBill2Action})
  * and exposed as request attribute {@code batchModel}.</p>
  *
  * @since 2026-04-25

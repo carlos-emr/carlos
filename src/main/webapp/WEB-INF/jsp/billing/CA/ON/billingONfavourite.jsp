@@ -171,7 +171,7 @@
         <tr class="myDarkGreen">
             <%--
               ${favouriteModel.message} contains assembler-built trusted HTML.
-              The producer (BillingONFavouriteViewModelAssembler) builds the
+              The producer (BillingOnFavouriteViewModelAssembler) builds the
               message from constants only — every user value is wrapped in
               SafeEncode.forHtml() before concatenation. No untrusted data
               reaches this rendering point. Do not change this contract

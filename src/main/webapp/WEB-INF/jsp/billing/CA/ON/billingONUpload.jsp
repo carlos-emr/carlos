@@ -27,7 +27,7 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-    Authentication / authorization is enforced by BillingONUpload2Action
+    Authentication / authorization is enforced by BillingOnUpload2Action
     (struts mapping billing/CA/ON/billingONUpload), which gates _admin.billing
     w privilege and POST-only. The legacy session-user check / project_home
     sessioning that was here is now handled by the upstream action; the

@@ -172,7 +172,7 @@
                 <div class="alert alert-<carlos:encode value='${privateCodeModel.alertLevel}' context='htmlAttribute'/>">
                     <%--
                       ${privateCodeModel.message} contains assembler-built trusted HTML.
-                      The producer (BillingONEditPrivateCodeViewModelAssembler) builds
+                      The producer (BillingOnEditPrivateCodeViewModelAssembler) builds
                       the message from constants only — every user value is wrapped in
                       SafeEncode.forHtml() before concatenation. No untrusted data
                       reaches this rendering point. Do not change this contract

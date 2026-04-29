@@ -8,22 +8,45 @@ This policy was written against the Ontario billing module (`io.github.carlos_em
 
 **Suffix = role + lifecycle.** Pick the most specific verb that fits. Only fall back to `*Service` when nothing more specific applies. Never combine two role-suffixes.
 
+## Identifier abbreviations
+
+Java identifiers use Java-style acronym casing, not all-caps acronym runs:
+
+| Domain term | Java identifier form |
+|---|---|
+| Ontario / ON | `On` |
+| OHIP | `Ohip` |
+| RA / remittance advice | `Ra` |
+| MOH | `Moh` |
+| INR | `Inr` |
+| GST | `Gst` |
+| MRI | `Mri` |
+| EDT / OBEC | `Edt`, `Obec` |
+| diagnosis | `Diag` |
+
+Use these forms only in identifiers. Prose, UI labels, external file names,
+and protocol names may keep the official uppercase form (`OHIP`, `RA`, `MOH`).
+Do not revive legacy compressed names such as `3rd`, `Dig`, `Db`, `Obj`,
+`Hlp`, `Bean`, or `Handler`. Keep normal domain words such as `ThirdParty`,
+`Specialist`, `Report`, `Payment`, and `Address` spelled out.
+
 ## The sanctioned suffixes
 
 | Suffix | Lifecycle | What it does | Example |
 |---|---|---|---|
-| `*Action` | per-request (Struts2) | Privilege check + parse params + delegate + return result string. **No business logic.** | `ViewBillingON2Action` |
-| `*ViewModelAssembler` | `@Service` | Builds the `*ViewModel` for **exactly one** JSP. Read-only orchestration. | `BillingONFormViewModelAssembler` |
-| `*ViewModel` | DTO/record | Immutable view-state for one JSP. No behavior beyond accessors. | `BillingONFormViewModel` |
+| `*Action` | per-request (Struts2) | Privilege check + parse params + delegate + return result string. **No business logic.** | `ViewBillingOn2Action` |
+| `*ViewModelAssembler` | `@Service` | Builds the `*ViewModel` for **exactly one** JSP. Read-only orchestration. | `BillingOnFormViewModelAssembler` |
+| `*ViewModel` | DTO/record | Immutable view-state for one JSP. No behavior beyond accessors. | `BillingOnFormViewModel` |
 | `*Command` | DTO/record | Typed input for a write or validation use case. No persistence behavior. | `BillingCorrectionSubmitCommand` |
 | `*Dto` | DTO/record | Typed transfer shape for persistence/query boundaries. No presentation behavior. | `BillingClaimHeaderDto` |
-| `*Loader` | `@Service` | Loads **one slice** of state onto a builder passed in. Used inside assemblers. | `BillingONFormDemographicLoader` |
-| `*Resolver` | `@Service` | Picks **one value** through a priority chain or rule. | `BillingONFormBillFormResolver` |
-| `*Composer` | `@Service` | Assembles a **complex sub-structure** onto a builder. Bigger than a Loader. | `BillingONFormServiceGridComposer` |
-| `*Validator` | `@Service` / `@Component` | Pure validation → typed `Result(messages, valid)`. No side effects. | `BillingONReviewValidator` |
-| `*Persister` | `@Service @Transactional` | **Side-effect-only writer** split out from a sibling reader. | `BillingONReviewDxPersister` |
+| `*Loader` | `@Service` | Loads **one slice** of state onto a builder passed in. Used inside assemblers. | `BillingOnFormDemographicLoader` |
+| `*Resolver` | `@Service` | Picks **one value** through a priority chain or rule. | `BillingOnFormBillFormResolver` |
+| `*Composer` | `@Service` | Assembles a **complex sub-structure** onto a builder. Bigger than a Loader. | `BillingOnFormServiceGridComposer` |
+| `*Validator` | `@Service` / `@Component` | Pure validation → typed `Result(messages, valid)`. No side effects. | `BillingOnReviewValidator` |
+| `*Parser` | plain class or `@Service` | Parses fixed-format/file input into DTO records. No Struts request handling. | `BillingClaimsErrorReportParser` |
+| `*Persister` | `@Service @Transactional` | **Side-effect-only writer** split out from a sibling reader. | `BillingOnReviewDiagPersister` |
 | `*Calculator` | `@Service` or static | Pure math/derivation. Typed in, typed out. | (`BillingTotalCalculator`) |
-| `*Service` | `@Service` (often `@Transactional`) | **Default fallback.** Multi-step business operation no single verb captures. | `BillingONHeaderCreationService`, `GstSettingsService` |
+| `*Service` | `@Service` (often `@Transactional`) | **Default fallback.** Multi-step business operation no single verb captures. | `BillingOnHeaderCreationService`, `GstSettingsService` |
 | `*Dao` | `@Repository` | Data access for one entity/table. **No cross-DAO calls.** | `BillingONCHeader1Dao` |
 
 Plus utility classes — static-only, no Spring annotation. Use a domain noun (plural is fine):
@@ -56,6 +79,7 @@ Plus utility classes — static-only, no Spring annotation. Use a domain noun (p
 - **`*Prep`** — not a role, not a lifecycle. Use `*Loader` for read-side prep, `*Service` for write-side prep, or absorb into the consumer.
 - **`*DataAssembler`** — retired in Ontario billing. It was accurate during the JSP-scriptlet cleanup, but `*ViewModelAssembler` now says the real output type directly.
 - **`*Manager`** as a new class. Existing `*Manager` classes in the codebase (e.g., `DemographicManager`) are legacy domain managers; don't add new ones. Use `*Service` for new code.
+- **`*Bean` / `*Handler`** for module-owned classes. Use `*Dto` for transfer state and `*Parser`, `*Importer`, or `*Service` for behavior.
 - **`*Helper`, `*Utils`** — too generic. Use a domain noun for utility classes.
 - **Compound suffixes** — `*LoaderService`, `*ServiceManager`, `*ResolverService`, etc. The annotation carries the infrastructure role; the suffix carries the conceptual role. Doubling up is noise.
 

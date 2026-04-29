@@ -499,7 +499,7 @@
         function prepareBack() {
             document.forms[0].services_checked.value = "<carlos:encode value='${formModel.requestContext.requestParamEchoes["services_checked"]}' context='javaScript'/>";
             if (document.forms[0].services_checked.value == "") document.forms[0].services_checked.value = 0;
-            // Use the relative URL (path + query) — BillingONSave2Action's open-redirect
+            // Use the relative URL (path + query) — BillingOnSave2Action's open-redirect
             // guard rejects absolute URLs (must start with "/", not "//"). Sending
             // location.href here previously triggered a "Rejected url_back parameter"
             // WARN and the post-save redirect lost the form context.

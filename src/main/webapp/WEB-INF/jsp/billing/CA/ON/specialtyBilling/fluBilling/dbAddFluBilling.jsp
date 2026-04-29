@@ -22,10 +22,10 @@
 <%--
     dbAddFluBilling.jsp (WEB-INF view)
 
-    View fragment for DbAddFluBilling2Action.
+    View fragment for FluBillingAdd2Action.
     Renders success/failure confirmation and closes the popup.
 
-    Request Attributes (set by DbAddFluBilling2Action):
+    Request Attributes (set by FluBillingAdd2Action):
     - billSaved (Boolean): true if billing was saved successfully
 
     @since 2026-04-05

@@ -33,7 +33,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.OhipReportGenerationSe
 
 /**
  * Mutation gate for {@code billing/CA/ON/genSimulation.jsp}. The legacy JSP
- * iterated active providers, ran {@link io.github.carlos_emr.carlos.billings.ca.on.OHIP.ExtractBean}
+ * iterated active providers, ran {@link io.github.carlos_emr.carlos.billings.ca.on.service.OhipClaimExtractService}
  * with {@code eFlag="0"} (dry run, no persist), and produced an HTML preview
  * before forwarding to {@code ViewBillingOHIPsimulation}. The provider iteration
  * + HTML build now lives in {@link OhipReportGenerationService#generateSimulation};

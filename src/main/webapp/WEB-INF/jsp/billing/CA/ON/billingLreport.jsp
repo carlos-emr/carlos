@@ -28,7 +28,7 @@
 
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%--
-    File-read + XSL-name resolution moved to BillingLreport2Action; the
+    File-read + XSL-name resolution moved to BillingLegacyReport2Action; the
     ${lreportModel} request attribute now exposes filename, xslName, and
     fileContents. _admin.billing w is enforced by the action.
 --%>

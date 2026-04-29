@@ -28,7 +28,7 @@
 <%--
     billingONSave.jsp (view) - Ontario billing save success page.
     Closes the billing window and triggers a schedule refresh via BroadcastChannel.
-    Rendered by BillingONSave2Action on successful save.
+    Rendered by BillingOnSave2Action on successful save.
     @since 2026
 --%>
 <%@ page contentType="text/html;charset=UTF-8" %>

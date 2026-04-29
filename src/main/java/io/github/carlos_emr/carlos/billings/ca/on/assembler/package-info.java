@@ -43,8 +43,8 @@
  *   <dd><em>Reusable</em> inner step shared by ≥2 assemblers. Mutates a
  *       supplied {@code Builder} or returns a partial result. Owned by the
  *       assemblers that consume it; never instantiated from {@code web/}.
- *       Example: {@link BillingONFormSiteContextComposer} — used by both
- *       {@link BillingONFormViewModelAssembler} and the legacy correction flow.</dd>
+ *       Example: {@link BillingOnFormSiteContextComposer} — used by both
+ *       {@link BillingOnFormViewModelAssembler} and the legacy correction flow.</dd>
  * </dl>
  *
  * <p>For side effects (DAO writes, file I/O, audit, mutation), see the

@@ -46,10 +46,10 @@ import java.util.Set;
  */
 public record BillingServiceCodeGrid(
         List<String> serviceTypes,
-        Map<String, List<BillingONFormViewModel.ServiceCodeEntry>> codesByServiceType,
+        Map<String, List<BillingOnFormViewModel.ServiceCodeEntry>> codesByServiceType,
         Map<String, String> titlesByServiceType,
         Set<String> premiumCodes,
-        Map<String, List<BillingONFormViewModel.DxCodeEntry>> dxCodesByServiceType) {
+        Map<String, List<BillingOnFormViewModel.DxCodeEntry>> dxCodesByServiceType) {
 
     /** Empty grid (no codes, no service types). */
     public static final BillingServiceCodeGrid EMPTY = new BillingServiceCodeGrid(

@@ -40,12 +40,12 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.billings.ca.on.bean.BillingClaimBatchAcknowledgementReportBeanHandler;
-import io.github.carlos_emr.carlos.billings.ca.on.bean.BillingClaimsErrorReportBeanHandler;
-import io.github.carlos_emr.carlos.billings.ca.on.bean.BillingEDTOBECOutputSpecificationBean;
-import io.github.carlos_emr.carlos.billings.ca.on.bean.BillingEDTOBECOutputSpecificationBeanHandler;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimsErrorReportImporter;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONErrorReportService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingClaimBatchAcknowledgementReportParser;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingClaimsErrorReportParser;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingEdtObecOutputSpecificationRecordDto;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingEdtObecOutputSpecificationParser;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingClaimsErrorReportImportService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnErrorReportService;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -69,14 +69,14 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
     private final DemographicCustDao demographicCustDao;
     private final DemographicManager demographicManager;
     private final ProviderDao providerDao;
-    private final BillingONErrorReportService errorReportService;
+    private final BillingOnErrorReportService errorReportService;
 
     public BillingDocumentErrorReportUpload2Action(SecurityInfoManager securityInfoManager,
                                                    DemographicManager demographicManager,
                                                    BatchEligibilityDao batchEligibilityDao,
                                                    DemographicCustDao demographicCustDao,
                                                    ProviderDao providerDao,
-                                                   BillingONErrorReportService errorReportService) {
+                                                   BillingOnErrorReportService errorReportService) {
         this.securityInfoManager = securityInfoManager;
         this.demographicManager = demographicManager;
         this.batchEligibilityDao = batchEligibilityDao;
@@ -242,12 +242,12 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
 
             if (sanitizedFileName.substring(0, 1).compareTo("E") == 0 || sanitizedFileName.substring(0, 1).compareTo("F") == 0) {
                 ReportName = "Claims Error Report";
-                BillingClaimsErrorReportBeanHandler hd = generateReportE(file, bNewBilling, sanitizedFileName);
+                BillingClaimsErrorReportParser hd = generateReportE(file, bNewBilling, sanitizedFileName);
                 request.setAttribute("claimsErrors", hd);
                 isGot = hd.verdict;
             } else if (sanitizedFileName.substring(0, 1).compareTo("B") == 0) {
                 ReportName = "Claim Batch Acknowledgement Report";
-                BillingClaimBatchAcknowledgementReportBeanHandler hd = generateReportB(file);
+                BillingClaimBatchAcknowledgementReportParser hd = generateReportB(file);
                 request.setAttribute("batchAcks", hd);
                 isGot = hd.verdict;
             } else if (sanitizedFileName.substring(0, 1).compareTo("X") == 0) {
@@ -257,7 +257,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
                 isGot = reportXIsGenerated;
             } else if (sanitizedFileName.substring(0, 1).compareTo("R") == 0) {
                 ReportName = "EDT OBEC Output Specification";
-                BillingEDTOBECOutputSpecificationBeanHandler hd = generateReportR(loggedInInfo, file);
+                BillingEdtObecOutputSpecificationParser hd = generateReportR(loggedInInfo, file);
                 request.setAttribute("outputSpecs", hd);
                 isGot = hd.verdict;
             } else if (sanitizedFileName.substring(0, 1).compareTo("L") == 0) {
@@ -283,15 +283,15 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
      * Generate Claims Error Report (E).
      *
      * @param file
-     * @return BillingClaimsErrorReportBeanHandler
+     * @return BillingClaimsErrorReportParser
      */
-    private BillingClaimsErrorReportBeanHandler generateReportE(FileInputStream file, boolean bB, String filename) {
-        BillingClaimsErrorReportBeanHandler hd = null;
+    private BillingClaimsErrorReportParser generateReportE(FileInputStream file, boolean bB, String filename) {
+        BillingClaimsErrorReportParser hd = null;
         if (bB) {
-            hd = (new BillingClaimsErrorReportImporter(file, filename, errorReportService))
-                    .getErrorReportBeanObj(file);
+            hd = (new BillingClaimsErrorReportImportService(file, filename, errorReportService))
+                    .getErrorReportParser(file);
         } else {
-            hd = new BillingClaimsErrorReportBeanHandler(file);
+            hd = new BillingClaimsErrorReportParser(file);
         }
 
         return hd;
@@ -301,10 +301,10 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
      * Generate Claim Batch Acknowledgement Report (B).
      *
      * @param file
-     * @return BillingClaimBatchAcknowlegementReportBeanHandler
+     * @return batch acknowledgement report parser
      */
-    private BillingClaimBatchAcknowledgementReportBeanHandler generateReportB(FileInputStream file) {
-        BillingClaimBatchAcknowledgementReportBeanHandler hd = new BillingClaimBatchAcknowledgementReportBeanHandler(
+    private BillingClaimBatchAcknowledgementReportParser generateReportB(FileInputStream file) {
+        BillingClaimBatchAcknowledgementReportParser hd = new BillingClaimBatchAcknowledgementReportParser(
                 file);
 
         return hd;
@@ -364,17 +364,17 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
      * Generate EDT OBEC Output Specification (R).
      *
      * @param file
-     * @return BillingEDTOBECOutputSpecificationBeanHandler
+     * @return BillingEdtObecOutputSpecificationParser
      */
     @SuppressWarnings("unchecked")
-    private BillingEDTOBECOutputSpecificationBeanHandler generateReportR(LoggedInInfo loggedInInfo, FileInputStream file) {
-        BillingEDTOBECOutputSpecificationBeanHandler hd =
-                new BillingEDTOBECOutputSpecificationBeanHandler(loggedInInfo, file,
+    private BillingEdtObecOutputSpecificationParser generateReportR(LoggedInInfo loggedInInfo, FileInputStream file) {
+        BillingEdtObecOutputSpecificationParser hd =
+                new BillingEdtObecOutputSpecificationParser(loggedInInfo, file,
                         batchEligibilityDao, demographicManager, providerDao);
-        java.util.List<BillingEDTOBECOutputSpecificationBean> outputSpecVector = hd.getEDTOBECOutputSecifiationBeanVector();
+        java.util.List<BillingEdtObecOutputSpecificationRecordDto> outputSpecVector = hd.getEdtObecOutputSpecificationRecords();
 
         for (int i = 0; i < outputSpecVector.size(); i++) {
-            BillingEDTOBECOutputSpecificationBean bean = outputSpecVector.get(i);
+            BillingEdtObecOutputSpecificationRecordDto bean = outputSpecVector.get(i);
             String hin = bean.getHealthNo();
             String responseCode = bean.getResponseCode();
             int responseCodeNum = -1;

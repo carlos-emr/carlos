@@ -34,7 +34,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%
-    // ViewBillingDigSearch2Action enforces _billing r and assembles the
+    // ViewBillingDiagSearch2Action enforces _billing r and assembles the
     // view model with the DiagnosticCodeDao lookups + name2 JS-path
     // parsing the JSP body used to perform inline. Defensive fallback:
     // empty stub if forwarded here without the canonical action.

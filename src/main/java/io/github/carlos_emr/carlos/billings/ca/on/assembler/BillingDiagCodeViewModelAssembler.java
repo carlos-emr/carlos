@@ -31,7 +31,7 @@ import java.util.regex.Pattern;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingDiagCodeSearchAjaxViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingDiagCodeSearchViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingDiagCodeUpdateViewModel;
-import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingONDiagDescriptionViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnDiagDescriptionViewModel;
 import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
 import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -219,9 +219,9 @@ public class BillingDiagCodeViewModelAssembler {
      * Single-row description lookup for {@code billingON_dx_desc.jsp}.
      * Truncates to {@value #DESC_TRUNCATE_LEN} chars + "..." when longer.
      */
-    public BillingONDiagDescriptionViewModel assembleDescription(String diagnosticCode) {
+    public BillingOnDiagDescriptionViewModel assembleDescription(String diagnosticCode) {
         if (diagnosticCode == null || diagnosticCode.isEmpty()) {
-            return BillingONDiagDescriptionViewModel.builder().build();
+            return BillingOnDiagDescriptionViewModel.builder().build();
         }
         String description = "";
         for (DiagnosticCode result : diagnosticCodeDao.findByDiagnosticCode(diagnosticCode)) {
@@ -234,7 +234,7 @@ public class BillingDiagCodeViewModelAssembler {
         if (!rendered.isEmpty() && rendered.length() > DESC_TRUNCATE_LEN) {
             rendered = rendered.substring(0, DESC_TRUNCATE_LEN) + "...";
         }
-        return BillingONDiagDescriptionViewModel.builder().description(rendered).build();
+        return BillingOnDiagDescriptionViewModel.builder().description(rendered).build();
     }
 
     /**

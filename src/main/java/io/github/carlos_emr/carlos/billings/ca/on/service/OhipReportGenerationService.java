@@ -35,7 +35,6 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillActivityDao;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao;
 import io.github.carlos_emr.carlos.billing.CA.model.BillActivity;
-import io.github.carlos_emr.carlos.billings.ca.on.OHIP.ExtractBean;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -46,7 +45,7 @@ import io.github.carlos_emr.carlos.utility.DateRange;
  * {@code genSimulation.jsp}.
  *
  * <p>All three pages did the same broad work: iterate billable providers,
- * run {@link ExtractBean} per provider to generate the OHIP claim
+ * run {@link OhipClaimExtractService} per provider to generate the OHIP claim
  * file/HTML preview, optionally persist a {@link BillActivity} row, then
  * {@code <jsp:forward>} to a downstream display page. This service owns
  * the {@code BillActivityDao} + {@code ProviderDao} lookups the JSPs
@@ -142,7 +141,7 @@ public class OhipReportGenerationService {
             String groupKey = mode == Mode.GROUP_REPORT ? groupNo : proOHIP;
             String batchCount = nextBatchCount(monthCode, groupKey, curYear);
 
-            ExtractBean extract = new ExtractBean(billingDao, billingDetailDao);
+            OhipClaimExtractService extract = new OhipClaimExtractService(billingDao, billingDetailDao);
             extract.seteFlag("1");
             extract.setOhipVer(request.getParameter("verCode"));
             extract.setProviderNo(proOHIP);
@@ -204,7 +203,7 @@ public class OhipReportGenerationService {
                 groupNo = "0000";
             }
 
-            ExtractBean extract = new ExtractBean(billingDao, billingDetailDao);
+            OhipClaimExtractService extract = new OhipClaimExtractService(billingDao, billingDetailDao);
             extract.seteFlag("0");
             extract.setDateRange(dateRange);
             extract.setOhipVer(request.getParameter("verCode"));
@@ -289,7 +288,7 @@ public class OhipReportGenerationService {
 
     private void persistBillActivity(String monthCode, String batchCount, String ohipFilename,
                                       String htmlFilename, String proOHIP, String groupNo,
-                                      String creator, ExtractBean extract) {
+                                      String creator, OhipClaimExtractService extract) {
         BillActivity ba = new BillActivity();
         ba.setMonthCode(monthCode);
         ba.setBatchCount(parseIntOrZero(batchCount));

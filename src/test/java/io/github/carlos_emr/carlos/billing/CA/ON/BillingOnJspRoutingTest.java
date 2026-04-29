@@ -64,7 +64,7 @@ class BillingOnJspRoutingTest {
         // to a ViewModel-supplied `reportInrModel.inrBillingActionUrl` rendered
         // through `${carlos:forHtmlAttribute(...)}`. The original
         // /billing/CA/ON/ViewInr* routes are still constructed (now in the
-        // ViewInrReportINR2Action assembler) and remain context-path-aware.
+        // ViewInrReport2Action assembler) and remain context-path-aware.
         String reportInr = readJspContent(BILLING_ON_JSP_DIR.resolve("inr/reportINR.jsp"));
         assertThat(reportInr).contains("${carlos:forHtmlAttribute(reportInrModel.inrBillingActionUrl)}");
     }

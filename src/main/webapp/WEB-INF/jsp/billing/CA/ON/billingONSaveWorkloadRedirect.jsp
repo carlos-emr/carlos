@@ -28,7 +28,7 @@
 <%--
     billingONSaveWorkloadRedirect.jsp (view) - Ontario billing save workload management redirect.
     Redirects to the workload management screen after billing save.
-    Rendered by BillingONSave2Action when workload management routing is active.
+    Rendered by BillingOnSave2Action when workload management routing is active.
     @since 2026
 --%>
 <%@ page contentType="text/html;charset=UTF-8" %>

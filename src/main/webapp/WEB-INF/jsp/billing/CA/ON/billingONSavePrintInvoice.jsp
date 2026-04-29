@@ -28,7 +28,7 @@
 <%--
     billingONSavePrintInvoice.jsp (view) - Ontario billing save + print invoice page.
     Opens the invoice popup, closes the billing window, and triggers a schedule refresh.
-    Rendered by BillingONSave2Action on "Save &amp; Print Invoice" or "Settle &amp; Print Invoice".
+    Rendered by BillingOnSave2Action on "Save &amp; Print Invoice" or "Settle &amp; Print Invoice".
     @since 2026
 --%>
 <%@ page contentType="text/html;charset=UTF-8" %>

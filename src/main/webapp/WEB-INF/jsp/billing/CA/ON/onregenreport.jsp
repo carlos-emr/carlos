@@ -25,8 +25,8 @@
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.
 --%>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.service.OnBillingDiskService" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskService" %>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%-- Empty stub. ViewOnregenreport2Action enforces _billing w + POST and runs
+<%-- Empty stub. ViewOnReportRegeneration2Action enforces _billing w + POST and runs
      the MOH disk-regeneration pass (keyed by diskId) via
-     OnBillingDiskService.regenerateDisk, then chains to ViewBillingONMRI. --%>
+     BillingOnDiskService.regenerateDisk, then chains to ViewBillingONMRI. --%>

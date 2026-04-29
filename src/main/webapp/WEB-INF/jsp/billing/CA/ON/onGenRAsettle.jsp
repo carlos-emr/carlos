@@ -26,8 +26,8 @@
   for dynamic output rendered by the page.
 --%>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%-- ViewOnGenRAsettle2Action enforces _billing w + POST and runs the settle
-     mutation via OntarioRASettlementService — the 3 inline DAO lookups
+<%-- ViewOnGenRaSettle2Action enforces _billing w + POST and runs the settle
+     mutation via OnRaSettlementService — the 3 inline DAO lookups
      (RaHeaderDao, BillingDao, RaDetailDao) the JSP body used to perform
      are now in the assembler. This page is rendered after the mutation;
      it just closes the popup and refreshes the parent. --%>

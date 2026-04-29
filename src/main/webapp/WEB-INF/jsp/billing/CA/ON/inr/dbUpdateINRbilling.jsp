@@ -22,10 +22,10 @@
 <%--
     dbUpdateINRbilling.jsp (WEB-INF view)
 
-    View fragment for DbUpdateINRbilling2Action.
+    View fragment for InrBillingRecordUpdate2Action.
     Renders success/failure confirmation and closes the popup.
 
-    Request Attributes (set by DbUpdateINRbilling2Action):
+    Request Attributes (set by InrBillingRecordUpdate2Action):
     - errorCode (String): validation error messages (empty = no error)
     - inraction (String): the action performed ("update" or "delete")
     - billinginr_no (String): the billing record number

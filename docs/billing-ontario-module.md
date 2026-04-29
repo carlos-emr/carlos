@@ -43,15 +43,11 @@ src/main/java/io/github/carlos_emr/carlos/billings/
 │   ├── pageUtil/                          ← cross-province router (Billing2Action)
 │   ├── bc/                                ← BC implementation (out of scope)
 │   └── on/                                ← Ontario implementation (this doc)
-│       ├── administration/                  GST + admin actions
 │       ├── assembler/                       *ViewModelAssembler classes + composers/loaders
-│       ├── bean/                            legacy session beans (kept for compat)
 │       ├── command/                         typed write/validation commands
-│       ├── data/                            legacy import/lookup record classes
 │       ├── dto/                             persistence/query transfer DTOs (incl. FeeSchedule* records)
-│       ├── OHIP/                            OHIP claim-file format helpers
 │       ├── reports/                         reporting (RA / disk / Y/E statement)
-│       ├── service/                         services / loaders / persisters / calculators
+│       ├── service/                         services / loaders / parsers / persisters / calculators
 │       ├── support/                         dependency-free support utilities
 │       ├── validator/                       input-validator classes + typed exception
 │       ├── viewmodel/                       immutable presentation records
@@ -62,6 +58,28 @@ src/main/webapp/WEB-INF/jsp/billing/CA/ON/    ← JSP views (incl. shared jspf f
 src/main/webapp/WEB-INF/classes/struts-billing.xml  ← Struts mappings (one entry per public route)
 ```
 
+### 2.1 Java identifier abbreviations
+
+Class and member names use Java-style acronym casing:
+
+| Official/domain term | Identifier form | Example |
+|---|---|---|
+| Ontario / ON | `On` | `ViewBillingOn2Action` |
+| OHIP | `Ohip` | `OhipClaimFileService` |
+| RA / remittance advice | `Ra` | `BillingOnRaService` |
+| MOH | `Moh` | `MoveMohFiles2Action` |
+| INR | `Inr` | `InrBillingUpdate2Action` |
+| GST | `Gst` | `GstSettingsService` |
+| MRI | `Mri` | `BillingOnMriViewModel` |
+| EDT / OBEC | `Edt`, `Obec` | `BillingEdtObecOutputSpecificationParser` |
+| diagnosis | `Diag` | `BillingOnReviewDiagPersister` |
+
+This casing rule applies to Java identifiers only. Prose, JSP labels, external
+protocol names, and Ministry/OHIP document references may keep official forms
+such as `OHIP`, `RA`, and `MOH`. Avoid legacy compressed names (`3rd`, `Dig`,
+`Db`, `Obj`, `Hlp`, `Bean`, `Handler`) and spell out normal domain words such
+as `ThirdParty`, `Specialist`, `Payment`, `Address`, and `Report`.
+
 ## 3 — Architecture
 
 The module is organised in three layers, top to bottom:
@@ -70,7 +88,7 @@ The module is organised in three layers, top to bottom:
 ┌──────────────────────────────────────────────────────────────────────┐
 │ HTTP boundary (Struts 7.1.1)                                         │
 │   *2Action gates  ───────────►  authn/authz, request validation,     │
-│   (web/, pageUtil/)             single-method per HTTP verb          │
+│   (web/)                       single-method per HTTP verb           │
 └──────────────────────────────────────┬───────────────────────────────┘
                                        │
 ┌──────────────────────────────────────▼───────────────────────────────┐
@@ -99,17 +117,17 @@ only when nothing more specific applies.
 
 | Role | Suffix | Examples in this module |
 |---|---|---|
-| HTTP entry point | `*2Action` | `BillingONSave2Action`, `ViewBillingONReview2Action` |
-| View-model builder | `*ViewModelAssembler` | `BillingONFormViewModelAssembler`, `BillingONCorrectionViewModelAssembler` |
-| Immutable presentation DTO | `*ViewModel` | `BillingONFormViewModel`, `BillingONStatusViewModel` |
-| Typed write/validation input | `*Command` | `BillingCorrectionSubmitCommand`, `BillingSpecClaimCommand` |
+| HTTP entry point | `*2Action` | `BillingOnSave2Action`, `ViewBillingOnReview2Action` |
+| View-model builder | `*ViewModelAssembler` | `BillingOnFormViewModelAssembler`, `BillingOnCorrectionViewModelAssembler` |
+| Immutable presentation DTO | `*ViewModel` | `BillingOnFormViewModel`, `BillingOnStatusViewModel` |
+| Typed write/validation input | `*Command` | `BillingCorrectionSubmitCommand`, `BillingSpecialistClaimCommand` |
 | Persistence/query transfer DTO | `*Dto` | `BillingClaimHeaderDto`, `BillingClaimItemDto` |
-| Sub-assembler / partial composer | `*RenderComposer` | `BillingONCorrectionRenderComposer` |
-| Pure-read query service | `*Loader` | `BillingONClaimLoader`, `BillingONDiskLoader`, `ServiceCodeLoader` |
-| Pure-write persistence service | `*Persister` | `BillingONClaimPersister`, `BillingONReviewDxPersister`, `ServiceCodePersister` |
-| Pure calculation | `*Calculator` | `BillingONInvoiceTotalsCalculator` |
-| Input validator | `*Validator` | `BillingONReviewValidator` (with `BillingValidationException` for fail-fast paths) |
-| Mixed read/write orchestration | `*Service` | `BillingCorrectionService`, `BillingONHeaderCreationService`, `BillingONLookupService` |
+| Sub-assembler / partial composer | `*RenderComposer` | `BillingOnCorrectionRenderComposer` |
+| Pure-read query service | `*Loader` | `BillingOnClaimLoader`, `BillingOnDiskLoader`, `ServiceCodeLoader` |
+| Pure-write persistence service | `*Persister` | `BillingOnClaimPersister`, `BillingOnReviewDiagPersister`, `ServiceCodePersister` |
+| Pure calculation | `*Calculator` | `BillingOnInvoiceTotalsCalculator` |
+| Input validator | `*Validator` | `BillingOnReviewValidator` (with `BillingValidationException` for fail-fast paths) |
+| Mixed read/write orchestration | `*Service` | `BillingCorrectionService`, `BillingOnHeaderCreationService`, `BillingOnLookupService` |
 | Data access | `*Dao` | `BillingONCHeader1Dao`, `BillingONPaymentDao`, `BillingServiceDao` |
 
 DAOs do **not** orchestrate other DAOs — cross-DAO operations live in a
@@ -122,7 +140,7 @@ Forbidden in new code (and currently absent from this module): `*Prep`,
 
 ### 3.2 Spring wiring
 
-- All non-DAO beans are registered with `@org.springframework.stereotype.Service`.
+- All non-DAO components are registered with `@org.springframework.stereotype.Service`.
 - Constructor injection is used everywhere — there are no field-init
   `SpringUtils.getBean(...)` patterns left in the module. This was a
   deliberate cleanup; service-locator usage is treated as a regression.
@@ -146,8 +164,8 @@ Three constraints drove the layered shape:
    in [`docs/JSP-REFACTORING-GUIDE.md`](JSP-REFACTORING-GUIDE.md).
 2. **Single-purpose classes over catch-alls.** The legacy `BillingONService`
    grew to 30+ unrelated methods and was deleted; its responsibilities now
-   live across `BillingONClaimLoader`, `BillingONClaimPersister`,
-   `BillingONInvoiceTotalsCalculator`, and several others. The same shape
+   live across `BillingOnClaimLoader`, `BillingOnClaimPersister`,
+   `BillingOnInvoiceTotalsCalculator`, and several others. The same shape
    was applied to `*Step` / `*Prep` legacy classes.
 3. **Pure queries on the entity, cross-DAO work in services.** Pure-state
    checks (`isOhipBill`, `isPaidInFull`, `isActive`, `recomputeTotalFromItems`)
@@ -170,7 +188,7 @@ GET/POST /carlos/billing?billRegion=ON&demographic_no=…
   │     └── returns "ON" or "BC"
   │
   ├─► result name="ON"  type="chain"  →  billing/CA/ON/billingView
-  │     └── ViewBillingON2Action  →  /WEB-INF/jsp/billing/CA/ON/billingON.jsp
+  │     └── ViewBillingOn2Action  →  /WEB-INF/jsp/billing/CA/ON/billingON.jsp
   │
   └─► result name="BC"  type="chain"  →  billing/CA/BC/billingSetup
         └── BillingBCSetup2Action   →  /WEB-INF/jsp/billing/CA/BC/billingBC.jsp
@@ -180,7 +198,7 @@ Why the router lives at `ca.pageUtil` and not `ca.bc.pageUtil`: the cross-
 province decision should not have BC-specific imports. The dedicated BC
 setup action carries the BC-only coupling (`BillingSessionBean`,
 `BillingGuidelines`, `BillingCreateBilling2Form`), and the ON path chains
-through its own `ViewBillingON2Action`. This was previously violated —
+through its own `ViewBillingOn2Action`. This was previously violated —
 `Billing2Action` lived in `ca.bc.pageUtil` with BC imports — and was fixed
 in commit `91d176501a`.
 
@@ -264,7 +282,7 @@ lists use `BillingONCHeader1Dao.findActiveItems(invoiceNo)` (which queries
 Calculations that need data beyond a single entity live in a service:
 
 ```java
-// service/BillingONInvoiceTotalsCalculator
+// service/BillingOnInvoiceTotalsCalculator
 public BigDecimal calculateBalanceOwing(Integer invoiceNo);
 //   total - paidTotal + refundTotal, where paid/refund come from
 //   BillingONPaymentDao.find3rdPartyPayRecordsByBill(header).
@@ -323,38 +341,46 @@ returned entity's collection survives session detachment.
 
 ## 7 — Services / Loaders / Persisters reference
 
-The 29 classes under `service/` cover four roles. Use this table to find
-the right type when you need a known operation.
+The service classes cover loaders, parsers/importers, persisters, calculators,
+and business workflows. Use this table to find the right type when you need a
+known operation.
 
 | Class | Role | What it does |
 |---|---|---|
-| `BillingONClaimLoader` | Loader | Bulk + filtered claim queries, history, code/fee lookups |
-| `BillingONDiskLoader` | Loader | Disk record queries, batch header reads, MRI list |
-| `BillingONLookupService` | Service | Provider/team/site lookups + a few status writes (mixed) |
-| `BillingReviewLoader` | Loader | Review-page service-code + percentage/dx queries |
-| `BillingStatusLoader` | Loader | Param-normalising facade over `BillingONClaimLoader` for the status page |
+| `BillingOnClaimLoader` | Loader | Bulk + filtered claim queries, history, code/fee lookups |
+| `BillingOnDiskLoader` | Loader | Disk record queries, batch header reads, MRI list |
+| `BillingOnLookupService` | Service | Provider/team/site lookups + a few status writes (mixed) |
+| `BillingReviewQueryService` | Loader | Review-page service-code + percentage/dx queries |
+| `BillingStatusQueryService` | Loader | Param-normalising facade over `BillingOnClaimLoader` for the status page |
 | `ServiceCodeLoader` | Loader | `billing_service` table reads (code attrs, dropdown desc) |
 | `ServiceCodePersister` | Persister | `billing_service` writes (admin add/update/delete of private codes) |
-| `BillingONClaimPersister` | Persister | Header/item/ext record inserts and updates |
-| `BillingONReviewDxPersister` | Persister | Diagnostic-code persistence on review save |
-| `BillingONCorrectionPersistenceService` | Service | Correction lifecycle reads + writes (mixed; pre-existing) |
-| `BillingONInvoiceTotalsCalculator` | Calculator | `calculateBalanceOwing` (cross-DAO) |
-| `BillingONHeaderCreationService` | Service | Header creation orchestration (`@Transactional`) |
+| `BillingClaimBatchAcknowledgementReportParser` | Parser | Fixed-width batch acknowledgement report parsing |
+| `BillingClaimsErrorReportParser` | Parser | Fixed-width claims error report parsing |
+| `BillingEdtObecOutputSpecificationParser` | Parser | EDT OBEC output report parsing |
+| `BillingClaimsErrorReportImportService` | Import service | Claims error report upload/import workflow |
+| `BillingOnClaimPersister` | Persister | Header/item/ext record inserts and updates |
+| `BillingOnReviewDiagPersister` | Persister | Diagnostic-code persistence on review save |
+| `BillingOnCorrectionPersistenceService` | Service | Correction lifecycle reads + writes (mixed; pre-existing) |
+| `BillingOnInvoiceTotalsCalculator` | Calculator | `calculateBalanceOwing` (cross-DAO) |
+| `BillingOnHeaderCreationService` | Service | Header creation orchestration (`@Transactional`) |
 | `BillingCorrectionService` | Service | `updateInvoice` + `addThirdPartyPayment` workflows |
 | `BillingCorrectionRecordService` | Service | Audit-snapshot writes to `billing_on_repo` |
-| `BillingONRemittanceAdviceService` | Service | RA import + status updates |
-| `BillingONErrorReportService` | Service | RA error-report generation |
-| `BillingRAReportService` | Service | RA summary/desc report data prep |
-| `OntarioRASettlementService` | Service | RA settlement workflow |
+| `BillingOnRaService` | Service | RA import + status updates |
+| `BillingOnErrorReportService` | Service | RA error-report generation |
+| `BillingRaReportService` | Service | RA summary/desc report data prep |
+| `OnRaSettlementService` | Service | RA settlement workflow |
 | `BillingDiskCreationService` | Service | OHIP disk creation lifecycle |
-| `OnBillingDiskService` | Service | Disk operations facade |
+| `BillingOnDiskService` | Service | Disk operations facade |
 | `OhipClaimFileService` | Service | OHIP fixed-width claim file generation |
+| `OhipClaimExtractService` | Service | OHIP claim extract rendering/state carrier |
 | `OhipReportGenerationService` | Service | OHIP report generation |
-| `BillingSpecService` | Service | Specialist-billing workflow |
-| `BillingSaveService` | Service | Save-side orchestration (legacy; mixed) |
-| `BillingONAuditLogService` | Service | Audit log writes |
-| `Billing3rdPartyService` | Service | 3rd-party billing workflow |
-| `Billing3rdPartyRecordService` | Service | 3rd-party record lifecycle |
+| `GstReportService` | Service | GST report query workflow |
+| `GstSettingsService` | Service | GST percent settings read/write workflow |
+| `BillingSpecialistClaimService` | Service | Specialist-billing workflow |
+| `BillingClaimSubmissionService` | Service | Save-side orchestration (legacy; mixed) |
+| `BillingOnAuditLogService` | Service | Audit log writes |
+| `BillingThirdPartyService` | Service | Third-party billing workflow |
+| `BillingThirdPartyRecordService` | Service | Third-party record lifecycle |
 | `PatientEndYearStatementService` | Service | Year-end statement generation |
 
 ### 7.1 When to add which type
@@ -375,23 +401,23 @@ goal is for the suffix to advertise the role.
 ## 8 — Web layer (Struts 7.1.1)
 
 Every billing entry point is a `*2Action` extending `org.apache.struts2
-.ActionSupport`. The 88 actions in `web/` and `pageUtil/` follow a
+.ActionSupport`. The ON actions in `web/` follow a
 consistent shape:
 
-`ViewBillingONReview2Action` is the canonical shape — the example below is the
-real source, lightly trimmed (see `web/ViewBillingONReview2Action.java`):
+`ViewBillingOnReview2Action` is the canonical shape — the example below is the
+real source, lightly trimmed (see `web/ViewBillingOnReview2Action.java`):
 
 ```java
-public final class ViewBillingONReview2Action extends ActionSupport {
+public final class ViewBillingOnReview2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
-    private final BillingONReviewDxPersister dxPersister;
-    private final BillingONReviewViewModelAssembler assembler;
+    private final BillingOnReviewDiagPersister dxPersister;
+    private final BillingOnReviewViewModelAssembler assembler;
 
     @Autowired
-    public ViewBillingONReview2Action(SecurityInfoManager securityInfoManager,
-                                       BillingONReviewDxPersister dxPersister,
-                                       BillingONReviewViewModelAssembler assembler) {
+    public ViewBillingOnReview2Action(SecurityInfoManager securityInfoManager,
+                                       BillingOnReviewDiagPersister dxPersister,
+                                       BillingOnReviewViewModelAssembler assembler) {
         this.securityInfoManager = securityInfoManager;
         this.dxPersister = dxPersister;
         this.assembler = assembler;
@@ -414,20 +440,20 @@ public final class ViewBillingONReview2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
-        BillingONReviewViewModel model = assembler.assemble(request, loggedInInfo);
+        BillingOnReviewViewModel model = assembler.assemble(request, loggedInInfo);
         request.setAttribute("reviewModel", model);
         return SUCCESS;
     }
 
-    public BillingONReviewViewModel getReviewModel() { /* ... */ }
+    public BillingOnReviewViewModel getReviewModel() { /* ... */ }
 }
 ```
 
 Notes on this template:
 
 - Review2Action is **POST-only** because it triggers a clinical-write side
-  effect (`BillingONReviewDxPersister`). Read-only actions
-  (e.g., `ViewBillingON2Action`) accept GET/HEAD/POST instead and emit
+  effect (`BillingOnReviewDiagPersister`). Read-only actions
+  (e.g., `ViewBillingOn2Action`) accept GET/HEAD/POST instead and emit
   `Allow: "GET, HEAD, POST"`.
 - The null-session guard runs **before** `hasPrivilege` because
   `SecurityInfoManagerImpl.hasPrivilege` dereferences `loggedInInfo` and
@@ -487,9 +513,9 @@ All Ontario billing action mappings live in
 Each JSP-backed page has exactly one ViewModelAssembler and one ViewModel:
 
 ```
-ViewBillingONReview2Action          ← gate
-  └─► BillingONReviewViewModelAssembler  ← composes data
-        └─► BillingONReviewViewModel ← immutable record consumed by the JSP
+ViewBillingOnReview2Action          ← gate
+  └─► BillingOnReviewViewModelAssembler  ← composes data
+        └─► BillingOnReviewViewModel ← immutable record consumed by the JSP
               └─► billingONReview.jsp
 ```
 
@@ -678,8 +704,8 @@ Things this module would benefit from but which are not yet done:
   (multi-method actions, scriptlet JSPs, mixed-role services). Out of
   scope for the ON refactor branch; tracked separately.
 - **Mixed-role services.** A handful of pre-existing services
-  (`BillingONLookupService`, `BillingDiskCreationService`,
-  `BillingSaveService`, `BillingONCorrectionPersistenceService`) carry
+  (`BillingOnLookupService`, `BillingDiskCreationService`,
+  `BillingClaimSubmissionService`, `BillingOnCorrectionPersistenceService`) carry
   both reads and writes. They legitimately orchestrate mixed lifecycles
   today, but if any one of them grows further, splitting into
   `*Loader` + `*Persister` is the next step.
@@ -722,7 +748,7 @@ significant ones, newest first:
 | `faebd82653` | Split `BillingONService` catch-all into single-purpose pieces |
 | `af86635bc2` | Codified the layer-naming policy + retired all `*Prep` classes |
 | `e38d36813b` | Typed `GstSettingsService` API (dropped Properties bag); extracted dependency-free helpers |
-| `533806d0b9` | Extracted `BillingONHeaderCreationService` so DAO no longer orchestrates other DAOs |
+| `533806d0b9` | Extracted `BillingOnHeaderCreationService` so DAO no longer orchestrates other DAOs |
 | `8a11f59b52` | Split `PaymentType2Action` and `PatientEndYearStatement2Action` into single-method actions |
 | `cbcc95ac29` | Migrated gstControl + gstreport JSPs to View2Action + ViewModel |
 | `2f922b98a9` | Drained remaining service-locator and dual-bean bandaids |

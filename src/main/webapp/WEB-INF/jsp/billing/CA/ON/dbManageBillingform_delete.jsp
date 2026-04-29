@@ -22,7 +22,7 @@
 <%--
     dbManageBillingform_delete.jsp (WEB-INF view)
 
-    View fragment for DbManageBillingformDelete2Action (ON billing).
+    View fragment for ManageBillingFormDelete2Action (ON billing).
     Submits the parent window's service form and closes the popup.
 
     @since 2026-04-05

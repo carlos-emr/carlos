@@ -46,7 +46,7 @@ public record BillingBillFormSelector(
         String defaultFormName,
         String defaultBillType,
         String defaultServiceType,
-        List<BillingONFormViewModel.BillingFormMenuEntry> forms,
+        List<BillingOnFormViewModel.BillingFormMenuEntry> forms,
         String selectedBillType) {
 
     /** Empty / unset default. */

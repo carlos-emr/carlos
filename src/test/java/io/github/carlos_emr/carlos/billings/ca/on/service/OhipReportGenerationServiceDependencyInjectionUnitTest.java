@@ -30,7 +30,7 @@ import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 class OhipReportGenerationServiceDependencyInjectionUnitTest {
 
     @Test
-    void shouldReceiveExtractBeanRepositoriesThroughConstructorInjection() {
+    void shouldReceiveOhipClaimExtractServiceRepositoriesThroughConstructorInjection() {
         OhipReportGenerationService service = new OhipReportGenerationService(
                 mock(BillActivityDao.class),
                 mock(ProviderDao.class),

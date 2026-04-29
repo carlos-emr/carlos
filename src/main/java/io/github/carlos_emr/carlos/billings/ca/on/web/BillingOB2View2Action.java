@@ -24,21 +24,21 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOHIPBillingHistoryViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOhipBillingHistoryViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOHIPBillingHistoryViewModelAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOhipBillingHistoryViewModelAssembler;
 
 /**
  * View gate for {@code billing/CA/ON/billingOB2.jsp}, the read-only OHIP
  * billing-history popup ("OB" = OHIP Billing, not obstetric).
  *
  * <p>Enforces {@code _billing r}, validates the {@code billing_no} parameter
- * (1-9 digits), and assembles a {@link BillingOHIPBillingHistoryViewModel} via
- * {@link BillingOHIPBillingHistoryViewModelAssembler} so the JSP can read pre-resolved records
+ * (1-9 digits), and assembles a {@link BillingOhipBillingHistoryViewModel} via
+ * {@link BillingOhipBillingHistoryViewModelAssembler} so the JSP can read pre-resolved records
  * instead of doing 6 inline {@code SpringUtils.getBean} lookups.</p>
  *
  * <p>This replaces the legacy routing via the BC-namespaced
@@ -53,10 +53,10 @@ public class BillingOB2View2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    private final BillingOHIPBillingHistoryViewModelAssembler billingOB2Assembler;
+    private final BillingOhipBillingHistoryViewModelAssembler billingOB2Assembler;
 
     public BillingOB2View2Action(SecurityInfoManager securityInfoManager,
-                                  BillingOHIPBillingHistoryViewModelAssembler billingOB2Assembler) {
+                                  BillingOhipBillingHistoryViewModelAssembler billingOB2Assembler) {
         this.securityInfoManager = securityInfoManager;
         this.billingOB2Assembler = billingOB2Assembler;
     }
@@ -81,7 +81,7 @@ public class BillingOB2View2Action extends ActionSupport {
             return NONE;
         }
 
-        BillingOHIPBillingHistoryViewModel model = billingOB2Assembler.assemble(billingNoParam);
+        BillingOhipBillingHistoryViewModel model = billingOB2Assembler.assemble(billingNoParam);
         request.setAttribute("ob2Model", model);
 
         return SUCCESS;

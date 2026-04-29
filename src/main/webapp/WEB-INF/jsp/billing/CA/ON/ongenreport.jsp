@@ -25,9 +25,9 @@
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.
 --%>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.service.OnBillingDiskService" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskService" %>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%-- Empty stub. ViewOngenreport2Action enforces _billing w + POST and runs the
-     MOH disk-creation pass via OnBillingDiskService.generateNewDisk
+<%-- Empty stub. ViewOnReportGeneration2Action enforces _billing w + POST and runs the
+     MOH disk-creation pass via BillingOnDiskService.generateNewDisk
      (BillingDiskCreationService + JdbcBillingCreateBillingFile, solo + group),
      then chains to ViewBillingONMRI. --%>

@@ -31,7 +31,7 @@ import java.util.Locale;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
-import io.github.carlos_emr.carlos.billings.ca.on.support.BillingONConstants;
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao;
@@ -424,7 +424,7 @@ public class BillingCorrectionService {
                 }
             } else if (was3rdPartyPayProgram && nowMohPayProgram) {
                 // From 3rd-party → MOH: default payee to "P".
-                bCh1.setPayee(BillingONConstants.CLAIMHEADER1_PAYEE);
+                bCh1.setPayee(BillingOnConstants.CLAIMHEADER1_PAYEE);
             }
 
             bCh1.setPayProgram(payProgram);
@@ -534,7 +534,7 @@ public class BillingCorrectionService {
 
         // Build the current state from the form post.
         List<BillingONItem> bItemsCurrent = new ArrayList<BillingONItem>();
-        for (int i = 0; i < BillingONConstants.FIELD_MAX_SERVICE_NUM; i++) {
+        for (int i = 0; i < BillingOnConstants.FIELD_MAX_SERVICE_NUM; i++) {
             String serviceCodeId = request.getParameter("servicecode" + i);
             if ((serviceCodeId != null) && (serviceCodeId.length() > 0)) {
                 String itemStatus = "O";
@@ -579,7 +579,7 @@ public class BillingCorrectionService {
                 bItem.setStatus(itemStatus);
                 bItem.setCh1Id(bCh1.getId());
                 bItem.setTranscId(bCh1.getTranscId());
-                bItem.setRecId(BillingONConstants.ITEM_REORDIDENTIFICATION);
+                bItem.setRecId(BillingOnConstants.ITEM_REORDIDENTIFICATION);
                 bItemsCurrent.add(bItem);
             }
         }

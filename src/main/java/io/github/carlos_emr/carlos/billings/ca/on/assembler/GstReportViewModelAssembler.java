@@ -31,9 +31,9 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import org.springframework.stereotype.Service;
 
-import io.github.carlos_emr.carlos.billings.ca.on.administration.GstReport;
+import io.github.carlos_emr.carlos.billings.ca.on.service.GstReportService;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.GstReportViewModel;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnLookupService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -42,10 +42,10 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  * Assembles {@link GstReportViewModel} for {@code admin/gstreport.jsp}.
  * Pulls request-param echoes, the GST-by-service-date row list, the
  * provider drop-down options (privacy-aware via
- * {@link BillingONLookupService}), and the running totals.
+ * {@link BillingOnLookupService}), and the running totals.
  *
  * <p>Replaces the ~70-line scriptlet block at the head of the legacy JSP.
- * The assembler is invoked from {@link io.github.carlos_emr.carlos.billings.ca.on.administration.GstReport2Action}
+ * The assembler is invoked from {@link io.github.carlos_emr.carlos.billings.ca.on.web.GstReport2Action}
  * and exposes the model as request attribute {@code gstReportModel}.</p>
  *
  * @since 2026-04-27
@@ -54,12 +54,12 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 public class GstReportViewModelAssembler {
 
     private final SecurityInfoManager securityInfoManager;
-    private final GstReport gstReport;
-    private final BillingONLookupService lookupService;
+    private final GstReportService gstReport;
+    private final BillingOnLookupService lookupService;
 
     public GstReportViewModelAssembler(SecurityInfoManager securityInfoManager,
-                                  GstReport gstReport,
-                                  BillingONLookupService lookupService) {
+                                  GstReportService gstReport,
+                                  BillingOnLookupService lookupService) {
         this.securityInfoManager = securityInfoManager;
         this.gstReport = gstReport;
         this.lookupService = lookupService;

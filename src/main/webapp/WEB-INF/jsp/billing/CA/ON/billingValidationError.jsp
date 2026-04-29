@@ -31,7 +31,7 @@
   view is purely user-facing guidance.
 
   Wired via the package-level <global-exception-mappings> in struts-billing.xml,
-  so it covers ViewBillingONReview2Action (addToPatientDx with non-numeric
+  so it covers ViewBillingOnReview2Action (addToPatientDx with non-numeric
   demographic_no) and BillingCorrection2Action (unparseable
   xml_appointment_date and unparseable bill admission/billing date) without
   per-action duplication.

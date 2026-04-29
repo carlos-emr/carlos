@@ -22,10 +22,10 @@
 <%--
     dbINRbilling.jsp (WEB-INF view)
 
-    View fragment for DbINRbilling2Action.
+    View fragment for InrBillingCreate2Action.
     Renders success/failure confirmation and closes the popup.
 
-    Request Attributes (set by DbINRbilling2Action):
+    Request Attributes (set by InrBillingCreate2Action):
     - billSaved (Boolean): true if the billing record was saved successfully
 
     @since 2026-04-05
