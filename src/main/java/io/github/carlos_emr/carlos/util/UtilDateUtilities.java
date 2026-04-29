@@ -124,6 +124,18 @@ public class UtilDateUtilities {
         return calcAgeAtDate(DOB, new GregorianCalendar().getTime());
     }
 
+    /**
+     * Calculates a localized human-readable age string for a patient based on their date of birth.
+     * This method delegates to {@link #calcAgeAtDate(Date, Date, Locale)} using the current date
+     * as the point in time for the age calculation.
+     *
+     * @param DOB    Date the patient's date of birth. If null, returns null.
+     * @param dlocal Locale the locale used for formatting and localized output of the age string.
+     *               If null, the JVM's default locale will be used.
+     * @return String localized human-readable age string (e.g., "2 months", "4 years", "3 weeks"),
+     *         or "Not born" if the current date is before the birth date, or null if DOB is null
+     * @since 2026-04-28
+     */
     public static String calcAge(Date DOB, Locale dlocal) {
         return calcAgeAtDate(DOB, new GregorianCalendar().getTime(), dlocal);
     }
