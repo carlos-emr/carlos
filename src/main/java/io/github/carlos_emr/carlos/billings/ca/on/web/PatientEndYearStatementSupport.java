@@ -58,8 +58,16 @@ final class PatientEndYearStatementSupport {
     static void echoNames(HttpServletRequest request) {
         String firstName = request.getParameter("firstNameParam");
         String lastName = request.getParameter("lastNameParam");
+        // Also echo demographicNoParam so the form's hidden field round-trips
+        // through the demographic-search redirect (otherwise Create Statement
+        // sees an empty selection and the JS validator rejects the form).
+        String demographicNo = request.getParameter("demographicNoParam");
+        if (demographicNo == null || demographicNo.isEmpty()) {
+            demographicNo = request.getParameter("demographic_no");
+        }
         request.setAttribute("firstNameParamEcho", firstName == null ? "" : firstName);
         request.setAttribute("lastNameParamEcho", lastName == null ? "" : lastName);
+        request.setAttribute("demographicNoParamEcho", demographicNo == null ? "" : demographicNo);
         StringBuilder displayName = new StringBuilder();
         if (firstName != null && !firstName.isEmpty() && lastName != null && !lastName.isEmpty()) {
             displayName.append(firstName).append(' ').append(lastName);

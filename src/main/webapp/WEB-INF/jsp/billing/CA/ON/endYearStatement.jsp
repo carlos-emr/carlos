@@ -111,12 +111,14 @@
 
     <div class="row card card-body bg-body-tertiary">
         <form action="${pageContext.request.contextPath}/billing/CA/ON/endYearStatement/search" method="post">
-            <input type="hidden" name="demographicNoParam" id="demographicNoParam"/>
+            <input type="hidden" name="demographicNoParam" id="demographicNoParam"
+                   value="<c:out value='${demographicNoParamEcho}'/>"/>
 
             <div class="col-md-5">
                 Patient Name: <br>
                 <div class="input-group">
-                    <input class="form-control" id="nameForlooksOnly" type="text" value="<c:out value='${patientNameDisplay}'/>">
+                    <input class="form-control" id="nameForlooksOnly" type="text"
+                           value="<c:out value='${not empty patientNameDisplay ? patientNameDisplay : (not empty summary.patientName ? summary.patientName : "")}'/>">
                     <button class="btn btn-primary" type="button" value="Search" onclick="demographicSearch()"><i
                             class="fa-solid fa-magnifying-glass"></i></button>
                 </div>
