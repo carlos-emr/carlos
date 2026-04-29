@@ -55,20 +55,49 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-
-
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
-
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><fmt:message key="demographic.demographiceditdemographic.btnAuditInfo"/></title>
 
+    <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+    <!--
+        The global-head.jspf fragment provides:
+        - Viewport meta tag for responsive design
+        - global.js (legacy focus/refresh helpers)
+        - jQuery 3.7.1
+        - Bootstrap 5.3.3 (JS bundle + CSS)
+        - jQuery UI 1.14.2 CSS (JS must be included page-specifically where dialogs/widgets are needed)
+        - Font Awesome 6.7.2 (icon library)
+        - searchBox.css (shared search/form styles)
+        - global.css (CARLOS design tokens and common classes)
+    -->
+    <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css">
+    <script type="text/javascript" src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
+    <script>
+    jQuery(document).ready(function () {
+        auditLogTable = jQuery("#auditLog").DataTable({
+            searching: true,
+            paging: true,
+            pageLength: 10,
+            lengthMenu: [ [10, 50, 100, 250, -1], [12, 50, 100, 250, "<fmt:message key="admin.logReport.all"/>"] ],
+            language: {
+                url: '${pageContext.request.contextPath}/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json'
+                }
+        });
+    });
+  </script>
     <%!
         DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
         OscarLogDao oscarLogDao = SpringUtils.getBean(OscarLogDao.class);
@@ -85,19 +114,16 @@
     %>
 
 </head>
-
-<body class="BodyStyle" vlink="#0000FF">
-
-
-<table style="width:100%">
+<body>
+<h2><fmt:message key="demographic.demographiceditdemographic.btnAuditInfo"/>%nbsp;(<carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="html"/>)</h2>
+<table style="width:100%" class="table table-striped" id="auditLog">
     <thead>
-    <th align="left">Time of Event</th>
-    <th align="left">Provider</th>
-    <th align="left">Action</th>
-    <th align="left">Content</th>
-    <th align="left">Content ID</th>
-    <th align="left">Data</th>
-
+    <th><fmt:message key="admin.logReport.table.time"/></th>
+    <th><fmt:message key="admin.logReport.table.provider"/></th>
+    <th><fmt:message key="admin.logReport.table.action"/></th>
+    <th><fmt:message key="admin.logReport.table.content"/></th>
+    <th><fmt:message key="admin.logReport.table.keyword"/></th>
+    <th><fmt:message key="admin.logReport.table.data"/></th>
     </thead>
     <tbody>
     <%
@@ -111,7 +137,7 @@
             }
 
     %>
-    <tr bgcolor="<%=(index%2==0)?"ivory":"white"%>">
+    <tr>
         <td><%=fmt.format(log.getCreated()) %>
         </td>
         <td><carlos:encode value='<%= providerDao.getProviderName(log.getProviderNo()) %>' context="html"/>
