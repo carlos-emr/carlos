@@ -38,13 +38,11 @@ import java.util.Set;
  * lookups that previously ran inline in the JSP and pushed the rendered
  * response past the 1 MB page buffer.</p>
  *
- * <p>Internally the cross-cutting clusters are stored as composed records
- * ({@link BillingDemographicSummary}, {@link BillingReferralDoctor},
- * {@link BillingValidationMessages}, {@link BillingMultisiteContext},
- * {@link BillingServiceCodeGrid}, {@link BillingBillFormSelector}) so the
- * page model is a small set of structured slices rather than a flat
- * 60-field bag. Flat getters remain as one-line delegations for JSP-EL
- * back-compat.</p>
+ * <p>Internally the cross-cutting clusters are stored as composed records so
+ * the page model is a small set of structured slices rather than a flat
+ * compatibility bag. Flat getters remain as one-line delegations for older
+ * Java callers while {@code billingON.jsp} consumes the composed records
+ * directly.</p>
  *
  * @since 2026-04-24
  */
@@ -119,116 +117,13 @@ public final class BillingONFormViewModel {
     private final BillingMultisiteContext multisite;
     private final BillingServiceCodeGrid serviceGrid;
     private final BillingBillFormSelector billForm;
-
-    // Identity / context
-    private final String userNo;
-    private final String demographicNo;
-    private final String appointmentNo;
-    private final String providerNo;
-    private final String apptProviderNo;
-    private final String providerView;
-    private final String demoName;
-    private final String today;
-
-    // Request echoes for form state
-    private final String billReferenceDate;
-    private final String mReview;
-    private final String ctlBillForm;
-    private final String curBillForm;
-
-    // Demographic-adjacent flat fields not subsumed by BillingDemographicSummary
-    /** True when the stored DOB was non-empty but unparseable as YYYYMMDD.
-     *  The assembler sets this so the JSP can warn the operator that
-     *  visit-type defaults / premium codes are computed off bad input. */
-    private final boolean demoDobInvalid;
-    private final String familyDoctor;
-    private final String rosterStatus;
-    private final String assgProviderNo;
-    private final int age;
-
-    // Patient diagnoses
-    private final List<String> patientDx;
-    private final String patientDxAddCode;
-    private final String patientDxMatchCode;
-
-    // Billing recommendations (pre-rendered HTML snippet)
-    private final String billingRecommendations;
-
-    // Billing history
-    private final List<BillingHistoryEntry> billingHistory;
-
-    // Config
-    private final String clinicView;
-    private final String clinicNo;
-    private final String visitType;
-    private final boolean singleClickEnabled;
-    private final boolean hospitalBilling;
-
-    // Provider list for the form's provider picker
-    private final List<ProviderOption> providers;
-
-    // Default dx / visit type / location / visit date used to pre-populate the form
-    private final String dxCode;
-    private final String xmlVisitType;
-    private final String xmlLocation;
-    private final String visitDate;
-
-    // Favourite combo list used by the cutlist dropdown (flat code/name pairs)
-    private final List<String> billingFavourites;
-
-    // Round-A6: residual body-DAO data — pulled from the assembler so the JSP
-    // body no longer reaches into BillingONLookupService / BillingONClaimLoader /
-    // BillingSiteIdService / DemographicData / JdbcApptImpl directly.
-    /** All recent-history rows the bottom table renders (was {@code aL} in JSP). */
-    private final List<BillingHistoryRow> billingHistoryRows;
-    /** Visit-location dropdown options (was {@code tdbObj.getFacilty_num()}). */
-    private final List<FacilityNumOption> facilityNumOptions;
-    /** Resolved default "strLocation" for the location dropdown's selected state. */
-    private final String defaultLocation;
-    /** Cut-list super-code options (was {@code tdbObj.getBillingFavouriteList()}). */
-    private final List<BillingFavouriteOption> billingFavouriteOptions;
-    /** Legacy non-multisite site dropdown context (was {@code BillingSiteIdService}). */
-    private final boolean legacySiteContextEnabled;
-    private final List<LegacySiteOption> legacySiteOptions;
-    /** Admission-date pre-fill (was {@code DemographicData.getDemographicDateJoined}). */
-    private final String admissionDate;
-    /** Pre-resolved xml_vdate input value: param &gt; admissionDate &gt; "". */
-    private final String defaultXmlVdate;
-    /** Display name of the assigned billing physician (was {@code providerBean.getProperty}).
-     *  Truncated to 14 chars when the full name exceeds 15 to keep the legacy
-     *  rendering width contract. */
-    private final String assgProviderDisplay;
-    /** Default referral-doctor checkbox state ("checked" or ""). */
-    private final String referralCheckedDefault;
-    /** Default referral-doctor name input value. */
-    private final String referralNameDefault;
-    /** Default referral-doctor OHIP-no input value. */
-    private final String referralNoDefault;
-    /** Default dx code for the dxCode input (request param &gt; preference &gt; history). */
-    private final String dxCodeDefault;
-    /** Default service date for the input above the dx panel. */
-    private final String serviceDateDefault;
-    /** Pre-rendered "msg" string (msg seed + errorMsg + warningMsg + DOB-invalid
-     *  warning) the legacy JSP built inline at lines 273-280. */
-    private final String displayMessage;
-    /** {@code primary_care_incentive} property value (trimmed). Used by the
-     *  {@code onChangePrivate} JS to route to the configured PRI form. */
-    private final String primaryCareIncentive;
-    /** {@code default_view} property value (trimmed). Used by the same JS to
-     *  route back to the default form when leaving the PRI variant. */
-    private final String defaultView;
-    /** URL-encoded demographic name for href interpolation in click handlers. */
-    private final String demoNameUrlEncoded;
-    /** Pre-resolved request-param echoes for hidden-input value attributes —
-     *  appointment_date / start_time / asstProvider_no / apptProvider_no /
-     *  billNo_old / billStatus_old / dxCode1 / dxCode2 / serviceCodeN /
-     *  serviceUnitN / serviceAtN. Carried through the model so the JSP never
-     *  references {@code ${param.X}} directly (the encoder-validator hook
-     *  treats raw param refs as XSS even inside {@code <c:out>}). */
-    private final Map<String, String> requestParamEchoes;
-
-    // Future expansion (not yet populated)
-    private final Map<String, String> requestEchoes;
+    private final BillingONFormRequestContext requestContext;
+    private final BillingONPatientPresentation patient;
+    private final BillingONProviderPresentation providerPanel;
+    private final BillingONVisitPresentation visit;
+    private final BillingONLookupPresentation lookupData;
+    private final BillingONDisplayPresentation display;
+    private final BillingONReferralDefaults referralDefaults;
 
     private BillingONFormViewModel(Builder b) {
         // Resolve composed records first — either the composed-setter wins or
@@ -274,66 +169,49 @@ public final class BillingONFormViewModel {
                         b.defaultServiceType,
                         b.billingForms,
                         b.selectedBillType);
-
-        this.userNo = nullToEmpty(b.userNo);
-        this.demographicNo = nullToEmpty(b.demographicNo);
-        this.appointmentNo = nullToEmpty(b.appointmentNo);
-        this.providerNo = nullToEmpty(b.providerNo);
-        this.apptProviderNo = nullToEmpty(b.apptProviderNo);
-        this.providerView = nullToEmpty(b.providerView);
-        this.demoName = nullToEmpty(b.demoName);
-        this.today = nullToEmpty(b.today);
-        this.billReferenceDate = nullToEmpty(b.billReferenceDate);
-        this.mReview = nullToEmpty(b.mReview);
-        this.ctlBillForm = nullToEmpty(b.ctlBillForm);
-        this.curBillForm = nullToEmpty(b.curBillForm);
-        this.demoDobInvalid = b.demoDobInvalid;
-        this.familyDoctor = nullToEmpty(b.familyDoctor);
-        this.rosterStatus = nullToEmpty(b.rosterStatus);
-        this.assgProviderNo = nullToEmpty(b.assgProviderNo);
-        this.age = b.age;
-        this.patientDx = b.patientDx == null ? Collections.emptyList() : List.copyOf(b.patientDx);
-        this.patientDxAddCode = nullToEmpty(b.patientDxAddCode);
-        this.patientDxMatchCode = nullToEmpty(b.patientDxMatchCode);
-        this.billingRecommendations = nullToEmpty(b.billingRecommendations);
-        this.billingHistory = b.billingHistory == null ? Collections.emptyList() : List.copyOf(b.billingHistory);
-        this.clinicView = nullToEmpty(b.clinicView);
-        this.clinicNo = nullToEmpty(b.clinicNo);
-        this.visitType = nullToEmpty(b.visitType);
-        this.singleClickEnabled = b.singleClickEnabled;
-        this.hospitalBilling = b.hospitalBilling;
-        this.providers = b.providers == null ? Collections.emptyList() : List.copyOf(b.providers);
-        this.dxCode = nullToEmpty(b.dxCode);
-        this.xmlVisitType = nullToEmpty(b.xmlVisitType);
-        this.xmlLocation = nullToEmpty(b.xmlLocation);
-        this.visitDate = nullToEmpty(b.visitDate);
-        this.billingFavourites = b.billingFavourites == null
-                ? Collections.emptyList() : List.copyOf(b.billingFavourites);
-        this.billingHistoryRows = b.billingHistoryRows == null
-                ? Collections.emptyList() : List.copyOf(b.billingHistoryRows);
-        this.facilityNumOptions = b.facilityNumOptions == null
-                ? Collections.emptyList() : List.copyOf(b.facilityNumOptions);
-        this.defaultLocation = nullToEmpty(b.defaultLocation);
-        this.billingFavouriteOptions = b.billingFavouriteOptions == null
-                ? Collections.emptyList() : List.copyOf(b.billingFavouriteOptions);
-        this.legacySiteContextEnabled = b.legacySiteContextEnabled;
-        this.legacySiteOptions = b.legacySiteOptions == null
-                ? Collections.emptyList() : List.copyOf(b.legacySiteOptions);
-        this.admissionDate = nullToEmpty(b.admissionDate);
-        this.defaultXmlVdate = nullToEmpty(b.defaultXmlVdate);
-        this.assgProviderDisplay = nullToEmpty(b.assgProviderDisplay);
-        this.referralCheckedDefault = nullToEmpty(b.referralCheckedDefault);
-        this.referralNameDefault = nullToEmpty(b.referralNameDefault);
-        this.referralNoDefault = nullToEmpty(b.referralNoDefault);
-        this.dxCodeDefault = nullToEmpty(b.dxCodeDefault);
-        this.serviceDateDefault = nullToEmpty(b.serviceDateDefault);
-        this.displayMessage = nullToEmpty(b.displayMessage);
-        this.primaryCareIncentive = nullToEmpty(b.primaryCareIncentive);
-        this.defaultView = nullToEmpty(b.defaultView);
-        this.demoNameUrlEncoded = nullToEmpty(b.demoNameUrlEncoded);
-        this.requestParamEchoes = b.requestParamEchoes == null
-                ? Collections.emptyMap() : Map.copyOf(b.requestParamEchoes);
-        this.requestEchoes = b.requestEchoes == null ? Collections.emptyMap() : Map.copyOf(b.requestEchoes);
+        this.requestContext = (b.requestContext != null)
+                ? b.requestContext
+                : new BillingONFormRequestContext(
+                        b.userNo, b.demographicNo, b.appointmentNo,
+                        b.providerNo, b.apptProviderNo, b.demoName, b.today,
+                        b.billReferenceDate, b.mReview, b.ctlBillForm,
+                        b.curBillForm, b.demoNameUrlEncoded, b.requestParamEchoes);
+        this.patient = (b.patient != null)
+                ? b.patient
+                : new BillingONPatientPresentation(
+                        b.demoDobInvalid, b.familyDoctor, b.rosterStatus,
+                        b.age, b.patientDx, b.patientDxAddCode,
+                        b.patientDxMatchCode, b.billingRecommendations,
+                        b.billingHistory, b.billingHistoryRows);
+        this.providerPanel = (b.providerPanel != null)
+                ? b.providerPanel
+                : new BillingONProviderPresentation(
+                        b.providerView, b.assgProviderNo,
+                        b.assgProviderDisplay, b.providers);
+        this.visit = (b.visit != null)
+                ? b.visit
+                : new BillingONVisitPresentation(
+                        b.clinicView, b.clinicNo, b.visitType,
+                        b.singleClickEnabled, b.hospitalBilling, b.dxCode,
+                        b.xmlVisitType, b.xmlLocation, b.visitDate,
+                        b.defaultLocation, b.admissionDate, b.defaultXmlVdate,
+                        b.dxCodeDefault, b.serviceDateDefault);
+        this.lookupData = (b.lookupData != null)
+                ? b.lookupData
+                : new BillingONLookupPresentation(
+                        b.billingFavourites, b.billingFavouriteOptions,
+                        b.facilityNumOptions, b.legacySiteContextEnabled,
+                        b.legacySiteOptions);
+        this.display = (b.display != null)
+                ? b.display
+                : new BillingONDisplayPresentation(
+                        b.displayMessage, b.primaryCareIncentive, b.defaultView);
+        this.referralDefaults = (b.referralDefaults != null)
+                ? b.referralDefaults
+                : new BillingONReferralDefaults(
+                        b.referralCheckedDefault,
+                        b.referralNameDefault,
+                        b.referralNoDefault);
     }
 
     public static Builder builder() {
@@ -370,6 +248,27 @@ public final class BillingONFormViewModel {
     /** Aggregated bill-form selector — primary internal storage. */
     public BillingBillFormSelector getBillForm() { return billForm; }
 
+    /** Aggregated identity/request context — primary internal storage. */
+    public BillingONFormRequestContext getRequestContext() { return requestContext; }
+
+    /** Aggregated patient presentation state — primary internal storage. */
+    public BillingONPatientPresentation getPatient() { return patient; }
+
+    /** Aggregated provider picker/display state — primary internal storage. */
+    public BillingONProviderPresentation getProviderPanel() { return providerPanel; }
+
+    /** Aggregated visit/default-input state — primary internal storage. */
+    public BillingONVisitPresentation getVisit() { return visit; }
+
+    /** Aggregated lookup/dropdown state — primary internal storage. */
+    public BillingONLookupPresentation getLookupData() { return lookupData; }
+
+    /** Aggregated pre-rendered display state — primary internal storage. */
+    public BillingONDisplayPresentation getDisplay() { return display; }
+
+    /** Aggregated referral input defaults — primary internal storage. */
+    public BillingONReferralDefaults getReferralDefaults() { return referralDefaults; }
+
     // ---- legacy aggregator aliases (retain for back-compat with earlier tests) ----
 
     /** Alias of {@link #getDemographic()} (legacy). */
@@ -383,18 +282,18 @@ public final class BillingONFormViewModel {
 
     // ---- Identity / context ----
 
-    public String getUserNo() { return userNo; }
-    public String getDemographicNo() { return demographicNo; }
-    public String getAppointmentNo() { return appointmentNo; }
-    public String getProviderNo() { return providerNo; }
-    public String getApptProviderNo() { return apptProviderNo; }
-    public String getProviderView() { return providerView; }
-    public String getDemoName() { return demoName; }
-    public String getToday() { return today; }
-    public String getBillReferenceDate() { return billReferenceDate; }
-    public String getMReview() { return mReview; }
-    public String getCtlBillForm() { return ctlBillForm; }
-    public String getCurBillForm() { return curBillForm; }
+    public String getUserNo() { return requestContext.userNo(); }
+    public String getDemographicNo() { return requestContext.demographicNo(); }
+    public String getAppointmentNo() { return requestContext.appointmentNo(); }
+    public String getProviderNo() { return requestContext.providerNo(); }
+    public String getApptProviderNo() { return requestContext.apptProviderNo(); }
+    public String getProviderView() { return providerPanel.providerView(); }
+    public String getDemoName() { return requestContext.demoName(); }
+    public String getToday() { return requestContext.today(); }
+    public String getBillReferenceDate() { return requestContext.billReferenceDate(); }
+    public String getMReview() { return requestContext.mReview(); }
+    public String getCtlBillForm() { return requestContext.ctlBillForm(); }
+    public String getCurBillForm() { return requestContext.curBillForm(); }
 
     // ---- Demographic flat getters (delegate to composed record) ----
 
@@ -406,13 +305,13 @@ public final class BillingONFormViewModel {
     public String getDemoDobYear() { return demographic.dobYy(); }
     public String getDemoDobMonth() { return demographic.dobMm(); }
     public String getDemoDobDay() { return demographic.dobDd(); }
-    public boolean isDemoDobInvalid() { return demoDobInvalid; }
+    public boolean isDemoDobInvalid() { return patient.demoDobInvalid(); }
     public String getDemoHcType() { return demographic.hcType(); }
     public String getDemoSex() { return demographic.sex(); }
-    public String getFamilyDoctor() { return familyDoctor; }
-    public String getRosterStatus() { return rosterStatus; }
-    public String getAssgProviderNo() { return assgProviderNo; }
-    public int getAge() { return age; }
+    public String getFamilyDoctor() { return patient.familyDoctor(); }
+    public String getRosterStatus() { return patient.rosterStatus(); }
+    public String getAssgProviderNo() { return providerPanel.assgProviderNo(); }
+    public int getAge() { return patient.age(); }
 
     // ---- Referral flat getters (delegate) ----
 
@@ -420,9 +319,9 @@ public final class BillingONFormViewModel {
     public String getReferralDoctorOhip() { return referral.ohip(); }
     public String getReferralSpecialty() { return referral.specialty(); }
 
-    public List<String> getPatientDx() { return patientDx; }
-    public String getPatientDxAddCode() { return patientDxAddCode; }
-    public String getPatientDxMatchCode() { return patientDxMatchCode; }
+    public List<String> getPatientDx() { return patient.patientDx(); }
+    public String getPatientDxAddCode() { return patient.patientDxAddCode(); }
+    public String getPatientDxMatchCode() { return patient.patientDxMatchCode(); }
 
     // ---- Multisite flat getters (delegate) ----
 
@@ -436,8 +335,8 @@ public final class BillingONFormViewModel {
     public String getSelectedXmlProvider() { return multisite.selectedXmlProvider(); }
     public Map<String, String> getMultisiteProviderHtml() { return multisite.multisiteProviderHtml(); }
 
-    public String getBillingRecommendations() { return billingRecommendations; }
-    public List<BillingHistoryEntry> getBillingHistory() { return billingHistory; }
+    public String getBillingRecommendations() { return patient.billingRecommendations(); }
+    public List<BillingHistoryEntry> getBillingHistory() { return patient.billingHistory(); }
 
     // ---- Validation messages flat getters (delegate) ----
 
@@ -445,12 +344,12 @@ public final class BillingONFormViewModel {
     public String getErrorMsg() { return messages.errorMessage(); }
     public String getErrorFlag() { return messages.errorFlag(); }
 
-    public String getClinicView() { return clinicView; }
-    public String getClinicNo() { return clinicNo; }
-    public String getVisitType() { return visitType; }
-    public boolean isSingleClickEnabled() { return singleClickEnabled; }
-    public boolean isHospitalBilling() { return hospitalBilling; }
-    public List<ProviderOption> getProviders() { return providers; }
+    public String getClinicView() { return visit.clinicView(); }
+    public String getClinicNo() { return visit.clinicNo(); }
+    public String getVisitType() { return visit.visitType(); }
+    public boolean isSingleClickEnabled() { return visit.singleClickEnabled(); }
+    public boolean isHospitalBilling() { return visit.hospitalBilling(); }
+    public List<ProviderOption> getProviders() { return providerPanel.providers(); }
 
     // ---- Bill-form flat getters (delegate) ----
 
@@ -460,10 +359,10 @@ public final class BillingONFormViewModel {
     public List<BillingFormMenuEntry> getBillingForms() { return billForm.forms(); }
     public String getSelectedBillType() { return billForm.selectedBillType(); }
 
-    public String getDxCode() { return dxCode; }
-    public String getXmlVisitType() { return xmlVisitType; }
-    public String getXmlLocation() { return xmlLocation; }
-    public String getVisitDate() { return visitDate; }
+    public String getDxCode() { return visit.dxCode(); }
+    public String getXmlVisitType() { return visit.xmlVisitType(); }
+    public String getXmlLocation() { return visit.xmlLocation(); }
+    public String getVisitDate() { return visit.visitDate(); }
 
     // ---- Service-grid flat getters (delegate) ----
 
@@ -473,27 +372,26 @@ public final class BillingONFormViewModel {
     public Set<String> getPremiumCodes() { return serviceGrid.premiumCodes(); }
     public Map<String, List<DxCodeEntry>> getDxCodesByServiceType() { return serviceGrid.dxCodesByServiceType(); }
 
-    public List<String> getBillingFavourites() { return billingFavourites; }
-    public List<BillingHistoryRow> getBillingHistoryRows() { return billingHistoryRows; }
-    public List<FacilityNumOption> getFacilityNumOptions() { return facilityNumOptions; }
-    public String getDefaultLocation() { return defaultLocation; }
-    public List<BillingFavouriteOption> getBillingFavouriteOptions() { return billingFavouriteOptions; }
-    public boolean isLegacySiteContextEnabled() { return legacySiteContextEnabled; }
-    public List<LegacySiteOption> getLegacySiteOptions() { return legacySiteOptions; }
-    public String getAdmissionDate() { return admissionDate; }
-    public String getDefaultXmlVdate() { return defaultXmlVdate; }
-    public String getAssgProviderDisplay() { return assgProviderDisplay; }
-    public String getReferralCheckedDefault() { return referralCheckedDefault; }
-    public String getReferralNameDefault() { return referralNameDefault; }
-    public String getReferralNoDefault() { return referralNoDefault; }
-    public String getDxCodeDefault() { return dxCodeDefault; }
-    public String getServiceDateDefault() { return serviceDateDefault; }
-    public String getDisplayMessage() { return displayMessage; }
-    public String getPrimaryCareIncentive() { return primaryCareIncentive; }
-    public String getDefaultView() { return defaultView; }
-    public String getDemoNameUrlEncoded() { return demoNameUrlEncoded; }
-    public Map<String, String> getRequestParamEchoes() { return requestParamEchoes; }
-    public Map<String, String> getRequestEchoes() { return requestEchoes; }
+    public List<String> getBillingFavourites() { return lookupData.billingFavourites(); }
+    public List<BillingHistoryRow> getBillingHistoryRows() { return patient.billingHistoryRows(); }
+    public List<FacilityNumOption> getFacilityNumOptions() { return lookupData.facilityNumOptions(); }
+    public String getDefaultLocation() { return visit.defaultLocation(); }
+    public List<BillingFavouriteOption> getBillingFavouriteOptions() { return lookupData.billingFavouriteOptions(); }
+    public boolean isLegacySiteContextEnabled() { return lookupData.legacySiteContextEnabled(); }
+    public List<LegacySiteOption> getLegacySiteOptions() { return lookupData.legacySiteOptions(); }
+    public String getAdmissionDate() { return visit.admissionDate(); }
+    public String getDefaultXmlVdate() { return visit.defaultXmlVdate(); }
+    public String getAssgProviderDisplay() { return providerPanel.assgProviderDisplay(); }
+    public String getReferralCheckedDefault() { return referralDefaults.checkedDefault(); }
+    public String getReferralNameDefault() { return referralDefaults.nameDefault(); }
+    public String getReferralNoDefault() { return referralDefaults.noDefault(); }
+    public String getDxCodeDefault() { return visit.dxCodeDefault(); }
+    public String getServiceDateDefault() { return visit.serviceDateDefault(); }
+    public String getDisplayMessage() { return display.displayMessage(); }
+    public String getPrimaryCareIncentive() { return display.primaryCareIncentive(); }
+    public String getDefaultView() { return display.defaultView(); }
+    public String getDemoNameUrlEncoded() { return requestContext.demoNameUrlEncoded(); }
+    public Map<String, String> getRequestParamEchoes() { return requestContext.requestParamEchoes(); }
 
     public static final class Builder {
         // ---- Composed-record setters (preferred) ----
@@ -503,6 +401,13 @@ public final class BillingONFormViewModel {
         private BillingMultisiteContext multisite;
         private BillingServiceCodeGrid serviceGrid;
         private BillingBillFormSelector billForm;
+        private BillingONFormRequestContext requestContext;
+        private BillingONPatientPresentation patient;
+        private BillingONProviderPresentation providerPanel;
+        private BillingONVisitPresentation visit;
+        private BillingONLookupPresentation lookupData;
+        private BillingONDisplayPresentation display;
+        private BillingONReferralDefaults referralDefaults;
 
         // ---- Legacy flat-field accumulators ----
         private String userNo;
@@ -583,7 +488,6 @@ public final class BillingONFormViewModel {
         private String defaultView;
         private String demoNameUrlEncoded;
         private Map<String, String> requestParamEchoes;
-        private Map<String, String> requestEchoes;
 
         // Multisite + RMA flat accumulators
         private boolean multisiteEnabled;
@@ -603,6 +507,13 @@ public final class BillingONFormViewModel {
         public Builder multisite(BillingMultisiteContext v) { this.multisite = v; return this; }
         public Builder serviceGrid(BillingServiceCodeGrid v) { this.serviceGrid = v; return this; }
         public Builder billForm(BillingBillFormSelector v) { this.billForm = v; return this; }
+        public Builder requestContext(BillingONFormRequestContext v) { this.requestContext = v; return this; }
+        public Builder patient(BillingONPatientPresentation v) { this.patient = v; return this; }
+        public Builder providerPanel(BillingONProviderPresentation v) { this.providerPanel = v; return this; }
+        public Builder visit(BillingONVisitPresentation v) { this.visit = v; return this; }
+        public Builder lookupData(BillingONLookupPresentation v) { this.lookupData = v; return this; }
+        public Builder display(BillingONDisplayPresentation v) { this.display = v; return this; }
+        public Builder referralDefaults(BillingONReferralDefaults v) { this.referralDefaults = v; return this; }
 
         // ---- Legacy flat setters (back-compat — accumulate for build()) ----
 
@@ -703,7 +614,6 @@ public final class BillingONFormViewModel {
         public Builder selectedXmlProvider(String v) { this.selectedXmlProvider = v; return this; }
         public Builder multisiteProviderHtml(Map<String, String> v) { this.multisiteProviderHtml = v == null ? null : Map.copyOf(v); return this; }
         public Builder requestParamEchoes(Map<String, String> v) { this.requestParamEchoes = v == null ? null : Map.copyOf(v); return this; }
-        public Builder requestEchoes(Map<String, String> v) { this.requestEchoes = v == null ? null : Map.copyOf(v); return this; }
 
         public BillingONFormViewModel build() {
             return new BillingONFormViewModel(this);

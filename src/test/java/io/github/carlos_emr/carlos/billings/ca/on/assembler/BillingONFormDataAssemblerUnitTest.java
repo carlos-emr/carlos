@@ -201,9 +201,12 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
         BillingONFormViewModel model = assembler.assemble(request, loggedInInfo);
 
         assertThat(model).isNotNull();
-        assertThat(model.getUserNo()).isEqualTo("999998");
-        assertThat(model.getDemographicNo()).isEqualTo("1");
-        assertThat(model.getCtlBillForm()).isEqualTo("GP");
+        assertThat(model.getRequestContext().userNo()).isEqualTo("999998");
+        assertThat(model.getRequestContext().demographicNo()).isEqualTo("1");
+        assertThat(model.getRequestContext().ctlBillForm()).isEqualTo("GP");
+        assertThat(model.getUserNo()).isEqualTo(model.getRequestContext().userNo());
+        assertThat(model.getDemographicNo()).isEqualTo(model.getRequestContext().demographicNo());
+        assertThat(model.getCtlBillForm()).isEqualTo(model.getRequestContext().ctlBillForm());
     }
 
     @Test
@@ -216,7 +219,8 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
         // assembler built in setUp
         BillingONFormViewModel model = assembler.assemble(request, loggedInInfo);
 
-        assertThat(model.getDemoHcType()).isEqualTo("ON");
+        assertThat(model.getDemographic().hcType()).isEqualTo("ON");
+        assertThat(model.getDemoHcType()).isEqualTo(model.getDemographic().hcType());
     }
 
     @Test
@@ -229,8 +233,10 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
         // assembler built in setUp
         BillingONFormViewModel model = assembler.assemble(request, loggedInInfo);
 
-        assertThat(model.getErrorFlag()).isEqualTo("1");
-        assertThat(model.getErrorMsg()).contains("does not have a valid DOB");
+        assertThat(model.getMessages().errorFlag()).isEqualTo("1");
+        assertThat(model.getMessages().errorMessage()).contains("does not have a valid DOB");
+        assertThat(model.getErrorFlag()).isEqualTo(model.getMessages().errorFlag());
+        assertThat(model.getErrorMsg()).isEqualTo(model.getMessages().errorMessage());
     }
 
     @Test
@@ -245,7 +251,8 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
         BillingONFormViewModel model = assembler.assemble(request, loggedInInfo);
 
         // The pipe is stripped — JSP's behaviour preserved.
-        assertThat(model.getProviderView()).isEqualTo("111111");
+        assertThat(model.getProviderPanel().providerView()).isEqualTo("111111");
+        assertThat(model.getProviderView()).isEqualTo(model.getProviderPanel().providerView());
     }
 
     @Test
@@ -262,7 +269,8 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
         // assembler built in setUp
         BillingONFormViewModel model = assembler.assemble(request, loggedInInfo);
 
-        assertThat(model.getProviderNo()).isEqualTo("999998");
+        assertThat(model.getRequestContext().providerNo()).isEqualTo("999998");
+        assertThat(model.getProviderNo()).isEqualTo(model.getRequestContext().providerNo());
     }
 
     @Test
@@ -276,7 +284,8 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
         // assembler built in setUp
         BillingONFormViewModel model = assembler.assemble(request, loggedInInfo);
 
-        assertThat(model.getProviderNo()).isEqualTo("111111");
+        assertThat(model.getRequestContext().providerNo()).isEqualTo("111111");
+        assertThat(model.getProviderNo()).isEqualTo(model.getRequestContext().providerNo());
     }
 
     @Test
@@ -290,7 +299,8 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
         // assembler built in setUp
         BillingONFormViewModel model = assembler.assemble(request, loggedInInfo);
 
-        assertThat(model.getProviderNo()).isEqualTo("222222");
+        assertThat(model.getRequestContext().providerNo()).isEqualTo("222222");
+        assertThat(model.getProviderNo()).isEqualTo(model.getRequestContext().providerNo());
     }
 
     @Test

@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.data;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -150,7 +152,7 @@ class BillingONFormViewModelUnitTest {
         assertThat(model.getBillingForms()).isEmpty();
         assertThat(model.getDxCodesByServiceType()).isEmpty();
         assertThat(model.getBillingFavourites()).isEmpty();
-        assertThat(model.getRequestEchoes()).isEmpty();
+        assertThat(model.getRequestParamEchoes()).isEmpty();
     }
 
     @Test
@@ -481,5 +483,98 @@ class BillingONFormViewModelUnitTest {
         assertThat(m.getMultisite().enabled()).isEqualTo(m.isMultisiteEnabled());
         assertThat(m.getMultisite().rmaEnabled()).isEqualTo(m.isRmaEnabled());
         assertThat(m.getMultisite().selectedClinicNbrPrefix()).isEqualTo(m.getSelectedClinicNbrPrefix());
+    }
+
+    @Test
+    @DisplayName("form view model exposes focused presentation slices")
+    void shouldExposeFocusedPresentationSlices_fromFlatBuilderSetters() throws Exception {
+        BillingONFormViewModel m = BillingONFormViewModel.builder()
+                .userNo("doc1")
+                .demographicNo("123")
+                .appointmentNo("456")
+                .providerNo("doc2")
+                .apptProviderNo("doc3")
+                .providerView("doc2|999999")
+                .demoName("Doe,Jane")
+                .today("2026-04-28")
+                .billReferenceDate("2026-04-28")
+                .mReview("Y")
+                .ctlBillForm("GP")
+                .curBillForm("PRI")
+                .demoNameUrlEncoded("Doe%2CJane")
+                .requestParamEchoes(Map.of("appointment_date", "2026-04-28"))
+                .familyDoctor("Smith")
+                .rosterStatus("RO")
+                .assgProviderNo("doc4")
+                .age(46)
+                .patientDx(List.of("401"))
+                .patientDxAddCode("ADD")
+                .patientDxMatchCode("MATCH")
+                .billingRecommendations("recommend")
+                .billingHistoryRows(List.of(new BillingONFormViewModel.BillingHistoryRow(
+                        "1", "2026-04-01", "2026-04-01", "A001", "401", "2026-04-02")))
+                .providers(List.of(new BillingONFormViewModel.ProviderOption("Smith", "Ada", "doc2|999999")))
+                .assgProviderDisplay("Smith, Ada")
+                .clinicView("0000")
+                .clinicNo("clinic")
+                .visitType("03")
+                .singleClickEnabled(true)
+                .dxCode("401")
+                .xmlVisitType("03")
+                .xmlLocation("0000")
+                .visitDate("2026-04-28")
+                .defaultLocation("0000")
+                .admissionDate("2026-04-20")
+                .defaultXmlVdate("2026-04-20")
+                .dxCodeDefault("401")
+                .serviceDateDefault("2026-04-28")
+                .billingFavourites(List.of("Fav", "A001"))
+                .billingFavouriteOptions(List.of(new BillingONFormViewModel.BillingFavouriteOption("Fav", "A001")))
+                .facilityNumOptions(List.of(new BillingONFormViewModel.FacilityNumOption("0000", "Clinic")))
+                .legacySiteContextEnabled(true)
+                .legacySiteOptions(List.of(new BillingONFormViewModel.LegacySiteOption("site", true)))
+                .displayMessage("msg")
+                .primaryCareIncentive("PRI")
+                .defaultView("GP")
+                .build();
+
+        Object requestContext = m.getClass().getMethod("getRequestContext").invoke(m);
+        Object patient = m.getClass().getMethod("getPatient").invoke(m);
+        Object providerPanel = m.getClass().getMethod("getProviderPanel").invoke(m);
+        Object visit = m.getClass().getMethod("getVisit").invoke(m);
+        Object lookupData = m.getClass().getMethod("getLookupData").invoke(m);
+        Object display = m.getClass().getMethod("getDisplay").invoke(m);
+
+        assertThat(requestContext.getClass().getMethod("demographicNo").invoke(requestContext))
+                .isEqualTo(m.getDemographicNo());
+        assertThat(patient.getClass().getMethod("patientDx").invoke(patient))
+                .isEqualTo(m.getPatientDx());
+        assertThat(providerPanel.getClass().getMethod("providerView").invoke(providerPanel))
+                .isEqualTo(m.getProviderView());
+        assertThat(visit.getClass().getMethod("dxCodeDefault").invoke(visit))
+                .isEqualTo(m.getDxCodeDefault());
+        assertThat(lookupData.getClass().getMethod("billingFavouriteOptions").invoke(lookupData))
+                .isEqualTo(m.getBillingFavouriteOptions());
+        assertThat(display.getClass().getMethod("displayMessage").invoke(display))
+                .isEqualTo(m.getDisplayMessage());
+    }
+
+    @Test
+    @DisplayName("billingON.jsp consumes presentation slices instead of flat form fields")
+    void billingOnJspShouldUseComposedPresentationSlices_forMigratedFields() throws Exception {
+        String jsp = Files.readString(Path.of(
+                "src/main/webapp/WEB-INF/jsp/billing/CA/ON/billingON.jsp"));
+
+        assertThat(jsp).contains("formModel.requestContext.requestParamEchoes");
+        assertThat(jsp).contains("formModel.providerPanel.providers");
+        assertThat(jsp).contains("formModel.visit.dxCodeDefault");
+        assertThat(jsp).contains("formModel.lookupData.billingFavouriteOptions");
+        assertThat(jsp).contains("formModel.display.displayMessage");
+
+        assertThat(jsp).doesNotContain("formModel.requestParamEchoes");
+        assertThat(jsp).doesNotContain("formModel.providers");
+        assertThat(jsp).doesNotContain("formModel.dxCodeDefault");
+        assertThat(jsp).doesNotContain("formModel.billingFavouriteOptions");
+        assertThat(jsp).doesNotContain("formModel.displayMessage");
     }
 }

@@ -146,8 +146,8 @@
         }
 
         function onNext() {
-            var codeToAddStr = "<carlos:encode value='${formModel.patientDxAddCode}' context="javaScriptBlock"/>";
-            var codeToMatchStr = "<carlos:encode value='${formModel.patientDxMatchCode}' context="javaScriptBlock"/>";
+            var codeToAddStr = "<carlos:encode value='${formModel.patient.patientDxAddCode}' context="javaScriptBlock"/>";
+            var codeToMatchStr = "<carlos:encode value='${formModel.patient.patientDxMatchCode}' context="javaScriptBlock"/>";
 
             var codeToAdd = codeToAddStr.split(",");
             var codeToMatch = {};
@@ -163,7 +163,7 @@
             var codeMatch = codeToMatch[dxCode];
             if (codeToAdd.indexOf(dxCode) >= 0 || codeMatch != null) {
                 var dxCodeMatch = codeMatch == null ? dxCode : codeMatch;
-                <c:forEach var="__pc" items="${formModel.patientDx}">
+                <c:forEach var="__pc" items="${formModel.patient.patientDx}">
                 if (dxCodeMatch === "<carlos:encode value='${__pc}' context='javaScript'/>") dxCode = -1;
                 </c:forEach>
                 if (dxCode != -1 && codeMatch != null) {
@@ -227,7 +227,7 @@
                 alert("Please select a providers.");
                 b = false;
             }
-                <c:if test="${not formModel.rmaEnabled}">
+                <c:if test="${not formModel.multisite.rmaEnabled}">
             else if (document.forms[0].xml_visittype.options[2].selected && (document.forms[0].xml_vdate.value == "" || document.forms[0].xml_vdate.value == "0000-00-00")) {
                 alert("Need an admission date.");
                 b = false;
@@ -428,9 +428,9 @@
                 }
             }
             if (document.forms[0].dxCode.value == "" && document.forms[0].dxCode1.value == "" && document.forms[0].dxCode2.value == "") {
-                document.forms[0].dxCode.value = '<carlos:encode value='${formModel.dxCodeDefault}' context='javaScript'/>';
-                document.forms[0].dxCode1.value = '<carlos:encode value='${formModel.requestParamEchoes["dxCode1"]}' context='javaScript'/>';
-                document.forms[0].dxCode2.value = '<carlos:encode value='${formModel.requestParamEchoes["dxCode2"]}' context='javaScript'/>';
+                document.forms[0].dxCode.value = '<carlos:encode value='${formModel.visit.dxCodeDefault}' context='javaScript'/>';
+                document.forms[0].dxCode1.value = '<carlos:encode value='${formModel.requestContext.requestParamEchoes["dxCode1"]}' context='javaScript'/>';
+                document.forms[0].dxCode2.value = '<carlos:encode value='${formModel.requestContext.requestParamEchoes["dxCode2"]}' context='javaScript'/>';
             }
         }
 
@@ -449,8 +449,8 @@
                 document.forms[0].referralCode.value = "";
                 document.forms[0].referralDocName.value = "";
             } else {
-                document.forms[0].referralCode.value = "<carlos:encode value='${formModel.referralDoctorOhip}' context="javaScriptBlock"/>";
-                document.forms[0].referralDocName.value = "<carlos:encode value='${formModel.referralDoctor}' context="javaScriptBlock"/>";
+                document.forms[0].referralCode.value = "<carlos:encode value='${formModel.referral.ohip}' context="javaScriptBlock"/>";
+                document.forms[0].referralDocName.value = "<carlos:encode value='${formModel.referral.name}' context="javaScriptBlock"/>";
             }
         }
 
@@ -460,22 +460,22 @@
             <%-- Pre-encoded URL components precomputed in the assembler.
                  demoNameUrlEncoded uses URLEncoder.encode(...UTF-8); the others
                  round-trip via <carlos:encode context="uriComponent">. --%>
-            <c:set var="__apptNoUri"><carlos:encode value='${formModel.requestParamEchoes["appointment_no"]}' context='uriComponent'/></c:set>
-            <c:set var="__demoNoUri"><carlos:encode value='${formModel.requestParamEchoes["demographic_no"]}' context='uriComponent'/></c:set>
-            <c:set var="__apptProvUri"><carlos:encode value='${formModel.requestParamEchoes["apptProvider_no"]}' context='uriComponent'/></c:set>
-            <c:set var="__apptDateUri"><carlos:encode value='${formModel.requestParamEchoes["appointment_date"]}' context='uriComponent'/></c:set>
-            <c:set var="__statusUri"><carlos:encode value='${formModel.requestParamEchoes["status"]}' context='uriComponent'/></c:set>
-            <c:set var="__startTimeUri"><carlos:encode value='${formModel.requestParamEchoes["start_time"]}' context='uriComponent'/></c:set>
-            <c:set var="__demoNameJs">&demographic_name=<carlos:encode value='${formModel.demoNameUrlEncoded}' context='javaScript'/></c:set>
+            <c:set var="__apptNoUri"><carlos:encode value='${formModel.requestContext.requestParamEchoes["appointment_no"]}' context='uriComponent'/></c:set>
+            <c:set var="__demoNoUri"><carlos:encode value='${formModel.requestContext.requestParamEchoes["demographic_no"]}' context='uriComponent'/></c:set>
+            <c:set var="__apptProvUri"><carlos:encode value='${formModel.requestContext.requestParamEchoes["apptProvider_no"]}' context='uriComponent'/></c:set>
+            <c:set var="__apptDateUri"><carlos:encode value='${formModel.requestContext.requestParamEchoes["appointment_date"]}' context='uriComponent'/></c:set>
+            <c:set var="__statusUri"><carlos:encode value='${formModel.requestContext.requestParamEchoes["status"]}' context='uriComponent'/></c:set>
+            <c:set var="__startTimeUri"><carlos:encode value='${formModel.requestContext.requestParamEchoes["start_time"]}' context='uriComponent'/></c:set>
+            <c:set var="__demoNameJs">&demographic_name=<carlos:encode value='${formModel.requestContext.demoNameUrlEncoded}' context='javaScript'/></c:set>
             <c:set var="__commonQs">&appointment_no=<carlos:encode value='${__apptNoUri}' context='javaScript'/>${__demoNameJs}&demographic_no=<carlos:encode value='${__demoNoUri}' context='javaScript'/></c:set>
             <c:set var="__commonTail">&apptProvider_no=<carlos:encode value='${__apptProvUri}' context='javaScript'/>&providerview=<carlos:encode value='${__apptProvUri}' context='javaScript'/>&appointment_date=<carlos:encode value='${__apptDateUri}' context='javaScript'/>&status=<carlos:encode value='${__statusUri}' context='javaScript'/>&start_time=<carlos:encode value='${__startTimeUri}' context='javaScript'/>&bNewForm=1</c:set>
             if (val.substring(0, 3) == "PAT" || val.substring(0, 3) == "OCF" || val.substring(0, 3) == "ODS" || val.substring(0, 3) == "CPP" || val.substring(0, 3) == "STD") {
                 self.location.href = billingContextPath + "/billing?curBillForm=PRI&hotclick=${__commonQs}&xml_billtype=" + val.substring(0, 3) + "${__commonTail}";
             } else if (val.substring(0, 3) == "BON") {
-                self.location.href = billingContextPath + "/billing?curBillForm=<carlos:encode value='${formModel.primaryCareIncentive}' context='javaScript'/>&hotclick=${__commonQs}&xml_billtype=" + val.substring(0, 3) + "${__commonTail}";
+                self.location.href = billingContextPath + "/billing?curBillForm=<carlos:encode value='${formModel.display.primaryCareIncentive}' context='javaScript'/>&hotclick=${__commonQs}&xml_billtype=" + val.substring(0, 3) + "${__commonTail}";
             } else {
-                <c:if test="${formModel.ctlBillForm eq 'PRI'}">
-                self.location.href = billingContextPath + "/billing?curBillForm=<carlos:encode value='${formModel.defaultView}' context='javaScript'/>&hotclick=${__commonQs}&xml_billtype=" + val.substring(0, 3) + "${__commonTail}";
+                <c:if test="${formModel.requestContext.ctlBillForm eq 'PRI'}">
+                self.location.href = billingContextPath + "/billing?curBillForm=<carlos:encode value='${formModel.display.defaultView}' context='javaScript'/>&hotclick=${__commonQs}&xml_billtype=" + val.substring(0, 3) + "${__commonTail}";
                 </c:if>
             }
         }
@@ -493,18 +493,18 @@
 
         function onHistory() {
             var dd = document.forms[0].day.value;
-            popupPage("800", "1000", billingContextPath + "/billing/CA/ON/ViewBillingONHistorySpec?demographic_no=<carlos:encode value='${formModel.demographicNo}' context='javaScript'/>&demo_name=<carlos:encode value='${formModel.demoNameUrlEncoded}' context='javaScript'/>&orderby=appointment_date&day=" + dd);
+            popupPage("800", "1000", billingContextPath + "/billing/CA/ON/ViewBillingONHistorySpec?demographic_no=<carlos:encode value='${formModel.requestContext.demographicNo}' context='javaScript'/>&demo_name=<carlos:encode value='${formModel.requestContext.demoNameUrlEncoded}' context='javaScript'/>&orderby=appointment_date&day=" + dd);
         }
 
         function prepareBack() {
-            document.forms[0].services_checked.value = "<carlos:encode value='${formModel.requestParamEchoes["services_checked"]}' context='javaScript'/>";
+            document.forms[0].services_checked.value = "<carlos:encode value='${formModel.requestContext.requestParamEchoes["services_checked"]}' context='javaScript'/>";
             if (document.forms[0].services_checked.value == "") document.forms[0].services_checked.value = 0;
             document.forms[0].url_back.value = location.href;
 
-            showBillFormDiv("group1_", "<carlos:encode value='${formModel.ctlBillForm}' context="javaScriptBlock"/>");
-            showBillFormDiv("group2_", "<carlos:encode value='${formModel.ctlBillForm}' context="javaScriptBlock"/>");
-            showBillFormDiv("group3_", "<carlos:encode value='${formModel.ctlBillForm}' context="javaScriptBlock"/>");
-            showBillFormDiv("dxCodeSearchDiv_", "<carlos:encode value='${formModel.ctlBillForm}' context="javaScriptBlock"/>");
+            showBillFormDiv("group1_", "<carlos:encode value='${formModel.requestContext.ctlBillForm}' context="javaScriptBlock"/>");
+            showBillFormDiv("group2_", "<carlos:encode value='${formModel.requestContext.ctlBillForm}' context="javaScriptBlock"/>");
+            showBillFormDiv("group3_", "<carlos:encode value='${formModel.requestContext.ctlBillForm}' context="javaScriptBlock"/>");
+            showBillFormDiv("dxCodeSearchDiv_", "<carlos:encode value='${formModel.requestContext.ctlBillForm}' context="javaScriptBlock"/>");
 
         }
 
@@ -595,7 +595,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
             showBillFormDiv("group3_", selectedBillForm);
 
             //hide other billing codes whose forms are not selected
-            <c:forEach var="__st" items="${formModel.listServiceType}">
+            <c:forEach var="__st" items="${formModel.serviceGrid.serviceTypes}">
             if (selectedBillForm != "<carlos:encode value='${__st}' context='javaScript'/>") {
                 hideBillFormDiv("group1_", "<carlos:encode value='${__st}' context='javaScript'/>");
                 hideBillFormDiv("group2_", "<carlos:encode value='${__st}' context='javaScript'/>");
@@ -741,7 +741,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
     </script>
 </head>
 
-<body onload="if (typeof prepareBack === 'function') prepareBack(); if (typeof changeCodeDesc === 'function') changeCodeDesc(); if (typeof getDays === 'function') getDays(); if (typeof toggleDiv === 'function' && document.forms[0] && document.forms[0].xml_billtype && document.forms[0].xml_billtype.value) toggleDiv('<carlos:encode value='${formModel.ctlBillForm}' context="javaScriptAttribute"/>', '<carlos:encode value='${formModel.defaultBillFormName}' context="javaScriptAttribute"/>', document.forms[0].xml_billtype.value.substring(0, 3));">
+<body onload="if (typeof prepareBack === 'function') prepareBack(); if (typeof changeCodeDesc === 'function') changeCodeDesc(); if (typeof getDays === 'function') getDays(); if (typeof toggleDiv === 'function' && document.forms[0] && document.forms[0].xml_billtype && document.forms[0].xml_billtype.value) toggleDiv('<carlos:encode value='${formModel.requestContext.ctlBillForm}' context="javaScriptAttribute"/>', '<carlos:encode value='${formModel.billForm.defaultFormName}' context="javaScriptAttribute"/>', document.forms[0].xml_billtype.value.substring(0, 3));">
 <div id="Instrdiv" class="demo1">
 
     <table style="width: 99%;">
@@ -765,7 +765,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                                                                onclick="showHideLayers('Layer1','','hide');return false;">X</a></b>
             </td>
         </tr>
-        <c:forEach var="bf" items="${formModel.billingForms}">
+        <c:forEach var="bf" items="${formModel.billForm.forms}">
         <tr>
             <td colspan="2" style="background-color:lightgray;"><b>
                 <a href="javascript:void(0);"
@@ -778,7 +778,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
 </div>
 <%-- Build billing form data for billFormName autocomplete --%>
 <script>
-var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varStatus="st"><c:if test="${not st.first}">,</c:if>{"code":"<carlos:encode value='${bf.code}' context="javaScriptBlock"/>","name":"<carlos:encode value='${bf.name}' context="javaScriptBlock"/>","billType":"<carlos:encode value='${bf.billType}' context="javaScriptBlock"/>","label":"<carlos:encode value='${bf.name}' context="javaScriptBlock"/>","value":"<carlos:encode value='${bf.name}' context="javaScriptBlock"/>"}</c:forEach>];
+var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" varStatus="st"><c:if test="${not st.first}">,</c:if>{"code":"<carlos:encode value='${bf.code}' context="javaScriptBlock"/>","name":"<carlos:encode value='${bf.name}' context="javaScriptBlock"/>","billType":"<carlos:encode value='${bf.billType}' context="javaScriptBlock"/>","label":"<carlos:encode value='${bf.name}' context="javaScriptBlock"/>","value":"<carlos:encode value='${bf.name}' context="javaScriptBlock"/>"}</c:forEach>];
 </script>
 
 <div id="Layer2"
@@ -792,7 +792,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
             </td>
         </tr>
     </table>
-    <c:forEach var="dxEntry" items="${formModel.dxCodesByServiceType}">
+    <c:forEach var="dxEntry" items="${formModel.serviceGrid.dxCodesByServiceType}">
     <%-- The assembler already runs sanitizeIdToken on service-type codes, so
          dxEntry.key is alphanumeric+underscore. The fn:replace here is
          defense-in-depth — if a future code path ever bypasses the sanitizer,
@@ -825,7 +825,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
 <form method="post" id="titlesearch" name="titlesearch"
       action="<carlos:encode value='${pageContext.request.contextPath}/billing/CA/ON/ViewBillingONReview' context='htmlAttribute'/>" onsubmit="return onNext();">
     <input type="hidden" name="checkFlag" id="checkFlag"
-           value="<carlos:encode value='${formModel.requestParamEchoes[\"checkFlag\"]}' context='htmlAttribute'/>"/>
+           value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"checkFlag\"]}' context='htmlAttribute'/>"/>
     <input type="hidden" name="addToPatientDx"/>
     <input type="hidden" name="codeMatchToPatientDx"/>
 
@@ -839,7 +839,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                     <fmt:message key="oscar.billing.ca.on.billingON.edit"/>
                 </a> <select name="cutlist" id="cutlist" onchange="changeCut(this)">
                     <option selected="selected" value=""><fmt:message key="oscar.billing.ca.on.billingON.superCodes"/></option>
-                    <c:forEach var="fav" items="${formModel.billingFavouriteOptions}">
+                    <c:forEach var="fav" items="${formModel.lookupData.billingFavouriteOptions}">
                         <option value="<carlos:encode value='${fav.value}' context='htmlAttribute'/>"><carlos:encode value='${fav.text}' context='html'/></option>
                     </c:forEach>
                 </select></td>
@@ -859,13 +859,13 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
 					<table  style="width: 100%;">
                     <tr>
                         <td style="white-space:nowrap; width: 10%; text-align: center"><b>&nbsp;<oscar:nameage
-                                demographicNo="${formModel.demographicNo}"/> <carlos:encode value='${formModel.rosterStatus}' context='html'/>
+                                demographicNo="${formModel.requestContext.demographicNo}"/> <carlos:encode value='${formModel.patient.rosterStatus}' context='html'/>
                         </b>
                             <c:choose>
-                                <c:when test="${formModel.appointmentNo eq '0'}">
+                                <c:when test="${formModel.requestContext.appointmentNo eq '0'}">
                                     <span class="input-group">
 								        <input type="text" class="form-control" id="service_date" name="service_date" readonly
-                                           value="<carlos:encode value='${formModel.serviceDateDefault}' context='htmlAttribute'/>"
+                                           value="<carlos:encode value='${formModel.visit.serviceDateDefault}' context='htmlAttribute'/>"
                                            style="width: 80px; height:14px;  vertical-align: bottom;">
                                         <span class="input-group-text" id="service_date_cal" style="cursor:pointer;">
                                             <img src="${pageContext.request.contextPath}/images/cal.gif"
@@ -873,14 +873,14 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                                 </c:when>
                                 <c:otherwise>
                                     <input type="text" id="service_date" name="service_date" readonly
-								        value="<carlos:encode value='${formModel.requestParamEchoes[\"appointment_date\"]}' context='htmlAttribute'/>"
+								        value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"appointment_date\"]}' context='htmlAttribute'/>"
                                        maxlength="10" style="width: 80px;">
                                 </c:otherwise>
                             </c:choose></td>
                         <td style="text-align: center;"
-                            class="${not empty formModel.billingRecommendations ? 'alert' : ''}">${formModel.billingRecommendations}
+                            class="${not empty formModel.patient.billingRecommendations ? 'alert' : ''}">${formModel.patient.billingRecommendations}
                         </td>
-                        <td style="text-align: center;">${formModel.displayMessage}
+                        <td style="text-align: center;">${formModel.display.displayMessage}
                         </td>
                     </tr>
                 </table>
@@ -913,61 +913,61 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                                                 <td><input type="text" name="dxCode" class="form-control form-control-sm d-inline-block w-auto"
                                                            maxlength="5"
                                                            onchange="changeCodeDesc();"
-                                                           value="<carlos:encode value='${formModel.dxCodeDefault}' context='htmlAttribute'/>"/>
+                                                           value="<carlos:encode value='${formModel.visit.dxCodeDefault}' context='htmlAttribute'/>"/>
                                                 </td>
                                             </tr>
                                             <tr>
                                                 <td><fmt:message key="oscar.billing.ca.on.billingON.dx1"/></td>
                                                 <td><input type="text" name="dxCode1" class="form-control form-control-sm d-inline-block w-auto"
                                                            maxlength="5"
-                                                           value="<carlos:encode value='${formModel.requestParamEchoes[\"dxCode1\"]}' context='htmlAttribute'/>"/>
+                                                           value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"dxCode1\"]}' context='htmlAttribute'/>"/>
                                                 </td>
                                             </tr>
                                             <tr>
                                                 <td><fmt:message key="oscar.billing.ca.on.billingON.dx2"/></td>
                                                 <td><input type="text" name="dxCode2" class="form-control form-control-sm d-inline-block w-auto"
                                                            maxlength="5"
-                                                           value="<carlos:encode value='${formModel.requestParamEchoes[\"dxCode2\"]}' context='htmlAttribute'/>"/>
+                                                           value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"dxCode2\"]}' context='htmlAttribute'/>"/>
                                                 </td>
                                             </tr>
                                         </table>
                                         <a
                                                 href="javascript:referralScriptAttach2('referralCode','referralDocName')"><fmt:message key="oscar.billing.ca.on.billingON.referralDoctor"/></a>
                                         <input type="checkbox" name="rfcheck" value="checked"
-                                            ${formModel.referralCheckedDefault eq 'checked' ? 'checked' : ''} onclick="onClickRefDoc()"/><br/>
+                                            ${formModel.referralDefaults.checkedDefault eq 'checked' ? 'checked' : ''} onclick="onClickRefDoc()"/><br/>
                                         <input
                                                 type="text" name="referralCode" class="form-control form-control-sm d-inline-block w-auto" maxlength="6"
                                                 placeholder="<fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.referralNo"/>"
-                                                value="<carlos:encode value='${formModel.referralNoDefault}' context='html'/>"><br/>
+                                                value="<carlos:encode value='${formModel.referralDefaults.noDefault}' context='html'/>"><br/>
                                         <input placeholder="<fmt:message key="demographic.demographiceditdemographic.formRefDoc"/>"
                                                type="text" name="referralDocName" class="form-control" maxlength="60"
-                                               value="<carlos:encode value='${formModel.referralNameDefault}' context='html'/>">
+                                               value="<carlos:encode value='${formModel.referralDefaults.nameDefault}' context='html'/>">
                                     </td>
                                 </tr>
                                 <tr>
                                     <td style="white-space:nowrap; width: 33%; text-align: center" class="xmyPink"><b><fmt:message key="oscar.billing.ca.on.billingON.codeTimePercent"/></b><br/>
                                         <c:forEach var="i" begin="0" end="5">
                                             <input type="text" name="serviceCode${i}" class="form-control form-control-sm d-inline-block w-auto"
-                                                   value="<carlos:encode value='${formModel.requestParamEchoes[\"serviceCode\".concat(i)]}' context='htmlAttribute'/>"
+                                                   value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"serviceCode\".concat(i)]}' context='htmlAttribute'/>"
                                                    onBlur="upCaseCtrl(this)"/>x
                                             <input type="text" name="serviceUnit${i}" size="2" maxlength="4"
                                                    style="width: 20px;"
-                                                   value="<carlos:encode value='${formModel.requestParamEchoes[\"serviceUnit\".concat(i)]}' context='htmlAttribute'/>"/>@
+                                                   value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"serviceUnit\".concat(i)]}' context='htmlAttribute'/>"/>@
                                             <input type="text" name="serviceAt${i}" size="3" maxlength="4"
                                                    style="width: 30px"
-                                                   value="<carlos:encode value='${formModel.requestParamEchoes[\"serviceAt\".concat(i)]}' context='htmlAttribute'/>"/><br/>
+                                                   value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"serviceAt\".concat(i)]}' context='htmlAttribute'/>"/><br/>
                                         </c:forEach></td>
                                     <td style="white-space:nowrap; width: 33%; text-align: center" class="xmyPink"><b><fmt:message key="oscar.billing.ca.on.billingON.codeTimePercent"/></b><br/>
                                         <c:forEach var="i" begin="6" end="11">
                                             <input type="text" name="serviceCode${i}" class="form-control form-control-sm d-inline-block w-auto"
-                                                   value="<carlos:encode value='${formModel.requestParamEchoes[\"serviceCode\".concat(i)]}' context='htmlAttribute'/>"
+                                                   value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"serviceCode\".concat(i)]}' context='htmlAttribute'/>"
                                                    onBlur="upCaseCtrl(this)"/>x
                                             <input type="text" name="serviceUnit${i}" size="2" maxlength="2"
                                                    style="width: 20px;"
-                                                   value="<carlos:encode value='${formModel.requestParamEchoes[\"serviceUnit\".concat(i)]}' context='htmlAttribute'/>"/>@
+                                                   value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"serviceUnit\".concat(i)]}' context='htmlAttribute'/>"/>@
                                             <input type="text" name="serviceAt${i}" size="3" maxlength="4"
                                                    style="width: 30px"
-                                                   value="<carlos:encode value='${formModel.requestParamEchoes[\"serviceAt\".concat(i)]}' context='htmlAttribute'/>"/><br/>
+                                                   value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"serviceAt\".concat(i)]}' context='htmlAttribute'/>"/><br/>
                                         </c:forEach></td>
                                 </tr>
                             </table>
@@ -981,13 +981,13 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                                              by formModel; SiteDao + Provider iteration done in the
                                              assembler. The pre-rendered <option> HTML for the
                                              multisite per-site picker lives in
-                                             ${formModel.multisiteProviderHtml} keyed by site name. --%>
+                                             ${formModel.multisite.multisiteProviderHtml} keyed by site name. --%>
                                         <c:choose>
-                                            <c:when test="${formModel.multisiteEnabled}">
+                                            <c:when test="${formModel.multisite.enabled}">
                                                 <script>
                                                     var _providers = [];
-                                                    <c:forEach var="msite" items="${formModel.multisiteSites}">
-                                                        _providers["<carlos:encode value='${msite.name}' context='javaScript'/>"] = "<carlos:encode value='${formModel.multisiteProviderHtml[msite.name]}' context='javaScript'/>";
+                                                    <c:forEach var="msite" items="${formModel.multisite.sites}">
+                                                        _providers["<carlos:encode value='${msite.name}' context='javaScript'/>"] = "<carlos:encode value='${formModel.multisite.multisiteProviderHtml[msite.name]}' context='javaScript'/>";
                                                     </c:forEach>
                                                     function changeSite(sel) {
                                                         sel.form.xml_provider.innerHTML = sel.value == "none" ? "" : _providers[sel.value];
@@ -996,10 +996,10 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                                                 </script>
                                                 <select id="site" name="site" onchange="changeSite(this)">
                                                     <option value="none" style="background-color: white"><fmt:message key="oscar.billing.ca.on.billingON.selectClinic"/></option>
-                                                    <c:forEach var="msite" items="${formModel.multisiteSites}">
+                                                    <c:forEach var="msite" items="${formModel.multisite.sites}">
                                                         <option value="<carlos:encode value='${msite.name}' context='htmlAttribute'/>"
                                                                 style="background-color:<carlos:encode value='${msite.bgColor}' context='cssString'/>"
-                                                                ${msite.name eq formModel.defaultSelectedSite ? 'selected' : ''}>
+                                                                ${msite.name eq formModel.multisite.defaultSelectedSite ? 'selected' : ''}>
                                                             <carlos:encode value='${msite.name}' context='html'/>
                                                         </option>
                                                     </c:forEach>
@@ -1007,30 +1007,30 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                                                 <select id="xml_provider" name="xml_provider"></select>
                                                 <script>
                                                     changeSite(document.getElementById("site"));
-                                                    document.getElementById("xml_provider").value = '<carlos:encode value="${formModel.selectedXmlProvider}" context="javaScript"/>';
+                                                    document.getElementById("xml_provider").value = '<carlos:encode value="${formModel.multisite.selectedXmlProvider}" context="javaScript"/>';
                                                 </script>
                                             </c:when>
                                             <c:otherwise>
                                                 <select name="xml_provider">
                                                     <c:choose>
-                                                        <c:when test="${fn:length(formModel.providers) eq 1}">
-                                                            <c:forEach var="po" items="${formModel.providers}">
+                                                        <c:when test="${fn:length(formModel.providerPanel.providers) eq 1}">
+                                                            <c:forEach var="po" items="${formModel.providerPanel.providers}">
                                                                 <c:set var="__poPrefix" value="${fn:substringBefore(po.proOhip, '|')}"/>
                                                                 <option value="<carlos:encode value='${po.proOhip}' context='htmlAttribute'/>"
-                                                                        ${formModel.providerView eq fn:trim(__poPrefix) ? 'selected' : ''}>
+                                                                        ${formModel.providerPanel.providerView eq fn:trim(__poPrefix) ? 'selected' : ''}>
                                                                     <b><carlos:encode value='${po.lastName}, ${po.firstName}' context='html'/></b>
                                                                 </option>
                                                             </c:forEach>
                                                         </c:when>
                                                         <c:otherwise>
                                                             <option value="000000"
-                                                                    ${formModel.providerView eq '000000' ? 'selected' : ''}>
+                                                                    ${formModel.providerPanel.providerView eq '000000' ? 'selected' : ''}>
                                                                 <b><fmt:message key="oscar.billing.ca.on.billingON.selectProvider"/></b>
                                                             </option>
-                                                            <c:forEach var="po" items="${formModel.providers}">
+                                                            <c:forEach var="po" items="${formModel.providerPanel.providers}">
                                                                 <c:set var="__poPrefix" value="${fn:substringBefore(po.proOhip, '|')}"/>
                                                                 <option value="<carlos:encode value='${po.proOhip}' context='htmlAttribute'/>"
-                                                                        ${fn:toLowerCase(formModel.providerView) eq fn:toLowerCase(__poPrefix) ? 'selected' : ''}>
+                                                                        ${fn:toLowerCase(formModel.providerPanel.providerView) eq fn:toLowerCase(__poPrefix) ? 'selected' : ''}>
                                                                     <b><carlos:encode value='${po.lastName}, ${po.firstName}' context='html'/></b>
                                                                 </option>
                                                             </c:forEach>
@@ -1041,13 +1041,13 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                                         </c:choose>
                                     </td>
                                     <td style="white-space:nowrap; width: 30%"><b><fmt:message key="oscar.billing.ca.on.billingON.assignedPhysician"/></b></td>
-                                    <td style="width: 20%"><carlos:encode value='${formModel.assgProviderDisplay}' context='html'/>
+                                    <td style="width: 20%"><carlos:encode value='${formModel.providerPanel.assgProviderDisplay}' context='html'/>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td style="width: 30%"><b>
                                         <c:choose>
-                                            <c:when test="${formModel.rmaEnabled}">
+                                            <c:when test="${formModel.multisite.rmaEnabled}">
                                                 <fmt:message key="oscar.billing.ca.on.billingON.clinicNbr"/>
                                             </c:when>
                                             <c:otherwise>
@@ -1057,35 +1057,35 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                                     </b></td>
                                     <td style="width: 20%"><select name="xml_visittype" onchange="updateDate()">
                                         <c:choose>
-                                            <c:when test="${formModel.rmaEnabled}">
+                                            <c:when test="${formModel.multisite.rmaEnabled}">
                                                 <%-- clinic-nbr dropdown driven by pre-loaded
-                                                     formModel.clinicNbrs (replaces ClinicNbrDao.findAll +
+                                                     formModel.multisite.clinicNbrs (replaces ClinicNbrDao.findAll +
                                                      ProviderDao.getProvider/comments XML inline calls). --%>
-                                                <c:forEach var="__c" items="${formModel.clinicNbrs}">
+                                                <c:forEach var="__c" items="${formModel.multisite.clinicNbrs}">
                                                     <option value="<carlos:encode value='${__c.displayLabel}' context='htmlAttribute'/>"
-                                                            ${fn:startsWith(formModel.selectedClinicNbrPrefix, __c.nbrValue) ? 'selected' : ''}>
+                                                            ${fn:startsWith(formModel.multisite.selectedClinicNbrPrefix, __c.nbrValue) ? 'selected' : ''}>
                                                         <carlos:encode value='${__c.displayLabel}' context='html'/>
                                                     </option>
                                                 </c:forEach>
                                             </c:when>
                                             <c:otherwise>
                                         <option value="00| Clinic Visit"
-                                                ${fn:startsWith(formModel.visitType, '00') ? 'selected' : ''}><fmt:message key="oscar.billing.ca.on.billingON.visitType.00"/>
+                                                ${fn:startsWith(formModel.visit.visitType, '00') ? 'selected' : ''}><fmt:message key="oscar.billing.ca.on.billingON.visitType.00"/>
                                         </option>
                                         <option value="01| Outpatient Visit"
-                                                ${fn:startsWith(formModel.visitType, '01') ? 'selected' : ''}><fmt:message key="oscar.billing.ca.on.billingON.visitType.01"/>
+                                                ${fn:startsWith(formModel.visit.visitType, '01') ? 'selected' : ''}><fmt:message key="oscar.billing.ca.on.billingON.visitType.01"/>
                                         </option>
                                         <option value="02| Hospital Visit"
-                                                ${fn:startsWith(formModel.visitType, '02') ? 'selected' : ''}><fmt:message key="oscar.billing.ca.on.billingON.visitType.02"/>
+                                                ${fn:startsWith(formModel.visit.visitType, '02') ? 'selected' : ''}><fmt:message key="oscar.billing.ca.on.billingON.visitType.02"/>
                                         </option>
                                         <option value="03| ER"
-                                                ${fn:startsWith(formModel.visitType, '03') ? 'selected' : ''}><fmt:message key="oscar.billing.ca.on.billingON.visitType.03"/>
+                                                ${fn:startsWith(formModel.visit.visitType, '03') ? 'selected' : ''}><fmt:message key="oscar.billing.ca.on.billingON.visitType.03"/>
                                         </option>
                                         <option value="04| Nursing Home"
-                                                ${fn:startsWith(formModel.visitType, '04') ? 'selected' : ''}><fmt:message key="oscar.billing.ca.on.billingON.visitType.04"/>
+                                                ${fn:startsWith(formModel.visit.visitType, '04') ? 'selected' : ''}><fmt:message key="oscar.billing.ca.on.billingON.visitType.04"/>
                                         </option>
                                         <option value="05| Home Visit"
-                                                ${fn:startsWith(formModel.visitType, '05') ? 'selected' : ''}><fmt:message key="oscar.billing.ca.on.billingON.visitType.05"/>
+                                                ${fn:startsWith(formModel.visit.visitType, '05') ? 'selected' : ''}><fmt:message key="oscar.billing.ca.on.billingON.visitType.05"/>
                                         </option>
                                             </c:otherwise>
                                         </c:choose>
@@ -1097,35 +1097,35 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                                              then request param overrides. --%>
                                         <select name="xml_billtype" onchange="onChangePrivate();">
                                         <option value="ODP | Bill OHIP"
-                                                ${fn:startsWith(formModel.selectedBillType, "ODP") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.ODP"/>
+                                                ${fn:startsWith(formModel.billForm.selectedBillType, "ODP") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.ODP"/>
                                         </option>
                                         <option value="WCB | Worker's Compensation Board"
-                                                ${fn:startsWith(formModel.selectedBillType, "WCB") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.WCB"/>
+                                                ${fn:startsWith(formModel.billForm.selectedBillType, "WCB") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.WCB"/>
                                         </option>
                                         <option value="NOT | Do Not Bill"
-                                                ${fn:startsWith(formModel.selectedBillType, "NOT") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.NOT"/>
+                                                ${fn:startsWith(formModel.billForm.selectedBillType, "NOT") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.NOT"/>
                                         </option>
                                         <option value="IFH | Interm Federal Health"
-                                                ${fn:startsWith(formModel.selectedBillType, "IFH") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.IFH"/>
+                                                ${fn:startsWith(formModel.billForm.selectedBillType, "IFH") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.IFH"/>
                                         </option>
                                         <option value="PAT | Bill Patient"
-                                                ${fn:startsWith(formModel.selectedBillType, "PAT") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.PAT"/>
+                                                ${fn:startsWith(formModel.billForm.selectedBillType, "PAT") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.PAT"/>
                                         </option>
                                         <option value="OCF | "
-                                                ${fn:startsWith(formModel.selectedBillType, "OCF") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.OCF"/>
+                                                ${fn:startsWith(formModel.billForm.selectedBillType, "OCF") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.OCF"/>
                                         </option>
                                         <option value="ODS | "
-                                                ${fn:startsWith(formModel.selectedBillType, "ODS") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.ODS"/>
+                                                ${fn:startsWith(formModel.billForm.selectedBillType, "ODS") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.ODS"/>
                                         </option>
                                         <option value="CPP | Canada Pension Plan"
-                                                ${fn:startsWith(formModel.selectedBillType, "CPP") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.CPP"/>
+                                                ${fn:startsWith(formModel.billForm.selectedBillType, "CPP") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.CPP"/>
                                         </option>
                                         <option
                                                 value="STD | Short Term Disability / Long Term Disability"
-                                                ${fn:startsWith(formModel.selectedBillType, "STD") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.STD"/>
+                                                ${fn:startsWith(formModel.billForm.selectedBillType, "STD") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.STD"/>
                                         </option>
                                         <option value="BON | Bonus Codes"
-                                                ${fn:startsWith(formModel.selectedBillType, "BON") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.BON"/>
+                                                ${fn:startsWith(formModel.billForm.selectedBillType, "BON") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.BON"/>
                                         </option>
                                     </select>
                                     </td>
@@ -1133,19 +1133,19 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                                 <tr>
                                     <td><b><fmt:message key="oscar.billing.ca.on.billingON.visitLocation"/></b></td>
                                     <td colspan="3"><select name="xml_location">
-                                        <c:forEach var="loc" items="${formModel.facilityNumOptions}">
+                                        <c:forEach var="loc" items="${formModel.lookupData.facilityNumOptions}">
                                             <option value="<carlos:encode value='${loc.code}|${loc.label}' context='htmlAttribute'/>"
-                                                    ${fn:startsWith(formModel.defaultLocation, loc.code) ? 'selected' : ''}>
+                                                    ${fn:startsWith(formModel.visit.defaultLocation, loc.code) ? 'selected' : ''}>
                                                 <carlos:encode value='${loc.label}' context='html'/>
                                             </option>
                                         </c:forEach>
                                     </select><fmt:message key="oscar.billing.ca.on.billingON.manualReviewFlag"/> <input type="checkbox" name="m_review" value="Y"
-                                        ${formModel.MReview eq 'Y' ? 'checked' : ''}></td>
+                                        ${formModel.requestContext.mReview eq 'Y' ? 'checked' : ''}></td>
                                 </tr>
                                 <tr>
                                     <td><b><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode"/></b></td>
                                     <td colspan="3"><select name="xml_slicode">
-                                        <option value="<carlos:encode value='${formModel.clinicNo}' context='htmlAttribute'/>">
+                                        <option value="<carlos:encode value='${formModel.visit.clinicNo}' context='htmlAttribute'/>">
                                             <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.NA"/>
                                         </option>
                                         <option value="HDS">
@@ -1189,7 +1189,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                                              with the visit-type 02/04 history fallback). --%>
 											<div class="input-group input-group-sm">
 											    <input type="text" name="xml_vdate" id="xml_vdate" onchange="getDays();"
-                                               value="<carlos:encode value='${formModel.defaultXmlVdate}' context='htmlAttribute'/>"
+                                               value="<carlos:encode value='${formModel.visit.defaultXmlVdate}' context='htmlAttribute'/>"
 											class="form-control" readonly>
 											<button type="button" class="btn btn-outline-secondary" id="xml_vdate_cal" title="<fmt:message key="oscar.billing.ca.on.billingON.chooseDate"/>">
 											    <img alt="cal" style="height:14px;"
@@ -1201,18 +1201,18 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                                                        onclick="showHideLayers('Layer1','','show');return false;">
                                         <fmt:message key="oscar.billing.ca.on.billingON.billingFormLink"/></a>: <input type="text" name="billFormName" class="form-control"
 											id="billFormName" readonly
-                                                                 value="${carlos:forHtmlAttribute(fn:length(formModel.defaultBillFormName) lt 40 ? formModel.defaultBillFormName : fn:substring(formModel.defaultBillFormName, 0, 40))}"/>
+                                                                 value="${carlos:forHtmlAttribute(fn:length(formModel.billForm.defaultFormName) lt 40 ? formModel.billForm.defaultFormName : fn:substring(formModel.billForm.defaultFormName, 0, 40))}"/>
                                         <input type="hidden" name="billForm" id="billForm"
-                                               value="<carlos:encode value='${formModel.ctlBillForm}' context="htmlAttribute"/>"/></td>
+                                               value="<carlos:encode value='${formModel.requestContext.ctlBillForm}' context="htmlAttribute"/>"/></td>
                                 </tr>
                                 <%-- Legacy non-multisite "site" dropdown (BillingSiteIdService +
                                      JdbcApptImpl.getLocationFromSchedule) now driven by
-                                     formModel.legacySiteContextEnabled / legacySiteOptions. --%>
-                                <c:if test="${formModel.legacySiteContextEnabled}">
+                                     formModel.lookupData.legacySiteContextEnabled / legacySiteOptions. --%>
+                                <c:if test="${formModel.lookupData.legacySiteContextEnabled}">
                                 <tr>
                                     <td style="text-align: right"><fmt:message key="oscar.billing.ca.on.billingON.site"/></td>
                                     <td colspan="3"><select name="siteId">
-                                        <c:forEach var="site" items="${formModel.legacySiteOptions}">
+                                        <c:forEach var="site" items="${formModel.lookupData.legacySiteOptions}">
                                             <option value="<carlos:encode value='${site.name}' context='htmlAttribute'/>"
                                                     ${site.suggested ? 'selected' : ''}>
                                                 <b><carlos:encode value='${site.name}' context='html'/></b>
@@ -1233,13 +1233,13 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                 <table style="width: 100%; height:137px">
                     <tr>
                         <td style="vertical-align:top; width: 33%">
-                            <c:forEach var="st" items="${formModel.listServiceType}">
+                            <c:forEach var="st" items="${formModel.serviceGrid.serviceTypes}">
                             <c:set var="g1Key" value="group1_${st}"/>
                             <div id="${g1Key}" style="display: none;">
                                 <table style="width: 100%;" class="border1 table-striped table-hover">
                                     <tr>
                                         <th style="width: 10%; white-space:nowrap; background-color:silver">
-                                            <div class="smallFont"><carlos:encode value='${formModel.titleMap[g1Key]}' context='html'/>
+                                            <div class="smallFont"><carlos:encode value='${formModel.serviceGrid.titlesByServiceType[g1Key]}' context='html'/>
                                             </div>
                                         </th>
                                         <th style="width: 70%; background-color:silver">
@@ -1249,7 +1249,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                                             <div class="smallFont"><fmt:message key="oscar.billing.ca.on.billingON.fee"/></div>
                                         </th>
                                     </tr>
-                                    <c:forEach var="entry" items="${formModel.billingServiceCodesMap[g1Key]}" varStatus="rowLoop">
+                                    <c:forEach var="entry" items="${formModel.serviceGrid.codesByServiceType[g1Key]}" varStatus="rowLoop">
                                     <c:set var="xmlParamKey" value="xml_${entry.serviceCode}"/>
                                     <c:set var="bgcolor" value="${not empty param[xmlParamKey] ? 'background-color: #66FF66;' : ''}"/>
                                     <tr>
@@ -1259,7 +1259,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                                                     name="xml_${entry.serviceCode}" value="checked"
                                                     onclick="refreshServicesChecked(this);"
                                                     <c:if test="${param[xmlParamKey] eq 'checked'}">checked</c:if>
-                                                    <c:if test="${formModel.singleClickEnabled}">onClick='onClickServiceCode(this)'</c:if> />
+                                                    <c:if test="${formModel.visit.singleClickEnabled}">onClick='onClickServiceCode(this)'</c:if> />
                                             <span id="sc${rowLoop.index}${entry.serviceCode}"
                                                   onclick="getElementById('xml_${entry.serviceCode}').click();"
                                                   ondblclick="onDblClickServiceCode(this)"><carlos:encode value='${entry.serviceCode}' context='html'/></span>
@@ -1285,13 +1285,13 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
 
                         </td>
                         <td style="width: 33%; vertical-align: top;">
-                            <c:forEach var="st" items="${formModel.listServiceType}">
+                            <c:forEach var="st" items="${formModel.serviceGrid.serviceTypes}">
                             <c:set var="g2Key" value="group2_${st}"/>
                             <div id="${g2Key}" style="display: none;">
                                 <table style="width: 100%;" class="border1 table-striped table-hover">
                                     <tr>
                                         <th style="width: 10%; white-space:nowrap; background-color:silver">
-                                            <div class="smallFont"><carlos:encode value='${formModel.titleMap[g2Key]}' context='html'/>
+                                            <div class="smallFont"><carlos:encode value='${formModel.serviceGrid.titlesByServiceType[g2Key]}' context='html'/>
                                             </div>
                                         </th>
                                         <th style="width: 70%; background-color:silver">
@@ -1301,7 +1301,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                                             <div class="smallFont"><fmt:message key="oscar.billing.ca.on.billingON.fee"/></div>
                                         </th>
                                     </tr>
-                                    <c:forEach var="entry" items="${formModel.billingServiceCodesMap[g2Key]}" varStatus="rowLoop">
+                                    <c:forEach var="entry" items="${formModel.serviceGrid.codesByServiceType[g2Key]}" varStatus="rowLoop">
                                     <c:set var="xmlParamKey" value="xml_${entry.serviceCode}"/>
                                     <c:set var="bgcolor" value="${not empty param[xmlParamKey] ? 'background-color: #66FF66;' : ''}"/>
                                     <tr>
@@ -1311,7 +1311,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                                                     name="xml_${entry.serviceCode}" value="checked"
                                                     onclick="refreshServicesChecked(this);"
                                                     <c:if test="${param[xmlParamKey] eq 'checked'}">checked</c:if>
-                                                    <c:if test="${formModel.singleClickEnabled}">onClick='onClickServiceCode(this)'</c:if> />
+                                                    <c:if test="${formModel.visit.singleClickEnabled}">onClick='onClickServiceCode(this)'</c:if> />
                                             <span id="sc${rowLoop.index}${entry.serviceCode}"
                                                   onclick="getElementById('xml_${entry.serviceCode}').click();"
                                                   onDblClick="onDblClickServiceCode(this)"><carlos:encode value='${entry.serviceCode}' context='html'/></span>
@@ -1338,13 +1338,13 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
 
                         </td>
                         <td style="width: 33%; vertical-align: top;">
-                            <c:forEach var="st" items="${formModel.listServiceType}">
+                            <c:forEach var="st" items="${formModel.serviceGrid.serviceTypes}">
                             <c:set var="g3Key" value="group3_${st}"/>
                             <div id="${g3Key}" style="display: none;">
                                 <table style="width: 100%;" class="border1 table-striped table-hover">
                                     <tr>
                                         <th style="width: 10%; white-space:nowrap; background-color:silver">
-                                            <div class="smallFont"><carlos:encode value='${formModel.titleMap[g3Key]}' context='html'/>
+                                            <div class="smallFont"><carlos:encode value='${formModel.serviceGrid.titlesByServiceType[g3Key]}' context='html'/>
                                             </div>
                                         </th>
                                         <th style="width: 70%; background-color:silver">
@@ -1354,7 +1354,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                                             <div class="smallFont"><fmt:message key="oscar.billing.ca.on.billingON.fee"/></div>
                                         </th>
                                     </tr>
-                                    <c:forEach var="entry" items="${formModel.billingServiceCodesMap[g3Key]}" varStatus="rowLoop">
+                                    <c:forEach var="entry" items="${formModel.serviceGrid.codesByServiceType[g3Key]}" varStatus="rowLoop">
                                     <c:set var="xmlParamKey" value="xml_${entry.serviceCode}"/>
                                     <c:set var="bgcolor" value="${not empty param[xmlParamKey] ? 'background-color: #66FF66;' : ''}"/>
                                     <tr>
@@ -1364,7 +1364,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                                                     name="xml_${entry.serviceCode}" value="checked"
                                                     onclick="refreshServicesChecked(this);"
                                                     <c:if test="${param[xmlParamKey] eq 'checked'}">checked</c:if>
-                                                    <c:if test="${formModel.singleClickEnabled}">onClick='onClickServiceCode(this)'</c:if> />
+                                                    <c:if test="${formModel.visit.singleClickEnabled}">onClick='onClickServiceCode(this)'</c:if> />
                                             <span id="sc${rowLoop.index}${entry.serviceCode}"
                                                   onclick="getElementById('xml_${entry.serviceCode}').click();"
                                                   onDblClick="onDblClickServiceCode(this)"><carlos:encode value='${entry.serviceCode}' context='html'/></span>
@@ -1395,51 +1395,51 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
             </td>
         </tr>
 
-        <input type="hidden" name="clinic_no" value="<carlos:encode value='${formModel.clinicNo}' context='htmlAttribute'/>"/>
-        <input type="hidden" name="demographic_no" value="<carlos:encode value='${formModel.demographicNo}' context='htmlAttribute'/>"/>
-        <input type="hidden" name="appointment_no" value="<carlos:encode value='${formModel.appointmentNo}' context='htmlAttribute'/>"/>
+        <input type="hidden" name="clinic_no" value="<carlos:encode value='${formModel.visit.clinicNo}' context='htmlAttribute'/>"/>
+        <input type="hidden" name="demographic_no" value="<carlos:encode value='${formModel.requestContext.demographicNo}' context='htmlAttribute'/>"/>
+        <input type="hidden" name="appointment_no" value="<carlos:encode value='${formModel.requestContext.appointmentNo}' context='htmlAttribute'/>"/>
 
         <input type="hidden" name="ohip_version" value="V03G"/>
-        <input type="hidden" name="hin" value="<carlos:encode value='${formModel.demoHin}' context='htmlAttribute'/>"/>
-        <input type="hidden" name="ver" value="<carlos:encode value='${formModel.demoVer}' context='htmlAttribute'/>"/>
-        <input type="hidden" name="hc_type" value="<carlos:encode value='${formModel.demoHcType}' context='htmlAttribute'/>"/>
-        <input type="hidden" name="sex" value="<carlos:encode value='${formModel.demoSex}' context='htmlAttribute'/>"/>
+        <input type="hidden" name="hin" value="<carlos:encode value='${formModel.demographic.hin}' context='htmlAttribute'/>"/>
+        <input type="hidden" name="ver" value="<carlos:encode value='${formModel.demographic.ver}' context='htmlAttribute'/>"/>
+        <input type="hidden" name="hc_type" value="<carlos:encode value='${formModel.demographic.hcType}' context='htmlAttribute'/>"/>
+        <input type="hidden" name="sex" value="<carlos:encode value='${formModel.demographic.sex}' context='htmlAttribute'/>"/>
 
         <input type="hidden" name="start_time"
-               value="<carlos:encode value='${formModel.requestParamEchoes[\"start_time\"]}' context='htmlAttribute'/>"/>
+               value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"start_time\"]}' context='htmlAttribute'/>"/>
 
-        <input type="hidden" name="demographic_dob" value="<carlos:encode value='${formModel.demoDob}' context='htmlAttribute'/>"/>
+        <input type="hidden" name="demographic_dob" value="<carlos:encode value='${formModel.demographic.dob}' context='htmlAttribute'/>"/>
 
         <input type="hidden" name="apptProvider_no"
-               value="<carlos:encode value='${formModel.requestParamEchoes[\"apptProvider_no\"]}' context='htmlAttribute'/>"/>
+               value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"apptProvider_no\"]}' context='htmlAttribute'/>"/>
         <input type="hidden" name="asstProvider_no"
-               value="<carlos:encode value='${formModel.requestParamEchoes[\"asstProvider_no\"]}' context='htmlAttribute'/>"/>
+               value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"asstProvider_no\"]}' context='htmlAttribute'/>"/>
 
-        <input type="hidden" name="demographic_name" value="<carlos:encode value='${formModel.demoName}' context='htmlAttribute'/>"/>
-        <input type="hidden" name="providerview" value="<carlos:encode value='${formModel.providerView}' context='htmlAttribute'/>"/>
+        <input type="hidden" name="demographic_name" value="<carlos:encode value='${formModel.requestContext.demoName}' context='htmlAttribute'/>"/>
+        <input type="hidden" name="providerview" value="<carlos:encode value='${formModel.providerPanel.providerView}' context='htmlAttribute'/>"/>
         <input type="hidden" name="appointment_date"
-               value="<carlos:encode value='${formModel.requestParamEchoes[\"appointment_date\"]}' context='htmlAttribute'/>"/>
+               value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"appointment_date\"]}' context='htmlAttribute'/>"/>
         <input type="hidden" name="assgProvider_no"
-               value="<carlos:encode value='${formModel.assgProviderNo}' context='htmlAttribute'/>"/>
+               value="<carlos:encode value='${formModel.providerPanel.assgProviderNo}' context='htmlAttribute'/>"/>
         <%-- billForm is already declared at the form-name input above (line ~1573,
              id="billForm") — that field is the one toggleDiv() updates when the
              user switches forms. Keeping a second name="billForm" here would
              post two values for the same param, making the receiver dependent
              on parameter ordering. curBillForm tracks the original form. --%>
-        <input type="hidden" name="curBillForm" value="<carlos:encode value='${formModel.ctlBillForm}' context='htmlAttribute'/>"/>
+        <input type="hidden" name="curBillForm" value="<carlos:encode value='${formModel.requestContext.ctlBillForm}' context='htmlAttribute'/>"/>
         <input type="hidden" name="services_checked">
         <input type="hidden" name="url_back">
         <input type="hidden" name="billNo_old" id="billNo_old"
-               value="<carlos:encode value='${formModel.requestParamEchoes[\"billNo_old\"]}' context='htmlAttribute'/>"/>
+               value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"billNo_old\"]}' context='htmlAttribute'/>"/>
         <input type="hidden" name="billStatus_old" id="billStatus_old"
-               value="<carlos:encode value='${formModel.requestParamEchoes[\"billStatus_old\"]}' context='htmlAttribute'/>"/>
+               value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"billStatus_old\"]}' context='htmlAttribute'/>"/>
 
     </table>
 
     <table style="width: 100%; border-spacing:2px;"
     >
         <tr style="background-color: silver;">
-            <td><carlos:encode value='${formModel.demoName}' context="html"/> - <b><fmt:message key="oscar.billing.ca.on.billingON.billingHistory"/></b> (last 5 records)</td>
+            <td><carlos:encode value='${formModel.requestContext.demoName}' context="html"/> - <b><fmt:message key="oscar.billing.ca.on.billingON.billingHistory"/></b> (last 5 records)</td>
             <td style="width: 20%; text-align: right"><fmt:message key="oscar.billing.ca.on.billingON.last"/> <input type="text"
                                                                   name="day" value="365" class="form-control form-control-sm d-inline-block w-auto"/> <fmt:message key="oscar.billing.ca.on.billingON.days"/>
                 <input type="button"
@@ -1463,7 +1463,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                     <th style="white-space:nowrap"><fmt:message key="oscar.billing.ca.on.billingON.history.dx"/></th>
                     <th><fmt:message key="oscar.billing.ca.on.billingON.history.createDate"/></th>
                 </tr>
-                <c:forEach var="row" items="${formModel.billingHistoryRows}">
+                <c:forEach var="row" items="${formModel.patient.billingHistoryRows}">
                 <tr style="text-align: center">
                     <td class="smallFont"><carlos:encode value='${row.id}' context='html'/></td>
                     <td class="smallFont"><carlos:encode value='${row.billingDate}' context='html'/></td>
@@ -1488,7 +1488,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
         singleClick: true,
         step: 1
     });
-    <c:if test="${formModel.appointmentNo eq '0'}">
+    <c:if test="${formModel.requestContext.appointmentNo eq '0'}">
     Calendar.setup({
         inputField: "service_date",
         ifFormat: "%Y-%m-%d",
