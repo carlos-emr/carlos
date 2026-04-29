@@ -311,7 +311,7 @@ public class BillingCorrectionRecordService {
                 iObj.setFee(billOnItem.getFee());
                 iObj.setSer_num(billOnItem.getServiceCount());
             }
-            _logger.info(iObj.getService_code());
+            _logger.info(LogSanitizer.sanitize(iObj.getService_code()));
         }
 
         // add item if possible

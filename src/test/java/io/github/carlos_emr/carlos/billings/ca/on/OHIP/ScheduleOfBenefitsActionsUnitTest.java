@@ -21,10 +21,10 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.OHIP;
 
-import io.github.carlos_emr.carlos.billings.ca.on.service.FeeScheduleApplyResult;
-import io.github.carlos_emr.carlos.billings.ca.on.service.FeeScheduleAppliedChange;
-import io.github.carlos_emr.carlos.billings.ca.on.service.FeeScheduleChange;
-import io.github.carlos_emr.carlos.billings.ca.on.service.FeeScheduleImportResult;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.FeeScheduleApplyResult;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.FeeScheduleAppliedChange;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.FeeScheduleChange;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.FeeScheduleImportResult;
 import io.github.carlos_emr.carlos.billings.ca.on.service.FeeScheduleImportService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;

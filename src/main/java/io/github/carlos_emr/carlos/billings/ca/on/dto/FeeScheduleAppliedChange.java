@@ -10,14 +10,20 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.billings.ca.on.service;
+package io.github.carlos_emr.carlos.billings.ca.on.dto;
+
+import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 
 import java.math.BigDecimal;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
-public record FeeScheduleImportRequest(
-        boolean addNewCodes,
-        boolean addChangedCodes,
-        boolean forceUpdate,
-        BigDecimal updateAssistantFeesValue,
-        BigDecimal updateAnaesthetistFeesValue) {
+public record FeeScheduleAppliedChange(String code, BigDecimal value) {
+
+    public Map<String, Object> toViewMap() {
+        Map<String, Object> view = new LinkedHashMap<>();
+        view.put("code", code);
+        view.put("value", BillingMoney.format(value));
+        return view;
+    }
 }

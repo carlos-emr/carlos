@@ -798,6 +798,14 @@
 </form>
 
 <br/>
+<c:if test="${shortcutPg1Model.historyUnavailable}">
+    <div class="alert alert-danger" role="alert" style="margin: 8px 0;">
+        <strong>Billing history unavailable.</strong>
+        The lookup failed; the table below is empty even if this patient
+        has prior bills. Verify history through another channel before
+        submitting to avoid duplicate billing.
+    </div>
+</c:if>
 <%-- Both branches now iterate the unified billingHistory + billingHistoryDetails
      that the assembler builds for legacy and new-ON-billing modes alike. --%>
 <c:choose>

@@ -92,7 +92,16 @@ public class BillingONStatusERUpdateStatus2Action extends ActionSupport {
             return NONE;
         }
 
-        errorReportService.updateErrorReportStatus(id, val);
+        boolean updated = errorReportService.updateErrorReportStatus(id, val);
+        if (!updated) {
+            try {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND,
+                                   "error-report record not found");
+            } catch (IOException ignore) {
+                // Container is shutting down or response already committed.
+            }
+            return NONE;
+        }
 
         response.setContentType("text/plain");
         response.setCharacterEncoding("UTF-8");

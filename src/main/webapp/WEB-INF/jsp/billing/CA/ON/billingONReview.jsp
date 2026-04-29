@@ -605,12 +605,25 @@
 
                         </tr>
                     </c:if>
+                    <c:if test="${reviewModel.totalsParseFailed}">
+                        <tr>
+                            <td colspan="4" style="text-align:center;">
+                                <div class='alert alert-danger' role='alert' style='margin: 8px 0;'>
+                                    <strong>Totals could not be parsed.</strong>
+                                    One or more code totals or the GST percent on this review
+                                    failed to parse and were treated as zero. Submission is
+                                    blocked until the values are corrected — go back to edit
+                                    and verify each code's total.
+                                </div>
+                            </td>
+                        </tr>
+                    </c:if>
                     <tr>
 
                         <td colspan="4" style="text-align:center; background-color:silver">
                             <input type="submit" name="button" value="Back to Edit" class="btn btn-secondary" style="width: 120px;"/>
                             <c:choose>
-                                <c:when test="${reviewModel.codeValid and not reviewModel.dupServiceCode}">
+                                <c:when test="${reviewModel.codeValid and not reviewModel.dupServiceCode and not reviewModel.totalsParseFailed}">
                                     <input type="submit" name="submit" value="Save" class="btn btn-primary"
                                            style="width: 120px;" onClick="onClickSave();"/>
                                     <input type="submit" name="submit" value="Save &amp; Add Another Bill" class="btn btn-secondary"

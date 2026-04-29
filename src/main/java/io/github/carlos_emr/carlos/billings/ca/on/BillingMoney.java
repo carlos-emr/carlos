@@ -17,6 +17,8 @@ import java.math.RoundingMode;
 
 /**
  * Central money parsing for Ontario billing.
+ *
+ * @since 2026-04-28
  */
 public final class BillingMoney {
     public static final int MONEY_SCALE = 2;

@@ -115,7 +115,7 @@ public class BillingONCorrectionRenderComposer {
     private final RaDetailDao raDetailDao;
     private final ClinicLocationDao clinicLocationDao;
     private final ClinicNbrDao clinicNbrDao;
-    private final Billing3rdPartyRecordService thirdPartPrep;
+    private final Billing3rdPartyRecordService thirdPartyRecordService;
 
     public BillingONCorrectionRenderComposer(SecurityInfoManager securityInfoManager,
                                              BillingServiceDao billingServiceDao,
@@ -126,7 +126,7 @@ public class BillingONCorrectionRenderComposer {
                                              RaDetailDao raDetailDao,
                                              ClinicLocationDao clinicLocationDao,
                                              ClinicNbrDao clinicNbrDao,
-                                             Billing3rdPartyRecordService thirdPartPrep) {
+                                             Billing3rdPartyRecordService thirdPartyRecordService) {
         this.securityInfoManager = securityInfoManager;
         this.billingServiceDao = billingServiceDao;
         this.bExtDao = bExtDao;
@@ -136,7 +136,7 @@ public class BillingONCorrectionRenderComposer {
         this.raDetailDao = raDetailDao;
         this.clinicLocationDao = clinicLocationDao;
         this.clinicNbrDao = clinicNbrDao;
-        this.thirdPartPrep = thirdPartPrep;
+        this.thirdPartyRecordService = thirdPartyRecordService;
     }
 
     /**
@@ -222,7 +222,7 @@ public class BillingONCorrectionRenderComposer {
         if (!thirdParty) {
             Properties tProp = null;
             if (billNo != null && !billNo.isEmpty()) {
-                tProp = thirdPartPrep.get3rdPartBillPropInactive(billNo.trim());
+                tProp = thirdPartyRecordService.get3rdPartBillPropInactive(billNo.trim());
             }
             if (tProp == null || tProp.isEmpty()) {
                 b.htmlPaid(String.format(HTML_PAID_FIRST_PARTY_DEFAULT, today));
@@ -237,7 +237,7 @@ public class BillingONCorrectionRenderComposer {
             return;
         }
 
-        Properties tProp = thirdPartPrep.get3rdPartBillProp(billNo.trim());
+        Properties tProp = thirdPartyRecordService.get3rdPartBillProp(billNo.trim());
         String payer = tProp.getProperty("billTo");
         b.payer(payer == null ? "" : payer);
 

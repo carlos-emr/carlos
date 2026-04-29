@@ -75,7 +75,7 @@ public final class BillingCorrectionSubmit2Action extends ActionSupport {
 
         BillingDataBean billingDataBean = (BillingDataBean) request.getSession().getAttribute("billingDataBean");
         // Session key for BillingBean is "billing" (set by billingCorrectionValid.jsp)
-        BillingBean billingBean = BillingSessionUtils.getBillingBean(request.getSession());
+        BillingBean billingBean = BillingSession.getBillingBean(request.getSession());
 
         if (billingDataBean == null || billingBean == null) {
             MiscUtils.getLogger().error("billingDataBean or billingBean not found in session");

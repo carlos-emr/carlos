@@ -25,28 +25,28 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class BillingMoneyUnitTest {
 
     @Test
-    void shouldParseFixedWidthOhipFeesWithoutBinaryFloatingPointRounding() {
+    void shouldParseFixedWidthOhipFee_withoutBinaryFloatingPointRounding() {
         assertThat(BillingMoney.ohipFeeAmount("00000010050")).isEqualByComparingTo("1.01");
     }
 
     @Test
-    void shouldRoundStoredAmountsWithDecimalHalfUpSemantics() {
+    void shouldRoundStoredAmount_withDecimalHalfUpSemantics() {
         assertThat(BillingMoney.amount("1.005")).isEqualByComparingTo("1.01");
     }
 
     @Test
-    void shouldRoundStoredAmountsAtRequestedScale() {
+    void shouldRoundStoredAmount_atRequestedScale() {
         assertThat(BillingMoney.amount("1.00005", 4)).isEqualByComparingTo("1.0001");
     }
 
     @Test
-    void shouldComparePositiveAmountsWithoutDoubleConversion() {
+    void shouldComparePositiveAmounts_withoutDoubleConversion() {
         assertThat(BillingMoney.isPositive("0.0001")).isTrue();
         assertThat(BillingMoney.isPositive("0.0000")).isFalse();
     }
 
     @Test
-    void shouldReturnZeroForMissingStoredAmountsButRejectInvalidStrictAmounts() {
+    void shouldReturnZero_forMissingAmount_andRejectInvalid_withNumberFormatException() {
         assertThat(BillingMoney.amountOrZero(null)).isEqualByComparingTo("0.00");
         assertThat(BillingMoney.amountOrZero(" ")).isEqualByComparingTo("0.00");
 

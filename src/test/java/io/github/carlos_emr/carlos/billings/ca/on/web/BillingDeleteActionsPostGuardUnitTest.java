@@ -65,7 +65,7 @@ class BillingDeleteActionsPostGuardUnitTest extends CarlosUnitTestBase {
     @Mock private BillingDao mockBillingDao;
     @Mock private AppointmentArchiveDao mockAppointmentArchiveDao;
     @Mock private OscarAppointmentDao mockAppointmentDao;
-    @Mock private BillingCorrectionRecordService mockCorrectionPrep;
+    @Mock private BillingCorrectionRecordService mockCorrectionRecordService;
     @Mock private LoggedInInfo mockLoggedInInfo;
 
     private MockHttpServletRequest mockRequest;
@@ -105,10 +105,10 @@ class BillingDeleteActionsPostGuardUnitTest extends CarlosUnitTestBase {
         mockRequest.setParameter("billing_no", "123");
 
         String result = new BillingDeleteNoAppt2Action(
-                mockSecurityInfoManager, mockBillingDao, mockCorrectionPrep).execute();
+                mockSecurityInfoManager, mockBillingDao, mockCorrectionRecordService).execute();
 
         assertMethodNotAllowed(result);
-        verifyNoInteractions(mockBillingDao, mockCorrectionPrep);
+        verifyNoInteractions(mockBillingDao, mockCorrectionRecordService);
     }
 
     @ParameterizedTest
@@ -120,10 +120,10 @@ class BillingDeleteActionsPostGuardUnitTest extends CarlosUnitTestBase {
         mockRequest.setParameter("billStatus_old", "O");
 
         String result = new BillingDeleteWithBillNo2Action(
-                mockSecurityInfoManager, mockBillingDao, mockCorrectionPrep).execute();
+                mockSecurityInfoManager, mockBillingDao, mockCorrectionRecordService).execute();
 
         assertMethodNotAllowed(result);
-        verifyNoInteractions(mockBillingDao, mockCorrectionPrep);
+        verifyNoInteractions(mockBillingDao, mockCorrectionRecordService);
     }
 
     @ParameterizedTest
@@ -138,10 +138,10 @@ class BillingDeleteActionsPostGuardUnitTest extends CarlosUnitTestBase {
                 mockBillingDao,
                 mockAppointmentArchiveDao,
                 mockAppointmentDao,
-                mockCorrectionPrep).execute();
+                mockCorrectionRecordService).execute();
 
         assertMethodNotAllowed(result);
-        verifyNoInteractions(mockBillingDao, mockAppointmentArchiveDao, mockAppointmentDao, mockCorrectionPrep);
+        verifyNoInteractions(mockBillingDao, mockAppointmentArchiveDao, mockAppointmentDao, mockCorrectionRecordService);
     }
 
     private void assertMethodNotAllowed(String result) {

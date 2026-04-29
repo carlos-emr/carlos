@@ -327,6 +327,10 @@ public class BillingONReviewViewModelAssembler {
                                                 BillingONReviewViewModel.Builder b,
                                                 boolean codeValid) {
         Properties oscarVariables = CarlosProperties.getInstance();
+        // Sentinel for parseReviewMoney — flipped to true if any code total
+        // or GST percent fails strict parsing, so the JSP can banner-warn
+        // and gate Submit.
+        boolean[] parseFailed = {false};
         BigDecimal currentGst;
         try {
             currentGst = gstSettingsService.getCurrentPercent();
@@ -420,10 +424,10 @@ public class BillingONReviewViewModelAssembler {
                 String codeAt = nullToEmpty(item.getCodeAt());
 
                 String gstFlag = gstRep.getGstFlag(codeName, billReferalDate);
-                BigDecimal cTotal = parseBigDecimal(codeTotalStr);
+                BigDecimal cTotal = parseReviewMoney(codeTotalStr, "codeTotal[" + codeName + "]", parseFailed);
                 boolean gstApplied = "1".equals(gstFlag);
                 if (gstApplied) {
-                    BigDecimal perc = parseBigDecimal(percent);
+                    BigDecimal perc = parseReviewMoney(percent, "gstPercent", parseFailed);
                     BigDecimal hund = new BigDecimal(100);
                     BigDecimal stotal = cTotal.multiply(perc).divide(hund, 4, RoundingMode.HALF_UP);
                     gstTotal = gstTotal.add(stotal).setScale(2, RoundingMode.HALF_UP);
@@ -471,6 +475,7 @@ public class BillingONReviewViewModelAssembler {
         b.percJsHandlers(percJsHandlers);
         b.gstTotal(gstTotal.toString());
         b.gstBilledTotal(gstBilledTotal.toString());
+        b.totalsParseFailed(parseFailed[0]);
     }
 
     private void populateBillingNotesAndPaymentInfo(HttpServletRequest request,
@@ -644,9 +649,24 @@ public class BillingONReviewViewModelAssembler {
         return idx >= 0 ? s.substring(0, idx).trim() : "";
     }
 
-    private static BigDecimal parseBigDecimal(String s) {
-        try { return new BigDecimal(nullToEmpty(s)); }
-        catch (NumberFormatException e) { return BigDecimal.ZERO; }
+    /**
+     * Strict-parse variant for the Review screen's GST / code-total inputs.
+     * Returns {@link BigDecimal#ZERO} on failure (matches legacy display
+     * behaviour) but flips {@code parseFailed[0]} to {@code true} and emits an
+     * ERROR log so the assembler can surface a "totals not trusted" banner
+     * via {@link BillingONReviewViewModel#isTotalsParseFailed()}.
+     */
+    private static BigDecimal parseReviewMoney(String s, String fieldName, boolean[] parseFailed) {
+        String trimmed = nullToEmpty(s);
+        try {
+            return new BigDecimal(trimmed);
+        } catch (NumberFormatException e) {
+            parseFailed[0] = true;
+            MiscUtils.getLogger().error(
+                    "BillingONReviewViewModel: malformed numeric input on Review screen — field={}, value=\"{}\". GST/totals will read 0; submission must be gated.",
+                    fieldName, trimmed);
+            return BigDecimal.ZERO;
+        }
     }
 
     private static int parseIntSafe(String s, int fallback) {

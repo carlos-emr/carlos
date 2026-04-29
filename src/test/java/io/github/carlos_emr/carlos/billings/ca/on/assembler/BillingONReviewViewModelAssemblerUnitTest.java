@@ -118,7 +118,7 @@ class BillingONReviewViewModelAssemblerUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldExposeDxDescription_fromBillingReviewPrep() {
+    void shouldExposeDxDescription_fromAssembler() {
         request.setParameter("dxCode", "401");
 
         BillingONReviewViewModel m = assembler.assemble(request, null);

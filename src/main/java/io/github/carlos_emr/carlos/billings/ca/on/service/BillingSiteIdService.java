@@ -20,18 +20,18 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.billings.ca.on.assembler;
+package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.appt.JdbcApptImpl;
-/**
- * Assembles request-scoped data for {@code BillingSiteIdService}.
- *
- * <p>Assemblers bridge legacy billing pages and typed view models by collecting
- * DAO/service data, applying legacy defaults, and returning display-ready state
- * for the JSP layer.</p>
- */
 
+/**
+ * Resolves the legacy non-multisite "site" dropdown values from
+ * {@code scheduleSiteID} in the props file. Used by
+ * {@code BillingONFormViewModelAssembler} when multisite is disabled.
+ *
+ * @since 2026-04-28
+ */
 @org.springframework.stereotype.Service
 public class BillingSiteIdService {
     private final String NO_SITE = "NONE";

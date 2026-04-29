@@ -165,6 +165,10 @@ public class BillingShortcutPg1ViewModelAssembler {
         // Billing history (5 most recent)
         List<Properties> billingHistory = new ArrayList<>();
         List<Properties> billingHistoryDetails = new ArrayList<>();
+        // Tracks the catch at line ~289 — the JSP must render a banner if true,
+        // so an empty history pane isn't mistaken for "patient was never billed
+        // before" (duplicate-bill risk).
+        boolean historyUnavailable = false;
         String referralDoctorOhip = demoLoad.referralDoctorOhip;
         boolean isNewOnBilling = "true".equals(props.getProperty("isNewONbilling", ""));
 
@@ -287,16 +291,16 @@ public class BillingShortcutPg1ViewModelAssembler {
                 }
             }
         } catch (RuntimeException rtEx) {
-            // Outer DAO call failed (DB outage). Render with empty history.
-            // Logged at ERROR (matching BillingONFormViewModelAssembler) because a
-            // missing history surface in the shortcut workflow has the same
-            // duplicate-bill risk as the main form: provider can't see what
-            // was already billed for this demographic.
+            // Outer DAO call failed (DB outage). Render with empty history
+            // AND set the unavailable flag so the JSP can warn the provider —
+            // an empty pane is otherwise indistinguishable from a clean slate
+            // and creates a duplicate-bill risk.
             io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
                     "Shortcut billing history lookup failed for demo={}; rendering with empty history",
                     demoNo, rtEx);
             billingHistory.clear();
             billingHistoryDetails.clear();
+            historyUnavailable = true;
         }
 
         // Provider list (doctors with OHIP)
@@ -509,6 +513,7 @@ public class BillingShortcutPg1ViewModelAssembler {
                 .msg(msg)
                 .billingHistory(billingHistory)
                 .billingHistoryDetails(billingHistoryDetails)
+                .historyUnavailable(historyUnavailable)
                 .providers(providers)
                 .clinicLocations(clinicLocations)
                 .serviceCodeCol1(g1.entries)

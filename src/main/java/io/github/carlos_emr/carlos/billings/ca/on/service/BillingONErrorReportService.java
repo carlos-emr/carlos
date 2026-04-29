@@ -144,12 +144,22 @@ public class BillingONErrorReportService {
 
     }
 
+    /**
+     * Toggles the {@code status} flag on a single MOH error-report record.
+     *
+     * @param id  primary key of the {@code billing_on_ea_report} row
+     * @param val the new status — first character is persisted
+     * @return {@code true} if a row was updated, {@code false} if no row matched
+     *         {@code id} (caller must surface a 404-class error so the AJAX UI
+     *         doesn't lie to the provider about acknowledgement)
+     */
     public boolean updateErrorReportStatus(String id, String val) {
         BillingONEAReport b = billingONEARReportDao.find(Integer.valueOf(id));
-        if (b != null) {
-            b.setStatus(val.toCharArray()[0]);
-            billingONEARReportDao.merge(b);
+        if (b == null) {
+            return false;
         }
+        b.setStatus(val.toCharArray()[0]);
+        billingONEARReportDao.merge(b);
         return true;
     }
 

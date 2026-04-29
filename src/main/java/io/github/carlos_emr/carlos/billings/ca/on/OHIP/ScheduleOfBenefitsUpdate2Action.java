@@ -30,10 +30,10 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.carlos.billings.ca.on.service.FeeScheduleApplyResult;
-import io.github.carlos_emr.carlos.billings.ca.on.service.FeeScheduleChange;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.FeeScheduleApplyResult;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.FeeScheduleChange;
 import io.github.carlos_emr.carlos.billings.ca.on.service.FeeScheduleImportService;
-import io.github.carlos_emr.carlos.billings.ca.on.service.FeeScheduleSelectedChange;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.FeeScheduleSelectedChange;
 
 /**
  * @author Jay Gallagher

@@ -78,7 +78,7 @@ class BillingONSave2ActionUnitTest extends CarlosUnitTestBase {
     @Mock private UserPropertyDAO mockUserPropertyDao;
     @Mock private BillingDao mockBillingDao;
     @Mock private BillingSaveService mockSaveService;
-    @Mock private BillingCorrectionRecordService mockCorrectionPrep;
+    @Mock private BillingCorrectionRecordService mockCorrectionRecordService;
     @Mock private LoggedInInfo mockLoggedInInfo;
 
     private MockHttpServletRequest mockRequest;
@@ -119,7 +119,7 @@ class BillingONSave2ActionUnitTest extends CarlosUnitTestBase {
                 mockUserPropertyDao,
                 mockBillingDao,
                 mockSaveService,
-                mockCorrectionPrep);
+                mockCorrectionRecordService);
     }
 
     @ParameterizedTest
@@ -134,7 +134,7 @@ class BillingONSave2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
         verifyNoInteractions(mockSaveService, mockCheader1Dao, mockExtDao, mockUserPropertyDao,
-                mockBillingDao, mockCorrectionPrep);
+                mockBillingDao, mockCorrectionRecordService);
     }
 
     @Test

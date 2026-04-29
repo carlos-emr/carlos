@@ -10,10 +10,12 @@ import jakarta.servlet.http.HttpSession;
 
 /**
  * BC compatibility helper for legacy billing correction session keys.
+ *
+ * @since 2026-04-28
  */
-final class BillingSessionUtils {
+final class BillingSession {
 
-    private BillingSessionUtils() {
+    private BillingSession() {
     }
 
     static BillingBean getBillingBean(HttpSession session) {

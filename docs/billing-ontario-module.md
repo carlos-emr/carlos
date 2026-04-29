@@ -44,23 +44,22 @@ src/main/java/io/github/carlos_emr/carlos/billings/
 │   ├── bc/                                ← BC implementation (out of scope)
 │   └── on/                                ← Ontario implementation (this doc)
 │       ├── administration/                  GST + admin actions
-│       ├── assembler/                       38 *ViewModelAssembler classes + composers/loaders
+│       ├── assembler/                       *ViewModelAssembler classes + composers/loaders
 │       ├── bean/                            legacy session beans (kept for compat)
-│       ├── command/                         5 typed write/validation commands
-│       ├── data/                            3 legacy import/lookup record classes
-│       ├── dto/                             7 persistence/query transfer DTOs
+│       ├── command/                         typed write/validation commands
+│       ├── data/                            legacy import/lookup record classes
+│       ├── dto/                             persistence/query transfer DTOs (incl. FeeSchedule* records)
 │       ├── OHIP/                            OHIP claim-file format helpers
-│       ├── pageUtil/                        legacy actions awaiting migration
 │       ├── reports/                         reporting (RA / disk / Y/E statement)
-│       ├── service/                         29 services / loaders / persisters
+│       ├── service/                         services / loaders / persisters / calculators
 │       ├── support/                         dependency-free support utilities
-│       ├── validator/                       3 input-validator classes
-│       ├── viewmodel/                       71 immutable presentation records
-│       └── web/                             88 *2Action Struts gates
+│       ├── validator/                       input-validator classes + typed exception
+│       ├── viewmodel/                       immutable presentation records
+│       └── web/                             *2Action Struts gates
 └── ca/on/
 
-src/main/webapp/WEB-INF/jsp/billing/CA/ON/    ← 83 JSP files (views)
-src/main/webapp/WEB-INF/classes/struts-billing.xml  ← Struts mappings (177 actions)
+src/main/webapp/WEB-INF/jsp/billing/CA/ON/    ← JSP views (incl. shared jspf fragments)
+src/main/webapp/WEB-INF/classes/struts-billing.xml  ← Struts mappings (one entry per public route)
 ```
 
 ## 3 — Architecture
@@ -109,7 +108,7 @@ only when nothing more specific applies.
 | Pure-read query service | `*Loader` | `BillingONClaimLoader`, `BillingONDiskLoader`, `ServiceCodeLoader` |
 | Pure-write persistence service | `*Persister` | `BillingONClaimPersister`, `BillingONReviewDxPersister`, `ServiceCodePersister` |
 | Pure calculation | `*Calculator` | `BillingONInvoiceTotalsCalculator` |
-| Input validator | `*Validator` | `BillingONReviewValidator`, `BillingValidationException` ladder |
+| Input validator | `*Validator` | `BillingONReviewValidator` (with `BillingValidationException` for fail-fast paths) |
 | Mixed read/write orchestration | `*Service` | `BillingCorrectionService`, `BillingONHeaderCreationService`, `BillingONLookupService` |
 | Data access | `*Dao` | `BillingONCHeader1Dao`, `BillingONPaymentDao`, `BillingServiceDao` |
 
@@ -379,44 +378,63 @@ Every billing entry point is a `*2Action` extending `org.apache.struts2
 .ActionSupport`. The 88 actions in `web/` and `pageUtil/` follow a
 consistent shape:
 
+`ViewBillingONReview2Action` is the canonical shape — the example below is the
+real source, lightly trimmed (see `web/ViewBillingONReview2Action.java`):
+
 ```java
 public final class ViewBillingONReview2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
+    private final BillingONReviewDxPersister dxPersister;
     private final BillingONReviewViewModelAssembler assembler;
 
     @Autowired
-    public ViewBillingONReview2Action(SecurityInfoManager s,
-                                       BillingONReviewViewModelAssembler a) {
-        this.securityInfoManager = s;
-        this.assembler = a;
+    public ViewBillingONReview2Action(SecurityInfoManager securityInfoManager,
+                                       BillingONReviewDxPersister dxPersister,
+                                       BillingONReviewViewModelAssembler assembler) {
+        this.securityInfoManager = securityInfoManager;
+        this.dxPersister = dxPersister;
+        this.assembler = assembler;
     }
 
     @Override
-    public String execute() {
+    public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
+        HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
-            throw new SecurityException("no logged-in session");
+            throw new SecurityException("missing session");
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_billing w)");
+            throw new SecurityException("missing required sec object (_billing)");
         }
-        // method-gate
-        if (!"GET".equals(request.getMethod()) && !"HEAD".equals(request.getMethod())
-                && !"POST".equals(request.getMethod())) {
-            ServletActionContext.getResponse().setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            ServletActionContext.getResponse().setHeader("Allow", "GET, HEAD, POST");
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            // RFC 7231 §6.5.5: 405 responses MUST include the Allow header.
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
         BillingONReviewViewModel model = assembler.assemble(request, loggedInInfo);
-        request.setAttribute("model", model);
+        request.setAttribute("reviewModel", model);
         return SUCCESS;
     }
 
-    public BillingONReviewViewModel getModel() { /* ... */ }
+    public BillingONReviewViewModel getReviewModel() { /* ... */ }
 }
 ```
+
+Notes on this template:
+
+- Review2Action is **POST-only** because it triggers a clinical-write side
+  effect (`BillingONReviewDxPersister`). Read-only actions
+  (e.g., `ViewBillingON2Action`) accept GET/HEAD/POST instead and emit
+  `Allow: "GET, HEAD, POST"`.
+- The null-session guard runs **before** `hasPrivilege` because
+  `SecurityInfoManagerImpl.hasPrivilege` dereferences `loggedInInfo` and
+  emits a noisy "Error checking privileges" stack-trace before returning
+  false on null. Failing fast keeps the log signal clean.
+- The 405 path uses `response.sendError(...)` (which commits the response)
+  rather than `setStatus(...)` so framework dispatch stops cleanly.
 
 ### 8.1 Action conventions
 
@@ -437,7 +455,7 @@ public final class ViewBillingONReview2Action extends ActionSupport {
 
 ### 8.2 Struts mapping
 
-177 action mappings live in
+All Ontario billing action mappings live in
 `src/main/webapp/WEB-INF/classes/struts-billing.xml`. Conventions:
 
 - All routes are extensionless (`struts.action.extension=""`).
@@ -508,7 +526,7 @@ should:
 - Use `<carlos:encode>` (or the corresponding EL function) for every
   user-data interpolation.
 
-The largest remaining JSP, `billingON.jsp` (~138 KB), is in flight; the
+The largest remaining JSP, `billingON.jsp`, is in flight; the
 plan is in commit history under `chore/billing-refactor`. The other four
 fat ON JSPs (`billingONCorrection.jsp`, `billingONReview.jsp`,
 `billingONStatus.jsp`, `billingShortcutPg1.jsp`) follow the same recipe
@@ -652,7 +670,7 @@ Things this module would benefit from but which are not yet done:
   closes the most acute exposure but a real merge mid-sequence is still
   a risk.
 - **`billingON.jsp` JSP refactor (Phase 2A in `/root/.claude/plans/`).**
-  The 138 KB / 2,408-line god JSP is being decomposed into Assembler +
+  The largest remaining ON JSP is being decomposed into Assembler +
   ViewModel + JSP includes — same recipe as the four other ON billing
   JSPs that are already done.
 - **BC parity.** This module structure has not been mirrored into

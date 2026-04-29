@@ -212,8 +212,8 @@ public class GenerateRASummaryViewModelAssembler {
             errorCode = "**";
         }
 
-        BigDecimal invoiced = parseBigDecimal(invoicedAmount);
-        BigDecimal paid = parseBigDecimal(paidAmount);
+        BigDecimal invoiced = BillingMoney.amountOrZero(invoicedAmount);
+        BigDecimal paid = BillingMoney.amountOrZero(paidAmount);
         totals.invoiced = totals.invoiced.add(invoiced);
         totals.paid = totals.paid.add(paid);
 
@@ -278,15 +278,6 @@ public class GenerateRASummaryViewModelAssembler {
                 + "<xml_co_total>" + totals.colposcopy + "</xml_co_total>";
         rh.setContent(content);
         raHeaderDao.merge(rh);
-    }
-
-    private static BigDecimal parseBigDecimal(String s) {
-        if (s == null || s.isEmpty()) return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
-        try {
-            return BillingMoney.amount(s);
-        } catch (NumberFormatException e) {
-            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
-        }
     }
 
     private static Integer parseInt(String s) {

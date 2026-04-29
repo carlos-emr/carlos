@@ -55,6 +55,11 @@ public final class BillingONReviewViewModel {
 
     private final java.util.List<io.github.carlos_emr.carlos.billings.ca.on.validator.BillingONReviewValidator.Message> validationMessages;
     private final boolean codeValid;
+    /** True when at least one numeric input on this review (a code total or a
+     *  GST percent) failed strict parsing and the assembler had to substitute
+     *  zero. The Review JSP must banner-warn the provider so they know the
+     *  GST/Total figures are understated and submission should be gated. */
+    private final boolean totalsParseFailed;
 
     private final java.util.Map<String, ProviderName> providerNameLookup;
 
@@ -173,6 +178,7 @@ public final class BillingONReviewViewModel {
                 ? java.util.Collections.emptyList()
                 : java.util.List.copyOf(b.validationMessages);
         this.codeValid = b.codeValid;
+        this.totalsParseFailed = b.totalsParseFailed;
         this.providerNameLookup = b.providerNameLookup == null
                 ? java.util.Collections.emptyMap()
                 : java.util.Map.copyOf(b.providerNameLookup);
@@ -281,6 +287,12 @@ public final class BillingONReviewViewModel {
         return validationMessages;
     }
     public boolean isCodeValid() { return codeValid; }
+    /**
+     * @return {@code true} when one or more numeric inputs failed to parse and
+     *         the assembler substituted zero. JSP must banner-warn and gate
+     *         submission; GST and total figures cannot be trusted.
+     */
+    public boolean isTotalsParseFailed() { return totalsParseFailed; }
     public java.util.Map<String, ProviderName> getProviderNameLookup() { return providerNameLookup; }
 
     public java.util.Map<String, String> getRequestParamEchoes() { return requestParamEchoes; }
@@ -359,6 +371,7 @@ public final class BillingONReviewViewModel {
         private String warningMessage = "";
         private java.util.List<io.github.carlos_emr.carlos.billings.ca.on.validator.BillingONReviewValidator.Message> validationMessages;
         private boolean codeValid = true;
+        private boolean totalsParseFailed = false;
         private java.util.Map<String, ProviderName> providerNameLookup;
 
         private java.util.Map<String, String> requestParamEchoes;
@@ -404,6 +417,7 @@ public final class BillingONReviewViewModel {
             this.validationMessages = v == null ? null : java.util.List.copyOf(v); return this;
         }
         public Builder codeValid(boolean v) { this.codeValid = v; return this; }
+        public Builder totalsParseFailed(boolean v) { this.totalsParseFailed = v; return this; }
         public Builder providerNameLookup(java.util.Map<String, ProviderName> v) {
             this.providerNameLookup = v == null ? null : java.util.Map.copyOf(v); return this;
         }

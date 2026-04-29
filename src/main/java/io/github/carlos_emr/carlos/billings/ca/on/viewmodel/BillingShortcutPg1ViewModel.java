@@ -112,6 +112,12 @@ public final class BillingShortcutPg1ViewModel {
     private final boolean newOnBilling;
     private final String admissionDate;
 
+    // Set true when the billing-history DAO call failed and the lists were
+    // cleared. JSP must render a "history unavailable — verify before
+    // billing" banner so the provider doesn't accidentally rebill: an empty
+    // history pane is otherwise indistinguishable from a clean slate.
+    private final boolean historyUnavailable;
+
     public record ServiceTypeEntry(String code, String name) { }
     public record DxCodeEntry(String code, String description) { }
 
@@ -179,6 +185,7 @@ public final class BillingShortcutPg1ViewModel {
         this.assgProviderDisplay = nullToEmpty(b.assgProviderDisplay);
         this.newOnBilling = b.newOnBilling;
         this.admissionDate = nullToEmpty(b.admissionDate);
+        this.historyUnavailable = b.historyUnavailable;
     }
 
     public static Builder builder() {
@@ -280,6 +287,15 @@ public final class BillingShortcutPg1ViewModel {
      * {@link #getVisitDate()}. Mirrors the legacy JSP scriptlet logic.
      */
     public String getAdmissionDate() { return admissionDate; }
+
+    /**
+     * {@code true} when the billing-history DAO call failed and
+     * {@link #getBillingHistory()} / {@link #getBillingHistoryDetails()}
+     * were cleared. JSP must render a "history unavailable — verify before
+     * billing" banner; an empty history pane is otherwise indistinguishable
+     * from a clean slate, creating a duplicate-bill risk.
+     */
+    public boolean isHistoryUnavailable() { return historyUnavailable; }
 
     /**
      * ArrayList view of {@link #getBillingHistory()} for legacy JSP scriptlets that
@@ -446,6 +462,9 @@ public final class BillingShortcutPg1ViewModel {
         public Builder assgProviderDisplay(String v) { this.assgProviderDisplay = v; return this; }
         public Builder newOnBilling(boolean v) { this.newOnBilling = v; return this; }
         public Builder admissionDate(String v) { this.admissionDate = v; return this; }
+
+        private boolean historyUnavailable;
+        public Builder historyUnavailable(boolean v) { this.historyUnavailable = v; return this; }
 
         public BillingShortcutPg1ViewModel build() {
             return new BillingShortcutPg1ViewModel(this);

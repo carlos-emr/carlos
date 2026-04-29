@@ -106,7 +106,7 @@ public final class BillingONFormViewModel {
     /**
      * One entry in the legacy non-multisite "site" dropdown rendered when
      * {@code scheduleSiteID} is set in the props file. Resolved via
-     * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingSiteIdService}.
+     * {@link io.github.carlos_emr.carlos.billings.ca.on.service.BillingSiteIdService}.
      */
     public record LegacySiteOption(String name, boolean suggested) { }
 

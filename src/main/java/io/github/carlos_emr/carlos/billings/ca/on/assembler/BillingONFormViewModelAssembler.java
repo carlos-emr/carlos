@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingMultisiteCont
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingONFormViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimLoader;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingSiteIdService;
 import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
@@ -390,8 +391,8 @@ public class BillingONFormViewModelAssembler {
         if (!IsPropertiesOn.isMultisitesEnable()) {
             String scheduleSiteId = oscarVars.getProperty("scheduleSiteID", "");
             if (scheduleSiteId != null && !scheduleSiteId.isEmpty()) {
-                BillingSiteIdService sitePrep = new BillingSiteIdService();
-                String[] siteList = sitePrep.getSiteList();
+                BillingSiteIdService siteIdService = new BillingSiteIdService();
+                String[] siteList = siteIdService.getSiteList();
                 if (siteList != null && siteList.length > 0) {
                     String strServDate = firstNonNull(
                             request.getParameter("appointment_date"), today);
@@ -400,7 +401,7 @@ public class BillingONFormViewModelAssembler {
                     try {
                         thisSite = new io.github.carlos_emr.carlos.appt.JdbcApptImpl()
                                 .getLocationFromSchedule(strServDate, apptProviderNo);
-                        suggested = sitePrep.getSuggestSite(siteList, thisSite,
+                        suggested = siteIdService.getSuggestSite(siteList, thisSite,
                                 strServDate, apptProviderNo);
                     } catch (RuntimeException e) {
                         MiscUtils.getLogger().warn(

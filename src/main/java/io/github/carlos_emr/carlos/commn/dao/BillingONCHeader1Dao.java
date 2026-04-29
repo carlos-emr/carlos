@@ -49,9 +49,7 @@ public interface BillingONCHeader1Dao extends AbstractDao<BillingONCHeader1> {
 
     /**
      * Returns the bill items for the given invoice that are still active
-     * (status != 'D'). Replaces the misnamed
-     * {@code BillingONService.getNonDeletedInvoices} (which returned items,
-     * not invoices). Returns an empty list when the invoice doesn't resolve.
+     * (status != 'D'). Returns an empty list when the invoice doesn't resolve.
      */
     public List<BillingONItem> findActiveItems(Integer invoiceNo);
 

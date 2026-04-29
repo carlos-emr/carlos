@@ -10,7 +10,14 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.billings.ca.on.service;
+package io.github.carlos_emr.carlos.billings.ca.on.dto;
 
-public record FeeScheduleValidationError(int lineNumber, String rawLine, String field, String message) {
+import java.math.BigDecimal;
+
+public record FeeScheduleImportRequest(
+        boolean addNewCodes,
+        boolean addChangedCodes,
+        boolean forceUpdate,
+        BigDecimal updateAssistantFeesValue,
+        BigDecimal updateAnaesthetistFeesValue) {
 }

@@ -27,7 +27,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class BillingDatesUnitTest {
 
     @Test
-    void shouldNormalizeOhipEffectiveDatesAndNullFallbacks() {
+    void shouldNormalizeOhipEffectiveDate_withNullFallback() {
         LocalDate fallback = LocalDate.of(2026, 4, 28);
 
         assertThat(BillingDates.ohipEffectiveDate("20260427", fallback)).isEqualTo("2026-04-27");
@@ -35,13 +35,13 @@ class BillingDatesUnitTest {
     }
 
     @Test
-    void shouldNormalizeOhipTerminationDates() {
+    void shouldNormalizeOhipTerminationDate_forPastEndOfMonth() {
         assertThat(BillingDates.ohipTerminationDate("99999999")).isEqualTo("9999-12-31");
         assertThat(BillingDates.ohipTerminationDate("20260400")).isEqualTo("2026-04-01");
     }
 
     @Test
-    void shouldRejectMalformedOhipDates() {
+    void shouldRejectMalformedOhipDates_withIllegalArgumentException() {
         assertThatThrownBy(() -> BillingDates.ohipEffectiveDate("202604", LocalDate.of(2026, 4, 28)))
                 .isInstanceOf(IllegalArgumentException.class);
     }
