@@ -24,12 +24,12 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.billings.ca.on.service.OntarioRASettlementService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.service.OnGenRAsettleService;
 
 /**
  * Mutation gate for {@code billing/CA/ON/onGenRAsettle.jsp}, the standard
@@ -37,7 +37,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.OnGenRAsettleService;
  * status = "S").
  *
  * <p>Enforces {@code _billing w} privilege AND POST-only.
- * {@link OnGenRAsettleService#settle} runs the mutation that the JSP
+ * {@link OntarioRASettlementService#settle} runs the mutation that the JSP
  * scriptlet used to run inline (3 inline DAO lookups: RaHeaderDao,
  * BillingDao, RaDetailDao); the JSP just emits the close-popup script.</p>
  *
@@ -46,12 +46,12 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.OnGenRAsettleService;
 public class ViewOnGenRAsettle2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
-    private final OnGenRAsettleService onGenRAsettleService;
+    private final OntarioRASettlementService settlementService;
 
     public ViewOnGenRAsettle2Action(SecurityInfoManager securityInfoManager,
-                                    OnGenRAsettleService onGenRAsettleService) {
+                                    OntarioRASettlementService settlementService) {
         this.securityInfoManager = securityInfoManager;
-        this.onGenRAsettleService = onGenRAsettleService;
+        this.settlementService = settlementService;
     }
     @Override
     public String execute() throws Exception {
@@ -71,7 +71,7 @@ public class ViewOnGenRAsettle2Action extends ActionSupport {
             return NONE;
         }
 
-        onGenRAsettleService.settle(request.getParameter("rano"), OnGenRAsettleService.Mode.STANDARD);
+        settlementService.settle(request.getParameter("rano"), OntarioRASettlementService.Mode.STANDARD);
 
         return SUCCESS;
     }

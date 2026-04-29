@@ -8,13 +8,15 @@ This policy was written against the Ontario billing module (`io.github.carlos_em
 
 **Suffix = role + lifecycle.** Pick the most specific verb that fits. Only fall back to `*Service` when nothing more specific applies. Never combine two role-suffixes.
 
-## The 11 sanctioned suffixes
+## The sanctioned suffixes
 
 | Suffix | Lifecycle | What it does | Example |
 |---|---|---|---|
 | `*Action` | per-request (Struts2) | Privilege check + parse params + delegate + return result string. **No business logic.** | `ViewBillingON2Action` |
-| `*DataAssembler` | `@Service @Lazy` | Builds the `*ViewModel` for **exactly one** JSP. Read-only orchestration. | `BillingONFormDataAssembler` |
+| `*ViewModelAssembler` | `@Service` | Builds the `*ViewModel` for **exactly one** JSP. Read-only orchestration. | `BillingONFormViewModelAssembler` |
 | `*ViewModel` | DTO/record | Immutable view-state for one JSP. No behavior beyond accessors. | `BillingONFormViewModel` |
+| `*Command` | DTO/record | Typed input for a write or validation use case. No persistence behavior. | `BillingCorrectionSubmitCommand` |
+| `*Dto` | DTO/record | Typed transfer shape for persistence/query boundaries. No presentation behavior. | `BillingClaimHeaderDto` |
 | `*Loader` | `@Service` | Loads **one slice** of state onto a builder passed in. Used inside assemblers. | `BillingONFormDemographicLoader` |
 | `*Resolver` | `@Service` | Picks **one value** through a priority chain or rule. | `BillingONFormBillFormResolver` |
 | `*Composer` | `@Service` | Assembles a **complex sub-structure** onto a builder. Bigger than a Loader. | `BillingONFormServiceGridComposer` |
@@ -28,7 +30,7 @@ Plus utility classes — static-only, no Spring annotation. Use a domain noun (p
 
 | Pattern | Example |
 |---|---|
-| Static helpers, dependency-free | `BillingDobs`, `BillingONIdTokens` |
+| Static helpers, dependency-free | `BillingDateOfBirths`, `BillingDomIdTokens` |
 
 **Don't** use `*Utils` or `*Helper` — those names attract clutter; a domain noun keeps focus.
 
@@ -36,7 +38,7 @@ Plus utility classes — static-only, no Spring annotation. Use a domain noun (p
 
 1. **Does it expose a Struts2 URL?** → `*Action`
 2. **Does it have zero deps + only static methods?** → utility class (no suffix; domain noun)
-3. **Does it return a `*ViewModel` for one specific JSP?** → `*DataAssembler`
+3. **Does it return a `*ViewModel` for one specific JSP?** → `*ViewModelAssembler`
 4. **Does it write / mutate state / call across DAOs?**
    - …as a side-effect-only sibling of a reader → `*Persister`
    - …as the main verb of a single business op → `*Service`
@@ -52,6 +54,7 @@ Plus utility classes — static-only, no Spring annotation. Use a domain noun (p
 ## Forbidden / retired suffixes
 
 - **`*Prep`** — not a role, not a lifecycle. Use `*Loader` for read-side prep, `*Service` for write-side prep, or absorb into the consumer.
+- **`*DataAssembler`** — retired in Ontario billing. It was accurate during the JSP-scriptlet cleanup, but `*ViewModelAssembler` now says the real output type directly.
 - **`*Manager`** as a new class. Existing `*Manager` classes in the codebase (e.g., `DemographicManager`) are legacy domain managers; don't add new ones. Use `*Service` for new code.
 - **`*Helper`, `*Utils`** — too generic. Use a domain noun for utility classes.
 - **Compound suffixes** — `*LoaderService`, `*ServiceManager`, `*ResolverService`, etc. The annotation carries the infrastructure role; the suffix carries the conceptual role. Doubling up is noise.
@@ -65,13 +68,13 @@ This rule eliminates a common drift pattern where DAOs grow business logic ("jus
 ## When in doubt
 
 Ask "what's the verb?":
-- A reader that builds view state → `*DataAssembler` (per JSP) or `*Loader` / `*Composer` / `*Resolver` (per slice).
+- A reader that builds view state → `*ViewModelAssembler` (per JSP) or `*Loader` / `*Composer` / `*Resolver` (per slice).
 - A writer that does one thing → `*Service`.
 - A side-effect-only writer paired with a reader → `*Persister`.
 - A pure function on typed inputs → `*Calculator` or `*Validator`.
 - A static utility → noun class, no suffix.
 
-If multiple options fit, pick the **smallest** scope name. `*DataAssembler` is bigger than `*Composer` is bigger than `*Loader`.
+If multiple options fit, pick the **smallest** scope name. `*ViewModelAssembler` is bigger than `*Composer` is bigger than `*Loader`.
 
 ## Migration policy
 

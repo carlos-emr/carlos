@@ -33,8 +33,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReviewCodeItem;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReviewPercItem;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingReviewCodeItem;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingReviewPercentageItem;
 import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
 import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 @org.springframework.stereotype.Service
@@ -138,7 +138,7 @@ public class BillingReviewLoader {
             return ret;
 
         // BillingReviewCodeItem codeItem = null;
-        BillingReviewPercItem percItem = null;
+        BillingReviewPercentageItem percItem = null;
         ArrayList vecCodeFee = new ArrayList();
         for (int i = 0; i < vecReviewCodeItem.size(); i++) {
             vecCodeFee.add(((BillingReviewCodeItem) vecReviewCodeItem.get(i))
@@ -160,7 +160,7 @@ public class BillingReviewLoader {
             String fee = dbObj.getPercFee((String) vecCode.get(i), billReferalDate);
 
             if (fee == null) {
-                percItem = new BillingReviewPercItem();
+                percItem = new BillingReviewPercentageItem();
                 percItem.setCodeName((String) vecCode.get(i));
                 percItem.setCodeUnit((String) vecUnit.get(i));
                 percItem.setCodeFee("0.00");
@@ -200,7 +200,7 @@ public class BillingReviewLoader {
             }
             // get min/max fee
             String[] mFee = dbObj.getPercMinMaxFee((String) vecCode.get(i), billReferalDate);
-            percItem = new BillingReviewPercItem();
+            percItem = new BillingReviewPercentageItem();
             percItem.setCodeName((String) vecCode.get(i));
             percItem.setCodeUnit((String) vecUnit.get(i));
             percItem.setCodeFee(fee);

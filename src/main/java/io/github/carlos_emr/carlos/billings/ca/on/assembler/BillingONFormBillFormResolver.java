@@ -26,7 +26,7 @@ import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONFormViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingONFormViewModel;
 import io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.MyGroupDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderPreferenceDao;

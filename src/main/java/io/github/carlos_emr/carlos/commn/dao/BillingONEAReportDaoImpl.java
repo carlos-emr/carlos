@@ -37,7 +37,7 @@ import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.BillingONEAReport;
 import org.springframework.stereotype.Repository;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
 import io.github.carlos_emr.carlos.util.ParamAppender;
 
 @Repository
@@ -135,7 +135,7 @@ public class BillingONEAReportDaoImpl extends AbstractDaoImpl<BillingONEAReport>
     }
 
     @Override
-    public List<BillingONEAReport> findByMagic(List<BillingProviderData> list, Date fromDate, Date toDate, String reportName) {
+    public List<BillingONEAReport> findByMagic(List<BillingProviderDto> list, Date fromDate, Date toDate, String reportName) {
         ParamAppender appender = getAppender("b");
 
         boolean hasProviderData = !list.isEmpty();
@@ -144,7 +144,7 @@ public class BillingONEAReportDaoImpl extends AbstractDaoImpl<BillingONEAReport>
             for (int i = 0; i < list.size(); i++) {
                 ParamAppender providerAppender = new ParamAppender();
 
-                BillingProviderData d = list.get(i);
+                BillingProviderDto d = list.get(i);
                 ParamAppender pa = new ParamAppender();
                 pa.and("b.providerOHIPNo = :ohipNo" + i, "ohipNo" + i, d.getOhipNo());
                 pa.and("b.groupNo = :billingGroupNo" + i, "billingGroupNo" + i, d.getBillingGroupNo());

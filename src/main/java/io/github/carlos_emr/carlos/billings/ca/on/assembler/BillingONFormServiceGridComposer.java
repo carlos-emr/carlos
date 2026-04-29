@@ -27,7 +27,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.billing.CA.filters.CodeFilterManager;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONFormViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingONFormViewModel;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.CSSStylesDAO;
 import io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao;
@@ -43,7 +43,7 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import static io.github.carlos_emr.carlos.billings.ca.on.data.BillingONIdTokens.sanitize;
+import static io.github.carlos_emr.carlos.billings.ca.on.support.BillingDomIdTokens.sanitize;
 
 /**
  * Composer for the service-code grid + adjacent menu / dx-codes structures.

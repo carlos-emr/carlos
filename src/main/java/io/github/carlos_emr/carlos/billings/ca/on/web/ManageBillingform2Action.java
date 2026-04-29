@@ -23,13 +23,13 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.ManageBillingformViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.ManageBillingformViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.ManageBillingformDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.ManageBillingformViewModelAssembler;
 
 /**
  * View gate for {@code billing/CA/ON/manageBillingform.jsp}. Enforces {@code _admin.billing}
@@ -47,10 +47,10 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.ManageBillingformDat
 public class ManageBillingform2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
-    private final ManageBillingformDataAssembler assembler;
+    private final ManageBillingformViewModelAssembler assembler;
 
     public ManageBillingform2Action(SecurityInfoManager securityInfoManager,
-                             ManageBillingformDataAssembler assembler) {
+                             ManageBillingformViewModelAssembler assembler) {
         this.securityInfoManager = securityInfoManager;
         this.assembler = assembler;
     }

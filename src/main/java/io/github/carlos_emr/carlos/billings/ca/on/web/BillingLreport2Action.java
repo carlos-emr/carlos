@@ -22,7 +22,7 @@ import java.nio.charset.StandardCharsets;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingLreportViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingLreportViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;

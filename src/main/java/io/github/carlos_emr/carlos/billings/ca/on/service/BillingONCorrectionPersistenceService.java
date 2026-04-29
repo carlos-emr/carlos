@@ -29,9 +29,9 @@ import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.ArrayList;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingONConstants;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONEAReportDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
@@ -102,7 +102,7 @@ public class BillingONCorrectionPersistenceService {
     private SimpleDateFormat timeFormatter = new SimpleDateFormat("HH:mm:ss");
     private SimpleDateFormat tsFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
-    public boolean updateBillingClaimHeader(BillingClaimHeader1Data ch1Obj) throws ParseException {
+    public boolean updateBillingClaimHeader(BillingClaimHeaderDto ch1Obj) throws ParseException {
         BillingONCHeader1 c = billingHeaderDao.find(ch1Obj.getId());
         c.setTranscId(ch1Obj.getTransc_id());
         c.setRecId(ch1Obj.getRec_id());
@@ -167,7 +167,7 @@ public class BillingONCorrectionPersistenceService {
         return true;
     }
 
-    public boolean updateBillingOneItem(BillingItemData val) throws ParseException {
+    public boolean updateBillingOneItem(BillingClaimItemDto val) throws ParseException {
         BillingONItem b = billingItemDao.find(val.getId());
         if (b != null) {
             b.setTranscId(val.getTransc_id());
@@ -240,12 +240,12 @@ public class BillingONCorrectionPersistenceService {
     // 0-cheader1 obj, 1 - item1obj, 2 - item2obj, ...
     public List getBillingRecordObj(String id) {
         List obj = new ArrayList();
-        BillingClaimHeader1Data ch1Obj = null;
-        BillingItemData itemObj = null;
+        BillingClaimHeaderDto ch1Obj = null;
+        BillingClaimItemDto itemObj = null;
 
         BillingONCHeader1 h = billingHeaderDao.find(Integer.parseInt(id));
         if (h != null) {
-            ch1Obj = new BillingClaimHeader1Data();
+            ch1Obj = new BillingClaimHeaderDto();
             ch1Obj.setId(h.getId().toString());
             ch1Obj.setTransc_id(h.getTranscId());
             ch1Obj.setRec_id(h.getRecId());
@@ -320,7 +320,7 @@ public class BillingONCorrectionPersistenceService {
 
         List<BillingONItem> items = billingItemDao.getActiveBillingItemByCh1Id(Integer.parseInt(id));
         for (BillingONItem i : items) {
-            itemObj = new BillingItemData();
+            itemObj = new BillingClaimItemDto();
             itemObj.setId(i.getId().toString());
             itemObj.setCh1_id(i.getCh1Id().toString());
             itemObj.setTransc_id(i.getTranscId());
@@ -448,9 +448,9 @@ public class BillingONCorrectionPersistenceService {
         return false;
     }
 
-    public void addInsertOneBillItemTrans(BillingClaimHeader1Data billHeader, BillingItemData billItem, String updateProviderNo) {
+    public void addInsertOneBillItemTrans(BillingClaimHeaderDto billHeader, BillingClaimItemDto billItem, String updateProviderNo) {
         BillingOnTransaction billTrans = new BillingOnTransaction();
-        billTrans.setActionType(BillingDataHlp.ACTION_TYPE.C.name());
+        billTrans.setActionType(BillingONConstants.ACTION_TYPE.C.name());
         try {
             billTrans.setAdmissionDate(new SimpleDateFormat("yyyy-MM-dd").parse(billHeader.getAdmission_date()));
         } catch (Exception e) {
@@ -495,9 +495,9 @@ public class BillingONCorrectionPersistenceService {
         billOnTransDao.persist(billTrans);
     }
 
-    public void addUpdateOneBillItemTrans(BillingClaimHeader1Data billHeader, BillingItemData billItem, String updateProviderNo) {
+    public void addUpdateOneBillItemTrans(BillingClaimHeaderDto billHeader, BillingClaimItemDto billItem, String updateProviderNo) {
         BillingOnTransaction billTrans = new BillingOnTransaction();
-        billTrans.setActionType(BillingDataHlp.ACTION_TYPE.U.name());
+        billTrans.setActionType(BillingONConstants.ACTION_TYPE.U.name());
         try {
             billTrans.setAdmissionDate(new SimpleDateFormat("yyyy-MM-dd").parse(billHeader.getAdmission_date()));
         } catch (Exception e) {

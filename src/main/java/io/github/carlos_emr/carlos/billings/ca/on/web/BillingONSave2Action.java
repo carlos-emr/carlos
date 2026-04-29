@@ -23,7 +23,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import io.github.carlos_emr.carlos.appt.ApptStatusData;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingONConstants;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
@@ -136,7 +136,7 @@ public class BillingONSave2Action extends ActionSupport {
         if (billingNo > 0) {
             if (xmlBillType != null
                     && xmlBillType.length() >= 3
-                    && xmlBillType.substring(0, 3).matches(BillingDataHlp.BILLINGMATCHSTRING_3RDPARTY)) {
+                    && xmlBillType.substring(0, 3).matches(BillingONConstants.BILLINGMATCHSTRING_3RDPARTY)) {
                 bObj.addPrivateBillExtRecord(request, vecObj, billingNo);
             } else {
                 bObj.addOhipInvoiceTrans(vecObj);

@@ -28,7 +28,7 @@ import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingONConstants;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
@@ -108,7 +108,7 @@ public class BillingONReviewValidator {
 
         // Service-code validity.
         Date filterDate = resolveFilterDate(billReferenceDate);
-        for (int i = 0; i < BillingDataHlp.FIELD_SERVICE_NUM; i++) {
+        for (int i = 0; i < BillingONConstants.FIELD_SERVICE_NUM; i++) {
             String serviceCode = nullToEmpty(request.getParameter("serviceCode" + i));
             if (serviceCode.isEmpty()) {
                 continue;
@@ -159,7 +159,7 @@ public class BillingONReviewValidator {
         if (demoNoInt == null) {
             return true; // bad demoNo is reported elsewhere — don't double-error
         }
-        for (int i = 0; i < BillingDataHlp.FIELD_SERVICE_NUM; i++) {
+        for (int i = 0; i < BillingONConstants.FIELD_SERVICE_NUM; i++) {
             String serviceCode = request.getParameter("serviceCode" + i);
             String billType = request.getParameter("xml_billtype");
             if (!"A003A".equals(serviceCode) || billType == null || !billType.matches("ODP.*")) {

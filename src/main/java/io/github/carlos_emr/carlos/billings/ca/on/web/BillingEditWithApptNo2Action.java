@@ -24,13 +24,13 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingEditWithApptNoViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingEditWithApptNoViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingEditWithApptNoDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingEditWithApptNoViewModelAssembler;
 
 /**
  * Mutation gate for {@code billing/CA/ON/billingEditWithApptNo.jsp}. Enforces
@@ -38,7 +38,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingEditWithApptN
  * GET requests return 405 Method Not Allowed.
  *
  * <p>Also assembles a {@link BillingEditWithApptNoViewModel} via
- * {@link BillingEditWithApptNoDataAssembler}, exposing it to the JSP as
+ * {@link BillingEditWithApptNoViewModelAssembler}, exposing it to the JSP as
  * request attribute {@code editApptModel}. This drains the JSP body of
  * the scriptlet that pulled bill / item state inline and computed the
  * per-line-item hidden-field projection.</p>
@@ -49,10 +49,10 @@ public class BillingEditWithApptNo2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    private final BillingEditWithApptNoDataAssembler billingEditWithApptNoAssembler;
+    private final BillingEditWithApptNoViewModelAssembler billingEditWithApptNoAssembler;
 
     public BillingEditWithApptNo2Action(SecurityInfoManager securityInfoManager,
-                                         BillingEditWithApptNoDataAssembler billingEditWithApptNoAssembler) {
+                                         BillingEditWithApptNoViewModelAssembler billingEditWithApptNoAssembler) {
         this.securityInfoManager = securityInfoManager;
         this.billingEditWithApptNoAssembler = billingEditWithApptNoAssembler;
     }

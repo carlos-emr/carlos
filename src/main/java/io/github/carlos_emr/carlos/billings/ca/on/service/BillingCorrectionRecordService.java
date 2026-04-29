@@ -47,10 +47,10 @@ import io.github.carlos_emr.carlos.commn.model.BillingOnTransaction;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingONConstants;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
 import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -121,9 +121,9 @@ public class BillingCorrectionRecordService {
     }
 
     // compare the obj first, push old record to repo if needed.
-    public boolean updateBillingClaimHeader(BillingClaimHeader1Data ch1Obj,
+    public boolean updateBillingClaimHeader(BillingClaimHeaderDto ch1Obj,
                                             HttpServletRequest requestData) throws ParseException {
-        BillingClaimHeader1Data ch1DataBackup = new BillingClaimHeader1Data();
+        BillingClaimHeaderDto ch1DataBackup = new BillingClaimHeaderDto();
         ch1DataBackup.clone(ch1Obj);
 
         boolean ret = true;
@@ -153,7 +153,7 @@ public class BillingCorrectionRecordService {
             ch1Obj.setComment(requestData.getParameter("comment"));
 
             // provider_ohip_no update as well
-            BillingProviderData otemp = lookupService
+            BillingProviderDto otemp = lookupService
                     .getProviderObj(requestData.getParameter("provider_no"));
             ch1Obj.setProvider_ohip_no(otemp.getOhipNo());
             ch1Obj.setProvider_rma_no(otemp.getRmaNo());
@@ -195,7 +195,7 @@ public class BillingCorrectionRecordService {
         }
 
         // 3rd party elements
-        if (payProgram.matches(BillingDataHlp.BILLINGMATCHSTRING_3RDPARTY)) {
+        if (payProgram.matches(BillingONConstants.BILLINGMATCHSTRING_3RDPARTY)) {
             if (requestData.getParameter("payment") != null) {
                 ret = update3rdPartyItem(BillingONExtDao.KEY_DISCOUNT, requestData);
                 ret = update3rdPartyItem(BillingONExtDao.KEY_TOTAL, requestData);
@@ -266,7 +266,7 @@ public class BillingCorrectionRecordService {
         boolean ret = true; // dbObj.updateBillingClaimHeader(ch1Obj);
         // _logger.info("updateBillingItem(old value = ");
 
-        BillingClaimHeader1Data ch1Obj = (BillingClaimHeader1Data) lItemObj.get(0);
+        BillingClaimHeaderDto ch1Obj = (BillingClaimHeaderDto) lItemObj.get(0);
         LoggedInInfo liUpdate = LoggedInInfo.getLoggedInInfoFromSession(request);
         String updateProviderNo = liUpdate != null ? liUpdate.getLoggedInProviderNo() : null;
         lItemObj.remove(0);
@@ -279,7 +279,7 @@ public class BillingCorrectionRecordService {
         dx = dx.length() > 2 ? dx.substring(0, 3) : dx;
         String serviceDate = request.getParameter("xml_appointment_date");
 
-        for (int i = 0; i < BillingDataHlp.FIELD_MAX_SERVICE_NUM; i++) {
+        for (int i = 0; i < BillingONConstants.FIELD_MAX_SERVICE_NUM; i++) {
             String code = request.getParameter("servicecode" + i);
             vecName.add(code);
             if (code == null || code.isEmpty()) {
@@ -301,7 +301,7 @@ public class BillingCorrectionRecordService {
         // update item first
         String claimId = "0";
         for (int i = 0; i < lItemObj.size(); i++) {
-            BillingItemData iObj = (BillingItemData) lItemObj.get(i);
+            BillingClaimItemDto iObj = (BillingClaimItemDto) lItemObj.get(i);
             BillingONItem billOnItem = changeItem(ch1Obj, iObj, updateProviderNo, dx, serviceDate,
                     vecName.get(i), vecUnit.get(i), vecFee.get(i), vecStatus.get(i));
             // claimId = iObj.getCh1_id();
@@ -346,7 +346,7 @@ public class BillingCorrectionRecordService {
 
         // update total field in billing_on_ext if pay_program is 3rd party
         if (ch1Obj.getPay_program().matches(
-                BillingDataHlp.BILLINGMATCHSTRING_3RDPARTY)) {
+                BillingONConstants.BILLINGMATCHSTRING_3RDPARTY)) {
             // BillingONExtDao billOnExtDao = SpringUtils.getBean(BillingONExtDao.class);
             if (null != billOnExtDao) {
                 int billingNo = Integer.parseInt(ch1Obj.getId());
@@ -392,7 +392,7 @@ public class BillingCorrectionRecordService {
         return recordObj;
     }
 
-    private boolean isChangedBillingClaimHeader(BillingClaimHeader1Data oldData, BillingClaimHeader1Data newData) {
+    private boolean isChangedBillingClaimHeader(BillingClaimHeaderDto oldData, BillingClaimHeaderDto newData) {
         boolean ret = false;
         if (oldData == null || newData == null) {
             return ret;
@@ -481,7 +481,7 @@ public class BillingCorrectionRecordService {
 
     // sql - set key=value, key1=value1, ...
     private boolean isChangedBillingClaimHeader(
-            BillingClaimHeader1Data existObj, HttpServletRequest request) {
+            BillingClaimHeaderDto existObj, HttpServletRequest request) {
         boolean ret = false;
         if (existObj == null)
             return ret;
@@ -569,8 +569,8 @@ public class BillingCorrectionRecordService {
         return ret;
     }
 
-    private BillingONItem changeItem(BillingClaimHeader1Data ch1Obj,
-                                     BillingItemData oldObj, String updateProviderNo, String sDx,
+    private BillingONItem changeItem(BillingClaimHeaderDto ch1Obj,
+                                     BillingClaimItemDto oldObj, String updateProviderNo, String sDx,
                                      String serviceDate, String serviceCode, String unit, String fee,
                                      String status) throws ParseException {
         boolean ret = true;
@@ -611,7 +611,7 @@ public class BillingCorrectionRecordService {
             // add one transaction: delete a service code
             BillingONCHeader1 billCheader1 = cheader1Dao.find(Integer.parseInt(oldObj.getCh1_id()));
             BillingOnTransaction billTrans = new BillingOnTransaction();
-            billTrans.setActionType(BillingDataHlp.ACTION_TYPE.D.name());
+            billTrans.setActionType(BillingONConstants.ACTION_TYPE.D.name());
             try {
                 billTrans.setAdmissionDate(billCheader1.getAdmissionDate());
             } catch (Exception e) {
@@ -648,7 +648,7 @@ public class BillingCorrectionRecordService {
                         status);
                 // add one transaction: add a service code
                 billTrans = new BillingOnTransaction();
-                billTrans.setActionType(BillingDataHlp.ACTION_TYPE.C.name());
+                billTrans.setActionType(BillingONConstants.ACTION_TYPE.C.name());
                 try {
                     billTrans.setAdmissionDate(billCheader1.getAdmissionDate());
                 } catch (Exception e) {
@@ -678,7 +678,7 @@ public class BillingCorrectionRecordService {
                 billTrans.setStatus(status);
                 billOnTransDao.persist(billTrans);
 
-                if (ch1Obj.getPay_program().matches(BillingDataHlp.BILLINGMATCHSTRING_3RDPARTY)) {
+                if (ch1Obj.getPay_program().matches(BillingONConstants.BILLINGMATCHSTRING_3RDPARTY)) {
                     // get which item_payments are associated to this service code
                     List<BillingOnItemPayment> billOnItemPaymentList = billOnItemPaymentDao
                             .getAllByItemId(Integer.parseInt(oldObj.getId()));
@@ -699,7 +699,7 @@ public class BillingCorrectionRecordService {
         return null;
     }
 
-    private BillingONItem addItem(BillingItemData oldObj, String updateProviderNo, String sDx,
+    private BillingONItem addItem(BillingClaimItemDto oldObj, String updateProviderNo, String sDx,
                                   String serviceDate, String serviceCode, String unit, String fee,
                                   String status) {
         BillingONItem billOnItem = new BillingONItem();
@@ -724,21 +724,21 @@ public class BillingCorrectionRecordService {
         return billOnItem;
     }
 
-    private boolean addItem(BillingClaimHeader1Data ch1Obj, List lItemObj,
+    private boolean addItem(BillingClaimHeaderDto ch1Obj, List lItemObj,
                             String updateProviderNo, String sDx, String serviceDate,
                             String sName, String sUnit, String sFee, String sStatus) throws ParseException {
         boolean ret = true;
-        BillingItemData oldObj = null;
-        BillingItemData newObj = null;
+        BillingClaimItemDto oldObj = null;
+        BillingClaimItemDto newObj = null;
         for (int i = 0; i < lItemObj.size(); i++) {
-            oldObj = (BillingItemData) lItemObj.get(i);
+            oldObj = (BillingClaimItemDto) lItemObj.get(i);
             if (sName.equals(oldObj.getService_code())) {
                 ret = false;
                 break;
             }
         }
         if (ret) {
-            newObj = new BillingItemData(oldObj);
+            newObj = new BillingClaimItemDto(oldObj);
             newObj.setService_code(sName);
             newObj.setSer_num(getUnit(sUnit));
             newObj.setFee(getFee(sFee, getUnit(sUnit), sName, serviceDate));

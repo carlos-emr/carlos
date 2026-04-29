@@ -27,9 +27,9 @@ import java.util.Collections;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingCodeSearchAjaxDataAssembler;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCodeSearchAjaxViewModel;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCodeSearchAjaxViewModel.Suggestion;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingCodeSearchAjaxViewModelAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCodeSearchAjaxViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCodeSearchAjaxViewModel.Suggestion;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -83,7 +83,7 @@ class ViewBillingCodeSearchAjax2ActionUnitTest extends CarlosUnitTestBase {
     private LoggedInInfo mockLoggedInInfo;
 
     @Mock
-    private BillingCodeSearchAjaxDataAssembler mockAssembler;
+    private BillingCodeSearchAjaxViewModelAssembler mockAssembler;
 
     private MockHttpServletRequest mockRequest;
     private MockHttpServletResponse mockResponse;

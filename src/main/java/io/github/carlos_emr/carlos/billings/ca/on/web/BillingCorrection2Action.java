@@ -30,7 +30,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONCorrectionDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONCorrectionViewModelAssembler;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionService;
 
 /**
@@ -61,10 +61,10 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionServi
  */
 public class BillingCorrection2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
-    private final BillingONCorrectionDataAssembler assembler;
+    private final BillingONCorrectionViewModelAssembler assembler;
 
     public BillingCorrection2Action(SecurityInfoManager securityInfoManager,
-                             BillingONCorrectionDataAssembler assembler) {
+                             BillingONCorrectionViewModelAssembler assembler) {
         this.securityInfoManager = securityInfoManager;
         this.assembler = assembler;
     }

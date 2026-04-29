@@ -35,7 +35,7 @@ import java.util.Set;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingRAData;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingRARecord;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.RaDetailDao;
 import io.github.carlos_emr.carlos.commn.dao.RaHeaderDao;
@@ -72,7 +72,7 @@ public class BillingONRemittanceAdviceService {
         this.cheader1Dao = cheader1Dao;
     }
 
-    public int addOneRADtRecord(BillingRAData val) {
+    public int addOneRADtRecord(BillingRARecord val) {
         RaDetail r = new RaDetail();
         r.setRaHeaderNo(Integer.parseInt(val.getRaheader_no()));
         r.setProviderOhipNo(val.getProviderohip_no());

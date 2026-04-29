@@ -28,7 +28,7 @@ import java.util.regex.Pattern;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.SearchRefDocViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.SearchRefDocViewModel;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;

@@ -23,13 +23,13 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingOHIPSimulationViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOHIPSimulationViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOHIPSimulationDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOHIPSimulationViewModelAssembler;
 
 /**
  * View gate for {@code billing/CA/ON/billingOHIPsimulation.jsp}. Enforces
@@ -38,16 +38,16 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOHIPSimulatio
  * {@code _team_access_privacy}) the legacy JSP did via
  * {@code <security:oscarSec>} scriptlets, and assembles a
  * {@link BillingOHIPSimulationViewModel} via
- * {@link BillingOHIPSimulationDataAssembler} so the JSP body becomes
+ * {@link BillingOHIPSimulationViewModelAssembler} so the JSP body becomes
  * pure presentation.
  *
  * @since 2026-04-13
  */
 public class ViewBillingOHIPsimulation2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
-    private final BillingOHIPSimulationDataAssembler billingOHIPSimulationAssembler;
+    private final BillingOHIPSimulationViewModelAssembler billingOHIPSimulationAssembler;
     public ViewBillingOHIPsimulation2Action(SecurityInfoManager securityInfoManager,
-                                             BillingOHIPSimulationDataAssembler billingOHIPSimulationAssembler) {
+                                             BillingOHIPSimulationViewModelAssembler billingOHIPSimulationAssembler) {
         this.securityInfoManager = securityInfoManager;
         this.billingOHIPSimulationAssembler = billingOHIPSimulationAssembler;
     }

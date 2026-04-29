@@ -24,13 +24,13 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.GenRASummaryViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.GenerateRASummaryViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.GenRASummaryDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.GenerateRASummaryViewModelAssembler;
 
 /**
  * Mutation gate for {@code billing/CA/ON/genRASummaryDetail.jsp}, the
@@ -46,10 +46,10 @@ public class ViewGenRASummaryDetail2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    private final GenRASummaryDataAssembler genRASummaryAssembler;
+    private final GenerateRASummaryViewModelAssembler genRASummaryAssembler;
 
     public ViewGenRASummaryDetail2Action(SecurityInfoManager securityInfoManager,
-                                          GenRASummaryDataAssembler genRASummaryAssembler) {
+                                          GenerateRASummaryViewModelAssembler genRASummaryAssembler) {
         this.securityInfoManager = securityInfoManager;
         this.genRASummaryAssembler = genRASummaryAssembler;
     }
@@ -68,7 +68,7 @@ public class ViewGenRASummaryDetail2Action extends ActionSupport {
             return NONE;
         }
 
-        GenRASummaryViewModel model = genRASummaryAssembler.assemble(request, loggedInInfo);
+        GenerateRASummaryViewModel model = genRASummaryAssembler.assemble(request, loggedInInfo);
         request.setAttribute("raSummaryModel", model);
 
         return SUCCESS;

@@ -24,13 +24,13 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingShortcutPg2ViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingShortcutPg2ViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingShortcutPg2DataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingShortcutPg2ViewModelAssembler;
 
 /**
  * Struts 2Action gate for the Ontario billing shortcut confirmation page (page 2).
@@ -38,7 +38,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingShortcutPg2Da
  * <p>Enforces {@code _billing w} authorization, routes "Back to Edit" requests
  * back to {@code billingShortcutPg1View}, and otherwise delegates the
  * read-DAO data prep + bill persistence + post-save navigation directive to
- * {@link BillingShortcutPg2DataAssembler}. The JSP renders the resulting
+ * {@link BillingShortcutPg2ViewModelAssembler}. The JSP renders the resulting
  * {@link BillingShortcutPg2ViewModel} as a pure presentation layer — the 6
  * inline {@code SpringUtils.getBean} lookups it used to perform
  * (BillingDao, BillingDetailDao, ProviderDao, DemographicDao,
@@ -50,10 +50,10 @@ public class BillingShortcutPg2Save2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    private final BillingShortcutPg2DataAssembler billingShortcutPg2Assembler;
+    private final BillingShortcutPg2ViewModelAssembler billingShortcutPg2Assembler;
 
     public BillingShortcutPg2Save2Action(SecurityInfoManager securityInfoManager,
-                                          BillingShortcutPg2DataAssembler billingShortcutPg2Assembler) {
+                                          BillingShortcutPg2ViewModelAssembler billingShortcutPg2Assembler) {
         this.securityInfoManager = securityInfoManager;
         this.billingShortcutPg2Assembler = billingShortcutPg2Assembler;
     }

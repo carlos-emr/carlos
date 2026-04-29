@@ -26,8 +26,8 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.billing.CA.dao.BillingInrDao;
 import io.github.carlos_emr.carlos.billing.CA.model.BillingInr;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimPersister;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -70,7 +70,7 @@ import static org.mockito.Mockito.when;
  * <p>Covers the gate contract (null-session, missing-privilege, 405 on
  * non-POST), the per-{@code inrbilling<id>}-param iteration, and
  * delegation to {@link BillingONClaimPersister} with a
- * correctly-shaped {@link BillingClaimHeader1Data}.</p>
+ * correctly-shaped {@link BillingClaimHeaderDto}.</p>
  *
  * @since 2026-04-26
  */
@@ -167,7 +167,7 @@ class ViewInrOnGenINRbilling2ActionUnitTest extends CarlosUnitTestBase {
         when(mockBillingInrDao.search_inrbilling_dt_billno(7))
                 .thenReturn(Collections.<Object[]>singletonList(new Object[]{inr, demo}));
         when(mockBillingInrDao.find(7)).thenReturn(inr);
-        when(mockPersistenceService.addOneClaimHeaderRecord(any(BillingClaimHeader1Data.class)))
+        when(mockPersistenceService.addOneClaimHeaderRecord(any(BillingClaimHeaderDto.class)))
                 .thenReturn(555);
 
         mockRequest.setParameter("inrbilling7", "on");
@@ -180,10 +180,10 @@ class ViewInrOnGenINRbilling2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
 
-        ArgumentCaptor<BillingClaimHeader1Data> headerCaptor =
-                ArgumentCaptor.forClass(BillingClaimHeader1Data.class);
+        ArgumentCaptor<BillingClaimHeaderDto> headerCaptor =
+                ArgumentCaptor.forClass(BillingClaimHeaderDto.class);
         verify(mockPersistenceService).addOneClaimHeaderRecord(headerCaptor.capture());
-        BillingClaimHeader1Data h = headerCaptor.getValue();
+        BillingClaimHeaderDto h = headerCaptor.getValue();
         assertThat(h.getDemographic_no()).isEqualTo("101");
         assertThat(h.getProviderNo()).isEqualTo("999998");
         assertThat(h.getProvider_ohip_no()).isEqualTo("OHIP1");
@@ -196,10 +196,10 @@ class ViewInrOnGenINRbilling2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(h.getFacilty_num()).isEqualTo("REF1");
 
         @SuppressWarnings({"unchecked", "rawtypes"})
-        ArgumentCaptor<List<BillingItemData>> itemsCaptor =
-                (ArgumentCaptor<List<BillingItemData>>) (ArgumentCaptor) ArgumentCaptor.forClass(List.class);
+        ArgumentCaptor<List<BillingClaimItemDto>> itemsCaptor =
+                (ArgumentCaptor<List<BillingClaimItemDto>>) (ArgumentCaptor) ArgumentCaptor.forClass(List.class);
         verify(mockPersistenceService).addItemRecord(itemsCaptor.capture(), eq(555));
-        List<BillingItemData> items = itemsCaptor.getValue();
+        List<BillingClaimItemDto> items = itemsCaptor.getValue();
         assertThat(items).hasSize(1);
         assertThat(items.get(0).getService_code()).isEqualTo("A007");
         assertThat(items.get(0).getDx()).isEqualTo("401");
@@ -217,7 +217,7 @@ class ViewInrOnGenINRbilling2ActionUnitTest extends CarlosUnitTestBase {
         when(mockBillingInrDao.search_inrbilling_dt_billno(7))
                 .thenReturn(Collections.<Object[]>singletonList(new Object[]{inr, demo}));
         when(mockBillingInrDao.find(7)).thenReturn(inr);
-        when(mockPersistenceService.addOneClaimHeaderRecord(any(BillingClaimHeader1Data.class)))
+        when(mockPersistenceService.addOneClaimHeaderRecord(any(BillingClaimHeaderDto.class)))
                 .thenReturn(555);
 
         mockRequest.setParameter("inrbilling7", "on");
@@ -225,8 +225,8 @@ class ViewInrOnGenINRbilling2ActionUnitTest extends CarlosUnitTestBase {
 
         newAction().execute();
 
-        ArgumentCaptor<BillingClaimHeader1Data> headerCaptor =
-                ArgumentCaptor.forClass(BillingClaimHeader1Data.class);
+        ArgumentCaptor<BillingClaimHeaderDto> headerCaptor =
+                ArgumentCaptor.forClass(BillingClaimHeaderDto.class);
         verify(mockPersistenceService).addOneClaimHeaderRecord(headerCaptor.capture());
         assertThat(headerCaptor.getValue().getPay_program()).isEqualTo("RMB");
     }
@@ -239,7 +239,7 @@ class ViewInrOnGenINRbilling2ActionUnitTest extends CarlosUnitTestBase {
         when(mockBillingInrDao.search_inrbilling_dt_billno(7))
                 .thenReturn(Collections.<Object[]>singletonList(new Object[]{inr, demo}));
         when(mockBillingInrDao.find(7)).thenReturn(inr);
-        when(mockPersistenceService.addOneClaimHeaderRecord(any(BillingClaimHeader1Data.class)))
+        when(mockPersistenceService.addOneClaimHeaderRecord(any(BillingClaimHeaderDto.class)))
                 .thenReturn(555);
 
         mockRequest.setParameter("inrbilling7", "on");

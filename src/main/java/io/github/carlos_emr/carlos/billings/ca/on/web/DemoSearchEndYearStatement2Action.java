@@ -25,7 +25,7 @@ import java.util.Date;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.PatientEndYearStatementBean;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.PatientEndYearStatementSummary;
 import io.github.carlos_emr.carlos.billings.ca.on.service.PatientEndYearStatementService;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -38,7 +38,7 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 /**
  * Demographic-only search invoked when the demographic-search popup
  * returns control to {@code endYearStatement/demosearch?demographic_no=...}.
- * Resolves the unique patient and exposes a partial {@link PatientEndYearStatementBean}
+ * Resolves the unique patient and exposes a partial {@link PatientEndYearStatementSummary}
  * with their identity fields populated (no billing aggregation) so the JSP
  * can show the patient banner above an empty invoice table.
  *
@@ -80,7 +80,7 @@ public class DemoSearchEndYearStatement2Action extends ActionSupport {
             return "failure";
         }
 
-        PatientEndYearStatementBean summary = new PatientEndYearStatementBean(
+        PatientEndYearStatementSummary summary = new PatientEndYearStatementSummary(
                 "", "", 0, "", "", "", new Date(), new Date(), "", "");
         summary.setPatientNo(demographic.getChartNo());
         summary.setPatientName(demographic.getFormattedName());

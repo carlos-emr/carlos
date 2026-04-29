@@ -21,7 +21,7 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONCorrectionViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingONCorrectionViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -51,7 +51,7 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONCorrectionDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONCorrectionViewModelAssembler;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionService;
 
 /**
@@ -82,7 +82,7 @@ class UpdateBillingONCorrection2ActionUnitTest extends CarlosUnitTestBase {
     private LoggedInInfo mockLoggedInInfo;
 
     @Mock
-    private BillingONCorrectionDataAssembler mockAssembler;
+    private BillingONCorrectionViewModelAssembler mockAssembler;
 
     @Mock
     private BillingCorrectionService mockService;

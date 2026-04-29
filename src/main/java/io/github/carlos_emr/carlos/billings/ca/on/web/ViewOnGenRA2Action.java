@@ -23,14 +23,14 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.OnGenRAViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.OntarioRAViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.OnGenRADataAssembler;
-import io.github.carlos_emr.carlos.billings.ca.on.service.OnGenRAImportService;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.OntarioRAViewModelAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.service.OntarioRAImportService;
 
 /**
  * View gate for {@code billing/CA/ON/onGenRA.jsp}. Enforces {@code _billing}
@@ -39,7 +39,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.OnGenRAImportService;
  * to gate direct-access paths behind Struts2 actions (same pattern as
  * PR #1632 for BC billing).
  *
- * <p>Also assembles the {@link OnGenRAViewModel} the JSP renders (RA-header
+ * <p>Also assembles the {@link OntarioRAViewModel} the JSP renders (RA-header
  * row list filtered by {@code _team_billing_only}, {@code _team_access_privacy},
  * or {@code _site_access_privacy} privacy flags). The view model is exposed
  * as request attribute {@code onGenRAModel}; the JSP body became 100% EL on
@@ -49,12 +49,12 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.OnGenRAImportService;
  */
 public class ViewOnGenRA2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
-    private final OnGenRADataAssembler assembler;
-    private final OnGenRAImportService importService;
+    private final OntarioRAViewModelAssembler assembler;
+    private final OntarioRAImportService importService;
 
     public ViewOnGenRA2Action(SecurityInfoManager securityInfoManager,
-                              OnGenRADataAssembler assembler,
-                              OnGenRAImportService importService) {
+                              OntarioRAViewModelAssembler assembler,
+                              OntarioRAImportService importService) {
         this.securityInfoManager = securityInfoManager;
         this.assembler = assembler;
         this.importService = importService;
@@ -76,7 +76,7 @@ public class ViewOnGenRA2Action extends ActionSupport {
         }
 
         importService.importDocumentBeanFile(request);
-        OnGenRAViewModel model = assembler.assemble(request, loggedInInfo);
+        OntarioRAViewModel model = assembler.assemble(request, loggedInInfo);
         request.setAttribute("onGenRAModel", model);
 
         return SUCCESS;

@@ -24,13 +24,13 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCalendarPopupViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCalendarPopupViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingCalendarPopupDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingCalendarPopupViewModelAssembler;
 
 /**
  * View gate for {@code billing/CA/ON/billingCalendarPopup.jsp}. This is a
@@ -73,7 +73,7 @@ public class ViewBillingCalendarPopup2Action extends ActionSupport {
 
         BillingCalendarPopupViewModel model;
         try {
-            model = new BillingCalendarPopupDataAssembler().assemble(
+            model = new BillingCalendarPopupViewModelAssembler().assemble(
                     request.getParameter("year"),
                     request.getParameter("month"),
                     request.getParameter("delta"),

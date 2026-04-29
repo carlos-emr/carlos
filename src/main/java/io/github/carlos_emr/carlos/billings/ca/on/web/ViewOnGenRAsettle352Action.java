@@ -24,12 +24,12 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.billings.ca.on.service.OntarioRASettlementService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.service.OnGenRAsettleService;
 
 /**
  * Mutation gate for {@code billing/CA/ON/onGenRAsettle35.jsp}, the I2/35
@@ -37,7 +37,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.OnGenRAsettleService;
  * all Q-codes; marks RA header status = "F").
  *
  * <p>Enforces {@code _billing w} privilege AND POST-only.
- * {@link OnGenRAsettleService#settle} runs the mutation; the JSP just
+ * {@link OntarioRASettlementService#settle} runs the mutation; the JSP just
  * emits the close-popup script.</p>
  *
  * @since 2026-04-13
@@ -45,12 +45,12 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.OnGenRAsettleService;
 public class ViewOnGenRAsettle352Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
-    private final OnGenRAsettleService onGenRAsettleService;
+    private final OntarioRASettlementService settlementService;
 
     public ViewOnGenRAsettle352Action(SecurityInfoManager securityInfoManager,
-                                      OnGenRAsettleService onGenRAsettleService) {
+                                      OntarioRASettlementService settlementService) {
         this.securityInfoManager = securityInfoManager;
-        this.onGenRAsettleService = onGenRAsettleService;
+        this.settlementService = settlementService;
     }
     @Override
     public String execute() throws Exception {
@@ -70,7 +70,7 @@ public class ViewOnGenRAsettle352Action extends ActionSupport {
             return NONE;
         }
 
-        onGenRAsettleService.settle(request.getParameter("rano"), OnGenRAsettleService.Mode.I2_35_WITH_QCODES);
+        settlementService.settle(request.getParameter("rano"), OntarioRASettlementService.Mode.I2_35_WITH_QCODES);
 
         return SUCCESS;
     }

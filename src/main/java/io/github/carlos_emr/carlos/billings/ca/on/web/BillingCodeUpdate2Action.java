@@ -24,13 +24,13 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCodeUpdateViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCodeUpdateViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingCodeUpdateDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingCodeUpdateViewModelAssembler;
 
 /**
  * Mutation gate for {@code billing/CA/ON/billingCodeUpdate.jsp}. Enforces
@@ -38,7 +38,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingCodeUpdateDat
  * persisted BillingService description edits during render).
  *
  * <p>Also assembles a {@link BillingCodeUpdateViewModel} via
- * {@link BillingCodeUpdateDataAssembler}, which both runs the persist
+ * {@link BillingCodeUpdateViewModelAssembler}, which both runs the persist
  * mutation when applicable and tells the JSP which client-side script
  * branch to emit.</p>
  *
@@ -48,10 +48,10 @@ public class BillingCodeUpdate2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    private final BillingCodeUpdateDataAssembler billingCodeUpdateAssembler;
+    private final BillingCodeUpdateViewModelAssembler billingCodeUpdateAssembler;
 
     public BillingCodeUpdate2Action(SecurityInfoManager securityInfoManager,
-                                     BillingCodeUpdateDataAssembler billingCodeUpdateAssembler) {
+                                     BillingCodeUpdateViewModelAssembler billingCodeUpdateAssembler) {
         this.securityInfoManager = securityInfoManager;
         this.billingCodeUpdateAssembler = billingCodeUpdateAssembler;
     }

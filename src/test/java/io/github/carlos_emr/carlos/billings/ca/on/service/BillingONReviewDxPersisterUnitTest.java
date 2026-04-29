@@ -55,7 +55,7 @@ import static org.mockito.Mockito.verify;
 /**
  * Unit tests for {@link BillingONReviewDxPersister}, the optional
  * {@code addToPatientDx} clinical write extracted out of
- * {@link BillingONReviewDataAssembler}.
+ * {@link BillingONReviewViewModelAssembler}.
  *
  * @since 2026-04-25
  */

@@ -5,7 +5,7 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCorrectionReviewViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCorrectionReviewViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionReviewPreparationService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;

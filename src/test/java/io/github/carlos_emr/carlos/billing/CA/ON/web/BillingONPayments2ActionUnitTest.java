@@ -3,8 +3,8 @@ package io.github.carlos_emr.carlos.billing.CA.ON.web;
 import java.math.BigDecimal;
 import java.util.List;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingON3rdPaymentsViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingONThirdPartyPaymentsViewModel;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONItemDao;
@@ -62,7 +62,7 @@ class BillingONPayments2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldNotDoublePrefixNegativeItemCurrencyValues() {
-        BillingItemData item = new BillingItemData();
+        BillingClaimItemDto item = new BillingClaimItemDto();
         item.setId("1");
         item.setService_code("A001A");
         item.setFee("10.00");
@@ -70,7 +70,7 @@ class BillingONPayments2ActionUnitTest extends CarlosUnitTestBase {
         item.setDiscount("0.00");
         item.setCredit("15.00");
 
-        BillingON3rdPaymentsViewModel model = new BillingONPayments2Action()
+        BillingONThirdPartyPaymentsViewModel model = new BillingONPayments2Action()
                 .buildPaymentsViewModel(123, List.of(item), List.of(),
                         new BigDecimal("10.00"), new BigDecimal("-5.00"), List.of());
 

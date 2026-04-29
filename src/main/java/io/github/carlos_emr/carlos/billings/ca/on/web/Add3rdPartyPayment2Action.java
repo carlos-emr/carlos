@@ -29,7 +29,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONCorrectionDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONCorrectionViewModelAssembler;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionService;
 
@@ -54,11 +54,11 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionServi
  */
 public class Add3rdPartyPayment2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
-    private final BillingONCorrectionDataAssembler assembler;
+    private final BillingONCorrectionViewModelAssembler assembler;
     private final BillingCorrectionService service;
 
     public Add3rdPartyPayment2Action(SecurityInfoManager securityInfoManager,
-                              BillingONCorrectionDataAssembler assembler,
+                              BillingONCorrectionViewModelAssembler assembler,
                               BillingCorrectionService service) {
         this.securityInfoManager = securityInfoManager;
         this.assembler = assembler;

@@ -23,8 +23,8 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingInrReportDataAssembler;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingInrReportViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingInrReportViewModelAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingInrReportViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -35,7 +35,7 @@ import org.apache.struts2.ServletActionContext;
  * View gate for {@code billing/CA/ON/inr/reportINR.jsp}, the INR Batch
  * Billing report. Enforces {@code _billing} {@code r} privilege and
  * assembles a {@link BillingInrReportViewModel} via
- * {@link BillingInrReportDataAssembler} so the JSP body is pure
+ * {@link BillingInrReportViewModelAssembler} so the JSP body is pure
  * presentation — replacing the legacy ~12 inline scriptlets and the dead
  * {@code ResultSet rsclinic} JDBC placeholder.
  *
@@ -45,10 +45,10 @@ public class ViewInrReportINR2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    private final BillingInrReportDataAssembler billingInrReportAssembler;
+    private final BillingInrReportViewModelAssembler billingInrReportAssembler;
 
     public ViewInrReportINR2Action(SecurityInfoManager securityInfoManager,
-                                    BillingInrReportDataAssembler billingInrReportAssembler) {
+                                    BillingInrReportViewModelAssembler billingInrReportAssembler) {
         this.securityInfoManager = securityInfoManager;
         this.billingInrReportAssembler = billingInrReportAssembler;
     }

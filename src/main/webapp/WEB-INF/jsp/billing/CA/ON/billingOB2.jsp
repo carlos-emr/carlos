@@ -29,19 +29,19 @@
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingOB2ViewModel" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOHIPBillingHistoryViewModel" %>
 <%
     // BillingOB2View2Action enforces _billing r and assembles the view model
     // with the 6 DAO lookups the JSP body used to perform. "OB" = OHIP
     // Billing, not obstetric.
-    BillingOB2ViewModel ob2Model = (BillingOB2ViewModel) request.getAttribute("ob2Model");
+    BillingOHIPBillingHistoryViewModel ob2Model = (BillingOHIPBillingHistoryViewModel) request.getAttribute("ob2Model");
     if (ob2Model == null) {
         // Defensive fallback: any caller that forwards directly here gets a
         // stub render. The canonical entrypoint is billing/CA/ON/ViewBillingOB2.
         io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
                 "billingOB2.jsp reached without ob2Model — caller should route "
               + "through billing/CA/ON/ViewBillingOB2.");
-        ob2Model = BillingOB2ViewModel.builder().build();
+        ob2Model = BillingOHIPBillingHistoryViewModel.builder().build();
     }
 %>
 

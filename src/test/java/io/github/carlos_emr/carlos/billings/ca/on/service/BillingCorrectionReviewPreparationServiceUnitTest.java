@@ -5,10 +5,10 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingCorrectionReviewDataAssembler;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCorrectionLineCommand;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCorrectionReviewViewModel;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCorrectionValidationCommand;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingCorrectionReviewViewModelAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionLineCommand;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCorrectionReviewViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionValidationCommand;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -30,7 +30,7 @@ class BillingCorrectionReviewPreparationServiceUnitTest extends CarlosUnitTestBa
     void shouldPrepareReviewModelWithPremiumCodesWithoutLegacySessionBeans() {
         ServiceCodeLoader serviceCodeLoader = Mockito.mock(ServiceCodeLoader.class);
         BillingCorrectionReviewPreparationService service =
-                new BillingCorrectionReviewPreparationService(serviceCodeLoader, new BillingCorrectionReviewDataAssembler());
+                new BillingCorrectionReviewPreparationService(serviceCodeLoader, new BillingCorrectionReviewViewModelAssembler());
 
         when(serviceCodeLoader.getBillingCodeAttr("A001A"))
                 .thenReturn(List.of("A001A", "Minor assessment", "10.00", "0.00"));

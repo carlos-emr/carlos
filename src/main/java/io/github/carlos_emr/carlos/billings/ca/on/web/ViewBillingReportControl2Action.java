@@ -23,15 +23,15 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReportControlViewModel;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReportFragmentViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingReportControlViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingReportFragmentViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingReportControlDataAssembler;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingReportFragmentDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingReportControlViewModelAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingReportFragmentViewModelAssembler;
 
 /**
  * View gate for {@code billing/CA/ON/billingReportControl.jsp}. Enforces {@code _report}
@@ -52,13 +52,13 @@ public class ViewBillingReportControl2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    private final BillingReportFragmentDataAssembler billingReportFragmentAssembler;
+    private final BillingReportFragmentViewModelAssembler billingReportFragmentAssembler;
 
-    private final BillingReportControlDataAssembler billingReportControlAssembler;
+    private final BillingReportControlViewModelAssembler billingReportControlAssembler;
 
     public ViewBillingReportControl2Action(SecurityInfoManager securityInfoManager,
-                                            BillingReportFragmentDataAssembler billingReportFragmentAssembler,
-                                            BillingReportControlDataAssembler billingReportControlAssembler) {
+                                            BillingReportFragmentViewModelAssembler billingReportFragmentAssembler,
+                                            BillingReportControlViewModelAssembler billingReportControlAssembler) {
         this.securityInfoManager = securityInfoManager;
         this.billingReportFragmentAssembler = billingReportFragmentAssembler;
         this.billingReportControlAssembler = billingReportControlAssembler;

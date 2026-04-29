@@ -24,13 +24,13 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONMRIViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingONMRIViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONMRIDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONMRIViewModelAssembler;
 
 /**
  * View gate for {@code billing/CA/ON/billingONMRI.jsp}, the "Generate OHIP
@@ -38,7 +38,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONMRIDataAsse
  * magnetic resonance imaging).
  *
  * <p>Enforces {@code _billing r} privilege, then assembles a
- * {@link BillingONMRIViewModel} via {@link BillingONMRIDataAssembler}
+ * {@link BillingONMRIViewModel} via {@link BillingONMRIViewModelAssembler}
  * so the JSP can read pre-resolved records instead of doing 4 inline
  * {@code SpringUtils.getBean} lookups.</p>
  *
@@ -46,9 +46,9 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONMRIDataAsse
  */
 public class ViewBillingONMRI2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
-    private final BillingONMRIDataAssembler billingONMRIAssembler;
+    private final BillingONMRIViewModelAssembler billingONMRIAssembler;
     public ViewBillingONMRI2Action(SecurityInfoManager securityInfoManager,
-                                    BillingONMRIDataAssembler billingONMRIAssembler) {
+                                    BillingONMRIViewModelAssembler billingONMRIAssembler) {
         this.securityInfoManager = securityInfoManager;
         this.billingONMRIAssembler = billingONMRIAssembler;
     }

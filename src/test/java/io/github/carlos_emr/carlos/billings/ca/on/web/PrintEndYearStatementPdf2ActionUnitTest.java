@@ -23,7 +23,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import java.util.Date;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.PatientEndYearStatementBean;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.PatientEndYearStatementSummary;
 import io.github.carlos_emr.carlos.billings.ca.on.service.PatientEndYearStatementService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -108,7 +108,7 @@ class PrintEndYearStatementPdf2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldStreamPdf_andReturnNull_whenSummaryIsOnSession() throws Exception {
-        PatientEndYearStatementBean summary = new PatientEndYearStatementBean(
+        PatientEndYearStatementSummary summary = new PatientEndYearStatementSummary(
                 "1", "Doe, Jane", 0, "9876543225", "1 Main", "555-555-5555",
                 new Date(), new Date(), "0.00", "0.00");
         mockRequest.getSession(true).setAttribute("summary", summary);
@@ -133,7 +133,7 @@ class PrintEndYearStatementPdf2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldReturnFailure_whenWritePdfThrows() throws Exception {
-        PatientEndYearStatementBean summary = new PatientEndYearStatementBean(
+        PatientEndYearStatementSummary summary = new PatientEndYearStatementSummary(
                 "1", "Doe, Jane", 0, "9876543225", "1 Main", "555-555-5555",
                 new Date(), new Date(), "0.00", "0.00");
         mockRequest.getSession(true).setAttribute("summary", summary);

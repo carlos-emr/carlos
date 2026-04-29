@@ -23,13 +23,13 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONDxDescViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingONDiagDescriptionViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingDxCodeDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingDiagCodeViewModelAssembler;
 
 /**
  * View gate for {@code billing/CA/ON/billingON_dx_desc.jsp}, the tiny
@@ -43,10 +43,10 @@ public class ViewBillingONDxDesc2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    private final BillingDxCodeDataAssembler billingDxCodeAssembler;
+    private final BillingDiagCodeViewModelAssembler billingDxCodeAssembler;
 
     public ViewBillingONDxDesc2Action(SecurityInfoManager securityInfoManager,
-                                       BillingDxCodeDataAssembler billingDxCodeAssembler) {
+                                       BillingDiagCodeViewModelAssembler billingDxCodeAssembler) {
         this.securityInfoManager = securityInfoManager;
         this.billingDxCodeAssembler = billingDxCodeAssembler;
     }
@@ -59,7 +59,7 @@ public class ViewBillingONDxDesc2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        BillingONDxDescViewModel model = billingDxCodeAssembler
+        BillingONDiagDescriptionViewModel model = billingDxCodeAssembler
                 .assembleDescription(request.getParameter("diagnostic_code"));
         request.setAttribute("dxDescModel", model);
 

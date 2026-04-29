@@ -23,18 +23,18 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONHistorySpecViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingONHistorySpecViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONHistorySpecDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONHistorySpecViewModelAssembler;
 
 /**
  * View gate for {@code billing/CA/ON/billingONHistorySpec.jsp}. Enforces {@code _billing}
  * {@code r} privilege and assembles a {@link BillingONHistorySpecViewModel}
- * via {@link BillingONHistorySpecDataAssembler} so the JSP can render the
+ * via {@link BillingONHistorySpecViewModelAssembler} so the JSP can render the
  * pre-resolved billing history rows instead of doing date-range math and
  * JDBC lookups inline.
  *
@@ -44,10 +44,10 @@ public class ViewBillingONHistorySpec2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    private final BillingONHistorySpecDataAssembler billingONHistorySpecAssembler;
+    private final BillingONHistorySpecViewModelAssembler billingONHistorySpecAssembler;
 
     public ViewBillingONHistorySpec2Action(SecurityInfoManager securityInfoManager,
-                                            BillingONHistorySpecDataAssembler billingONHistorySpecAssembler) {
+                                            BillingONHistorySpecViewModelAssembler billingONHistorySpecAssembler) {
         this.securityInfoManager = securityInfoManager;
         this.billingONHistorySpecAssembler = billingONHistorySpecAssembler;
     }

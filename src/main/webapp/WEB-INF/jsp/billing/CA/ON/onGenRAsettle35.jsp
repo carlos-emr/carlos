@@ -25,10 +25,9 @@
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.
 --%>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.service.OnGenRAsettleService" %>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%-- ViewOnGenRAsettle352Action enforces _billing w + POST and runs the
-     I2/35 settle mutation (with Q-code allow-list) via OnGenRAsettleService
+     I2/35 settle mutation (with Q-code allow-list) via OntarioRASettlementService
      — the 3 inline DAO lookups (RaHeaderDao, BillingDao, RaDetailDao)
      the JSP body used to perform are now in the assembler. --%>
 <script LANGUAGE="JavaScript">

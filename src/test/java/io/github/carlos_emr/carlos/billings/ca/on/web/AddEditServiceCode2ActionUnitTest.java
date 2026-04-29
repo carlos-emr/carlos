@@ -93,7 +93,7 @@ class AddEditServiceCode2ActionUnitTest extends CarlosUnitTestBase {
         mockRequest.setMethod("GET");
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
-        // AddEditServiceCodeDataAssembler's no-arg ctor resolves three DAOs
+        // AddEditServiceCodeViewModelAssembler's no-arg ctor resolves three DAOs
         // via SpringUtils.getBean — empty mocks suffice for gate testing.
         registerMock(BillingServiceDao.class, org.mockito.Mockito.mock(BillingServiceDao.class));
         registerMock(BillingPercLimitDao.class, org.mockito.Mockito.mock(BillingPercLimitDao.class));
@@ -120,7 +120,7 @@ class AddEditServiceCode2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldReturnSuccess_whenAuthorizedGetWithoutMutationIntent() throws Exception {
-        AddEditServiceCode2Action action = new AddEditServiceCode2Action(mockSecurityInfoManager, org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.assembler.AddEditServiceCodeDataAssembler.class));
+        AddEditServiceCode2Action action = new AddEditServiceCode2Action(mockSecurityInfoManager, org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.assembler.AddEditServiceCodeViewModelAssembler.class));
         assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
     }
 
@@ -129,7 +129,7 @@ class AddEditServiceCode2ActionUnitTest extends CarlosUnitTestBase {
         mockRequest.setMethod("POST");
         mockRequest.setParameter("action", "delete");
 
-        AddEditServiceCode2Action action = new AddEditServiceCode2Action(mockSecurityInfoManager, org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.assembler.AddEditServiceCodeDataAssembler.class));
+        AddEditServiceCode2Action action = new AddEditServiceCode2Action(mockSecurityInfoManager, org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.assembler.AddEditServiceCodeViewModelAssembler.class));
         assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
     }
 
@@ -140,7 +140,7 @@ class AddEditServiceCode2ActionUnitTest extends CarlosUnitTestBase {
         // action lacked it before round-11.
         mockRequest.setParameter("action", "delete");
 
-        AddEditServiceCode2Action action = new AddEditServiceCode2Action(mockSecurityInfoManager, org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.assembler.AddEditServiceCodeDataAssembler.class));
+        AddEditServiceCode2Action action = new AddEditServiceCode2Action(mockSecurityInfoManager, org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.assembler.AddEditServiceCodeViewModelAssembler.class));
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
@@ -154,7 +154,7 @@ class AddEditServiceCode2ActionUnitTest extends CarlosUnitTestBase {
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(null);
 
-        AddEditServiceCode2Action action = new AddEditServiceCode2Action(mockSecurityInfoManager, org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.assembler.AddEditServiceCodeDataAssembler.class));
+        AddEditServiceCode2Action action = new AddEditServiceCode2Action(mockSecurityInfoManager, org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.assembler.AddEditServiceCodeViewModelAssembler.class));
         assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("missing session");
@@ -165,7 +165,7 @@ class AddEditServiceCode2ActionUnitTest extends CarlosUnitTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.billing"), eq("w"), isNull()))
                 .thenReturn(false);
 
-        AddEditServiceCode2Action action = new AddEditServiceCode2Action(mockSecurityInfoManager, org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.assembler.AddEditServiceCodeDataAssembler.class));
+        AddEditServiceCode2Action action = new AddEditServiceCode2Action(mockSecurityInfoManager, org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.assembler.AddEditServiceCodeViewModelAssembler.class));
         assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_admin.billing");

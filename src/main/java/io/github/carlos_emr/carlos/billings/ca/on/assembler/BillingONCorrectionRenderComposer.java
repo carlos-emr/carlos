@@ -31,8 +31,8 @@ import java.util.Properties;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingMultisiteContext;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONCorrectionViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingMultisiteContext;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingONCorrectionViewModel;
 import io.github.carlos_emr.carlos.commn.dao.BillingONEAReportDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONErrorCodeDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
@@ -80,7 +80,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.Billing3rdPartyRecordS
  * </ul>
  *
  * <p>Composer is instantiated by
- * {@link BillingONCorrectionDataAssembler}; nothing returned — mutates the
+ * {@link BillingONCorrectionViewModelAssembler}; nothing returned — mutates the
  * supplied builder. Mirrors the structure already in place for
  * {@link BillingONFormSiteContextComposer} on the main billing form.</p>
  *
@@ -142,7 +142,7 @@ public class BillingONCorrectionRenderComposer {
     /**
      * Populate the render-context fields on the builder.
      *
-     * @param b builder being assembled by {@link BillingONCorrectionDataAssembler#assemble}
+     * @param b builder being assembled by {@link BillingONCorrectionViewModelAssembler#assemble}
      * @param request the in-flight request — needed only for {@code request.getLocale()}
      * @param loggedInInfo session principal — needed for the Save-button privilege gate
      * @param bCh1 already-loaded bill record (or {@code null} when no bill is requested)

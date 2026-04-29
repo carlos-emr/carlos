@@ -425,7 +425,7 @@
                          block (3 inline DAO calls, A003A guard + service-code
                          validity + dx-code validity) has been moved to
                          BillingONReviewValidator (run pre-render by
-                         BillingONReviewDataAssembler). The JSP just iterates
+                         BillingONReviewViewModelAssembler). The JSP just iterates
                          the resulting messages. --%>
                     <c:forEach var="vm" items="${reviewModel.validationMessages}">
                         <c:choose>

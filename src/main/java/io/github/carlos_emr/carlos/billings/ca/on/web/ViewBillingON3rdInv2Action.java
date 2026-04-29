@@ -23,18 +23,18 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingON3rdInvViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingONThirdPartyInvoiceViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingON3rdInvDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONThirdPartyInvoiceViewModelAssembler;
 
 /**
  * View gate for {@code billing/CA/ON/billingON3rdInv.jsp}, the third-party
  * invoice print/preview. Enforces {@code _billing r} privilege and assembles
- * a {@link BillingON3rdInvViewModel} via {@link BillingON3rdInvDataAssembler}
+ * a {@link BillingONThirdPartyInvoiceViewModel} via {@link BillingONThirdPartyInvoiceViewModelAssembler}
  * so the JSP can read pre-resolved records instead of doing 9 inline
  * {@code SpringUtils.getBean} lookups.
  *
@@ -44,10 +44,10 @@ public class ViewBillingON3rdInv2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    private final BillingON3rdInvDataAssembler billingON3rdInvAssembler;
+    private final BillingONThirdPartyInvoiceViewModelAssembler billingON3rdInvAssembler;
 
     public ViewBillingON3rdInv2Action(SecurityInfoManager securityInfoManager,
-                                       BillingON3rdInvDataAssembler billingON3rdInvAssembler) {
+                                       BillingONThirdPartyInvoiceViewModelAssembler billingON3rdInvAssembler) {
         this.securityInfoManager = securityInfoManager;
         this.billingON3rdInvAssembler = billingON3rdInvAssembler;
     }
@@ -60,7 +60,7 @@ public class ViewBillingON3rdInv2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        BillingON3rdInvViewModel model = billingON3rdInvAssembler.assemble(request, loggedInInfo);
+        BillingONThirdPartyInvoiceViewModel model = billingON3rdInvAssembler.assemble(request, loggedInInfo);
         request.setAttribute("invoiceModel", model);
 
         return SUCCESS;

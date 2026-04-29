@@ -26,7 +26,7 @@ import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReportCenterViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingReportCenterViewModel;
 import io.github.carlos_emr.carlos.commn.dao.ReportProviderDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;

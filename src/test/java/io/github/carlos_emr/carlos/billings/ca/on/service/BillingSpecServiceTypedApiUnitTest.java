@@ -5,8 +5,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingSpecClaim;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingSpecClaimRequest;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingSpecClaim;
+import io.github.carlos_emr.carlos.billings.ca.on.command.BillingSpecClaimCommand;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -33,7 +33,7 @@ class BillingSpecServiceTypedApiUnitTest extends CarlosUnitTestBase {
         when(serviceCodeLoader.getBillingCodeAttr("A001A"))
                 .thenReturn(List.of("A001A", "Minor assessment", "10.00", "0.00"));
 
-        BillingSpecClaimRequest request = new BillingSpecClaimRequest(
+        BillingSpecClaimCommand request = new BillingSpecClaimCommand(
                 "1234567890AB",
                 "1980-01-01",
                 "ON",

@@ -21,7 +21,7 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.PatientEndYearStatementBean;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.PatientEndYearStatementSummary;
 import io.github.carlos_emr.carlos.billings.ca.on.service.PatientEndYearStatementService;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -128,8 +128,8 @@ class DemoSearchEndYearStatement2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
 
         Object summary = mockRequest.getAttribute("summary");
-        assertThat(summary).isInstanceOf(PatientEndYearStatementBean.class);
-        PatientEndYearStatementBean bean = (PatientEndYearStatementBean) summary;
+        assertThat(summary).isInstanceOf(PatientEndYearStatementSummary.class);
+        PatientEndYearStatementSummary bean = (PatientEndYearStatementSummary) summary;
         assertThat(bean.getPatientNo()).isEqualTo("CHART1");
         assertThat(bean.getHin()).isEqualTo("9876543225");
     }

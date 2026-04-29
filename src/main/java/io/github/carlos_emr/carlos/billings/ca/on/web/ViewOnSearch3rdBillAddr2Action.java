@@ -31,7 +31,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.text.WordUtils;
 
 import io.github.carlos_emr.carlos.billing.CA.ON.model.Billing3rdPartyAddress;
-import io.github.carlos_emr.carlos.billings.ca.on.data.OnSearch3rdBillAddrViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.OnSearch3rdBillAddrViewModel;
 import io.github.carlos_emr.carlos.commn.dao.Billing3rdPartyAddressDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;

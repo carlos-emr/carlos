@@ -34,7 +34,7 @@ import java.util.Date;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.BillingONEAReport;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
 
 public interface BillingONEAReportDao extends AbstractDao<BillingONEAReport> {
     List<BillingONEAReport> findByProviderOhipNoAndGroupNoAndSpecialtyAndProcessDate(String providerOhipNo, String groupNo, String specialty, Date processDate);
@@ -47,5 +47,5 @@ public interface BillingONEAReportDao extends AbstractDao<BillingONEAReport> {
 
     List<BillingONEAReport> findByMagic(String ohipNo, String billingGroupNo, String specialtyCode, Date fromDate, Date toDate, String reportName);
 
-    List<BillingONEAReport> findByMagic(List<BillingProviderData> list, Date fromDate, Date toDate, String reportName);
+    List<BillingONEAReport> findByMagic(List<BillingProviderDto> list, Date fromDate, Date toDate, String reportName);
 }

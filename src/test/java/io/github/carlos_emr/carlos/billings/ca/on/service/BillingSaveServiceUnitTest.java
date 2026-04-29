@@ -24,8 +24,8 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 import java.util.ArrayList;
 import java.util.List;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
@@ -69,8 +69,8 @@ class BillingSaveServiceUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldReturnGeneratedBillingIdFromAddABillingRecord() {
-        BillingClaimHeader1Data header = new BillingClaimHeader1Data();
-        List<BillingItemData> items = List.of(new BillingItemData());
+        BillingClaimHeaderDto header = new BillingClaimHeaderDto();
+        List<BillingClaimItemDto> items = List.of(new BillingClaimItemDto());
         ArrayList<Object> claim = new ArrayList<>();
         claim.add(header);
         claim.add(items);
@@ -87,8 +87,8 @@ class BillingSaveServiceUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldReturnZeroBillingIdAndSkipItems_whenHeaderPersistFails() {
-        BillingClaimHeader1Data header = new BillingClaimHeader1Data();
-        List<BillingItemData> items = List.of(new BillingItemData());
+        BillingClaimHeaderDto header = new BillingClaimHeaderDto();
+        List<BillingClaimItemDto> items = List.of(new BillingClaimItemDto());
         ArrayList<Object> claim = new ArrayList<>();
         claim.add(header);
         claim.add(items);
@@ -150,7 +150,7 @@ class BillingSaveServiceUnitTest extends CarlosUnitTestBase {
 
         ArrayList claim = service.getBillingClaimHospObj(request, "2026-04-28", "1.01",
                 serviceCodes, units, prices);
-        List<BillingItemData> items = (List<BillingItemData>) claim.get(1);
+        List<BillingClaimItemDto> items = (List<BillingClaimItemDto>) claim.get(1);
 
         assertThat(items).singleElement()
                 .satisfies(item -> assertThat(item.getFee()).isEqualTo("1.01"));

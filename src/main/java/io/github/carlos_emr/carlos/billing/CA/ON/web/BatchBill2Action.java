@@ -36,7 +36,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.commons.lang3.time.DateUtils;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BatchBillingViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BatchBillingViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONHeaderCreationService;
 import io.github.carlos_emr.carlos.commn.dao.BatchBillingDAO;
 import io.github.carlos_emr.carlos.commn.model.BatchBilling;
@@ -140,7 +140,7 @@ public class BatchBill2Action extends ActionSupport {
         // via EL/JSTL. The JSP scriptlet body previously called four
         // SpringUtils.getBean lookups inline plus per-row provider /
         // demographic resolution; that all moves into the assembler.
-        BatchBillingViewModel batchModel = new BatchBillingDataAssembler().assemble(request);
+        BatchBillingViewModel batchModel = new BatchBillingViewModelAssembler().assemble(request);
         request.setAttribute("batchModel", batchModel);
 
         // Returning null leaves Struts with no result to render -> empty body.

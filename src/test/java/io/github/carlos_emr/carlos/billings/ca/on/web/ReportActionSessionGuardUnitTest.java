@@ -5,10 +5,10 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingReportControlDataAssembler;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingReportFragmentDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingReportControlViewModelAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingReportFragmentViewModelAssembler;
 import io.github.carlos_emr.carlos.billings.ca.on.service.OnBillingDiskService;
-import io.github.carlos_emr.carlos.billings.ca.on.service.OnGenRAsettleService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.OntarioRASettlementService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.OhipReportGenerationService;
 import io.github.carlos_emr.carlos.commn.dao.ReportProviderDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -104,11 +104,11 @@ class ReportActionSessionGuardUnitTest extends CarlosUnitTestBase {
                 Arguments.of("ViewOnGenRAsettle2Action",
                         (Callable<String>) () -> new ViewOnGenRAsettle2Action(
                                 securityInfoManager,
-                                mock(OnGenRAsettleService.class)).execute()),
+                                mock(OntarioRASettlementService.class)).execute()),
                 Arguments.of("ViewOnGenRAsettle352Action",
                         (Callable<String>) () -> new ViewOnGenRAsettle352Action(
                                 securityInfoManager,
-                                mock(OnGenRAsettleService.class)).execute()),
+                                mock(OntarioRASettlementService.class)).execute()),
                 Arguments.of("ViewBillingReportCenter2Action",
                         (Callable<String>) () -> new ViewBillingReportCenter2Action(
                                 securityInfoManager,
@@ -116,8 +116,8 @@ class ReportActionSessionGuardUnitTest extends CarlosUnitTestBase {
                 Arguments.of("ViewBillingReportControl2Action",
                         (Callable<String>) () -> new ViewBillingReportControl2Action(
                                 securityInfoManager,
-                                mock(BillingReportFragmentDataAssembler.class),
-                                mock(BillingReportControlDataAssembler.class)).execute()));
+                                mock(BillingReportFragmentViewModelAssembler.class),
+                                mock(BillingReportControlViewModelAssembler.class)).execute()));
     }
 
     @ParameterizedTest(name = "{0} rejects missing session before privilege check")

@@ -23,19 +23,19 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONEditPrivateCodeViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingONEditPrivateCodeViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONEditPrivateCodeDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONEditPrivateCodeViewModelAssembler;
 
 /**
  * View gate for {@code billing/CA/ON/billingONEditPrivateCode.jsp}. Enforces
  * {@code _admin.billing w} privilege and assembles a
  * {@link BillingONEditPrivateCodeViewModel} via
- * {@link BillingONEditPrivateCodeDataAssembler} so the JSP body is pure
+ * {@link BillingONEditPrivateCodeViewModelAssembler} so the JSP body is pure
  * presentation.
  *
  * @since 2026-04-13
@@ -44,10 +44,10 @@ public class ViewBillingONEditPrivateCode2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    private final BillingONEditPrivateCodeDataAssembler billingONEditPrivateCodeAssembler;
+    private final BillingONEditPrivateCodeViewModelAssembler billingONEditPrivateCodeAssembler;
 
     public ViewBillingONEditPrivateCode2Action(SecurityInfoManager securityInfoManager,
-                                                BillingONEditPrivateCodeDataAssembler billingONEditPrivateCodeAssembler) {
+                                                BillingONEditPrivateCodeViewModelAssembler billingONEditPrivateCodeAssembler) {
         this.securityInfoManager = securityInfoManager;
         this.billingONEditPrivateCodeAssembler = billingONEditPrivateCodeAssembler;
     }

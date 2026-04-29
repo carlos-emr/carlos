@@ -20,7 +20,7 @@
  * https://github.com/carlos-emr/carlos
  */
 /**
- * Assembler tier for the Ontario billing module.
+ * View-model assembler tier for the Ontario billing module.
  *
  * <p>This package builds {@code *ViewModel} instances from request parameters
  * and DAO lookups. The web tier ({@code billings.ca.on.web}) calls into
@@ -29,29 +29,22 @@
  *
  * <h2>Naming contract</h2>
  *
- * Three suffixes are reserved with strict semantics. Pick the one that
+ * Three suffix families are reserved with strict semantics. Pick the one that
  * matches the component's role:
  *
  * <dl>
- *   <dt>{@code *Assembler} (public final)</dt>
+ *   <dt>{@code *ViewModelAssembler}</dt>
  *   <dd>Top-level orchestrator. Builds <em>one</em> {@code *ViewModel} from
  *       primitive inputs (request, model, DAOs). Pure read; no side effects.
- *       Constructed by web-tier actions; {@code public} surface = no-arg
- *       production ctor + {@code assemble(...)} method. Mocking ctor is
- *       package-private.</dd>
+ *       Constructed by web-tier actions; public surface is constructor
+ *       injection plus an {@code assemble(...)} method.</dd>
  *
- *   <dt>{@code *Composer} / {@code *Loader} (package-private final)</dt>
+ *   <dt>{@code *Composer} / {@code *Loader} / {@code *Resolver}</dt>
  *   <dd><em>Reusable</em> inner step shared by ≥2 assemblers. Mutates a
  *       supplied {@code Builder} or returns a partial result. Owned by the
  *       assemblers that consume it; never instantiated from {@code web/}.
  *       Example: {@link BillingONFormSiteContextComposer} — used by both
- *       {@link BillingONFormDataAssembler} and the legacy correction flow.</dd>
- *
- *   <dt>{@code *Step} (package-private final)</dt>
- *   <dd>Inner step of <em>one</em> assembler that's been extracted to its
- *       own file purely for size/readability — not for reuse. The suffix
- *       signals "implementation detail of one assembler" so future readers
- *       don't mistake it for a sharing seam.</dd>
+ *       {@link BillingONFormViewModelAssembler} and the legacy correction flow.</dd>
  * </dl>
  *
  * <p>For side effects (DAO writes, file I/O, audit, mutation), see the
@@ -61,9 +54,6 @@
  * <h2>Anti-pattern guard rails</h2>
  *
  * <ul>
- *   <li>Don't extract a {@code *Step} unless its parent assembler is
- *       genuinely too long without it. The empty default is "inline as a
- *       private method on the assembler".</li>
  *   <li>Don't extract a {@code *Composer}/{@code *Loader} for a single
  *       caller. Wait until a second assembler actually needs the same step.
  *       Premature reuse abstractions hide intent.</li>

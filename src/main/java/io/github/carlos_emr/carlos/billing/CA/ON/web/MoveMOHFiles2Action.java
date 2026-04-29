@@ -44,7 +44,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billing.CA.ON.util.EDTFolder;
-import io.github.carlos_emr.carlos.billings.ca.on.data.ViewMOHFilesViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.ViewMOHFilesViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.FileSortByDate;
 import io.github.carlos_emr.carlos.util.zip;

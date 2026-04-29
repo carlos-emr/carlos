@@ -42,8 +42,8 @@ import io.github.carlos_emr.carlos.commn.model.BillingOnTransaction;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingONConstants;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 
 @Repository
@@ -60,7 +60,7 @@ public class BillingOnTransactionDaoImpl extends AbstractDaoImpl<BillingOnTransa
         String staus = "P";
         SimpleDateFormat admissionDateFormat = new SimpleDateFormat("yyyy-MM-dd");
         BillingOnTransaction billTrans = new BillingOnTransaction();
-        billTrans.setActionType(BillingDataHlp.ACTION_TYPE.C.name());
+        billTrans.setActionType(BillingONConstants.ACTION_TYPE.C.name());
         try {
             billTrans.setAdmissionDate(admissionDateFormat.parse(String.valueOf(cheader1.getAdmissionDate())));
         } catch (Exception e) {
@@ -97,11 +97,11 @@ public class BillingOnTransactionDaoImpl extends AbstractDaoImpl<BillingOnTransa
         return billTrans;
     }
 
-    public BillingOnTransaction getUpdateCheader1TransTemplate(BillingClaimHeader1Data cheader1, String curProviderNo) {
+    public BillingOnTransaction getUpdateCheader1TransTemplate(BillingClaimHeaderDto cheader1, String curProviderNo) {
         Date curDate = new Date();
         SimpleDateFormat admissionDateFormat = new SimpleDateFormat("yyyy-MM-dd");
         BillingOnTransaction billTrans = new BillingOnTransaction();
-        billTrans.setActionType(BillingDataHlp.ACTION_TYPE.UH.name());
+        billTrans.setActionType(BillingONConstants.ACTION_TYPE.UH.name());
         try {
             billTrans.setAdmissionDate(admissionDateFormat.parse(cheader1.getAdmission_date()));
         } catch (Exception e) {

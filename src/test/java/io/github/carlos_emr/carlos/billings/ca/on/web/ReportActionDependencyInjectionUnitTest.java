@@ -6,7 +6,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import io.github.carlos_emr.carlos.billings.ca.on.service.OnBillingDiskService;
-import io.github.carlos_emr.carlos.billings.ca.on.service.OnGenRAsettleService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.OntarioRASettlementService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.OhipReportGenerationService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -126,12 +126,12 @@ class ReportActionDependencyInjectionUnitTest {
         request.setParameter("rano", "123");
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(true);
-        OnGenRAsettleService service = mock(OnGenRAsettleService.class);
+        OntarioRASettlementService service = mock(OntarioRASettlementService.class);
 
         assertThat(new ViewOnGenRAsettle2Action(securityInfoManager, service).execute())
                 .isEqualTo(ActionSupport.SUCCESS);
 
-        verify(service).settle("123", OnGenRAsettleService.Mode.STANDARD);
+        verify(service).settle("123", OntarioRASettlementService.Mode.STANDARD);
     }
 
     @Test
@@ -139,11 +139,11 @@ class ReportActionDependencyInjectionUnitTest {
         request.setParameter("rano", "123");
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(true);
-        OnGenRAsettleService service = mock(OnGenRAsettleService.class);
+        OntarioRASettlementService service = mock(OntarioRASettlementService.class);
 
         assertThat(new ViewOnGenRAsettle352Action(securityInfoManager, service).execute())
                 .isEqualTo(ActionSupport.SUCCESS);
 
-        verify(service).settle("123", OnGenRAsettleService.Mode.I2_35_WITH_QCODES);
+        verify(service).settle("123", OntarioRASettlementService.Mode.I2_35_WITH_QCODES);
     }
 }

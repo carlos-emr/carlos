@@ -23,20 +23,20 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCodeSearchViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCodeSearchViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingCodeSearchDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingCodeSearchViewModelAssembler;
 
 /**
  * View gate for {@code billing/CA/ON/billingResearchCodeSearch.jsp}, the
  * ICHPPC research-code search popup.
  *
  * <p>Enforces {@code _billing r}, then assembles a
- * {@link BillingCodeSearchViewModel} via {@link BillingCodeSearchDataAssembler}'s
+ * {@link BillingCodeSearchViewModel} via {@link BillingCodeSearchViewModelAssembler}'s
  * research-code mode so the JSP reads pre-resolved code rows + auto-select
  * state instead of doing the inline {@code SpringUtils.getBean(IchppccodeDao)}
  * lookup.</p>
@@ -47,10 +47,10 @@ public class ViewBillingResearchCodeSearch2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    private final BillingCodeSearchDataAssembler billingCodeSearchAssembler;
+    private final BillingCodeSearchViewModelAssembler billingCodeSearchAssembler;
 
     public ViewBillingResearchCodeSearch2Action(SecurityInfoManager securityInfoManager,
-                                                 BillingCodeSearchDataAssembler billingCodeSearchAssembler) {
+                                                 BillingCodeSearchViewModelAssembler billingCodeSearchAssembler) {
         this.securityInfoManager = securityInfoManager;
         this.billingCodeSearchAssembler = billingCodeSearchAssembler;
     }

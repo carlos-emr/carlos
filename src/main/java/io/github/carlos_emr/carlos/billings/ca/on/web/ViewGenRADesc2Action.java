@@ -24,13 +24,13 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.GenRADescViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.GenerateRADescriptionViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.GenRADescDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.GenerateRADescriptionViewModelAssembler;
 
 /**
  * Mutation gate for {@code billing/CA/ON/genRADesc.jsp}, the OHIP RA
@@ -39,7 +39,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.GenRADescDataAssembl
  * <p>Enforces {@code _billing w} privilege AND POST-only (the JSP-era
  * scriptlet performed RA-header merge + premium parsing during render —
  * still mutation-on-render, just hoisted into
- * {@link GenRADescDataAssembler}).</p>
+ * {@link GenerateRADescriptionViewModelAssembler}).</p>
  *
  * <p>The assembler call replaces the 3 inline {@code SpringUtils.getBean}
  * lookups (RaHeaderDao, BillingONPremiumDao, ProviderDao) the JSP used to
@@ -51,10 +51,10 @@ public class ViewGenRADesc2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    private final GenRADescDataAssembler genRADescAssembler;
+    private final GenerateRADescriptionViewModelAssembler genRADescAssembler;
 
     public ViewGenRADesc2Action(SecurityInfoManager securityInfoManager,
-                                 GenRADescDataAssembler genRADescAssembler) {
+                                 GenerateRADescriptionViewModelAssembler genRADescAssembler) {
         this.securityInfoManager = securityInfoManager;
         this.genRADescAssembler = genRADescAssembler;
     }
@@ -73,7 +73,7 @@ public class ViewGenRADesc2Action extends ActionSupport {
             return NONE;
         }
 
-        GenRADescViewModel model = genRADescAssembler.assemble(request, loggedInInfo);
+        GenerateRADescriptionViewModel model = genRADescAssembler.assemble(request, loggedInInfo);
         request.setAttribute("raDescModel", model);
 
         return SUCCESS;

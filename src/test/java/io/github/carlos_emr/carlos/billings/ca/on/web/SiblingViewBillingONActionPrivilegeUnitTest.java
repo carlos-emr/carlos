@@ -137,23 +137,23 @@ class SiblingViewBillingONActionPrivilegeUnitTest extends CarlosUnitTestBase {
                 org.junit.jupiter.params.provider.Arguments.of(
                         "ViewBillingONMRI2Action",
                         (Callable<String>) () -> new ViewBillingONMRI2Action(mockSecurityInfoManager,
-                                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONMRIDataAssembler.class)).execute()),
+                                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONMRIViewModelAssembler.class)).execute()),
                 org.junit.jupiter.params.provider.Arguments.of(
                         "ViewBillingONNewReport2Action",
                         (Callable<String>) () -> new ViewBillingONNewReport2Action(mockSecurityInfoManager,
-                                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONNewReportDataAssembler.class)).execute()),
+                                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONNewReportViewModelAssembler.class)).execute()),
                 org.junit.jupiter.params.provider.Arguments.of(
                         "ViewBillingON3rdPayments2Action",
                         (Callable<String>) () -> new ViewBillingON3rdPayments2Action(mockSecurityInfoManager).execute()),
                 org.junit.jupiter.params.provider.Arguments.of(
                         "ViewBillingOHIPsimulation2Action",
                         (Callable<String>) () -> new ViewBillingOHIPsimulation2Action(mockSecurityInfoManager,
-                                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOHIPSimulationDataAssembler.class)).execute()),
+                                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOHIPSimulationViewModelAssembler.class)).execute()),
                 org.junit.jupiter.params.provider.Arguments.of(
                         "ViewOnGenRA2Action",
                         (Callable<String>) () -> new ViewOnGenRA2Action(mockSecurityInfoManager,
-                                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.assembler.OnGenRADataAssembler.class),
-                                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.OnGenRAImportService.class)).execute()));
+                                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.assembler.OntarioRAViewModelAssembler.class),
+                                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.OntarioRAImportService.class)).execute()));
     }
 
     @ParameterizedTest(name = "{0} — sessionless throws SecurityException")

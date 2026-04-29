@@ -24,14 +24,14 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONPaymentViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingONPaymentViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONPaymentDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONPaymentViewModelAssembler;
 
 /**
  * Conditional-POST gate for {@code billing/CA/ON/billingONPayment.jsp}. The
@@ -41,7 +41,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONPaymentData
  * {@code isTeamBillingOnly} / {@code isThisProviderOnly} flags inline; this
  * action mirrors those checks and additionally builds the
  * {@link BillingONPaymentViewModel} via
- * {@link BillingONPaymentDataAssembler} so the JSP can read pre-resolved
+ * {@link BillingONPaymentViewModelAssembler} so the JSP can read pre-resolved
  * records instead of doing 9 inline {@code SpringUtils.getBean} lookups.
  *
  * @since 2026-04-13
@@ -50,10 +50,10 @@ public class BillingONPayment2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    private final BillingONPaymentDataAssembler billingONPaymentAssembler;
+    private final BillingONPaymentViewModelAssembler billingONPaymentAssembler;
 
     public BillingONPayment2Action(SecurityInfoManager securityInfoManager,
-                                    BillingONPaymentDataAssembler billingONPaymentAssembler) {
+                                    BillingONPaymentViewModelAssembler billingONPaymentAssembler) {
         this.securityInfoManager = securityInfoManager;
         this.billingONPaymentAssembler = billingONPaymentAssembler;
     }

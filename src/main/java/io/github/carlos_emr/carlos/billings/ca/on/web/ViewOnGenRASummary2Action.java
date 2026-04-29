@@ -24,22 +24,22 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.OnGenRASummaryViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.OntarioRASummaryViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.OnGenRASummaryDataAssembler;
-import io.github.carlos_emr.carlos.billings.ca.on.service.OnGenRASummaryTotalsService;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.OntarioRASummaryViewModelAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.service.OntarioRASummaryTotalsService;
 
 /**
  * Mutation gate for {@code billing/CA/ON/onGenRASummary.jsp}. The legacy JSP
  * performed multiple BillingRAReportService DAO lookups, computed running totals, and
  * called {@code raHeaderDao.merge(...)} to write the recalculated totals back
  * into the RA header content XML. The data assembly + audit merge now live in
- * {@link OnGenRASummaryDataAssembler}; this action enforces {@code _billing}
- * {@code w} + POST and stashes the {@link OnGenRASummaryViewModel} on the
+ * {@link OntarioRASummaryViewModelAssembler}; this action enforces {@code _billing}
+ * {@code w} + POST and stashes the {@link OntarioRASummaryViewModel} on the
  * request as {@code model} for the JSP to render.
  *
  * @since 2026-04-13
@@ -48,17 +48,17 @@ public class ViewOnGenRASummary2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    private final OnGenRASummaryDataAssembler onGenRASummaryAssembler;
-    private final OnGenRASummaryTotalsService totalsService;
+    private final OntarioRASummaryViewModelAssembler onGenRASummaryAssembler;
+    private final OntarioRASummaryTotalsService totalsService;
 
     public ViewOnGenRASummary2Action(SecurityInfoManager securityInfoManager,
-                                      OnGenRASummaryDataAssembler onGenRASummaryAssembler,
-                                      OnGenRASummaryTotalsService totalsService) {
+                                      OntarioRASummaryViewModelAssembler onGenRASummaryAssembler,
+                                      OntarioRASummaryTotalsService totalsService) {
         this.securityInfoManager = securityInfoManager;
         this.onGenRASummaryAssembler = onGenRASummaryAssembler;
         this.totalsService = totalsService;
     }
-    private OnGenRASummaryViewModel model;
+    private OntarioRASummaryViewModel model;
 
     @Override
     public String execute() throws Exception {
@@ -84,7 +84,7 @@ public class ViewOnGenRASummary2Action extends ActionSupport {
         return SUCCESS;
     }
 
-    public OnGenRASummaryViewModel getModel() {
+    public OntarioRASummaryViewModel getModel() {
         return model;
     }
 }

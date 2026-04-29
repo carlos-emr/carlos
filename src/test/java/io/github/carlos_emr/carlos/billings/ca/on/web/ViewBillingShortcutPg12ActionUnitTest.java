@@ -21,8 +21,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingShortcutPg1DataAssembler;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingShortcutPg1ViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingShortcutPg1ViewModelAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingShortcutPg1ViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -74,7 +74,7 @@ class ViewBillingShortcutPg12ActionUnitTest extends CarlosUnitTestBase {
     private LoggedInInfo mockLoggedInInfo;
 
     @Mock
-    private BillingShortcutPg1DataAssembler mockAssembler;
+    private BillingShortcutPg1ViewModelAssembler mockAssembler;
 
     private MockHttpServletRequest mockRequest;
     private MockHttpServletResponse mockResponse;
@@ -145,7 +145,7 @@ class ViewBillingShortcutPg12ActionUnitTest extends CarlosUnitTestBase {
         mockRequest.setMethod("DELETE");
 
         ViewBillingShortcutPg12Action action =
-                new ViewBillingShortcutPg12Action(mockSecurityInfoManager, mock(BillingShortcutPg1DataAssembler.class));
+                new ViewBillingShortcutPg12Action(mockSecurityInfoManager, mock(BillingShortcutPg1ViewModelAssembler.class));
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(mockResponse.getHeader("Allow")).isEqualTo("GET, HEAD, POST");
@@ -164,7 +164,7 @@ class ViewBillingShortcutPg12ActionUnitTest extends CarlosUnitTestBase {
                 .thenReturn(null);
 
         ViewBillingShortcutPg12Action action =
-                new ViewBillingShortcutPg12Action(mockSecurityInfoManager, mock(BillingShortcutPg1DataAssembler.class));
+                new ViewBillingShortcutPg12Action(mockSecurityInfoManager, mock(BillingShortcutPg1ViewModelAssembler.class));
         assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("session");
@@ -176,7 +176,7 @@ class ViewBillingShortcutPg12ActionUnitTest extends CarlosUnitTestBase {
                 .thenReturn(false);
 
         ViewBillingShortcutPg12Action action =
-                new ViewBillingShortcutPg12Action(mockSecurityInfoManager, mock(BillingShortcutPg1DataAssembler.class));
+                new ViewBillingShortcutPg12Action(mockSecurityInfoManager, mock(BillingShortcutPg1ViewModelAssembler.class));
         assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_billing");

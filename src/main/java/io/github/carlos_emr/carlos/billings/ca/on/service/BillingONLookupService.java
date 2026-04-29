@@ -30,7 +30,7 @@ import java.util.Properties;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONFavouriteDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONFilenameDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONFavourite;
@@ -215,8 +215,8 @@ public class BillingONLookupService {
         return retval;
     }
 
-    public BillingProviderData getProviderObj(String providerNo) {
-        BillingProviderData pObj = null;
+    public BillingProviderDto getProviderObj(String providerNo) {
+        BillingProviderDto pObj = null;
 
         List<Provider> ps = new ArrayList<Provider>();
         if (providerNo.equals("all")) {
@@ -230,7 +230,7 @@ public class BillingONLookupService {
         String billinggroup_no;
 
         for (Provider p : ps) {
-            pObj = new BillingProviderData();
+            pObj = new BillingProviderDto();
             billinggroup_no = getXMLStringWithDefault(p.getComments(), "xml_p_billinggroup_no", "0000");
             specialty_code = getXMLStringWithDefault(p.getComments(), "xml_p_specialty_code", "00");
             pObj.setProviderNo(p.getProviderNo());
@@ -245,9 +245,9 @@ public class BillingONLookupService {
         return pObj;
     }
 
-    public List<BillingProviderData> getProviderObjList(String providerNo) {
-        BillingProviderData pObj = null;
-        List<BillingProviderData> res = new ArrayList<BillingProviderData>();
+    public List<BillingProviderDto> getProviderObjList(String providerNo) {
+        BillingProviderDto pObj = null;
+        List<BillingProviderDto> res = new ArrayList<BillingProviderDto>();
 
         List<Provider> ps = new ArrayList<Provider>();
         if (providerNo.equals("all")) {
@@ -260,7 +260,7 @@ public class BillingONLookupService {
         String specialty_code;
         String billinggroup_no;
         for (Provider p : ps) {
-            pObj = new BillingProviderData();
+            pObj = new BillingProviderDto();
             billinggroup_no = getXMLStringWithDefault(p.getComments(), "xml_p_billinggroup_no", "0000");
             specialty_code = getXMLStringWithDefault(p.getComments(), "xml_p_specialty_code", "00");
             pObj.setProviderNo(p.getProviderNo());
@@ -276,8 +276,8 @@ public class BillingONLookupService {
         return res;
     }
 
-    public List<BillingProviderData> getProvider(String diskId) {
-        List<BillingProviderData> retval = new ArrayList<BillingProviderData>();
+    public List<BillingProviderDto> getProvider(String diskId) {
+        List<BillingProviderDto> retval = new ArrayList<BillingProviderDto>();
         String providerNo = null;
 
         List<BillingONFilename> fs = billingONFilenameDao.findByDiskId(Integer.parseInt(diskId));
@@ -291,7 +291,7 @@ public class BillingONLookupService {
                 billinggroup_no = getXMLStringWithDefault(p.getComments(), "xml_p_billinggroup_no", "0000");
                 specialty_code = getXMLStringWithDefault(p.getComments(), "xml_p_specialty_code", "00");
 
-                BillingProviderData pObj = new BillingProviderData();
+                BillingProviderDto pObj = new BillingProviderDto();
                 pObj.setProviderNo(p.getProviderNo());
                 pObj.setLastName(p.getLastName());
                 pObj.setFirstName(p.getFirstName());
@@ -304,8 +304,8 @@ public class BillingONLookupService {
         return retval;
     }
 
-    public List<BillingProviderData> getCurSoloProvider() {
-        List<BillingProviderData> retval = new ArrayList<BillingProviderData>();
+    public List<BillingProviderDto> getCurSoloProvider() {
+        List<BillingProviderDto> retval = new ArrayList<BillingProviderDto>();
         String specialty_code;
         String billinggroup_no;
 
@@ -315,7 +315,7 @@ public class BillingONLookupService {
             specialty_code = getXMLStringWithDefault(p.getComments(), "xml_p_specialty_code", "00");
             if (!"0000".equals(billinggroup_no))
                 continue;
-            BillingProviderData pObj = new BillingProviderData();
+            BillingProviderDto pObj = new BillingProviderDto();
             pObj.setProviderNo(p.getProviderNo());
             pObj.setLastName(p.getLastName());
             pObj.setFirstName(p.getFirstName());
@@ -328,8 +328,8 @@ public class BillingONLookupService {
         return retval;
     }
 
-    public List<BillingProviderData> getCurGrpProvider() {
-        List<BillingProviderData> retval = new ArrayList<BillingProviderData>();
+    public List<BillingProviderDto> getCurGrpProvider() {
+        List<BillingProviderDto> retval = new ArrayList<BillingProviderDto>();
         String specialty_code;
         String billinggroup_no;
 
@@ -339,7 +339,7 @@ public class BillingONLookupService {
             specialty_code = getXMLStringWithDefault(p.getComments(), "xml_p_specialty_code", "00");
             if ("0000".equals(billinggroup_no))
                 continue;
-            BillingProviderData pObj = new BillingProviderData();
+            BillingProviderDto pObj = new BillingProviderDto();
             pObj.setProviderNo(p.getProviderNo());
             pObj.setLastName(p.getLastName());
             pObj.setFirstName(p.getFirstName());

@@ -7,8 +7,8 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao;
 import io.github.carlos_emr.carlos.billing.CA.model.BillingDetail;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCorrectionSubmitCommand;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCorrectionSubmitItemCommand;
+import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionSubmitCommand;
+import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionSubmitItemCommand;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.dao.RecycleBinDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;

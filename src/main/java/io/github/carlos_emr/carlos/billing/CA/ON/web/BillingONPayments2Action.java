@@ -56,8 +56,8 @@ import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingON3rdPaymentsViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingONThirdPartyPaymentsViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.service.Billing3rdPartyService;
 
 
@@ -150,7 +150,7 @@ public class BillingONPayments2Action extends ActionSupport {
         request.setAttribute("paymentsList", paymentLists);
 
         List<BillingONItem> items = billingONItemDao.getActiveBillingItemByCh1Id(billingNo);
-        List<BillingItemData> itemDataList = new ArrayList<BillingItemData>();
+        List<BillingClaimItemDto> itemDataList = new ArrayList<BillingClaimItemDto>();
         for (BillingONItem item : items) {
             List<BillingOnItemPayment> paymentList = billingOnItemPaymentDao.getAllByItemId(item.getId());
             BigDecimal payment = BigDecimal.ZERO;
@@ -164,7 +164,7 @@ public class BillingONPayments2Action extends ActionSupport {
                 credit = credit.add(payIter.getCredit());
             }
 
-            BillingItemData itemData = new BillingItemData();
+            BillingClaimItemDto itemData = new BillingClaimItemDto();
             itemData.setId(item.getId().toString());
             itemData.setService_code(item.getServiceCode());
             itemData.setFee(item.getFee());
@@ -187,7 +187,7 @@ public class BillingONPayments2Action extends ActionSupport {
     }
 
     /**
-     * Assembles the BillingON3rdPaymentsViewModel that the JSP renders. Public
+     * Assembles the BillingONThirdPartyPaymentsViewModel that the JSP renders. Public
      * so the defensive JSP fallback can invoke it directly when the action
      * chain wasn't traversed.
      *
@@ -203,9 +203,9 @@ public class BillingONPayments2Action extends ActionSupport {
      * @param errors validation errors to surface at the bottom of the page
      * @return populated view model (never null)
      */
-    public BillingON3rdPaymentsViewModel buildPaymentsViewModel(
+    public BillingONThirdPartyPaymentsViewModel buildPaymentsViewModel(
             Integer billingNo,
-            List<BillingItemData> itemDataList,
+            List<BillingClaimItemDto> itemDataList,
             List<BillingONPayment> paymentLists,
             BigDecimal total,
             BigDecimal balance,
@@ -214,9 +214,9 @@ public class BillingONPayments2Action extends ActionSupport {
         NumberFormat currency = NumberFormat.getCurrencyInstance();
 
         // Per-item summary rows
-        List<BillingON3rdPaymentsViewModel.ItemSummary> items = new ArrayList<>();
+        List<BillingONThirdPartyPaymentsViewModel.ItemSummary> items = new ArrayList<>();
         if (itemDataList != null) {
-            for (BillingItemData billItemData : itemDataList) {
+            for (BillingClaimItemDto billItemData : itemDataList) {
                 BigDecimal itemTotal = parseDec(billItemData.getFee()).setScale(2, java.math.RoundingMode.HALF_UP);
                 BigDecimal itemPaid = parseDec(billItemData.getPaid()).setScale(2, java.math.RoundingMode.HALF_UP);
                 BigDecimal itemDiscount = parseDec(billItemData.getDiscount()).setScale(2, java.math.RoundingMode.HALF_UP);
@@ -227,7 +227,7 @@ public class BillingONPayments2Action extends ActionSupport {
                 String realPaidSign = realPaid.compareTo(BigDecimal.ZERO) < 0 ? "-" : "";
                 String balanceSign = itemBalance.compareTo(BigDecimal.ZERO) < 0 ? "-" : "";
 
-                items.add(new BillingON3rdPaymentsViewModel.ItemSummary(
+                items.add(new BillingONThirdPartyPaymentsViewModel.ItemSummary(
                         nullToEmpty(billItemData.getId()),
                         nullToEmpty(billItemData.getService_code()),
                         nullToEmpty(billItemData.getFee()),
@@ -237,7 +237,7 @@ public class BillingONPayments2Action extends ActionSupport {
         }
 
         // Existing payment rows
-        List<BillingON3rdPaymentsViewModel.PaymentRow> paymentRows = new ArrayList<>();
+        List<BillingONThirdPartyPaymentsViewModel.PaymentRow> paymentRows = new ArrayList<>();
         BigDecimal sumOfPay = BigDecimal.ZERO;
         BigDecimal sumOfDiscount = BigDecimal.ZERO;
         BigDecimal sumOfCredit = BigDecimal.ZERO;
@@ -264,7 +264,7 @@ public class BillingONPayments2Action extends ActionSupport {
                     }
                 }
 
-                paymentRows.add(new BillingON3rdPaymentsViewModel.PaymentRow(
+                paymentRows.add(new BillingONThirdPartyPaymentsViewModel.PaymentRow(
                         String.valueOf(pmt.getId()),
                         String.valueOf(pmt.getTotal_payment()),
                         paymentTypeName,
@@ -283,7 +283,7 @@ public class BillingONPayments2Action extends ActionSupport {
                 ? "-" + currency.format(balanceForDisplay.abs())
                 : currency.format(balanceForDisplay);
 
-        return BillingON3rdPaymentsViewModel.builder()
+        return BillingONThirdPartyPaymentsViewModel.builder()
                 .today(new SimpleDateFormat("yyyy-MM-dd").format(new Date()))
                 .billingNo(billingNo == null ? "" : String.valueOf(billingNo))
                 .itemCount(itemDataList == null ? 0 : itemDataList.size())
@@ -684,14 +684,14 @@ public class BillingONPayments2Action extends ActionSupport {
         }
         request.setAttribute("paymentTypeName", paymentTypeName);
 
-        List<BillingItemData> itemDataList = new ArrayList<BillingItemData>();
+        List<BillingClaimItemDto> itemDataList = new ArrayList<BillingClaimItemDto>();
         List<BillingOnItemPayment> itemPaymentList = billingOnItemPaymentDao.getItemsByPaymentId(billPaymentId);
         for (BillingOnItemPayment itemPayment : itemPaymentList) {
             BillingONItem billItemList = billingONItemDao.find(itemPayment.getBillingOnItemId());
             if (billItemList == null) {
                 continue;
             }
-            BillingItemData itemData = new BillingItemData();
+            BillingClaimItemDto itemData = new BillingClaimItemDto();
             itemData.setId(Integer.toString(itemPayment.getBillingOnItemId()));
             itemData.setService_code(billItemList.getServiceCode());
             itemData.setFee(billItemList.getFee());

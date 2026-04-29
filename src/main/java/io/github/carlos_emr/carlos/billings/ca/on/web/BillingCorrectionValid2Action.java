@@ -5,9 +5,9 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCorrectionLineCommand;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCorrectionReviewViewModel;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCorrectionValidationCommand;
+import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionLineCommand;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCorrectionReviewViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionValidationCommand;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionReviewPreparationService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;

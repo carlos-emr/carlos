@@ -29,7 +29,7 @@
 <%--
     Ontario Billing History (service-code-filtered) popup. Posts to
     ViewBillingONHistorySpec which builds a BillingONHistorySpecViewModel
-    via BillingONHistorySpecDataAssembler and exposes it as
+    via BillingONHistorySpecViewModelAssembler and exposes it as
     ${historySpecModel}.
 
     @since 2006

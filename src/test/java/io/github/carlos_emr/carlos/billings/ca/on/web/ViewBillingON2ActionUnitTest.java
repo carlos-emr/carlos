@@ -21,8 +21,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONFormDataAssembler;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONFormViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONFormViewModelAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingONFormViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -75,7 +75,7 @@ class ViewBillingON2ActionUnitTest extends CarlosUnitTestBase {
     private LoggedInInfo mockLoggedInInfo;
 
     @Mock
-    private BillingONFormDataAssembler mockAssembler;
+    private BillingONFormViewModelAssembler mockAssembler;
 
     private MockHttpServletRequest mockRequest;
     private MockHttpServletResponse mockResponse;
@@ -142,7 +142,7 @@ class ViewBillingON2ActionUnitTest extends CarlosUnitTestBase {
     void shouldSendMethodNotAllowedAndReturnNone_whenDeleteRequest() throws Exception {
         mockRequest.setMethod("DELETE");
         ViewBillingON2Action action =
-                new ViewBillingON2Action(mockSecurityInfoManager, mock(BillingONFormDataAssembler.class));
+                new ViewBillingON2Action(mockSecurityInfoManager, mock(BillingONFormViewModelAssembler.class));
 
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
@@ -155,7 +155,7 @@ class ViewBillingON2ActionUnitTest extends CarlosUnitTestBase {
                 .thenReturn(null);
 
         ViewBillingON2Action action =
-                new ViewBillingON2Action(mockSecurityInfoManager, mock(BillingONFormDataAssembler.class));
+                new ViewBillingON2Action(mockSecurityInfoManager, mock(BillingONFormViewModelAssembler.class));
         assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_billing");
@@ -168,7 +168,7 @@ class ViewBillingON2ActionUnitTest extends CarlosUnitTestBase {
                 .thenReturn(false);
 
         ViewBillingON2Action action =
-                new ViewBillingON2Action(mockSecurityInfoManager, mock(BillingONFormDataAssembler.class));
+                new ViewBillingON2Action(mockSecurityInfoManager, mock(BillingONFormViewModelAssembler.class));
         assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_billing");

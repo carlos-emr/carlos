@@ -24,13 +24,13 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONStatusViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingONStatusViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONStatusDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONStatusViewModelAssembler;
 
 /**
  * View gate for {@code billing/CA/ON/billingONStatus.jsp}. Enforces
@@ -47,18 +47,18 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONStatusDataA
  * {@code BillingONStatusERUpdateStatus2Action}.</p>
  *
  * <p>Parameter parsing + default resolution is delegated to
- * {@link BillingONStatusDataAssembler} so this action stays a thin gate.</p>
+ * {@link BillingONStatusViewModelAssembler} so this action stays a thin gate.</p>
  *
  * @since 2026-04-13
  */
 public class ViewBillingONStatus2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
-    private final BillingONStatusDataAssembler assembler;
+    private final BillingONStatusViewModelAssembler assembler;
 
     private BillingONStatusViewModel statusModel;
 
     public ViewBillingONStatus2Action(SecurityInfoManager securityInfoManager,
-                               BillingONStatusDataAssembler assembler) {
+                               BillingONStatusViewModelAssembler assembler) {
         this.securityInfoManager = securityInfoManager;
         this.assembler = assembler;
     }

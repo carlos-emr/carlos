@@ -23,8 +23,8 @@
 
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import org.apache.logging.log4j.Logger;
@@ -143,8 +143,8 @@ public class BillingONClaimLoader {
                         String startDate, String endDate, String demoNo,
                         String serviceCodes, String dx, String visitType) {
 
-        List<BillingClaimHeader1Data> retval = new ArrayList<BillingClaimHeader1Data>();
-        BillingClaimHeader1Data ch1Obj = null;
+        List<BillingClaimHeaderDto> retval = new ArrayList<BillingClaimHeaderDto>();
+        BillingClaimHeaderDto ch1Obj = null;
 
         // For filtering invoice report based on dx code
         String temp = demoNo + " " + providerNo + " " + statusType + " "
@@ -167,7 +167,7 @@ public class BillingONClaimLoader {
                 String prevPaid = null;
 
                 boolean bSameBillCh1 = false;
-                ch1Obj = new BillingClaimHeader1Data();
+                ch1Obj = new BillingClaimHeaderDto();
                 ch1Obj.setId(b[0]);
                 ch1Obj.setPay_program(b[1]);
                 ch1Obj.setDemographic_no(b[2]);
@@ -216,19 +216,19 @@ public class BillingONClaimLoader {
     }
 
 
-    public List<BillingClaimHeader1Data> getBill(String[] billType, String statusType, String providerNo, String startDate, String endDate, String demoNo, String visitLocation, String paymentStartDate, String paymentEndDate) {
+    public List<BillingClaimHeaderDto> getBill(String[] billType, String statusType, String providerNo, String startDate, String endDate, String demoNo, String visitLocation, String paymentStartDate, String paymentEndDate) {
         return getBillWithSorting(billType, statusType, providerNo, startDate, endDate, demoNo, visitLocation, null, null, paymentStartDate, paymentEndDate);
     }
 
     // invoice report
-    public List<BillingClaimHeader1Data> getBillWithSorting(String[] billType, String statusType, String providerNo, String startDate, String endDate, String demoNo, String visitLocation, String sortName, String sortOrder, String paymentStartDate, String paymentEndDate) {
-        List<BillingClaimHeader1Data> retval = new ArrayList<BillingClaimHeader1Data>();
+    public List<BillingClaimHeaderDto> getBillWithSorting(String[] billType, String statusType, String providerNo, String startDate, String endDate, String demoNo, String visitLocation, String sortName, String sortOrder, String paymentStartDate, String paymentEndDate) {
+        List<BillingClaimHeaderDto> retval = new ArrayList<BillingClaimHeaderDto>();
         try {
             for (BillingONCHeader1 h : dao.findByMagic(Arrays.asList(billType), statusType, providerNo, ConversionUtils.fromDateString(startDate), ConversionUtils.fromDateString(endDate), ConversionUtils.fromIntString(demoNo), visitLocation, ConversionUtils.fromDateString(paymentStartDate), ConversionUtils.fromDateString(paymentEndDate))) {
                 String prevId = null;
                 String prevPaid = null;
 
-                BillingClaimHeader1Data ch1Obj = new BillingClaimHeader1Data();
+                BillingClaimHeaderDto ch1Obj = new BillingClaimHeaderDto();
                 ch1Obj.setId("" + h.getId());
                 ch1Obj.setDemographic_no("" + h.getDemographicNo());
                 ch1Obj.setDemographic_name(h.getDemographicName());
@@ -259,7 +259,7 @@ public class BillingONClaimLoader {
         return retval;
     }
 
-    private void applySort(List<BillingClaimHeader1Data> retval, String sortName, String sortOrder) {
+    private void applySort(List<BillingClaimHeaderDto> retval, String sortName, String sortOrder) {
         if (sortOrder == null) {
             sortOrder = "asc";
         }
@@ -278,8 +278,8 @@ public class BillingONClaimLoader {
         }
     }
 
-    public static final Comparator<BillingClaimHeader1Data> SERVICE_DATE_COMPARATOR = new Comparator<BillingClaimHeader1Data>() {
-        public int compare(BillingClaimHeader1Data arg0, BillingClaimHeader1Data arg1) {
+    public static final Comparator<BillingClaimHeaderDto> SERVICE_DATE_COMPARATOR = new Comparator<BillingClaimHeaderDto>() {
+        public int compare(BillingClaimHeaderDto arg0, BillingClaimHeaderDto arg1) {
             SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
             Date date0 = null, date1 = null;
             try {
@@ -293,8 +293,8 @@ public class BillingONClaimLoader {
         }
     };
 
-    public static final Comparator<BillingClaimHeader1Data> DEMOGRAPHIC_NO_COMPARATOR = new Comparator<BillingClaimHeader1Data>() {
-        public int compare(BillingClaimHeader1Data arg0, BillingClaimHeader1Data arg1) {
+    public static final Comparator<BillingClaimHeaderDto> DEMOGRAPHIC_NO_COMPARATOR = new Comparator<BillingClaimHeaderDto>() {
+        public int compare(BillingClaimHeaderDto arg0, BillingClaimHeaderDto arg1) {
             Integer d0, d1;
             try {
                 d0 = Integer.parseInt(arg0.getDemographic_no());
@@ -307,21 +307,21 @@ public class BillingONClaimLoader {
         }
     };
 
-    public static final Comparator<BillingClaimHeader1Data> VISIT_LOCATION_COMPARATOR = new Comparator<BillingClaimHeader1Data>() {
-        public int compare(BillingClaimHeader1Data arg0, BillingClaimHeader1Data arg1) {
+    public static final Comparator<BillingClaimHeaderDto> VISIT_LOCATION_COMPARATOR = new Comparator<BillingClaimHeaderDto>() {
+        public int compare(BillingClaimHeaderDto arg0, BillingClaimHeaderDto arg1) {
             return arg0.getFacilty_num().compareTo(arg1.getFacilty_num());
         }
     };
 
 
     //invoice report
-    public List<BillingClaimHeader1Data> getBill(String[] billType, String statusType, String providerNo, String startDate, String endDate, String demoNo, List<String> serviceCodes, String dx, String visitType, String visitLocation, String paymentStartDate, String paymentEndDate) {
+    public List<BillingClaimHeaderDto> getBill(String[] billType, String statusType, String providerNo, String startDate, String endDate, String demoNo, List<String> serviceCodes, String dx, String visitType, String visitLocation, String paymentStartDate, String paymentEndDate) {
         return getBillWithSorting(billType, statusType, providerNo, startDate, endDate, demoNo, serviceCodes, dx, visitType, visitLocation, null, null, paymentStartDate, paymentEndDate, null);
     }
 
     //invoice report
-    public List<BillingClaimHeader1Data> getBillWithSorting(String[] billType, String statusType, String providerNo, String startDate, String endDate, String demoNo, List<String> serviceCodes, String dx, String visitType, String visitLocation, String sortName, String sortOrder, String paymentStartDate, String paymentEndDate, String claimNo) {
-        List<BillingClaimHeader1Data> retval = new ArrayList<BillingClaimHeader1Data>();
+    public List<BillingClaimHeaderDto> getBillWithSorting(String[] billType, String statusType, String providerNo, String startDate, String endDate, String demoNo, List<String> serviceCodes, String dx, String visitType, String visitLocation, String sortName, String sortOrder, String paymentStartDate, String paymentEndDate, String claimNo) {
+        List<BillingClaimHeaderDto> retval = new ArrayList<BillingClaimHeaderDto>();
 
         try {
             String prevId = null;
@@ -334,7 +334,7 @@ public class BillingONClaimLoader {
                 BillingONCHeader1 ch1 = (BillingONCHeader1) o[0];
                 BillingONItem bi = (BillingONItem) o[1];
 
-                BillingClaimHeader1Data ch1Obj = new BillingClaimHeader1Data();
+                BillingClaimHeaderDto ch1Obj = new BillingClaimHeaderDto();
                 ch1Obj.setId("" + ch1.getId());
                 ch1Obj.setDemographic_no("" + ch1.getDemographicNo());
                 ch1Obj.setDemographic_name(ch1.getDemographicName());
@@ -418,7 +418,7 @@ public class BillingONClaimLoader {
         List<Object> retval = new ArrayList<Object>();
         int iRow = 0;
 
-        BillingClaimHeader1Data ch1Obj = null;
+        BillingClaimHeaderDto ch1Obj = null;
 
         List<BillingONCHeader1> hs = null;
         if (dateRange == null) {
@@ -433,7 +433,7 @@ public class BillingONClaimLoader {
                 if (iRow > iPageSize) {
                     break;
                 }
-                ch1Obj = new BillingClaimHeader1Data();
+                ch1Obj = new BillingClaimHeaderDto();
                 ch1Obj.setId("" + h.getId());
                 ch1Obj.setBilling_date(ConversionUtils.toDateString(h.getBillingDate()));
                 ch1Obj.setBilling_time(ConversionUtils.toTimeString(h.getBillingTime()));
@@ -474,7 +474,7 @@ public class BillingONClaimLoader {
                     serviceCodeSet.add(strService);
                 }
 
-                BillingItemData itObj = new BillingItemData();
+                BillingClaimItemDto itObj = new BillingClaimItemDto();
                 StringBuffer codeBuf = new StringBuffer();
                 for (String codeStr : serviceCodeSet) {
                     codeBuf.append(codeStr + ",");
@@ -547,11 +547,11 @@ public class BillingONClaimLoader {
     public List<Object> getBillingByApptNo(String apptNo) {
         List<Object> retval = new ArrayList<Object>();
 
-        BillingClaimHeader1Data ch1Obj = null;
+        BillingClaimHeaderDto ch1Obj = null;
 
         try {
             for (BillingONCHeader1 h : dao.findByAppointmentNo(ConversionUtils.fromIntString(apptNo))) {
-                ch1Obj = new BillingClaimHeader1Data();
+                ch1Obj = new BillingClaimHeaderDto();
                 ch1Obj.setId("" + h.getId());
                 ch1Obj.setBilling_date(ConversionUtils.toDateString(h.getBillingDate()));
                 ch1Obj.setBilling_time(ConversionUtils.toTimeString(h.getBillingTime()));
@@ -590,7 +590,7 @@ public class BillingONClaimLoader {
                     dx2 = i.getDx2();
                 }
 
-                BillingItemData itObj = new BillingItemData();
+                BillingClaimItemDto itObj = new BillingClaimItemDto();
                 itObj.setService_code(strService);
                 itObj.setDx(dx);
                 itObj.setDx1(dx1);

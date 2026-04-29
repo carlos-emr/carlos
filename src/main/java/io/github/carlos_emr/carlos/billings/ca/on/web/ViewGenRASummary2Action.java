@@ -24,13 +24,13 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.GenRASummaryViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.GenerateRASummaryViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.GenRASummaryDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.GenerateRASummaryViewModelAssembler;
 
 /**
  * Mutation gate for {@code billing/CA/ON/genRASummary.jsp}, the OHIP RA
@@ -38,7 +38,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.GenRASummaryDataAsse
  *
  * <p>Enforces {@code _billing w} privilege AND POST-only (the JSP-era
  * scriptlet performed RA-header merge during render — still mutation-on-render,
- * just hoisted into {@link GenRASummaryDataAssembler}).</p>
+ * just hoisted into {@link GenerateRASummaryViewModelAssembler}).</p>
  *
  * <p>The assembler call replaces the 5 inline {@code SpringUtils.getBean}
  * lookups (RaHeaderDao, RaDetailDao, ProviderDao, BillingDao + duplicate)
@@ -50,10 +50,10 @@ public class ViewGenRASummary2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    private final GenRASummaryDataAssembler genRASummaryAssembler;
+    private final GenerateRASummaryViewModelAssembler genRASummaryAssembler;
 
     public ViewGenRASummary2Action(SecurityInfoManager securityInfoManager,
-                                    GenRASummaryDataAssembler genRASummaryAssembler) {
+                                    GenerateRASummaryViewModelAssembler genRASummaryAssembler) {
         this.securityInfoManager = securityInfoManager;
         this.genRASummaryAssembler = genRASummaryAssembler;
     }
@@ -72,7 +72,7 @@ public class ViewGenRASummary2Action extends ActionSupport {
             return NONE;
         }
 
-        GenRASummaryViewModel model = genRASummaryAssembler.assemble(request, loggedInInfo);
+        GenerateRASummaryViewModel model = genRASummaryAssembler.assemble(request, loggedInInfo);
         request.setAttribute("raSummaryModel", model);
 
         return SUCCESS;

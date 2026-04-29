@@ -24,13 +24,13 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.AddEditServiceCodeViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.AddEditServiceCodeViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.AddEditServiceCodeDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.AddEditServiceCodeViewModelAssembler;
 
 /**
  * Conditional-POST gate for {@code billing/CA/ON/addEditServiceCode.jsp}. The
@@ -46,9 +46,9 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.AddEditServiceCodeDa
  */
 public class AddEditServiceCode2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
-    private final AddEditServiceCodeDataAssembler addEditServiceCodeAssembler;
+    private final AddEditServiceCodeViewModelAssembler addEditServiceCodeAssembler;
     public AddEditServiceCode2Action(SecurityInfoManager securityInfoManager,
-                                      AddEditServiceCodeDataAssembler addEditServiceCodeAssembler) {
+                                      AddEditServiceCodeViewModelAssembler addEditServiceCodeAssembler) {
         this.securityInfoManager = securityInfoManager;
         this.addEditServiceCodeAssembler = addEditServiceCodeAssembler;
     }

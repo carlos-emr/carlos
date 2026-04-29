@@ -7,11 +7,11 @@
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingSpecClaim;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingSpecClaimRequest;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingONConstants;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingSpecClaim;
+import io.github.carlos_emr.carlos.billings.ca.on.command.BillingSpecClaimCommand;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
@@ -50,21 +50,21 @@ public class BillingSpecService {
         return false;
     }
 
-    public BillingSpecClaim buildBillingClaim(BillingSpecClaimRequest request) {
-        BillingClaimHeader1Data header = getClaimHeader1Obj(request);
+    public BillingSpecClaim buildBillingClaim(BillingSpecClaimCommand request) {
+        BillingClaimHeaderDto header = getClaimHeader1Obj(request);
         return new BillingSpecClaim(header, getItemObj(request));
     }
 
-    public BillingSpecClaim buildInrBillingClaim(BillingSpecClaimRequest request) {
-        BillingClaimHeader1Data header = getClaimHeader1InrObj(request);
+    public BillingSpecClaim buildInrBillingClaim(BillingSpecClaimCommand request) {
+        BillingClaimHeaderDto header = getClaimHeader1InrObj(request);
         return new BillingSpecClaim(header, List.of(getItemInrObj(request)));
     }
 
-    private BillingClaimHeader1Data getClaimHeader1Obj(BillingSpecClaimRequest val) {
-        BillingClaimHeader1Data claim1Header = new BillingClaimHeader1Data();
+    private BillingClaimHeaderDto getClaimHeader1Obj(BillingSpecClaimCommand val) {
+        BillingClaimHeaderDto claim1Header = new BillingClaimHeaderDto();
 
-        claim1Header.setTransc_id(BillingDataHlp.CLAIMHEADER1_TRANSACTIONIDENTIFIER);
-        claim1Header.setRec_id(BillingDataHlp.CLAIMHEADER1_REORDIDENTIFICATION);
+        claim1Header.setTransc_id(BillingONConstants.CLAIMHEADER1_TRANSACTIONIDENTIFIER);
+        claim1Header.setRec_id(BillingONConstants.CLAIMHEADER1_REORDIDENTIFICATION);
         String[] hinVer = getHinVer(val.demoHin());
         claim1Header.setHin(hinVer[0]);
         claim1Header.setVer(hinVer[1]);
@@ -72,7 +72,7 @@ public class BillingSpecService {
         String hctype = normalizeHcType(val.demoHctype());
 
         claim1Header.setPay_program(getPayProgram(val.xmlBilltype(), hctype));
-        claim1Header.setPayee(!val.payMethod().isEmpty() ? val.payMethod() : BillingDataHlp.CLAIMHEADER1_PAYEE);
+        claim1Header.setPayee(!val.payMethod().isEmpty() ? val.payMethod() : BillingONConstants.CLAIMHEADER1_PAYEE);
         claim1Header.setRef_num("");
 
         claim1Header.setFacilty_num(val.clinicRefCode());
@@ -106,7 +106,7 @@ public class BillingSpecService {
         return claim1Header;
     }
 
-    private List<BillingItemData> getItemObj(BillingSpecClaimRequest val) {
+    private List<BillingClaimItemDto> getItemObj(BillingSpecClaimCommand val) {
         return Arrays.stream(val.svcCode().split(","))
                 .map(String::trim)
                 .filter(code -> !code.isEmpty())
@@ -114,11 +114,11 @@ public class BillingSpecService {
                 .toList();
     }
 
-    private BillingClaimHeader1Data getClaimHeader1InrObj(BillingSpecClaimRequest val) {
-        BillingClaimHeader1Data claim1Header = new BillingClaimHeader1Data();
+    private BillingClaimHeaderDto getClaimHeader1InrObj(BillingSpecClaimCommand val) {
+        BillingClaimHeaderDto claim1Header = new BillingClaimHeaderDto();
 
-        claim1Header.setTransc_id(BillingDataHlp.CLAIMHEADER1_TRANSACTIONIDENTIFIER);
-        claim1Header.setRec_id(BillingDataHlp.CLAIMHEADER1_REORDIDENTIFICATION);
+        claim1Header.setTransc_id(BillingONConstants.CLAIMHEADER1_TRANSACTIONIDENTIFIER);
+        claim1Header.setRec_id(BillingONConstants.CLAIMHEADER1_REORDIDENTIFICATION);
         String[] hinVer = getHinVer(val.demoHin());
         claim1Header.setHin(hinVer[0]);
         claim1Header.setVer(hinVer[1]);
@@ -126,7 +126,7 @@ public class BillingSpecService {
         String hctype = normalizeHcType(val.demoHctype());
 
         claim1Header.setPay_program(getPayProgram(val.xmlBilltype(), hctype));
-        claim1Header.setPayee(!val.payMethod().isEmpty() ? val.payMethod() : BillingDataHlp.CLAIMHEADER1_PAYEE);
+        claim1Header.setPayee(!val.payMethod().isEmpty() ? val.payMethod() : BillingONConstants.CLAIMHEADER1_PAYEE);
         claim1Header.setRef_num("");
         claim1Header.setFacilty_num("");
         claim1Header.setAdmission_date("");
@@ -159,14 +159,14 @@ public class BillingSpecService {
         return claim1Header;
     }
 
-    private BillingItemData getItemInrObj(BillingSpecClaimRequest val) {
+    private BillingClaimItemDto getItemInrObj(BillingSpecClaimCommand val) {
         return item(val.svcCode(), val.apptDate(), val.dxCode());
     }
 
-    private BillingItemData item(String serviceCode, String serviceDate, String dxCode) {
-        BillingItemData claimItem = new BillingItemData();
-        claimItem.setTransc_id(BillingDataHlp.ITEM_TRANSACTIONIDENTIFIER);
-        claimItem.setRec_id(BillingDataHlp.ITEM_REORDIDENTIFICATION);
+    private BillingClaimItemDto item(String serviceCode, String serviceDate, String dxCode) {
+        BillingClaimItemDto claimItem = new BillingClaimItemDto();
+        claimItem.setTransc_id(BillingONConstants.ITEM_TRANSACTIONIDENTIFIER);
+        claimItem.setRec_id(BillingONConstants.ITEM_REORDIDENTIFICATION);
         claimItem.setService_code(serviceCode);
         claimItem.setFee(feeForCode(serviceCode));
         claimItem.setSer_num("1");
@@ -209,7 +209,7 @@ public class BillingSpecService {
     private static String getPayProgram(String val, String hcType) {
         String ret = val.length() >= 3 ? val.substring(0, 3) : val;
         if (val.startsWith("PAT")) {
-            ret = BillingDataHlp.CLAIMHEADER1_PAYMENTPROGRAM_PRIVATE;
+            ret = BillingONConstants.CLAIMHEADER1_PAYMENTPROGRAM_PRIVATE;
         } else if (val.startsWith("ODP")) {
             ret = "ON".equals(hcType) ? "HCP" : "RMB";
         }

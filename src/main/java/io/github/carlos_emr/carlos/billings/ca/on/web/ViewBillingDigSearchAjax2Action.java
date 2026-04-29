@@ -30,8 +30,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingDxCodeDataAssembler;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDigSearchAjaxViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingDiagCodeViewModelAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingDiagCodeSearchAjaxViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -44,8 +44,8 @@ import org.apache.struts2.ServletActionContext;
  * Replaces the former {@code billingDigSearchAjax.jsp} controller-in-a-JSP.
  *
  * <p>Reads the {@code term} request parameter, builds a
- * {@link BillingDigSearchAjaxViewModel} via
- * {@link BillingDxCodeDataAssembler#assembleAjax}, and writes the JSON
+ * {@link BillingDiagCodeSearchAjaxViewModel} via
+ * {@link BillingDiagCodeViewModelAssembler#assembleAjax}, and writes the JSON
  * array body directly using a Jackson {@link ArrayNode}. Each suggestion
  * is rendered as
  * {@code {"value": "...", "label": "...", "code": "...", "description": "..."}}.</p>
@@ -57,10 +57,10 @@ public class ViewBillingDigSearchAjax2Action extends ActionSupport {
     private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
 
     private final SecurityInfoManager securityInfoManager;
-    private final BillingDxCodeDataAssembler assembler;
+    private final BillingDiagCodeViewModelAssembler assembler;
 
     public ViewBillingDigSearchAjax2Action(SecurityInfoManager securityInfoManager,
-                                    BillingDxCodeDataAssembler assembler) {
+                                    BillingDiagCodeViewModelAssembler assembler) {
         this.securityInfoManager = securityInfoManager;
         this.assembler = assembler;
     }
@@ -83,10 +83,10 @@ public class ViewBillingDigSearchAjax2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        BillingDigSearchAjaxViewModel model = assembler.assembleAjax(request.getParameter("term"));
+        BillingDiagCodeSearchAjaxViewModel model = assembler.assembleAjax(request.getParameter("term"));
 
         ArrayNode array = JSON_MAPPER.createArrayNode();
-        for (BillingDigSearchAjaxViewModel.Suggestion s : model.getSuggestions()) {
+        for (BillingDiagCodeSearchAjaxViewModel.Suggestion s : model.getSuggestions()) {
             ObjectNode node = JSON_MAPPER.createObjectNode();
             node.put("value", s.value());
             node.put("label", s.label());

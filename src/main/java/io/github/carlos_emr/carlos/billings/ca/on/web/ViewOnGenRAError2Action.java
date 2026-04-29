@@ -23,13 +23,13 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.OnGenRAErrorViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.OntarioRAErrorViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.OnGenRAErrorDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.OntarioRAErrorViewModelAssembler;
 
 /**
  * View gate for {@code billing/CA/ON/onGenRAError.jsp}. Enforces {@code _billing}
@@ -38,7 +38,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.OnGenRAErrorDataAsse
  * to gate direct-access paths behind Struts2 actions (same pattern as
  * PR #1632 for BC billing).
  *
- * <p>Also assembles the {@link OnGenRAErrorViewModel} the JSP renders: the
+ * <p>Also assembles the {@link OntarioRAErrorViewModel} the JSP renders: the
  * provider dropdown options and (when a specific provider is selected) the
  * per-provider error rows. The view model is exposed as request attribute
  * {@code onGenRAErrorModel}; the JSP body became 100% EL on 2026-04-25.</p>
@@ -49,10 +49,10 @@ public class ViewOnGenRAError2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    private final OnGenRAErrorDataAssembler onGenRAErrorAssembler;
+    private final OntarioRAErrorViewModelAssembler onGenRAErrorAssembler;
 
     public ViewOnGenRAError2Action(SecurityInfoManager securityInfoManager,
-                                    OnGenRAErrorDataAssembler onGenRAErrorAssembler) {
+                                    OntarioRAErrorViewModelAssembler onGenRAErrorAssembler) {
         this.securityInfoManager = securityInfoManager;
         this.onGenRAErrorAssembler = onGenRAErrorAssembler;
     }
@@ -65,7 +65,7 @@ public class ViewOnGenRAError2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        OnGenRAErrorViewModel model = onGenRAErrorAssembler.assemble(
+        OntarioRAErrorViewModel model = onGenRAErrorAssembler.assemble(
                 request.getParameter("rano"),
                 request.getParameter("proNo"));
         request.setAttribute("onGenRAErrorModel", model);

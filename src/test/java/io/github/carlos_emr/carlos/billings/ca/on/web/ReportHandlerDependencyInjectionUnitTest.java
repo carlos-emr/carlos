@@ -26,7 +26,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billings.ca.on.bean.BillingEDTOBECOutputSpecificationBeanHandler;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimsErrorReportBeanHandlerSave;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimsErrorReportImporter;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONErrorReportService;
 import io.github.carlos_emr.carlos.commn.dao.BatchEligibilityDao;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
@@ -45,8 +45,8 @@ class ReportHandlerDependencyInjectionUnitTest {
         Path report = Files.createFile(tempDir.resolve("E-empty.txt"));
 
         try (FileInputStream input = new FileInputStream(report.toFile())) {
-            BillingClaimsErrorReportBeanHandlerSave handler =
-                    new BillingClaimsErrorReportBeanHandlerSave(
+            BillingClaimsErrorReportImporter handler =
+                    new BillingClaimsErrorReportImporter(
                             input,
                             "E-empty.txt",
                             mock(BillingONErrorReportService.class));

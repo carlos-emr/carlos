@@ -24,13 +24,13 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONReviewViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingONReviewViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONReviewDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONReviewViewModelAssembler;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONReviewDxPersister;
 
 /**
@@ -54,13 +54,13 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONReviewDxPersi
 public class ViewBillingONReview2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
     private final BillingONReviewDxPersister dxPersister;
-    private final BillingONReviewDataAssembler assembler;
+    private final BillingONReviewViewModelAssembler assembler;
 
     private BillingONReviewViewModel reviewModel;
 
     public ViewBillingONReview2Action(SecurityInfoManager securityInfoManager,
                                BillingONReviewDxPersister dxPersister,
-                               BillingONReviewDataAssembler assembler) {
+                               BillingONReviewViewModelAssembler assembler) {
         this.securityInfoManager = securityInfoManager;
         this.dxPersister = dxPersister;
         this.assembler = assembler;

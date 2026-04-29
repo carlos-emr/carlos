@@ -24,13 +24,13 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONFavouriteViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingONFavouriteViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONFavouriteDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONFavouriteViewModelAssembler;
 
 /**
  * Gate for {@code billing/CA/ON/billingONfavourite.jsp}. Enforces {@code _billing}
@@ -39,7 +39,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONFavouriteDa
  * state-change over GET.
  *
  * <p>Assembles a {@link BillingONFavouriteViewModel} via
- * {@link BillingONFavouriteDataAssembler} so the JSP body is pure
+ * {@link BillingONFavouriteViewModelAssembler} so the JSP body is pure
  * presentation: the data assembler runs the Save/Search/Delete branches
  * and dropdown population that the legacy JSP did inline.</p>
  *
@@ -49,10 +49,10 @@ public class ViewBillingONFavourite2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    private final BillingONFavouriteDataAssembler billingONFavouriteAssembler;
+    private final BillingONFavouriteViewModelAssembler billingONFavouriteAssembler;
 
     public ViewBillingONFavourite2Action(SecurityInfoManager securityInfoManager,
-                                          BillingONFavouriteDataAssembler billingONFavouriteAssembler) {
+                                          BillingONFavouriteViewModelAssembler billingONFavouriteAssembler) {
         this.securityInfoManager = securityInfoManager;
         this.billingONFavouriteAssembler = billingONFavouriteAssembler;
     }

@@ -23,19 +23,19 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONDisplayViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingONDisplayViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONDisplayDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONDisplayViewModelAssembler;
 
 /**
  * View gate for {@code billing/CA/ON/billingONDisplay.jsp}. Enforces {@code _billing}
  * {@code r} privilege before forwarding to the JSP at its
  * {@code /WEB-INF/jsp/} location, then delegates to
- * {@link BillingONDisplayDataAssembler} to produce a
+ * {@link BillingONDisplayViewModelAssembler} to produce a
  * {@link BillingONDisplayViewModel} exposed on the request as the
  * {@code displayModel} attribute (so the JSP body can be 100% EL/JSTL).
  *
@@ -46,12 +46,12 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONDisplayData
  */
 public class ViewBillingONDisplay2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
-    private final BillingONDisplayDataAssembler assembler;
+    private final BillingONDisplayViewModelAssembler assembler;
 
     private BillingONDisplayViewModel displayModel;
 
     public ViewBillingONDisplay2Action(SecurityInfoManager securityInfoManager,
-                                BillingONDisplayDataAssembler assembler) {
+                                BillingONDisplayViewModelAssembler assembler) {
         this.securityInfoManager = securityInfoManager;
         this.assembler = assembler;
     }

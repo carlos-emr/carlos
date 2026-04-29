@@ -24,20 +24,20 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDigUpdateViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingDiagCodeUpdateViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingDxCodeDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingDiagCodeViewModelAssembler;
 
 /**
  * Mutation gate for {@code billing/CA/ON/billingDigUpdate.jsp}, the
  * diagnostic-code description-update popup.
  *
  * <p>Enforces {@code _billing w} privilege AND POST-only. The
- * {@link BillingDxCodeDataAssembler#assembleUpdate} call performs the
+ * {@link BillingDiagCodeViewModelAssembler#assembleUpdate} call performs the
  * {@code DiagnosticCodeDao.merge} mutation that the JSP scriptlet used
  * to run mid-render; the JSP just renders the resulting success/error
  * banner.</p>
@@ -48,10 +48,10 @@ public class BillingDigUpdate2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    private final BillingDxCodeDataAssembler billingDxCodeAssembler;
+    private final BillingDiagCodeViewModelAssembler billingDxCodeAssembler;
 
     public BillingDigUpdate2Action(SecurityInfoManager securityInfoManager,
-                                    BillingDxCodeDataAssembler billingDxCodeAssembler) {
+                                    BillingDiagCodeViewModelAssembler billingDxCodeAssembler) {
         this.securityInfoManager = securityInfoManager;
         this.billingDxCodeAssembler = billingDxCodeAssembler;
     }
@@ -78,7 +78,7 @@ public class BillingDigUpdate2Action extends ActionSupport {
                 ? "" : submitValue.substring(submitValue.length() - 3);
         String newDescription = request.getParameter(code);
 
-        BillingDigUpdateViewModel model = billingDxCodeAssembler
+        BillingDiagCodeUpdateViewModel model = billingDxCodeAssembler
                 .assembleUpdate(submitValue, newDescription);
         request.setAttribute("digUpdateModel", model);
 

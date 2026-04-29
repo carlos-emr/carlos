@@ -23,19 +23,19 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONNewReportViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingONNewReportViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONNewReportDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONNewReportViewModelAssembler;
 
 /**
  * View action for {@code billing/CA/ON/billingONNewReport.jsp}. The legacy JSP
  * ran four inline JDBC queries (unbilled / billed / paid / unpaid) and built
  * provider/site dropdown options inline. The data assembly now lives in
- * {@link BillingONNewReportDataAssembler}; this action enforces {@code _billing}
+ * {@link BillingONNewReportViewModelAssembler}; this action enforces {@code _billing}
  * {@code r} and stashes the {@link BillingONNewReportViewModel} on the request
  * as {@code model} for the JSP to render via EL.
  *
@@ -45,11 +45,11 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONNewReportDa
  */
 public class ViewBillingONNewReport2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
-    private final BillingONNewReportDataAssembler assembler;
+    private final BillingONNewReportViewModelAssembler assembler;
     private BillingONNewReportViewModel model;
 
     public ViewBillingONNewReport2Action(SecurityInfoManager securityInfoManager,
-                                         BillingONNewReportDataAssembler assembler) {
+                                         BillingONNewReportViewModelAssembler assembler) {
         this.securityInfoManager = securityInfoManager;
         this.assembler = assembler;
     }

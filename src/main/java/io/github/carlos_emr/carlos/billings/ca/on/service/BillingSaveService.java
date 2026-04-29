@@ -35,9 +35,9 @@ import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingONConstants;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 /**
  * Service-layer component for {@code BillingSaveService}.
@@ -65,7 +65,7 @@ public class BillingSaveService {
     @SuppressWarnings("rawtypes")
     public SaveResult addABillingRecord(ArrayList val) {
         boolean ret = false;
-        BillingClaimHeader1Data claim1Obj = (BillingClaimHeader1Data) val.get(0);
+        BillingClaimHeaderDto claim1Obj = (BillingClaimHeaderDto) val.get(0);
         int billingNo = dbObj.addOneClaimHeaderRecord(claim1Obj);
         if (billingNo == 0)
             return new SaveResult(false, 0);
@@ -106,7 +106,7 @@ public class BillingSaveService {
 
     @SuppressWarnings("unchecked")
     public void addOhipInvoiceTrans(ArrayList vecObj) {
-        dbObj.addCreateOhipInvoiceTrans((BillingClaimHeader1Data) vecObj.get(0), (List<BillingItemData>) vecObj.get(1));
+        dbObj.addCreateOhipInvoiceTrans((BillingClaimHeaderDto) vecObj.get(0), (List<BillingClaimItemDto>) vecObj.get(1));
     }
 
     // set appt to B
@@ -122,9 +122,9 @@ public class BillingSaveService {
     // ret - ArrayList claimheader1data, itemdata
     public ArrayList getBillingClaimObj(HttpServletRequest requestData) {
         ArrayList ret = new ArrayList();
-        BillingClaimHeader1Data claim1Header = getClaimHeader1Obj(requestData);
+        BillingClaimHeaderDto claim1Header = getClaimHeader1Obj(requestData);
         ret.add(claim1Header);
-        BillingItemData[] itemData = getItemObj(requestData);
+        BillingClaimItemDto[] itemData = getItemObj(requestData);
 
         List aL = new ArrayList();
         for (int i = 0; i < itemData.length; i++) {
@@ -138,9 +138,9 @@ public class BillingSaveService {
     public ArrayList getBillingClaimHospObj(HttpServletRequest requestData, String service_date, String total,
                                          ArrayList vecServiceCode, ArrayList vecServiceCodeUnit, ArrayList vecServiceCodePrice) {
         ArrayList ret = new ArrayList();
-        BillingClaimHeader1Data claim1Header = getClaimHeader1HospObj(requestData, service_date, total);
+        BillingClaimHeaderDto claim1Header = getClaimHeader1HospObj(requestData, service_date, total);
         ret.add(claim1Header);
-        BillingItemData[] itemData = getItemHospObj(requestData, vecServiceCode, vecServiceCodeUnit,
+        BillingClaimItemDto[] itemData = getItemHospObj(requestData, vecServiceCode, vecServiceCodeUnit,
                 vecServiceCodePrice, service_date);
 
         List aL = new ArrayList();
@@ -152,13 +152,13 @@ public class BillingSaveService {
     }
 
 
-    private BillingClaimHeader1Data getClaimHeader1Obj(HttpServletRequest val) {
+    private BillingClaimHeaderDto getClaimHeader1Obj(HttpServletRequest val) {
         String billtype = val.getParameter("xml_billtype");
 
-        BillingClaimHeader1Data claim1Header = new BillingClaimHeader1Data();
+        BillingClaimHeaderDto claim1Header = new BillingClaimHeaderDto();
 
-        claim1Header.setTransc_id(BillingDataHlp.CLAIMHEADER1_TRANSACTIONIDENTIFIER);
-        claim1Header.setRec_id(BillingDataHlp.CLAIMHEADER1_REORDIDENTIFICATION);
+        claim1Header.setTransc_id(BillingONConstants.CLAIMHEADER1_TRANSACTIONIDENTIFIER);
+        claim1Header.setRec_id(BillingONConstants.CLAIMHEADER1_REORDIDENTIFICATION);
 
         if (!billtype.substring(0, 3).equals("BON")) {
             claim1Header.setHin(val.getParameter("hin"));
@@ -186,7 +186,7 @@ public class BillingSaveService {
         // acc_num - billing no
         claim1Header.setPay_program(getPayProgram(val.getParameter("xml_billtype"), val.getParameter("hc_type")));
         claim1Header.setPayee(val.getParameter("payMethod") != null ? val.getParameter("payMethod")
-                : BillingDataHlp.CLAIMHEADER1_PAYEE);
+                : BillingONConstants.CLAIMHEADER1_PAYEE);
         claim1Header.setRef_num(val.getParameter("referralCode"));
 
         claim1Header.setFacilty_num(val.getParameter("xml_location").substring(0, 4));
@@ -232,15 +232,15 @@ public class BillingSaveService {
         return claim1Header;
     }
 
-    private BillingItemData[] getItemObj(HttpServletRequest val) {
+    private BillingClaimItemDto[] getItemObj(HttpServletRequest val) {
         int itemNum = Integer.parseInt(val.getParameter("totalItem"));
-        BillingItemData[] claimItem = new BillingItemData[itemNum];
+        BillingClaimItemDto[] claimItem = new BillingClaimItemDto[itemNum];
         // _logger.info("No billing item for billing # " + itemNum);
 
         for (int i = 0; i < itemNum; i++) {
-            claimItem[i] = new BillingItemData();
-            claimItem[i].setTransc_id(BillingDataHlp.ITEM_TRANSACTIONIDENTIFIER);
-            claimItem[i].setRec_id(BillingDataHlp.ITEM_REORDIDENTIFICATION);
+            claimItem[i] = new BillingClaimItemDto();
+            claimItem[i].setTransc_id(BillingONConstants.ITEM_TRANSACTIONIDENTIFIER);
+            claimItem[i].setRec_id(BillingONConstants.ITEM_REORDIDENTIFICATION);
             claimItem[i].setService_code(val.getParameter("xserviceCode_" + i));
             if (val.getParameter("xsliCode_" + i) != null) {
                 claimItem[i].setLocation(val.getParameter("xsliCode_" + i));
@@ -262,7 +262,7 @@ public class BillingSaveService {
             } else {
                 claimItem[i].setDiscount("0.00");
             }
-            if (val.getParameter("xml_billtype").substring(0, 3).matches(BillingDataHlp.BILLINGMATCHSTRING_3RDPARTY)) {
+            if (val.getParameter("xml_billtype").substring(0, 3).matches(BillingONConstants.BILLINGMATCHSTRING_3RDPARTY)) {
                 claimItem[i].setStatus("P");
             } else {
                 claimItem[i].setStatus("O");
@@ -272,11 +272,11 @@ public class BillingSaveService {
         return claimItem;
     }
 
-    private BillingClaimHeader1Data getClaimHeader1HospObj(HttpServletRequest val, String service_date, String total) {
-        BillingClaimHeader1Data claim1Header = new BillingClaimHeader1Data();
+    private BillingClaimHeaderDto getClaimHeader1HospObj(HttpServletRequest val, String service_date, String total) {
+        BillingClaimHeaderDto claim1Header = new BillingClaimHeaderDto();
 
-        claim1Header.setTransc_id(BillingDataHlp.CLAIMHEADER1_TRANSACTIONIDENTIFIER);
-        claim1Header.setRec_id(BillingDataHlp.CLAIMHEADER1_REORDIDENTIFICATION);
+        claim1Header.setTransc_id(BillingONConstants.CLAIMHEADER1_TRANSACTIONIDENTIFIER);
+        claim1Header.setRec_id(BillingONConstants.CLAIMHEADER1_REORDIDENTIFICATION);
         String hin = getHinVer(val.getParameter("hin"))[0];
         String ver = getHinVer(val.getParameter("hin"))[1];
         claim1Header.setHin(hin);
@@ -286,7 +286,7 @@ public class BillingSaveService {
         // acc_num - billing no
         claim1Header.setPay_program(getPayProgram(val.getParameter("xml_billtype"), val.getParameter("hc_type")));
         claim1Header.setPayee(val.getParameter("payMethod") != null ? val.getParameter("payMethod")
-                : BillingDataHlp.CLAIMHEADER1_PAYEE);
+                : BillingONConstants.CLAIMHEADER1_PAYEE);
         claim1Header.setRef_num(val.getParameter("referralCode"));
 
         claim1Header.setFacilty_num(val.getParameter("xml_location").substring(0, 4));
@@ -330,10 +330,10 @@ public class BillingSaveService {
         return claim1Header;
     }
 
-    private BillingItemData[] getItemHospObj(HttpServletRequest val, ArrayList vecServiceCode, ArrayList vecServiceCodeUnit,
+    private BillingClaimItemDto[] getItemHospObj(HttpServletRequest val, ArrayList vecServiceCode, ArrayList vecServiceCodeUnit,
                                              ArrayList vecServiceCodePrice, String service_date) {
         int itemNum = vecServiceCode.size();
-        BillingItemData[] claimItem = new BillingItemData[itemNum];
+        BillingClaimItemDto[] claimItem = new BillingClaimItemDto[itemNum];
         // _logger.info("No billing item for billing # " + itemNum);
 
         for (int i = 0; i < vecServiceCode.size(); i++) { // recordCount
@@ -341,9 +341,9 @@ public class BillingSaveService {
             BigDecimal bdEachUnit = BillingMoney.amount((String) vecServiceCodeUnit.get(i));
             BigDecimal bdEachTotal = bdEachPrice.multiply(bdEachUnit).setScale(2, RoundingMode.HALF_UP);
 
-            claimItem[i] = new BillingItemData();
-            claimItem[i].setTransc_id(BillingDataHlp.ITEM_TRANSACTIONIDENTIFIER);
-            claimItem[i].setRec_id(BillingDataHlp.ITEM_REORDIDENTIFICATION);
+            claimItem[i] = new BillingClaimItemDto();
+            claimItem[i].setTransc_id(BillingONConstants.ITEM_TRANSACTIONIDENTIFIER);
+            claimItem[i].setRec_id(BillingONConstants.ITEM_REORDIDENTIFICATION);
 
             claimItem[i].setService_code((String) vecServiceCode.get(i));
             claimItem[i].setFee("" + bdEachTotal);
@@ -388,7 +388,7 @@ public class BillingSaveService {
     private String getPayProgram(String val, String hcType) {
         String ret = val.substring(0, 3);
         if (val.startsWith("PAT")) {
-            ret = BillingDataHlp.CLAIMHEADER1_PAYMENTPROGRAM_PRIVATE;
+            ret = BillingONConstants.CLAIMHEADER1_PAYMENTPROGRAM_PRIVATE;
         } else if (val.startsWith("ODP")) {
             ret = hcType.equals("ON") ? "HCP" : "RMB";
         } else if (val.startsWith("BON")) {

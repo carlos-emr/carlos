@@ -26,8 +26,8 @@ import java.io.IOException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.InrUpdateINRBillingDataAssembler;
-import io.github.carlos_emr.carlos.billings.ca.on.data.InrUpdateINRBillingViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.InrUpdateINRBillingViewModelAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.InrUpdateINRBillingViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -48,10 +48,10 @@ import org.apache.struts2.ServletActionContext;
 public class InrUpdateINRbilling2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
-    private final InrUpdateINRBillingDataAssembler assembler;
+    private final InrUpdateINRBillingViewModelAssembler assembler;
 
     public InrUpdateINRbilling2Action(SecurityInfoManager securityInfoManager,
-                               InrUpdateINRBillingDataAssembler assembler) {
+                               InrUpdateINRBillingViewModelAssembler assembler) {
         this.securityInfoManager = securityInfoManager;
         this.assembler = assembler;
     }

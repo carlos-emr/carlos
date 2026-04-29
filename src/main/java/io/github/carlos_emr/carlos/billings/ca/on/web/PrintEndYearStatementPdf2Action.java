@@ -24,7 +24,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.PatientEndYearStatementBean;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.PatientEndYearStatementSummary;
 import io.github.carlos_emr.carlos.billings.ca.on.service.PatientEndYearStatementService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -69,8 +69,8 @@ public class PrintEndYearStatementPdf2Action extends ActionSupport {
 
         PatientEndYearStatementSupport.echoNames(request);
 
-        PatientEndYearStatementBean summary =
-                (PatientEndYearStatementBean) request.getSession().getAttribute("summary");
+        PatientEndYearStatementSummary summary =
+                (PatientEndYearStatementSummary) request.getSession().getAttribute("summary");
         if (summary == null) {
             addActionError(getText("error.billingReport.invalidPatientName"));
             return "failure";

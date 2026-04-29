@@ -4,7 +4,7 @@
 > workflow in CARLOS EMR. Frontend (JSP) details for the bill-entry form
 > itself are out of scope here — see the JSP layer notes below.
 
-> **Last refreshed**: 2026-04-27. Codebase changes after that date should be
+> **Last refreshed**: 2026-04-28. Codebase changes after that date should be
 > verified against the current source before relying on this document.
 
 ## 1 — At a glance
@@ -44,16 +44,18 @@ src/main/java/io/github/carlos_emr/carlos/billings/
 │   ├── bc/                                ← BC implementation (out of scope)
 │   └── on/                                ← Ontario implementation (this doc)
 │       ├── administration/                  GST + admin actions
-│       ├── assembler/                       45 *DataAssembler classes
-│       │   └── *RenderComposer              composers used by larger assemblers
+│       ├── assembler/                       38 *ViewModelAssembler classes + composers/loaders
 │       ├── bean/                            legacy session beans (kept for compat)
-│       ├── data/                            51 immutable *ViewModel records
-│       │   └── BillingDataHlp / BillingDobs / BillingONIdTokens (utilities)
+│       ├── command/                         5 typed write/validation commands
+│       ├── data/                            3 legacy import/lookup record classes
+│       ├── dto/                             7 persistence/query transfer DTOs
 │       ├── OHIP/                            OHIP claim-file format helpers
 │       ├── pageUtil/                        legacy actions awaiting migration
 │       ├── reports/                         reporting (RA / disk / Y/E statement)
 │       ├── service/                         29 services / loaders / persisters
+│       ├── support/                         dependency-free support utilities
 │       ├── validator/                       3 input-validator classes
+│       ├── viewmodel/                       71 immutable presentation records
 │       └── web/                             88 *2Action Struts gates
 └── ca/on/
 
@@ -74,8 +76,8 @@ The module is organised in three layers, top to bottom:
                                        │
 ┌──────────────────────────────────────▼───────────────────────────────┐
 │ Presentation layer                                                   │
-│   *DataAssembler  ─►  *ViewModel  ─►  JSP                            │
-│   (assembler/, data/)            (immutable records)                 │
+│   *ViewModelAssembler  ─►  *ViewModel  ─►  JSP                       │
+│   (assembler/)              (viewmodel/, immutable records)          │
 │   Compose data for the view; no DAO writes; no HTTP semantics.       │
 └──────────────────────────────────────┬───────────────────────────────┘
                                        │
@@ -99,8 +101,10 @@ only when nothing more specific applies.
 | Role | Suffix | Examples in this module |
 |---|---|---|
 | HTTP entry point | `*2Action` | `BillingONSave2Action`, `ViewBillingONReview2Action` |
-| View-model builder | `*DataAssembler` | `BillingONFormDataAssembler`, `BillingONCorrectionDataAssembler` |
+| View-model builder | `*ViewModelAssembler` | `BillingONFormViewModelAssembler`, `BillingONCorrectionViewModelAssembler` |
 | Immutable presentation DTO | `*ViewModel` | `BillingONFormViewModel`, `BillingONStatusViewModel` |
+| Typed write/validation input | `*Command` | `BillingCorrectionSubmitCommand`, `BillingSpecClaimCommand` |
+| Persistence/query transfer DTO | `*Dto` | `BillingClaimHeaderDto`, `BillingClaimItemDto` |
 | Sub-assembler / partial composer | `*RenderComposer` | `BillingONCorrectionRenderComposer` |
 | Pure-read query service | `*Loader` | `BillingONClaimLoader`, `BillingONDiskLoader`, `ServiceCodeLoader` |
 | Pure-write persistence service | `*Persister` | `BillingONClaimPersister`, `BillingONReviewDxPersister`, `ServiceCodePersister` |
@@ -110,8 +114,8 @@ only when nothing more specific applies.
 | Data access | `*Dao` | `BillingONCHeader1Dao`, `BillingONPaymentDao`, `BillingServiceDao` |
 
 DAOs do **not** orchestrate other DAOs — cross-DAO operations live in a
-service. Static-utility classes (`BillingDobs`, `BillingONIdTokens`) use a
-domain noun with no suffix.
+service. Static-utility classes (`BillingDateOfBirths`, `BillingDomIdTokens`) live
+in `support/` and use a domain noun with no suffix.
 
 Forbidden in new code (and currently absent from this module): `*Prep`,
 `*Manager`, `*Helper`, `*Utils`, compound suffixes like `*ServiceManager` or
@@ -138,7 +142,7 @@ Three constraints drove the layered shape:
 
 1. **JSPs as views, not controllers.** Older billing JSPs hand-loaded data
    via inline scriptlets calling `SpringUtils.getBean(SomeDao.class)`. Every
-   such pattern in `billing/CA/ON/` has been replaced by an Assembler +
+   such pattern in `billing/CA/ON/` has been replaced by a ViewModelAssembler +
    ViewModel chain so the JSP renders from `${model.xxx}` only. The recipe is
    in [`docs/JSP-REFACTORING-GUIDE.md`](JSP-REFACTORING-GUIDE.md).
 2. **Single-purpose classes over catch-alls.** The legacy `BillingONService`
@@ -342,7 +346,7 @@ the right type when you need a known operation.
 | `BillingONRemittanceAdviceService` | Service | RA import + status updates |
 | `BillingONErrorReportService` | Service | RA error-report generation |
 | `BillingRAReportService` | Service | RA summary/desc report data prep |
-| `OnGenRAsettleService` | Service | RA settlement workflow |
+| `OntarioRASettlementService` | Service | RA settlement workflow |
 | `BillingDiskCreationService` | Service | OHIP disk creation lifecycle |
 | `OnBillingDiskService` | Service | Disk operations facade |
 | `OhipClaimFileService` | Service | OHIP fixed-width claim file generation |
@@ -379,11 +383,11 @@ consistent shape:
 public final class ViewBillingONReview2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
-    private final BillingONReviewDataAssembler assembler;
+    private final BillingONReviewViewModelAssembler assembler;
 
     @Autowired
     public ViewBillingONReview2Action(SecurityInfoManager s,
-                                       BillingONReviewDataAssembler a) {
+                                       BillingONReviewViewModelAssembler a) {
         this.securityInfoManager = s;
         this.assembler = a;
     }
@@ -460,13 +464,13 @@ public final class ViewBillingONReview2Action extends ActionSupport {
   `Encode.forXxx(...)` forms — those return the literal string `"null"`
   for null inputs.
 
-## 9 — Presentation layer (DataAssembler + ViewModel)
+## 9 — Presentation layer (ViewModelAssembler + ViewModel)
 
-Each JSP-backed page has exactly one Assembler and one ViewModel:
+Each JSP-backed page has exactly one ViewModelAssembler and one ViewModel:
 
 ```
 ViewBillingONReview2Action          ← gate
-  └─► BillingONReviewDataAssembler  ← composes data
+  └─► BillingONReviewViewModelAssembler  ← composes data
         └─► BillingONReviewViewModel ← immutable record consumed by the JSP
               └─► billingONReview.jsp
 ```
@@ -479,7 +483,7 @@ ViewBillingONReview2Action          ← gate
 - Fields named for their JSP-rendered shape (e.g., `formattedTotal`, not
   `total`). The view does no formatting — it just displays.
 
-### 9.2 DataAssembler conventions
+### 9.2 ViewModelAssembler conventions
 
 - `@Service` Spring bean, constructor-injected dependencies.
 - Single public method: `ViewModel assemble(HttpServletRequest, LoggedInInfo)`
@@ -528,9 +532,9 @@ Suppose you're adding a new "void claim" page. Follow this checklist:
    - Pure write? → `*Persister`.
    - Multi-step → `*Service` (annotate with `@Transactional`).
    - Use the entity's own domain methods where applicable.
-4. **ViewModel** under `data/` — immutable record, constructed via
+4. **ViewModel** under `viewmodel/` — immutable record, constructed via
    builder. Field names match the JSP's render needs.
-5. **DataAssembler** under `assembler/` — `@Service`, constructor-injected,
+5. **ViewModelAssembler** under `assembler/` — `@Service`, constructor-injected,
    single `assemble(...)` method.
 6. **Action** under `web/` — `*2Action` extending `ActionSupport`. Privilege
    check, HTTP method gate, delegate to assembler/service, set
@@ -544,7 +548,7 @@ Suppose you're adding a new "void claim" page. Follow this checklist:
      tagged `@Tag("integration") @Tag("dao") @Tag("billing")`).
    - Service method → unit test extending `CarlosUnitTestBase`, mock the
      DAO. Or integration test if real persistence behaviour matters.
-   - Assembler → unit test mocking the loaders/services it consumes.
+   - ViewModelAssembler → unit test mocking the loaders/services it consumes.
    - Action → unit test asserting the privilege check, the method gate,
      and the success delegation pattern.
 10. **Wire to navigation.** Add the link in the appropriate JSP nav

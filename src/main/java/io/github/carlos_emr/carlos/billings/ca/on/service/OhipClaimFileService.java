@@ -47,9 +47,9 @@ import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONDiskName;
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONFilename;
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONHeader;
 import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingBatchHeaderData;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingBatchHeaderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONItemDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
@@ -83,7 +83,7 @@ import org.owasp.encoder.Encode;
  *
  * <p>Used by:</p>
  * <ul>
- *   <li>{@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOHIPSimulationDataAssembler}
+ *   <li>{@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOHIPSimulationViewModelAssembler}
  *       — dry-run preview ({@code eFlag="0"}).</li>
  *   <li>{@link OnBillingDiskService} — actual disk creation /
  *       regeneration ({@code eFlag="1"}).</li>
@@ -120,9 +120,9 @@ public class OhipClaimFileService {
     private static final Logger _logger = MiscUtils.getLogger();
 
     public String errorFatalMsg = "";
-    private BillingBatchHeaderData bhObj = null;
-    private BillingClaimHeader1Data ch1Obj = null;
-    private BillingItemData itemObj = null;
+    private BillingBatchHeaderDto bhObj = null;
+    private BillingClaimHeaderDto ch1Obj = null;
+    private BillingClaimItemDto itemObj = null;
     private Properties propBillingNo = null;
     private final DemographicManager demographicManager;
     private final BillingONCHeader1Dao cheaderDao;
@@ -551,7 +551,7 @@ public class OhipClaimFileService {
                 }
 
                 patientCount++;
-                ch1Obj = new BillingClaimHeader1Data();
+                ch1Obj = new BillingClaimHeaderDto();
                 ch1Obj.setId(bNo);
                 ch1Obj.setTransc_id(h.getTranscId());
                 ch1Obj.setRec_id(h.getRecId());
@@ -613,7 +613,7 @@ public class OhipClaimFileService {
 
                 boolean hasSliCode = ch1Obj.getLocation().trim().length() == 3;
                 for (BillingONItem boi : itemDao.findByCh1Id(ConversionUtils.fromIntString(ch1Obj.getId()))) {
-                    itemObj = new BillingItemData();
+                    itemObj = new BillingClaimItemDto();
                     recordCount++;
                     // int count = 0;
 
@@ -715,7 +715,7 @@ public class OhipClaimFileService {
                 }
 
                 patientCount++;
-                ch1Obj = new BillingClaimHeader1Data();
+                ch1Obj = new BillingClaimHeaderDto();
                 ch1Obj.setId(bNo);
                 ch1Obj.setTransc_id(b.getTranscId());
                 ch1Obj.setRec_id(b.getRecId());
@@ -772,7 +772,7 @@ public class OhipClaimFileService {
                 invCount = 0;
 
                 for (BillingONItem i : itemDao.findByCh1Id(ConversionUtils.fromIntString(ch1Obj.getId()))) {
-                    itemObj = new BillingItemData();
+                    itemObj = new BillingClaimItemDto();
                     recordCount++;
 
                     itemObj.setTransc_id(i.getTranscId());
@@ -884,7 +884,7 @@ public class OhipClaimFileService {
         }
     }
 
-    private void updateDemoData(LoggedInInfo loggedInInfo, BillingClaimHeader1Data chObj) {
+    private void updateDemoData(LoggedInInfo loggedInInfo, BillingClaimHeaderDto chObj) {
         // last_name,first_name,dob,hin,ver,hc_type,sex
         List<String> vecStr = lookupService
                 .getPatientCurBillingDemo(loggedInInfo, chObj.getDemographic_no());
@@ -912,7 +912,7 @@ public class OhipClaimFileService {
     public void getBatchHeaderObj(String bid) {
         BillingONHeader h = headerDao.find(ConversionUtils.fromIntString(bid));
         if (h != null) {
-            bhObj = new BillingBatchHeaderData();
+            bhObj = new BillingBatchHeaderDto();
             bhObj.setId(bid);
             bhObj.setDisk_id("" + h.getDiskId());
             bhObj.setTransc_id(h.getTransactionId());
@@ -934,7 +934,7 @@ public class OhipClaimFileService {
         setOhipFilename(getOhipFilename(bhObj.getDisk_id()));
     }
 
-    public void setBatchHeaderObj(BillingBatchHeaderData value) {
+    public void setBatchHeaderObj(BillingBatchHeaderDto value) {
         bhObj = value;
         setOhipFilename(getOhipFilename(bhObj.getDisk_id()));
     }
@@ -1142,19 +1142,19 @@ public class OhipClaimFileService {
         return ret;
     }
 
-    public BillingBatchHeaderData getBhObj() {
+    public BillingBatchHeaderDto getBhObj() {
         return bhObj;
     }
 
-    public void setBhObj(BillingBatchHeaderData bhObj) {
+    public void setBhObj(BillingBatchHeaderDto bhObj) {
         this.bhObj = bhObj;
     }
 
-    public BillingClaimHeader1Data getCh1Obj() {
+    public BillingClaimHeaderDto getCh1Obj() {
         return ch1Obj;
     }
 
-    public void setCh1Obj(BillingClaimHeader1Data ch1Obj) {
+    public void setCh1Obj(BillingClaimHeaderDto ch1Obj) {
         this.ch1Obj = ch1Obj;
     }
 

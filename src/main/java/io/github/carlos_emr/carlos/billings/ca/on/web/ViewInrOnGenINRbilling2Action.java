@@ -33,9 +33,9 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.billing.CA.dao.BillingInrDao;
 import io.github.carlos_emr.carlos.billing.CA.model.BillingInr;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingONConstants;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimPersister;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -138,14 +138,14 @@ public class ViewInrOnGenINRbilling2Action extends ActionSupport {
         String hcType = demo.getHcType();
         String sex = demo.getSex();
 
-        BillingClaimHeader1Data header = new BillingClaimHeader1Data();
-        header.setTransc_id(BillingDataHlp.CLAIMHEADER1_TRANSACTIONIDENTIFIER);
-        header.setRec_id(BillingDataHlp.CLAIMHEADER1_REORDIDENTIFICATION);
+        BillingClaimHeaderDto header = new BillingClaimHeaderDto();
+        header.setTransc_id(BillingONConstants.CLAIMHEADER1_TRANSACTIONIDENTIFIER);
+        header.setRec_id(BillingONConstants.CLAIMHEADER1_REORDIDENTIFICATION);
         header.setHin(demo.getHin());
         header.setVer(demo.getVer());
         header.setDob(demoDob);
         header.setPay_program("ON".equals(hcType) ? "HCP" : "RMB");
-        header.setPayee(BillingDataHlp.CLAIMHEADER1_PAYEE);
+        header.setPayee(BillingONConstants.CLAIMHEADER1_PAYEE);
         header.setRef_num("");
         header.setFacilty_num(clinicRefCode);
         header.setAdmission_date("");
@@ -181,9 +181,9 @@ public class ViewInrOnGenINRbilling2Action extends ActionSupport {
             billingInrDao.merge(inrToUpdate);
         }
 
-        BillingItemData item = new BillingItemData();
-        item.setTransc_id(BillingDataHlp.ITEM_TRANSACTIONIDENTIFIER);
-        item.setRec_id(BillingDataHlp.ITEM_REORDIDENTIFICATION);
+        BillingClaimItemDto item = new BillingClaimItemDto();
+        item.setTransc_id(BillingONConstants.ITEM_TRANSACTIONIDENTIFIER);
+        item.setRec_id(BillingONConstants.ITEM_REORDIDENTIFICATION);
         item.setService_code(serviceCode);
         item.setFee(billingAmount);
         item.setSer_num(billingUnit);
@@ -193,7 +193,7 @@ public class ViewInrOnGenINRbilling2Action extends ActionSupport {
         item.setDx2("");
         item.setStatus("O");
 
-        List<BillingItemData> items = new ArrayList<>(1);
+        List<BillingClaimItemDto> items = new ArrayList<>(1);
         items.add(item);
         persistenceService.addItemRecord(items, billNo);
     }

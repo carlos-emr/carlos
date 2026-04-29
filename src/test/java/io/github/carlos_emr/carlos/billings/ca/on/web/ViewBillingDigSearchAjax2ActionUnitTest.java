@@ -27,9 +27,9 @@ import java.util.Collections;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingDxCodeDataAssembler;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDigSearchAjaxViewModel;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDigSearchAjaxViewModel.Suggestion;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingDiagCodeViewModelAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingDiagCodeSearchAjaxViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingDiagCodeSearchAjaxViewModel.Suggestion;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -83,7 +83,7 @@ class ViewBillingDigSearchAjax2ActionUnitTest extends CarlosUnitTestBase {
     private LoggedInInfo mockLoggedInInfo;
 
     @Mock
-    private BillingDxCodeDataAssembler mockAssembler;
+    private BillingDiagCodeViewModelAssembler mockAssembler;
 
     private MockHttpServletRequest mockRequest;
     private MockHttpServletResponse mockResponse;
@@ -120,7 +120,7 @@ class ViewBillingDigSearchAjax2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldWriteJsonArray_forEachSuggestion() throws Exception {
-        BillingDigSearchAjaxViewModel model = BillingDigSearchAjaxViewModel.builder()
+        BillingDiagCodeSearchAjaxViewModel model = BillingDiagCodeSearchAjaxViewModel.builder()
                 .suggestions(Arrays.asList(
                         new Suggestion("401", "401 - Hypertension", "401", "Hypertension"),
                         new Suggestion("250", "250 - Diabetes mellitus", "250", "Diabetes mellitus")))
@@ -146,7 +146,7 @@ class ViewBillingDigSearchAjax2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldWriteEmptyArray_whenNoSuggestions() throws Exception {
         when(mockAssembler.assembleAjax(any())).thenReturn(
-                BillingDigSearchAjaxViewModel.builder().suggestions(Collections.emptyList()).build());
+                BillingDiagCodeSearchAjaxViewModel.builder().suggestions(Collections.emptyList()).build());
         mockRequest.setParameter("term", "Z");
 
         newAction().execute();

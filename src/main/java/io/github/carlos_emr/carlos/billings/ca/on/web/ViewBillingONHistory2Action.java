@@ -23,18 +23,18 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONHistoryViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingONHistoryViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONHistoryDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONHistoryViewModelAssembler;
 
 /**
  * View gate for {@code billing/CA/ON/billingONHistory.jsp}. Enforces
  * {@code _billing r} privilege and assembles a
- * {@link BillingONHistoryViewModel} via {@link BillingONHistoryDataAssembler}
+ * {@link BillingONHistoryViewModel} via {@link BillingONHistoryViewModelAssembler}
  * so the JSP can render pre-resolved billing-history rows instead of doing
  * inline Spring lookups, balance arithmetic, and per-row privilege checks.
  *
@@ -44,10 +44,10 @@ public class ViewBillingONHistory2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    private final BillingONHistoryDataAssembler billingONHistoryAssembler;
+    private final BillingONHistoryViewModelAssembler billingONHistoryAssembler;
 
     public ViewBillingONHistory2Action(SecurityInfoManager securityInfoManager,
-                                        BillingONHistoryDataAssembler billingONHistoryAssembler) {
+                                        BillingONHistoryViewModelAssembler billingONHistoryAssembler) {
         this.securityInfoManager = securityInfoManager;
         this.billingONHistoryAssembler = billingONHistoryAssembler;
     }

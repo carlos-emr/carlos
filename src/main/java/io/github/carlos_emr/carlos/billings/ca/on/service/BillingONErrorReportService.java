@@ -25,8 +25,8 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 import java.util.ArrayList;
 import java.util.List;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingErrorRepData;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingErrorReportDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
 import io.github.carlos_emr.carlos.commn.dao.BillingONEAReportDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONEAReport;
 
@@ -55,17 +55,17 @@ public class BillingONErrorReportService {
         this.billingONEARReportDao = billingONEARReportDao;
     }
 
-    public List<BillingErrorRepData> getErrorRecords(BillingProviderData val, String fromDate, String toDate, String filename) {
-        List<BillingErrorRepData> retval = new ArrayList<BillingErrorRepData>();
+    public List<BillingErrorReportDto> getErrorRecords(BillingProviderDto val, String fromDate, String toDate, String filename) {
+        List<BillingErrorReportDto> retval = new ArrayList<BillingErrorReportDto>();
         for (BillingONEAReport r : billingONEARReportDao.findByMagic(val.getOhipNo(), val.getBillingGroupNo(), val.getSpecialtyCode(), ConversionUtils.fromDateString(fromDate), ConversionUtils.fromDateString(toDate), filename)) {
             toReportData(retval, r);
         }
         return retval;
     }
 
-    private void toReportData(List<BillingErrorRepData> retval, BillingONEAReport r) {
-        BillingErrorRepData obj = null;
-        obj = new BillingErrorRepData();
+    private void toReportData(List<BillingErrorReportDto> retval, BillingONEAReport r) {
+        BillingErrorReportDto obj = null;
+        obj = new BillingErrorReportDto();
         obj.setId("" + r.getId());
         obj.setBilling_no("" + r.getBillingNo());
         obj.setProviderohip_no(r.getProviderOHIPNo());
@@ -92,8 +92,8 @@ public class BillingONErrorReportService {
         retval.add(obj);
     }
 
-    public List<BillingErrorRepData> getErrorRecords(List<BillingProviderData> list, String fromDate, String toDate, String filename) {
-        List<BillingErrorRepData> retval = new ArrayList<BillingErrorRepData>();
+    public List<BillingErrorReportDto> getErrorRecords(List<BillingProviderDto> list, String fromDate, String toDate, String filename) {
+        List<BillingErrorReportDto> retval = new ArrayList<BillingErrorReportDto>();
         if (list == null) {
             return retval;
         }
@@ -105,7 +105,7 @@ public class BillingONErrorReportService {
         return retval;
     }
 
-    public boolean deleteErrorReport(BillingErrorRepData val) {
+    public boolean deleteErrorReport(BillingErrorReportDto val) {
         List<BillingONEAReport> bs = billingONEARReportDao.findByProviderOhipNoAndGroupNoAndSpecialtyAndProcessDateAndBillingNo(val.getProviderohip_no(), val.getGroup_no(), val.getSpecialty(), ConversionUtils.fromDateString(val.getProcess_date()), Integer.parseInt(val.getBilling_no()));
         for (BillingONEAReport b : bs) {
             billingONEARReportDao.remove(b.getId());
@@ -113,7 +113,7 @@ public class BillingONErrorReportService {
         return true;
     }
 
-    public int addErrorReportRecord(BillingErrorRepData val) {
+    public int addErrorReportRecord(BillingErrorReportDto val) {
         BillingONEAReport b = new BillingONEAReport();
         b.setProviderOHIPNo(val.getProviderohip_no());
         b.setGroupNo(val.getGroup_no());

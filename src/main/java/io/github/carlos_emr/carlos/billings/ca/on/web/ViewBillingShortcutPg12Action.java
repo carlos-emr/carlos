@@ -24,13 +24,13 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingShortcutPg1ViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingShortcutPg1ViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingShortcutPg1DataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingShortcutPg1ViewModelAssembler;
 
 /**
  * View gate for {@code billing/CA/ON/billingShortcutPg1.jsp}.
@@ -52,12 +52,12 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingShortcutPg1Da
  */
 public class ViewBillingShortcutPg12Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
-    private final BillingShortcutPg1DataAssembler assembler;
+    private final BillingShortcutPg1ViewModelAssembler assembler;
 
     private BillingShortcutPg1ViewModel shortcutPg1Model;
 
     public ViewBillingShortcutPg12Action(SecurityInfoManager securityInfoManager,
-                                  BillingShortcutPg1DataAssembler assembler) {
+                                  BillingShortcutPg1ViewModelAssembler assembler) {
         this.securityInfoManager = securityInfoManager;
         this.assembler = assembler;
     }

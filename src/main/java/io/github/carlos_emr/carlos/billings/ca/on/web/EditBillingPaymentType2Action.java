@@ -24,13 +24,13 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.EditBillingPaymentTypeViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.EditBillingPaymentTypeViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.EditBillingPaymentTypeDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.EditBillingPaymentTypeViewModelAssembler;
 
 /**
  * Mutation gate for {@code billing/CA/ON/editBillingPaymentType.jsp}. Enforces {@code _admin.billing}
@@ -46,10 +46,10 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.EditBillingPaymentTy
 public class EditBillingPaymentType2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
-    private final EditBillingPaymentTypeDataAssembler assembler;
+    private final EditBillingPaymentTypeViewModelAssembler assembler;
 
     public EditBillingPaymentType2Action(SecurityInfoManager securityInfoManager,
-                                  EditBillingPaymentTypeDataAssembler assembler) {
+                                  EditBillingPaymentTypeViewModelAssembler assembler) {
         this.securityInfoManager = securityInfoManager;
         this.assembler = assembler;
     }

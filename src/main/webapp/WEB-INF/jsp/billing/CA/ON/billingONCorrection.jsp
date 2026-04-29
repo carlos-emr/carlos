@@ -309,7 +309,7 @@
         </c:if>
 
         <%-- Banners for the demoLoadError / raLookupError flags set by
-             BillingONCorrectionDataAssembler.loadBillRecord. Without these,
+             BillingONCorrectionViewModelAssembler.loadBillRecord. Without these,
              the operator might mistake an empty patient context or empty
              claimNo for authoritative data. --%>
         <c:if test="${correctionModel.demoLoadError}">

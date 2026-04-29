@@ -44,7 +44,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.bean.BillingClaimBatchAcknowle
 import io.github.carlos_emr.carlos.billings.ca.on.bean.BillingClaimsErrorReportBeanHandler;
 import io.github.carlos_emr.carlos.billings.ca.on.bean.BillingEDTOBECOutputSpecificationBean;
 import io.github.carlos_emr.carlos.billings.ca.on.bean.BillingEDTOBECOutputSpecificationBeanHandler;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimsErrorReportBeanHandlerSave;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimsErrorReportImporter;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONErrorReportService;
 
 import jakarta.servlet.ServletException;
@@ -288,7 +288,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
     private BillingClaimsErrorReportBeanHandler generateReportE(FileInputStream file, boolean bB, String filename) {
         BillingClaimsErrorReportBeanHandler hd = null;
         if (bB) {
-            hd = (new BillingClaimsErrorReportBeanHandlerSave(file, filename, errorReportService))
+            hd = (new BillingClaimsErrorReportImporter(file, filename, errorReportService))
                     .getErrorReportBeanObj(file);
         } else {
             hd = new BillingClaimsErrorReportBeanHandler(file);

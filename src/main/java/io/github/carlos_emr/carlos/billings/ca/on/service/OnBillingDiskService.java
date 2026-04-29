@@ -31,7 +31,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.providers.data.ProviderBillCenter;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -104,7 +104,7 @@ public class OnBillingDiskService {
             writeGroupDisks(prep, prep.getCurGrpProvider(), loggedInInfo, request,
                     dateRange, mohOffice, useProviderMOH, currentUser, groupReport, provider);
         } else {
-            BillingProviderData soloProvider = prep.getProviderObj(provider);
+            BillingProviderDto soloProvider = prep.getProviderObj(provider);
             if (soloProvider != null && isSoloGroupNo(soloProvider.getBillingGroupNo())) {
                 writeSingleSoloDisk(prep, soloProvider, loggedInInfo, request,
                         dateRange, mohOffice, useProviderMOH, currentUser);
@@ -128,11 +128,11 @@ public class OnBillingDiskService {
         String dateEnd = diskQueryService.getDiskCreateDate(diskId);
         DateRange dateRange = new DateRange(null, ConversionUtils.fromDateString(dateEnd));
 
-        List<BillingProviderData> lProvider = prep.getProvider(diskId);
+        List<BillingProviderDto> lProvider = prep.getProvider(diskId);
 
         if (lProvider != null && lProvider.size() == 1
                 && isSoloGroupNo(lProvider.get(0).getBillingGroupNo())) {
-            BillingProviderData dataProvider = lProvider.get(0);
+            BillingProviderDto dataProvider = lProvider.get(0);
             String resolvedMoh = resolveMohForRegen(useProviderMOH, dataProvider.getProviderNo(),
                     defaultMOH);
             int headerId = prep.updateBatchHeader(dataProvider, diskId, resolvedMoh, "1",
@@ -172,12 +172,12 @@ public class OnBillingDiskService {
                 ConversionUtils.fromDateString(dateEnd));
     }
 
-    private void writeSoloDisks(BillingDiskCreationService prep, List<BillingProviderData> soloProviders,
+    private void writeSoloDisks(BillingDiskCreationService prep, List<BillingProviderDto> soloProviders,
                                  LoggedInInfo loggedInInfo, HttpServletRequest request,
                                  DateRange dateRange, String mohOffice, String useProviderMOH,
                                  String currentUser) {
         ProviderBillCenter oriBillCenter = new ProviderBillCenter();
-        for (BillingProviderData dataProvider : soloProviders) {
+        for (BillingProviderDto dataProvider : soloProviders) {
             MiscUtils.getLogger().info("creating solo disk for =" + dataProvider);
             int diskId = prep.createNewSoloDiskName(dataProvider.getProviderNo(), currentUser);
             int headerId = createSoloHeader(prep, dataProvider, diskId, oriBillCenter, mohOffice,
@@ -194,14 +194,14 @@ public class OnBillingDiskService {
         }
     }
 
-    private void writeGroupDisks(BillingDiskCreationService prep, List<BillingProviderData> grpProviders,
+    private void writeGroupDisks(BillingDiskCreationService prep, List<BillingProviderDto> grpProviders,
                                   LoggedInInfo loggedInInfo, HttpServletRequest request,
                                   DateRange dateRange, String mohOffice, String useProviderMOH,
                                   String currentUser, boolean groupReport, String provider) {
         ProviderBillCenter oriBillCenter = new ProviderBillCenter();
         Set<String> groupNos = new HashSet<>();
         List<String> providerNos = new ArrayList<>();
-        for (BillingProviderData dataProvider : grpProviders) {
+        for (BillingProviderDto dataProvider : grpProviders) {
             if (groupReport && !provider.equals(dataProvider.getProviderNo())) continue;
             groupNos.add(dataProvider.getBillingGroupNo());
             providerNos.add(dataProvider.getProviderNo());
@@ -215,7 +215,7 @@ public class OnBillingDiskService {
             ArrayList<String> providerNoCopy = new ArrayList<>();
             ArrayList<String> ohipNoCopy = new ArrayList<>();
             for (int copyi = 0; copyi < providerNos.size(); copyi++) {
-                BillingProviderData bpd = findByProviderNo(grpProviders, providerNos.get(copyi));
+                BillingProviderDto bpd = findByProviderNo(grpProviders, providerNos.get(copyi));
                 if (bpd != null && groupNo.equals(bpd.getBillingGroupNo())) {
                     providerNoCopy.add(providerNos.get(copyi));
                     ohipNoCopy.add(bpd.getOhipNo());
@@ -237,7 +237,7 @@ public class OnBillingDiskService {
     }
 
     private String writeGroupMembers(BillingDiskCreationService prep,
-                                      List<BillingProviderData> grpProviders, String groupNo,
+                                      List<BillingProviderDto> grpProviders, String groupNo,
                                       int diskId, LoggedInInfo loggedInInfo,
                                       HttpServletRequest request, DateRange dateRange,
                                       String mohOffice, String useProviderMOH, String currentUser,
@@ -245,7 +245,7 @@ public class OnBillingDiskService {
         StringBuilder value = new StringBuilder();
         boolean wroteAny = false;
         for (int i = 0; i < grpProviders.size(); i++) {
-            BillingProviderData dataProvider = grpProviders.get(i);
+            BillingProviderDto dataProvider = grpProviders.get(i);
             if (!groupNo.equals(dataProvider.getBillingGroupNo())) continue;
             OhipClaimFileService objFile = newFileWriter(request, dateRange,
                     dataProvider.getProviderNo(),
@@ -264,7 +264,7 @@ public class OnBillingDiskService {
         return wroteAny ? value.toString() : null;
     }
 
-    private void writeSingleSoloDisk(BillingDiskCreationService prep, BillingProviderData dataProvider,
+    private void writeSingleSoloDisk(BillingDiskCreationService prep, BillingProviderDto dataProvider,
                                       LoggedInInfo loggedInInfo, HttpServletRequest request,
                                       DateRange dateRange, String mohOffice,
                                       String useProviderMOH, String currentUser) {
@@ -283,14 +283,14 @@ public class OnBillingDiskService {
     }
 
     private void regenerateGroupDisk(BillingDiskCreationService prep,
-                                      List<BillingProviderData> lProvider,
+                                      List<BillingProviderDto> lProvider,
                                       LoggedInInfo loggedInInfo, HttpServletRequest request,
                                       DateRange dateRange, String mohOffice, String diskId,
                                       String currentUser) {
         StringBuilder value = new StringBuilder();
         OhipClaimFileService lastWriter = null;
         for (int i = 0; i < lProvider.size(); i++) {
-            BillingProviderData dataProvider = lProvider.get(i);
+            BillingProviderDto dataProvider = lProvider.get(i);
             OhipClaimFileService objFile = newFileWriter(request, dateRange,
                     dataProvider.getProviderNo(),
                     prep.getOhipfilename(Integer.parseInt(diskId)),
@@ -311,14 +311,14 @@ public class OnBillingDiskService {
         }
     }
 
-    private static int createSoloHeader(BillingDiskCreationService prep, BillingProviderData dataProvider,
+    private static int createSoloHeader(BillingDiskCreationService prep, BillingProviderDto dataProvider,
                                          int diskId, ProviderBillCenter oriBillCenter,
                                          String mohOffice, String currentUser) {
         return createSoloHeader(prep, dataProvider, diskId, oriBillCenter, mohOffice, currentUser,
                 "1");
     }
 
-    private static int createSoloHeader(BillingDiskCreationService prep, BillingProviderData dataProvider,
+    private static int createSoloHeader(BillingDiskCreationService prep, BillingProviderDto dataProvider,
                                          int diskId, ProviderBillCenter oriBillCenter,
                                          String mohOffice, String currentUser, String seqNum) {
         boolean existBillCenter = oriBillCenter.hasBillCenter(dataProvider.getProviderNo());
@@ -351,9 +351,9 @@ public class OnBillingDiskService {
         return objFile;
     }
 
-    private static BillingProviderData findByProviderNo(List<BillingProviderData> providers,
+    private static BillingProviderDto findByProviderNo(List<BillingProviderDto> providers,
                                                          String providerNo) {
-        for (BillingProviderData bpd : providers) {
+        for (BillingProviderDto bpd : providers) {
             if (bpd.getProviderNo().equals(providerNo)) return bpd;
         }
         return null;

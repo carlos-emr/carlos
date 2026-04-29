@@ -22,9 +22,9 @@ import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONHeaderDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONDiskName;
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONFilename;
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONHeader;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingBatchHeaderData;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDiskNameData;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingBatchHeaderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingDiskNameDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
@@ -94,7 +94,7 @@ public class BillingONDiskLoader {
                     dateformatter.parse(sDate), dateformatter.parse(eDate), status);
 
             for (BillingONDiskName b : results) {
-                BillingDiskNameData obj = new BillingDiskNameData();
+                BillingDiskNameDto obj = new BillingDiskNameDto();
                 obj.setId("" + b.getId());
                 obj.setMonthCode(b.getMonthCode());
                 obj.setBatchcount("" + b.getBatchCount());
@@ -154,8 +154,8 @@ public class BillingONDiskLoader {
         return obj;
     }
 
-    public BillingDiskNameData getDisknameObj(String diskId) {
-        BillingDiskNameData obj = new BillingDiskNameData();
+    public BillingDiskNameDto getDisknameObj(String diskId) {
+        BillingDiskNameDto obj = new BillingDiskNameDto();
 
         BillingONDiskName b = diskNameDao.find(Integer.valueOf(diskId));
         if (b != null) {
@@ -201,8 +201,8 @@ public class BillingONDiskLoader {
         return obj;
     }
 
-    public BillingBatchHeaderData getBatchHeaderObj(BillingProviderData providerData, String disk_id) {
-        BillingBatchHeaderData obj = new BillingBatchHeaderData();
+    public BillingBatchHeaderDto getBatchHeaderObj(BillingProviderDto providerData, String disk_id) {
+        BillingBatchHeaderDto obj = new BillingBatchHeaderDto();
 
         List<BillingONHeader> bs = headerDao.findByDiskIdAndProviderRegNum(
                 Integer.parseInt(disk_id), providerData.getOhipNo());

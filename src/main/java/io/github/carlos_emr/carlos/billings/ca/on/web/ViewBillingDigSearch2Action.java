@@ -23,20 +23,20 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDigSearchViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingDiagCodeSearchViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingDxCodeDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingDiagCodeViewModelAssembler;
 
 /**
  * View gate for {@code billing/CA/ON/billingDigSearch.jsp}, the diagnostic-code
  * (ICD-9) search popup.
  *
  * <p>Enforces {@code _billing r}, then assembles a
- * {@link BillingDigSearchViewModel} via {@link BillingDxCodeDataAssembler}'s
+ * {@link BillingDiagCodeSearchViewModel} via {@link BillingDiagCodeViewModelAssembler}'s
  * search method so the JSP reads pre-resolved code rows instead of
  * doing the inline {@code SpringUtils.getBean(DiagnosticCodeDao)}
  * lookup.</p>
@@ -47,10 +47,10 @@ public class ViewBillingDigSearch2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    private final BillingDxCodeDataAssembler billingDxCodeAssembler;
+    private final BillingDiagCodeViewModelAssembler billingDxCodeAssembler;
 
     public ViewBillingDigSearch2Action(SecurityInfoManager securityInfoManager,
-                                        BillingDxCodeDataAssembler billingDxCodeAssembler) {
+                                        BillingDiagCodeViewModelAssembler billingDxCodeAssembler) {
         this.securityInfoManager = securityInfoManager;
         this.billingDxCodeAssembler = billingDxCodeAssembler;
     }
@@ -63,7 +63,7 @@ public class ViewBillingDigSearch2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        BillingDigSearchViewModel model = billingDxCodeAssembler.assembleSearch(
+        BillingDiagCodeSearchViewModel model = billingDxCodeAssembler.assembleSearch(
                 request.getParameter("coderange"),
                 request.getParameter("codedesc"),
                 request.getParameter("name2"));

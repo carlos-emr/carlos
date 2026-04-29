@@ -25,7 +25,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.billings.ca.on.data.ManageBillingLocationViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.ManageBillingLocationViewModel;
 import io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;

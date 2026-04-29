@@ -21,8 +21,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONReviewDataAssembler;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONReviewViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONReviewViewModelAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingONReviewViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONReviewDxPersister;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -78,7 +78,7 @@ class ViewBillingONReview2ActionUnitTest extends CarlosUnitTestBase {
     private BillingONReviewDxPersister mockDxPersister;
 
     @Mock
-    private BillingONReviewDataAssembler mockAssembler;
+    private BillingONReviewViewModelAssembler mockAssembler;
 
     private MockHttpServletRequest mockRequest;
     private MockHttpServletResponse mockResponse;

@@ -34,11 +34,11 @@ import java.util.ArrayList;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingBatchHeaderData;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDiskNameData;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingBatchHeaderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingONConstants;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingDiskNameDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONDiskNameDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONFilenameDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONHeaderDao;
@@ -109,7 +109,7 @@ public class BillingONClaimPersister {
     SimpleDateFormat tsFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
 
-    public int addOneBatchHeaderRecord(BillingBatchHeaderData val) {
+    public int addOneBatchHeaderRecord(BillingBatchHeaderDto val) {
         BillingONHeader b = new BillingONHeader();
         b.setDiskId(Integer.parseInt(val.getDisk_id()));
         b.setTransactionId(val.getTransc_id());
@@ -136,7 +136,7 @@ public class BillingONClaimPersister {
         return b.getId();
     }
 
-    public int addOneClaimHeaderRecord(BillingClaimHeader1Data val) {
+    public int addOneClaimHeaderRecord(BillingClaimHeaderDto val) {
         BillingONCHeader1 b = new BillingONCHeader1();
         b.setHeaderId(0);
         b.setTranscId(val.getTransc_id());
@@ -210,7 +210,7 @@ public class BillingONClaimPersister {
 
         boolean retval = true;
         for (int i = 0; i < lVal.size(); i++) {
-            BillingItemData val = (BillingItemData) lVal.get(i);
+            BillingClaimItemDto val = (BillingClaimItemDto) lVal.get(i);
 
             BillingONItem b = new BillingONItem();
             b.setCh1Id(id);
@@ -239,7 +239,7 @@ public class BillingONClaimPersister {
         BillingOnItemPayment billOnItemPayment = null;
         Timestamp ts = new Timestamp(new Date().getTime());
         for (int i = 0; i < lVal.size(); i++) {
-            BillingItemData val = (BillingItemData) lVal.get(i);
+            BillingClaimItemDto val = (BillingClaimItemDto) lVal.get(i);
             billOnItemPayment = new BillingOnItemPayment();
             billOnItemPayment.setBillingOnItemId(Integer.parseInt(val.getId()));
             billOnItemPayment.setBillingOnPaymentId(paymentId);
@@ -254,16 +254,16 @@ public class BillingONClaimPersister {
         return (retval != 0);
     }
 
-    private void addCreate3rdInvoiceTrans(BillingClaimHeader1Data billHeader, List<BillingItemData> billItemList, BillingONPayment billOnPayment) {
+    private void addCreate3rdInvoiceTrans(BillingClaimHeaderDto billHeader, List<BillingClaimItemDto> billItemList, BillingONPayment billOnPayment) {
         if (billItemList.size() < 1) {
             return;
         }
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
         Timestamp updateTs = new Timestamp(new Date().getTime());
         BillingOnTransaction billTrans = null;
-        for (BillingItemData billItem : billItemList) {
+        for (BillingClaimItemDto billItem : billItemList) {
             billTrans = new BillingOnTransaction();
-            billTrans.setActionType(BillingDataHlp.ACTION_TYPE.C.name());
+            billTrans.setActionType(BillingONConstants.ACTION_TYPE.C.name());
             try {
                 billTrans.setAdmissionDate(sdf.parse(billHeader.getAdmission_date()));
             } catch (Exception e) {
@@ -318,16 +318,16 @@ public class BillingONClaimPersister {
         }
     }
 
-    public void addCreateOhipInvoiceTrans(BillingClaimHeader1Data billHeader, List<BillingItemData> billItemList) {
+    public void addCreateOhipInvoiceTrans(BillingClaimHeaderDto billHeader, List<BillingClaimItemDto> billItemList) {
         if (billItemList.size() < 1) {
             return;
         }
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
         Timestamp updateTs = new Timestamp(new Date().getTime());
         BillingOnTransaction billTrans = null;
-        for (BillingItemData billItem : billItemList) {
+        for (BillingClaimItemDto billItem : billItemList) {
             billTrans = new BillingOnTransaction();
-            billTrans.setActionType(BillingDataHlp.ACTION_TYPE.C.name());
+            billTrans.setActionType(BillingONConstants.ACTION_TYPE.C.name());
             try {
                 billTrans.setAdmissionDate(sdf.parse(billHeader.getAdmission_date()));
             } catch (Exception e) {
@@ -373,7 +373,7 @@ public class BillingONClaimPersister {
 
     @SuppressWarnings("unchecked")
     public boolean add3rdBillExt(Map<String, String> mVal, int id, ArrayList vecObj) {
-        BillingClaimHeader1Data claim1Obj = (BillingClaimHeader1Data) vecObj.get(0);
+        BillingClaimHeaderDto claim1Obj = (BillingClaimHeaderDto) vecObj.get(0);
         boolean retval = true;
         String[] temp = {"billTo", "remitTo", "total", "payment", "discount", "provider_no", "gst", "payDate", "payMethod"};
         String demoNo = mVal.get("demographic_no");
@@ -435,14 +435,14 @@ public class BillingONClaimPersister {
                 //payment.setBillingPaymentType(type);
                 billingONPaymentDao.persist(payment);
                 addItemPaymentRecord((List) vecObj.get(1), id, payment.getId(), Integer.parseInt(paymentTypeParam));
-                addCreate3rdInvoiceTrans((BillingClaimHeader1Data) vecObj.get(0), (List<BillingItemData>) vecObj.get(1), payment);
+                addCreate3rdInvoiceTrans((BillingClaimHeaderDto) vecObj.get(0), (List<BillingClaimItemDto>) vecObj.get(1), payment);
             }
         }
         return retval;
     }
 
 
-    public int addOneItemRecord(BillingItemData val) throws ParseException {
+    public int addOneItemRecord(BillingClaimItemDto val) throws ParseException {
         BillingONItem item = new BillingONItem();
         item.setCh1Id(Integer.parseInt(val.getCh1_id()));
         item.setTranscId(val.getTransc_id());
@@ -490,7 +490,7 @@ public class BillingONClaimPersister {
     }
 
     // add disk file
-    public int addBillingDiskName(BillingDiskNameData val) {
+    public int addBillingDiskName(BillingDiskNameDto val) {
         BillingONDiskName b = new BillingONDiskName();
         b.setMonthCode(val.getMonthCode());
         b.setBatchCount(Integer.parseInt(val.getBatchcount()));
@@ -527,7 +527,7 @@ public class BillingONClaimPersister {
         return retval;
     }
 
-    public int addRepoDiskName(BillingDiskNameData val) {
+    public int addRepoDiskName(BillingDiskNameDto val) {
         int retval = 0;
         BillingONRepo b = new BillingONRepo();
         b.sethId(Integer.parseInt(val.getId()));
@@ -560,7 +560,7 @@ public class BillingONClaimPersister {
         return retval;
     }
 
-    public boolean updateDiskName(BillingDiskNameData val) {
+    public boolean updateDiskName(BillingDiskNameDto val) {
         BillingONDiskName b = diskNameDao.find(Integer.parseInt(val.getId()));
         if (b != null) {
             b.setCreator(val.getCreator());
@@ -569,7 +569,7 @@ public class BillingONClaimPersister {
         return true;
     }
 
-    public int addRepoBatchHeader(BillingBatchHeaderData val) {
+    public int addRepoBatchHeader(BillingBatchHeaderDto val) {
         BillingONRepo b = new BillingONRepo();
         b.sethId(Integer.parseInt(val.getId()));
         b.setCategory("billing_on_header");
@@ -585,7 +585,7 @@ public class BillingONClaimPersister {
     }
 
     // TODO more update data
-    public boolean updateBatchHeaderRecord(BillingBatchHeaderData val) {
+    public boolean updateBatchHeaderRecord(BillingBatchHeaderDto val) {
         BillingONHeader b = dao.find(Integer.parseInt(val.getId()));
         if (b != null) {
             b.setMohOffice(val.getMoh_office());

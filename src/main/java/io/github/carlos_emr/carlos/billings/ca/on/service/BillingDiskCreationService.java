@@ -30,10 +30,10 @@ import java.util.ArrayList;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingBatchHeaderData;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDiskNameData;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingBatchHeaderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingONConstants;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingDiskNameDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 /**
  * Service-layer component for {@code BillingDiskCreationService}.
@@ -77,7 +77,7 @@ public class BillingDiskCreationService {
         return lookupService.getProvider(diskId);
     }
 
-    public BillingProviderData getProviderObj(String providerNo) {
+    public BillingProviderDto getProviderObj(String providerNo) {
         return lookupService.getProviderObj(providerNo);
     }
 
@@ -99,7 +99,7 @@ public class BillingDiskCreationService {
         // set up obj
         String groupNo = "";
         String temp[] = getCurSoloMonthCodeBatchNum(ohipNo);
-        BillingDiskNameData diskName = new BillingDiskNameData();
+        BillingDiskNameDto diskName = new BillingDiskNameDto();
         diskName.setMonthCode(temp[0]);
         diskName.setBatchcount(temp[1]);
 
@@ -108,7 +108,7 @@ public class BillingDiskCreationService {
         diskName.setCreator(creator);
         diskName.setClaimrecord("");
         diskName.setCreatedatetime(UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss"));
-        diskName.setStatus(BillingDataHlp.BILLINGFILE_STATUS_UNCERT);
+        diskName.setStatus(BillingONConstants.BILLINGFILE_STATUS_UNCERT);
         diskName.setTotal("");
         diskName.setHtmlfilename(getSoloHtmlfilename(ohipNo, temp[0], temp[1]));
 
@@ -119,7 +119,7 @@ public class BillingDiskCreationService {
         vecTemp.add(providerNo);
         diskName.setProviderno(vecTemp);
         vecTemp = new ArrayList();
-        vecTemp.add(BillingDataHlp.BILLINGFILE_STATUS_UNCERT);
+        vecTemp.add(BillingONConstants.BILLINGFILE_STATUS_UNCERT);
         diskName.setVecStatus(vecTemp);
         vecTemp = new ArrayList();
         vecTemp.add("");
@@ -134,7 +134,7 @@ public class BillingDiskCreationService {
         int ret = 0;
         // set up obj
         String temp[] = getCurGrpMonthCodeBatchNum(groupNo);
-        BillingDiskNameData diskName = new BillingDiskNameData();
+        BillingDiskNameDto diskName = new BillingDiskNameDto();
         diskName.setMonthCode(temp[0]);
         diskName.setBatchcount(temp[1]);
 
@@ -144,13 +144,13 @@ public class BillingDiskCreationService {
         diskName.setCreator(creator);
         diskName.setClaimrecord("");
         diskName.setCreatedatetime(UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss"));
-        diskName.setStatus(BillingDataHlp.BILLINGFILE_STATUS_UNCERT);
+        diskName.setStatus(BillingONConstants.BILLINGFILE_STATUS_UNCERT);
         diskName.setTotal("");
         diskName.setHtmlfilename(getGrpHtmlfilename(ohipNo, groupno, temp[0], temp[1]));
         diskName.setProviderohipno((ArrayList) ohipNo);
         diskName.setProviderno((ArrayList) providerNo);
         ArrayList vecTemp = new ArrayList();
-        vecTemp.add(BillingDataHlp.BILLINGFILE_STATUS_UNCERT);
+        vecTemp.add(BillingONConstants.BILLINGFILE_STATUS_UNCERT);
         diskName.setVecStatus(vecTemp);
         vecTemp = new ArrayList();
         vecTemp.add("");
@@ -167,7 +167,7 @@ public class BillingDiskCreationService {
         // String groupNo = "";
 
         // get diskName obj
-        BillingDiskNameData diskName = diskQuery.getDisknameObj(diskId);
+        BillingDiskNameDto diskName = diskQuery.getDisknameObj(diskId);
         dbObj.addRepoDiskName(diskName);
 
         // diskName.setGroupno(groupNo);
@@ -175,21 +175,21 @@ public class BillingDiskCreationService {
         diskName.setClaimrecord("");
         // diskName.setCreatedatetime(UtilDateUtilities.getToday("yyyy-MM-dd
         // HH:mm:ss"));
-        diskName.setStatus(BillingDataHlp.BILLINGFILE_STATUS_UNCERT);
+        diskName.setStatus(BillingONConstants.BILLINGFILE_STATUS_UNCERT);
         diskName.setTotal("");
 
         ret = dbObj.updateDiskName(diskName);
         return ret;
     }
 
-    public int createBatchHeader(BillingProviderData providerData, String disk_id, String moh_office, String seqNum,
+    public int createBatchHeader(BillingProviderDto providerData, String disk_id, String moh_office, String seqNum,
                                  String creator) {
         int ret = 0;
-        BillingBatchHeaderData obj = new BillingBatchHeaderData();
+        BillingBatchHeaderDto obj = new BillingBatchHeaderDto();
         obj.setDisk_id(disk_id);
-        obj.setTransc_id(BillingDataHlp.BATCHHEADER_TRANSACTIONIDENTIFIER);
-        obj.setRec_id(BillingDataHlp.BATCHHEADER_REORDIDENTIFICATION);
-        obj.setSpec_id(BillingDataHlp.BATCHHEADER_SPECID);
+        obj.setTransc_id(BillingONConstants.BATCHHEADER_TRANSACTIONIDENTIFIER);
+        obj.setRec_id(BillingONConstants.BATCHHEADER_REORDIDENTIFICATION);
+        obj.setSpec_id(BillingONConstants.BATCHHEADER_SPECID);
         obj.setMoh_office(moh_office);
 
         String batchid = UtilDateUtilities.getToday("yyyyMMdd") + getDefaultRightJust("0", 4, seqNum);
@@ -207,21 +207,21 @@ public class BillingDiskCreationService {
         obj.setCreatedatetime(strDateTime);
         obj.setUpdatedatetime(strDateTime);
         obj.setCreator(creator);
-        obj.setAction(BillingDataHlp.BILLINGACTION_CREATE);
+        obj.setAction(BillingONConstants.BILLINGACTION_CREATE);
         obj.setComment("");
         ret = dbObj.addOneBatchHeaderRecord(obj);
         return ret;
     }
 
-    public int updateBatchHeader(BillingProviderData providerData, String disk_id, String moh_office, String seqNum,
+    public int updateBatchHeader(BillingProviderDto providerData, String disk_id, String moh_office, String seqNum,
                                  String creator) {
         boolean ret = false;
-        BillingBatchHeaderData obj = diskQuery.getBatchHeaderObj(providerData, disk_id);
+        BillingBatchHeaderDto obj = diskQuery.getBatchHeaderObj(providerData, disk_id);
         dbObj.addRepoBatchHeader(obj);
         obj.setDisk_id(disk_id);
-        obj.setTransc_id(BillingDataHlp.BATCHHEADER_TRANSACTIONIDENTIFIER);
-        obj.setRec_id(BillingDataHlp.BATCHHEADER_REORDIDENTIFICATION);
-        obj.setSpec_id(BillingDataHlp.BATCHHEADER_SPECID);
+        obj.setTransc_id(BillingONConstants.BATCHHEADER_TRANSACTIONIDENTIFIER);
+        obj.setRec_id(BillingONConstants.BATCHHEADER_REORDIDENTIFICATION);
+        obj.setSpec_id(BillingONConstants.BATCHHEADER_SPECID);
         obj.setMoh_office(moh_office);
 
         String batchid = UtilDateUtilities.getToday("yyyyMMdd") + getDefaultRightJust("0", 4, seqNum);
@@ -239,7 +239,7 @@ public class BillingDiskCreationService {
         // obj.setCreatedatetime(strDateTime);
         obj.setUpdatedatetime(strDateTime);
         obj.setCreator(creator);
-        obj.setAction(BillingDataHlp.BILLINGACTION_UPDATE);
+        obj.setAction(BillingONConstants.BILLINGACTION_UPDATE);
         obj.setComment("");
         ret = dbObj.updateBatchHeaderRecord(obj);
         int retval = ret ? Integer.parseInt(obj.getId()) : 0;
@@ -291,7 +291,7 @@ public class BillingDiskCreationService {
         String[] ret = new String[2];
         GregorianCalendar now = new GregorianCalendar();
         int curMonth = (now.get(Calendar.MONTH) + 1);
-        String curMonthCode = BillingDataHlp.propMonthCode.getProperty("" + curMonth);
+        String curMonthCode = BillingONConstants.propMonthCode.getProperty("" + curMonth);
         String[] last = diskQuery.getLatestSoloMonthCodeBatchNum(ohipNo);
 
         if (last != null && curMonthCode.equals(last[0])) {
@@ -310,7 +310,7 @@ public class BillingDiskCreationService {
         // int curYear = now.get(Calendar.YEAR); int curDay =
         // now.get(Calendar.DAY_OF_MONTH);
         int curMonth = (now.get(Calendar.MONTH) + 1);
-        String curMonthCode = BillingDataHlp.propMonthCode.getProperty("" + curMonth);
+        String curMonthCode = BillingONConstants.propMonthCode.getProperty("" + curMonth);
         String[] last = diskQuery.getLatestGrpMonthCodeBatchNum(groupNo);
 
         if (last != null && curMonthCode.equals(last[0])) {

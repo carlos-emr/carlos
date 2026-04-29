@@ -33,9 +33,9 @@ import java.util.List;
 
 import io.github.carlos_emr.OscarDocumentCreator;
 import io.github.carlos_emr.carlos.PMmodule.utility.Utility;
-import io.github.carlos_emr.carlos.billings.ca.on.data.PatientEndYearStatementBean;
-import io.github.carlos_emr.carlos.billings.ca.on.data.PatientEndYearStatementInvoiceBean;
-import io.github.carlos_emr.carlos.billings.ca.on.data.PatientEndYearStatementServiceBean;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.PatientEndYearStatementSummary;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.PatientEndYearStatementInvoice;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.PatientEndYearStatementServiceLine;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONItemDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
@@ -58,7 +58,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  *       specific i18n error.</li>
  *   <li>{@link #aggregateInvoices} — for the resolved patient, iterate the
  *       PAT-status billings in the date range, walk their items, and tally
- *       invoiced/paid totals into a {@link PatientEndYearStatementBean}.</li>
+ *       invoiced/paid totals into a {@link PatientEndYearStatementSummary}.</li>
  *   <li>{@link #writePdfTo} — render the JasperReports PDF to the response
  *       output stream. This is the path that previously held a
  *       {@code DbConnectionFilter.getThreadLocalDbConnection()} call inside
@@ -138,7 +138,7 @@ public class PatientEndYearStatementService {
      *                 throws — wraps the cause for logging on the action.
      */
     public Result aggregateInvoices(Demographic demographic, Date fromDate, Date toDate) {
-        PatientEndYearStatementBean summary = new PatientEndYearStatementBean(
+        PatientEndYearStatementSummary summary = new PatientEndYearStatementSummary(
                 "", "", 0, "", "", "", new Date(), new Date(), "", "");
         summary.setPatientNo(demographic.getDemographicNo().toString());
         summary.setPatientName(demographic.getFormattedName());
@@ -147,7 +147,7 @@ public class PatientEndYearStatementService {
                 + demographic.getCity() + " " + demographic.getProvince());
         summary.setPhone(demographic.getPhone() + " " + demographic.getPhone2());
 
-        List<PatientEndYearStatementInvoiceBean> invoices = new ArrayList<>();
+        List<PatientEndYearStatementInvoice> invoices = new ArrayList<>();
         double totalInvoiced = 0;
         double totalPaid = 0;
         int invoiceCount = 0;
@@ -159,13 +159,13 @@ public class PatientEndYearStatementService {
                 BillingONCHeader1 header = (BillingONCHeader1) row[0];
                 double paid = header.getPaid().doubleValue();
                 double invoiced = header.getTotal().doubleValue();
-                PatientEndYearStatementInvoiceBean bean = new PatientEndYearStatementInvoiceBean(
+                PatientEndYearStatementInvoice bean = new PatientEndYearStatementInvoice(
                         header.getId(), header.getBillingDate(),
                         String.valueOf(invoiced), String.valueOf(paid));
 
-                List<PatientEndYearStatementServiceBean> services = new ArrayList<>();
+                List<PatientEndYearStatementServiceLine> services = new ArrayList<>();
                 for (BillingONItem item : itemDao.findByCh1Id(header.getId())) {
-                    services.add(new PatientEndYearStatementServiceBean(
+                    services.add(new PatientEndYearStatementServiceLine(
                             item.getServiceCode(), Utility.toCurrency(item.getFee())));
                 }
                 bean.setServices(services);
@@ -205,7 +205,7 @@ public class PatientEndYearStatementService {
     // connection acquisition. This is the only correct caller of the
     // deprecated thread-local connection in billings/ca/on/.
     @SuppressWarnings("removal")
-    public void writePdfTo(OutputStream out, PatientEndYearStatementBean summary,
+    public void writePdfTo(OutputStream out, PatientEndYearStatementSummary summary,
                            String fromDateParam, String toDateParam) {
         OscarDocumentCreator osc = new OscarDocumentCreator();
         HashMap<String, Object> reportParams = buildReportParams(summary, fromDateParam, toDateParam);
@@ -233,7 +233,7 @@ public class PatientEndYearStatementService {
      */
     public void writePdfResponse(jakarta.servlet.http.HttpServletResponse response,
                                  String filenameWithoutExt,
-                                 PatientEndYearStatementBean summary,
+                                 PatientEndYearStatementSummary summary,
                                  String fromDateParam,
                                  String toDateParam) {
         configurePdfResponseHeaders(response, filenameWithoutExt);
@@ -244,7 +244,7 @@ public class PatientEndYearStatementService {
         }
     }
 
-    private HashMap<String, Object> buildReportParams(PatientEndYearStatementBean summary,
+    private HashMap<String, Object> buildReportParams(PatientEndYearStatementSummary summary,
                                                       String fromDateParam, String toDateParam) {
         HashMap<String, Object> p = new HashMap<>();
         p.put("patientId", summary.getPatientNo());
@@ -271,8 +271,8 @@ public class PatientEndYearStatementService {
     /**
      * Aggregated result of {@link #aggregateInvoices}.
      */
-    public record Result(PatientEndYearStatementBean summary,
-                         List<PatientEndYearStatementInvoiceBean> invoices) {
+    public record Result(PatientEndYearStatementSummary summary,
+                         List<PatientEndYearStatementInvoice> invoices) {
     }
 
     /**

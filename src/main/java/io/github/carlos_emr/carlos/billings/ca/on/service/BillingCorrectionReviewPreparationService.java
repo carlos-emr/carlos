@@ -7,12 +7,12 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingCorrectionReviewDataAssembler;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCorrectionLineCommand;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCorrectionReviewDraft;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCorrectionReviewItemDraft;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCorrectionReviewViewModel;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCorrectionValidationCommand;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingCorrectionReviewViewModelAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionLineCommand;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCorrectionReviewDraft;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCorrectionReviewItemDraft;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCorrectionReviewViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionValidationCommand;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,16 +30,16 @@ import java.util.Map;
 public class BillingCorrectionReviewPreparationService {
 
     private final ServiceCodeLoader serviceCodeLoader;
-    private final BillingCorrectionReviewDataAssembler reviewDataAssembler;
+    private final BillingCorrectionReviewViewModelAssembler reviewViewModelAssembler;
 
     public BillingCorrectionReviewPreparationService(ServiceCodeLoader serviceCodeLoader,
-                                                     BillingCorrectionReviewDataAssembler reviewDataAssembler) {
+                                                     BillingCorrectionReviewViewModelAssembler reviewViewModelAssembler) {
         this.serviceCodeLoader = serviceCodeLoader;
-        this.reviewDataAssembler = reviewDataAssembler;
+        this.reviewViewModelAssembler = reviewViewModelAssembler;
     }
 
     public BillingCorrectionReviewViewModel prepareReview(BillingCorrectionValidationCommand command) {
-        return reviewDataAssembler.assemble(prepareDraft(command));
+        return reviewViewModelAssembler.assemble(prepareDraft(command));
     }
 
     BillingCorrectionReviewDraft prepareDraft(BillingCorrectionValidationCommand command) {

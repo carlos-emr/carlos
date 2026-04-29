@@ -24,7 +24,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import java.util.Date;
 import java.util.List;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.PatientEndYearStatementBean;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.PatientEndYearStatementSummary;
 import io.github.carlos_emr.carlos.billings.ca.on.service.PatientEndYearStatementService;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -116,7 +116,7 @@ class SearchEndYearStatement2ActionUnitTest extends CarlosUnitTestBase {
         demo.setDemographicNo(1);
         when(mockService.findUniquePatient(any(), any(), any(), any())).thenReturn(demo);
 
-        PatientEndYearStatementBean summary = new PatientEndYearStatementBean(
+        PatientEndYearStatementSummary summary = new PatientEndYearStatementSummary(
                 "1", "Doe, Jane", 0, "9876543225", "1 Main", "555-555-5555",
                 new Date(), new Date(), "0.00", "0.00");
         PatientEndYearStatementService.Result result = new PatientEndYearStatementService.Result(

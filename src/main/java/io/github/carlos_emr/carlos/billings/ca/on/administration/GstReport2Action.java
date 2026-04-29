@@ -24,8 +24,8 @@ package io.github.carlos_emr.carlos.billings.ca.on.administration;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.GstReportDataAssembler;
-import io.github.carlos_emr.carlos.billings.ca.on.data.GstReportViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.GstReportViewModelAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.GstReportViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -34,7 +34,7 @@ import org.apache.struts2.ServletActionContext;
 
 /**
  * View gate for the GST Report page. Enforces {@code _admin.billing w}
- * privilege, then delegates to {@link GstReportDataAssembler} to build
+ * privilege, then delegates to {@link GstReportViewModelAssembler} to build
  * the view model the JSP renders. The model is exposed as request
  * attribute {@code gstReportModel}; the JSP body is 100% EL.
  *
@@ -43,10 +43,10 @@ import org.apache.struts2.ServletActionContext;
 public final class GstReport2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
-    private final GstReportDataAssembler assembler;
+    private final GstReportViewModelAssembler assembler;
 
     public GstReport2Action(SecurityInfoManager securityInfoManager,
-                            GstReportDataAssembler assembler) {
+                            GstReportViewModelAssembler assembler) {
         this.securityInfoManager = securityInfoManager;
         this.assembler = assembler;
     }

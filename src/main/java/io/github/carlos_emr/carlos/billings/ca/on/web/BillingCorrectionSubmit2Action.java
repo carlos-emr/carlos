@@ -6,8 +6,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCorrectionSubmitCommand;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCorrectionSubmitItemCommand;
+import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionSubmitCommand;
+import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionSubmitItemCommand;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionSubmissionService;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;

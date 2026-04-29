@@ -34,7 +34,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billing.CA.dao.GstControlDao;
 import io.github.carlos_emr.carlos.billing.CA.model.GstControl;
 import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingONConstants;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
@@ -139,14 +139,14 @@ public class BillingONHeaderCreationService {
         if (demo == null) return null;
 
         BillingONCHeader1 header1 = new BillingONCHeader1();
-        header1.setTranscId(BillingDataHlp.CLAIMHEADER1_TRANSACTIONIDENTIFIER);
-        header1.setRecId(BillingDataHlp.CLAIMHEADER1_REORDIDENTIFICATION);
+        header1.setTranscId(BillingONConstants.CLAIMHEADER1_TRANSACTIONIDENTIFIER);
+        header1.setRecId(BillingONConstants.CLAIMHEADER1_REORDIDENTIFICATION);
         header1.setHeaderId(0);
         header1.setHin(demo.getHin());
         header1.setVer(demo.getVer());
         header1.setDob(demo.getDateOfBirth());
         header1.setPayProgram(demo.getHcType().equals("ON") ? "HCP" : "RMB");
-        header1.setPayee(BillingDataHlp.CLAIMHEADER1_PAYEE);
+        header1.setPayee(BillingONConstants.CLAIMHEADER1_PAYEE);
         header1.setRefNum("");
         header1.setFaciltyNum(clinicRefCode);
         header1.setRefLabNum("");
@@ -176,8 +176,8 @@ public class BillingONHeaderCreationService {
     private void addItems(BillingONCHeader1 h1, List<String> codes, List<String> dxcodes, Date serviceDate) {
         for (String code : codes) {
             BillingONItem item = new BillingONItem();
-            item.setTranscId(BillingDataHlp.ITEM_TRANSACTIONIDENTIFIER);
-            item.setRecId(BillingDataHlp.ITEM_REORDIDENTIFICATION);
+            item.setTranscId(BillingONConstants.ITEM_TRANSACTIONIDENTIFIER);
+            item.setRecId(BillingONConstants.ITEM_REORDIDENTIFICATION);
             item.setServiceCode(code);
 
             BillingService billingService = billingServiceDao.searchBillingCode(code, "ON", serviceDate);

@@ -30,8 +30,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingCodeSearchAjaxDataAssembler;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingCodeSearchAjaxViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingCodeSearchAjaxViewModelAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCodeSearchAjaxViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -45,7 +45,7 @@ import org.apache.struts2.ServletActionContext;
  *
  * <p>Reads the {@code term} request parameter, builds a
  * {@link BillingCodeSearchAjaxViewModel} via
- * {@link BillingCodeSearchAjaxDataAssembler}, and writes the JSON array
+ * {@link BillingCodeSearchAjaxViewModelAssembler}, and writes the JSON array
  * body directly using a Jackson {@link ArrayNode} — no JSP forward
  * needed. Each suggestion is rendered as
  * {@code {"value": "...", "label": "...", "code": "...", "description": "..."}}.</p>
@@ -57,10 +57,10 @@ public class ViewBillingCodeSearchAjax2Action extends ActionSupport {
     private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
 
     private final SecurityInfoManager securityInfoManager;
-    private final BillingCodeSearchAjaxDataAssembler assembler;
+    private final BillingCodeSearchAjaxViewModelAssembler assembler;
 
     public ViewBillingCodeSearchAjax2Action(SecurityInfoManager securityInfoManager,
-                                     BillingCodeSearchAjaxDataAssembler assembler) {
+                                     BillingCodeSearchAjaxViewModelAssembler assembler) {
         this.securityInfoManager = securityInfoManager;
         this.assembler = assembler;
     }

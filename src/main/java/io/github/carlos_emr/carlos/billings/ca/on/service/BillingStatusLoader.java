@@ -23,7 +23,7 @@
 
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 
 import java.util.ArrayList;
@@ -43,7 +43,7 @@ public class BillingStatusLoader {
         this.bObj = bObj;
     }
 
-    public List<BillingClaimHeader1Data> getBills(String[] billTypes, String statusType, String providerNo, String startDate, String endDate,
+    public List<BillingClaimHeaderDto> getBills(String[] billTypes, String statusType, String providerNo, String startDate, String endDate,
                                                   String demoNo, String visitLocation, String paymentStartDate, String paymentEndDate) {
         billTypes = billTypes == null || billTypes.length == 0 ? null : billTypes;
         statusType = statusType == null || statusType.length() == 0 || statusType.equals(ANY_STATUS_TYPE) ? null : statusType;
@@ -59,12 +59,12 @@ public class BillingStatusLoader {
     }
 
 
-    public List<BillingClaimHeader1Data> getBills(String[] billType, String statusType, String providerNo, String startDate, String endDate,
+    public List<BillingClaimHeaderDto> getBills(String[] billType, String statusType, String providerNo, String startDate, String endDate,
                                                   String demoNo, String serviceCodeParams, String dx, String visitType, String billingForm, String visitLocation, String paymentStartDate, String paymentEndDate) {
         return getBillsWithSorting(billType, statusType, providerNo, startDate, endDate, demoNo, serviceCodeParams, dx, visitType, billingForm, visitLocation, null, null, paymentStartDate, paymentEndDate, null);
     }
 
-    public List<BillingClaimHeader1Data> getBillsWithSorting(String[] billType, String statusType, String providerNo, String startDate, String endDate,
+    public List<BillingClaimHeaderDto> getBillsWithSorting(String[] billType, String statusType, String providerNo, String startDate, String endDate,
                                                              String demoNo, String serviceCodeParams, String dx, String visitType, String billingForm, String visitLocation, String sortName, String sortOrder,
                                                              String paymentStartDate, String paymentEndDate, String claimNo) {
         billType = billType == null || billType.length == 0 ? null : billType;
@@ -86,7 +86,7 @@ public class BillingStatusLoader {
         claimNo = claimNo == null || claimNo.length() == 0 ? null : claimNo;
 
         List<String> serviceCodeList = bObj.mergeServiceCodes(serviceCodeParams, billingForm);
-        List<BillingClaimHeader1Data> retval = bObj.getBillWithSorting(billType, statusType, providerNo, startDate, endDate, demoNo, serviceCodeList, dx, visitType, visitLocation, sortName, sortOrder, paymentStartDate, paymentEndDate, claimNo);
+        List<BillingClaimHeaderDto> retval = bObj.getBillWithSorting(billType, statusType, providerNo, startDate, endDate, demoNo, serviceCodeList, dx, visitType, visitLocation, sortName, sortOrder, paymentStartDate, paymentEndDate, claimNo);
         return retval;
     }
 

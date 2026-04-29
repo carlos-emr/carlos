@@ -21,10 +21,10 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONStatusDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONStatusViewModelAssembler;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONStatusViewModel;
-import io.github.carlos_emr.carlos.billings.ca.on.data.RAData;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingONStatusViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingRALookupService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONErrorReportService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingStatusLoader;
@@ -111,14 +111,14 @@ class ViewBillingONStatus2ActionUnitTest extends CarlosUnitTestBase {
         if (mockitoCloseable != null) mockitoCloseable.close();
     }
 
-    private BillingONStatusDataAssembler statusAssembler() {
-        return new BillingONStatusDataAssembler(
+    private BillingONStatusViewModelAssembler statusAssembler() {
+        return new BillingONStatusViewModelAssembler(
                 mockSecurityInfoManager,
                 org.mockito.Mockito.mock(BillingONLookupService.class),
                 org.mockito.Mockito.mock(BillingStatusLoader.class),
                 org.mockito.Mockito.mock(BillingONErrorReportService.class),
                 org.mockito.Mockito.mock(SiteDao.class),
-                org.mockito.Mockito.mock(RAData.class));
+                org.mockito.Mockito.mock(BillingRALookupService.class));
     }
 
     @Test
