@@ -315,9 +315,6 @@ public class BillingCorrectionRecordService {
         }
 
         // add item if possible
-        ArrayList<Object> elemToDel = new ArrayList<Object>();
-        elemToDel.add(null);
-        elemToDel.add("");
         for (int i = 0; i < vecName.size(); i++) {
             if (vecName.get(i) == null || (vecName.get(i)).isEmpty()) {
                 continue;

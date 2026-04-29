@@ -58,8 +58,17 @@ public class BillingCalendarPopupViewModelAssembler {
         String type = typeParam == null ? "" : typeParam;
 
         // Mirror the legacy scriptlet: build a calendar at year/month-1/1, apply
-        // the month delta, then read the resolved year/month back.
-        GregorianCalendar cal = new GregorianCalendar(year, month - 1, 1);
+        // the month delta, then read the resolved year/month back. Fall back to
+        // "today" when year or month is missing/unparseable — the legacy code
+        // produced a year-1-BC December date for the (0, 0) input shape, which
+        // is never what the calendar popup wants.
+        GregorianCalendar cal;
+        if (year <= 0 || month <= 0 || month > 12) {
+            cal = new GregorianCalendar();
+            cal.set(Calendar.DAY_OF_MONTH, 1);
+        } else {
+            cal = new GregorianCalendar(year, month - 1, 1);
+        }
         cal.add(Calendar.MONTH, delta);
         int resolvedYear = cal.get(Calendar.YEAR);
         int resolvedMonth = cal.get(Calendar.MONTH) + 1;

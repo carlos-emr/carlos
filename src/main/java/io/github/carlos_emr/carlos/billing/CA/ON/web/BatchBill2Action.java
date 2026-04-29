@@ -204,7 +204,7 @@ public class BatchBill2Action extends ActionSupport {
                     MiscUtils.getLogger().error(
                             "BatchBill doBatchBill: row {} malformed or invalid",
                             idx, nfe);
-                    request.setAttribute("error", oscarResource.getString("billing.batchbilling.badDate"));
+                    request.setAttribute("error", oscarResource.getString("billing.batchbilling.badRow"));
                     return "error";
                 }
             }

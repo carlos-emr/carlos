@@ -110,7 +110,7 @@ public final class BillingBCSetup2Action extends ActionSupport {
                 bean.setApptDate((String) request.getAttribute("serviceDate"));
             }
 
-            request.getSession().setAttribute("billingSessionBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+            request.getSession().setAttribute("billingSessionBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep, java.lang.security.audit.tainted-session-from-http-request
 
             try {
                 _log.debug("Start of billing rules");

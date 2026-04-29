@@ -68,6 +68,8 @@ public class ViewOnregenreport2Action extends ActionSupport {
         }
 
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            // RFC 7231 §6.5.5: 405 responses MUST include the Allow header.
+            response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }

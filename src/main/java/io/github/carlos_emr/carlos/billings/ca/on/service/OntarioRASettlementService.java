@@ -21,9 +21,7 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 import io.github.carlos_emr.carlos.commn.dao.RaDetailDao;
@@ -51,9 +49,11 @@ public class OntarioRASettlementService {
 
     /** Service codes whose presence in the I2/35 error rows excludes a
      *  bill from the noErrorBillNoQ set. Mirrors the legacy
-     *  {@code onGenRAsettle35.jsp} regex. */
-    private static final String Q_CODE_REGEX =
-            "Q011A|Q020A|Q130A|Q131A|Q132A|Q133A|Q140A|Q141A|Q142A";
+     *  {@code onGenRAsettle35.jsp} regex. Precompiled once instead of
+     *  recompiled per row in the matcher loop. */
+    private static final java.util.regex.Pattern Q_CODE_PATTERN =
+            java.util.regex.Pattern.compile(
+                    "Q011A|Q020A|Q130A|Q131A|Q132A|Q133A|Q140A|Q141A|Q142A");
 
     /** Selects which settle path to run. */
     public enum Mode {
@@ -103,12 +103,19 @@ public class OntarioRASettlementService {
             String account = String.valueOf(rad.getBillingNo());
             errorBills.add(account);
             String svcCode = rad.getServiceCode();
-            if (svcCode != null && !svcCode.matches(Q_CODE_REGEX)) {
+            if (svcCode != null && !Q_CODE_PATTERN.matcher(svcCode).matches()) {
                 errorBillNoQ.add(account);
             }
         }
 
-        List<String> noErrorBills = new ArrayList<>();
+        // LinkedHashSet to dedupe overlapping query results (the I2/35-with-
+        // Q-codes mode pulls a second set of accounts that may overlap the
+        // first list). The legacy ArrayList caused repeated
+        // updateBillingStatus(account, "S") writes for the same bill, which
+        // wastes a tx round-trip and pollutes the audit log. The set
+        // preserves insertion order so the settle order matches the legacy
+        // shape for any caller that snapshots billing_on_repo.
+        Set<String> noErrorBills = new java.util.LinkedHashSet<>();
         for (Integer r : raDetailDao.search_ranoerror35(raNo, "I2", "35", providerOhipPattern)) {
             String account = String.valueOf(r);
             if (!errorBills.contains(account)) {

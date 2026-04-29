@@ -20,12 +20,17 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class BillingCalendarPopupViewModelAssemblerUnitTest {
 
     @Test
-    void shouldPreserveLegacyZeroDate_whenYearAndMonthAreMissing() {
+    void shouldFallBackToToday_whenYearAndMonthAreMissing() {
+        // Legacy behaviour rendered year=2/month=12 (year-1-BC December) for
+        // the (null, null, null) input — never what the popup wanted. The
+        // assembler now defaults to "today" so the calendar opens on the
+        // current month when the request omits year/month.
+        java.util.Calendar today = java.util.Calendar.getInstance();
         BillingCalendarPopupViewModel model =
                 new BillingCalendarPopupViewModelAssembler().assemble(null, null, null, "admission");
 
-        assertThat(model.getYear()).isEqualTo(2);
-        assertThat(model.getMonth()).isEqualTo(12);
+        assertThat(model.getYear()).isEqualTo(today.get(java.util.Calendar.YEAR));
+        assertThat(model.getMonth()).isEqualTo(today.get(java.util.Calendar.MONTH) + 1);
         assertThat(model.getType()).isEqualTo("admission");
     }
 

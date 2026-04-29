@@ -158,7 +158,7 @@ class ViewBillingON2ActionUnitTest extends CarlosUnitTestBase {
                 new ViewBillingON2Action(mockSecurityInfoManager, mock(BillingONFormViewModelAssembler.class));
         assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("_billing");
+                .hasMessageContaining("missing session");
         verify(mockSecurityInfoManager, never()).hasPrivilege(any(), eq("_billing"), eq("r"), isNull());
     }
 

@@ -64,7 +64,7 @@ public class ViewBillingON2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
             MiscUtils.getLogger().warn("Denied billingON view: no session");
-            throw new SecurityException("missing required sec object (_billing)");
+            throw new SecurityException("missing session");
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             MiscUtils.getLogger().warn(

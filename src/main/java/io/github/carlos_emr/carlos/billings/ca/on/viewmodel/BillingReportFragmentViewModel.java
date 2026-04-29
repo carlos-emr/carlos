@@ -127,23 +127,21 @@ public final class BillingReportFragmentViewModel {
     private final List<UnbilledRow> unbilledRows;
 
     private BillingReportFragmentViewModel(Builder b) {
-        this.billedRows = b.billedRows == null
-                ? Collections.emptyList() : List.copyOf(b.billedRows);
-        this.unsettledRows = b.unsettledRows == null
-                ? Collections.emptyList() : List.copyOf(b.unsettledRows);
-        this.billobRows = b.billobRows == null
-                ? Collections.emptyList() : List.copyOf(b.billobRows);
+        // Builder setters already wrap each list in List.copyOf, producing
+        // immutable copies. The ctor only has to default null → emptyList;
+        // copying again would allocate + iterate every row a second time
+        // (real cost on large report tables).
+        this.billedRows = b.billedRows == null ? Collections.emptyList() : b.billedRows;
+        this.unsettledRows = b.unsettledRows == null ? Collections.emptyList() : b.unsettledRows;
+        this.billobRows = b.billobRows == null ? Collections.emptyList() : b.billobRows;
         this.billobTotal = nullToZero(b.billobTotal);
-        this.fluClinicRows = b.fluClinicRows == null
-                ? Collections.emptyList() : List.copyOf(b.fluClinicRows);
-        this.fluWalkinRows = b.fluWalkinRows == null
-                ? Collections.emptyList() : List.copyOf(b.fluWalkinRows);
+        this.fluClinicRows = b.fluClinicRows == null ? Collections.emptyList() : b.fluClinicRows;
+        this.fluWalkinRows = b.fluWalkinRows == null ? Collections.emptyList() : b.fluWalkinRows;
         this.fluTotal1 = nullToZero(b.fluTotal1);
         this.fluTotal2 = nullToZero(b.fluTotal2);
         this.fluClinicCount = b.fluClinicCount;
         this.fluWalkinCount = b.fluWalkinCount;
-        this.unbilledRows = b.unbilledRows == null
-                ? Collections.emptyList() : List.copyOf(b.unbilledRows);
+        this.unbilledRows = b.unbilledRows == null ? Collections.emptyList() : b.unbilledRows;
     }
 
     private static String nullToZero(String s) { return s == null ? "0.00" : s; }

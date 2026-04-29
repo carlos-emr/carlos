@@ -171,11 +171,11 @@ public class BillingONFormDemographicLoader {
             warning.append("<b><div class='alert alert-danger'>Warning: The patient does not have a valid HIN. </div></b>");
         }
         if (rDoctorOhip != null && !rDoctorOhip.isEmpty() && rDoctorOhip.length() != 6) {
-            warning.append("<div class='alert alert error'>Warning: the referral doctor's no is wrong. </div>");
+            warning.append("<div class='alert alert-danger'>Warning: the referral doctor's number is wrong. </div>");
         }
         if (demoDob == null || demoDob.isEmpty() || demoDob.length() != 8) {
             errorFlag = "1";
-            error.append("<b><div class='alert alert error'>Error: The patient does not have a valid DOB. </div></b>");
+            error.append("<b><div class='alert alert-danger'>Error: The patient does not have a valid DOB. </div></b>");
         }
         b.warningMsg(warning.toString())
                 .errorMsg(error.toString())
