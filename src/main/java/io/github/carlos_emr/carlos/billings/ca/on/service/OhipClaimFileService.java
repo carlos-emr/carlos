@@ -1043,9 +1043,8 @@ public class OhipClaimFileService {
 
     // write OHIP file to it
     public void writeFile(String value1) {
+        String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
         try {
-            String home_dir;
-            home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
             FileOutputStream out = new FileOutputStream(home_dir + ohipFilename);
             PrintStream p = new PrintStream(out);
             p.println(value1);
@@ -1053,17 +1052,17 @@ public class OhipClaimFileService {
             p.close();
             out.close();
         } catch (Exception e) {
-            _logger.error("Write OHIP File Error");
+            _logger.error("Write OHIP File Error: filename={}", ohipFilename, e);
+            throw new BillingFileWriteException(
+                    "Failed to write OHIP claim file: " + ohipFilename, e);
         }
     }
 
     // get path from the property file, e.g.
     // OscarDocument/.../billing/download/, and then write to it
     public void writeHtml(String htmlvalue1) {
+        String home_dir1 = CarlosProperties.getInstance().getProperty("HOME_DIR");
         try {
-            String home_dir1;
-            home_dir1 = CarlosProperties.getInstance().getProperty("HOME_DIR");
-
             FileOutputStream out1 = new FileOutputStream(home_dir1 + htmlFilename);
             PrintStream p1 = new PrintStream(out1);
             p1.println(htmlvalue1);
@@ -1071,7 +1070,9 @@ public class OhipClaimFileService {
             p1.close();
             out1.close();
         } catch (Exception e) {
-            _logger.error("Write HTML File Error!!!", e);
+            _logger.error("Write HTML File Error: filename={}", htmlFilename, e);
+            throw new BillingFileWriteException(
+                    "Failed to write OHIP HTML companion file: " + htmlFilename, e);
         }
     }
 

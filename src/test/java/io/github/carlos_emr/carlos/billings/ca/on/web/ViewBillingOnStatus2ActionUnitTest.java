@@ -187,7 +187,7 @@ class ViewBillingOnStatus2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldSetSearch_andUseProvidedBillTypes_whenBillTypeParamProvided() throws Exception {
+    void shouldSetSearchAndUseProvidedBillTypes_whenBillTypeParamProvided() throws Exception {
         mockRequest.setParameter("billType", new String[]{"HCP", "PAT"});
 
         ViewBillingOnStatus2Action action = new ViewBillingOnStatus2Action(mockSecurityInfoManager, statusAssembler());
@@ -198,7 +198,7 @@ class ViewBillingOnStatus2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldDefaultServiceCode_toPercent_whenParamMissingOrEmpty() throws Exception {
+    void shouldDefaultServiceCodeToPercent_whenParamMissingOrEmpty() throws Exception {
         // missing
         ViewBillingOnStatus2Action action = new ViewBillingOnStatus2Action(mockSecurityInfoManager, statusAssembler());
         action.execute();

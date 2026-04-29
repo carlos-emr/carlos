@@ -26,8 +26,6 @@ import java.util.Enumeration;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCodeUpdateViewModel;
-import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
-import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 /**
@@ -46,18 +44,17 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  *       refresh.</li>
  * </ol>
  *
- * <p>Owns the {@code BillingServiceDao} merge that the JSP used to perform
- * mid-render.</p>
+ * <p>Read-only — the description-merge that the JSP used to perform
+ * mid-render now lives on
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.service.ServiceCodePersister#updateDescriptionByServiceCode}
+ * and is invoked by the action before this assembler runs.</p>
  *
  * @since 2026-04-26
  */
 @org.springframework.stereotype.Service
 public class BillingCodeUpdateViewModelAssembler {
 
-    private final BillingServiceDao billingServiceDao;
-
-    public BillingCodeUpdateViewModelAssembler(BillingServiceDao billingServiceDao) {
-        this.billingServiceDao = billingServiceDao;
+    public BillingCodeUpdateViewModelAssembler() {
     }
 
     /**
@@ -118,26 +115,6 @@ public class BillingCodeUpdateViewModelAssembler {
     }
 
     private BillingCodeUpdateViewModel assembleUpdateMode(HttpServletRequest request, String update, String nameFSafe) {
-        // The legacy JSP cleaved the last 5 chars off the submit value
-        // ("update A001A" → "A001A"). Same here, defensively guarded.
-        if (update == null || update.length() < 5) {
-            return BillingCodeUpdateViewModel.builder()
-                    .mode(BillingCodeUpdateViewModel.Mode.UPDATE_DESCRIPTION)
-                    .nameFSafe(nameFSafe)
-                    .build();
-        }
-        String code = update.substring(update.length() - 5);
-        String newDescription = request.getParameter(code);
-        if (newDescription == null) {
-            return BillingCodeUpdateViewModel.builder()
-                    .mode(BillingCodeUpdateViewModel.Mode.UPDATE_DESCRIPTION)
-                    .nameFSafe(nameFSafe)
-                    .build();
-        }
-        for (BillingService bs : billingServiceDao.findByServiceCode(code)) {
-            bs.setDescription(newDescription);
-            billingServiceDao.merge(bs);
-        }
         return BillingCodeUpdateViewModel.builder()
                 .mode(BillingCodeUpdateViewModel.Mode.UPDATE_DESCRIPTION)
                 .nameFSafe(nameFSafe)

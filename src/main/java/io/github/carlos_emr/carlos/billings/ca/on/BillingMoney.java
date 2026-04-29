@@ -15,6 +15,8 @@ package io.github.carlos_emr.carlos.billings.ca.on;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+
 /**
  * Central money parsing for Ontario billing.
  *
@@ -51,8 +53,75 @@ public final class BillingMoney {
         try {
             return amount(raw, scale);
         } catch (NumberFormatException e) {
+            MiscUtils.getLogger().error(
+                    "BillingMoney.amountOrZero: malformed amount=\"{}\", returning ZERO",
+                    raw, e);
             return BigDecimal.ZERO.setScale(scale);
         }
+    }
+
+    /**
+     * Strict variant of {@link #amountOrZero(String, int)} that propagates
+     * the parse failure to the caller. Use this on billing-mutating paths
+     * where silently substituting zero would persist the wrong amount.
+     *
+     * @param raw   String the user/DB-supplied numeric token (must be non-blank)
+     * @param scale int target {@link BigDecimal} scale (typically {@link #MONEY_SCALE})
+     * @return BigDecimal parsed amount, scaled and half-up rounded
+     * @throws NumberFormatException when {@code raw} is null, blank, or unparseable
+     */
+    public static BigDecimal amountOrThrow(String raw, int scale) {
+        if (raw == null || raw.trim().isEmpty()) {
+            throw new NumberFormatException("BillingMoney.amountOrThrow: amount is null or blank");
+        }
+        try {
+            return amount(raw, scale);
+        } catch (NumberFormatException e) {
+            throw new NumberFormatException(
+                    "BillingMoney.amountOrThrow: malformed amount=\"" + raw + "\"");
+        }
+    }
+
+    /**
+     * Convenience overload of {@link #amountOrThrow(String, int)} using
+     * {@link #MONEY_SCALE}.
+     *
+     * @param raw String the user/DB-supplied numeric token
+     * @return BigDecimal parsed amount at {@link #MONEY_SCALE}
+     * @throws NumberFormatException when {@code raw} is null, blank, or unparseable
+     */
+    public static BigDecimal amountOrThrow(String raw) {
+        return amountOrThrow(raw, MONEY_SCALE);
+    }
+
+    /**
+     * Strict-but-blank-tolerant variant. Treats null/blank as a legitimate
+     * empty cell (returns zero) but throws on any other unparseable input.
+     * Use this on billing-mutating paths where blank cells are a normal part
+     * of user input but typos must surface to the caller.
+     *
+     * @param raw   String the user/DB-supplied numeric token (null/blank → zero)
+     * @param scale int target {@link BigDecimal} scale
+     * @return BigDecimal parsed amount, or {@code ZERO} when {@code raw} is null/blank
+     * @throws NumberFormatException when {@code raw} is non-blank and unparseable
+     */
+    public static BigDecimal amountStrictOrZero(String raw, int scale) {
+        if (raw == null || raw.trim().isEmpty()) {
+            return BigDecimal.ZERO.setScale(scale);
+        }
+        return amountOrThrow(raw, scale);
+    }
+
+    /**
+     * Convenience overload of {@link #amountStrictOrZero(String, int)} using
+     * {@link #MONEY_SCALE}.
+     *
+     * @param raw String the user/DB-supplied numeric token (null/blank → zero)
+     * @return BigDecimal parsed amount at {@link #MONEY_SCALE}, or {@code ZERO} when blank
+     * @throws NumberFormatException when {@code raw} is non-blank and unparseable
+     */
+    public static BigDecimal amountStrictOrZero(String raw) {
+        return amountStrictOrZero(raw, MONEY_SCALE);
     }
 
     public static BigDecimal ohipFeeAmount(String raw) {

@@ -78,4 +78,24 @@ public class ServiceCodePersister {
         }
         return true;
     }
+
+    /**
+     * Bulk-update the description on every {@link BillingService} row sharing
+     * a service code. Used by the {@code billingCodeUpdate.jsp} popup's
+     * "update &lt;code&gt;" branch.
+     *
+     * @param serviceCode    String 5-char service code (e.g. {@code "A001A"})
+     * @param newDescription String replacement description
+     * @return int count of rows merged
+     */
+    public int updateDescriptionByServiceCode(String serviceCode, String newDescription) {
+        List<BillingService> bs = dao.findByServiceCode(serviceCode);
+        int updated = 0;
+        for (BillingService b : bs) {
+            b.setDescription(newDescription);
+            dao.merge(b);
+            updated++;
+        }
+        return updated;
+    }
 }

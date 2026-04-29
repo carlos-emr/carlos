@@ -331,7 +331,7 @@ class BillingShortcutPg1ViewModelUnitTest {
 
     @Test
     @DisplayName("composed setter wins over flat setters")
-    void shouldDelegateFlatGetters_toComposedRecord_whenComposedSetterUsed() {
+    void shouldDelegateFlatGettersToComposedRecord_whenComposedSetterUsed() {
         BillingDemographicSummary demoComposed = new BillingDemographicSummary(
                 "Composed", "Doe", "9999999999", "", "1", "ON",
                 "19900101", "1990", "01", "01");

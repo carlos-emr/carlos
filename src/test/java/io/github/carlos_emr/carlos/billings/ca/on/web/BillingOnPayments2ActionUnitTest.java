@@ -26,6 +26,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 
@@ -58,6 +59,54 @@ class BillingOnPayments2ActionUnitTest extends CarlosUnitTestBase {
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
         }
+    }
+
+    // -- parseStrictAmount: gates the savePayment() rejection-vs-persist
+    // -- decision. The legacy flow silently zeroed malformed amounts and
+    // -- persisted $0 rows; the strict variant must surface the failure.
+
+    @Test
+    void shouldReturnParsedAmount_whenInputIsValid() {
+        assertThat(BillingOnPayments2Action.parseStrictAmount("12.34"))
+                .isEqualByComparingTo("12.34");
+    }
+
+    @Test
+    void shouldReturnZero_whenInputIsNull() {
+        assertThat(BillingOnPayments2Action.parseStrictAmount(null))
+                .isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    void shouldReturnZero_whenInputIsEmpty() {
+        assertThat(BillingOnPayments2Action.parseStrictAmount(""))
+                .isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    void shouldReturnZero_whenInputIsWhitespaceOnly() {
+        assertThat(BillingOnPayments2Action.parseStrictAmount("   "))
+                .isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    void shouldThrow_whenInputIsMalformed() {
+        assertThatThrownBy(() -> BillingOnPayments2Action.parseStrictAmount("1OO"))
+                .isInstanceOf(NumberFormatException.class)
+                .hasMessageContaining("1OO");
+    }
+
+    @Test
+    void shouldThrow_whenInputHasMixedAlphaNumeric() {
+        assertThatThrownBy(() -> BillingOnPayments2Action.parseStrictAmount("12abc"))
+                .isInstanceOf(NumberFormatException.class)
+                .hasMessageContaining("12abc");
+    }
+
+    @Test
+    void shouldTrimSurroundingWhitespace_beforeParsing() {
+        assertThat(BillingOnPayments2Action.parseStrictAmount("  42.00  "))
+                .isEqualByComparingTo("42.00");
     }
 
     @Test

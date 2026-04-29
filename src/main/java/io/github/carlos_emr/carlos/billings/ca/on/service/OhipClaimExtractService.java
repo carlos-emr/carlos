@@ -526,8 +526,7 @@ public class OhipClaimExtractService implements Serializable {
     // write OHIP file to it
     public void writeFile(String value1) {
         try {
-            String home_dir;
-            home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
+            String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
             File safeFile = PathValidationUtils.validatePath(ohipFilename, new File(home_dir));
             FileOutputStream out = new FileOutputStream(safeFile);
             PrintStream p = new PrintStream(out);
@@ -537,8 +536,12 @@ public class OhipClaimExtractService implements Serializable {
             out.close();
         } catch (SecurityException e) {
             logger.error("Path traversal attempt detected for OHIP file: {}", ohipFilename, e);
+            throw new BillingFileWriteException(
+                    "Refused to write OHIP claim file due to path-traversal: " + ohipFilename, e);
         } catch (Exception e) {
-            logger.error("Write OHIP File Error", e);
+            logger.error("Write OHIP File Error: filename={}", ohipFilename, e);
+            throw new BillingFileWriteException(
+                    "Failed to write OHIP claim file: " + ohipFilename, e);
         }
     }
 
@@ -546,9 +549,7 @@ public class OhipClaimExtractService implements Serializable {
     // OscarDocument/.../billing/download/, and then write to it
     public void writeHtml(String htmlvalue1) {
         try {
-            String home_dir1;
-            home_dir1 = CarlosProperties.getInstance().getProperty("HOME_DIR");
-
+            String home_dir1 = CarlosProperties.getInstance().getProperty("HOME_DIR");
             File safeFile = PathValidationUtils.validatePath(htmlFilename, new File(home_dir1));
             FileOutputStream out1 = new FileOutputStream(safeFile);
             PrintStream p1 = new PrintStream(out1);
@@ -558,8 +559,12 @@ public class OhipClaimExtractService implements Serializable {
             out1.close();
         } catch (SecurityException e) {
             logger.error("Path traversal attempt detected for HTML file: {}", htmlFilename, e);
+            throw new BillingFileWriteException(
+                    "Refused to write OHIP HTML companion file due to path-traversal: " + htmlFilename, e);
         } catch (Exception e) {
-            logger.error("Write HTML File Error!!!", e);
+            logger.error("Write HTML File Error: filename={}", htmlFilename, e);
+            throw new BillingFileWriteException(
+                    "Failed to write OHIP HTML companion file: " + htmlFilename, e);
         }
     }
 

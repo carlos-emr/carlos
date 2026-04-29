@@ -45,6 +45,28 @@ public final class BillingDates {
         return java.sql.Date.valueOf(LocalDate.parse(serviceDate, SERVICE_DATE));
     }
 
+    /**
+     * Parse a {@code yyyy-MM-dd} ISO date strictly. Throws on null, blank, or
+     * unparseable input — use this on billing-mutating paths where silently
+     * substituting today's date would record audit-incorrect service dates
+     * to OHIP.
+     *
+     * @param raw String the ISO-formatted date
+     * @return Date legacy {@link Date} at start-of-day in the system zone
+     * @throws IllegalArgumentException when {@code raw} cannot be parsed
+     */
+    public static Date parseIsoDate(String raw) {
+        if (raw == null || raw.trim().isEmpty()) {
+            throw new IllegalArgumentException("BillingDates.parseIsoDate: date is null or blank");
+        }
+        try {
+            return java.sql.Date.valueOf(LocalDate.parse(raw.trim(), SERVICE_DATE));
+        } catch (java.time.format.DateTimeParseException e) {
+            throw new IllegalArgumentException(
+                    "BillingDates.parseIsoDate: malformed yyyy-MM-dd date [" + raw + "]");
+        }
+    }
+
     public static String toOhipDate(Date date) {
         if (date == null) {
             return "";

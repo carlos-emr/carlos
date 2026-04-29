@@ -48,28 +48,25 @@ import io.github.carlos_emr.carlos.commn.model.BillingOnTransaction;
 import io.github.carlos_emr.carlos.commn.model.RaDetail;
 
 /**
- * Persistence service for the ON billing correction workflow. Wraps every
+ * Persister for the ON billing correction workflow. Owns every
  * {@code billing_on_cheader1} / {@code billing_on_item} mutation the
  * correction page can perform — header updates, item updates, status
  * flips, total/paid adjustments, plus the {@code billing_on_transaction}
- * audit-trail rows that mirror each item-level change. The class also
- * exposes the loader methods the correction page calls to populate its
- * view model ({@link #getBillingRecordObj}, {@link #getBillingRejectList},
- * {@link #getBillingExplanatoryList}, etc.) — these reads sit alongside
- * the writes because the same callsite typically loads → mutates →
- * persists, and the loader's DTO shape is shared with the persist path.
+ * audit-trail rows that mirror each item-level change.
  *
- * <p>Replaces the legacy {@code JdbcBillingCorrection} shim that lived
- * in {@code billings.ca.on.data}. No behavior change in this commit —
- * just relocation to the {@code service/} tier per the
- * {@code service = side effects (mutation, file I/O, audit)} contract
- * documented in {@code service/package-info.java}.</p>
+ * <p>The class also exposes the loader methods the correction page calls
+ * to populate its view model ({@link #getBillingRecordObj},
+ * {@link #getBillingRejectList}, {@link #getBillingExplanatoryList},
+ * etc.) — these reads sit alongside the writes because the same callsite
+ * typically loads → mutates → persists, and the loader's DTO shape is
+ * shared with the persist path. Splitting the reads into a sibling
+ * {@code *Loader} is a candidate follow-up if either side grows further.</p>
  *
  * @since 2026-04-26
  */
 @org.springframework.stereotype.Service
 @org.springframework.transaction.annotation.Transactional
-public class BillingOnCorrectionPersistenceService {
+public class BillingOnCorrectionPersister {
 
     private final BillingONCHeader1Dao billingHeaderDao;
     private final BillingONItemDao billingItemDao;
@@ -80,14 +77,14 @@ public class BillingOnCorrectionPersistenceService {
     private final BillingOnTransactionDao billOnTransDao;
     private final BillingOnAuditLogService auditLog;
 
-    public BillingOnCorrectionPersistenceService(BillingONCHeader1Dao billingHeaderDao,
-                                                 BillingONItemDao billingItemDao,
-                                                 BillingONEAReportDao billingEaReportDao,
-                                                 RaDetailDao raDetailDao,
-                                                 BillingOnItemPaymentDao itemPaymentDao,
-                                                 BillingONExtDao billExtDao,
-                                                 BillingOnTransactionDao billOnTransDao,
-                                                 BillingOnAuditLogService auditLog) {
+    public BillingOnCorrectionPersister(BillingONCHeader1Dao billingHeaderDao,
+                                        BillingONItemDao billingItemDao,
+                                        BillingONEAReportDao billingEaReportDao,
+                                        RaDetailDao raDetailDao,
+                                        BillingOnItemPaymentDao itemPaymentDao,
+                                        BillingONExtDao billExtDao,
+                                        BillingOnTransactionDao billOnTransDao,
+                                        BillingOnAuditLogService auditLog) {
         this.billingHeaderDao = billingHeaderDao;
         this.billingItemDao = billingItemDao;
         this.billingEaReportDao = billingEaReportDao;

@@ -45,4 +45,40 @@ class BillingDatesUnitTest {
         assertThatThrownBy(() -> BillingDates.ohipEffectiveDate("202604", LocalDate.of(2026, 4, 28)))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    void shouldParseIsoDate_whenInputIsValid() {
+        assertThat(BillingDates.parseIsoDate("2026-04-28"))
+                .hasToString("2026-04-28");
+    }
+
+    @Test
+    void shouldThrow_whenIsoDateIsNull() {
+        assertThatThrownBy(() -> BillingDates.parseIsoDate(null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("null or blank");
+    }
+
+    @Test
+    void shouldThrow_whenIsoDateIsBlank() {
+        assertThatThrownBy(() -> BillingDates.parseIsoDate("   "))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("null or blank");
+    }
+
+    @Test
+    void shouldThrow_whenIsoDateIsMalformed() {
+        // Used to silently substitute today() — recording an audit-incorrect
+        // service date on the OHIP claim. Must surface to the caller.
+        assertThatThrownBy(() -> BillingDates.parseIsoDate("not-a-date"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("not-a-date");
+    }
+
+    @Test
+    void shouldThrow_whenIsoDateHasWrongFormat() {
+        assertThatThrownBy(() -> BillingDates.parseIsoDate("04/28/2026"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("04/28/2026");
+    }
 }

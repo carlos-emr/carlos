@@ -95,7 +95,7 @@ class PatientEndYearStatement2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldReturnSuccess_andClearStaleSummary_andEchoNames() {
+    void shouldReturnSuccessClearStaleSummaryAndEchoNames() {
         // Pre-populate the session with a stale summary; the initial render
         // should clear it so the JSP doesn't show a leftover invoice table.
         mockRequest.getSession(true).setAttribute("summary", "stale");

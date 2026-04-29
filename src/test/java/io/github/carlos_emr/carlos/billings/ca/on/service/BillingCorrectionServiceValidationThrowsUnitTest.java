@@ -107,7 +107,7 @@ class BillingCorrectionServiceValidationThrowsUnitTest {
     // -------- updateInvoice --------
 
     @Test
-    void updateInvoice_shouldThrowBillingValidationException_whenBillingNoIsNonNumeric() {
+    void shouldThrowBillingValidationException_whenUpdateInvoiceBillingNoIsNonNumeric() {
         BillingCorrectionService service = newService();
         // Non-empty, non-null but unparseable: indicates tampering / browser
         // auto-fill regression — throw rather than silent "closeReload".
@@ -122,7 +122,7 @@ class BillingCorrectionServiceValidationThrowsUnitTest {
     }
 
     @Test
-    void updateInvoice_shouldThrowBillingValidationException_whenBillNotFound() {
+    void shouldThrowBillingValidationException_whenUpdateInvoiceBillNotFound() {
         BillingCorrectionService service = newService();
         mockRequest.setParameter("xml_billing_no", "999999");
         when(bCh1Dao.find(Integer.valueOf(999999))).thenReturn(null);
@@ -141,7 +141,7 @@ class BillingCorrectionServiceValidationThrowsUnitTest {
      * JSP, so the user-facing render is identical.
      */
     @Test
-    void updateInvoice_shouldReturnLoadOnly_whenXmlBillingNoIsAbsent() {
+    void shouldReturnLoadOnly_whenUpdateInvoiceXmlBillingNoIsAbsent() {
         BillingCorrectionService service = newService();
         // No xml_billing_no parameter at all (the GET-load case).
 
@@ -152,7 +152,7 @@ class BillingCorrectionServiceValidationThrowsUnitTest {
     }
 
     @Test
-    void updateInvoice_shouldReturnLoadOnly_whenXmlBillingNoIsEmpty() {
+    void shouldReturnLoadOnly_whenUpdateInvoiceXmlBillingNoIsEmpty() {
         BillingCorrectionService service = newService();
         mockRequest.setParameter("xml_billing_no", "");
 
@@ -165,7 +165,7 @@ class BillingCorrectionServiceValidationThrowsUnitTest {
     // -------- addThirdPartyPayment --------
 
     @Test
-    void addThirdPartyPayment_shouldThrowBillingValidationException_whenBillingNoIsNonNumeric() {
+    void shouldThrowBillingValidationException_whenAddThirdPartyPaymentBillingNoIsNonNumeric() {
         BillingCorrectionService service = newService();
         mockRequest.setParameter("billing_no", "not-numeric");
 
@@ -178,7 +178,7 @@ class BillingCorrectionServiceValidationThrowsUnitTest {
     }
 
     @Test
-    void addThirdPartyPayment_shouldThrowBillingValidationException_whenBillNotFound() {
+    void shouldThrowBillingValidationException_whenAddThirdPartyPaymentBillNotFound() {
         BillingCorrectionService service = newService();
         mockRequest.setParameter("billing_no", "12345");
         when(bCh1Dao.find(Integer.valueOf(12345))).thenReturn(null);
@@ -189,7 +189,7 @@ class BillingCorrectionServiceValidationThrowsUnitTest {
     }
 
     @Test
-    void addThirdPartyPayment_shouldThrowBillingValidationException_whenAmtPaidIsNonNumeric() {
+    void shouldThrowBillingValidationException_whenAddThirdPartyPaymentAmtPaidIsNonNumeric() {
         BillingCorrectionService service = newService();
         mockRequest.setParameter("billing_no", "12345");
         mockRequest.setParameter("amtPaid", "not-a-number");
@@ -205,7 +205,7 @@ class BillingCorrectionServiceValidationThrowsUnitTest {
     }
 
     @Test
-    void addThirdPartyPayment_shouldThrowBillingValidationException_whenAmtPaidIsMissing() {
+    void shouldThrowBillingValidationException_whenAddThirdPartyPaymentAmtPaidIsMissing() {
         // Missing 'amtPaid' would previously hit `new BigDecimal(null)` →
         // NullPointerException → uncaught 500 (the catch only covered
         // NumberFormatException). Verify the explicit null/empty pre-check
@@ -225,7 +225,7 @@ class BillingCorrectionServiceValidationThrowsUnitTest {
     }
 
     @Test
-    void addThirdPartyPayment_shouldThrowBillingValidationException_whenPayMethodNotConfigured() {
+    void shouldThrowBillingValidationException_whenAddThirdPartyPaymentPayMethodNotConfigured() {
         BillingCorrectionService service = newService();
         mockRequest.setParameter("billing_no", "12345");
         mockRequest.setParameter("amtPaid", "100.00");
@@ -243,7 +243,7 @@ class BillingCorrectionServiceValidationThrowsUnitTest {
     }
 
     @Test
-    void addThirdPartyPayment_shouldThrowBillingValidationException_whenPayTypeIsNotPorR() {
+    void shouldThrowBillingValidationException_whenAddThirdPartyPaymentPayTypeIsNotPorR() {
         BillingCorrectionService service = newService();
         mockRequest.setParameter("billing_no", "12345");
         mockRequest.setParameter("amtPaid", "100.00");

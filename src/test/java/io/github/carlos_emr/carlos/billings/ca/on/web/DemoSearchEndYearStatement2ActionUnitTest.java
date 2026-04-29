@@ -105,7 +105,7 @@ class DemoSearchEndYearStatement2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldBuildIdentityOnlySummary_andReturnSuccess_onHappyPath() throws Exception {
+    void shouldBuildIdentityOnlySummaryAndReturnSuccess_onHappyPath() throws Exception {
         Demographic demo = new Demographic();
         demo.setDemographicNo(1);
         demo.setChartNo("CHART1");

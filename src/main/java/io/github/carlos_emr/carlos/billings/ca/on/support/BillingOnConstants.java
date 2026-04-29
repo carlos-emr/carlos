@@ -32,36 +32,36 @@ import java.util.Properties;
  */
 
 public final class BillingOnConstants {
-    public static int FIELD_SERVICE_NUM = 10;
-    public static int FIELD_MAX_SERVICE_NUM = 20;
+    public static final int FIELD_SERVICE_NUM = 10;
+    public static final int FIELD_MAX_SERVICE_NUM = 20;
 
-    public static String BATCHHEADER_TRANSACTIONIDENTIFIER = "HE";
-    public static String BATCHHEADER_REORDIDENTIFICATION = "B";
-    public static String BATCHHEADER_SPECID = "V03";
-    public static String CLAIMHEADER1_TRANSACTIONIDENTIFIER = "HE";
-    public static String CLAIMHEADER1_REORDIDENTIFICATION = "H";
-    public static String CLAIMHEADER1_PAYMENTPROGRAM_PRIVATE = "PAT";
-    public static String CLAIMHEADER1_PAYEE = "P";
+    public static final String BATCHHEADER_TRANSACTIONIDENTIFIER = "HE";
+    public static final String BATCHHEADER_REORDIDENTIFICATION = "B";
+    public static final String BATCHHEADER_SPECID = "V03";
+    public static final String CLAIMHEADER1_TRANSACTIONIDENTIFIER = "HE";
+    public static final String CLAIMHEADER1_REORDIDENTIFICATION = "H";
+    public static final String CLAIMHEADER1_PAYMENTPROGRAM_PRIVATE = "PAT";
+    public static final String CLAIMHEADER1_PAYEE = "P";
 
-    public static String ITEM_TRANSACTIONIDENTIFIER = "HE";
-    public static String ITEM_REORDIDENTIFICATION = "T";
+    public static final String ITEM_TRANSACTIONIDENTIFIER = "HE";
+    public static final String ITEM_REORDIDENTIFICATION = "T";
 
-    public static String BILLINGFILE_STATUS_UNCERT = "U";
-    public static String BILLINGFILE_STATUS_DELETED = "D";
-    public static String BILLINGFILE_STATUS_BILLED = "B";
+    public static final String BILLINGFILE_STATUS_UNCERT = "U";
+    public static final String BILLINGFILE_STATUS_DELETED = "D";
+    public static final String BILLINGFILE_STATUS_BILLED = "B";
 
-    public static String BILLINGACTION_CREATE = "create";
-    public static String BILLINGACTION_UPDATE = "update";
+    public static final String BILLINGACTION_CREATE = "create";
+    public static final String BILLINGACTION_UPDATE = "update";
 
-    public static String BILLINGMATCHSTRING_3RDPARTY = "PAT|OCF|ODS|CPP|STD|IFH";
+    public static final String BILLINGMATCHSTRING_3RDPARTY = "PAT|OCF|ODS|CPP|STD|IFH";
 
     // UH: update billing_on_cheader1, refer to issue#233 https://github.com/oscaremr/oscar/issues/233
     public enum ACTION_TYPE {C, R, U, D, UH}
 
 
-    public static Properties propMonthCode = new Properties();
-    public static Properties propBillingCenter = new Properties();
-    public static Properties propBillingType = new Properties();
+    public static final Properties propMonthCode = new Properties();
+    public static final Properties propBillingCenter = new Properties();
+    public static final Properties propBillingType = new Properties();
     public static final List<String> vecPaymentType = Collections.unmodifiableList(Arrays.asList(
             "HCP",
             "Bill OHIP",

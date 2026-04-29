@@ -250,16 +250,36 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        void shouldZeroMoneyFields_whenInputsAreMalformed() {
-            // BillingMoney.amountOrZero is the consolidated swallowing parser
-            // (see BillingOnClaimPersister:247-250). Malformed money inputs
-            // collapse to zero on the audit-trail row — preserved legacy
-            // behaviour from JdbcBillingClaimImpl.
+        void shouldThrow_whenInputsAreMalformed() {
+            // The legacy code path silently zeroed malformed money fields and
+            // persisted the row anyway — that masked typos and could record
+            // a $0 payment on a non-zero billing event. The current contract
+            // surfaces the parse failure so the surrounding @Transactional
+            // unit-of-work rolls back.
             BillingClaimItemDto a = itemDto("A001A", "2026-04-28");
             a.setId("11");
             a.setDiscount("not-a-number");
-            a.setPaid("not-a-number");
-            a.setRefund("not-a-number");
+            a.setPaid("33.70");
+            a.setRefund("0.00");
+
+            org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                    persister.addItemPaymentRecord(new ArrayList<>(List.of(a)), 4242, 7, 1))
+                    .isInstanceOf(NumberFormatException.class)
+                    .hasMessageContaining("not-a-number");
+
+            verify(billOnItemPaymentDao, never()).persist(any(BillingOnItemPayment.class));
+        }
+
+        @Test
+        void shouldTreatBlankMoneyFieldsAsZero_andPersistRow() {
+            // Blank cells are a legitimate user input — the user simply did
+            // not enter a value. The strict-but-blank-tolerant parser must
+            // accept these and write zero, distinct from malformed input.
+            BillingClaimItemDto a = itemDto("A001A", "2026-04-28");
+            a.setId("11");
+            a.setDiscount("");
+            a.setPaid("33.70");
+            a.setRefund("");
 
             doAssignItemPaymentId(55);
 
@@ -271,7 +291,7 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
             verify(billOnItemPaymentDao).persist(captor.capture());
             BillingOnItemPayment persisted = captor.getValue();
             assertThat(persisted.getDiscount()).isEqualByComparingTo(BigDecimal.ZERO);
-            assertThat(persisted.getPaid()).isEqualByComparingTo(BigDecimal.ZERO);
+            assertThat(persisted.getPaid()).isEqualByComparingTo("33.70");
             assertThat(persisted.getRefund()).isEqualByComparingTo(BigDecimal.ZERO);
         }
     }

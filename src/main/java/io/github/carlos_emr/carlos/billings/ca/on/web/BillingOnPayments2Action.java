@@ -321,7 +321,9 @@ public class BillingOnPayments2Action extends ActionSupport {
             paymentTypeId = "0";
         }
 
-        // get all paid, discount and refund list
+        // Validate every amount upfront. If anything fails, write a rejection
+        // JSON response and abort BEFORE the persist phase below — silently
+        // zeroing on parse failure used to mask user typos and write $0 rows.
         BigDecimal sumPaid = BigDecimal.ZERO;
         BigDecimal sumRefund = BigDecimal.ZERO;
         BigDecimal sumCredit = BigDecimal.ZERO;
@@ -331,41 +333,31 @@ public class BillingOnPayments2Action extends ActionSupport {
             String discount = request.getParameter("discount" + i);
             String itemId = request.getParameter("itemId" + i);
             if (billingONItemDao.find(Integer.parseInt(itemId)) != null) {
-                if ("payment".equals(request.getParameter("sel" + i))) {
-                    BigDecimal pay = BigDecimal.ZERO;
-                    BigDecimal dicnt = BigDecimal.ZERO;
-                    try {
-                        pay = new BigDecimal(payment);
-                    } catch (Exception e) {
+                String sel = request.getParameter("sel" + i);
+                try {
+                    if ("payment".equals(sel)) {
+                        BigDecimal pay = parseStrictAmount(payment);
+                        BigDecimal dicnt = parseStrictAmount(discount);
+                        if (pay.compareTo(BigDecimal.ZERO) > 0) {
+                            sumPaid = sumPaid.add(pay);
+                        }
+                        if (dicnt.compareTo(BigDecimal.ZERO) > 0) {
+                            sumDiscount = sumDiscount.add(dicnt);
+                        }
+                    } else if ("refund".equals(sel)) {
+                        BigDecimal refundTmp = parseStrictAmount(payment);
+                        if (refundTmp.compareTo(BigDecimal.ZERO) > 0) {
+                            sumRefund = sumRefund.add(refundTmp);
+                        }
+                    } else if ("credit".equals(sel)) {
+                        BigDecimal creditTmp = parseStrictAmount(payment);
+                        if (creditTmp.compareTo(BigDecimal.ZERO) > 0) {
+                            sumCredit = sumCredit.add(creditTmp);
+                        }
                     }
-                    if (pay.compareTo(BigDecimal.ZERO) == 1) {
-                        sumPaid = sumPaid.add(pay);
-                    }
-                    try {
-                        dicnt = new BigDecimal(discount);
-                    } catch (Exception e) {
-                    }
-                    if (dicnt.compareTo(BigDecimal.ZERO) == 1) {
-                        sumDiscount = sumDiscount.add(dicnt);
-                    }
-                } else if ("refund".equals(request.getParameter("sel" + i))) {
-                    BigDecimal refundTmp = BigDecimal.ZERO;
-                    try {
-                        refundTmp = new BigDecimal(payment);
-                    } catch (Exception e) {
-                    }
-                    if (refundTmp.compareTo(BigDecimal.ZERO) == 1) {
-                        sumRefund = sumRefund.add(refundTmp);
-                    }
-                } else if ("credit".equals(request.getParameter("sel" + i))) {
-                    BigDecimal creditTmp = BigDecimal.ZERO;
-                    try {
-                        creditTmp = new BigDecimal(payment);
-                    } catch (Exception e) {
-                    }
-                    if (creditTmp.compareTo(BigDecimal.ZERO) == 1) {
-                        sumCredit = sumCredit.add(creditTmp);
-                    }
+                } catch (NumberFormatException e) {
+                    return writeRejectionJson("Invalid amount on row " + i + ": " + e.getMessage()
+                            + "; payment not saved");
                 }
             }
         }
@@ -499,18 +491,13 @@ public class BillingOnPayments2Action extends ActionSupport {
             billItemPayment.setCh1Id(billNo);
             billItemPayment.setPaymentTimestamp(new Timestamp(paymentdatetmp.getTime()));
 
-            if ("payment".equals(request.getParameter("sel" + i))) {
-                BigDecimal itemPayment = BigDecimal.ZERO;
-                BigDecimal itemDiscnt = BigDecimal.ZERO;
-                try {
-                    itemPayment = new BigDecimal(payment);
-                } catch (Exception e) {
-                }
-                try {
-                    itemDiscnt = new BigDecimal(discount);
-                } catch (Exception e) {
-                }
-
+            // Amounts were validated upfront in the summation loop above,
+            // so parseStrictAmount can be called here without a catch — any
+            // throw at this point indicates a logic regression worth raising.
+            String selThis = request.getParameter("sel" + i);
+            if ("payment".equals(selThis)) {
+                BigDecimal itemPayment = parseStrictAmount(payment);
+                BigDecimal itemDiscnt = parseStrictAmount(discount);
                 if (itemPayment.compareTo(BigDecimal.ZERO) == 0 && itemDiscnt.compareTo(BigDecimal.ZERO) == 0) {
                     continue;
                 }
@@ -521,12 +508,8 @@ public class BillingOnPayments2Action extends ActionSupport {
                 billTrans.setServiceCodePaid(itemPayment);
                 billTrans.setServiceCodeDiscount(itemDiscnt);
                 billingOnTransactionDao.persist(billTrans);
-            } else if ("refund".equals(request.getParameter("sel" + i))) {
-                BigDecimal itemRefund = BigDecimal.ZERO;
-                try {
-                    itemRefund = new BigDecimal(payment);
-                } catch (Exception e) {
-                }
+            } else if ("refund".equals(selThis)) {
+                BigDecimal itemRefund = parseStrictAmount(payment);
                 if (itemRefund.compareTo(BigDecimal.ZERO) == 0) {
                     continue;
                 }
@@ -535,12 +518,8 @@ public class BillingOnPayments2Action extends ActionSupport {
                 BillingOnTransaction billTrans = billingOnTransactionDao.getTransTemplate(cheader1, billItem, billPayment, curProviderNo, billItemPayment.getId());
                 billTrans.setServiceCodeRefund(itemRefund);
                 billingOnTransactionDao.persist(billTrans);
-            } else if ("credit".equals(request.getParameter("sel" + i))) {
-                BigDecimal itemCredit = BigDecimal.ZERO;
-                try {
-                    itemCredit = new BigDecimal(payment);
-                } catch (Exception e) {
-                }
+            } else if ("credit".equals(selThis)) {
+                BigDecimal itemCredit = parseStrictAmount(payment);
                 if (itemCredit.compareTo(BigDecimal.ZERO) == 0) {
                     continue;
                 }
@@ -744,5 +723,44 @@ public class BillingOnPayments2Action extends ActionSupport {
     public void setBillingOnTransactionDao(
             BillingOnTransactionDao billingOnTransactionDao) {
         this.billingOnTransactionDao = billingOnTransactionDao;
+    }
+
+    /**
+     * Parse a user-entered amount strictly. Empty/null is allowed and yields
+     * zero (the user simply did not fill that cell); any other unparseable
+     * input throws {@link NumberFormatException} with the offending value
+     * embedded so the caller can surface a useful rejection message.
+     */
+    static BigDecimal parseStrictAmount(String raw) {
+        if (raw == null || raw.trim().isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        try {
+            return new BigDecimal(raw.trim());
+        } catch (NumberFormatException e) {
+            throw new NumberFormatException(String.format("[%s] is not a valid number", raw));
+        }
+    }
+
+    /**
+     * Write a {@code {"ret":1,"reason":...}} JSON rejection to the response
+     * and return the appropriate Struts result string. Mirrors the existing
+     * "all zeros" rejection at the top of {@link #savePayment()}.
+     */
+    private String writeRejectionJson(String reason) {
+        ObjectNode ret = objectMapper.createObjectNode();
+        ret.put("ret", 1);
+        ret.put("reason", reason);
+        response.setCharacterEncoding("utf-8");
+        response.setContentType("application/json");
+        try {
+            response.getWriter().print(ret.toString());
+            response.getWriter().flush();
+            response.getWriter().close();
+        } catch (Exception e) {
+            logger.info(e.toString());
+            return "failure";
+        }
+        return null;
     }
 }

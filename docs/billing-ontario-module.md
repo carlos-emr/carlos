@@ -360,7 +360,7 @@ known operation.
 | `BillingClaimsErrorReportImportService` | Import service | Claims error report upload/import workflow |
 | `BillingOnClaimPersister` | Persister | Header/item/ext record inserts and updates |
 | `BillingOnReviewDiagPersister` | Persister | Diagnostic-code persistence on review save |
-| `BillingOnCorrectionPersistenceService` | Service | Correction lifecycle reads + writes (mixed; pre-existing) |
+| `BillingOnCorrectionPersister` | Persister | Correction lifecycle writes + colocated reads (split into `*Loader` is a candidate follow-up) |
 | `BillingOnInvoiceTotalsCalculator` | Calculator | `calculateBalanceOwing` (cross-DAO) |
 | `BillingOnHeaderCreationService` | Service | Header creation orchestration (`@Transactional`) |
 | `BillingCorrectionService` | Service | `updateInvoice` + `addThirdPartyPayment` workflows |
@@ -705,7 +705,7 @@ Things this module would benefit from but which are not yet done:
   scope for the ON refactor branch; tracked separately.
 - **Mixed-role services.** A handful of pre-existing services
   (`BillingOnLookupService`, `BillingDiskCreationService`,
-  `BillingClaimSubmissionService`, `BillingOnCorrectionPersistenceService`) carry
+  `BillingClaimSubmissionService`, `BillingOnCorrectionPersister`) carry
   both reads and writes. They legitimately orchestrate mixed lifecycles
   today, but if any one of them grows further, splitting into
   `*Loader` + `*Persister` is the next step.

@@ -139,7 +139,7 @@ public class BillingCorrectionServiceIntegrationTest extends CarlosTestBase {
      */
     @Test
     @DisplayName("should persist payment and update bill paid total when params valid")
-    void shouldPersistPayment_andUpdateBillPaidTotal_whenParamsValid() {
+    void shouldPersistPaymentAndUpdateBillPaidTotal_whenParamsValid() {
         request.setParameter("billing_no", String.valueOf(persistedHeader.getId()));
         request.setParameter("amtPaid", "25.00");
         request.setParameter("payMethod", String.valueOf(persistedPaymentType.getId()));

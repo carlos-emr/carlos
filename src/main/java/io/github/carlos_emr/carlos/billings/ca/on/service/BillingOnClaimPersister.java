@@ -240,14 +240,20 @@ public class BillingOnClaimPersister {
         Timestamp ts = new Timestamp(new Date().getTime());
         for (int i = 0; i < lVal.size(); i++) {
             BillingClaimItemDto val = (BillingClaimItemDto) lVal.get(i);
+            // Pre-parse before mutating the entity. Strict variants surface a
+            // malformed amount BEFORE any billing_on_item_payment row is
+            // persisted with a silently-zeroed value.
+            BigDecimal discount = BillingMoney.amountStrictOrZero(val.getDiscount());
+            BigDecimal paid = BillingMoney.amountStrictOrZero(val.getPaid());
+            BigDecimal refund = BillingMoney.amountStrictOrZero(val.getRefund());
             billOnItemPayment = new BillingOnItemPayment();
             billOnItemPayment.setBillingOnItemId(Integer.parseInt(val.getId()));
             billOnItemPayment.setBillingOnPaymentId(paymentId);
             billOnItemPayment.setCh1Id(id);
-            billOnItemPayment.setDiscount(BillingMoney.amountOrZero(val.getDiscount()));
-            billOnItemPayment.setPaid(BillingMoney.amountOrZero(val.getPaid()));
+            billOnItemPayment.setDiscount(discount);
+            billOnItemPayment.setPaid(paid);
             billOnItemPayment.setPaymentTimestamp(ts);
-            billOnItemPayment.setRefund(BillingMoney.amountOrZero(val.getRefund()));
+            billOnItemPayment.setRefund(refund);
             billOnItemPaymentDao.persist(billOnItemPayment);
             val.setId(billOnItemPayment.getId().toString());
         }
@@ -258,22 +264,25 @@ public class BillingOnClaimPersister {
         if (billItemList.size() < 1) {
             return;
         }
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        // Parse header dates upfront — surfacing failure here aborts the
+        // surrounding @Transactional unit-of-work BEFORE any billOnTrans row
+        // is persisted with a null/zero placeholder.
+        Date admissionDate = parseHeaderDateOrThrow(billHeader.getAdmission_date(), "admission_date");
+        Date billingDate = parseHeaderDateOrThrow(billHeader.getBilling_date(), "billing_date");
         Timestamp updateTs = new Timestamp(new Date().getTime());
         BillingOnTransaction billTrans = null;
         for (BillingClaimItemDto billItem : billItemList) {
+            // Pre-parse the per-item amounts before mutating the entity, so a
+            // mid-loop parse failure cannot leave a partially-populated
+            // BillingOnTransaction in an inconsistent state.
+            BigDecimal discount = BillingMoney.amountStrictOrZero(billItem.getDiscount());
+            BigDecimal paid = BillingMoney.amountStrictOrZero(billItem.getPaid());
+            BigDecimal refund = BillingMoney.amountStrictOrZero(billItem.getRefund());
+
             billTrans = new BillingOnTransaction();
             billTrans.setActionType(BillingOnConstants.ACTION_TYPE.C.name());
-            try {
-                billTrans.setAdmissionDate(sdf.parse(billHeader.getAdmission_date()));
-            } catch (Exception e) {
-                billTrans.setAdmissionDate(null);
-            }
-            try {
-                billTrans.setBillingDate(sdf.parse(billHeader.getBilling_date()));
-            } catch (Exception e) {
-                billTrans.setBillingDate(null);
-            }
+            billTrans.setAdmissionDate(admissionDate);
+            billTrans.setBillingDate(billingDate);
 
             billTrans.setBillingNotes(billHeader.getComment());
             billTrans.setBillingOnItemPaymentId(Integer.parseInt(billItem.getId()));
@@ -293,22 +302,10 @@ public class BillingOnClaimPersister {
             billTrans.setRefNum(billHeader.getRef_num());
             billTrans.setServiceCode(billItem.getService_code());
             billTrans.setServiceCodeInvoiced(billItem.getFee());
-            try {
-                billTrans.setServiceCodeDiscount(new BigDecimal(billItem.getDiscount()));
-            } catch (Exception e) {
-                billTrans.setServiceCodeDiscount(BigDecimal.ZERO);
-            }
+            billTrans.setServiceCodeDiscount(discount);
             billTrans.setServiceCodeNum(billItem.getSer_num());
-            try {
-                billTrans.setServiceCodePaid(new BigDecimal(billItem.getPaid()));
-            } catch (Exception e) {
-                billTrans.setServiceCodePaid(BigDecimal.ZERO);
-            }
-            try {
-                billTrans.setServiceCodeRefund(new BigDecimal(billItem.getRefund()));
-            } catch (Exception e) {
-                billTrans.setServiceCodeRefund(BigDecimal.ZERO);
-            }
+            billTrans.setServiceCodePaid(paid);
+            billTrans.setServiceCodeRefund(refund);
             billTrans.setStatus(billHeader.getStatus());
             billTrans.setSliCode(billHeader.getLocation());
             billTrans.setUpdateDatetime(updateTs);
@@ -322,22 +319,19 @@ public class BillingOnClaimPersister {
         if (billItemList.size() < 1) {
             return;
         }
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        // Parse header dates upfront — failure aborts the @Transactional
+        // unit-of-work BEFORE any billOnTrans row is persisted with a null
+        // placeholder. At OHIP-claim creation amounts are intentionally ZERO
+        // (no payment received yet) so amount parsing is N/A here.
+        Date admissionDate = parseHeaderDateOrThrow(billHeader.getAdmission_date(), "admission_date");
+        Date billingDate = parseHeaderDateOrThrow(billHeader.getBilling_date(), "billing_date");
         Timestamp updateTs = new Timestamp(new Date().getTime());
         BillingOnTransaction billTrans = null;
         for (BillingClaimItemDto billItem : billItemList) {
             billTrans = new BillingOnTransaction();
             billTrans.setActionType(BillingOnConstants.ACTION_TYPE.C.name());
-            try {
-                billTrans.setAdmissionDate(sdf.parse(billHeader.getAdmission_date()));
-            } catch (Exception e) {
-                billTrans.setAdmissionDate(null);
-            }
-            try {
-                billTrans.setBillingDate(sdf.parse(billHeader.getBilling_date()));
-            } catch (Exception e) {
-                billTrans.setBillingDate(null);
-            }
+            billTrans.setAdmissionDate(admissionDate);
+            billTrans.setBillingDate(billingDate);
 
             billTrans.setBillingNotes(billHeader.getComment());
             billTrans.setBillingOnItemPaymentId(Integer.parseInt(billItem.getId()));
@@ -599,6 +593,31 @@ public class BillingOnClaimPersister {
         }
 
         return true;
+    }
+
+    /**
+     * Parse an ISO {@code yyyy-MM-dd} header date strictly. Empty/null is
+     * tolerated and yields {@code null} (the legacy behavior treated any
+     * unparseable input the same as missing); any other unparseable input
+     * throws {@link IllegalArgumentException} so the surrounding
+     * {@code @Transactional} unit-of-work rolls back rather than persisting
+     * a {@code billing_on_transaction} row with a silently-nulled date.
+     *
+     * @param raw       String header-supplied date string (null/blank → null)
+     * @param fieldName String diagnostic name for error messages
+     * @return Date parsed date, or {@code null} when {@code raw} is null/blank
+     * @throws IllegalArgumentException when {@code raw} is non-blank and unparseable
+     */
+    private static Date parseHeaderDateOrThrow(String raw, String fieldName) {
+        if (raw == null || raw.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            return new SimpleDateFormat("yyyy-MM-dd").parse(raw);
+        } catch (ParseException e) {
+            throw new IllegalArgumentException(
+                    "BillingOnClaimPersister: malformed " + fieldName + " [" + raw + "]");
+        }
     }
 
 }

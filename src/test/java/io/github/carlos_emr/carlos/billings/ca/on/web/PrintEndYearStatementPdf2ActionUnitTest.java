@@ -107,7 +107,7 @@ class PrintEndYearStatementPdf2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldStreamPdf_andReturnNull_whenSummaryIsOnSession() throws Exception {
+    void shouldStreamPdfAndReturnNull_whenSummaryIsOnSession() throws Exception {
         PatientEndYearStatementSummary summary = new PatientEndYearStatementSummary(
                 "1", "Doe, Jane", 0, "9876543225", "1 Main", "555-555-5555",
                 new Date(), new Date(), "0.00", "0.00");

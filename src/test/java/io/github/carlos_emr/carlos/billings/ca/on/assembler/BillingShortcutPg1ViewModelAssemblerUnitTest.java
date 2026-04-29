@@ -252,7 +252,7 @@ class BillingShortcutPg1ViewModelAssemblerUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldUseProviderViewParam_overUserProviderNo_whenXmlProviderProvided() {
+    void shouldUseProviderViewParamOverUserProviderNo_whenXmlProviderProvided() {
         request.setParameter("xml_provider", "111111");
         BillingShortcutPg1ViewModel m = assembler.assemble(request, loggedInInfo);
         assertThat(m.getProviderView()).isEqualTo("111111");

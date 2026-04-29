@@ -82,7 +82,7 @@ class BillingOnHeaderCreationServiceUnitTest {
     }
 
     @Test
-    void shouldReturnNull_andNotPersist_whenDemographicNotFound() {
+    void shouldReturnNullAndNotPersist_whenDemographicNotFound() {
         when(providerDao.getProvider("999998")).thenReturn(provider("999998"));
         // No demographic stub -> getDemographicById returns null.
         BillingService bs = stubServiceCode("A007A", "30.00", false, "");
@@ -96,7 +96,7 @@ class BillingOnHeaderCreationServiceUnitTest {
     }
 
     @Test
-    void shouldPersistOneHeader_withCorrectFields_onSingleCodeBill() {
+    void shouldPersistOneHeaderWithCorrectFields_onSingleCodeBill() {
         when(providerDao.getProvider("999998")).thenReturn(provider("999998"));
         when(demographicDao.getDemographicById(1)).thenReturn(demographic(1, "ON"));
         BillingService bs = stubServiceCode("A007A", "30.00", false, "");
@@ -121,7 +121,7 @@ class BillingOnHeaderCreationServiceUnitTest {
     }
 
     @Test
-    void shouldUseRMB_payProgram_forNonOntarioHcType() {
+    void shouldUseRmbPayProgram_forNonOntarioHcType() {
         when(providerDao.getProvider("999998")).thenReturn(provider("999998"));
         when(demographicDao.getDemographicById(1)).thenReturn(demographic(1, "BC"));
         BillingService bs = stubServiceCode("A007A", "30.00", false, "");

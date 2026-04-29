@@ -111,7 +111,7 @@ class SearchEndYearStatement2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldStashSummaryAndResult_andReturnSuccess_onHappyPath() throws Exception {
+    void shouldStashSummaryAndResultAndReturnSuccess_onHappyPath() throws Exception {
         Demographic demo = new Demographic();
         demo.setDemographicNo(1);
         when(mockService.findUniquePatient(any(), any(), any(), any())).thenReturn(demo);

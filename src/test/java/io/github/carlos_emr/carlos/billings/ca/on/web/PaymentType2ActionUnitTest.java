@@ -101,7 +101,7 @@ class PaymentType2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldReturnSuccess_andStashListOnRequest_whenAuthorized() {
+    void shouldReturnSuccessAndStashListOnRequest_whenAuthorized() {
         BillingPaymentType cash = new BillingPaymentType();
         cash.setPaymentType("CASH");
         when(mockDao.findAll()).thenReturn(List.of(cash));

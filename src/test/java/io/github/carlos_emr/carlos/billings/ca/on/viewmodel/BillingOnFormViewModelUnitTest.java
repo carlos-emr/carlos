@@ -410,7 +410,7 @@ class BillingOnFormViewModelUnitTest {
 
     @Test
     @DisplayName("composed setter wins, flat getters delegate to the composed record")
-    void shouldDelegateFlatGetters_toComposedRecord_whenComposedSetterUsed() {
+    void shouldDelegateFlatGettersToComposedRecord_whenComposedSetterUsed() {
         // The composed-record setter is the preferred shape; when both are
         // supplied the composed wins and the flat getters delegate to it.
         BillingDemographicSummary demoComposed = new BillingDemographicSummary(

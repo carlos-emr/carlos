@@ -46,11 +46,48 @@ class BillingMoneyUnitTest {
     }
 
     @Test
-    void shouldReturnZero_forMissingAmount_andRejectInvalid_withNumberFormatException() {
+    void shouldReturnZero_whenAmountOrZeroReceivesNullOrBlank() {
         assertThat(BillingMoney.amountOrZero(null)).isEqualByComparingTo("0.00");
         assertThat(BillingMoney.amountOrZero(" ")).isEqualByComparingTo("0.00");
+    }
 
+    @Test
+    void shouldReturnZero_whenAmountOrZeroReceivesMalformed() {
+        // Behavior contract: amountOrZero must NOT throw on malformed input —
+        // it logs and returns ZERO. Mutation paths must use amountOrThrow.
+        assertThat(BillingMoney.amountOrZero("not-money")).isEqualByComparingTo("0.00");
+    }
+
+    @Test
+    void shouldThrow_whenAmountReceivesMalformed() {
         assertThatThrownBy(() -> BillingMoney.amount("not-money"))
                 .isInstanceOf(NumberFormatException.class);
+    }
+
+    @Test
+    void shouldReturnAmount_whenAmountOrThrowReceivesValid() {
+        assertThat(BillingMoney.amountOrThrow("12.34")).isEqualByComparingTo("12.34");
+        assertThat(BillingMoney.amountOrThrow("0.005")).isEqualByComparingTo("0.01");
+    }
+
+    @Test
+    void shouldThrow_whenAmountOrThrowReceivesNull() {
+        assertThatThrownBy(() -> BillingMoney.amountOrThrow(null))
+                .isInstanceOf(NumberFormatException.class)
+                .hasMessageContaining("null or blank");
+    }
+
+    @Test
+    void shouldThrow_whenAmountOrThrowReceivesBlank() {
+        assertThatThrownBy(() -> BillingMoney.amountOrThrow("   "))
+                .isInstanceOf(NumberFormatException.class)
+                .hasMessageContaining("null or blank");
+    }
+
+    @Test
+    void shouldThrow_whenAmountOrThrowReceivesMalformed() {
+        assertThatThrownBy(() -> BillingMoney.amountOrThrow("1OO"))
+                .isInstanceOf(NumberFormatException.class)
+                .hasMessageContaining("1OO");
     }
 }

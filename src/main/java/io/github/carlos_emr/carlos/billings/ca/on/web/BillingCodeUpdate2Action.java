@@ -31,6 +31,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingCodeUpdateViewModelAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.service.ServiceCodePersister;
 
 /**
  * Mutation gate for {@code billing/CA/ON/billingCodeUpdate.jsp}. Enforces
@@ -50,10 +51,14 @@ public class BillingCodeUpdate2Action extends ActionSupport {
 
     private final BillingCodeUpdateViewModelAssembler billingCodeUpdateAssembler;
 
+    private final ServiceCodePersister serviceCodePersister;
+
     public BillingCodeUpdate2Action(SecurityInfoManager securityInfoManager,
-                                     BillingCodeUpdateViewModelAssembler billingCodeUpdateAssembler) {
+                                     BillingCodeUpdateViewModelAssembler billingCodeUpdateAssembler,
+                                     ServiceCodePersister serviceCodePersister) {
         this.securityInfoManager = securityInfoManager;
         this.billingCodeUpdateAssembler = billingCodeUpdateAssembler;
+        this.serviceCodePersister = serviceCodePersister;
     }
     @Override
     public String execute() throws Exception {
@@ -70,9 +75,30 @@ public class BillingCodeUpdate2Action extends ActionSupport {
             return NONE;
         }
 
+        persistDescriptionUpdateIfRequested(request);
+
         BillingCodeUpdateViewModel model = billingCodeUpdateAssembler.assemble(request, loggedInInfo);
         request.setAttribute("codeUpdateModel", model);
 
         return SUCCESS;
+    }
+
+    /**
+     * Trigger the {@code BillingService} description-merge when the form was
+     * submitted via the "update &lt;code&gt;" branch (legacy JSP cleaved the
+     * last 5 chars off the submit value). The Confirm branch is read-only
+     * and skipped here.
+     */
+    private void persistDescriptionUpdateIfRequested(HttpServletRequest request) {
+        String update = request.getParameter("update");
+        if (update == null || update.length() < 5 || "Confirm".equals(update)) {
+            return;
+        }
+        String code = update.substring(update.length() - 5);
+        String newDescription = request.getParameter(code);
+        if (newDescription == null) {
+            return;
+        }
+        serviceCodePersister.updateDescriptionByServiceCode(code, newDescription);
     }
 }
