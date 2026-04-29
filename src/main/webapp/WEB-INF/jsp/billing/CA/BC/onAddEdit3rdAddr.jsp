@@ -196,9 +196,15 @@
 
             <!--
             function setfocus() {
-                this.focus();
-                document.forms[0].company_name.focus();
-                document.forms[0].company_name.select();
+                // forms[0] is the saved-company <select> dropdown; forms[1]
+                // is the company-name <input type="text"> on the add/edit
+                // details form. Auto-focus and select-all the text input so
+                // the user can type-to-replace immediately. (Pre-2026 bug:
+                // this used forms[0], which was correct before the dropdown
+                // form was added in front of it but has since silently
+                // thrown TypeError because <select> has no .select().)
+                document.forms[1].company_name.focus();
+                document.forms[1].company_name.select();
             }
 
             function onSearch() {
