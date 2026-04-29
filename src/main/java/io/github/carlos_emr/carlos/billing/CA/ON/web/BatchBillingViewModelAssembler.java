@@ -39,7 +39,6 @@ import io.github.carlos_emr.carlos.commn.model.ClinicLocation;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.util.DateUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Assembles {@link BatchBillingViewModel} for {@code batchBilling.jsp}, the
@@ -51,6 +50,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *
  * @since 2026-04-25
  */
+@org.springframework.stereotype.Service
 public final class BatchBillingViewModelAssembler {
 
     private final BatchBillingDAO batchBillingDao;
@@ -58,17 +58,10 @@ public final class BatchBillingViewModelAssembler {
     private final ClinicLocationDao clinicLocationDao;
     private final DemographicDao demographicDao;
 
-    public BatchBillingViewModelAssembler() {
-        this(SpringUtils.getBean(BatchBillingDAO.class),
-             SpringUtils.getBean(ProviderDao.class),
-             SpringUtils.getBean(ClinicLocationDao.class),
-             SpringUtils.getBean(DemographicDao.class));
-    }
-
-    BatchBillingViewModelAssembler(BatchBillingDAO batchBillingDao,
-                              ProviderDao providerDao,
-                              ClinicLocationDao clinicLocationDao,
-                              DemographicDao demographicDao) {
+    public BatchBillingViewModelAssembler(BatchBillingDAO batchBillingDao,
+                                          ProviderDao providerDao,
+                                          ClinicLocationDao clinicLocationDao,
+                                          DemographicDao demographicDao) {
         this.batchBillingDao = batchBillingDao;
         this.providerDao = providerDao;
         this.clinicLocationDao = clinicLocationDao;

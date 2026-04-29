@@ -70,6 +70,9 @@ class BatchBill2ActionUnitTest extends CarlosUnitTestBase {
     private BatchBillingDAO batchBillingDAO;
 
     @Mock
+    private io.github.carlos_emr.carlos.billing.CA.ON.web.BatchBillingViewModelAssembler batchBillingAssembler;
+
+    @Mock
     private LoggedInInfo loggedInInfo;
 
     private MockHttpServletRequest request;
@@ -121,7 +124,7 @@ class BatchBill2ActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("method", "doBatchBill");
         request.setParameter("bill", "A007A;250;42;999998");
 
-        String result = new BatchBill2Action().execute();
+        String result = new BatchBill2Action(headerCreationService, securityInfoManager, batchBillingAssembler).execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
@@ -135,7 +138,7 @@ class BatchBill2ActionUnitTest extends CarlosUnitTestBase {
         request.setMethod("POST");
         request.setParameter("bill", "A007A;250;42;999998");
 
-        String result = new BatchBill2Action().doBatchBill();
+        String result = new BatchBill2Action(headerCreationService, securityInfoManager, batchBillingAssembler).doBatchBill();
 
         assertThat(result).isNull();
         verify(headerCreationService)
@@ -148,7 +151,7 @@ class BatchBill2ActionUnitTest extends CarlosUnitTestBase {
         request.setMethod("POST");
         request.setParameter("bill", "A007A;42;999998");
 
-        String result = new BatchBill2Action().doBatchBill();
+        String result = new BatchBill2Action(headerCreationService, securityInfoManager, batchBillingAssembler).doBatchBill();
 
         assertThat(result).isEqualTo(ActionSupport.ERROR);
         verify(headerCreationService, never())

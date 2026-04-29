@@ -64,8 +64,17 @@ public class BatchBill2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
-    private BillingONHeaderCreationService headerCreationService = SpringUtils.getBean(BillingONHeaderCreationService.class);
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final BillingONHeaderCreationService headerCreationService;
+    private final SecurityInfoManager securityInfoManager;
+    private final BatchBillingViewModelAssembler batchBillingAssembler;
+
+    public BatchBill2Action(BillingONHeaderCreationService headerCreationService,
+                            SecurityInfoManager securityInfoManager,
+                            BatchBillingViewModelAssembler batchBillingAssembler) {
+        this.headerCreationService = headerCreationService;
+        this.securityInfoManager = securityInfoManager;
+        this.batchBillingAssembler = batchBillingAssembler;
+    }
 
 
     @Override
@@ -140,7 +149,7 @@ public class BatchBill2Action extends ActionSupport {
         // via EL/JSTL. The JSP scriptlet body previously called four
         // SpringUtils.getBean lookups inline plus per-row provider /
         // demographic resolution; that all moves into the assembler.
-        BatchBillingViewModel batchModel = new BatchBillingViewModelAssembler().assemble(request);
+        BatchBillingViewModel batchModel = batchBillingAssembler.assemble(request);
         request.setAttribute("batchModel", batchModel);
 
         // Returning null leaves Struts with no result to render -> empty body.

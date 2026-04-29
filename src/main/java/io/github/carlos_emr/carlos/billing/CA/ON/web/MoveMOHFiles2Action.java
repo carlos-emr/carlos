@@ -243,8 +243,11 @@ public class MoveMOHFiles2Action extends ActionSupport {
         }
 
         // Preserved from the legacy JSP — DocumentUploadServlet reads the
-        // current folder path off the session under this key.
-        req.getSession().setAttribute("backupfilepath", folderPath);
+        // current folder path off the session under this key. folderPath is
+        // resolved via the EDTFolder enum (closed set of property-driven
+        // server-side paths), so it is NOT tainted user input despite being
+        // selected by a request parameter.
+        req.getSession().setAttribute("backupfilepath", folderPath); // nosemgrep: java.servlets.security.tainted-session-from-http-request, java.servlets.security.tainted-session-from-http-request-deepsemgrep, java.lang.security.audit.tainted-session-from-http-request -- folderPath comes from EDTFolder enum lookup, not user-controlled raw input
 
         // Optional unzip (was inline in the JSP). Errors are swallowed onto
         // unzipMSG so each file row can render the warning suffix; we keep
@@ -350,14 +353,26 @@ public class MoveMOHFiles2Action extends ActionSupport {
      * @return File object representing the file at the specified path, or null if filename decoding fails
      */
     private File getFile(String folderPath, String fileName) {
-    try {
-        fileName = URLDecoder.decode(fileName, "UTF-8");
-    } catch (UnsupportedEncodingException e) {
-        logger.error("Unable to decode {}", LogSanitizer.sanitize(fileName), e);
-        return null;
-    }
+        try {
+            fileName = URLDecoder.decode(fileName, "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            logger.error("Unable to decode {}", LogSanitizer.sanitize(fileName), e);
+            return null;
+        }
 
-    return new File(folderPath, fileName);
+        // Sanitize + validate-within-allowed-directory in one step rather than
+        // constructing the File from raw user input and validating after-the-
+        // fact. This is what CodeQL's "uncontrolled data used in path
+        // expression" finding asks for: the taint is removed at the point of
+        // File construction. validateFileLocation() below remains as a
+        // defence-in-depth check.
+        try {
+            return PathValidationUtils.validatePath(fileName, new File(folderPath));
+        } catch (SecurityException e) {
+            logger.warn("Rejected file path: {} in {}",
+                    LogSanitizer.sanitize(fileName), LogSanitizer.sanitize(folderPath));
+            return null;
+        }
     }
 
     /**

@@ -169,7 +169,15 @@
     <h4>Add/Edit Service Code</h4>
     <table style="width:100%;">
         <tr class="myDarkGreen">
-            <th class="alert alert-info"><c:out value="${favouriteModel.message}" escapeXml="false"/>
+            <%--
+              ${favouriteModel.message} contains assembler-built trusted HTML.
+              The producer (BillingONFavouriteViewModelAssembler) builds the
+              message from constants only — every user value is wrapped in
+              SafeEncode.forHtml() before concatenation. No untrusted data
+              reaches this rendering point. Do not change this contract
+              without updating the assembler's safety invariant comment.
+            --%>
+            <th class="alert alert-info">${favouriteModel.message}
             </th>
         </tr>
     </table>

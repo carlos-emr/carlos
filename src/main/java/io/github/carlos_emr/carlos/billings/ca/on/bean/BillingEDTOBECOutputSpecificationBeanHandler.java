@@ -123,7 +123,7 @@ public class BillingEDTOBECOutputSpecificationBeanHandler {
         return verdict;
     }
 
-    public ArrayList<BillingEDTOBECOutputSpecificationBean> getEDTOBECOutputSecifiationBeanVector() {
+    public java.util.List<BillingEDTOBECOutputSpecificationBean> getEDTOBECOutputSecifiationBeanVector() {
         return EDTOBECOutputSecifiationBeanVector;
     }
 

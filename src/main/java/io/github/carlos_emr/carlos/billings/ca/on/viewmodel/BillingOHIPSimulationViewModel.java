@@ -56,6 +56,16 @@ public final class BillingOHIPSimulationViewModel {
     private final String endDate;
     private final boolean summaryView;
     private final List<ProviderOption> providers;
+    /**
+     * Trusted-HTML preview block rendered without escape on the JSP — the
+     * OHIP file preview formatted as a {@code <pre>}-style code dump. Built
+     * ONLY by {@code BillingOHIPSimulationViewModelAssembler} from compile-
+     * time constants and server-side state ({@code BillingONCHeader1}
+     * properties, {@code BillingONItem} fields, the legacy
+     * {@code dbObj.getHtmlValue()} output). No raw request parameter reaches
+     * this field. Never set this field directly from a request parameter
+     * without going through the assembler's encoding layer.
+     */
     private final String previewHtml;
 
     private BillingOHIPSimulationViewModel(Builder b) {

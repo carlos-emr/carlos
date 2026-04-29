@@ -371,7 +371,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
         BillingEDTOBECOutputSpecificationBeanHandler hd =
                 new BillingEDTOBECOutputSpecificationBeanHandler(loggedInInfo, file,
                         batchEligibilityDao, demographicManager, providerDao);
-        ArrayList<BillingEDTOBECOutputSpecificationBean> outputSpecVector = hd.getEDTOBECOutputSecifiationBeanVector();
+        java.util.List<BillingEDTOBECOutputSpecificationBean> outputSpecVector = hd.getEDTOBECOutputSecifiationBeanVector();
 
         for (int i = 0; i < outputSpecVector.size(); i++) {
             BillingEDTOBECOutputSpecificationBean bean = outputSpecVector.get(i);

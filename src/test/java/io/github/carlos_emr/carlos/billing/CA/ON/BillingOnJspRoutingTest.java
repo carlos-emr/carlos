@@ -60,11 +60,13 @@ class BillingOnJspRoutingTest {
         assertThat(billingOn).doesNotContain("ctx + \"/billing/CA/ON/ViewBillingDigSearchAjax\"");
         assertThat(billingOn).doesNotContain("ctx + \"/billing/CA/ON/ViewBillingCodeSearchAjax\"");
 
+        // reportINR.jsp was refactored from a scriptlet-built `inrBillingAction`
+        // to a ViewModel-supplied `reportInrModel.inrBillingActionUrl` rendered
+        // through `${carlos:forHtmlAttribute(...)}`. The original
+        // /billing/CA/ON/ViewInr* routes are still constructed (now in the
+        // ViewInrReportINR2Action assembler) and remain context-path-aware.
         String reportInr = readJspContent(BILLING_ON_JSP_DIR.resolve("inr/reportINR.jsp"));
-        assertThat(reportInr).contains("String inrBillingAction = request.getContextPath()");
-        assertThat(reportInr).contains("/billing/CA/ON/ViewInrOnGenINRbilling");
-        assertThat(reportInr).contains("/billing/CA/ON/ViewInrGenINRbilling");
-        assertThat(reportInr).contains("action=\"<%= inrBillingAction %>\"");
+        assertThat(reportInr).contains("${carlos:forHtmlAttribute(reportInrModel.inrBillingActionUrl)}");
     }
 
     private String readJspContent(Path path) throws IOException {

@@ -42,6 +42,15 @@ public final class BillingONEditPrivateCodeViewModel {
     /** A single private-billing-code dropdown entry: code (no leading "_") + truncated description. */
     public record PrivateCodeOption(String code, String label) { }
 
+    /**
+     * Trusted-HTML banner rendered without escape on the JSP. Built ONLY by
+     * {@code BillingONEditPrivateCodeViewModelAssembler} from compile-time
+     * constants (e.g. {@code "<font color='red'>NOT</font>"}, {@code "<br>"})
+     * and user values that have already passed through
+     * {@link io.github.carlos_emr.carlos.utility.SafeEncode#forHtml(String)}.
+     * Never set this field directly from a request parameter without going
+     * through the assembler's encoding layer.
+     */
     private final String message;
     private final String alertLevel;
     private final String action;

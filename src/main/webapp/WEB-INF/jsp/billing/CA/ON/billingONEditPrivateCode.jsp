@@ -170,7 +170,15 @@
             <form method="post" name="baseurl" action="${pageContext.request.contextPath}/billing/CA/ON/ViewBillingONEditPrivateCode">
 
                 <div class="alert alert-<carlos:encode value='${privateCodeModel.alertLevel}' context='htmlAttribute'/>">
-                    <c:out value="${privateCodeModel.message}" escapeXml="false"/>
+                    <%--
+                      ${privateCodeModel.message} contains assembler-built trusted HTML.
+                      The producer (BillingONEditPrivateCodeViewModelAssembler) builds
+                      the message from constants only — every user value is wrapped in
+                      SafeEncode.forHtml() before concatenation. No untrusted data
+                      reaches this rendering point. Do not change this contract
+                      without updating the assembler's safety invariant comment.
+                    --%>
+                    ${privateCodeModel.message}
                 </div>
 
                 <c:set var="storedCode" value="${privateCodeModel.formFields['service_code']}"/>

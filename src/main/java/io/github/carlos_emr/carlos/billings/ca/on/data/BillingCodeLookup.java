@@ -49,12 +49,12 @@ public class BillingCodeLookup {
         ArrayList<HashMap<String, String>> list = new ArrayList<HashMap<String, String>>();
 
         for (BillingService bs : billingServiceDao.findByServiceCodeOrDescription(str)) {
-            list.add(fillCodeDataHashtable(bs));
+            list.add(toCodeDataMap(bs));
         }
         return list;
     }
 
-    public HashMap<String, String> fillCodeDataHashtable(BillingService bs) {
+    public HashMap<String, String> toCodeDataMap(BillingService bs) {
         HashMap<String, String> h = new HashMap<String, String>();
         if (bs == null) {
             MiscUtils.getLogger().warn("Expected a billing service, but got null");
@@ -83,7 +83,7 @@ public class BillingCodeLookup {
         List<BillingService> bss = billingServiceDao.findMostRecentByServiceCode(str);
 
         for (BillingService bs : bss) {
-            h = fillCodeDataHashtable(bs);
+            h = toCodeDataMap(bs);
         }
 
         if (h != null) {
