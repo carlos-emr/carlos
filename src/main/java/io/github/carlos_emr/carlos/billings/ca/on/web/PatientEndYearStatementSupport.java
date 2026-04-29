@@ -68,20 +68,22 @@ final class PatientEndYearStatementSupport {
     }
 
     /**
-     * Logs a typed {@link PatientEndYearStatementService.Failure} at ERROR
-     * with the failing first/last name context. Caller is responsible for
-     * adding the i18n action error and returning {@code "failure"} —
-     * this just centralises the branch logging.
+     * Logs a typed {@link PatientEndYearStatementService.Failure} with the
+     * failing first/last name context. PATIENT_NOT_FOUND / PATIENT_NOT_UNIQUE
+     * are user-input outcomes (empty form, ambiguous name) and log at INFO;
+     * DATABASE_ERROR / IO_ERROR are real failures and stay at ERROR.
+     * Caller is responsible for adding the i18n action error and returning
+     * {@code "failure"} — this just centralises the branch logging.
      */
     static void logFailure(PatientEndYearStatementService.Failure failure,
                            String first, String last) {
         switch (failure.reason()) {
             case PATIENT_NOT_FOUND:
-                LOG.error("end-year-statement: lookup returned no candidates for first={}, last={}",
+                LOG.info("end-year-statement: lookup returned no candidates for first={}, last={}",
                         first, last);
                 break;
             case PATIENT_NOT_UNIQUE:
-                LOG.error("end-year-statement: lookup returned multiple candidates for first={}, last={}",
+                LOG.info("end-year-statement: lookup returned multiple candidates for first={}, last={}",
                         first, last);
                 break;
             case DATABASE_ERROR:

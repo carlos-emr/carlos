@@ -119,12 +119,12 @@ public class BillingServiceDaoImpl extends AbstractDaoImpl<BillingService> imple
     }
 
     public List<BillingService> finAllPrivateCodes() {
-        Query query = entityManager.createQuery("select bs from BillingService bs where bs.serviceCode LIKE ?1");
-        query.setParameter(1, "\\_%");
-
-
-        List<BillingService> list = query.getResultList();
-        return list;
+        // Private codes are prefixed with a literal "_". JPQL LIKE without an
+        // explicit ESCAPE clause is ambiguous across dialects (MySQL/MariaDB
+        // default-escape "\", H2 has none), so we match the leading underscore
+        // via SUBSTRING for portability.
+        Query query = entityManager.createQuery("select bs from BillingService bs where SUBSTRING(bs.serviceCode, 1, 1) = '_'");
+        return query.getResultList();
     }
 
 

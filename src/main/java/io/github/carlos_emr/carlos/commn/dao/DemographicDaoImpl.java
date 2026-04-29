@@ -344,9 +344,19 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
 
     @Override
     public List<Demographic> searchDemographic(String searchStr) {
+        // Defensive: an empty/blank/all-comma input produces a length-0 array
+        // (String.split strips trailing empties at default limit), so guard
+        // every dereference of parts[].
+        if (searchStr == null || searchStr.trim().isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
         String hql = "From Demographic d where ";
         String[] parts = searchStr.split(",");
-        boolean hasFirstName = searchStr.indexOf(",") != -1
+        if (parts.length == 0 || parts[0].trim().isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        boolean hasFirstName = parts.length > 1
+            && searchStr.indexOf(",") != -1
             && searchStr.trim().indexOf(",") != (searchStr.trim().length() - 1);
 
         if (hasFirstName) {

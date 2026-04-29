@@ -68,8 +68,14 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  *
  * @since 2026-04-26
  */
+// NOTE: tx is writable (not readOnly = true). This service's reads are
+// dominant, but DemographicManager.searchDemographic — called from
+// findUniquePatient — writes an audit row via LogAction. Marking the
+// outer tx readOnly = true caused that audit insert to fail with
+// "Connection is read-only", silently dropping a PHI-access audit
+// (regression caught 2026-04-28 during Playwright sweep).
 @org.springframework.stereotype.Service
-@org.springframework.transaction.annotation.Transactional(readOnly = true)
+@org.springframework.transaction.annotation.Transactional
 public class PatientEndYearStatementService {
 
     private static final String JASPER_REPORT_PATH =
@@ -111,8 +117,17 @@ public class PatientEndYearStatementService {
                 candidates.add(d);
             }
         } else {
+            // Without demographicNo we need at least a non-empty last name
+            // (DemographicManager.searchDemographic("," + something) is a
+            // wildcard match that hits every patient — we want a clear
+            // "patient not found" instead of a crash or a "not unique").
+            String safeLast = lastName == null ? "" : lastName.trim();
+            String safeFirst = firstName == null ? "" : firstName.trim();
+            if (safeLast.isEmpty() && safeFirst.isEmpty()) {
+                throw new Failure(Reason.PATIENT_NOT_FOUND);
+            }
             List<Demographic> matches = demographicManager.searchDemographic(
-                    loggedInInfo, lastName + "," + firstName);
+                    loggedInInfo, safeLast + "," + safeFirst);
             if (matches != null) {
                 candidates.addAll(matches);
             }
