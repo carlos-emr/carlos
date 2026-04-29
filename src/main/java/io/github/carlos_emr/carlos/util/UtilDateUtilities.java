@@ -137,7 +137,7 @@ public class UtilDateUtilities {
      */
     public static String calcAgeAtDate(Date DOB, Date pointInTime) {
         Locale dlocal = Locale.getDefault(); // this is the Locale of the JVM not necessarily the browser
-        calcAgeAtDate(DOB, pointInTime, dlocal);
+        return calcAgeAtDate(DOB, pointInTime, dlocal);
     }
 
     /**
@@ -150,7 +150,8 @@ public class UtilDateUtilities {
      */
     public static String calcAgeAtDate(Date DOB, Date pointInTime, Locale dlocal) {
         if (DOB == null) return (null);
-        ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", dlocal);
+        Locale resolvedLocale = dlocal != null ? dlocal : Locale.getDefault();
+        ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", resolvedLocale);
         
         // If as of date is before birth, return "Not born"
         if (pointInTime.before(DOB)) {
