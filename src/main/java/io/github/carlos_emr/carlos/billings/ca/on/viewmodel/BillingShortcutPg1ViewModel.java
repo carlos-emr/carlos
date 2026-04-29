@@ -34,7 +34,7 @@ import java.util.ArrayList;
  * <p>Built by
  * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingShortcutPg1ViewModelAssembler}
  * via
- * {@link io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingShortcutPg12Action}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingShortcutPg1View2Action}
  * and exposed to the JSP as request attribute {@code shortcutPg1Model}. Captures
  * the demographic + provider lookups, the billing-history vectors, the
  * service-code grid, and the validation messages that previously lived in the

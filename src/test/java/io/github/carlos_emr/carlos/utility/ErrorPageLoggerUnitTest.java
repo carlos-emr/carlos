@@ -49,8 +49,12 @@ import static org.assertj.core.api.Assertions.assertThatCode;
  *
  * <p>These exercise the exception-extraction logic (explicit page-context
  * exception vs servlet-error attribute fallback vs no-op) without spinning
- * up a JSP container. The actual log output goes to log4j; the assertions
- * verify only that the helper runs without throwing for each input shape.</p>
+ * up a JSP container. Each test attaches a Log4j2 capturing appender to
+ * the {@code ErrorPageLogger} category and asserts on the captured events:
+ * count, level, message content, and the throwable instance reference where
+ * relevant. The defensive try/catch around the log call is also verified —
+ * malformed inputs (non-{@code Throwable} servlet-error attribute, null
+ * request) must not propagate.</p>
  *
  * @since 2026-04-25
  */
@@ -195,6 +199,52 @@ class ErrorPageLoggerUnitTest extends CarlosUnitTestBase {
         assertThat(msg).doesNotContain("claim_no");
         assertThat(msg).doesNotContain("ABC123");
         assertThat(msg).doesNotContain("demographic_no");
+        assertThat(msg).doesNotContain("?");
+    }
+
+    /**
+     * Path-parameter hardening: Tomcat appends {@code ;jsessionid=...} (and
+     * occasionally {@code ;path=...} or other matrix params) to the
+     * request_uri attribute when cookies are disabled or rewriting is in
+     * effect. Session IDs in catalina.out give an operator with log access
+     * a session-hijack primitive, so they MUST be stripped before logging.
+     * Anything between the path and the {@code ;} stays; the matrix-param
+     * tail is dropped.
+     */
+    @Test
+    void shouldStripJsessionidPathParam_beforeLogging() {
+        MockHttpServletRequest req = new MockHttpServletRequest();
+        req.setAttribute("jakarta.servlet.error.request_uri",
+                "/carlos/billing/CA/ON/billingView;jsessionid=TEST_SESSION_ID_1A2B3C;path=/carlos");
+        Throwable t = new RuntimeException("boom");
+
+        ErrorPageLogger.logIfPresent(t, req);
+
+        String msg = appender.events().get(0).getMessage().getFormattedMessage();
+        assertThat(msg).contains("uri=/carlos/billing/CA/ON/billingView");
+        assertThat(msg).doesNotContain("jsessionid");
+        assertThat(msg).doesNotContain("TEST_SESSION_ID_1A2B3C");
+        assertThat(msg).doesNotContain(";");
+    }
+
+    /**
+     * Path parameters and query string can co-occur (Tomcat puts the
+     * matrix-param suffix BEFORE the query). Both must be stripped.
+     */
+    @Test
+    void shouldStripBothJsessionidAndQueryString_whenBothPresent() {
+        MockHttpServletRequest req = new MockHttpServletRequest();
+        req.setAttribute("jakarta.servlet.error.request_uri",
+                "/carlos/billing/CA/ON/BillingONCorrection;jsessionid=TEST_SESSION_ID_2N4P?billing_no=99");
+        Throwable t = new RuntimeException("boom");
+
+        ErrorPageLogger.logIfPresent(t, req);
+
+        String msg = appender.events().get(0).getMessage().getFormattedMessage();
+        assertThat(msg).contains("uri=/carlos/billing/CA/ON/BillingONCorrection");
+        assertThat(msg).doesNotContain("jsessionid");
+        assertThat(msg).doesNotContain("TEST_SESSION_ID_2N4P");
+        assertThat(msg).doesNotContain("billing_no");
         assertThat(msg).doesNotContain("?");
     }
 

@@ -31,7 +31,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingReportControlViewModel;
 import io.github.carlos_emr.carlos.commn.dao.ReportProviderDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
-import io.github.carlos_emr.carlos.commn.model.ReportProvider;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 /**
@@ -90,10 +89,9 @@ public class BillingReportControlViewModelAssembler {
         }
         List<BillingReportControlViewModel.ProviderOption> out = new ArrayList<>(raw.size());
         for (Object[] res : raw) {
-            // res[0] is ReportProvider (unused — only Provider names rendered).
-            // res[1] is Provider; mirrors the legacy scriptlet's casts.
-            @SuppressWarnings("unused")
-            ReportProvider rp = (ReportProvider) res[0];
+            // res[0] is ReportProvider (unused — only the Provider at res[1]
+            // is rendered). The legacy scriptlet cast both halves; we drop
+            // the unused cast to keep the loop body minimal.
             Provider p = (Provider) res[1];
             out.add(new BillingReportControlViewModel.ProviderOption(
                     nullToEmpty(p.getProviderNo()),

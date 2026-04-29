@@ -345,8 +345,7 @@ class LogSanitizerUnitTest {
 
     /**
      * Tests for {@link LogSanitizer#sanitizeForDisplay(String)} — the
-     * variant used in user-facing {@link io.github.carlos_emr.carlos
-     * .billings.ca.on.validator.BillingValidationException} messages.
+     * variant used in user-facing {@link io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException} messages.
      *
      * <p>Contract distinguishing it from {@code sanitize(...)}:
      * <ul>

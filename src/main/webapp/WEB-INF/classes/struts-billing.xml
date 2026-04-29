@@ -364,7 +364,7 @@
             <result name="backToEdit" type="chain">billing/CA/ON/billingShortcutPg1View</result>
         </action>
         <action name="billing/CA/ON/billingShortcutPg1View"
-                class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingShortcutPg12Action">
+                class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingShortcutPg1View2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingShortcutPg1.jsp</result>
         </action>
 

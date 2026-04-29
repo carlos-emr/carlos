@@ -54,14 +54,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link ViewBillingShortcutPg12Action}.
+ * Unit tests for {@link ViewBillingShortcutPg1View2Action}.
  *
  * @since 2026-04-24
  */
-@DisplayName("ViewBillingShortcutPg12Action")
+@DisplayName("ViewBillingShortcutPg1View2Action")
 @Tag("unit")
 @Tag("billing")
-class ViewBillingShortcutPg12ActionUnitTest extends CarlosUnitTestBase {
+class ViewBillingShortcutPg1View2ActionUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
@@ -116,8 +116,8 @@ class ViewBillingShortcutPg12ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldStashModelOnRequest_whenAuthorizedGet() throws Exception {
-        ViewBillingShortcutPg12Action action =
-                new ViewBillingShortcutPg12Action(mockSecurityInfoManager, mockAssembler);
+        ViewBillingShortcutPg1View2Action action =
+                new ViewBillingShortcutPg1View2Action(mockSecurityInfoManager, mockAssembler);
         assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
         assertThat(action.getShortcutPg1Model()).isSameAs(STUB_MODEL);
         assertThat(mockRequest.getAttribute("shortcutPg1Model")).isSameAs(STUB_MODEL);
@@ -127,15 +127,15 @@ class ViewBillingShortcutPg12ActionUnitTest extends CarlosUnitTestBase {
     void shouldAcceptPost_whenMethodIsPost() throws Exception {
         mockRequest.setMethod("POST");
 
-        ViewBillingShortcutPg12Action action =
-                new ViewBillingShortcutPg12Action(mockSecurityInfoManager, mockAssembler);
+        ViewBillingShortcutPg1View2Action action =
+                new ViewBillingShortcutPg1View2Action(mockSecurityInfoManager, mockAssembler);
         assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
     }
 
     @Test
     void shouldDelegateToAssembler_whenExecuted() throws Exception {
-        ViewBillingShortcutPg12Action action =
-                new ViewBillingShortcutPg12Action(mockSecurityInfoManager, mockAssembler);
+        ViewBillingShortcutPg1View2Action action =
+                new ViewBillingShortcutPg1View2Action(mockSecurityInfoManager, mockAssembler);
         action.execute();
         verify(mockAssembler).assemble(any(), any());
     }
@@ -144,8 +144,8 @@ class ViewBillingShortcutPg12ActionUnitTest extends CarlosUnitTestBase {
     void shouldRejectDelete_with405() throws Exception {
         mockRequest.setMethod("DELETE");
 
-        ViewBillingShortcutPg12Action action =
-                new ViewBillingShortcutPg12Action(mockSecurityInfoManager, mock(BillingShortcutPg1ViewModelAssembler.class));
+        ViewBillingShortcutPg1View2Action action =
+                new ViewBillingShortcutPg1View2Action(mockSecurityInfoManager, mock(BillingShortcutPg1ViewModelAssembler.class));
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(mockResponse.getHeader("Allow")).isEqualTo("GET, HEAD, POST");
@@ -163,8 +163,8 @@ class ViewBillingShortcutPg12ActionUnitTest extends CarlosUnitTestBase {
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(null);
 
-        ViewBillingShortcutPg12Action action =
-                new ViewBillingShortcutPg12Action(mockSecurityInfoManager, mock(BillingShortcutPg1ViewModelAssembler.class));
+        ViewBillingShortcutPg1View2Action action =
+                new ViewBillingShortcutPg1View2Action(mockSecurityInfoManager, mock(BillingShortcutPg1ViewModelAssembler.class));
         assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("session");
@@ -175,8 +175,8 @@ class ViewBillingShortcutPg12ActionUnitTest extends CarlosUnitTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("r"), isNull()))
                 .thenReturn(false);
 
-        ViewBillingShortcutPg12Action action =
-                new ViewBillingShortcutPg12Action(mockSecurityInfoManager, mock(BillingShortcutPg1ViewModelAssembler.class));
+        ViewBillingShortcutPg1View2Action action =
+                new ViewBillingShortcutPg1View2Action(mockSecurityInfoManager, mock(BillingShortcutPg1ViewModelAssembler.class));
         assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_billing");

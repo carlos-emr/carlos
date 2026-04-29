@@ -292,7 +292,7 @@ class BillingShortcutPg1ViewModelAssemblerUnitTest extends CarlosUnitTestBase {
     /**
      * When neither {@code xml_provider} nor {@code providerview} is supplied
      * the assembler falls back to the logged-in provider passed by
-     * {@code ViewBillingShortcutPg12Action}.
+     * {@code ViewBillingShortcutPg1View2Action}.
      */
     @Test
     void shouldFallBackToUserProviderNo_whenBothParamsAbsent() {

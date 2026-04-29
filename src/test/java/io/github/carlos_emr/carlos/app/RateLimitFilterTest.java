@@ -351,6 +351,70 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
             filter.doFilter(request, response, chain);
             verify(response).sendError(eq(429), anyString());
         }
+
+        /**
+         * Boundary check: an attacker cookie-rewriting their session as a
+         * matrix-param suffix on /login (e.g., {@code /login;jsessionid=…})
+         * must still hit the /login rate-limit tier — appending a path
+         * parameter is not a rate-limit bypass. Locks in the {@code ;}
+         * boundary handling added at {@code RateLimitFilter#findMatchingPath}.
+         */
+        @Test
+        @DisplayName("should match /login path-rate when request is /login;jsessionid=...")
+        void shouldMatchLoginRate_whenJsessionidMatrixParamPresent() throws Exception {
+            when(mockProperties.isPropertyActive("WAF_RATE_LIMIT_ENABLED")).thenReturn(true);
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_MODE")).thenReturn("enforce");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_REQUESTS")).thenReturn("100");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_WINDOW_SECONDS")).thenReturn("60");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_PATHS")).thenReturn("/login=2/60");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_EXEMPT_IPS")).thenReturn("127.0.0.1,::1");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_CLEANUP_INTERVAL_SECONDS")).thenReturn("300");
+            filter.init(mock(FilterConfig.class));
+
+            when(request.getRequestURI())
+                    .thenReturn("/carlos/login;jsessionid=TEST_SESSION_ID_4Q5R");
+
+            // /login limit of 2 should still apply — three requests on the
+            // matrix-param-suffixed path should yield a 429 on the third.
+            filter.doFilter(request, response, chain);
+            filter.doFilter(request, response, chain);
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(eq(429), anyString());
+        }
+
+        /**
+         * Boundary check: paths that begin with {@code /login} but extend
+         * with a non-{@code /;?} character (e.g., {@code /loginfailed}) MUST
+         * NOT match the /login path-rate tier — they fall to the global
+         * default. Locks in the prefix-boundary check that distinguishes
+         * "/login*" patterns from "/login" exactly.
+         */
+        @Test
+        @DisplayName("should NOT match /login path-rate for /loginfailed")
+        void shouldNotMatchLoginRate_whenPathIsLoginfailed() throws Exception {
+            when(mockProperties.isPropertyActive("WAF_RATE_LIMIT_ENABLED")).thenReturn(true);
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_MODE")).thenReturn("enforce");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_REQUESTS")).thenReturn("5");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_WINDOW_SECONDS")).thenReturn("60");
+            // Set /login VERY tight (1/60). If /loginfailed leaks into this
+            // tier, the second request will block. The global default of 5
+            // must be the actual cap.
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_PATHS")).thenReturn("/login=1/60");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_EXEMPT_IPS")).thenReturn("127.0.0.1,::1");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_CLEANUP_INTERVAL_SECONDS")).thenReturn("300");
+            filter.init(mock(FilterConfig.class));
+
+            when(request.getRequestURI()).thenReturn("/carlos/loginfailed");
+
+            // Three requests — would be blocked if /loginfailed matched
+            // the /login=1/60 tier. Should pass under the global 5/60.
+            filter.doFilter(request, response, chain);
+            filter.doFilter(request, response, chain);
+            filter.doFilter(request, response, chain);
+
+            verify(response, never()).sendError(eq(429), anyString());
+        }
     }
 
     // -------------------------------------------------------------------------

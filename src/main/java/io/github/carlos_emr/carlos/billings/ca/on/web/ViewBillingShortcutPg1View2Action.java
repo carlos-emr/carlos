@@ -50,13 +50,13 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingShortcutPg1Vi
  *
  * @since 2026-04-24
  */
-public class ViewBillingShortcutPg12Action extends ActionSupport {
+public class ViewBillingShortcutPg1View2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
     private final BillingShortcutPg1ViewModelAssembler assembler;
 
     private BillingShortcutPg1ViewModel shortcutPg1Model;
 
-    public ViewBillingShortcutPg12Action(SecurityInfoManager securityInfoManager,
+    public ViewBillingShortcutPg1View2Action(SecurityInfoManager securityInfoManager,
                                   BillingShortcutPg1ViewModelAssembler assembler) {
         this.securityInfoManager = securityInfoManager;
         this.assembler = assembler;
