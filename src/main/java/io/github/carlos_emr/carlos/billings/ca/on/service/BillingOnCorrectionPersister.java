@@ -29,6 +29,7 @@ import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.ArrayList;
+import io.github.carlos_emr.carlos.billings.ca.on.BillingDates;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
@@ -446,19 +447,16 @@ public class BillingOnCorrectionPersister {
     }
 
     public void addInsertOneBillItemTrans(BillingClaimHeaderDto billHeader, BillingClaimItemDto billItem, String updateProviderNo) {
+        // Strict-parse header dates upfront — silently nulling on malformed
+        // input persisted an audit-incorrect billing_on_transaction row.
+        // Null/blank stays tolerated; malformed aborts the @Transactional
+        // unit-of-work via IllegalArgumentException.
+        Date admissionDate = BillingDates.parseOptionalIsoDate(billHeader.getAdmission_date(), "admission_date");
+        Date billingDate = BillingDates.parseOptionalIsoDate(billHeader.getBilling_date(), "billing_date");
         BillingOnTransaction billTrans = new BillingOnTransaction();
         billTrans.setActionType(BillingOnConstants.ACTION_TYPE.C.name());
-        try {
-            billTrans.setAdmissionDate(new SimpleDateFormat("yyyy-MM-dd").parse(billHeader.getAdmission_date()));
-        } catch (Exception e) {
-            // TODO Auto-generated catch block
-            billTrans.setAdmissionDate(null);
-        }
-        try {
-            billTrans.setBillingDate(new SimpleDateFormat("yyyy-MM-dd").parse(billHeader.getBilling_date()));
-        } catch (Exception e) {
-            billTrans.setBillingDate(null);
-        }
+        billTrans.setAdmissionDate(admissionDate);
+        billTrans.setBillingDate(billingDate);
         billTrans.setBillingNotes(billHeader.getComment());
         billTrans.setCh1Id(Integer.parseInt(billHeader.getId()));
         billTrans.setClinic(billHeader.getClinic());
@@ -493,19 +491,13 @@ public class BillingOnCorrectionPersister {
     }
 
     public void addUpdateOneBillItemTrans(BillingClaimHeaderDto billHeader, BillingClaimItemDto billItem, String updateProviderNo) {
+        // Strict-parse — same reasoning as addInsertOneBillItemTrans above.
+        Date admissionDate = BillingDates.parseOptionalIsoDate(billHeader.getAdmission_date(), "admission_date");
+        Date billingDate = BillingDates.parseOptionalIsoDate(billHeader.getBilling_date(), "billing_date");
         BillingOnTransaction billTrans = new BillingOnTransaction();
         billTrans.setActionType(BillingOnConstants.ACTION_TYPE.U.name());
-        try {
-            billTrans.setAdmissionDate(new SimpleDateFormat("yyyy-MM-dd").parse(billHeader.getAdmission_date()));
-        } catch (Exception e) {
-            // TODO Auto-generated catch block
-            billTrans.setAdmissionDate(null);
-        }
-        try {
-            billTrans.setBillingDate(new SimpleDateFormat("yyyy-MM-dd").parse(billHeader.getBilling_date()));
-        } catch (Exception e) {
-            billTrans.setBillingDate(null);
-        }
+        billTrans.setAdmissionDate(admissionDate);
+        billTrans.setBillingDate(billingDate);
         billTrans.setBillingNotes(billHeader.getComment());
         billTrans.setCh1Id(Integer.parseInt(billHeader.getId()));
         billTrans.setClinic(billHeader.getClinic());

@@ -67,6 +67,30 @@ public final class BillingDates {
         }
     }
 
+    /**
+     * Parse a {@code yyyy-MM-dd} ISO date that may legitimately be missing.
+     * Null/blank input yields {@code null} (the legacy contract treated absent
+     * dates as a valid "no value"). Non-blank-but-unparseable input throws —
+     * callers in {@code @Transactional} services then roll back rather than
+     * persisting a row with a silently-nulled date.
+     *
+     * @param raw       String the ISO-formatted date, or null/blank for absent
+     * @param fieldName String diagnostic name embedded in the throw message
+     * @return Date parsed date, or {@code null} when {@code raw} is null/blank
+     * @throws IllegalArgumentException when {@code raw} is non-blank and unparseable
+     */
+    public static Date parseOptionalIsoDate(String raw, String fieldName) {
+        if (raw == null || raw.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            return java.sql.Date.valueOf(LocalDate.parse(raw.trim(), SERVICE_DATE));
+        } catch (java.time.format.DateTimeParseException e) {
+            throw new IllegalArgumentException(
+                    "BillingDates.parseOptionalIsoDate: malformed " + fieldName + " [" + raw + "]");
+        }
+    }
+
     public static String toOhipDate(Date date) {
         if (date == null) {
             return "";

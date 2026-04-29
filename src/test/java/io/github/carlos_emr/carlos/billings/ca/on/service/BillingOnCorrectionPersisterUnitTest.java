@@ -12,6 +12,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONEAReportDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
@@ -21,6 +23,7 @@ import io.github.carlos_emr.carlos.commn.dao.BillingOnTransactionDao;
 import io.github.carlos_emr.carlos.commn.dao.RaDetailDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
+import io.github.carlos_emr.carlos.commn.model.BillingOnTransaction;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -32,6 +35,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -39,6 +43,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.mockito.ArgumentCaptor;
 
 /**
  * Behavioral tests for {@link BillingOnCorrectionPersister} (renamed from
@@ -186,5 +191,122 @@ class BillingOnCorrectionPersisterUnitTest {
         String paid = persister.getBillingPaid("42");
 
         assertThat(paid).isEqualTo("12.5");
+    }
+
+    // ---- audit-trail emission: addInsertOneBillItemTrans -----------------
+
+    @Test
+    void shouldPersistInsertTrans_whenHeaderDatesAreValid() {
+        BillingClaimHeaderDto h = headerDto("2026-01-15", "2026-01-20");
+        BillingClaimItemDto i = itemDto();
+
+        persister.addInsertOneBillItemTrans(h, i, "999998");
+
+        ArgumentCaptor<BillingOnTransaction> captor =
+                ArgumentCaptor.forClass(BillingOnTransaction.class);
+        verify(transDao).persist(captor.capture());
+        BillingOnTransaction t = captor.getValue();
+        assertThat(t.getActionType()).isEqualTo("C");
+        assertThat(t.getAdmissionDate()).isNotNull();
+        assertThat(t.getBillingDate()).isNotNull();
+    }
+
+    @Test
+    void shouldThrow_whenInsertTransAdmissionDateIsMalformed() {
+        BillingClaimHeaderDto h = headerDto("not-a-date", "2026-01-20");
+        BillingClaimItemDto i = itemDto();
+
+        assertThatThrownBy(() -> persister.addInsertOneBillItemTrans(h, i, "999998"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("admission_date")
+                .hasMessageContaining("not-a-date");
+
+        verify(transDao, never()).persist(any(BillingOnTransaction.class));
+    }
+
+    @Test
+    void shouldThrow_whenInsertTransBillingDateIsMalformed() {
+        BillingClaimHeaderDto h = headerDto("2026-01-15", "not-a-date");
+        BillingClaimItemDto i = itemDto();
+
+        assertThatThrownBy(() -> persister.addInsertOneBillItemTrans(h, i, "999998"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("billing_date");
+
+        verify(transDao, never()).persist(any(BillingOnTransaction.class));
+    }
+
+    @Test
+    void shouldTolerateBlankDates_whenInsertTrans() {
+        BillingClaimHeaderDto h = headerDto("", "");
+        BillingClaimItemDto i = itemDto();
+
+        persister.addInsertOneBillItemTrans(h, i, "999998");
+
+        ArgumentCaptor<BillingOnTransaction> captor =
+                ArgumentCaptor.forClass(BillingOnTransaction.class);
+        verify(transDao).persist(captor.capture());
+        assertThat(captor.getValue().getAdmissionDate()).isNull();
+        assertThat(captor.getValue().getBillingDate()).isNull();
+    }
+
+    // ---- audit-trail emission: addUpdateOneBillItemTrans -----------------
+
+    @Test
+    void shouldPersistUpdateTrans_whenHeaderDatesAreValid() {
+        BillingClaimHeaderDto h = headerDto("2026-01-15", "2026-01-20");
+        BillingClaimItemDto i = itemDto();
+
+        persister.addUpdateOneBillItemTrans(h, i, "999998");
+
+        ArgumentCaptor<BillingOnTransaction> captor =
+                ArgumentCaptor.forClass(BillingOnTransaction.class);
+        verify(transDao).persist(captor.capture());
+        assertThat(captor.getValue().getActionType()).isEqualTo("U");
+    }
+
+    @Test
+    void shouldThrow_whenUpdateTransAdmissionDateIsMalformed() {
+        BillingClaimHeaderDto h = headerDto("not-a-date", "2026-01-20");
+        BillingClaimItemDto i = itemDto();
+
+        assertThatThrownBy(() -> persister.addUpdateOneBillItemTrans(h, i, "999998"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("admission_date");
+
+        verify(transDao, never()).persist(any(BillingOnTransaction.class));
+    }
+
+    // ---- helpers ---------------------------------------------------------
+
+    private static BillingClaimHeaderDto headerDto(String admissionDate, String billingDate) {
+        BillingClaimHeaderDto h = new BillingClaimHeaderDto();
+        h.setId("100");
+        h.setAdmission_date(admissionDate);
+        h.setBilling_date(billingDate);
+        h.setComment("");
+        h.setClinic("");
+        h.setCreator("999998");
+        h.setDemographic_no("7");
+        h.setFacilty_num("");
+        h.setMan_review("");
+        h.setProviderNo("999998");
+        h.setProvince("ON");
+        h.setPay_program("HCP");
+        h.setRef_num("");
+        h.setLocation("");
+        h.setVisittype("");
+        return h;
+    }
+
+    private static BillingClaimItemDto itemDto() {
+        BillingClaimItemDto i = new BillingClaimItemDto();
+        i.setId("1");
+        i.setService_code("A001A");
+        i.setFee("33.70");
+        i.setSer_num("1");
+        i.setDx("V70");
+        i.setStatus("O");
+        return i;
     }
 }

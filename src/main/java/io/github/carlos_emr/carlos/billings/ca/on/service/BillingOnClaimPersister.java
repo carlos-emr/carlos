@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.ArrayList;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.billings.ca.on.BillingDates;
 import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingBatchHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
@@ -148,10 +149,15 @@ public class BillingOnClaimPersister {
         b.setPayee(val.getPayee());
         b.setRefNum(val.getRef_num());
         b.setFaciltyNum(val.getFacilty_num());
-        if (val.getAdmission_date().length() > 0)
-            try {
-                b.setAdmissionDate(dateformatter.parse(val.getAdmission_date()));
-            } catch (ParseException e) {/*empty*/}
+        // Strict parse — silently nulling on malformed input persisted an
+        // audit-incorrect billing_on_cheader1 row. Null/blank stays tolerated
+        // (legacy contract) but a malformed date now aborts the @Transactional
+        // unit-of-work. The setter is skipped on null because
+        // BillingONCHeader1.setAdmissionDate calls format() and NPEs on null.
+        Date admissionDate = BillingDates.parseOptionalIsoDate(val.getAdmission_date(), "admission_date");
+        if (admissionDate != null) {
+            b.setAdmissionDate(admissionDate);
+        }
 
         b.setRefLabNum(val.getRef_lab_num());
         b.setManReview(val.getMan_review());
@@ -219,10 +225,8 @@ public class BillingOnClaimPersister {
             b.setServiceCode(val.getService_code());
             b.setFee(val.getFee());
             b.setServiceCount(val.getSer_num());
-            if (val.getService_date().length() > 0)
-                try {
-                    b.setServiceDate(dateformatter.parse(val.getService_date()));
-                } catch (ParseException e) {/*empty*/}
+            // Strict parse — same reasoning as addOneClaimHeaderRecord above.
+            b.setServiceDate(BillingDates.parseOptionalIsoDate(val.getService_date(), "service_date"));
             b.setDx(val.getDx());
             b.setDx1(val.getDx1());
             b.setDx2(val.getDx2());
@@ -267,8 +271,8 @@ public class BillingOnClaimPersister {
         // Parse header dates upfront — surfacing failure here aborts the
         // surrounding @Transactional unit-of-work BEFORE any billOnTrans row
         // is persisted with a null/zero placeholder.
-        Date admissionDate = parseHeaderDateOrThrow(billHeader.getAdmission_date(), "admission_date");
-        Date billingDate = parseHeaderDateOrThrow(billHeader.getBilling_date(), "billing_date");
+        Date admissionDate = BillingDates.parseOptionalIsoDate(billHeader.getAdmission_date(), "admission_date");
+        Date billingDate = BillingDates.parseOptionalIsoDate(billHeader.getBilling_date(), "billing_date");
         Timestamp updateTs = new Timestamp(new Date().getTime());
         BillingOnTransaction billTrans = null;
         for (BillingClaimItemDto billItem : billItemList) {
@@ -323,8 +327,8 @@ public class BillingOnClaimPersister {
         // unit-of-work BEFORE any billOnTrans row is persisted with a null
         // placeholder. At OHIP-claim creation amounts are intentionally ZERO
         // (no payment received yet) so amount parsing is N/A here.
-        Date admissionDate = parseHeaderDateOrThrow(billHeader.getAdmission_date(), "admission_date");
-        Date billingDate = parseHeaderDateOrThrow(billHeader.getBilling_date(), "billing_date");
+        Date admissionDate = BillingDates.parseOptionalIsoDate(billHeader.getAdmission_date(), "admission_date");
+        Date billingDate = BillingDates.parseOptionalIsoDate(billHeader.getBilling_date(), "billing_date");
         Timestamp updateTs = new Timestamp(new Date().getTime());
         BillingOnTransaction billTrans = null;
         for (BillingClaimItemDto billItem : billItemList) {
@@ -593,31 +597,6 @@ public class BillingOnClaimPersister {
         }
 
         return true;
-    }
-
-    /**
-     * Parse an ISO {@code yyyy-MM-dd} header date strictly. Empty/null is
-     * tolerated and yields {@code null} (the legacy behavior treated any
-     * unparseable input the same as missing); any other unparseable input
-     * throws {@link IllegalArgumentException} so the surrounding
-     * {@code @Transactional} unit-of-work rolls back rather than persisting
-     * a {@code billing_on_transaction} row with a silently-nulled date.
-     *
-     * @param raw       String header-supplied date string (null/blank → null)
-     * @param fieldName String diagnostic name for error messages
-     * @return Date parsed date, or {@code null} when {@code raw} is null/blank
-     * @throws IllegalArgumentException when {@code raw} is non-blank and unparseable
-     */
-    private static Date parseHeaderDateOrThrow(String raw, String fieldName) {
-        if (raw == null || raw.trim().isEmpty()) {
-            return null;
-        }
-        try {
-            return new SimpleDateFormat("yyyy-MM-dd").parse(raw);
-        } catch (ParseException e) {
-            throw new IllegalArgumentException(
-                    "BillingOnClaimPersister: malformed " + fieldName + " [" + raw + "]");
-        }
     }
 
 }

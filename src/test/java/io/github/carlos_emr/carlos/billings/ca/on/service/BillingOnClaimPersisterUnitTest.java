@@ -158,16 +158,29 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        void shouldSwallowMalformedAdmissionDate_andLeaveFieldNull() throws Exception {
-            // KNOWN LEGACY BEHAVIOUR — preserved verbatim from
-            // JdbcBillingClaimImpl. A malformed admission_date silently
-            // drops to null on the persisted entity instead of failing
-            // fast with BillingValidationException. This test pins the
-            // current contract; a future fix replacing the empty catch
-            // at BillingOnClaimPersister:154 should flip this assertion
-            // to expect a thrown exception.
+        void shouldThrow_whenAdmissionDateIsMalformed() {
+            // Strict-parse contract: a malformed admission_date now aborts
+            // the @Transactional unit-of-work via IllegalArgumentException
+            // rather than silently nulling the field on the persisted row.
             BillingClaimHeaderDto dto = headerDto();
             dto.setAdmission_date("not-a-date");
+
+            org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                    persister.addOneClaimHeaderRecord(dto))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("admission_date")
+                    .hasMessageContaining("not-a-date");
+
+            verify(cheaderDao, never()).persist(any(BillingONCHeader1.class));
+        }
+
+        @Test
+        void shouldTreatBlankAdmissionDateAsNull_andPersist() throws Exception {
+            // Blank/null admission_date is a legitimate "no value" — the
+            // legacy contract tolerated this and the strict-parse helper
+            // preserves that. Persistence proceeds with admissionDate=null.
+            BillingClaimHeaderDto dto = headerDto();
+            dto.setAdmission_date("");
 
             ArgumentCaptor<BillingONCHeader1> captor = ArgumentCaptor.forClass(BillingONCHeader1.class);
             doAssignId(captor, 1);
@@ -196,15 +209,28 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        void shouldSwallowMalformedServiceDate_andLeaveFieldNull() {
-            // KNOWN LEGACY BEHAVIOUR — see JdbcBillingClaimImpl preservation
-            // note above. The empty catch at BillingOnClaimPersister:225
-            // silently drops malformed service_date; the item still persists.
+        void shouldThrow_whenServiceDateIsMalformed() {
+            // Strict-parse contract: a malformed service_date now aborts the
+            // @Transactional unit-of-work rather than silently nulling the
+            // field and persisting an audit-incorrect billing_on_item row.
             BillingClaimItemDto bad = itemDto("A001A", "not-a-date");
+
+            org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                    persister.addItemRecord(new ArrayList<>(List.of(bad)), 4242))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("service_date")
+                    .hasMessageContaining("not-a-date");
+
+            verify(itemDao, never()).persist(any(BillingONItem.class));
+        }
+
+        @Test
+        void shouldTreatBlankServiceDateAsNull_andPersist() {
+            BillingClaimItemDto okay = itemDto("A001A", "");
             doAssignItemId(99);
 
             ArgumentCaptor<BillingONItem> captor = ArgumentCaptor.forClass(BillingONItem.class);
-            persister.addItemRecord(new ArrayList<>(List.of(bad)), 4242);
+            persister.addItemRecord(new ArrayList<>(List.of(okay)), 4242);
             verify(itemDao).persist(captor.capture());
             assertThat(captor.getValue().getServiceDate()).isNull();
         }
