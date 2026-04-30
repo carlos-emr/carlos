@@ -11,25 +11,25 @@
 INSERT IGNORE INTO `secObjectName` (`objectName`) VALUES ('_admin.eformreporttool');
 INSERT IGNORE INTO `secObjPrivilege` (`roleUserGroup`, `objectName`, `privilege`, `priority`, `provider_no`)
     VALUES ('admin', '_admin.eformreporttool', 'x', 0, '999998');
-
 -- _admin.billing: secObjectName existed but no privilege row; hasPrivilege() returned
 -- false for all roles, including admin, breaking ViewShareCalendarPopup2Action.
+INSERT IGNORE INTO `secObjectName` (`objectName`) VALUES ('_admin.billing');
 INSERT IGNORE INTO `secObjPrivilege` (`roleUserGroup`, `objectName`, `privilege`, `priority`, `provider_no`)
     VALUES ('admin', '_admin.billing', 'x', 0, '999998');
-
 -- _admin.misc: same gap; broke UpdateDemographicProvider2Action, AdminSaveMyGroup2Action,
 -- AdminNewGroup2Action, ManageFlowsheets2Action, and others.
+INSERT IGNORE INTO `secObjectName` (`objectName`) VALUES ('_admin.misc');
 INSERT IGNORE INTO `secObjPrivilege` (`roleUserGroup`, `objectName`, `privilege`, `priority`, `provider_no`)
     VALUES ('admin', '_admin.misc', 'x', 0, '999998');
-
 -- _admin.auditLogPurge: secObjectName existed but no privilege row; broke AuditLogPurge2Action.
+INSERT IGNORE INTO `secObjectName` (`objectName`) VALUES ('_admin.auditLogPurge');
 INSERT IGNORE INTO `secObjPrivilege` (`roleUserGroup`, `objectName`, `privilege`, `priority`, `provider_no`)
-    VALUES ('admin', '_admin.auditLogPurge', 'x', 0, '999998');
-
--- _hrm for doctor role: was 'o' (deny), should be 'x' to allow doctors to view HRM records.
+    VALUES ('admin', '_admin.auditLogPurge', 'x', 0, '999998')
+-- _hrm for doctor role: was 'o' (deny), should be 'x' to allow all doctors to view HRM records.
 -- HRM admin functions remain separately controlled by _hrm.administrator (HRMAdmin role).
 UPDATE `secObjPrivilege`
     SET `privilege` = 'x'
     WHERE `roleUserGroup` = 'doctor'
       AND `objectName` = '_hrm'
       AND `privilege` = 'o';
+
