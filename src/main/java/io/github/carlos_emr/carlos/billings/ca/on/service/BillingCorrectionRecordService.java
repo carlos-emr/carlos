@@ -502,90 +502,22 @@ public class BillingCorrectionRecordService {
     }
 
     private boolean isChangedBillingClaimHeader(BillingClaimHeaderDto oldData, BillingClaimHeaderDto newData) {
-        boolean ret = false;
         if (oldData == null || newData == null) {
-            return ret;
+            return false;
         }
-        do {
-            if (!oldData.getRef_num().equals(newData.getRef_num())) {
-                ret = true;
-                break;
-            }
-
-            if (!oldData.getProvince().equals(newData.getProvince())) {
-                ret = true;
-                break;
-            }
-
-            if (!oldData.getMan_review().equals(newData.getMan_review())) {
-                ret = true;
-                break;
-            }
-
-            if (!oldData.getBilling_date().equals(newData.getBilling_date())) {
-                ret = true;
-                break;
-            }
-
-            if (!oldData.getStatus().equals(newData.getStatus())) {
-                ret = true;
-                break;
-            }
-
-            if (!oldData.getPay_program().equals(newData.getPay_program())) {
-                ret = true;
-                break;
-            }
-
-            if (!oldData.getFacilty_num().equals(newData.getFacilty_num())) {
-                ret = true;
-                break;
-            }
-
-            if (!oldData.getProviderNo().equals(newData.getProviderNo())) {
-                ret = true;
-                break;
-            }
-
-            if (!oldData.getVisittype().equals(newData.getVisittype())) {
-                ret = true;
-                break;
-            }
-
-            if (!oldData.getAdmission_date().equals(newData.getAdmission_date())) {
-                ret = true;
-                break;
-            }
-
-            if (!oldData.getLocation().equals(newData.getLocation())) {
-                ret = true;
-                break;
-            }
-
-            if (!oldData.getComment().equals(newData.getComment())) {
-                ret = true;
-                break;
-            }
-
-            if (oldData.getBillto() != null && newData.getBillto() != null
-                    && !oldData.getBillto().equals(newData.getBillto())) {
-                ret = true;
-                break;
-            }
-
-            if (oldData.getBillto() == null && newData.getBillto() != null) {
-                ret = true;
-                break;
-            }
-
-            if (oldData.getBillto() != null && newData.getBillto() == null) {
-                ret = true;
-                break;
-            }
-
-        } while (false);
-
-        return ret;
+        if (!oldData.getRef_num().equals(newData.getRef_num())) return true;
+        if (!oldData.getProvince().equals(newData.getProvince())) return true;
+        if (!oldData.getMan_review().equals(newData.getMan_review())) return true;
+        if (!oldData.getBilling_date().equals(newData.getBilling_date())) return true;
+        if (!oldData.getStatus().equals(newData.getStatus())) return true;
+        if (!oldData.getPay_program().equals(newData.getPay_program())) return true;
+        if (!oldData.getFacilty_num().equals(newData.getFacilty_num())) return true;
+        if (!oldData.getProviderNo().equals(newData.getProviderNo())) return true;
+        if (!oldData.getVisittype().equals(newData.getVisittype())) return true;
+        if (!oldData.getAdmission_date().equals(newData.getAdmission_date())) return true;
+        if (!oldData.getLocation().equals(newData.getLocation())) return true;
+        if (!oldData.getComment().equals(newData.getComment())) return true;
+        return !java.util.Objects.equals(oldData.getBillto(), newData.getBillto());
     }
 
     // sql - set key=value, key1=value1, ...
@@ -720,30 +652,12 @@ public class BillingCorrectionRecordService {
             ret = correctionPersister.updateBillingOneItem(oldObj);
             // add one transaction: delete a service code
             BillingONCHeader1 billCheader1 = cheader1Dao.find(Integer.parseInt(oldObj.getCh1_id()));
-            BillingOnTransaction billTrans = new BillingOnTransaction();
-            billTrans.setActionType(BillingOnConstants.ACTION_TYPE.D.name());
-            billTrans.setAdmissionDate(billCheader1.getAdmissionDate());
-            billTrans.setBillingDate(billCheader1.getBillingDate());
-            billTrans.setBillingNotes(billCheader1.getComment());
-            billTrans.setCh1Id(billCheader1.getId());
-            billTrans.setClinic(billCheader1.getClinic());
-            billTrans.setCreator(updateProviderNo);
-            billTrans.setDemographicNo(billCheader1.getDemographicNo());
-            billTrans.setDxCode(sDx);
-            billTrans.setFacilityNum(billCheader1.getFaciltyNum());
-            billTrans.setManReview(billCheader1.getManReview());
-            billTrans.setProviderNo(billCheader1.getProviderNo());
-            billTrans.setProvince(billCheader1.getProvince());
-            billTrans.setPayProgram(billCheader1.getPayProgram());
-            billTrans.setRefNum(billCheader1.getRefNum());
+            BillingOnTransaction billTrans = newTransactionFromHeader(
+                    billCheader1, BillingOnConstants.ACTION_TYPE.D.name(),
+                    sDx, updateProviderNo, "D");
             billTrans.setServiceCode(oldObj.getService_code());
             billTrans.setServiceCodeNum(oldObj.getSer_num());
             billTrans.setServiceCodeInvoiced(oldObj.getFee());
-            billTrans.setSliCode(billCheader1.getLocation());
-            billTrans.setUpdateProviderNo(updateProviderNo);
-            billTrans.setVisittype(billCheader1.getVisitType());
-            billTrans.setUpdateDatetime(new Timestamp(new Date().getTime()));
-            billTrans.setStatus("D");
             billOnTransDao.persist(billTrans);
 
             if (serviceCode != null && !serviceCode.isEmpty()) {
@@ -752,30 +666,12 @@ public class BillingCorrectionRecordService {
                 BillingONItem newBillItem = addItem(oldObj, updateProviderNo, sDx, serviceDate, serviceCode, unit, fee,
                         status);
                 // add one transaction: add a service code
-                billTrans = new BillingOnTransaction();
-                billTrans.setActionType(BillingOnConstants.ACTION_TYPE.C.name());
-                billTrans.setAdmissionDate(billCheader1.getAdmissionDate());
-                billTrans.setBillingDate(billCheader1.getBillingDate());
-                billTrans.setBillingNotes(billCheader1.getComment());
-                billTrans.setCh1Id(billCheader1.getId());
-                billTrans.setClinic(billCheader1.getClinic());
-                billTrans.setCreator(updateProviderNo);
-                billTrans.setDemographicNo(billCheader1.getDemographicNo());
-                billTrans.setDxCode(sDx);
-                billTrans.setFacilityNum(billCheader1.getFaciltyNum());
-                billTrans.setManReview(billCheader1.getManReview());
-                billTrans.setPayProgram(billCheader1.getPayProgram());
-                billTrans.setProviderNo(billCheader1.getProviderNo());
-                billTrans.setProvince(billCheader1.getProvince());
-                billTrans.setRefNum(billCheader1.getRefNum());
+                billTrans = newTransactionFromHeader(
+                        billCheader1, BillingOnConstants.ACTION_TYPE.C.name(),
+                        sDx, updateProviderNo, status);
                 billTrans.setServiceCode(serviceCode);
-                billTrans.setServiceCodeInvoiced(fee);
                 billTrans.setServiceCodeNum(unit);
-                billTrans.setSliCode(billCheader1.getLocation());
-                billTrans.setUpdateProviderNo(updateProviderNo);
-                billTrans.setVisittype(billCheader1.getVisitType());
-                billTrans.setUpdateDatetime(new Timestamp(new Date().getTime()));
-                billTrans.setStatus(status);
+                billTrans.setServiceCodeInvoiced(fee);
                 billOnTransDao.persist(billTrans);
 
                 if (ch1Obj.getPay_program().matches(BillingOnConstants.BILLINGMATCHSTRING_3RDPARTY)) {
@@ -797,6 +693,43 @@ public class BillingCorrectionRecordService {
         }
 
         return null;
+    }
+
+    /**
+     * Builds a {@link BillingOnTransaction} pre-populated with the 18 fields
+     * that come straight from the header — the caller fills in the four
+     * service-code-specific fields (serviceCode, serviceCodeNum,
+     * serviceCodeInvoiced, and any per-call overrides) and persists. Pre-fix
+     * the D-action and C-action branches in {@code changeItem} each duplicated
+     * this 18-line setter sequence inline.
+     */
+    private BillingOnTransaction newTransactionFromHeader(BillingONCHeader1 billCheader1,
+                                                          String actionType,
+                                                          String sDx,
+                                                          String updateProviderNo,
+                                                          String status) throws java.text.ParseException {
+        BillingOnTransaction t = new BillingOnTransaction();
+        t.setActionType(actionType);
+        t.setAdmissionDate(billCheader1.getAdmissionDate());
+        t.setBillingDate(billCheader1.getBillingDate());
+        t.setBillingNotes(billCheader1.getComment());
+        t.setCh1Id(billCheader1.getId());
+        t.setClinic(billCheader1.getClinic());
+        t.setCreator(updateProviderNo);
+        t.setDemographicNo(billCheader1.getDemographicNo());
+        t.setDxCode(sDx);
+        t.setFacilityNum(billCheader1.getFaciltyNum());
+        t.setManReview(billCheader1.getManReview());
+        t.setProviderNo(billCheader1.getProviderNo());
+        t.setProvince(billCheader1.getProvince());
+        t.setPayProgram(billCheader1.getPayProgram());
+        t.setRefNum(billCheader1.getRefNum());
+        t.setSliCode(billCheader1.getLocation());
+        t.setUpdateProviderNo(updateProviderNo);
+        t.setVisittype(billCheader1.getVisitType());
+        t.setUpdateDatetime(new Timestamp(new Date().getTime()));
+        t.setStatus(status);
+        return t;
     }
 
     private BillingONItem addItem(BillingClaimItemDto oldObj, String updateProviderNo, String sDx,

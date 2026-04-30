@@ -116,9 +116,17 @@ class SearchEndYearStatement2ActionUnitTest extends CarlosUnitTestBase {
         demo.setDemographicNo(1);
         when(mockService.findUniquePatient(any(), any(), any(), any())).thenReturn(demo);
 
-        PatientEndYearStatementSummary summary = new PatientEndYearStatementSummary(
-                "1", "Doe, Jane", 0, "9876543225", "1 Main", "555-555-5555",
-                new Date(), new Date(), "0.00", "0.00");
+        PatientEndYearStatementSummary summary = PatientEndYearStatementSummary.builder()
+                .patientName("1")
+                .patientNo("Doe, Jane")
+                .hin("9876543225")
+                .address("1 Main")
+                .phone("555-555-5555")
+                .fromDate(new Date())
+                .toDate(new Date())
+                .fromDateParam("0.00")
+                .todateParam("0.00")
+                .build();
         PatientEndYearStatementService.Result result = new PatientEndYearStatementService.Result(
                 summary, List.of());
         when(mockService.aggregateInvoices(any(Demographic.class), any(), any())).thenReturn(result);

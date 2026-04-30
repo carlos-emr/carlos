@@ -563,6 +563,32 @@ public class BillingOnClaimPersister {
     }
 
     /**
+     * Persist a {@code payee} key on {@code billing_on_ext} for the given
+     * billing header. Used by {@code BillingClaimSubmissionService} to keep
+     * the payee write inside the same transaction as the header + items;
+     * pre-fix this ran in the action layer after the submission tx had
+     * already committed, so a payee-write failure orphaned the header.
+     *
+     * @param billingNo  generated billing_on_cheader1 id
+     * @param payeeValue user-supplied payee name (already validated)
+     * @return true when the row was persisted
+     */
+    public boolean persistPayeeExt(int billingNo, String payeeValue) {
+        BillingONCHeader1 ch1 = cheaderDao.find(billingNo);
+        if (ch1 == null) {
+            return false;
+        }
+        BillingONExt ext = new BillingONExt();
+        ext.setBillingNo(billingNo);
+        ext.setDemographicNo(ch1.getDemographicNo());
+        ext.setKeyVal("payee");
+        ext.setValue(payeeValue);
+        ext.setDateTime(ch1.getTimestamp());
+        extDao.persist(ext);
+        return true;
+    }
+
+    /**
      * Persist a {@code billing_on_diskname} row plus, on success, one
      * {@code billing_on_filename} row per provider entry in {@code val}.
      *

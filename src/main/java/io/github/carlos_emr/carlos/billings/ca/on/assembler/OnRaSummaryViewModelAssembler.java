@@ -86,8 +86,10 @@ public class OnRaSummaryViewModelAssembler {
         BigDecimal otherTotal = (BigDecimal) totalsAccumulator.getOrDefault("xml_other_total", BigDecimal.ZERO);
         BigDecimal obTotal = (BigDecimal) totalsAccumulator.getOrDefault("xml_ob_total", BigDecimal.ZERO);
         BigDecimal coTotal = (BigDecimal) totalsAccumulator.getOrDefault("xml_co_total", BigDecimal.ZERO);
+        Object partialCountRaw = totalsAccumulator.getOrDefault("xml_partial_count", 0);
+        int partialCount = partialCountRaw instanceof Integer ? (Integer) partialCountRaw : 0;
         builder.localTotal(localTotal).payTotal(payTotal).otherTotal(otherTotal)
-                .obTotal(obTotal).coTotal(coTotal);
+                .obTotal(obTotal).coTotal(coTotal).unreadableRowCount(partialCount);
 
         return builder.build();
     }

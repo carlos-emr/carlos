@@ -30,7 +30,24 @@ public class BillingFileWriteException extends RuntimeException {
 
     private static final long serialVersionUID = 1L;
 
+    private final String filename;
+
     public BillingFileWriteException(String message, Throwable cause) {
         super(message, cause);
+        this.filename = null;
+    }
+
+    public BillingFileWriteException(String message, String filename, Throwable cause) {
+        super(message, cause);
+        this.filename = filename;
+    }
+
+    /**
+     * The filename that failed to write, if known. Callers reading the
+     * rendered error page can pull this out programmatically (e.g. to
+     * render "Failed to write `ohip_2026_04_30.txt`" in a banner).
+     */
+    public java.util.Optional<String> filename() {
+        return java.util.Optional.ofNullable(filename);
     }
 }

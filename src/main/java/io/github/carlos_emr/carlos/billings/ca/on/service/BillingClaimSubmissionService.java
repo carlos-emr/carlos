@@ -65,6 +65,47 @@ public class BillingClaimSubmissionService {
 
     public record SaveResult(boolean saved, int billingId) {}
 
+    /**
+     * Typed wrapper around the {@code [BillingClaimHeaderDto, List<BillingClaimItemDto>]}
+     * 2-tuple this service has historically passed around as {@code ArrayList}. Defends
+     * the invariants the loose tuple did not: non-null header, defensively-copied items.
+     *
+     * <p>The legacy {@code ArrayList}-shaped methods remain on this service for
+     * back-compat with existing callers; new code should construct a
+     * {@code BillingClaimSubmission} directly via
+     * {@link #getSubmission(jakarta.servlet.http.HttpServletRequest)} and call the
+     * record-typed overloads.</p>
+     */
+    public record BillingClaimSubmission(BillingClaimHeaderDto header,
+                                         List<BillingClaimItemDto> items) {
+        public BillingClaimSubmission {
+            java.util.Objects.requireNonNull(header, "header");
+            items = items == null ? List.of() : List.copyOf(items);
+        }
+
+        /** Convert to the legacy ArrayList shape consumed by the deeper persister. */
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        public ArrayList toLegacyArrayList() {
+            ArrayList legacy = new ArrayList();
+            legacy.add(header);
+            legacy.add(new ArrayList<>(items));
+            return legacy;
+        }
+
+        /** Lift the legacy ArrayList shape into the typed record. */
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        public static BillingClaimSubmission fromLegacy(ArrayList vecObj) {
+            return new BillingClaimSubmission(
+                    (BillingClaimHeaderDto) vecObj.get(0),
+                    vecObj.size() > 1 ? (List<BillingClaimItemDto>) vecObj.get(1) : List.of());
+        }
+    }
+
+    /** Typed-record alternative to {@link #getBillingClaimObj}; preferred for new code. */
+    public BillingClaimSubmission getSubmission(HttpServletRequest requestData) {
+        return BillingClaimSubmission.fromLegacy(getBillingClaimObj(requestData));
+    }
+
     // save a billing record
     @SuppressWarnings("rawtypes")
     public SaveResult addABillingRecord(ArrayList val) {
@@ -94,11 +135,17 @@ public class BillingClaimSubmissionService {
 
     /** Distinct exception so callers can map item-persist failures to a
      *  rollback-and-render-error path rather than treating them as generic
-     *  IllegalStateException. */
+     *  IllegalStateException. Carries the billing-header id so callers can
+     *  log/render it without re-parsing the message string. */
     public static class BillingItemPersistenceException extends RuntimeException {
         private static final long serialVersionUID = 1L;
+        private final int billingNo;
         public BillingItemPersistenceException(int billingNo) {
             super("addABillingRecord rolled back: item persist failed for billingNo " + billingNo);
+            this.billingNo = billingNo;
+        }
+        public int billingNo() {
+            return billingNo;
         }
     }
 
@@ -128,6 +175,67 @@ public class BillingClaimSubmissionService {
     @SuppressWarnings("unchecked")
     public void addOhipInvoiceTrans(ArrayList vecObj) {
         dbObj.addCreateOhipInvoiceTrans((BillingClaimHeaderDto) vecObj.get(0), (List<BillingClaimItemDto>) vecObj.get(1));
+    }
+
+    /**
+     * Atomic save of header + items + 3rd-party-or-OHIP-trans + payee ext.
+     *
+     * <p>Pre-fix the action invoked four service methods sequentially; the
+     * class is {@code @Transactional} but each external call ran in its
+     * own transaction. A payee-write failure after the header tx committed
+     * left an orphan billing_on_cheader1 row with no payee key. Wrapping
+     * everything in a single service method ensures one transaction across
+     * all four writes — Spring rolls back the entire save on any throw.</p>
+     *
+     * @param vecObj      header + items pre-built via {@link #getBillingClaimObj}
+     * @param requestData live request — needed by the third-party-ext path
+     * @param xmlBillType raw {@code xml_billtype} param; selects 3rd-party vs OHIP path
+     * @param payeeValue  user-entered payee name (may be empty)
+     * @return SaveResult mirroring {@link #addABillingRecord}'s contract
+     * @throws BillingValidationException if any sub-write fails — entire tx rolls back
+     */
+    /** Record-typed entry point. Preferred for new callers — defends the
+     *  [header, items] invariants the {@code ArrayList} variant did not. */
+    public SaveResult saveBillingWithExtAndPayee(BillingClaimSubmission submission,
+                                                 HttpServletRequest requestData,
+                                                 String xmlBillType,
+                                                 String payeeValue) {
+        return saveBillingWithExtAndPayee(submission.toLegacyArrayList(),
+                requestData, xmlBillType, payeeValue);
+    }
+
+    @SuppressWarnings("rawtypes")
+    public SaveResult saveBillingWithExtAndPayee(ArrayList vecObj,
+                                                 HttpServletRequest requestData,
+                                                 String xmlBillType,
+                                                 String payeeValue) {
+        SaveResult headerResult = addABillingRecord(vecObj);
+        if (!headerResult.saved()) {
+            return headerResult;
+        }
+        int billingNo = headerResult.billingId();
+
+        if (xmlBillType != null
+                && xmlBillType.length() >= 3
+                && xmlBillType.substring(0, 3).matches(BillingOnConstants.BILLINGMATCHSTRING_3RDPARTY)) {
+            boolean extOk = addPrivateBillExtRecord(requestData, vecObj, billingNo);
+            if (!extOk) {
+                throw new io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException(
+                        "Save rejected: third-party ext write failed; transaction rolled back");
+            }
+        } else {
+            addOhipInvoiceTrans(vecObj);
+        }
+
+        if (payeeValue != null) {
+            boolean payeeOk = dbObj.persistPayeeExt(billingNo, payeeValue);
+            if (!payeeOk) {
+                throw new io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException(
+                        "Save rejected: payee ext write failed; transaction rolled back");
+            }
+        }
+
+        return headerResult;
     }
 
     // set appt to B

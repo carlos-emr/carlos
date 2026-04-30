@@ -23,6 +23,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingErrorReportDto;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import java.io.BufferedReader;
@@ -30,35 +31,74 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimsErrorReportRecordDto;
+
 /**
- * Imports MOH claims error report files into typed report rows.
+ * Imports MOH claims-error-report files into typed report rows.
  *
- * <p>This preserves the legacy handler contract while keeping the file parsing
- * and persistence side effects out of the {@code data} package.</p>
+ * <p>Pre-fix this class was constructed via {@code new} and ran the parse +
+ * persist loop in its constructor. {@code BillingOnErrorReportService} is
+ * {@code @Transactional}, but each per-line {@code deleteErrorReport} +
+ * {@code addErrorReportRecord} call therefore opened its own transaction
+ * (REQUIRED-creates-new because there was no enclosing tx). On a mid-stream
+ * {@link IOException} or {@link StringIndexOutOfBoundsException} the parser
+ * set a {@code verdict=false} flag and stopped — but every per-line write
+ * committed before the failure was permanent. The action displayed "import
+ * failed" while the DB held half the file's deletes + inserts.</p>
+ *
+ * <p>Now a Spring-managed {@code @Service @Transactional} bean: the entire
+ * read loop runs inside one transaction, and the IOException/SIOOBE catch
+ * arms throw {@link BillingFileImportException} so Spring rolls back every
+ * write atomically. The action fetches via {@link
+ * io.github.carlos_emr.carlos.utility.SpringUtils#getBean} and calls
+ * {@link #importStream(FileInputStream, String)}.</p>
+ *
+ * @since 2026-04-30
  */
+@Service
+@Transactional
 public class BillingClaimsErrorReportImportService {
+
+    private static final String IMPORT_FAILURE_MSG_PREFIX =
+            "Claims-error report import rolled back for file=";
 
     private final BillingOnErrorReportService erRepObj;
 
-    ArrayList claimsErrorReportRecords = new ArrayList();
-    public boolean verdict = true;
-
-    public BillingClaimsErrorReportImportService(FileInputStream file, String filename,
-                                                   BillingOnErrorReportService erRepObj) {
+    public BillingClaimsErrorReportImportService(BillingOnErrorReportService erRepObj) {
         this.erRepObj = erRepObj;
-        init(file, filename);
     }
 
-    public BillingClaimsErrorReportParser getErrorReportParser(FileInputStream file) {
-        BillingClaimsErrorReportParser obj = new BillingClaimsErrorReportParser(file);
-        obj.verdict = this.verdict;
-        obj.setClaimsErrorReportRecords(this.claimsErrorReportRecords);
-        return obj;
+    /**
+     * Parse the supplied claims-error-report stream and persist the rows
+     * atomically. Returns a {@link BillingClaimsErrorReportParser} whose
+     * {@code verdict} flag and {@code claimsErrorReportRecords} list reflect
+     * the outcome (existing JSP contract). On any I/O or substring failure
+     * mid-stream the entire batch is rolled back via the surrounding
+     * {@code @Transactional} boundary and a {@link BillingFileImportException}
+     * propagates to the caller.
+     *
+     * @param file     input stream — owned by the caller (this method does not close it)
+     * @param filename original filename, used for audit fields on the persisted rows
+     * @return parser carrying parsed records and a {@code verdict=true} flag on success
+     * @throws BillingFileImportException if the file cannot be fully read/parsed
+     */
+    public BillingClaimsErrorReportParser importStream(FileInputStream file, String filename) {
+        List<BillingClaimsErrorReportRecordDto> records = new ArrayList<>();
+        parseAndPersist(file, filename, records);
+
+        BillingClaimsErrorReportParser parser = new BillingClaimsErrorReportParser(file);
+        parser.verdict = true;
+        parser.setClaimsErrorReportRecords(new ArrayList<>(records));
+        return parser;
     }
 
-    public boolean init(FileInputStream file, String filename) {
+    private void parseAndPersist(FileInputStream file, String filename,
+                                 List<BillingClaimsErrorReportRecordDto> records) {
         InputStreamReader reader = new InputStreamReader(file);
         BufferedReader input = new BufferedReader(reader);
         String nextline;
@@ -76,7 +116,8 @@ public class BillingClaimsErrorReportImportService {
                     headerCount = nextline.substring(2, 3);
                 } else {
                     // Handle unexpected short line gracefully, e.g. skip and log warning
-                    MiscUtils.getLogger().warn("Skipping short or malformed line: '" + nextline + "'");
+                    MiscUtils.getLogger().warn("Skipping short or malformed claims-error-report line: {}",
+                            LogSanitizer.sanitize(nextline));
                 }
                 if (headerCount.compareTo("1") == 0) {
                     erObj = new BillingErrorReportDto();
@@ -89,7 +130,7 @@ public class BillingClaimsErrorReportImportService {
                     CERBean.setSpecialtyCode(nextline.substring(33, 35));
                     CERBean.setStationNumber(nextline.substring(35, 38));
                     CERBean.setClaimProcessDate(nextline.substring(38, 46));
-                    claimsErrorReportRecords.add(CERBean);
+                    records.add(CERBean);
 
                     erObj.setProviderohip_no(nextline.substring(27, 33));
                     erObj.setGroup_no(nextline.substring(23, 27));
@@ -148,7 +189,7 @@ public class BillingClaimsErrorReportImportService {
                     CERBean.setReCode3(nextline.substring(70, 73));
                     CERBean.setReCode4(nextline.substring(73, 76));
                     CERBean.setReCode5(nextline.substring(76, 79));
-                    claimsErrorReportRecords.add(CERBean);
+                    records.add(CERBean);
 
                     claimError += nextline.substring(64, 67).trim() + " " + nextline.substring(67, 70).trim() + " "
                             + nextline.substring(70, 73).trim() + " " + nextline.substring(73, 76).trim() + " "
@@ -171,7 +212,7 @@ public class BillingClaimsErrorReportImportService {
                     CERBean.setCode3(nextline.substring(70, 73));
                     CERBean.setCode4(nextline.substring(73, 76));
                     CERBean.setCode5(nextline.substring(76, 79));
-                    claimsErrorReportRecords.add(CERBean);
+                    records.add(CERBean);
 
                     erObj.setCode(nextline.substring(3, 8));
                     erObj.setFee(nextline.substring(10, 16));
@@ -192,7 +233,7 @@ public class BillingClaimsErrorReportImportService {
                     CERBean = new BillingClaimsErrorReportRecordDto();
                     CERBean.setExplain(nextline.substring(3, 5));
                     CERBean.setError(nextline.substring(5, 60));
-                    claimsErrorReportRecords.add(CERBean);
+                    records.add(CERBean);
 
                     erObj.setExp(nextline.substring(3, 5) + "|" + nextline.substring(5, 60));
                 }
@@ -211,22 +252,20 @@ public class BillingClaimsErrorReportImportService {
                     CERBean.setHeader2Count(nextline.substring(10, 17));
                     CERBean.setItemCount(nextline.substring(17, 24));
                     CERBean.setMessageCount(nextline.substring(24, 31));
-                    claimsErrorReportRecords.add(CERBean);
+                    records.add(CERBean);
                 }
 
             }
         } catch (IOException ioe) {
-            // Mirror the StringIndexOutOfBoundsException branch below: a partial
-            // read leaves the in-progress error-report row already persisted
-            // (line above this catch), so the caller MUST see verdict=false to
-            // avoid reporting "import succeeded" when half the file was lost.
-            verdict = false;
-            MiscUtils.getLogger().error("I/O error reading claims-error report; aborting import (verdict=false):", ioe);
-        } catch (StringIndexOutOfBoundsException ioe) {
-            verdict = false;
-            MiscUtils.getLogger().error("Error, setting verdict to false:", ioe);
+            // Throw so the surrounding @Transactional rolls back every per-line
+            // delete/insert performed before this point. Pre-fix this catch
+            // set verdict=false and silently kept those writes committed.
+            throw new BillingFileImportException(
+                    IMPORT_FAILURE_MSG_PREFIX + filename + " (I/O error)", ioe);
+        } catch (StringIndexOutOfBoundsException sioobe) {
+            // Same rationale as the IOException catch above.
+            throw new BillingFileImportException(
+                    IMPORT_FAILURE_MSG_PREFIX + filename + " (malformed line)", sioobe);
         }
-        return verdict;
     }
-
 }

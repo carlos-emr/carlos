@@ -32,13 +32,15 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.commn.dao.CtlDiagCodeDao;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFormConfigurationService;
 import io.github.carlos_emr.carlos.commn.model.CtlDiagCode;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -59,7 +61,8 @@ public class ManageBillingFormDiag2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private CtlDiagCodeDao ctlDiagCodeDao = SpringUtils.getBean(CtlDiagCodeDao.class);
+    private BillingFormConfigurationService billingFormConfigurationService =
+            SpringUtils.getBean(BillingFormConfigurationService.class);
 
     /**
      * Replaces all diagnostic codes for the given Ontario billing service type.
@@ -69,8 +72,7 @@ public class ManageBillingFormDiag2Action extends ActionSupport {
      */
     @Override
     public String execute() throws Exception {
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+        if (!BillingRequestGuards.requirePost(request, response)) {
             return NONE;
         }
 
@@ -86,25 +88,22 @@ public class ManageBillingFormDiag2Action extends ActionSupport {
             return NONE;
         }
 
-        try {
-            // Delete all existing diagnostic codes for this service type
-            for (CtlDiagCode d : ctlDiagCodeDao.findByServiceType(typeid)) {
-                ctlDiagCodeDao.remove(d.getId());
+        List<CtlDiagCode> replacement = new ArrayList<>();
+        for (int i = 0; i < 45; i++) {
+            String diagcode = request.getParameter("diagcode" + i);
+            if (diagcode != null && !diagcode.isEmpty()) {
+                CtlDiagCode cdc = new CtlDiagCode();
+                cdc.setServiceType(typeid);
+                cdc.setDiagnosticCode(diagcode);
+                cdc.setStatus("A");
+                replacement.add(cdc);
             }
+        }
 
-            // Persist each non-empty diagcode parameter (indices 0–44)
-            for (int i = 0; i < 45; i++) {
-                String diagcode = request.getParameter("diagcode" + i);
-                if (diagcode != null && !diagcode.isEmpty()) {
-                    CtlDiagCode cdc = new CtlDiagCode();
-                    cdc.setServiceType(typeid);
-                    cdc.setDiagnosticCode(diagcode);
-                    cdc.setStatus("A");
-                    ctlDiagCodeDao.persist(cdc);
-                }
-            }
+        try {
+            billingFormConfigurationService.replaceDiagCodes(typeid, replacement);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to replace diagnostic codes for typeid={} — data may be inconsistent", LogSanitizer.sanitize(typeid), e);
+            MiscUtils.getLogger().error("Failed to replace diagnostic codes for typeid={} — transaction rolled back", LogSanitizer.sanitize(typeid), e);
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to update diagnostic codes");
             return NONE;
         }

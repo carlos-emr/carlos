@@ -213,7 +213,13 @@ public class GenerateRaSummaryViewModelAssembler {
         }
 
         BigDecimal invoiced = BillingMoney.amountOrZero(invoicedAmount);
-        BigDecimal paid = BillingMoney.amountOrZero(paidAmount);
+        // Strict on paid because totals.paid feeds persistTotals (writes
+        // <xml_total> into RaHeader.content). amountOrZero would silently
+        // zero-coalesce a malformed paid amount; the persisted reconciliation
+        // would then drift below the source records. The strict variant
+        // throws NumberFormatException on a malformed value so the action
+        // sees the failure and skips persistTotals.
+        BigDecimal paid = BillingMoney.amountStrictOrZero(paidAmount);
         totals.invoiced = totals.invoiced.add(invoiced);
         totals.paid = totals.paid.add(paid);
 

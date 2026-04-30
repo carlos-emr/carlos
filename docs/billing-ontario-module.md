@@ -48,7 +48,7 @@ src/main/java/io/github/carlos_emr/carlos/billings/
 │       ├── assembler/                       *ViewModelAssembler classes + composers/loaders
 │       ├── command/                         typed write/validation commands
 │       ├── dto/                             persistence/query transfer DTOs (incl. FeeSchedule* records)
-│       ├── reports/                         reporting (RA / disk / Y/E statement)
+│       ├── reports/                         JasperReports JRXML templates (Y/E statement only); RA + disk-creation logic lives in service/
 │       ├── service/                         services / loaders / parsers / persisters / calculators
 │       ├── support/                         dependency-free support utilities
 │       ├── validator/                       input-validator classes + typed exception
@@ -144,9 +144,12 @@ Forbidden in new code (and currently absent from this module): `*Prep`,
 ### 3.2 Spring wiring
 
 - All non-DAO components are registered with `@org.springframework.stereotype.Service`.
-- Constructor injection is used everywhere — there are no field-init
-  `SpringUtils.getBean(...)` patterns left in the module. This was a
-  deliberate cleanup; service-locator usage is treated as a regression.
+- Constructor injection is used in the `service/` and `assembler/` layers.
+  The `web/` (Struts2 action) layer still has ~28 `= SpringUtils.getBean(...)`
+  field-init patterns because Struts2 instantiates actions per-request and
+  the legacy actions wire dependencies via the service locator. New 2Actions
+  should prefer constructor injection where the Struts2 wiring permits;
+  treat new field-init `getBean` calls as a regression.
 - `@Lazy` is **not** used anywhere in `billings/ca/on`. It was carried
   forward from a long-since-resolved circular-dependency workaround and was
   stripped in 2026-04-27. If you reintroduce a real cycle, Spring will fail

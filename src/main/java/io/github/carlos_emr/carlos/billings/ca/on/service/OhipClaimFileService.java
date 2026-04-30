@@ -260,6 +260,104 @@ public class OhipClaimFileService {
         errorMsg += errorPartMsg;
     }
 
+    /**
+     * Build a {@link BillingClaimHeaderDto} from a {@link BillingONCHeader1}
+     * entity for the OHIP claim-file write path. Pre-fix the same ~30-line
+     * setter sequence was duplicated between {@code createBillingFileStr}
+     * (per-provider) and {@code createSiteBillingFileStr} (per-site); the
+     * only difference between those paths is whether {@code billing_time}
+     * is formatted as a date or a time.
+     *
+     * @param h                          source header row
+     * @param bNo                        bill-no string the caller already resolved
+     * @param billingTimeAsTimeString    true: use {@code toTimeString} (per-site path);
+     *                                   false: use {@code toDateString} (per-provider path)
+     * @throws BillingFileWriteException on a corrupt admission_date — the throw
+     *         aborts the surrounding batch instead of writing a claim with the
+     *         field silently stripped.
+     */
+    private BillingClaimHeaderDto buildClaimHeaderDto(BillingONCHeader1 h, String bNo,
+                                                      boolean billingTimeAsTimeString)
+            throws ParseException {
+        BillingClaimHeaderDto dto = new BillingClaimHeaderDto();
+        dto.setId(bNo);
+        dto.setTransc_id(h.getTranscId());
+        dto.setRec_id(h.getRecId());
+        dto.setHin(h.getHin());
+        dto.setVer(h.getVer());
+        dto.setDob(h.getDob());
+
+        dto.setPay_program(h.getPayProgram());
+        dto.setPayee(h.getPayee());
+        dto.setRef_num(h.getRefNum());
+        dto.setFacilty_num(h.getFaciltyNum());
+        try {
+            dto.setAdmission_date(ConversionUtils.toDateString(h.getAdmissionDate()));
+        } catch (ParseException e) {
+            // A corrupt admission_date on a single bill must abort the
+            // whole batch — the alternative (warn + continue) writes a
+            // claim with admission_date stripped to the MOH submission
+            // file, and the operator sees "file generated" with no
+            // signal that one row inside is malformed.
+            throw new BillingFileWriteException(
+                    "OHIP claim file aborted: bill " + h.getId()
+                            + " has unparseable admission_date ["
+                            + h.getAdmissionDate() + "]", e);
+        }
+        dto.setRef_lab_num(h.getRefLabNum());
+        dto.setMan_review(h.getManReview());
+        dto.setLocation(h.getLocation());
+
+        dto.setDemographic_no("" + h.getDemographicNo());
+        dto.setProviderNo(h.getProviderNo());
+        dto.setAppointment_no("" + h.getAppointmentNo());
+        dto.setDemographic_name(h.getDemographicName());
+        dto.setSex(h.getSex());
+        dto.setProvince(h.getProvince());
+
+        dto.setBilling_date(ConversionUtils.toDateString(h.getBillingDate()));
+        dto.setBilling_time(billingTimeAsTimeString
+                ? ConversionUtils.toTimeString(h.getBillingTime())
+                : ConversionUtils.toDateString(h.getBillingTime()));
+
+        NumberFormat currency = NumberFormat.getCurrencyInstance(Locale.US);
+        dto.setTotal(h.getTotal() == null ? "0.00" : currency.format(h.getTotal()));
+        dto.setPaid(h.getPaid() == null ? "0.00" : currency.format(h.getPaid()));
+        dto.setStatus(h.getStatus());
+        dto.setComment(h.getComment());
+        dto.setVisittype(h.getVisitType());
+        dto.setProvider_ohip_no(h.getProviderOhipNo());
+        dto.setProvider_rma_no(h.getProviderRmaNo());
+        dto.setApptProvider_no(h.getApptProviderNo());
+        dto.setAsstProvider_no(h.getAsstProviderNo());
+        dto.setCreator(h.getCreator());
+
+        dto.setClinic(h.getClinic());
+        return dto;
+    }
+
+    /**
+     * Build a {@link BillingClaimItemDto} from a {@link BillingONItem}.
+     * Pre-fix the same 12-setter sequence was duplicated between
+     * {@code createBillingFileStr} and {@code createSiteBillingFileStr}.
+     */
+    private BillingClaimItemDto buildClaimItemDto(BillingONItem item) {
+        BillingClaimItemDto dto = new BillingClaimItemDto();
+        dto.setTransc_id(item.getTranscId());
+        dto.setRec_id(item.getRecId());
+        dto.setService_code(item.getServiceCode());
+        dto.setFee(item.getFee());
+        dto.setSer_num(item.getServiceCount());
+        dto.setService_date(ConversionUtils.toDateString(item.getServiceDate()));
+        String diagcode = item.getDx();
+        diagcode = ":::".equals(diagcode) ? "   " : diagcode;
+        dto.setDx(diagcode);
+        dto.setDx1(item.getDx1());
+        dto.setDx2(item.getDx2());
+        dto.setStatus(item.getStatus());
+        return dto;
+    }
+
     private String buildHeader1(LoggedInInfo loggedInInfo) {
         String ret = "";
         String header1 = null;
@@ -552,63 +650,8 @@ public class OhipClaimFileService {
                 }
 
                 patientCount++;
-                ch1Obj = new BillingClaimHeaderDto();
-                ch1Obj.setId(bNo);
-                ch1Obj.setTransc_id(h.getTranscId());
-                ch1Obj.setRec_id(h.getRecId());
-                ch1Obj.setHin(h.getHin());
-                ch1Obj.setVer(h.getVer());
-                ch1Obj.setDob(h.getDob());
-
-                ch1Obj.setPay_program(h.getPayProgram());
-                ch1Obj.setPayee(h.getPayee());
-                ch1Obj.setRef_num(h.getRefNum());
-                ch1Obj.setFacilty_num(h.getFaciltyNum());
-                try {
-                    ch1Obj.setAdmission_date(ConversionUtils.toDateString(h.getAdmissionDate()));
-                } catch (ParseException e) {
-                    // A corrupt admission_date on a single bill must abort the
-                    // whole batch — the alternative (warn + continue) writes a
-                    // claim with admission_date stripped to the MOH submission
-                    // file, and the operator sees "file generated" with no
-                    // signal that one row inside is malformed.
-                    throw new BillingFileWriteException(
-                            "OHIP claim file aborted: bill " + h.getId()
-                                    + " has unparseable admission_date ["
-                                    + h.getAdmissionDate() + "]", e);
-                }
-                ch1Obj.setRef_lab_num(h.getRefLabNum());
-                ch1Obj.setMan_review(h.getManReview());
-                ch1Obj.setLocation(h.getLocation());
-
-                ch1Obj.setDemographic_no("" + h.getDemographicNo());
-                ch1Obj.setProviderNo(h.getProviderNo());
-                ch1Obj.setAppointment_no("" + h.getAppointmentNo());
-                ch1Obj.setDemographic_name(h.getDemographicName());
-                // String temp[] =
-                // getPatientLF(val.getParameter("demographic_name());
-                // ch1Obj.setLast_name(h.gettransc_id());
-                // ch1Obj.setFirst_name(h.gettransc_id());
-                ch1Obj.setSex(h.getSex());
-                ch1Obj.setProvince(h.getProvince());
-
-                ch1Obj.setBilling_date(ConversionUtils.toDateString(h.getBillingDate()));
-                ch1Obj.setBilling_time(ConversionUtils.toDateString(h.getBillingTime()));
-                // ch1Obj.setUpdate_datetime(h.gettransc_id());
-                NumberFormat currency = NumberFormat.getCurrencyInstance(Locale.US);
-                ch1Obj.setTotal(h.getTotal() == null ? "0.00" : currency.format(h.getTotal()));
-                ch1Obj.setPaid(h.getPaid() == null ? "0.00" : currency.format(h.getPaid()));
-                ch1Obj.setStatus(h.getStatus());
-                ch1Obj.setComment(h.getComment());
-                ch1Obj.setVisittype(h.getVisitType());
-                ch1Obj.setProvider_ohip_no(h.getProviderOhipNo());
+                ch1Obj = buildClaimHeaderDto(h, bNo, false);
                 ohipNo = ch1Obj.getProvider_ohip_no();
-                ch1Obj.setProvider_rma_no(h.getProviderRmaNo());
-                ch1Obj.setApptProvider_no(h.getApptProviderNo());
-                ch1Obj.setAsstProvider_no(h.getAsstProviderNo());
-                ch1Obj.setCreator(h.getCreator());
-
-                ch1Obj.setClinic(h.getClinic());
 
                 value += buildHeader1(loggedInInfo);
                 if (!simulation) {
@@ -622,23 +665,9 @@ public class OhipClaimFileService {
 
                 boolean hasSliCode = ch1Obj.getLocation().trim().length() == 3;
                 for (BillingONItem boi : itemDao.findByCh1Id(ConversionUtils.fromIntString(ch1Obj.getId()))) {
-                    itemObj = new BillingClaimItemDto();
+                    itemObj = buildClaimItemDto(boi);
                     recordCount++;
-                    // int count = 0;
-
-                    itemObj.setTransc_id(boi.getTranscId());
-                    itemObj.setRec_id(boi.getRecId());
-                    itemObj.setService_code(boi.getServiceCode());
-                    itemObj.setFee(boi.getFee());
-                    itemObj.setSer_num(boi.getServiceCount());
-                    itemObj.setService_date(ConversionUtils.toDateString(boi.getServiceDate()));
-                    diagcode = boi.getDx();
-                    diagcode = ":::".equals(diagcode) ? "   " : diagcode;
-                    itemObj.setDx(diagcode);
-                    itemObj.setDx1(boi.getDx1());
-                    itemObj.setDx2(boi.getDx2());
-                    itemObj.setStatus(boi.getStatus());
-
+                    diagcode = itemObj.getDx();
                     fee = boi.getFee();
 
                     if (!hasSliCode) {
@@ -730,56 +759,7 @@ public class OhipClaimFileService {
                 }
 
                 patientCount++;
-                ch1Obj = new BillingClaimHeaderDto();
-                ch1Obj.setId(bNo);
-                ch1Obj.setTransc_id(b.getTranscId());
-                ch1Obj.setRec_id(b.getRecId());
-                ch1Obj.setHin(b.getHin());
-                ch1Obj.setVer(b.getVer());
-                ch1Obj.setDob(b.getDob());
-
-                ch1Obj.setPay_program(b.getPayProgram());
-                ch1Obj.setPayee(b.getPayee());
-                ch1Obj.setRef_num(b.getRefNum());
-                ch1Obj.setFacilty_num(b.getFaciltyNum());
-                try {
-                    ch1Obj.setAdmission_date(ConversionUtils.toDateString(b.getAdmissionDate()));
-                } catch (ParseException e) {
-                    // PHI/billing integrity: see matching note in the per-provider
-                    // branch above. A corrupt admission_date must abort, not be
-                    // silently stripped from the claim record we're about to
-                    // write to the MOH submission file.
-                    throw new BillingFileWriteException(
-                            "OHIP claim file aborted: bill " + b.getId()
-                                    + " has unparseable admission_date ["
-                                    + b.getAdmissionDate() + "]", e);
-                }
-                ch1Obj.setRef_lab_num(b.getRefLabNum());
-                ch1Obj.setMan_review(b.getManReview());
-                ch1Obj.setLocation(b.getLocation());
-
-                ch1Obj.setDemographic_no("" + b.getDemographicNo());
-                ch1Obj.setProviderNo(b.getProviderNo());
-                ch1Obj.setAppointment_no("" + b.getAppointmentNo());
-                ch1Obj.setDemographic_name(b.getDemographicName());
-                ch1Obj.setSex(b.getSex());
-                ch1Obj.setProvince(b.getProvince());
-
-                ch1Obj.setBilling_date(ConversionUtils.toDateString(b.getBillingDate()));
-                ch1Obj.setBilling_time(ConversionUtils.toTimeString(b.getBillingTime()));
-                NumberFormat currency = NumberFormat.getCurrencyInstance(Locale.US);
-                ch1Obj.setTotal(b.getTotal() == null ? "0.00" : currency.format(b.getTotal()));
-                ch1Obj.setPaid(b.getPaid() == null ? "0.00" : currency.format(b.getPaid()));
-                ch1Obj.setStatus(b.getStatus());
-                ch1Obj.setComment(b.getComment());
-                ch1Obj.setVisittype(b.getVisitType());
-                ch1Obj.setProvider_ohip_no(b.getProviderOhipNo());
-                ch1Obj.setProvider_rma_no(b.getProviderRmaNo());
-                ch1Obj.setApptProvider_no(b.getApptProviderNo());
-                ch1Obj.setAsstProvider_no(b.getAsstProviderNo());
-                ch1Obj.setCreator(b.getCreator());
-
-                ch1Obj.setClinic(b.getClinic());
+                ch1Obj = buildClaimHeaderDto(b, bNo, true);
                 if (ch1Obj.getClinic() == null || ch1Obj.getClinic().equalsIgnoreCase("null")) {
                     ch1Obj.setClinic("");
                     clinicBgColor = "FFFFFF";
@@ -794,21 +774,9 @@ public class OhipClaimFileService {
                 invCount = 0;
 
                 for (BillingONItem i : itemDao.findByCh1Id(ConversionUtils.fromIntString(ch1Obj.getId()))) {
-                    itemObj = new BillingClaimItemDto();
+                    itemObj = buildClaimItemDto(i);
                     recordCount++;
-
-                    itemObj.setTransc_id(i.getTranscId());
-                    itemObj.setRec_id(i.getRecId());
-                    itemObj.setService_code(i.getServiceCode());
-                    itemObj.setFee(i.getFee());
-                    itemObj.setSer_num(i.getServiceCount());
-                    itemObj.setService_date(ConversionUtils.toDateString(i.getServiceDate()));
-                    diagcode = i.getDx();
-                    diagcode = ":::".equals(diagcode) ? "   " : diagcode;
-                    itemObj.setDx(diagcode);
-                    itemObj.setDx1(i.getDx1());
-                    itemObj.setDx2(i.getDx2());
-                    itemObj.setStatus(i.getStatus());
+                    diagcode = itemObj.getDx();
                     fee = i.getFee();
                     bdFee = BillingMoney.amount(fee);
                     BigTotal = BigTotal.add(bdFee);

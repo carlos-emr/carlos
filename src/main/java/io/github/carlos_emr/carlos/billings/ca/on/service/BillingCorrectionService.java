@@ -217,8 +217,11 @@ public class BillingCorrectionService {
      *   <li>{@code "submitClose"} — successful save, default close behaviour</li>
      *   <li>{@code "closeReload"} — Save&amp;Correct Another submitted</li>
      *   <li>{@code "adminReload"} — admin-flow reload</li>
-     *   <li>{@code "failure"} — currently only on internal helper failures
-     *       that haven't yet been migrated to BVE; see TODO in the code</li>
+     *   <li>throws {@link BillingValidationException} on header-update or
+     *       item-fee-parse failure — Spring's {@code @Transactional} proxy
+     *       rolls back any dirty-flushed mutations the method made before
+     *       the throw, leaving the persistent state untouched. Returning a
+     *       failure string would commit those partial mutations.</li>
      * </ul>
      */
     public String updateInvoice(LoggedInInfo loggedInInfo, HttpServletRequest request) {
@@ -249,8 +252,12 @@ public class BillingCorrectionService {
                     + LogSanitizer.sanitizeForDisplay(rawBillingNo) + ") not found");
         }
 
-        if (!updateBillingONCHeader1(bCh1, loggedInInfo, request))
-            return "failure";
+        if (!updateBillingONCHeader1(bCh1, loggedInInfo, request)) {
+            // Throw rather than return "failure": the class is @Transactional
+            // and Spring only rolls back on exceptions. A return string would
+            // commit any dirty-flushed item mutations made before this point.
+            throw newHeaderUpdateRejected(rawBillingNo);
+        }
 
         if (!bCh1.getBillingItems().isEmpty()) {
             updateBillingItems(bCh1, request);
@@ -260,7 +267,11 @@ public class BillingCorrectionService {
             // entity's own state.
             java.util.Optional<java.math.BigDecimal> newTotal = bCh1.recomputeTotalFromItems();
             if (newTotal.isEmpty()) {
-                return "failure";
+                // Same rationale as the header-update throw above: returning
+                // "failure" here would commit the dirty-flushed item edits
+                // (delete flags, fee changes, new items added) while leaving
+                // the header total stale — an inconsistent persistent state.
+                throw newItemFeeUnparseable();
             }
             java.math.BigDecimal current = bCh1.getTotal();
             if (current == null || current.compareTo(newTotal.get()) != 0) {
@@ -675,5 +686,19 @@ public class BillingCorrectionService {
                 || !bCh1.getLocation().equals(request.getParameter("xml_slicode"))
                 || !StringUtils.nullSafeEquals(bCh1.getClinic(), request.getParameter("site"))
                 || !bCh1.getProvince().equals(request.getParameter("hc_type"));
+    }
+
+    private static BillingValidationException newHeaderUpdateRejected(String rawBillingNo) {
+        // Log with sanitized id for audit; user message is plain to avoid
+        // round-tripping unsanitized data through the rendered error page.
+        MiscUtils.getLogger().error("updateInvoice header rejected for bill {}",
+                LogSanitizer.sanitize(rawBillingNo));
+        return new BillingValidationException(
+                "Bill change rejected: header update failed; please refresh and retry.");
+    }
+
+    private static BillingValidationException newItemFeeUnparseable() {
+        return new BillingValidationException(
+                "Bill change rejected: one or more item fees could not be parsed; refresh and retry.");
     }
 }

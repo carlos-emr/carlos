@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import jakarta.servlet.http.HttpServletRequest;
@@ -87,7 +88,7 @@ public class BillingDeleteWithoutNo2Action extends ActionSupport {
         try {
             apptNo = Integer.parseInt(apptNoStr);
         } catch (NumberFormatException e) {
-            MiscUtils.getLogger().error("Invalid appointment_no: {}", apptNoStr);
+            MiscUtils.getLogger().error("Invalid appointment_no: {}", LogSanitizer.sanitize(apptNoStr));
             return ERROR;
         }
 
@@ -132,7 +133,7 @@ public class BillingDeleteWithoutNo2Action extends ActionSupport {
                         rowsAffected = 1;
                     }
                 } catch (NumberFormatException e) {
-                    MiscUtils.getLogger().error("Invalid billNo: {}", billNo);
+                    MiscUtils.getLogger().error("Invalid billNo: {}", LogSanitizer.sanitize(billNo));
                 }
             }
         }

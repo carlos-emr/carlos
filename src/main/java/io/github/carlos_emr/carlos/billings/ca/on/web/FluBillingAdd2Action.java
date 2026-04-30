@@ -69,15 +69,18 @@ public class FluBillingAdd2Action extends ActionSupport {
     private final BillingDao billingDao;
     private final BillingDetailDao billingDetailDao;
     private final BillingServiceDao billingServiceDao;
+    private final io.github.carlos_emr.carlos.billings.ca.on.service.FluBillingPersistenceService fluBillingPersistenceService;
 
     public FluBillingAdd2Action(SecurityInfoManager securityInfoManager,
                                 BillingDao billingDao,
                                 BillingDetailDao billingDetailDao,
-                                BillingServiceDao billingServiceDao) {
+                                BillingServiceDao billingServiceDao,
+                                io.github.carlos_emr.carlos.billings.ca.on.service.FluBillingPersistenceService fluBillingPersistenceService) {
         this.securityInfoManager = securityInfoManager;
         this.billingDao = billingDao;
         this.billingDetailDao = billingDetailDao;
         this.billingServiceDao = billingServiceDao;
+        this.fluBillingPersistenceService = fluBillingPersistenceService;
     }
 
     /**
@@ -96,9 +99,7 @@ public class FluBillingAdd2Action extends ActionSupport {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.setHeader("Allow", "POST");
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+        if (!BillingRequestGuards.requirePost(request, response)) {
             return NONE;
         }
 
@@ -218,10 +219,7 @@ public class FluBillingAdd2Action extends ActionSupport {
         // billingDao.persist + billingDetailDao.persist calls ran inline with
         // no tx boundary — a detail-insert failure left an orphan parented-
         // only Billing row.
-        io.github.carlos_emr.carlos.billings.ca.on.service.FluBillingPersistenceService persister =
-                io.github.carlos_emr.carlos.utility.SpringUtils.getBean(
-                        io.github.carlos_emr.carlos.billings.ca.on.service.FluBillingPersistenceService.class);
-        persister.persistFluBilling(b, bd);
+        fluBillingPersistenceService.persistFluBilling(b, bd);
 
         boolean billSaved = b.getId() != null && b.getId() > 0;
 

@@ -132,13 +132,22 @@ public class GenerateRaDescriptionViewModelAssembler {
                 + "<xml_co_total>" + coTotal + "</xml_co_total>";
 
         // Mutation: persist parsed totals + merged content blob onto every
-        // RaHeader sharing this filename + payment date.
-        for (RaHeader r : raHeaderDao.findByFilenamePaymentDate(rh.getFilename(), parsed.paymentDate)) {
-            r.setTotalAmount(parsed.cheque);
-            r.setRecords(String.valueOf(parsed.recordCount));
-            r.setClaims(String.valueOf(parsed.claimCount));
-            r.setContent(mergedContent);
-            raHeaderDao.merge(r);
+        // RaHeader sharing this filename + payment date — but ONLY when the
+        // parse fully completed AND H1 totals decoded cleanly. Otherwise the
+        // merge would stamp partial/zero state onto persisted rows, masking
+        // upstream pipeline data with fake "0.00" cheques and zero counts.
+        if (parsed.fileReadComplete && parsed.h1Parsed) {
+            for (RaHeader r : raHeaderDao.findByFilenamePaymentDate(rh.getFilename(), parsed.paymentDate)) {
+                r.setTotalAmount(parsed.cheque);
+                r.setRecords(String.valueOf(parsed.recordCount));
+                r.setClaims(String.valueOf(parsed.claimCount));
+                r.setContent(mergedContent);
+                raHeaderDao.merge(r);
+            }
+        } else {
+            MiscUtils.getLogger().warn(
+                    "Skipping RaHeader merge for raNo={} — parse incomplete (fileReadComplete={}, h1Parsed={})",
+                    raNo, parsed.fileReadComplete, parsed.h1Parsed);
         }
 
         b.chequeTotal(parsed.cheque)
@@ -238,6 +247,9 @@ public class GenerateRaDescriptionViewModelAssembler {
                     }
                 }
             }
+            // Set only after the loop completes without IOException so the
+            // assemble() merge can distinguish a clean read from a partial one.
+            out.fileReadComplete = true;
         } catch (IOException e) {
             MiscUtils.getLogger().error("Failed to parse RA file '{}'", filename, e);
         }
@@ -247,7 +259,10 @@ public class GenerateRaDescriptionViewModelAssembler {
     }
 
     private static void parseH1(String line, ParsedFile out) {
-        if (line.length() < 77) return;
+        if (line.length() < 77) {
+            MiscUtils.getLogger().warn("H1 record too short ({} chars, need 77) — cheque total cannot be decoded", line.length());
+            return;
+        }
         out.paymentDate = line.substring(21, 29);
         // payable substring 29..59 unused in render; preserved here for parity
         String total = line.substring(59, 68);
@@ -260,8 +275,12 @@ public class GenerateRaDescriptionViewModelAssembler {
                 String s = String.valueOf(totalSum);
                 out.cheque = s.substring(0, s.length() - 2) + "." + s.substring(s.length() - 2) + totalStatus;
             }
+            out.h1Parsed = true;
         } catch (NumberFormatException e) {
-            out.cheque = "0.00";
+            // Don't silently fall back to "0.00" — leaving h1Parsed=false makes
+            // the assemble() merge skip this RA so a parse failure can't stamp
+            // a fake zero cheque onto persisted RaHeader rows.
+            MiscUtils.getLogger().warn("H1 cheque total not numeric (raw='{}') — leaving cheque unparsed", total, e);
         }
     }
 
@@ -370,5 +389,14 @@ public class GenerateRaDescriptionViewModelAssembler {
                 new GenerateRaDescriptionViewModel.BalanceForwardRow("0.000", "0.000", "0.000", "0.000");
         List<GenerateRaDescriptionViewModel.TransactionRow> transactionRows = new ArrayList<>();
         String messageTxt = "";
+        // True only after parseH1 successfully decoded the cheque total.
+        // False if the H1 line was short or the embedded total wasn't numeric —
+        // the merge must NOT run in that state, otherwise a "0.00" zero-fallback
+        // gets persisted onto every RaHeader sharing this filename.
+        boolean h1Parsed = false;
+        // True only after the file read loop reached EOF without IOException.
+        // False if the stream blew up mid-parse — partial transaction/balance
+        // state would otherwise be merged as if it were a complete parse.
+        boolean fileReadComplete = false;
     }
 }

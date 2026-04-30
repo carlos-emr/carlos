@@ -37,7 +37,25 @@ public final class BillingItemsNotLoadedException extends IllegalStateException 
 
     private static final long serialVersionUID = 1L;
 
+    private final int headerId;
+
     public BillingItemsNotLoadedException(String message) {
         super(message);
+        this.headerId = -1;
+    }
+
+    public BillingItemsNotLoadedException(String message, int headerId) {
+        super(message);
+        this.headerId = headerId;
+    }
+
+    /**
+     * Header id whose lazy items collection failed to initialize.
+     * Returns {@code -1} when the throw site couldn't supply the id
+     * (legacy ctor); callers can {@code findWithItems(headerId())} to
+     * re-fetch with eager loading.
+     */
+    public int headerId() {
+        return headerId;
     }
 }

@@ -23,13 +23,8 @@
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import io.github.carlos_emr.carlos.appt.ApptStatusData;
-import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
-import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
-import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
-import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
-import io.github.carlos_emr.carlos.commn.model.BillingONExt;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -39,9 +34,10 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 
-import java.util.ArrayList;
+
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingClaimSubmissionService;
 
 /**
@@ -61,8 +57,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingClaimSubmission
 public class BillingOnSave2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
-    private final BillingONCHeader1Dao cheader1Dao;
-    private final BillingONExtDao extDao;
     private final UserPropertyDAO userPropertyDAO;
     private final BillingDao billingDao;
     private final BillingClaimSubmissionService bObj;
@@ -70,15 +64,11 @@ public class BillingOnSave2Action extends ActionSupport {
 
     @org.springframework.beans.factory.annotation.Autowired
     public BillingOnSave2Action(SecurityInfoManager securityInfoManager,
-                                BillingONCHeader1Dao cheader1Dao,
-                                BillingONExtDao extDao,
                                 UserPropertyDAO userPropertyDAO,
                                 BillingDao billingDao,
                                 BillingClaimSubmissionService bObj,
                                 io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionRecordService correctionPrep) {
         this.securityInfoManager = securityInfoManager;
-        this.cheader1Dao = cheader1Dao;
-        this.extDao = extDao;
         this.userPropertyDAO = userPropertyDAO;
         this.billingDao = billingDao;
         this.bObj = bObj;
@@ -127,44 +117,35 @@ public class BillingOnSave2Action extends ActionSupport {
             return SUCCESS;
         }
 
-        ArrayList vecObj = bObj.getBillingClaimObj(request);
-        BillingClaimSubmissionService.SaveResult saveResult = bObj.addABillingRecord(vecObj);
-        boolean ret = saveResult.saved();
-        int billingNo = saveResult.billingId();
-
+        BillingClaimSubmissionService.BillingClaimSubmission submission = bObj.getSubmission(request);
         String xmlBillType = request.getParameter("xml_billtype");
-        if (billingNo > 0) {
-            if (xmlBillType != null
-                    && xmlBillType.length() >= 3
-                    && xmlBillType.substring(0, 3).matches(BillingOnConstants.BILLINGMATCHSTRING_3RDPARTY)) {
-                // Pre-fix: the boolean return was discarded — third-party ext
-                // rows that failed to write left only an internal error log,
-                // and the action returned SUCCESS. Mark the overall save as
-                // failed so the operator sees the failure result instead of
-                // a phantom green check on the bill.
-                boolean extOk = bObj.addPrivateBillExtRecord(request, vecObj, billingNo);
-                if (!extOk) {
-                    ret = false;
-                }
-            } else {
-                bObj.addOhipInvoiceTrans(vecObj);
-            }
+
+        String payeeValue = request.getParameter("payeename");
+        if (payeeValue == null || payeeValue.trim().isEmpty()) {
+            payeeValue = request.getParameter("payeename1");
         }
 
-        String value = request.getParameter("payeename");
-        if (value == null || value.trim().isEmpty()) {
-            value = request.getParameter("payeename1");
-        }
-
-        BillingONCHeader1 billing = billingNo > 0 ? cheader1Dao.find(billingNo) : null;
-        if (billing != null) {
-            BillingONExt ext = new BillingONExt();
-            ext.setBillingNo(billingNo);
-            ext.setDemographicNo(billing.getDemographicNo());
-            ext.setKeyVal("payee");
-            ext.setValue(value);
-            ext.setDateTime(billing.getTimestamp());
-            extDao.persist(ext);
+        // Single @Transactional call: header + items + 3rd-party/OHIP-trans
+        // + payee ext all run inside one tx. Pre-fix these were four
+        // sequential service calls, each in its own tx; a payee-write
+        // failure after the header committed orphaned the bill row.
+        boolean ret;
+        int billingNo;
+        try {
+            BillingClaimSubmissionService.SaveResult saveResult =
+                    bObj.saveBillingWithExtAndPayee(submission, request, xmlBillType, payeeValue);
+            ret = saveResult.saved();
+            billingNo = saveResult.billingId();
+        } catch (io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException e) {
+            // Service rolled back. Surface the same "save rejected" outcome
+            // the operator would have seen with the round-3 boolean signal.
+            MiscUtils.getLogger().error("Bill save rejected and rolled back: {}", e.getMessage());
+            ret = false;
+            billingNo = 0;
+        } catch (BillingClaimSubmissionService.BillingItemPersistenceException e) {
+            MiscUtils.getLogger().error("Bill save rolled back: {}", e.getMessage());
+            ret = false;
+            billingNo = 0;
         }
 
         if (ret) {

@@ -22,66 +22,55 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;
 
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
-public class PatientEndYearStatementInvoice {
-    private Date invoiceDate;
-    private int invoiceNo;
-    private String invoiced;
-    private String paid;
-    private List<PatientEndYearStatementServiceLine> services;
+/**
+ * One invoice on a patient end-year statement. Immutable record so the JSP
+ * cannot mutate the persisted aggregation through the model. The {@code
+ * services} list and {@code invoiceDate} are defensively copied at
+ * construction.
+ */
+public record PatientEndYearStatementInvoice(
+        int invoiceNo,
+        Date invoiceDate,
+        String invoiced,
+        String paid,
+        List<PatientEndYearStatementServiceLine> services) {
 
-    public PatientEndYearStatementInvoice() {
+    /** Defensive copy on the way in: {@code Date} is mutable, the list might
+     *  be the live ArrayList the assembler built. */
+    public PatientEndYearStatementInvoice {
+        invoiceDate = invoiceDate == null ? null : new Date(invoiceDate.getTime());
+        services = services == null ? Collections.emptyList() : List.copyOf(services);
     }
 
-    public PatientEndYearStatementInvoice(int invoiceNo, Date invoiceDate,
-                                              String invoiced, String paid) {
-        super();
-        this.invoiceDate = invoiceDate;
-        this.invoiceNo = invoiceNo;
-        this.invoiced = invoiced;
-        this.paid = paid;
+    public PatientEndYearStatementInvoice(int invoiceNo, Date invoiceDate, String invoiced, String paid) {
+        this(invoiceNo, invoiceDate, invoiced, paid, Collections.emptyList());
     }
 
-    public Date getInvoiceDate() {
-        return invoiceDate;
+    /** Return a new instance with {@code services} replaced — preserves
+     *  immutability while letting the assembler build the list after the
+     *  invoice header is ready. */
+    public PatientEndYearStatementInvoice withServices(List<PatientEndYearStatementServiceLine> newServices) {
+        return new PatientEndYearStatementInvoice(invoiceNo, invoiceDate, invoiced, paid, newServices);
     }
 
-    public void setInvoiceDate(Date invoiceDate) {
-        this.invoiceDate = invoiceDate;
+    /** Defensive copy on the way out — same rationale as the compact ctor. */
+    @Override
+    public Date invoiceDate() {
+        return invoiceDate == null ? null : new Date(invoiceDate.getTime());
     }
 
-    public int getInvoiceNo() {
-        return invoiceNo;
-    }
+    // ---- legacy getters for JSP EL compatibility ------------------------
+    // EL also resolves the record's auto-accessors (e.g. ${row.invoiceNo})
+    // but explicit getters keep parity with the pre-record API for any
+    // direct Java callers that expected the JavaBean shape.
 
-    public void setInvoiceNo(int invoiceNo) {
-        this.invoiceNo = invoiceNo;
-    }
-
-    public String getInvoiced() {
-        return invoiced;
-    }
-
-    public void setInvoiced(String invoiced) {
-        this.invoiced = invoiced;
-    }
-
-    public String getPaid() {
-        return paid;
-    }
-
-    public void setPaid(String paid) {
-        this.paid = paid;
-    }
-
-    public List<PatientEndYearStatementServiceLine> getServices() {
-        return services;
-    }
-
-    public void setServices(List<PatientEndYearStatementServiceLine> services) {
-        this.services = services;
-    }
-
+    public int getInvoiceNo() { return invoiceNo; }
+    public Date getInvoiceDate() { return invoiceDate(); }
+    public String getInvoiced() { return invoiced; }
+    public String getPaid() { return paid; }
+    public List<PatientEndYearStatementServiceLine> getServices() { return services; }
 }

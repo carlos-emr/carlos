@@ -32,7 +32,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFormConfigurationService;
 import io.github.carlos_emr.carlos.commn.model.CtlBillingService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
@@ -40,6 +40,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -60,7 +62,8 @@ public class ManageBillingFormService2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private CtlBillingServiceDao ctlBillingServiceDao = SpringUtils.getBean(CtlBillingServiceDao.class);
+    private BillingFormConfigurationService billingFormConfigurationService =
+            SpringUtils.getBean(BillingFormConfigurationService.class);
 
     /**
      * Replaces all service codes for the given Ontario billing service type.
@@ -70,8 +73,7 @@ public class ManageBillingFormService2Action extends ActionSupport {
      */
     @Override
     public String execute() throws Exception {
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+        if (!BillingRequestGuards.requirePost(request, response)) {
             return NONE;
         }
 
@@ -88,45 +90,42 @@ public class ManageBillingFormService2Action extends ActionSupport {
             return NONE;
         }
 
-        try {
-            // Delete all existing service entries for this service type
-            for (CtlBillingService b : ctlBillingServiceDao.findByServiceType(typeid)) {
-                ctlBillingServiceDao.remove(b.getId());
-            }
-
-            // Persist non-empty service entries across the three groups (j=1..3, i=0..19)
-            for (int j = 1; j < 4; j++) {
-                String groupName = Objects.toString(request.getParameter("group" + j), "");
-
-                for (int i = 0; i < 20; i++) {
-                    String serviceCode = request.getParameter("group" + j + "_service" + i);
-                    if (serviceCode == null || serviceCode.isEmpty()) {
-                        continue;
-                    }
-                    String orderStr = request.getParameter("group" + j + "_service" + i + "_order");
-                    int serviceOrder = 0;
-                    if (orderStr != null && !orderStr.isEmpty()) {
-                        try {
-                            serviceOrder = Integer.parseInt(orderStr);
-                        } catch (NumberFormatException e) {
-                            MiscUtils.getLogger().warn("Invalid serviceOrder value '{}' for group{}_service{} — defaulting to 0", LogSanitizer.sanitize(orderStr), j, i);
-                            serviceOrder = 0;
-                        }
-                    }
-
-                    CtlBillingService cbs = new CtlBillingService();
-                    cbs.setServiceTypeName(type);
-                    cbs.setServiceType(typeid);
-                    cbs.setServiceCode(serviceCode);
-                    cbs.setServiceGroupName(groupName);
-                    cbs.setServiceGroup("Group" + j);
-                    cbs.setStatus("A");
-                    cbs.setServiceOrder(serviceOrder);
-                    ctlBillingServiceDao.persist(cbs);
+        List<CtlBillingService> replacement = new ArrayList<>();
+        for (int j = 1; j < 4; j++) {
+            String groupName = Objects.toString(request.getParameter("group" + j), "");
+            for (int i = 0; i < 20; i++) {
+                String serviceCode = request.getParameter("group" + j + "_service" + i);
+                if (serviceCode == null || serviceCode.isEmpty()) {
+                    continue;
                 }
+                String orderStr = request.getParameter("group" + j + "_service" + i + "_order");
+                int serviceOrder = 0;
+                if (orderStr != null && !orderStr.isEmpty()) {
+                    try {
+                        serviceOrder = Integer.parseInt(orderStr);
+                    } catch (NumberFormatException e) {
+                        MiscUtils.getLogger().warn("Invalid serviceOrder value '{}' for group{}_service{} — defaulting to 0", LogSanitizer.sanitize(orderStr), j, i);
+                        serviceOrder = 0;
+                    }
+                }
+
+                CtlBillingService cbs = new CtlBillingService();
+                cbs.setServiceTypeName(type);
+                cbs.setServiceType(typeid);
+                cbs.setServiceCode(serviceCode);
+                cbs.setServiceGroupName(groupName);
+                cbs.setServiceGroup("Group" + j);
+                cbs.setStatus("A");
+                cbs.setServiceOrder(serviceOrder);
+                replacement.add(cbs);
             }
+        }
+
+        try {
+            billingFormConfigurationService.replaceServiceCodes(typeid, replacement);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to replace service codes for typeid={} — data may be inconsistent", typeid, e);
+            MiscUtils.getLogger().error("Failed to replace service codes for typeid={} — transaction rolled back",
+                    LogSanitizer.sanitize(typeid), e);
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to update service codes");
             return NONE;
         }

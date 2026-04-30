@@ -22,31 +22,13 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;
 
-
-public class PatientEndYearStatementServiceLine {
-    private String code;
-    private String fee;
-
-    public PatientEndYearStatementServiceLine(String code, String fee) {
-        super();
-        this.code = code;
-        this.fee = fee;
-    }
-
-    public String getCode() {
-        return code;
-    }
-
-    public void setCode(String code) {
-        this.code = code;
-    }
-
-    public String getFee() {
-        return fee;
-    }
-
-    public void setFee(String fee) {
-        this.fee = fee;
-    }
-
+/**
+ * One service-code line on a patient end-year statement invoice. Immutable —
+ * a service line is fully described by its code + fee at construction time
+ * and never mutates afterwards.
+ *
+ * <p>Both record accessor styles are supported by JSP EL: {@code ${line.code}}
+ * maps to {@code code()} for records or {@code getCode()} for classes.</p>
+ */
+public record PatientEndYearStatementServiceLine(String code, String fee) {
 }

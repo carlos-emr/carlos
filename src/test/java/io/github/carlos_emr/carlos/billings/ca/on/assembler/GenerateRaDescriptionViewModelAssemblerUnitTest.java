@@ -45,7 +45,11 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @DisplayName("GenerateRaDescriptionViewModelAssembler")
@@ -122,6 +126,72 @@ class GenerateRaDescriptionViewModelAssemblerUnitTest extends CarlosUnitTestBase
                 .contains("<xml_transaction>")
                 .contains("&lt;script&gt;alert(1)&lt;/script&gt; &amp; text")
                 .doesNotContain("<table", "<tr>", "<tr ", "<td", "<script>");
+    }
+
+    @Test
+    void shouldSkipRaHeaderMerge_whenH1TotalIsNonNumeric() throws Exception {
+        // Build an H1 line with the cheque-total substring [59,68) set to a
+        // non-numeric value. parseH1 catches the NumberFormatException and
+        // leaves h1Parsed=false, so the assemble() merge MUST be skipped.
+        String filename = "ra-h1-bad-total.txt";
+        Files.writeString(tempDir.resolve(filename), h1LineWithRawTotal("ABCDEFGHI") + "\n",
+                StandardCharsets.ISO_8859_1);
+
+        RaHeader header = new RaHeader();
+        header.setFilename(filename);
+        header.setStatus("A");
+        header.setContent("");
+        when(mockRaHeaderDao.find((Object) 9)).thenReturn(header);
+        when(mockBillingONPremiumDao.getRAPremiumsByRaHeaderNo(9)).thenReturn(List.of());
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("rano", "9");
+
+        new GenerateRaDescriptionViewModelAssembler(
+                mockRaHeaderDao, mockBillingONPremiumDao, mockProviderDao).assemble(request, null);
+
+        // CRITICAL: when H1 totals can't be parsed, the merge path that would
+        // overwrite RaHeader.content with a fake "$0.00" cheque must be
+        // skipped entirely.
+        verify(mockRaHeaderDao, never()).findByFilenamePaymentDate(anyString(), anyString());
+        verify(mockRaHeaderDao, never()).merge(any(RaHeader.class));
+    }
+
+    @Test
+    void shouldSkipRaHeaderMerge_whenFileReadDoesNotComplete() throws Exception {
+        // Point at a filename that doesn't exist — FileInputStream construction
+        // throws, validatePath probably throws SecurityException first or the
+        // try-with-resources fails to open. Either way, fileReadComplete stays
+        // false and the merge must NOT run.
+        String filename = "does-not-exist.txt";
+        // (intentionally do NOT create the file)
+
+        RaHeader header = new RaHeader();
+        header.setFilename(filename);
+        header.setStatus("A");
+        header.setContent("");
+        when(mockRaHeaderDao.find((Object) 11)).thenReturn(header);
+        when(mockBillingONPremiumDao.getRAPremiumsByRaHeaderNo(11)).thenReturn(List.of());
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("rano", "11");
+
+        new GenerateRaDescriptionViewModelAssembler(
+                mockRaHeaderDao, mockBillingONPremiumDao, mockProviderDao).assemble(request, null);
+
+        verify(mockRaHeaderDao, never()).findByFilenamePaymentDate(anyString(), anyString());
+        verify(mockRaHeaderDao, never()).merge(any(RaHeader.class));
+    }
+
+    /** Variant of h1Line() that lets a test inject any 9-char total slot. */
+    private static String h1LineWithRawTotal(String rawTotal) {
+        StringBuilder line = new StringBuilder(" ".repeat(77));
+        replace(line, 0, "H");
+        replace(line, 2, "1");
+        replace(line, 21, "20260428");
+        replace(line, 59, rawTotal);  // [59,68) — 9 chars
+        replace(line, 68, " ");
+        return line.toString();
     }
 
     private static String h1Line(String paymentDate) {

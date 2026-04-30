@@ -633,14 +633,6 @@ public class BillingShortcutPg2Service {
         return s.substring(0, s.indexOf("|")).trim();
     }
 
-    private static int parseInt(String s) {
-        try {
-            return Integer.parseInt(s);
-        } catch (NumberFormatException | NullPointerException ex) {
-            return 0;
-        }
-    }
-
     /**
      * Strict parse for FK fields (demographic_no, clinic_no, appointment_no).
      * Throws {@link BillingValidationException} so the missing or malformed

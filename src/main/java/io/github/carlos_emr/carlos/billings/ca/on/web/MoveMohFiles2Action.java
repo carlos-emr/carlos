@@ -80,7 +80,7 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
  * @see EDTFolder
  * @see PathValidationUtils
  * @see SecurityInfoManager
- * @since 2026-01-24
+ * @since 2014-03-24
  */
 public class MoveMohFiles2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest(); 
@@ -186,7 +186,7 @@ public class MoveMohFiles2Action extends ActionSupport {
                         if (isMoved) {
                             messages.append("Archived file ").append(SafeEncode.forHtml(file.getName())).append(" successfully.<br/>");
                         } else {
-                            errors.append("Unable to archive ").append(SafeEncode.forHtml(file.getName()));
+                            errors.append("Unable to archive ").append(SafeEncode.forHtml(file.getName())).append(".<br/>");
                         }
                     }
                 }
@@ -239,21 +239,16 @@ public class MoveMohFiles2Action extends ActionSupport {
      * @return populated view model (never null)
      */
     private ViewMohFilesViewModel buildViewModel(HttpServletRequest req, String folderParam) {
+        // EDTFolder.getFolder never returns null — invalid input falls back
+        // to INBOX. Keeps the previous "if (folder == null)" branch out of
+        // scope; that branch was always dead.
         EDTFolder folder = EDTFolder.getFolder(folderParam);
-        if (folder == null) {
-            logger.warn("viewMOHFiles: invalid folder parameter '{}'", LogSanitizer.sanitize(folderParam));
-            return ViewMohFilesViewModel.builder()
-                    .selectedFolder(folderParam == null ? "" : folderParam)
-                    .projectHome(CarlosProperties.getInstance().getProperty("project_home", ""))
-                    .unzipMessage("Invalid folder selection")
-                    .build();
-        }
         String folderPath = folder.getPath();
 
         if (folderPath == null || folderPath.isEmpty()) {
             logger.error("Unable to find the key ONEDT_{} in the properties file. Please check the value of this key or add it if it is missing.", folder.name());
             return ViewMohFilesViewModel.builder()
-                    .selectedFolder(folder.name())
+                    .selectedFolder(folder)
                     .projectHome(CarlosProperties.getInstance().getProperty("project_home", ""))
                     .build();
         }
@@ -309,7 +304,7 @@ public class MoveMohFiles2Action extends ActionSupport {
         }
 
         return ViewMohFilesViewModel.builder()
-                .selectedFolder(folder.name())
+                .selectedFolder(folder)
                 .files(entries)
                 .projectHome(CarlosProperties.getInstance().getProperty("project_home", ""))
                 .unzipMessage(unzipMSG)

@@ -19,6 +19,8 @@ package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;
 import java.util.Collections;
 import java.util.List;
 
+import io.github.carlos_emr.carlos.billing.CA.ON.util.EDTFolder;
+
 /**
  * Immutable view model for {@code billing/CA/ON/viewMOHFiles.jsp}, the
  * MOH (Ministry of Health) EDT-folder file listing page used by the
@@ -42,12 +44,6 @@ import java.util.List;
  */
 public final class ViewMohFilesViewModel {
 
-    /** Folder names — match {@link io.github.carlos_emr.carlos.billing.CA.ON.util.EDTFolder} values. */
-    public static final String INBOX = "INBOX";
-    public static final String OUTBOX = "OUTBOX";
-    public static final String SENT = "SENT";
-    public static final String ARCHIVE = "ARCHIVE";
-
     /** One row in the file-list table. */
     public record FileEntry(
             String displayName,
@@ -55,23 +51,13 @@ public final class ViewMohFilesViewModel {
             String date,
             String unzipMessage) { }
 
-    private final String selectedFolder;
-    private final boolean isInbox;
-    private final boolean isArchive;
-    private final boolean isOutbox;
-    private final boolean isSent;
-    private final boolean providesAccessToFiles;
+    private final EDTFolder selectedFolder;
     private final List<FileEntry> files;
     private final String projectHome;
     private final String unzipMessage;
 
     private ViewMohFilesViewModel(Builder b) {
-        this.selectedFolder = b.selectedFolder == null ? INBOX : b.selectedFolder;
-        this.isInbox = INBOX.equals(this.selectedFolder);
-        this.isArchive = ARCHIVE.equals(this.selectedFolder);
-        this.isOutbox = OUTBOX.equals(this.selectedFolder);
-        this.isSent = SENT.equals(this.selectedFolder);
-        this.providesAccessToFiles = this.isInbox || this.isArchive;
+        this.selectedFolder = b.selectedFolder == null ? EDTFolder.INBOX : b.selectedFolder;
         this.files = b.files == null ? Collections.emptyList() : List.copyOf(b.files);
         this.projectHome = b.projectHome == null ? "" : b.projectHome;
         this.unzipMessage = b.unzipMessage == null ? "" : b.unzipMessage;
@@ -79,23 +65,24 @@ public final class ViewMohFilesViewModel {
 
     public static Builder builder() { return new Builder(); }
 
-    public String getSelectedFolder() { return selectedFolder; }
-    public boolean isInbox() { return isInbox; }
-    public boolean isArchive() { return isArchive; }
-    public boolean isOutbox() { return isOutbox; }
-    public boolean isSent() { return isSent; }
-    public boolean isProvidesAccessToFiles() { return providesAccessToFiles; }
+    /** Folder name in upper case, matching the {@link EDTFolder} enum constant. */
+    public String getSelectedFolder() { return selectedFolder.name(); }
+    public boolean isInbox() { return selectedFolder == EDTFolder.INBOX; }
+    public boolean isArchive() { return selectedFolder == EDTFolder.ARCHIVE; }
+    public boolean isOutbox() { return selectedFolder == EDTFolder.OUTBOX; }
+    public boolean isSent() { return selectedFolder == EDTFolder.SENT; }
+    public boolean isProvidesAccessToFiles() { return selectedFolder.providesAccessToFiles(); }
     public List<FileEntry> getFiles() { return files; }
     public String getProjectHome() { return projectHome; }
     public String getUnzipMessage() { return unzipMessage; }
 
     public static final class Builder {
-        private String selectedFolder;
+        private EDTFolder selectedFolder;
         private List<FileEntry> files;
         private String projectHome;
         private String unzipMessage;
 
-        public Builder selectedFolder(String v) { this.selectedFolder = v; return this; }
+        public Builder selectedFolder(EDTFolder v) { this.selectedFolder = v; return this; }
         public Builder files(List<FileEntry> v) { this.files = v == null ? null : List.copyOf(v); return this; }
         public Builder projectHome(String v) { this.projectHome = v; return this; }
         public Builder unzipMessage(String v) { this.unzipMessage = v; return this; }

@@ -352,6 +352,7 @@ public class BillingOnStatusViewModelAssembler {
                 .rejectedBillRows(rejectedRows)
                 .billRows(agg.rows())
                 .patientCount(agg.patientCount())
+                .unreadableTotalRowCount(agg.unreadableTotalRowCount())
                 .totalBilled(agg.totalBilled())
                 .totalPaid(agg.totalPaid())
                 .totalAdjustments(agg.totalAdjustments())
@@ -434,7 +435,8 @@ public class BillingOnStatusViewModelAssembler {
             String totalPaid,
             String totalAdjustments,
             String totalCash,
-            String totalDebit) { }
+            String totalDebit,
+            int unreadableTotalRowCount) { }
 
     private BillRowAggregate buildBillRows(
             List<BillingClaimHeaderDto> bList, boolean multisitesEnabled, String selectedSite,
@@ -442,6 +444,7 @@ public class BillingOnStatusViewModelAssembler {
             Map<String, String> siteBgColor, Map<String, String> siteShortName) {
         List<BillingOnStatusViewModel.BillRow> rows = new ArrayList<>();
         int patientCount = 0;
+        int unreadableTotalRowCount = 0;
         BigDecimal total = new BigDecimal("0").setScale(2, RoundingMode.HALF_UP);
         BigDecimal paidTotal = new BigDecimal("0").setScale(2, RoundingMode.HALF_UP);
         BigDecimal adjTotal = new BigDecimal("0").setScale(2, RoundingMode.HALF_UP);
@@ -451,7 +454,7 @@ public class BillingOnStatusViewModelAssembler {
         if (bList == null || bList.isEmpty()) {
             return new BillRowAggregate(rows, 0,
                     total.toString(), paidTotal.toString(), adjTotal.toString(),
-                    "0.00", "0.00");
+                    "0.00", "0.00", 0);
         }
 
         NumberFormat formatter = new DecimalFormat("#0.00");
@@ -495,9 +498,12 @@ public class BillingOnStatusViewModelAssembler {
                 // Pre-fix this caught Exception with `ignored` and zeroed
                 // silently — the running grand-total understated by every
                 // malformed bill row. Continue with zero so the page still
-                // renders, but log so ops can spot drift, and narrow to the
+                // renders, but log so ops can spot drift, narrow to the
                 // two parse-failure modes (NFE on bad numeric, NPE on null
-                // total) so any other Exception still surfaces.
+                // total), AND track a count surfaced via
+                // {@link BillingOnStatusViewModel#getUnreadableTotalRowCount()}
+                // so the JSP can render a "N rows excluded" banner.
+                unreadableTotalRowCount++;
                 MiscUtils.getLogger().warn(
                         "BillingOnStatus: bill {} has unparseable total [{}]; excluded from grand total",
                         ch1Obj.getId(), ch1Obj.getTotal());
@@ -617,7 +623,8 @@ public class BillingOnStatusViewModelAssembler {
 
         return new BillRowAggregate(rows, patientCount,
                 total.toString(), paidTotal.toString(), adjTotal.toString(),
-                formatter.format(totalCash), formatter.format(totalDebit));
+                formatter.format(totalCash), formatter.format(totalDebit),
+                unreadableTotalRowCount);
     }
 
     private static String firstNonNull(String primary, String fallback) {

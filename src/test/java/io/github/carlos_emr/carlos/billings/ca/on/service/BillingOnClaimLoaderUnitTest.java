@@ -137,4 +137,87 @@ class BillingOnClaimLoaderUnitTest {
         String fee = loader.getCodeFee("A007", "not-a-date");
         assertThat(fee).isNull();
     }
+
+    // ---- getBill(...) dedup contract (round-4 fix) ----------------------
+
+    /** Build the 18-element row[] shape that BillingDao.findBillingData returns. */
+    private static String[] billRow(String ch1Id, String payProgram, String paid, String itemId) {
+        String[] r = new String[18];
+        java.util.Arrays.fill(r, "");
+        r[0] = ch1Id;        // ch1.id
+        r[1] = payProgram;   // pay_program (HCP / PAT / ...)
+        r[2] = "100";        // demographic_no
+        r[3] = "Patient";    // demographic_name
+        r[4] = "2026-04-01"; // billing_date
+        r[5] = "10:00:00";   // billing_time
+        r[6] = "O";          // status
+        r[7] = "999";        // provider_no
+        r[8] = "PRV01";      // provider_ohip_no
+        r[9] = "20260401";   // timestamp1
+        r[10] = "100.00";    // total
+        r[11] = paid;        // ch1.paid (the field the dedup gates)
+        r[12] = "C001";      // clinic
+        r[13] = "100.00";    // bi.fee
+        r[14] = "A007A";     // bi.service_code
+        r[15] = "1";         // bi.ser_num
+        r[16] = "V70";       // bi.dx
+        r[17] = itemId;      // billing_on_item_id (also FK fed to getAmountPaidByItemId for PAT)
+        return r;
+    }
+
+    @Test
+    void shouldStampPaidOnFirstRowAndZeroOnSubsequentRows_whenSameCh1IdAppearsThreeTimes() {
+        // Three rows with the same ch1.id="42" simulate a 3-item claim
+        // returned by the bi×ch1 LEFT JOIN. Pre-fix prevId was declared
+        // inside the loop and reset every iteration, so all three rows
+        // received ch1.paid; report totals tripled. Post-fix only the first
+        // row gets b[11]; subsequent same-ch1 rows get "0.00".
+        when(dao.findBillingData(anyString())).thenReturn(java.util.Arrays.asList(
+                billRow("42", "HCP", "50.00", "1001"),
+                billRow("42", "HCP", "50.00", "1002"),
+                billRow("42", "HCP", "50.00", "1003")));
+
+        java.util.List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto> result =
+                loader.getBill("HCP", "O", "999", "2026-04-01", "2026-04-30", "100", "", "", "");
+
+        assertThat(result).hasSize(3);
+        assertThat(result.get(0).getPaid()).isEqualTo("50.00");
+        assertThat(result.get(1).getPaid()).isEqualTo("0.00");
+        assertThat(result.get(2).getPaid()).isEqualTo("0.00");
+    }
+
+    @Test
+    void shouldStampPaidOnFirstRowOfEachCh1_whenInterleavedCh1Ids() {
+        // A, B, A interleaved: B's first occurrence keeps b[11], the second A
+        // gets "0.00" because its ch1 matches the previous row's ch1.
+        when(dao.findBillingData(anyString())).thenReturn(java.util.Arrays.asList(
+                billRow("42", "HCP", "50.00", "1001"),
+                billRow("99", "HCP", "30.00", "2001"),
+                billRow("42", "HCP", "50.00", "1002")));
+
+        java.util.List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto> result =
+                loader.getBill("HCP", "O", "999", "2026-04-01", "2026-04-30", "100", "", "", "");
+
+        assertThat(result.get(0).getPaid()).isEqualTo("50.00"); // first A
+        assertThat(result.get(1).getPaid()).isEqualTo("30.00"); // first B (different ch1)
+        assertThat(result.get(2).getPaid()).isEqualTo("50.00"); // second A — different from previous (B)
+    }
+
+    @Test
+    void shouldUseAmountPaidByItemId_whenPayProgramIsPAT() {
+        // For PAT (private/patient-pay) bills, ch1.paid is the wrong source —
+        // the per-item payment table is authoritative. The dedup branch is
+        // bypassed for PAT.
+        when(dao.findBillingData(anyString())).thenReturn(java.util.Collections.singletonList(
+                billRow("7", "PAT", "999.99", "555")));
+        when(billOnItemPaymentDao.getAmountPaidByItemId(555))
+                .thenReturn(new java.math.BigDecimal("42.00"));
+
+        java.util.List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto> result =
+                loader.getBill("HCP", "O", "999", "2026-04-01", "2026-04-30", "100", "", "", "");
+
+        assertThat(result).hasSize(1);
+        // Comes from billOnItemPaymentDao, NOT from b[11]="999.99".
+        assertThat(result.get(0).getPaid()).isEqualTo("42.00");
+    }
 }

@@ -47,6 +47,15 @@ public class OnRaSummaryTotalsService {
         if (model == null) {
             return;
         }
+        // Refuse to overwrite RaHeader.content when the upstream RA summary
+        // had unreadable rows excluded from the running totals — persisting
+        // would silently understate the operator's reconciliation snapshot.
+        // The view still renders fine; only the persist is blocked.
+        if (model.isPartial()) {
+            throw new BillingValidationException(
+                    "RA summary merge rejected: " + model.getUnreadableRowCount()
+                            + " row(s) had unparseable amountPay; reconcile the source data and retry");
+        }
         mergeTotals(model.getRaNo(), model.getLocalTotal(), model.getPayTotal(),
                 model.getOtherTotal(), model.getObTotal(), model.getCoTotal());
     }

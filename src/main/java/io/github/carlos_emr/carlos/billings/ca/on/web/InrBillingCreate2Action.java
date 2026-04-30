@@ -69,8 +69,7 @@ public class InrBillingCreate2Action extends ActionSupport {
      */
     @Override
     public String execute() throws Exception {
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+        if (!BillingRequestGuards.requirePost(request, response)) {
             return NONE;
         }
 

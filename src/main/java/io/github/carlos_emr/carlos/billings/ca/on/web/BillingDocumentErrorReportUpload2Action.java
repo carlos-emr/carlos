@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingClaimBatchAcknowledgementReportParser;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingClaimsErrorReportParser;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFileImportException;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingEdtObecOutputSpecificationRecordDto;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingEdtObecOutputSpecificationParser;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingClaimsErrorReportImportService;
@@ -305,8 +306,18 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
     private BillingClaimsErrorReportParser generateReportE(FileInputStream file, boolean bB, String filename) {
         BillingClaimsErrorReportParser hd = null;
         if (bB) {
-            hd = (new BillingClaimsErrorReportImportService(file, filename, errorReportService))
-                    .getErrorReportParser(file);
+            // Fetch via SpringUtils so the @Transactional proxy is applied —
+            // direct construction (`new`) bypasses the proxy and would
+            // restore the round-1 multi-tx-per-line bug.
+            try {
+                hd = io.github.carlos_emr.carlos.utility.SpringUtils
+                        .getBean(BillingClaimsErrorReportImportService.class)
+                        .importStream(file, filename);
+            } catch (BillingFileImportException e) {
+                MiscUtils.getLogger().error("Claims-error report import failed; transaction rolled back", e);
+                hd = new BillingClaimsErrorReportParser(file);
+                hd.verdict = false;
+            }
         } else {
             hd = new BillingClaimsErrorReportParser(file);
         }

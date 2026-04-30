@@ -50,9 +50,7 @@ public class FluBillingPersistenceService {
      */
     public Integer persistFluBilling(Billing billing, BillingDetail detail) {
         billingDao.persist(billing);
-        // Ensure the detail's foreign key points at the parent we just wrote;
-        // the action used to set this AFTER persist, which is fine since the
-        // PK is generated on persist — keeping that contract here.
+        // PK is generated on persist; reading getId() here is valid.
         detail.setBillingNo(billing.getId());
         billingDetailDao.persist(detail);
         return billing.getId();

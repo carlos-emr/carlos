@@ -108,9 +108,17 @@ class PrintEndYearStatementPdf2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldStreamPdfAndReturnNull_whenSummaryIsOnSession() throws Exception {
-        PatientEndYearStatementSummary summary = new PatientEndYearStatementSummary(
-                "1", "Doe, Jane", 0, "9876543225", "1 Main", "555-555-5555",
-                new Date(), new Date(), "0.00", "0.00");
+        PatientEndYearStatementSummary summary = PatientEndYearStatementSummary.builder()
+                .patientName("1")
+                .patientNo("Doe, Jane")
+                .hin("9876543225")
+                .address("1 Main")
+                .phone("555-555-5555")
+                .fromDate(new Date())
+                .toDate(new Date())
+                .fromDateParam("0.00")
+                .todateParam("0.00")
+                .build();
         mockRequest.getSession(true).setAttribute("summary", summary);
 
         PrintEndYearStatementPdf2Action action =
@@ -133,9 +141,17 @@ class PrintEndYearStatementPdf2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldReturnFailure_whenWritePdfThrows() throws Exception {
-        PatientEndYearStatementSummary summary = new PatientEndYearStatementSummary(
-                "1", "Doe, Jane", 0, "9876543225", "1 Main", "555-555-5555",
-                new Date(), new Date(), "0.00", "0.00");
+        PatientEndYearStatementSummary summary = PatientEndYearStatementSummary.builder()
+                .patientName("1")
+                .patientNo("Doe, Jane")
+                .hin("9876543225")
+                .address("1 Main")
+                .phone("555-555-5555")
+                .fromDate(new Date())
+                .toDate(new Date())
+                .fromDateParam("0.00")
+                .todateParam("0.00")
+                .build();
         mockRequest.getSession(true).setAttribute("summary", summary);
         org.mockito.Mockito.doThrow(
                 new PatientEndYearStatementService.Failure(

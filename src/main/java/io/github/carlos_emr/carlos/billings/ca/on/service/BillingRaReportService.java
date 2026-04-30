@@ -155,6 +155,14 @@ public class BillingRaReportService {
         BigDecimal BigTotal = BillingMoney.zero();
         BigDecimal BigOTotal = BillingMoney.zero();
         BigDecimal BigLTotal = BillingMoney.zero();
+        // Count of rows whose amountPay was flagged amountUnreadable upstream
+        // (BillingOnRaService.getRASummary). Pre-fix this method blindly added
+        // their zero-coalesced amountPay to the running totals — the persisted
+        // RaHeader.content snapshot then silently understated the operator's
+        // reconciliation. Now we exclude those rows AND surface the count via
+        // map["xml_partial_count"] so OnRaSummaryTotalsService.mergeTotals
+        // can refuse to overwrite the persisted content when partial.
+        int unreadableRowCount = 0;
         // Billing No Provider Patient HIN Service Date Service Code Invoiced :
         // new BigDecimal(0)
         // Paid Clinic Pay Hospital Pay OB Error
@@ -177,10 +185,19 @@ public class BillingRaReportService {
             String hospitalPay = "";
             String obPay = "";
 
+            boolean rowAmountUnreadable = "true".equals(prop.getProperty("amountUnreadable"));
+            if (rowAmountUnreadable) {
+                unreadableRowCount++;
+            }
+
             BigDecimal bdCFee = BillingMoney.amount(amountsubmit);
             BigCTotal = BigCTotal.add(bdCFee);
 
-            BigDecimal bdPFee = BillingMoney.amount(amountpay);
+            // Skip the row from the per-amountpay totals when upstream flagged
+            // it unreadable. The display row still renders (it shows up in
+            // rett with the badge); only the running totals exclude it so the
+            // grand total isn't silently low by N x $0.00.
+            BigDecimal bdPFee = rowAmountUnreadable ? BigDecimal.ZERO : BillingMoney.amount(amountpay);
             BigPTotal = BigPTotal.add(bdPFee);
             String COflag = "0";
             String OBflag = "0";
@@ -201,9 +218,11 @@ public class BillingRaReportService {
                 }
             }
 
+            // Same exclusion rationale as bdPFee above — every per-bucket
+            // accumulator below skips an unreadable row's amountpay so the
+            // bucketed totals don't silently undercount by zero-coalesce.
             if (OBflag.equals("1")) {
-                String amountOB = amountpay;
-                BigDecimal bdOBFee = BillingMoney.amount(amountOB);
+                BigDecimal bdOBFee = rowAmountUnreadable ? BigDecimal.ZERO : BillingMoney.amount(amountpay);
                 BigOBTotal = BigOBTotal.add(bdOBFee);
                 obPay = amountpay;
             } else {
@@ -212,8 +231,7 @@ public class BillingRaReportService {
             }
 
             if (COflag.equals("1")) {
-                String amountCO = amountpay;
-                BigDecimal bdCOFee = BillingMoney.amount(amountCO);
+                BigDecimal bdCOFee = rowAmountUnreadable ? BigDecimal.ZERO : BillingMoney.amount(amountpay);
                 BigCOTotal = BigCOTotal.add(bdCOFee);
             } else {
                 // amountCO = "N/A";
@@ -225,7 +243,7 @@ public class BillingRaReportService {
             }
 
             if (location.compareTo("02") == 0) {
-                BigDecimal bdHFee = BillingMoney.amount(amountpay);
+                BigDecimal bdHFee = rowAmountUnreadable ? BigDecimal.ZERO : BillingMoney.amount(amountpay);
                 BigHTotal = BigHTotal.add(bdHFee);
                 clinicPay = "N/A";
                 hospitalPay = "N/A";
@@ -237,12 +255,12 @@ public class BillingRaReportService {
                 }
             } else {
                 if (location.compareTo("00") == 0 && demo_hin.length() > 1 && servicedate.equals(localServiceDate)) {
-                    BigDecimal bdFee = BillingMoney.amount(amountpay);
+                    BigDecimal bdFee = rowAmountUnreadable ? BigDecimal.ZERO : BillingMoney.amount(amountpay);
                     BigTotal = BigTotal.add(bdFee);
                     clinicPay = amountpay;
                     hospitalPay = "N/A";
                 } else {
-                    BigDecimal bdOFee = BillingMoney.amount(amountpay);
+                    BigDecimal bdOFee = rowAmountUnreadable ? BigDecimal.ZERO : BillingMoney.amount(amountpay);
                     BigOTotal = BigOTotal.add(bdOFee);
                     clinicPay = "N/A";
                     hospitalPay = "N/A";
@@ -271,6 +289,9 @@ public class BillingRaReportService {
             map.put("xml_other_total", BigOTotal);
             map.put("xml_ob_total", BigOBTotal);
             map.put("xml_co_total", BigCOTotal);
+            // Surface the count so the assembler / view model / persistor
+            // can refuse to overwrite RaHeader.content when partial.
+            map.put("xml_partial_count", unreadableRowCount);
         }
         ///end
 

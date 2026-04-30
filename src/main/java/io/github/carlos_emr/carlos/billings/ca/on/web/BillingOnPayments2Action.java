@@ -23,7 +23,6 @@
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import java.math.BigDecimal;
-import java.sql.Timestamp;
 import java.text.NumberFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -47,19 +46,17 @@ import io.github.carlos_emr.carlos.commn.dao.BillingOnItemPaymentDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingOnTransactionDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
-import io.github.carlos_emr.carlos.commn.model.BillingONExt;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingOnItemPayment;
-import io.github.carlos_emr.carlos.commn.model.BillingOnTransaction;
 import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingPaymentSaveService;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnThirdPartyPaymentsViewModel;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingThirdPartyService;
 
 
 import org.apache.struts2.ActionSupport;
@@ -332,7 +329,6 @@ public class BillingOnPayments2Action extends ActionSupport {
             return null;
         }
 
-        Date curDate = new Date();
         String paymentdate1 = request.getParameter("paymentDate");
         SimpleDateFormat sim = new SimpleDateFormat("yyyy-MM-dd");
         Date paymentdate = sim.parse(paymentdate1);
@@ -358,13 +354,15 @@ public class BillingOnPayments2Action extends ActionSupport {
             paymentTypeId = "0";
         }
 
-        // Validate every amount upfront. If anything fails, write a rejection
-        // JSON response and abort BEFORE the persist phase below — silently
-        // zeroing on parse failure used to mask user typos and write $0 rows.
+        // Validate every amount upfront AND collect into a Line list. If
+        // anything fails, write a rejection JSON response and abort BEFORE
+        // any DAO write — silently zeroing on parse failure used to mask user
+        // typos and write $0 rows.
         BigDecimal sumPaid = BigDecimal.ZERO;
         BigDecimal sumRefund = BigDecimal.ZERO;
         BigDecimal sumCredit = BigDecimal.ZERO;
         BigDecimal sumDiscount = BigDecimal.ZERO;
+        java.util.List<BillingPaymentSaveService.Line> lines = new java.util.ArrayList<>();
         for (int i = 0; i < itemSize; i++) {
             String payment = request.getParameter("payment" + i);
             String discount = request.getParameter("discount" + i);
@@ -376,217 +374,103 @@ public class BillingOnPayments2Action extends ActionSupport {
                 return writeRejectionJson("Invalid itemId on row " + i + ": " + itemId
                         + "; payment not saved");
             }
-            if (billingONItemDao.find(itemIdInt) != null) {
-                String sel = request.getParameter("sel" + i);
-                try {
-                    if ("payment".equals(sel)) {
-                        BigDecimal pay = parseStrictAmount(payment);
-                        BigDecimal dicnt = parseStrictAmount(discount);
-                        if (pay.compareTo(BigDecimal.ZERO) > 0) {
-                            sumPaid = sumPaid.add(pay);
-                        }
-                        if (dicnt.compareTo(BigDecimal.ZERO) > 0) {
-                            sumDiscount = sumDiscount.add(dicnt);
-                        }
-                    } else if ("refund".equals(sel)) {
-                        BigDecimal refundTmp = parseStrictAmount(payment);
-                        if (refundTmp.compareTo(BigDecimal.ZERO) > 0) {
-                            sumRefund = sumRefund.add(refundTmp);
-                        }
-                    } else if ("credit".equals(sel)) {
-                        BigDecimal creditTmp = parseStrictAmount(payment);
-                        if (creditTmp.compareTo(BigDecimal.ZERO) > 0) {
-                            sumCredit = sumCredit.add(creditTmp);
-                        }
+            // The pre-fix code only summed when the item already existed in
+            // the DB. Preserve that — looking up by id here is read-only.
+            if (billingONItemDao.find(itemIdInt) == null) {
+                continue;
+            }
+            String sel = request.getParameter("sel" + i);
+            try {
+                BigDecimal amount;
+                BigDecimal disc = BigDecimal.ZERO;
+                switch (sel) {
+                    case "payment" -> {
+                        amount = parseStrictAmount(payment);
+                        disc = parseStrictAmount(discount);
+                        if (amount.signum() > 0) sumPaid = sumPaid.add(amount);
+                        if (disc.signum() > 0) sumDiscount = sumDiscount.add(disc);
                     }
-                } catch (NumberFormatException e) {
-                    return writeRejectionJson("Invalid amount on row " + i + ": " + e.getMessage()
-                            + "; payment not saved");
+                    case "refund" -> {
+                        amount = parseStrictAmount(payment);
+                        if (amount.signum() > 0) sumRefund = sumRefund.add(amount);
+                    }
+                    case "credit" -> {
+                        amount = parseStrictAmount(payment);
+                        if (amount.signum() > 0) sumCredit = sumCredit.add(amount);
+                    }
+                    default -> {
+                        // unknown selection — keep the row out of the persist list
+                        continue;
+                    }
                 }
+                lines.add(new BillingPaymentSaveService.Line(itemIdInt, sel, amount, disc));
+            } catch (NumberFormatException e) {
+                return writeRejectionJson("Invalid amount on row " + i + ": " + e.getMessage()
+                        + "; payment not saved");
             }
         }
 
+        // Pre-flight: confirm the bill row still exists. The transactional
+        // service re-fetches inside the tx and would throw BVE on a concurrent
+        // delete, but checking here lets us return the same "failure" forward
+        // we used pre-fix instead of falling through to a generic error page.
         BillingONCHeader1 cheader1 = billingClaimDAO.find(billNo);
         if (cheader1 == null) {
             return "failure";
         }
         String status = request.getParameter("status");
-        boolean toUpdateChl = false;
-        if (status != null && !status.equals(cheader1.getStatus())) {
-            cheader1.setStatus(status);
-            toUpdateChl = true;
-        }
+        boolean statusChanges = status != null && !status.equals(cheader1.getStatus());
 
         ObjectNode ret = objectMapper.createObjectNode();
-        if (sumPaid.compareTo(BigDecimal.ZERO) == 0
-                && sumDiscount.compareTo(BigDecimal.ZERO) == 0
-                && sumRefund.compareTo(BigDecimal.ZERO) == 0
-                && sumCredit.compareTo(BigDecimal.ZERO) == 0) {
-
-            if (toUpdateChl) {
+        if (sumPaid.signum() == 0 && sumDiscount.signum() == 0
+                && sumRefund.signum() == 0 && sumCredit.signum() == 0) {
+            // All-zeros early-return path: nothing to persist except possibly
+            // the status change. Keep this single merge in the action — it's
+            // a one-shot write with a single failure mode.
+            if (statusChanges) {
+                cheader1.setStatus(status);
                 billingClaimDAO.merge(cheader1);
                 ret.put("ret", 0);
             } else {
                 ret.put("ret", 1);
                 ret.put("reason", "Payments, discounts and refunds can't be all zeros!!");
             }
-            response.setCharacterEncoding("utf-8");
-            response.setContentType("application/json");
-            try {
-                response.getWriter().print(ret.toString());
-                response.getWriter().flush();
-                response.getWriter().close();
-            } catch (Exception e) {
-                logger.error("Failed to write savePayment zero-totals JSON response", e);
-                return "failure";
-            }
-            return null;
+            return writeJsonResponse(ret, "savePayment zero-totals JSON response");
         }
 
-        // count sum of paid,refund,discount
-        String demographicNo = cheader1.getDemographicNo().toString();
-
-        // 1.billing_on_ext table: payment
-        BillingThirdPartyService tExtObj = SpringUtils.getBean(BillingThirdPartyService.class);
-        if (sumPaid.compareTo(BigDecimal.ZERO) == 1) {
-            toUpdateChl = true;
-            BigDecimal sumPaidTmp = sumPaid.add(cheader1.getPaid());
-            cheader1.setPaid(sumPaidTmp);
-            if (tExtObj.keyExists(Integer.toString(billNo), BillingONExtDao.KEY_PAYMENT)) {
-                tExtObj.updateKeyValue(Integer.toString(billNo), BillingONExtDao.KEY_PAYMENT, sumPaidTmp.toString());
-            } else {
-                tExtObj.add3rdBillExt(Integer.toString(billNo), demographicNo, BillingONExtDao.KEY_PAYMENT, sumPaidTmp.toString());
-            }
-        }
-        if (toUpdateChl) {
-            billingClaimDAO.merge(cheader1);
+        // Atomic write phase: hand the validated, parsed input to the
+        // @Transactional service so any DAO failure rolls the whole batch
+        // back instead of leaving the header + ext keys + payment row in
+        // inconsistent state.
+        BillingPaymentSaveService.Command cmd = new BillingPaymentSaveService.Command(
+                billNo, paymentdate, curProviderNo,
+                Integer.parseInt(paymentTypeId), paymentTypeId,
+                sumPaid, sumDiscount, sumRefund, sumCredit,
+                statusChanges ? status : null,
+                lines);
+        try {
+            SpringUtils.getBean(BillingPaymentSaveService.class).saveThirdPartyPayment(cmd);
+        } catch (io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException e) {
+            logger.warn("savePayment rejected: {}", e.getMessage());
+            return writeRejectionJson(e.getMessage());
         }
 
-        // 2.update billing_on_ext table: discount
-        if (sumDiscount.compareTo(BigDecimal.ZERO) == 1) {
-            BigDecimal extDiscount = billingONExtDao.getAccountVal(billNo, BillingONExtDao.KEY_DISCOUNT);
-            BigDecimal sumDiscountTmp = sumDiscount.add(extDiscount);
-            if (tExtObj.keyExists(Integer.toString(billNo), BillingONExtDao.KEY_DISCOUNT)) {
-                tExtObj.updateKeyValue(Integer.toString(billNo), BillingONExtDao.KEY_DISCOUNT, sumDiscountTmp.toString());
-            } else {
-                tExtObj.add3rdBillExt(Integer.toString(billNo), demographicNo, BillingONExtDao.KEY_DISCOUNT, sumDiscountTmp.toString());
-            }
-        }
-
-        // 3.update billing_on_ext table: refund
-        if (sumRefund.compareTo(BigDecimal.ZERO) == 1) {
-            BigDecimal extRefund = billingONExtDao.getAccountVal(billNo, BillingONExtDao.KEY_REFUND);
-            BigDecimal sumRefundTmp = sumRefund.add(extRefund);
-            if (tExtObj.keyExists(Integer.toString(billNo), BillingONExtDao.KEY_REFUND)) {
-                tExtObj.updateKeyValue(Integer.toString(billNo), BillingONExtDao.KEY_REFUND, sumRefundTmp.toString());
-            } else {
-                tExtObj.add3rdBillExt(Integer.toString(billNo), demographicNo, BillingONExtDao.KEY_REFUND, sumRefundTmp.toString());
-            }
-        }
-
-        // 3.update billing_on_ext table: credit
-        if (sumCredit.compareTo(BigDecimal.ZERO) == 1) {
-            BigDecimal extCredit = billingONExtDao.getAccountVal(billNo, BillingONExtDao.KEY_CREDIT);
-            BigDecimal sumCreditTmp = sumCredit.add(extCredit);
-            if (tExtObj.keyExists(Integer.toString(billNo), BillingONExtDao.KEY_CREDIT)) {
-                tExtObj.updateKeyValue(Integer.toString(billNo), BillingONExtDao.KEY_CREDIT, sumCreditTmp.toString());
-            } else {
-                tExtObj.add3rdBillExt(Integer.toString(billNo), demographicNo, BillingONExtDao.KEY_CREDIT, sumCreditTmp.toString());
-            }
-        }
-
-        // update billing_on_ext table: KEY_PAY_METHOD
-        if (paymentTypeId != null) {
-            BillingONExt extCredit = billingONExtDao.getClaimExtItem(Integer.valueOf(billNo), Integer.valueOf(demographicNo), BillingONExtDao.KEY_PAY_METHOD);
-            if (tExtObj.keyExists(Integer.toString(billNo), BillingONExtDao.KEY_PAY_METHOD)) {
-                tExtObj.updateKeyValue(Integer.toString(billNo), BillingONExtDao.KEY_PAY_METHOD, paymentTypeId);
-            } else {
-                tExtObj.add3rdBillExt(Integer.toString(billNo), demographicNo, BillingONExtDao.KEY_PAY_METHOD, paymentTypeId);
-            }
-        }
-
-        // 4.update billing_on_payment
-        BillingONPayment billPayment = new BillingONPayment();
-        billPayment.setBillingOnCheader1(cheader1);
-        billPayment.setBillingNo(billNo);
-        billPayment.setCreator(curProviderNo);
-        billPayment.setPaymentDate(paymentdate);
-        billPayment.setPaymentTypeId(Integer.parseInt(paymentTypeId));
-        billPayment.setTotal_payment(sumPaid);
-        billPayment.setTotal_discount(sumDiscount);
-        billPayment.setTotal_refund(sumRefund);
-        billPayment.setTotal_credit(sumCredit);
-        billingONPaymentDao.persist(billPayment);
-
-        // 5.update biling_on_item_payment
-        for (int i = 0; i < itemSize; i++) {
-            String payment = request.getParameter("payment" + i);
-            String discount = request.getParameter("discount" + i);
-            String itemId = request.getParameter("itemId" + i);
-            BillingONItem billItem = billingONItemDao.find(Integer.parseInt(itemId));
-            if (billItem == null) continue;
-
-            String str = paymentdate1 + " 00:00:00";
-            SimpleDateFormat sim1 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-            Date paymentdatetmp = sim1.parse(str);
-            BillingOnItemPayment billItemPayment = new BillingOnItemPayment();
-            billItemPayment.setBillingOnItemId(Integer.parseInt(itemId));
-            billItemPayment.setBillingOnPaymentId(billPayment.getId());
-            billItemPayment.setCh1Id(billNo);
-            billItemPayment.setPaymentTimestamp(new Timestamp(paymentdatetmp.getTime()));
-
-            // Amounts were validated upfront in the summation loop above,
-            // so parseStrictAmount can be called here without a catch — any
-            // throw at this point indicates a logic regression worth raising.
-            String selThis = request.getParameter("sel" + i);
-            if ("payment".equals(selThis)) {
-                BigDecimal itemPayment = parseStrictAmount(payment);
-                BigDecimal itemDiscnt = parseStrictAmount(discount);
-                if (itemPayment.compareTo(BigDecimal.ZERO) == 0 && itemDiscnt.compareTo(BigDecimal.ZERO) == 0) {
-                    continue;
-                }
-                billItemPayment.setPaid(itemPayment);
-                billItemPayment.setDiscount(itemDiscnt);
-                billingOnItemPaymentDao.persist(billItemPayment);
-                BillingOnTransaction billTrans = billingOnTransactionDao.getTransTemplate(cheader1, billItem, billPayment, curProviderNo, billItemPayment.getId());
-                billTrans.setServiceCodePaid(itemPayment);
-                billTrans.setServiceCodeDiscount(itemDiscnt);
-                billingOnTransactionDao.persist(billTrans);
-            } else if ("refund".equals(selThis)) {
-                BigDecimal itemRefund = parseStrictAmount(payment);
-                if (itemRefund.compareTo(BigDecimal.ZERO) == 0) {
-                    continue;
-                }
-                billItemPayment.setRefund(itemRefund);
-                billingOnItemPaymentDao.persist(billItemPayment);
-                BillingOnTransaction billTrans = billingOnTransactionDao.getTransTemplate(cheader1, billItem, billPayment, curProviderNo, billItemPayment.getId());
-                billTrans.setServiceCodeRefund(itemRefund);
-                billingOnTransactionDao.persist(billTrans);
-            } else if ("credit".equals(selThis)) {
-                BigDecimal itemCredit = parseStrictAmount(payment);
-                if (itemCredit.compareTo(BigDecimal.ZERO) == 0) {
-                    continue;
-                }
-                billItemPayment.setCredit(itemCredit);
-                billingOnItemPaymentDao.persist(billItemPayment);
-                BillingOnTransaction billTrans = billingOnTransactionDao.getTransTemplate(cheader1, billItem, billPayment, curProviderNo, billItemPayment.getId());
-                billTrans.setServiceCodeCredit(itemCredit);
-                billingOnTransactionDao.persist(billTrans);
-            }
-        }
         ret.put("ret", 0);
+        return writeJsonResponse(ret, "savePayment success JSON response");
+    }
+
+    private String writeJsonResponse(ObjectNode body, String label) {
         response.setCharacterEncoding("utf-8");
         response.setContentType("application/json");
         try {
-            response.getWriter().print(ret.toString());
+            response.getWriter().print(body.toString());
             response.getWriter().flush();
             response.getWriter().close();
         } catch (Exception e) {
-            logger.error("Failed to write savePayment success JSON response", e);
+            logger.error("Failed to write {}", label, e);
             return "failure";
         }
         return null;
-
     }
 
     public String deletePayment() {
@@ -690,16 +574,22 @@ public class BillingOnPayments2Action extends ActionSupport {
 
     public String viewPayment_ext() {
         // 1.get payment details according to billing_on_item_payment
-        int billPaymentId = 0;
+        String billPaymentIdRaw = request.getParameter("billPaymentId");
+        int billPaymentId;
         try {
-            billPaymentId = Integer.parseInt(request.getParameter("billPaymentId"));
-        } catch (Exception e) {
-            MiscUtils.getLogger().info(e.toString());
-            return null;
+            billPaymentId = Integer.parseInt(billPaymentIdRaw);
+        } catch (NumberFormatException e) {
+            // Pre-fix this returned null + logged at INFO, producing a blank
+            // page with no operator feedback. Forward to the failure result so
+            // the user sees an error instead of a silent empty render.
+            logger.error("Invalid billPaymentId parameter {}", LogSanitizer.sanitize(billPaymentIdRaw), e);
+            return "failure";
         }
         BillingONPayment billPayment = billingONPaymentDao.find(billPaymentId);
         if (billPayment == null) {
-            return null;
+            logger.warn("viewPayment_ext: billPaymentId not found: {}",
+                    LogSanitizer.sanitize(billPaymentIdRaw));
+            return "failure";
         }
         request.setAttribute("billPayment", billPayment);
         // Pre-resolve the human-readable payment-type name so the JSP body

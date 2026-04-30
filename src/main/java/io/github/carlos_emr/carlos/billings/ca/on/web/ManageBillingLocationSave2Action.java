@@ -32,12 +32,15 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFormConfigurationService;
 import io.github.carlos_emr.carlos.commn.model.ClinicLocation;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Struts2 action to add clinic billing locations for Ontario billing.
@@ -65,18 +68,21 @@ public class ManageBillingLocationSave2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private ClinicLocationDao clinicLocationDao = SpringUtils.getBean(ClinicLocationDao.class);
+    private BillingFormConfigurationService billingFormConfigurationService =
+            SpringUtils.getBean(BillingFormConfigurationService.class);
 
     /**
-     * Replaces all clinic location entries from the submitted form parameters.
+     * Adds clinic location entries from the submitted form parameters. Despite
+     * the {@code Save} verb, the underlying service-layer call is an additive
+     * persist — pre-existing rows are not deleted first. This matches the
+     * legacy JSP contract.
      *
      * @return {@link #NONE} after redirecting, or if the request method is not POST
      * @throws SecurityException if the user lacks {@code _admin.billing} write privilege
      */
     @Override
     public String execute() throws Exception {
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+        if (!BillingRequestGuards.requirePost(request, response)) {
             return NONE;
         }
 
@@ -85,27 +91,30 @@ public class ManageBillingLocationSave2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin.billing)");
         }
 
-        try {
-            for (int i = 1; i < 6; i++) {
-                String location = request.getParameter("location" + i);
-                String locationDesc = request.getParameter("location" + i + "desc");
+        List<ClinicLocation> locations = new ArrayList<>();
+        for (int i = 1; i < 6; i++) {
+            String location = request.getParameter("location" + i);
+            String locationDesc = request.getParameter("location" + i + "desc");
 
-                if (locationDesc == null) {
-                    locationDesc = "";
-                }
-
-                if (location == null || location.isEmpty()) {
-                    continue;
-                }
-
-                if (!locationDesc.isEmpty()) {
-                    ClinicLocation clinicLocation = new ClinicLocation();
-                    clinicLocation.setClinicLocationNo(location);
-                    clinicLocation.setClinicNo(1);
-                    clinicLocation.setClinicLocationName(locationDesc);
-                    clinicLocationDao.persist(clinicLocation);
-                }
+            if (locationDesc == null) {
+                locationDesc = "";
             }
+
+            if (location == null || location.isEmpty()) {
+                continue;
+            }
+
+            if (!locationDesc.isEmpty()) {
+                ClinicLocation clinicLocation = new ClinicLocation();
+                clinicLocation.setClinicLocationNo(location);
+                clinicLocation.setClinicNo(1);
+                clinicLocation.setClinicLocationName(locationDesc);
+                locations.add(clinicLocation);
+            }
+        }
+
+        try {
+            billingFormConfigurationService.saveLocations(locations);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Failed to update billing locations", e);
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to update billing locations");

@@ -23,136 +23,94 @@
 package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;
 
 import java.util.Date;
+
 /**
- * Data carrier for {@code PatientEndYearStatementSummary}.
+ * Patient end-year statement summary: header fields rendered above the
+ * per-invoice grid in {@code endYearStatement.jsp}. Immutable so the
+ * persisted aggregation can't be mutated by the JSP.
  *
- * <p>These classes carry legacy billing state between services, actions, and
- * JSPs. Prefer explicit fields and accessors here over loosely typed request
- * attributes in the view layer.</p>
+ * <p>Pre-fix this was a mutable JavaBean built empty + 9 setter calls one
+ * by one in {@code PatientEndYearStatementService.aggregateInvoices} —
+ * proving the type couldn't be fully constructed in a single valid step.
+ * The {@link Builder} now lets the service collect values then create a
+ * single immutable instance.</p>
  */
+public final class PatientEndYearStatementSummary {
 
-public class PatientEndYearStatementSummary {
-    private String patientName;
-    private String patientNo;
-    private String hin;
-    private String address;
-    private String phone;
-    private String invoiced = "0.00";
-    private String paid = "0.00";
-    private String count = "0";
-    private Date fromDate;
-    private Date toDate;
-    private String fromDateParam;
-    private String todateParam;
+    private final String patientName;
+    private final String patientNo;
+    private final String hin;
+    private final String address;
+    private final String phone;
+    private final String invoiced;
+    private final String paid;
+    private final String count;
+    private final Date fromDate;
+    private final Date toDate;
+    private final String fromDateParam;
+    private final String todateParam;
 
-    public PatientEndYearStatementSummary(String patientName, String patientNo, Integer patientId, String hin,
-                                       String address, String phone, Date fromDate, Date toDate, String fromDateParam, String toDateParam) {
-        super();
-        this.patientName = patientName;
-        this.patientNo = patientNo;
-        this.hin = hin;
-        this.address = address;
-        this.phone = phone;
-        this.fromDate = fromDate;
-        this.toDate = toDate;
-        this.fromDateParam = fromDateParam;
-        this.todateParam = toDateParam;
+    private PatientEndYearStatementSummary(Builder b) {
+        this.patientName = nullToEmpty(b.patientName);
+        this.patientNo = nullToEmpty(b.patientNo);
+        this.hin = nullToEmpty(b.hin);
+        this.address = nullToEmpty(b.address);
+        this.phone = nullToEmpty(b.phone);
+        this.invoiced = b.invoiced == null ? "0.00" : b.invoiced;
+        this.paid = b.paid == null ? "0.00" : b.paid;
+        this.count = b.count == null ? "0" : b.count;
+        this.fromDate = b.fromDate == null ? null : new Date(b.fromDate.getTime());
+        this.toDate = b.toDate == null ? null : new Date(b.toDate.getTime());
+        this.fromDateParam = nullToEmpty(b.fromDateParam);
+        this.todateParam = nullToEmpty(b.todateParam);
     }
 
-    public String getPatientName() {
-        return patientName;
-    }
+    public static Builder builder() { return new Builder(); }
 
-    public void setPatientName(String patientName) {
-        this.patientName = patientName;
-    }
+    private static String nullToEmpty(String s) { return s == null ? "" : s; }
 
-    public String getHin() {
-        return hin;
-    }
+    public String getPatientName() { return patientName; }
+    public String getPatientNo() { return patientNo; }
+    public String getHin() { return hin; }
+    public String getAddress() { return address; }
+    public String getPhone() { return phone; }
+    public String getInvoiced() { return invoiced; }
+    public String getPaid() { return paid; }
+    public String getCount() { return count; }
+    public Date getFromDate() { return fromDate == null ? null : new Date(fromDate.getTime()); }
+    public Date getToDate() { return toDate == null ? null : new Date(toDate.getTime()); }
+    public String getFromDateParam() { return fromDateParam; }
+    public String getTodateParam() { return todateParam; }
 
-    public void setHin(String hin) {
-        this.hin = hin;
-    }
+    public static final class Builder {
+        private String patientName;
+        private String patientNo;
+        private String hin;
+        private String address;
+        private String phone;
+        private String invoiced;
+        private String paid;
+        private String count;
+        private Date fromDate;
+        private Date toDate;
+        private String fromDateParam;
+        private String todateParam;
 
-    public String getAddress() {
-        return address;
-    }
+        public Builder patientName(String v) { this.patientName = v; return this; }
+        public Builder patientNo(String v) { this.patientNo = v; return this; }
+        public Builder hin(String v) { this.hin = v; return this; }
+        public Builder address(String v) { this.address = v; return this; }
+        public Builder phone(String v) { this.phone = v; return this; }
+        public Builder invoiced(String v) { this.invoiced = v; return this; }
+        public Builder paid(String v) { this.paid = v; return this; }
+        public Builder count(String v) { this.count = v; return this; }
+        public Builder fromDate(Date v) { this.fromDate = v == null ? null : new Date(v.getTime()); return this; }
+        public Builder toDate(Date v) { this.toDate = v == null ? null : new Date(v.getTime()); return this; }
+        public Builder fromDateParam(String v) { this.fromDateParam = v; return this; }
+        public Builder todateParam(String v) { this.todateParam = v; return this; }
 
-    public void setAddress(String address) {
-        this.address = address;
+        public PatientEndYearStatementSummary build() {
+            return new PatientEndYearStatementSummary(this);
+        }
     }
-
-    public String getPhone() {
-        return phone;
-    }
-
-    public void setPhone(String phone) {
-        this.phone = phone;
-    }
-
-    public String getPatientNo() {
-        return patientNo;
-    }
-
-    public void setPatientNo(String patientNo) {
-        this.patientNo = patientNo;
-    }
-
-    public String getInvoiced() {
-        return invoiced;
-    }
-
-    public void setInvoiced(String invoiced) {
-        this.invoiced = invoiced;
-    }
-
-    public String getPaid() {
-        return paid;
-    }
-
-    public void setPaid(String paid) {
-        this.paid = paid;
-    }
-
-    public String getCount() {
-        return count;
-    }
-
-    public void setCount(String count) {
-        this.count = count;
-    }
-
-    public Date getFromDate() {
-        return fromDate;
-    }
-
-    public void setFromDate(Date fromDate) {
-        this.fromDate = fromDate;
-    }
-
-    public Date getToDate() {
-        return toDate;
-    }
-
-    public void setToDate(Date toDate) {
-        this.toDate = toDate;
-    }
-
-    public String getFromDateParam() {
-        return fromDateParam;
-    }
-
-    public void setFromDateParam(String fromDateParam) {
-        this.fromDateParam = fromDateParam;
-    }
-
-    public String getTodateParam() {
-        return todateParam;
-    }
-
-    public void setTodateParam(String todateParam) {
-        this.todateParam = todateParam;
-    }
-
 }

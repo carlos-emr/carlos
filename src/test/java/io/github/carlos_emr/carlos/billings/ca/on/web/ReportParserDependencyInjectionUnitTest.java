@@ -47,11 +47,10 @@ class ReportParserDependencyInjectionUnitTest {
         try (FileInputStream input = new FileInputStream(report.toFile())) {
             BillingClaimsErrorReportImportService importService =
                     new BillingClaimsErrorReportImportService(
-                            input,
-                            "E-empty.txt",
                             mock(BillingOnErrorReportService.class));
-
-            assertThat(importService.verdict).isTrue();
+            // Empty file → import succeeds with verdict=true; pinning the
+            // happy-path contract that no rows persist on an empty stream.
+            assertThat(importService.importStream(input, "E-empty.txt").verdict).isTrue();
         }
     }
 

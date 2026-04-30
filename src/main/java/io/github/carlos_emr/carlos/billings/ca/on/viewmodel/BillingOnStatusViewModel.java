@@ -150,6 +150,13 @@ public final class BillingOnStatusViewModel {
     private final String totalBilled;
     private final String totalPaid;
     private final String totalAdjustments;
+    /**
+     * Number of bill rows whose {@code total} could not be parsed and were
+     * silently zero-coalesced into the displayed grand total. {@code > 0}
+     * means the rendered total understates by N x the unreadable rows; the
+     * JSP should surface a banner so the operator can reconcile the source.
+     */
+    private final int unreadableTotalRowCount;
     private final String totalCash;
     private final String totalDebit;
     private final Map<String, String> requestParamEchoes;
@@ -213,6 +220,7 @@ public final class BillingOnStatusViewModel {
         this.totalBilled = nullToEmpty(b.totalBilled);
         this.totalPaid = nullToEmpty(b.totalPaid);
         this.totalAdjustments = nullToEmpty(b.totalAdjustments);
+        this.unreadableTotalRowCount = b.unreadableTotalRowCount;
         this.totalCash = nullToEmpty(b.totalCash);
         this.totalDebit = nullToEmpty(b.totalDebit);
         this.requestParamEchoes = b.requestParamEchoes == null
@@ -272,6 +280,8 @@ public final class BillingOnStatusViewModel {
     public String getTotalBilled() { return totalBilled; }
     public String getTotalPaid() { return totalPaid; }
     public String getTotalAdjustments() { return totalAdjustments; }
+    public int getUnreadableTotalRowCount() { return unreadableTotalRowCount; }
+    public boolean isPartialTotal() { return unreadableTotalRowCount > 0; }
     public String getTotalCash() { return totalCash; }
     public String getTotalDebit() { return totalDebit; }
     public Map<String, String> getRequestParamEchoes() { return requestParamEchoes; }
@@ -322,6 +332,7 @@ public final class BillingOnStatusViewModel {
         private String totalAdjustments;
         private String totalCash;
         private String totalDebit;
+        private int unreadableTotalRowCount;
         private Map<String, String> requestParamEchoes;
 
         public Builder teamBillingOnly(boolean v) { this.teamBillingOnly = v; return this; }
@@ -400,6 +411,7 @@ public final class BillingOnStatusViewModel {
             return this;
         }
         public Builder patientCount(int v) { this.patientCount = v; return this; }
+        public Builder unreadableTotalRowCount(int v) { this.unreadableTotalRowCount = v; return this; }
         public Builder totalBilled(String v) { this.totalBilled = v; return this; }
         public Builder totalPaid(String v) { this.totalPaid = v; return this; }
         public Builder totalAdjustments(String v) { this.totalAdjustments = v; return this; }

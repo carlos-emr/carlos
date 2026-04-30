@@ -153,15 +153,6 @@ public class PatientEndYearStatementService {
      *                 throws — wraps the cause for logging on the action.
      */
     public Result aggregateInvoices(Demographic demographic, Date fromDate, Date toDate) {
-        PatientEndYearStatementSummary summary = new PatientEndYearStatementSummary(
-                "", "", 0, "", "", "", new Date(), new Date(), "", "");
-        summary.setPatientNo(demographic.getDemographicNo().toString());
-        summary.setPatientName(demographic.getFormattedName());
-        summary.setHin(demographic.getHin());
-        summary.setAddress(demographic.getAddress() + " "
-                + demographic.getCity() + " " + demographic.getProvince());
-        summary.setPhone(demographic.getPhone() + " " + demographic.getPhone2());
-
         List<PatientEndYearStatementInvoice> invoices = new ArrayList<>();
         double totalInvoiced = 0;
         double totalPaid = 0;
@@ -174,17 +165,17 @@ public class PatientEndYearStatementService {
                 BillingONCHeader1 header = (BillingONCHeader1) row[0];
                 double paid = header.getPaid().doubleValue();
                 double invoiced = header.getTotal().doubleValue();
-                PatientEndYearStatementInvoice bean = new PatientEndYearStatementInvoice(
-                        header.getId(), header.getBillingDate(),
-                        String.valueOf(invoiced), String.valueOf(paid));
 
                 List<PatientEndYearStatementServiceLine> services = new ArrayList<>();
                 for (BillingONItem item : itemDao.findByCh1Id(header.getId())) {
                     services.add(new PatientEndYearStatementServiceLine(
                             item.getServiceCode(), Utility.toCurrency(item.getFee())));
                 }
-                bean.setServices(services);
-                invoices.add(bean);
+
+                invoices.add(new PatientEndYearStatementInvoice(
+                        header.getId(), header.getBillingDate(),
+                        String.valueOf(invoiced), String.valueOf(paid),
+                        services));
 
                 totalInvoiced += invoiced;
                 totalPaid += paid;
@@ -194,11 +185,20 @@ public class PatientEndYearStatementService {
             throw new Failure(Reason.DATABASE_ERROR, e);
         }
 
-        summary.setInvoiced(Utility.toCurrency(totalInvoiced));
-        summary.setPaid(Utility.toCurrency(totalPaid));
-        summary.setCount(Integer.toString(invoiceCount));
-        summary.setFromDate(fromDate);
-        summary.setToDate(toDate);
+        // Build the summary in one shot now that we have all the totals.
+        PatientEndYearStatementSummary summary = PatientEndYearStatementSummary.builder()
+                .patientNo(demographic.getDemographicNo().toString())
+                .patientName(demographic.getFormattedName())
+                .hin(demographic.getHin())
+                .address(demographic.getAddress() + " "
+                        + demographic.getCity() + " " + demographic.getProvince())
+                .phone(demographic.getPhone() + " " + demographic.getPhone2())
+                .invoiced(Utility.toCurrency(totalInvoiced))
+                .paid(Utility.toCurrency(totalPaid))
+                .count(Integer.toString(invoiceCount))
+                .fromDate(fromDate)
+                .toDate(toDate)
+                .build();
         return new Result(summary, invoices);
     }
 
@@ -288,6 +288,11 @@ public class PatientEndYearStatementService {
      */
     public record Result(PatientEndYearStatementSummary summary,
                          List<PatientEndYearStatementInvoice> invoices) {
+        /** Defensive copy on the way in — the assembler hands us its live
+         *  ArrayList and we must not let a JSP mutate the persisted snapshot. */
+        public Result {
+            invoices = invoices == null ? List.of() : List.copyOf(invoices);
+        }
     }
 
     /**

@@ -26,6 +26,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import jakarta.servlet.http.HttpServletRequest;
@@ -101,7 +102,7 @@ public class BillingDeleteWithBillNo2Action extends ActionSupport {
                     billNo = b.getId().toString();
                 }
             } catch (NumberFormatException e) {
-                MiscUtils.getLogger().error("Invalid appointment_no: {}", apptNoStr);
+                MiscUtils.getLogger().error("Invalid appointment_no: {}", LogSanitizer.sanitize(apptNoStr));
                 return ERROR;
             }
         }
@@ -135,7 +136,7 @@ public class BillingDeleteWithBillNo2Action extends ActionSupport {
                     billingDao.merge(b);
                 }
             } catch (NumberFormatException e) {
-                MiscUtils.getLogger().error("Invalid billNo: {}", billNo);
+                MiscUtils.getLogger().error("Invalid billNo: {}", LogSanitizer.sanitize(billNo));
                 return ERROR;
             }
         }

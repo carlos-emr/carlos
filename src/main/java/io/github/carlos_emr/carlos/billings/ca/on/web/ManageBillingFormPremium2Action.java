@@ -32,14 +32,16 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.commn.dao.CtlBillingServicePremiumDao;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFormConfigurationService;
 import io.github.carlos_emr.carlos.commn.model.CtlBillingServicePremium;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 /**
  * Struts2 action to add premium billing service codes for Ontario billing.
@@ -58,7 +60,8 @@ public class ManageBillingFormPremium2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private CtlBillingServicePremiumDao ctlBillingServicePremiumDao = SpringUtils.getBean(CtlBillingServicePremiumDao.class);
+    private BillingFormConfigurationService billingFormConfigurationService =
+            SpringUtils.getBean(BillingFormConfigurationService.class);
 
     /**
      * Persists premium billing service entries for the given Ontario service type.
@@ -68,8 +71,7 @@ public class ManageBillingFormPremium2Action extends ActionSupport {
      */
     @Override
     public String execute() throws Exception {
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+        if (!BillingRequestGuards.requirePost(request, response)) {
             return NONE;
         }
 
@@ -78,21 +80,22 @@ public class ManageBillingFormPremium2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin.billing)");
         }
 
-        try {
-            // Persist each non-empty service parameter (indices 1–10)
-            for (int i = 1; i < 11; i++) {
-                String serviceCode = request.getParameter("service" + i);
-                if (serviceCode == null || serviceCode.isEmpty()) {
-                    continue;
-                }
-
-                CtlBillingServicePremium cbsp = new CtlBillingServicePremium();
-                cbsp.setServiceTypeName("Office");
-                cbsp.setServiceCode(serviceCode);
-                cbsp.setStatus("A");
-                cbsp.setUpdateDate(new Date());
-                ctlBillingServicePremiumDao.persist(cbsp);
+        List<CtlBillingServicePremium> premiums = new ArrayList<>();
+        for (int i = 1; i < 11; i++) {
+            String serviceCode = request.getParameter("service" + i);
+            if (serviceCode == null || serviceCode.isEmpty()) {
+                continue;
             }
+            CtlBillingServicePremium cbsp = new CtlBillingServicePremium();
+            cbsp.setServiceTypeName("Office");
+            cbsp.setServiceCode(serviceCode);
+            cbsp.setStatus("A");
+            cbsp.setUpdateDate(new Date());
+            premiums.add(cbsp);
+        }
+
+        try {
+            billingFormConfigurationService.addPremiumServiceCodes(premiums);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Failed to add premium service codes", e);
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to add premium service codes");

@@ -49,6 +49,12 @@ public final class OnRaSummaryViewModel {
     private final BigDecimal obTotal;
     private final BigDecimal coTotal;
     private final boolean multisitesEnabled;
+    /** Number of rows whose amountPay was unparseable and excluded from the
+     *  running totals. {@code > 0} means the persisted RaHeader.content
+     *  totals would silently understate the true reconciliation amount;
+     *  {@code OnRaSummaryTotalsService.mergeTotals} refuses to overwrite
+     *  RaHeader.content when this is non-zero. */
+    private final int unreadableRowCount;
 
     private OnRaSummaryViewModel(Builder b) {
         this.raNo = b.raNo;
@@ -61,6 +67,7 @@ public final class OnRaSummaryViewModel {
         this.obTotal = b.obTotal;
         this.coTotal = b.coTotal;
         this.multisitesEnabled = b.multisitesEnabled;
+        this.unreadableRowCount = b.unreadableRowCount;
     }
 
     public String getRaNo() { return raNo; }
@@ -73,6 +80,8 @@ public final class OnRaSummaryViewModel {
     public BigDecimal getObTotal() { return obTotal; }
     public BigDecimal getCoTotal() { return coTotal; }
     public boolean isMultisitesEnabled() { return multisitesEnabled; }
+    public int getUnreadableRowCount() { return unreadableRowCount; }
+    public boolean isPartial() { return unreadableRowCount > 0; }
 
     public static Builder builder() { return new Builder(); }
 
@@ -87,6 +96,7 @@ public final class OnRaSummaryViewModel {
         private BigDecimal obTotal = BigDecimal.ZERO;
         private BigDecimal coTotal = BigDecimal.ZERO;
         private boolean multisitesEnabled;
+        private int unreadableRowCount;
 
         public Builder raNo(String v) { this.raNo = v; return this; }
         public Builder selectedProviderOhip(String v) { this.selectedProviderOhip = v; return this; }
@@ -98,6 +108,7 @@ public final class OnRaSummaryViewModel {
         public Builder obTotal(BigDecimal v) { this.obTotal = v; return this; }
         public Builder coTotal(BigDecimal v) { this.coTotal = v; return this; }
         public Builder multisitesEnabled(boolean v) { this.multisitesEnabled = v; return this; }
+        public Builder unreadableRowCount(int v) { this.unreadableRowCount = v; return this; }
 
         public OnRaSummaryViewModel build() { return new OnRaSummaryViewModel(this); }
     }

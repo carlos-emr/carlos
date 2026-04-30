@@ -88,6 +88,9 @@ class FluBillingAdd2ActionUnitTest extends CarlosUnitTestBase {
     private BillingServiceDao mockBillingServiceDao;
 
     @Mock
+    private io.github.carlos_emr.carlos.billings.ca.on.service.FluBillingPersistenceService mockFluBillingPersistenceService;
+
+    @Mock
     private LoggedInInfo mockLoggedInInfo;
 
     private MockHttpServletRequest mockRequest;
@@ -121,7 +124,8 @@ class FluBillingAdd2ActionUnitTest extends CarlosUnitTestBase {
 
     private FluBillingAdd2Action newAction() {
         return new FluBillingAdd2Action(
-                mockSecurityInfoManager, mockBillingDao, mockBillingDetailDao, mockBillingServiceDao);
+                mockSecurityInfoManager, mockBillingDao, mockBillingDetailDao, mockBillingServiceDao,
+                mockFluBillingPersistenceService);
     }
 
     @Test

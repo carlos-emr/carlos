@@ -185,11 +185,13 @@ public class BillingOnClaimLoader {
 		 */
         List<String[]> bills = dao.findBillingData(temp);
         if (bills != null) {
+            // Hoisted out of the loop so dedup is live across iterations.
+            // Pre-fix this was declared per-iteration and reset to null every
+            // pass, making the dedup arm unreachable and double-counting
+            // ch1.paid for every item row in a multi-item claim (the bi×ch1
+            // join repeats ch1.paid per item).
+            String prevId = null;
             for (String[] b : bills) {
-                String prevId = null;
-                String prevPaid = null;
-
-                boolean bSameBillCh1 = false;
                 ch1Obj = new BillingClaimHeaderDto();
                 ch1Obj.setId(b[0]);
                 ch1Obj.setPay_program(b[1]);
@@ -219,9 +221,12 @@ public class BillingOnClaimLoader {
                     BigDecimal amountPaid = billOnItemPaymentDao.getAmountPaidByItemId(Integer.parseInt(b[17]));
                     ch1Obj.setPaid(amountPaid.toString());
                 } else {
-                    if (prevId == null && prevPaid == null) {
-                        ch1Obj.setPaid(b[11]);
-                    } else if (prevId != null && prevPaid != null && !ch1Obj.getId().equals(prevId)) {
+                    // Dedup ch1.paid across the bi×ch1 join: a 3-item claim
+                    // returns 3 rows that all carry the same ch1.paid value.
+                    // Stamp paid only on the first row of a given ch1; later
+                    // rows of the same claim get "0.00" so report totals
+                    // don't multiply paid by item count.
+                    if (prevId == null || !ch1Obj.getId().equals(prevId)) {
                         ch1Obj.setPaid(b[11]);
                     } else {
                         ch1Obj.setPaid("0.00");
@@ -230,7 +235,6 @@ public class BillingOnClaimLoader {
                 retval.add(ch1Obj);
 
                 prevId = ch1Obj.getId();
-                prevPaid = b[11];
             }
 
         }
@@ -248,9 +252,6 @@ public class BillingOnClaimLoader {
         List<BillingClaimHeaderDto> retval = new ArrayList<BillingClaimHeaderDto>();
         try {
             for (BillingONCHeader1 h : dao.findByMagic(Arrays.asList(billType), statusType, providerNo, ConversionUtils.fromDateString(startDate), ConversionUtils.fromDateString(endDate), ConversionUtils.fromIntString(demoNo), visitLocation, ConversionUtils.fromDateString(paymentStartDate), ConversionUtils.fromDateString(paymentEndDate))) {
-                String prevId = null;
-                String prevPaid = null;
-
                 BillingClaimHeaderDto ch1Obj = new BillingClaimHeaderDto();
                 ch1Obj.setId("" + h.getId());
                 ch1Obj.setDemographic_no("" + h.getDemographicNo());
@@ -637,11 +638,11 @@ public class BillingOnClaimLoader {
                 String dx = null;
                 String dx1 = null;
                 String dx2 = null;
-                String strService = null;
+                StringBuilder strService = new StringBuilder();
                 String strServiceDate = null;
 
                 for (BillingONItem i : itemDao.findByCh1Id(h.getId())) {
-                    strService += i.getServiceCode() + " x " + i.getServiceCount() + ", ";
+                    strService.append(i.getServiceCode()).append(" x ").append(i.getServiceCount()).append(", ");
                     dx = i.getDx();
                     strServiceDate = ConversionUtils.toDateString(i.getServiceDate());
                     dx1 = i.getDx1();
@@ -649,7 +650,7 @@ public class BillingOnClaimLoader {
                 }
 
                 BillingClaimItemDto itObj = new BillingClaimItemDto();
-                itObj.setService_code(strService);
+                itObj.setService_code(strService.toString());
                 itObj.setDx(dx);
                 itObj.setDx1(dx1);
                 itObj.setDx2(dx2);

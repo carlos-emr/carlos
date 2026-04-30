@@ -32,22 +32,23 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.commn.dao.CtlBillingServicePremiumDao;
-import io.github.carlos_emr.carlos.commn.model.CtlBillingServicePremium;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFormConfigurationService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.List;
 
 /**
  * Struts2 action to delete premium billing service codes for Ontario billing.
  *
  * <p>Replaces {@code dbManageBillingform_premium_delete.jsp}. Iterates over all
  * request parameter names that contain the word {@code "service"} and removes every
- * {@link CtlBillingServicePremium} entry whose service code matches the parameter
- * value.
+ * {@link io.github.carlos_emr.carlos.commn.model.CtlBillingServicePremium} entry
+ * whose service code matches the parameter value.
  *
  * @since 2026-04-05
  */
@@ -59,7 +60,8 @@ public class ManageBillingFormPremiumDelete2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private CtlBillingServicePremiumDao dao = SpringUtils.getBean(CtlBillingServicePremiumDao.class);
+    private BillingFormConfigurationService billingFormConfigurationService =
+            SpringUtils.getBean(BillingFormConfigurationService.class);
 
     /**
      * Deletes premium billing service entries matching the submitted service parameters.
@@ -69,8 +71,7 @@ public class ManageBillingFormPremiumDelete2Action extends ActionSupport {
      */
     @Override
     public String execute() throws Exception {
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+        if (!BillingRequestGuards.requirePost(request, response)) {
             return NONE;
         }
 
@@ -79,19 +80,21 @@ public class ManageBillingFormPremiumDelete2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin.billing)");
         }
 
-        try {
-            // Iterate all parameters; process only those whose name contains "service"
-            Enumeration<String> paramNames = request.getParameterNames();
-            while (paramNames.hasMoreElements()) {
-                String paramName = paramNames.nextElement();
-                if (!paramName.contains("service")) {
-                    continue;
-                }
-                String serviceCode = request.getParameter(paramName);
-                for (CtlBillingServicePremium b : dao.findByServiceCode(serviceCode)) {
-                    dao.remove(b.getId());
-                }
+        List<String> serviceCodes = new ArrayList<>();
+        Enumeration<String> paramNames = request.getParameterNames();
+        while (paramNames.hasMoreElements()) {
+            String paramName = paramNames.nextElement();
+            if (!paramName.contains("service")) {
+                continue;
             }
+            String serviceCode = request.getParameter(paramName);
+            if (serviceCode != null) {
+                serviceCodes.add(serviceCode);
+            }
+        }
+
+        try {
+            billingFormConfigurationService.removePremiumServiceCodes(serviceCodes);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Failed to delete premium service codes", e);
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to delete premium service codes");

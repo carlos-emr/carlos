@@ -497,7 +497,8 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
             throw new BillingItemsNotLoadedException(
                     "BillingONCHeader1.billingItems is a LAZY proxy that is not initialized; "
                             + "load via BillingONCHeader1Dao.findWithItems before calling "
-                            + "recomputeTotalFromItems outside a session.");
+                            + "recomputeTotalFromItems outside a session.",
+                    this.id == null ? -1 : this.id);
         }
         BigDecimal sum = BigDecimal.ZERO;
         for (BillingONItem item : this.billingItems) {
@@ -612,7 +613,8 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
             throw new BillingItemsNotLoadedException(
                     "BillingONCHeader1.billingItems is a LAZY proxy that is not initialized; "
                             + "fetch via findWithItems(...) / findByDemoNoWithItems(...) "
-                            + "or access only inside an open Hibernate session.");
+                            + "or access only inside an open Hibernate session.",
+                    this.id == null ? -1 : this.id);
         }
         return Collections.unmodifiableList(billingItems);
     }

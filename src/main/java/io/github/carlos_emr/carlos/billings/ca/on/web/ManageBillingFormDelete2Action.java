@@ -32,11 +32,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.commn.dao.CtlBillingTypeDao;
-import io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao;
-import io.github.carlos_emr.carlos.commn.dao.CtlDiagCodeDao;
-import io.github.carlos_emr.carlos.commn.model.CtlBillingService;
-import io.github.carlos_emr.carlos.commn.model.CtlDiagCode;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFormConfigurationService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -48,7 +44,8 @@ import java.util.Objects;
  * Struts2 action to delete all data associated with an Ontario billing service type.
  *
  * <p>Replaces {@code dbManageBillingform_delete.jsp}. Removes all
- * {@link CtlBillingService} and {@link CtlDiagCode} rows for the given service type,
+ * {@link io.github.carlos_emr.carlos.commn.model.CtlBillingService} and
+ * {@link io.github.carlos_emr.carlos.commn.model.CtlDiagCode} rows for the given service type,
  * then removes the corresponding {@link io.github.carlos_emr.carlos.commn.model.CtlBillingType}
  * entry. Returns {@code success} to forward to the confirmation view JSP.
  *
@@ -62,9 +59,8 @@ public class ManageBillingFormDelete2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private CtlBillingTypeDao billingTypeDao = SpringUtils.getBean(CtlBillingTypeDao.class);
-    private CtlBillingServiceDao billingServiceDao = SpringUtils.getBean(CtlBillingServiceDao.class);
-    private CtlDiagCodeDao diagCodeDao = SpringUtils.getBean(CtlDiagCodeDao.class);
+    private BillingFormConfigurationService billingFormConfigurationService =
+            SpringUtils.getBean(BillingFormConfigurationService.class);
 
     /**
      * Deletes all billing service, diagnostic code, and billing type entries for the
@@ -76,8 +72,7 @@ public class ManageBillingFormDelete2Action extends ActionSupport {
      */
     @Override
     public String execute() throws Exception {
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+        if (!BillingRequestGuards.requirePost(request, response)) {
             return NONE;
         }
 
@@ -94,20 +89,9 @@ public class ManageBillingFormDelete2Action extends ActionSupport {
         }
 
         try {
-            // Remove all billing service entries for this service type
-            for (CtlBillingService b : billingServiceDao.findByServiceType(typeid)) {
-                billingServiceDao.remove(b.getId());
-            }
-
-            // Remove all diagnostic code entries for this service type
-            for (CtlDiagCode d : diagCodeDao.findByServiceType(typeid)) {
-                diagCodeDao.remove(d.getId());
-            }
-
-            // Remove the billing type entry by its String ID
-            billingTypeDao.remove(typeid);
+            billingFormConfigurationService.deleteServiceTypeAndCascade(typeid);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to delete billing form for servicetype={} — data may be inconsistent", LogSanitizer.sanitize(typeid), e);
+            MiscUtils.getLogger().error("Failed to delete billing form for servicetype={} — transaction rolled back", LogSanitizer.sanitize(typeid), e);
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to delete billing form");
             return NONE;
         }

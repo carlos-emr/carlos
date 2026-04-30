@@ -369,4 +369,39 @@ class BillingOnPayments2ActionUnitTest extends CarlosUnitTestBase {
         // This is what makes the upfront-validate-then-persist split safe.
         verify(paymentDao, never()).persist(any(BillingONPayment.class));
     }
+
+    // -- viewPayment_ext: round-4 fix returns "failure" instead of null on
+    // -- bad input or missing payment, replacing the silent-blank-page behavior.
+
+    @Test
+    void shouldReturnFailure_whenBillPaymentIdIsNonNumeric() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setMethod("POST");
+        request.setParameter("billPaymentId", "not-an-int");
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+
+        String result = new BillingOnPayments2Action().viewPayment_ext();
+
+        // Pre-fix: returned null → JSP rendered an empty page with no error.
+        assertThat(result).isEqualTo("failure");
+    }
+
+    @Test
+    void shouldReturnFailure_whenBillingONPaymentNotFound() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setMethod("POST");
+        request.setParameter("billPaymentId", "9999");
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+
+        BillingONPaymentDao paymentDao = mock(BillingONPaymentDao.class);
+        when(paymentDao.find(9999)).thenReturn(null);
+        registerMock(BillingONPaymentDao.class, paymentDao);
+
+        String result = new BillingOnPayments2Action().viewPayment_ext();
+
+        // Same blank-page bug fix — null lookup must surface as "failure".
+        assertThat(result).isEqualTo("failure");
+    }
 }

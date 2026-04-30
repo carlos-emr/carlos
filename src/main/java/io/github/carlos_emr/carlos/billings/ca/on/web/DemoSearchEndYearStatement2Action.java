@@ -21,8 +21,6 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
-import java.util.Date;
-
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.PatientEndYearStatementSummary;
@@ -80,14 +78,14 @@ public class DemoSearchEndYearStatement2Action extends ActionSupport {
             return "failure";
         }
 
-        PatientEndYearStatementSummary summary = new PatientEndYearStatementSummary(
-                "", "", 0, "", "", "", new Date(), new Date(), "", "");
-        summary.setPatientNo(demographic.getChartNo());
-        summary.setPatientName(demographic.getFormattedName());
-        summary.setHin(demographic.getHin());
-        summary.setAddress(demographic.getAddress() + " "
-                + demographic.getCity() + " " + demographic.getProvince());
-        summary.setPhone(demographic.getPhone() + " " + demographic.getPhone2());
+        PatientEndYearStatementSummary summary = PatientEndYearStatementSummary.builder()
+                .patientNo(demographic.getChartNo())
+                .patientName(demographic.getFormattedName())
+                .hin(demographic.getHin())
+                .address(demographic.getAddress() + " "
+                        + demographic.getCity() + " " + demographic.getProvince())
+                .phone(demographic.getPhone() + " " + demographic.getPhone2())
+                .build();
         request.setAttribute("summary", summary);
         return SUCCESS;
     }

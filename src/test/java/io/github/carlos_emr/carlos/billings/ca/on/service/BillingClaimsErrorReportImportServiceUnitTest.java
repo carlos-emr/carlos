@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -36,12 +37,9 @@ import static org.mockito.Mockito.verify;
  * Behavioral tests for {@link BillingClaimsErrorReportImportService}, the
  * fixed-width MOH claims-error-report parser. Covers the three line shapes
  * used during a successful parse (header "1", claim "H" + transaction "T",
- * footer "9") plus the malformed-input fallback (verdict = false).
- *
- * <p>Note the parser side-effects through {@link BillingOnErrorReportService}
- * rather than returning a model — the legacy contract was kept because the
- * upload action consumes both the {@code claimsErrorReportRecords} list and
- * the persisted side-effect rows.</p>
+ * footer "9") plus the malformed-input failure path which now throws
+ * {@link BillingFileImportException} so the surrounding {@code @Transactional}
+ * boundary rolls back every per-line write.
  */
 @DisplayName("BillingClaimsErrorReportImportService")
 @Tag("unit")
@@ -52,10 +50,12 @@ class BillingClaimsErrorReportImportServiceUnitTest {
     Path tempDir;
 
     private BillingOnErrorReportService erRepObj;
+    private BillingClaimsErrorReportImportService svc;
 
     @BeforeEach
     void setUp() {
         erRepObj = mock(BillingOnErrorReportService.class);
+        svc = new BillingClaimsErrorReportImportService(erRepObj);
     }
 
     @Test
@@ -68,10 +68,9 @@ class BillingClaimsErrorReportImportServiceUnitTest {
                 + transactionLine() + "\n" + footerLine() + "\n";
         FileInputStream input = writeAndOpen(content);
 
-        BillingClaimsErrorReportImportService svc = new BillingClaimsErrorReportImportService(
-                input, "test.err", erRepObj);
+        BillingClaimsErrorReportParser parser = svc.importStream(input, "test.err");
 
-        assertThat(svc.verdict).isTrue();
+        assertThat(parser.verdict).isTrue();
         // Per H line, the parser deletes any prior error report row.
         verify(erRepObj, atLeastOnce()).deleteErrorReport(org.mockito.ArgumentMatchers.any(BillingErrorReportDto.class));
         // Per T line, the parser persists the new error report row.
@@ -79,19 +78,19 @@ class BillingClaimsErrorReportImportServiceUnitTest {
     }
 
     @Test
-    void shouldFlipVerdictFalse_whenLineIsTooShortToSubstring() throws IOException {
+    void shouldThrowBillingFileImportException_whenLineIsTooShortToSubstring() throws IOException {
         // Lines under the substring offsets the parser uses raise a
-        // StringIndexOutOfBoundsException — the catch sets verdict=false so
-        // the upload action knows the file was malformed.
+        // StringIndexOutOfBoundsException — pre-fix the catch silently set
+        // verdict=false and KEPT every prior persist committed. The new
+        // contract throws so Spring rolls back the entire batch.
         String content = "AB1" + repeat(' ', 80) + "\n"  // header passes
                 + "ABH" + repeat(' ', 5) + "\n"           // claim: too short for substring(15, 23)
                 + footerLine() + "\n";
         FileInputStream input = writeAndOpen(content);
 
-        BillingClaimsErrorReportImportService svc = new BillingClaimsErrorReportImportService(
-                input, "malformed.err", erRepObj);
-
-        assertThat(svc.verdict).isFalse();
+        assertThatThrownBy(() -> svc.importStream(input, "malformed.err"))
+                .isInstanceOf(BillingFileImportException.class)
+                .hasMessageContaining("malformed.err");
     }
 
     @Test
@@ -106,10 +105,9 @@ class BillingClaimsErrorReportImportServiceUnitTest {
                 + footerLine() + "\n";
         FileInputStream input = writeAndOpen(content);
 
-        BillingClaimsErrorReportImportService svc = new BillingClaimsErrorReportImportService(
-                input, "mixed.err", erRepObj);
+        BillingClaimsErrorReportParser parser = svc.importStream(input, "mixed.err");
 
-        assertThat(svc.verdict).isTrue();
+        assertThat(parser.verdict).isTrue();
         verify(erRepObj, atLeastOnce()).addErrorReportRecord(org.mockito.ArgumentMatchers.any(BillingErrorReportDto.class));
     }
 
@@ -117,10 +115,9 @@ class BillingClaimsErrorReportImportServiceUnitTest {
     void shouldNotPersistAnything_whenInputIsEmpty() throws IOException {
         FileInputStream input = writeAndOpen("");
 
-        BillingClaimsErrorReportImportService svc = new BillingClaimsErrorReportImportService(
-                input, "empty.err", erRepObj);
+        BillingClaimsErrorReportParser parser = svc.importStream(input, "empty.err");
 
-        assertThat(svc.verdict).isTrue();
+        assertThat(parser.verdict).isTrue();
         verify(erRepObj, never()).addErrorReportRecord(org.mockito.ArgumentMatchers.any(BillingErrorReportDto.class));
         verify(erRepObj, never()).deleteErrorReport(org.mockito.ArgumentMatchers.any(BillingErrorReportDto.class));
     }
@@ -131,14 +128,13 @@ class BillingClaimsErrorReportImportServiceUnitTest {
                 + transactionLine() + "\n" + footerLine() + "\n";
         FileInputStream input = writeAndOpen(content);
 
-        BillingClaimsErrorReportImportService svc = new BillingClaimsErrorReportImportService(
-                input, "fields.err", erRepObj);
+        BillingClaimsErrorReportParser parser = svc.importStream(input, "fields.err");
 
-        assertThat(svc.claimsErrorReportRecords).isNotEmpty();
+        assertThat(parser.getClaimsErrorReportRecords()).isNotEmpty();
         // Header "1", transaction "T", footer "9" each push a CERBean — the
         // claim "H" line mutates erObj but does NOT push a record. So the
         // expected count for this fixture is 3.
-        assertThat(svc.claimsErrorReportRecords).hasSize(3);
+        assertThat(parser.getClaimsErrorReportRecords()).hasSize(3);
     }
 
     // ---- fixtures --------------------------------------------------------

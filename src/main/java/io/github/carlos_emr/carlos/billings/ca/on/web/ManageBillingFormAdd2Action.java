@@ -32,9 +32,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFormConfigurationService;
 import io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao;
-import io.github.carlos_emr.carlos.commn.dao.CtlDiagCodeDao;
-import io.github.carlos_emr.carlos.commn.dao.CtlBillingTypeDao;
 import io.github.carlos_emr.carlos.commn.model.CtlBillingService;
 import io.github.carlos_emr.carlos.commn.model.CtlDiagCode;
 import io.github.carlos_emr.carlos.commn.model.CtlBillingType;
@@ -43,6 +42,8 @@ import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 import java.net.URLEncoder;
@@ -68,8 +69,8 @@ public class ManageBillingFormAdd2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private CtlBillingServiceDao ctlBillingServiceDao = SpringUtils.getBean(CtlBillingServiceDao.class);
-    private CtlDiagCodeDao ctlDiagCodeDao = SpringUtils.getBean(CtlDiagCodeDao.class);
-    private CtlBillingTypeDao ctlBillingTypeDao = SpringUtils.getBean(CtlBillingTypeDao.class);
+    private BillingFormConfigurationService billingFormConfigurationService =
+            SpringUtils.getBean(BillingFormConfigurationService.class);
 
     /**
      * Creates a new Ontario billing service type with three groups, a diagnostic code
@@ -80,8 +81,7 @@ public class ManageBillingFormAdd2Action extends ActionSupport {
      */
     @Override
     public String execute() throws Exception {
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+        if (!BillingRequestGuards.requirePost(request, response)) {
             return NONE;
         }
 
@@ -111,35 +111,34 @@ public class ManageBillingFormAdd2Action extends ActionSupport {
             return NONE;
         }
 
+        List<CtlBillingService> services = new ArrayList<>();
+        String[] groupNames = { group1, group2, group3 };
+        for (int i = 0; i < groupNames.length; i++) {
+            CtlBillingService cbs = new CtlBillingService();
+            cbs.setServiceTypeName(type);
+            cbs.setServiceType(typeid);
+            cbs.setServiceCode("A007A");
+            cbs.setServiceGroupName(groupNames[i]);
+            cbs.setServiceGroup("Group" + (i + 1));
+            cbs.setStatus("A");
+            cbs.setServiceOrder(1);
+            services.add(cbs);
+        }
+
+        CtlDiagCode seedDiagCode = new CtlDiagCode();
+        seedDiagCode.setServiceType(typeid);
+        seedDiagCode.setDiagnosticCode("000");
+        seedDiagCode.setStatus("A");
+
+        CtlBillingType optionalBillingType = null;
+        if (!billtype.equals("no")) {
+            optionalBillingType = new CtlBillingType();
+            optionalBillingType.setId(typeid);
+            optionalBillingType.setBillType(billtype);
+        }
+
         try {
-            // Persist three CtlBillingService entries, one per group
-            String[] groupNames = { group1, group2, group3 };
-            for (int i = 0; i < groupNames.length; i++) {
-                CtlBillingService cbs = new CtlBillingService();
-                cbs.setServiceTypeName(type);
-                cbs.setServiceType(typeid);
-                cbs.setServiceCode("A007A");
-                cbs.setServiceGroupName(groupNames[i]);
-                cbs.setServiceGroup("Group" + (i + 1));
-                cbs.setStatus("A");
-                cbs.setServiceOrder(1);
-                ctlBillingServiceDao.persist(cbs);
-            }
-
-            // Persist seed diagnostic code entry
-            CtlDiagCode cdc = new CtlDiagCode();
-            cdc.setServiceType(typeid);
-            cdc.setDiagnosticCode("000");
-            cdc.setStatus("A");
-            ctlDiagCodeDao.persist(cdc);
-
-            // Optionally persist a billing type
-            if (!billtype.equals("no")) {
-                CtlBillingType cbt = new CtlBillingType();
-                cbt.setId(typeid);
-                cbt.setBillType(billtype);
-                ctlBillingTypeDao.persist(cbt);
-            }
+            billingFormConfigurationService.addBillingForm(services, seedDiagCode, optionalBillingType);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Failed to add billing form for typeid={}", LogSanitizer.sanitize(typeid), e);
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to add billing form");

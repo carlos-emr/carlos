@@ -26,11 +26,7 @@ import java.util.ArrayList;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionRecordService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingClaimSubmissionService;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
-import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
-import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
-import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
-import io.github.carlos_emr.carlos.commn.model.BillingONExt;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -46,7 +42,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
@@ -55,6 +50,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
@@ -73,8 +69,6 @@ class BillingOnSave2ActionUnitTest extends CarlosUnitTestBase {
     private AutoCloseable mockitoCloseable;
 
     @Mock private SecurityInfoManager mockSecurityInfoManager;
-    @Mock private BillingONCHeader1Dao mockCheader1Dao;
-    @Mock private BillingONExtDao mockExtDao;
     @Mock private UserPropertyDAO mockUserPropertyDao;
     @Mock private BillingDao mockBillingDao;
     @Mock private BillingClaimSubmissionService mockSaveService;
@@ -114,8 +108,6 @@ class BillingOnSave2ActionUnitTest extends CarlosUnitTestBase {
     private BillingOnSave2Action newAction() {
         return new BillingOnSave2Action(
                 mockSecurityInfoManager,
-                mockCheader1Dao,
-                mockExtDao,
                 mockUserPropertyDao,
                 mockBillingDao,
                 mockSaveService,
@@ -133,12 +125,12 @@ class BillingOnSave2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
-        verifyNoInteractions(mockSaveService, mockCheader1Dao, mockExtDao, mockUserPropertyDao,
+        verifyNoInteractions(mockSaveService, mockUserPropertyDao,
                 mockBillingDao, mockCorrectionRecordService);
     }
 
     @Test
-    void shouldUseReturnedBillingIdForPrivateExtensionAndPayeeExtension() {
+    void shouldDelegateToSaveBillingWithExtAndPayee_onPrivateBillingPath() {
         mockRequest.setParameter("appointment_no", "");
         mockRequest.setParameter("url_back", "");
         mockRequest.setParameter("submit", "Save");
@@ -148,34 +140,53 @@ class BillingOnSave2ActionUnitTest extends CarlosUnitTestBase {
         mockRequest.setParameter("billStatus_old", "O");
         mockRequest.setParameter("curBillForm", "ON");
 
-        ArrayList<Object> claim = new ArrayList<>();
-        when(mockSaveService.getBillingClaimObj(mockRequest)).thenReturn(claim);
-        when(mockSaveService.addABillingRecord(claim))
+        BillingClaimSubmissionService.BillingClaimSubmission submission =
+                new BillingClaimSubmissionService.BillingClaimSubmission(
+                        new io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto(),
+                        java.util.List.of());
+        when(mockSaveService.getSubmission(mockRequest)).thenReturn(submission);
+        when(mockSaveService.saveBillingWithExtAndPayee(any(BillingClaimSubmissionService.BillingClaimSubmission.class),
+                eq(mockRequest), eq("PAT"), eq("Acme Payee")))
                 .thenReturn(new BillingClaimSubmissionService.SaveResult(true, 4321));
-        // Round 2 #15: action now consults the addPrivateBillExtRecord boolean.
-        // Stub success so the happy-path assertion still holds.
-        when(mockSaveService.addPrivateBillExtRecord(mockRequest, claim, 4321)).thenReturn(true);
-
-        BillingONCHeader1 savedHeader = new BillingONCHeader1();
-        savedHeader.setDemographicNo(99);
-        when(mockCheader1Dao.find(4321)).thenReturn(savedHeader);
         when(mockUserPropertyDao.getProp("999998", UserProperty.WORKLOAD_MANAGEMENT)).thenReturn(null);
 
         String result = newAction().execute();
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
         assertThat(mockRequest.getAttribute("billingNo")).isEqualTo(4321);
-        verify(mockSaveService).addPrivateBillExtRecord(mockRequest, claim, 4321);
+        // Single transactional call now drives header + items + ext + payee.
+        verify(mockSaveService).saveBillingWithExtAndPayee(any(BillingClaimSubmissionService.BillingClaimSubmission.class),
+                eq(mockRequest), eq("PAT"), eq("Acme Payee"));
+        verify(mockSaveService, never()).addABillingRecord(any());
+        verify(mockSaveService, never()).addPrivateBillExtRecord(any(), any(), org.mockito.ArgumentMatchers.anyInt());
         verify(mockSaveService, never()).addOhipInvoiceTrans(any());
-        verify(mockCheader1Dao).find(4321);
+    }
 
-        ArgumentCaptor<BillingONExt> extCaptor = ArgumentCaptor.forClass(BillingONExt.class);
-        verify(mockExtDao).persist(extCaptor.capture());
-        BillingONExt persistedExt = extCaptor.getValue();
-        assertThat(persistedExt.getBillingNo()).isEqualTo(4321);
-        assertThat(persistedExt.getDemographicNo()).isEqualTo(99);
-        assertThat(persistedExt.getKeyVal()).isEqualTo("payee");
-        assertThat(persistedExt.getValue()).isEqualTo("Acme Payee");
+    @Test
+    void shouldReturnFailure_whenServiceRollsBack() {
+        // Service throws BillingValidationException → action treats save as
+        // failed and returns "failure" with billingFailed flag set so the JSP
+        // renders the error path. No billingNo set, no exception escapes.
+        mockRequest.setParameter("submit", "Save");
+        mockRequest.setParameter("xml_billtype", "PAT");
+        mockRequest.setParameter("payeename", "Acme Payee");
+        mockRequest.setParameter("curBillForm", "ON");
+
+        BillingClaimSubmissionService.BillingClaimSubmission submission =
+                new BillingClaimSubmissionService.BillingClaimSubmission(
+                        new io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto(),
+                        java.util.List.of());
+        when(mockSaveService.getSubmission(mockRequest)).thenReturn(submission);
+        when(mockSaveService.saveBillingWithExtAndPayee(any(BillingClaimSubmissionService.BillingClaimSubmission.class),
+                any(), anyString(), anyString()))
+                .thenThrow(new io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException(
+                        "Save rejected: third-party ext write failed; transaction rolled back"));
+
+        String result = newAction().execute();
+
+        assertThat(result).isEqualTo("failure");
+        assertThat(mockRequest.getAttribute("billingNo")).isNull();
+        assertThat(mockRequest.getAttribute("billingFailed")).isEqualTo(Boolean.TRUE);
     }
 
     // -- Security & validation -----------------------------------------
@@ -191,7 +202,7 @@ class BillingOnSave2ActionUnitTest extends CarlosUnitTestBase {
                 .hasMessageContaining("_billing");
 
         // No persistence on a security failure.
-        verifyNoInteractions(mockSaveService, mockExtDao, mockCheader1Dao);
+        verifyNoInteractions(mockSaveService);
     }
 
     // -- Open-redirect validation (CWE-601) ----------------------------
@@ -237,7 +248,7 @@ class BillingOnSave2ActionUnitTest extends CarlosUnitTestBase {
         String result = newAction().execute();
 
         assertThat(result).isEqualTo("backToEdit");
-        verifyNoInteractions(mockSaveService, mockExtDao);
+        verifyNoInteractions(mockSaveService);
     }
 
     @Test
@@ -250,29 +261,33 @@ class BillingOnSave2ActionUnitTest extends CarlosUnitTestBase {
         String result = newAction().execute();
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        verifyNoInteractions(mockSaveService, mockExtDao, mockCheader1Dao);
+        verifyNoInteractions(mockSaveService);
     }
 
     @Test
-    void shouldCallOhipInvoiceTrans_andNotPrivateExtension_whenBillTypeIsHcp() {
+    void shouldDelegateToSaveBillingWithExtAndPayee_onOhipPath() {
         mockRequest.setParameter("submit", "Save");
         mockRequest.setParameter("xml_billtype", "HCP");  // not 3rd-party
         mockRequest.setParameter("payeename", "");
         mockRequest.setParameter("curBillForm", "ON");
 
-        ArrayList<Object> claim = new ArrayList<>();
-        when(mockSaveService.getBillingClaimObj(mockRequest)).thenReturn(claim);
-        when(mockSaveService.addABillingRecord(claim))
+        BillingClaimSubmissionService.BillingClaimSubmission submission =
+                new BillingClaimSubmissionService.BillingClaimSubmission(
+                        new io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto(),
+                        java.util.List.of());
+        when(mockSaveService.getSubmission(mockRequest)).thenReturn(submission);
+        when(mockSaveService.saveBillingWithExtAndPayee(any(BillingClaimSubmissionService.BillingClaimSubmission.class),
+                eq(mockRequest), eq("HCP"), any()))
                 .thenReturn(new BillingClaimSubmissionService.SaveResult(true, 4321));
-        when(mockCheader1Dao.find(4321)).thenReturn(null);
         when(mockUserPropertyDao.getProp("999998", UserProperty.WORKLOAD_MANAGEMENT)).thenReturn(null);
 
         String result = newAction().execute();
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        // OHIP branch — addOhipInvoiceTrans called, addPrivateBillExtRecord skipped.
-        verify(mockSaveService).addOhipInvoiceTrans(claim);
-        verify(mockSaveService, never()).addPrivateBillExtRecord(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+        // The single service call is responsible for choosing the OHIP-trans
+        // vs 3rd-party-ext branch internally now; the action just delegates.
+        verify(mockSaveService).saveBillingWithExtAndPayee(any(BillingClaimSubmissionService.BillingClaimSubmission.class),
+                eq(mockRequest), eq("HCP"), any());
     }
 
     @Test
@@ -282,11 +297,14 @@ class BillingOnSave2ActionUnitTest extends CarlosUnitTestBase {
         mockRequest.setParameter("payeename", "");
         mockRequest.setParameter("curBillForm", "ON");
 
-        ArrayList<Object> claim = new ArrayList<>();
-        when(mockSaveService.getBillingClaimObj(mockRequest)).thenReturn(claim);
-        when(mockSaveService.addABillingRecord(claim))
+        BillingClaimSubmissionService.BillingClaimSubmission submission =
+                new BillingClaimSubmissionService.BillingClaimSubmission(
+                        new io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto(),
+                        java.util.List.of());
+        when(mockSaveService.getSubmission(mockRequest)).thenReturn(submission);
+        when(mockSaveService.saveBillingWithExtAndPayee(any(BillingClaimSubmissionService.BillingClaimSubmission.class),
+                any(), anyString(), any()))
                 .thenReturn(new BillingClaimSubmissionService.SaveResult(true, 4321));
-        when(mockCheader1Dao.find(4321)).thenReturn(null);
         when(mockUserPropertyDao.getProp("999998", UserProperty.WORKLOAD_MANAGEMENT)).thenReturn(null);
 
         String result = newAction().execute();
@@ -301,11 +319,14 @@ class BillingOnSave2ActionUnitTest extends CarlosUnitTestBase {
         mockRequest.setParameter("payeename", "");
         mockRequest.setParameter("curBillForm", "ON");
 
-        ArrayList<Object> claim = new ArrayList<>();
-        when(mockSaveService.getBillingClaimObj(mockRequest)).thenReturn(claim);
-        when(mockSaveService.addABillingRecord(claim))
+        BillingClaimSubmissionService.BillingClaimSubmission submission =
+                new BillingClaimSubmissionService.BillingClaimSubmission(
+                        new io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto(),
+                        java.util.List.of());
+        when(mockSaveService.getSubmission(mockRequest)).thenReturn(submission);
+        when(mockSaveService.saveBillingWithExtAndPayee(any(BillingClaimSubmissionService.BillingClaimSubmission.class),
+                any(), anyString(), any()))
                 .thenReturn(new BillingClaimSubmissionService.SaveResult(true, 4321));
-        when(mockCheader1Dao.find(4321)).thenReturn(null);
         when(mockUserPropertyDao.getProp("999998", UserProperty.WORKLOAD_MANAGEMENT)).thenReturn(null);
 
         String result = newAction().execute();
