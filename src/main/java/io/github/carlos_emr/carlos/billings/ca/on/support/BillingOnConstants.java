@@ -22,10 +22,19 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.support;
 
+import java.util.AbstractMap;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
+import java.util.function.BiFunction;
+import java.util.function.Function;
+
 /**
  * Legacy Ontario billing constants and lookup tables shared by disk, claim,
  * save, and correction flows.
@@ -60,27 +69,15 @@ public final class BillingOnConstants {
 
 
     /**
-     * {@link Properties} subclass that rejects every mutator after
-     * construction. Build the table via {@link #buildEntry(String, String)} —
-     * which delegates to {@code Hashtable.put} (the parent class's
-     * implementation, bypassing this subclass's overrides) — then call
-     * {@link #seal()}. After {@code seal()}, every public mutator throws
-     * {@link UnsupportedOperationException}, so the {@code public static
-     * final} fields below are effectively immutable from every one of their
-     * 88 call sites.
-     *
-     * <p>The previous design exposed bare {@code Properties}; any caller
-     * could {@code setProperty()} and corrupt shared state process-wide.
-     * This was caught by a cross-test pollution failure where one test's
-     * {@code setProperty("1", "Z")} poisoned every later read.</p>
+     * Properties-compatible lookup table sealed after static initialization.
+     * Existing callers can keep using {@link Properties#getProperty(String)},
+     * but mutation of the shared constants is rejected.
      */
     private static final class FrozenProperties extends Properties {
         private static final long serialVersionUID = 1L;
         private boolean sealed = false;
 
         private void buildEntry(String key, String value) {
-            // Use the parent class's put() directly — calling our own
-            // setProperty() would either throw (if sealed) or recurse.
             super.put(key, value);
         }
 
@@ -88,37 +85,106 @@ public final class BillingOnConstants {
             this.sealed = true;
         }
 
+        private static UnsupportedOperationException immutable() {
+            return new UnsupportedOperationException(
+                    "BillingOnConstants lookup tables are immutable");
+        }
+
         @Override
         public synchronized Object setProperty(String key, String value) {
-            throw new UnsupportedOperationException(
-                    "BillingOnConstants lookup tables are immutable");
+            throw immutable();
         }
 
         @Override
         public synchronized Object put(Object key, Object value) {
             if (sealed) {
-                throw new UnsupportedOperationException(
-                        "BillingOnConstants lookup tables are immutable");
+                throw immutable();
             }
             return super.put(key, value);
         }
 
         @Override
         public synchronized Object remove(Object key) {
-            throw new UnsupportedOperationException(
-                    "BillingOnConstants lookup tables are immutable");
+            throw immutable();
+        }
+
+        @Override
+        public synchronized boolean remove(Object key, Object value) {
+            throw immutable();
         }
 
         @Override
         public synchronized void clear() {
-            throw new UnsupportedOperationException(
-                    "BillingOnConstants lookup tables are immutable");
+            throw immutable();
         }
 
         @Override
         public synchronized void putAll(java.util.Map<?, ?> t) {
-            throw new UnsupportedOperationException(
-                    "BillingOnConstants lookup tables are immutable");
+            throw immutable();
+        }
+
+        @Override
+        public synchronized Object putIfAbsent(Object key, Object value) {
+            throw immutable();
+        }
+
+        @Override
+        public synchronized Object replace(Object key, Object value) {
+            throw immutable();
+        }
+
+        @Override
+        public synchronized boolean replace(Object key, Object oldValue, Object newValue) {
+            throw immutable();
+        }
+
+        @Override
+        public synchronized void replaceAll(
+                BiFunction<? super Object, ? super Object, ? extends Object> function) {
+            throw immutable();
+        }
+
+        @Override
+        public synchronized Object computeIfAbsent(
+                Object key, Function<? super Object, ? extends Object> mappingFunction) {
+            throw immutable();
+        }
+
+        @Override
+        public synchronized Object computeIfPresent(
+                Object key, BiFunction<? super Object, ? super Object, ? extends Object> remappingFunction) {
+            throw immutable();
+        }
+
+        @Override
+        public synchronized Object compute(
+                Object key, BiFunction<? super Object, ? super Object, ? extends Object> remappingFunction) {
+            throw immutable();
+        }
+
+        @Override
+        public synchronized Object merge(
+                Object key, Object value, BiFunction<? super Object, ? super Object, ? extends Object> remappingFunction) {
+            throw immutable();
+        }
+
+        @Override
+        public synchronized Set<Map.Entry<Object, Object>> entrySet() {
+            Set<Map.Entry<Object, Object>> entries = new HashSet<>();
+            for (Map.Entry<Object, Object> entry : super.entrySet()) {
+                entries.add(new AbstractMap.SimpleImmutableEntry<>(entry));
+            }
+            return Collections.unmodifiableSet(entries);
+        }
+
+        @Override
+        public synchronized Set<Object> keySet() {
+            return Collections.unmodifiableSet(new HashSet<>(super.keySet()));
+        }
+
+        @Override
+        public synchronized Collection<Object> values() {
+            return Collections.unmodifiableList(new ArrayList<>(super.values()));
         }
     }
 

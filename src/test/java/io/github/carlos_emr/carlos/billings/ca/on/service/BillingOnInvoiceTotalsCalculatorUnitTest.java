@@ -152,8 +152,8 @@ class BillingOnInvoiceTotalsCalculatorUnitTest {
     void shouldThrowNullPointer_whenHeaderTotalIsNull() {
         // Pins the gap noted in the silent-failure review: a header with
         // null `total` (corrupt RA-import row) NPEs on subtract. The fix
-        // belongs upstream (BillingONCHeader1.setTotal already clamps
-        // negative-to-zero, but null still slips through field access).
+        // belongs upstream; entity setters validate explicit writes, but
+        // null can still slip through field access.
         // This test documents the current behavior so a future fix has a
         // failing-spec to flip.
         BillingONCHeader1 header = new BillingONCHeader1();

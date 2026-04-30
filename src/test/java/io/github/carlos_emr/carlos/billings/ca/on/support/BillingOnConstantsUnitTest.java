@@ -12,6 +12,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.support;
 
+import java.util.Map;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -23,10 +25,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Pins the immutability contract of {@link BillingOnConstants} lookup tables.
  *
  * <p>{@code propMonthCode}, {@code propBillingCenter}, and {@code propBillingType}
- * are {@code public static final} and shared by 88+ call sites — any caller
- * that mutates one of them poisons every other reader process-wide. The fields
- * must reject {@code setProperty}, {@code put}, {@code remove}, and
- * {@code clear} after static initialization.</p>
+ * are {@code public static final}. The fields must reject direct mutation and
+ * mutation through collection views after static initialization.</p>
  */
 @DisplayName("BillingOnConstants immutability")
 @Tag("unit")
@@ -76,6 +76,45 @@ class BillingOnConstantsUnitTest {
     @Test
     void shouldRejectRemove() {
         assertThatThrownBy(() -> BillingOnConstants.propBillingCenter.remove("N"))
+                .isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
+    void shouldRejectMapMutators() {
+        assertThatThrownBy(() -> BillingOnConstants.propMonthCode.put("13", "M"))
+                .isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> BillingOnConstants.propMonthCode.putIfAbsent("13", "M"))
+                .isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> BillingOnConstants.propMonthCode.replace("1", "Z"))
+                .isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> BillingOnConstants.propMonthCode.replace("1", "A", "Z"))
+                .isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> BillingOnConstants.propMonthCode.remove("1", "A"))
+                .isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> BillingOnConstants.propMonthCode.compute("1", (key, value) -> "Z"))
+                .isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> BillingOnConstants.propMonthCode.computeIfAbsent("13", key -> "M"))
+                .isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> BillingOnConstants.propMonthCode.computeIfPresent("1", (key, value) -> "Z"))
+                .isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> BillingOnConstants.propMonthCode.merge("1", "Z", (oldValue, newValue) -> "Z"))
+                .isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> BillingOnConstants.propMonthCode.replaceAll((key, value) -> "Z"))
+                .isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
+    void shouldRejectCollectionViewMutation() {
+        Map.Entry<Object, Object> entry =
+                BillingOnConstants.propMonthCode.entrySet().iterator().next();
+
+        assertThatThrownBy(() -> entry.setValue("Z"))
+                .isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> BillingOnConstants.propMonthCode.entrySet().clear())
+                .isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> BillingOnConstants.propMonthCode.keySet().remove("1"))
+                .isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> BillingOnConstants.propMonthCode.values().remove("A"))
                 .isInstanceOf(UnsupportedOperationException.class);
     }
 }
