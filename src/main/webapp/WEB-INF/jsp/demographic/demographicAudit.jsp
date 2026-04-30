@@ -29,6 +29,14 @@
 
 --%>
 
+<%-- 
+demographicAudit.jsp
+- provides the log entries for the demographic for audit purposes
+- DataTables enables filtering ("search") and pagation functions
+
+@since 2019
+
+--%>
 <!DOCTYPE html>
 
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
@@ -85,7 +93,7 @@
     <script type="text/javascript" src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
     <script>
     jQuery(document).ready(function () {
-        auditLogTable = jQuery("#auditLog").DataTable({
+        const auditLogTable = jQuery("#auditLog").DataTable({
             searching: true,
             paging: true,
             pageLength: 10,
@@ -116,12 +124,14 @@
 <h2><fmt:message key="demographic.demographiceditdemographic.btnAuditInfo"/>&nbsp;(<carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="html"/>)</h2>
 <table style="width:100%" class="table table-striped" id="auditLog">
     <thead>
+    <tr>
     <th><fmt:message key="admin.logReport.table.time"/></th>
     <th><fmt:message key="admin.logReport.table.provider"/></th>
     <th><fmt:message key="admin.logReport.table.action"/></th>
     <th><fmt:message key="admin.logReport.table.content"/></th>
     <th><fmt:message key="admin.logReport.table.keyword"/></th>
     <th><fmt:message key="admin.logReport.table.data"/></th>
+    </tr>
     </thead>
     <tbody>
     <%
