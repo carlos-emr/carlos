@@ -243,7 +243,6 @@ public class TeleplanFileWriter {
         //WcbSb sb = new WcbSb(billing_no);
         appendToHTML(wcbSub.getHtmlLine(wcbForm, bm)); //sb.getHtmlLine());
         appendToHTML(wcbSub.validate(wcbForm, bm)); //sb.validate());
-        //TODO: DOES THIS DO ANYTHING appendToHTML(checkData.printWarningMsg(""))
 
         Claims claims = new Claims();
         claims.increaseClaims();
