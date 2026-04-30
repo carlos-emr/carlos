@@ -181,7 +181,6 @@ public class TeleplanFileWriter {
                     log.debug("Billing # :" + billing_no + " Data Center :" + dataCenterId + " ICBC / MSP BILL");
                     c = createMSPICBCLines(billing_no, dataCenterId, demoName);
                 } else if (billType.equals("WCB")) {
-                    //TODO:Should pass dataCenterId to WCB but it looks it up in the properties currently, fix in the future
                     log.debug("Billing # :" + billing_no + " Data Center :" + dataCenterId + " WCB BILL");
                     c = createWCB2(loggedInInfo, billing_no);
                 }
@@ -346,7 +345,6 @@ public class TeleplanFileWriter {
     }
 
 
-    //TODO: DATA CENTER NUMBER IS HERE?? should that be from property?
     public String getNoteRecord(Billingmaster bm, String seqNo) {
         MSPBillingNote note = new MSPBillingNote();
         return MSPBillingNote.getN01(bm.getDatacenter(), seqNo, bm.getPayeeNo(), bm.getPractitionerNo(), "A", note.getNote("" + bm.getBillingmasterNo()));

@@ -27,6 +27,8 @@ COPY ./.devcontainer/development/config/shared/my.cnf /etc/mysql/my.cnf
 RUN chmod 744 /etc/mysql/my.cnf
 RUN chmod 755 /scripts
 
+RUN mkdir -p /var/lib/OscarDocument && chown -R mysql:mysql /var/lib/OscarDocument
+
 # Converting script files using dos2unix (Required for Windows)
 RUN dos2unix /docker-entrypoint-initdb.d/populate_db.sh
 RUN dos2unix /database/mysql/*.sh
