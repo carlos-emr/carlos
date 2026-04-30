@@ -47,9 +47,10 @@ import org.mockito.ArgumentCaptor;
 
 /**
  * Behavioral tests for {@link BillingOnCorrectionPersister} (renamed from
- * {@code BillingOnCorrectionPersistenceService} as part of PR #1967's
- * layer-names hypocrisy fix). Covers the high-value mutation paths:
- * status updates, total/paid money writes, and item-mutation flow.
+ * {@code BillingOnCorrectionPersistenceService} during the {@code *Persister}
+ * / {@code *Loader} split — see {@code docs/architecture/layer-names.md}).
+ * Covers the high-value mutation paths: status updates, total/paid money
+ * writes, and item-mutation flow.
  */
 @DisplayName("BillingOnCorrectionPersister")
 @Tag("unit")

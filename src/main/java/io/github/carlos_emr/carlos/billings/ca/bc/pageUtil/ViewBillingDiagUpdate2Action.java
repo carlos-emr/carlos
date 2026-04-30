@@ -32,7 +32,7 @@ import org.apache.struts2.ServletActionContext;
  *
  * @since 2026-04-13
  */
-public final class ViewBillingDigUpdate2Action extends ActionSupport {
+public final class ViewBillingDiagUpdate2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 

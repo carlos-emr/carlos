@@ -178,23 +178,35 @@ class BillingClaimsErrorReportParserUnitTest {
     }
 
     /**
-     * Documents the silent-failure hazard the silent-failure-hunter agent
-     * flagged at line 152-156: an {@link IOException} (mid-stream read
-     * failure) is caught and logged but does NOT flip verdict. Until that
-     * is fixed, a torn read produces "verdict=true" with a partially
-     * populated record list. The test pins current behavior so a future
-     * fix has a failing-spec to flip.
+     * IOException must flip {@code verdict} to false. An earlier passive test
+     * pinned the pre-fix {@code verdict=true} behavior because it never
+     * actually triggered an IOException; this version drives the IOException
+     * branch by reading a closed stream so the contract is real.
      */
     @Test
-    void shouldKeepVerdictTrue_onIOException_documentingCurrentBug() throws Exception {
-        // Triggering an IOException mid-stream from a real FileInputStream
-        // is hard to do reliably; this test only exists to document the
-        // silent-failure surface — the IOException catch on line 152
-        // does NOT flip verdict. Other branches do.
-        // Exercising the file-only init() path is enough to keep the test
-        // on the same surface as the bug.
-        BillingClaimsErrorReportParser parser = new BillingClaimsErrorReportParser(
-                new FileInputStream(Files.createTempFile(tempDir, "noop", ".txt").toFile()));
+    void shouldFlipVerdictFalse_onIOException() throws Exception {
+        // Drive the IOException branch by feeding the parser a closed stream:
+        // the BufferedReader.readLine() call raises IOException("Stream closed"),
+        // which the catch block must now flip to verdict=false.
+        java.io.File tempFile = Files.createTempFile(tempDir, "ioex", ".txt").toFile();
+        FileInputStream fis = new FileInputStream(tempFile);
+        fis.close();
+        // The parser's constructor reads the stream — close before passing.
+
+        BillingClaimsErrorReportParser parser = new BillingClaimsErrorReportParser(fis);
+        assertThat(parser.verdict).as("IOException must flip verdict to false").isFalse();
+    }
+
+    @Test
+    void shouldStartWithVerdictTrue_onValidEmptyStream() {
+        // Sanity: a clean read with no records leaves verdict=true.
+        BillingClaimsErrorReportParser parser;
+        try {
+            java.io.File f = Files.createTempFile(tempDir, "ok", ".txt").toFile();
+            parser = new BillingClaimsErrorReportParser(new FileInputStream(f));
+        } catch (Exception e) {
+            throw new AssertionError(e);
+        }
         assertThat(parser.verdict).isTrue();
     }
 }

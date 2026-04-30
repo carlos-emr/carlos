@@ -99,7 +99,11 @@ public class HttpMethodGuardFilter implements Filter {
     private static final Set<String> MUTATOR_ACTION_NAMES = Set.of(
             "billingaddcode",         // BillingAddCode2Action (starts with "billing", not "add")
             "reprocessbill",          // BillingReProcessBill2Action
-            "movemohfiles",           // ArchiveMOHFile2Action
+            // moveMOHFiles is dual-purpose: GET renders the file listing,
+            // POST archives selected files. The action self-gates POST when
+            // the `mohFile` mutation-intent parameter is present, so we don't
+            // need the filter-level block; including it here would 405 the
+            // legitimate render path.
             "newmeasurementmap",      // EctAddMeasurementMap2Action
             "remapmeasurementmap",    // EctRemoveMeasurementMap2Action
             "setupaddmeasurementgroup",      // EctSetupAddMeasurementGroup2Action

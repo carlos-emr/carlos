@@ -33,9 +33,8 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
-import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.commn.dao.CSSStylesDAO;
-import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.commn.model.CssStyle;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -77,6 +76,12 @@ public class ManageCss2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {
             throw new SecurityException("missing required sec object (_admin)");
         }
+        // Mutation: persist or merge cssStyle. CSRFGuard's body-token check
+        // only fires on non-GET; without an explicit POST gate a forged GET
+        // URL would bypass it. Mirrors the pattern used by sibling 2Actions.
+        if (!BillingRequestGuards.requirePost(request, response)) {
+            return NONE;
+        }
 
         CssStyle cssStyle = null;
         boolean newStyle = false;
@@ -93,7 +98,16 @@ public class ManageCss2Action extends ActionSupport {
                     break;
                 }
             }
-
+            // Pre-fix: if the lookup found no match, cssStyle stayed null and
+            // line 105 NPE'd with no operator-visible signal. Surface a clean
+            // validation message instead.
+            if (cssStyle == null) {
+                MiscUtils.getLogger().warn("ManageCss2Action.save: CSS style not found for editStyle={}",
+                        io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(this.getEditStyle()));
+                addActionError("CSS style not found.");
+                this.setStyles(styles);
+                return "init";
+            }
         }
 
         cssStyle.setName(this.getStyleName());
@@ -118,27 +132,28 @@ public class ManageCss2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {
             throw new SecurityException("missing required sec object (_admin)");
         }
-
-        List<CssStyle> styles = cssStylesDao.findAll();
-        int idx = 0;
-        for (CssStyle cssStylecurrent : styles) {
-            if (cssStylecurrent.getStyle().equalsIgnoreCase(this.getEditStyle())) {
-                cssStylecurrent.setStatus(CssStyle.DELETED);
-                cssStylesDao.merge(cssStylecurrent);
-                styles.remove(idx);
-
-                BillingServiceDao billingServiceDao = (BillingServiceDao) SpringUtils.getBean(BillingServiceDao.class);
-                List<BillingService> serviceCodes = billingServiceDao.findBillingCodesByFontStyle(cssStylecurrent.getId());
-                for (BillingService servicecode : serviceCodes) {
-                    servicecode.setDisplayStyle(null);
-                    billingServiceDao.merge(servicecode);
-                }
-                break;
-            }
-            ++idx;
+        // Mutation: cascades a null update to billing_service.display_style for
+        // every code referencing this style. POST-only — see save() above.
+        if (!BillingRequestGuards.requirePost(request, response)) {
+            return NONE;
         }
 
-        this.setStyles(styles);
+        // The cascade (css_styles soft-delete + billing_service.display_style
+        // null on every referencing code) is now bundled under @Transactional
+        // inside CssStyleDeletionService. Pre-fix a mid-cascade DAO failure
+        // left the style row marked DELETED while only some referencing codes
+        // had been nulled.
+        boolean deleted = SpringUtils.getBean(io.github.carlos_emr.carlos.billings.ca.on.service.CssStyleDeletionService.class)
+                .deleteByStyleId(this.getEditStyle());
+        if (!deleted) {
+            MiscUtils.getLogger().warn("ManageCss2Action.delete: CSS style not found for editStyle={}",
+                    io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(this.getEditStyle()));
+            addActionError("CSS style not found.");
+            this.setStyles(cssStylesDao.findAll());
+            return "init";
+        }
+
+        this.setStyles(cssStylesDao.findAll());
         request.setAttribute("success", "true");
 
         return "init";

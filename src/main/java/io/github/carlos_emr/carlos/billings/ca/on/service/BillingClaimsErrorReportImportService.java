@@ -216,7 +216,12 @@ public class BillingClaimsErrorReportImportService {
 
             }
         } catch (IOException ioe) {
-            MiscUtils.getLogger().error("Error", ioe);
+            // Mirror the StringIndexOutOfBoundsException branch below: a partial
+            // read leaves the in-progress error-report row already persisted
+            // (line above this catch), so the caller MUST see verdict=false to
+            // avoid reporting "import succeeded" when half the file was lost.
+            verdict = false;
+            MiscUtils.getLogger().error("I/O error reading claims-error report; aborting import (verdict=false):", ioe);
         } catch (StringIndexOutOfBoundsException ioe) {
             verdict = false;
             MiscUtils.getLogger().error("Error, setting verdict to false:", ioe);

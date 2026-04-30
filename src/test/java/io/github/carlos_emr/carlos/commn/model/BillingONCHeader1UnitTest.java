@@ -28,7 +28,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * Unit tests for the pure-domain methods on {@link BillingONCHeader1}. These
  * methods previously lived on the deleted {@code BillingONService} catch-all
- * and on {@code BillingOnInvoiceTotalsCalculator}; they belong on the entity
+ * and on {@code BillingOnInvoiceTotalsService}; they belong on the entity
  * because they reason about its own state with no DAO calls.
  *
  * @since 2026-04-27
@@ -70,6 +70,17 @@ class BillingONCHeader1UnitTest {
             assertThatThrownBy(() -> header.setTotal(new BigDecimal("-0.01")))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("BillingONCHeader1 total cannot be negative");
+        }
+
+        @Test
+        void shouldAccept_unusuallyLargeValues() {
+            // Pin DB column-precision contract — billing.total is DECIMAL(12,4)
+            // in the schema. setTotal must not reject high-precision or
+            // wide-magnitude values within that contract.
+            BillingONCHeader1 header = new BillingONCHeader1();
+            BigDecimal large = new BigDecimal("99999999.9999");
+            header.setTotal(large);
+            assertThat(header.getTotal()).isEqualByComparingTo(large);
         }
     }
 
@@ -146,6 +157,96 @@ class BillingONCHeader1UnitTest {
             header.markSettled();
             assertThat(header.getStatus()).isEqualTo(BillingONCHeader1.SETTLED);
             assertThat(header.isSettled()).isTrue();
+        }
+
+        @Test
+        void shouldThrowIllegalArgumentException_whenSetStatusUnknownValue() {
+            BillingONCHeader1 header = new BillingONCHeader1();
+            // "Z" is not in KNOWN_STATUSES = {O,S,D,B,P,N,I,W,A}; whitelist rejection
+            // catches drift at write-time so a future contributor's typo stops here
+            // rather than spreading through the system.
+            assertThatThrownBy(() -> header.setStatus("Z"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("known set");
+        }
+
+        @Test
+        void shouldAcceptAllNineKnownStatusConstants() {
+            BillingONCHeader1 header = new BillingONCHeader1();
+            // Each constant is whitelisted; setStatus must accept all without throwing.
+            header.setStatus(BillingONCHeader1.OPEN);
+            header.setStatus(BillingONCHeader1.SETTLED);
+            header.setStatus(BillingONCHeader1.DELETED);
+            header.setStatus(BillingONCHeader1.BILLED);
+            header.setStatus(BillingONCHeader1.PATIENT_BILLED);
+            header.setStatus(BillingONCHeader1.NOT_BILLED);
+            header.setStatus(BillingONCHeader1.INDEPENDENT);
+            header.setStatus(BillingONCHeader1.WCB);
+            header.setStatus(BillingONCHeader1.ACKNOWLEDGED);
+        }
+    }
+
+    @Nested
+    @DisplayName("billingItems collection contract")
+    class BillingItemsCollection {
+
+        @Test
+        void shouldReturnUnmodifiableView_whenGetBillingItems() {
+            BillingONCHeader1 header = new BillingONCHeader1();
+            header.addBillingItem(item("10.00"));
+            List<BillingONItem> view = header.getBillingItems();
+
+            // Mutating the returned view must throw — production callers must
+            // use addBillingItem/removeBillingItem to mutate the collection.
+            assertThatThrownBy(() -> view.add(item("20.00")))
+                    .isInstanceOf(UnsupportedOperationException.class);
+        }
+
+        @Test
+        void shouldAppendToLiveCollection_whenAddBillingItem() {
+            BillingONCHeader1 header = new BillingONCHeader1();
+            header.addBillingItem(item("10.00"));
+            header.addBillingItem(item("20.00"));
+
+            assertThat(header.getBillingItems()).hasSize(2);
+            assertThat(header.getBillingItems())
+                    .extracting(BillingONItem::getFee)
+                    .containsExactly("10.00", "20.00");
+        }
+
+        @Test
+        void shouldIgnoreNull_whenAddBillingItem() {
+            BillingONCHeader1 header = new BillingONCHeader1();
+            header.addBillingItem(null);
+            assertThat(header.getBillingItems()).isEmpty();
+        }
+
+        @Test
+        void shouldRemoveFromLiveCollection_whenRemoveBillingItem() {
+            BillingONCHeader1 header = new BillingONCHeader1();
+            BillingONItem first = item("10.00");
+            BillingONItem second = item("20.00");
+            header.addBillingItem(first);
+            header.addBillingItem(second);
+
+            boolean removed = header.removeBillingItem(first);
+
+            assertThat(removed).isTrue();
+            assertThat(header.getBillingItems()).hasSize(1);
+            assertThat(header.getBillingItems()).contains(second);
+        }
+
+        @Test
+        void shouldReturnFalse_whenRemoveBillingItemNotInCollection() {
+            BillingONCHeader1 header = new BillingONCHeader1();
+            assertThat(header.removeBillingItem(item("10.00"))).isFalse();
+        }
+
+        private BillingONItem item(String fee) {
+            BillingONItem i = new BillingONItem();
+            i.setStatus(BillingONItem.OPEN);
+            i.setFee(fee);
+            return i;
         }
     }
 
@@ -228,13 +329,16 @@ class BillingONCHeader1UnitTest {
         }
 
         @Test
-        void shouldReturnEmpty_whenAFeeCannotBeParsed() {
-            BillingONCHeader1 header = new BillingONCHeader1();
-            header.setBillingItems(new ArrayList<>(List.of(
-                    activeItem("10.00"),
-                    activeItem("not-a-number"))));
-
-            assertThat(header.recomputeTotalFromItems()).isEmpty();
+        void shouldRejectAtWriteTime_whenFeeCannotBeParsed() {
+            // Phase: BillingONItem.setFee now validates at write-time, so
+            // an unparseable fee never reaches recomputeTotalFromItems().
+            // Pin the rejection here so a future regression that loosens
+            // setFee surfaces in this entity's own test suite.
+            BillingONItem item = new BillingONItem();
+            item.setStatus(BillingONItem.OPEN);
+            assertThatThrownBy(() -> item.setFee("not-a-number"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("not a valid BigDecimal");
         }
 
         @Test

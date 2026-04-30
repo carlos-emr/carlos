@@ -35,8 +35,8 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.OnRaErrorViewModelAs
  * View gate for {@code billing/CA/ON/onGenRAError.jsp}. Enforces {@code _billing}
  * {@code r} privilege before forwarding to the JSP at its
  * {@code /WEB-INF/jsp/} location. Created as part of the ON billing migration
- * to gate direct-access paths behind Struts2 actions (same pattern as
- * PR #1632 for BC billing).
+ * to gate direct-access paths behind Struts2 actions (matches the BC
+ * billing 2Action gate convention).
  *
  * <p>Also assembles the {@link OnRaErrorViewModel} the JSP renders: the
  * provider dropdown options and (when a specific provider is selected) the

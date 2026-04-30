@@ -99,6 +99,17 @@
 <body>
 <h3><fmt:message key="admin.admin.btnBillingReconciliation"/></h3>
 
+<%-- Surface RA-import failures so the operator doesn't see a clean page
+     when the import service silently rolled back. The action sets
+     `raImportFailed=true` on the request when OnRaImportService
+     returned false (file unreadable / parse failure). --%>
+<c:if test="${raImportFailed}">
+    <div class="alert alert-danger" role="alert">
+        RA import failed — see server log for details. The displayed RA list
+        does not reflect the file you just attempted to import.
+    </div>
+</c:if>
+
 <div class="container-fluid card card-body bg-body-tertiary">
     <button class="btn btn-primary float-end" type='button' name='print' value='Print'
             onClick='window.print(); return false;'><i class="fa-solid fa-print"></i> Print

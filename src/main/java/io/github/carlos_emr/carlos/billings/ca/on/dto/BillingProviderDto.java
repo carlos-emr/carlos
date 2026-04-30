@@ -24,18 +24,18 @@
 package io.github.carlos_emr.carlos.billings.ca.on.dto;
 
 public class BillingProviderDto {
-    String providerNo;
-    String lastName;
-    String firstName;
-    String providerType;
-    String specialtyCode;
-    String team;
-    String ohipNo;
-    String rmaNo;
-    String billingNo;
-    String hso_no;
-    String status;
-    String billingGroupNo;
+    private String providerNo;
+    private String lastName;
+    private String firstName;
+    private String providerType;
+    private String specialtyCode;
+    private String team;
+    private String ohipNo;
+    private String rmaNo;
+    private String billingNo;
+    private String hso_no;
+    private String status;
+    private String billingGroupNo;
 
     public String getBillingGroupNo() {
         return billingGroupNo;

@@ -152,6 +152,9 @@ class BillingOnSave2ActionUnitTest extends CarlosUnitTestBase {
         when(mockSaveService.getBillingClaimObj(mockRequest)).thenReturn(claim);
         when(mockSaveService.addABillingRecord(claim))
                 .thenReturn(new BillingClaimSubmissionService.SaveResult(true, 4321));
+        // Round 2 #15: action now consults the addPrivateBillExtRecord boolean.
+        // Stub success so the happy-path assertion still holds.
+        when(mockSaveService.addPrivateBillExtRecord(mockRequest, claim, 4321)).thenReturn(true);
 
         BillingONCHeader1 savedHeader = new BillingONCHeader1();
         savedHeader.setDemographicNo(99);

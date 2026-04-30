@@ -348,7 +348,7 @@ public class BillingOnCorrectionRenderComposer {
                 bService = billingServiceDao.searchBillingCode(item.getServiceCode(), "ON", item.getServiceDate());
             }
             String desc = bService == null ? "N/A" : nullToEmpty(bService.getDescription());
-            String status = "S".equals(item.getStatus()) ? "checked" : "";
+            String status = BillingONItem.SETTLED.equals(item.getStatus()) ? "checked" : "";
             out.add(new BillingOnCorrectionViewModel.BillItemEntry(
                     nullToEmpty(item.getServiceCode()),
                     desc,

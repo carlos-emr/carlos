@@ -156,7 +156,7 @@ class ViewBillingShortcutPg1View2ActionUnitTest extends CarlosUnitTestBase {
      * to {@code SecurityInfoManager.hasPrivilege(null, ...)} dereference
      * null inside the manager (which emits an internal ERROR log,
      * polluting the privilege-denial signal). Regression armor for the
-     * round-7 null guard.
+     * sessionless null-guard.
      */
     @Test
     void shouldThrowSecurityException_whenSessionMissing() {

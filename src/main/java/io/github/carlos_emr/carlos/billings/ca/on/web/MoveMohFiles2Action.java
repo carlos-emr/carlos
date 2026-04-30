@@ -54,7 +54,7 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.WebUtils;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
-import org.owasp.encoder.Encode;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 /**
  * Struts2 action for managing Ontario Ministry of Health (MOH) billing file archival operations.
@@ -116,13 +116,29 @@ public class MoveMohFiles2Action extends ActionSupport {
      * user via session messages, but do not halt processing of remaining files. Success and error
      * messages are accumulated and displayed to the user via {@link WebUtils} session messaging.</p>
      *
-     * @return String result code "Success" upon completion of the archival process
+     * @return String result code {@link ActionSupport#SUCCESS} ({@code "success"}) on completion of
+     *         the archival process. The struts mapping is case-sensitive, so the inherited constant
+     *         must be used rather than a literal string.
      * @throws Exception if an unexpected error occurs during execution
      * @throws SecurityException if the user lacks required administrative privileges (_admin with write access)
      */
     public String execute() throws Exception {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {
             throw new SecurityException("missing required sec object (_admin)");
+        }
+
+        // Dual-purpose action: GET = render file listing, POST = archive selected
+        // files. Only enforce POST when the mutation-intent parameter (`mohFile`)
+        // is present. Without this conditional gate, the HttpMethodGuardFilter
+        // blocks the legitimate render-on-GET path; with an unconditional gate,
+        // the page can't be loaded at all. Mirrors the AddEditServiceCode2Action
+        // mutation-intent pattern.
+        String[] mutationFiles = request.getParameterValues("mohFile");
+        if (mutationFiles != null && mutationFiles.length > 0
+                && !"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required for archival");
+            return NONE;
         }
 
         StringBuilder messages = new StringBuilder();
@@ -153,7 +169,7 @@ public class MoveMohFiles2Action extends ActionSupport {
                     if (file == null) {
                         logger.warn("Unable to get file {}{}{}", LogSanitizer.sanitize(folderPath), File.separator, LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
 
-                        errors.append("Unable to find file ").append(Encode.forHtml(fileName)).append(".<br/>");
+                        errors.append("Unable to find file ").append(SafeEncode.forHtml(fileName)).append(".<br/>");
                         continue;
                     }
 
@@ -161,16 +177,16 @@ public class MoveMohFiles2Action extends ActionSupport {
                     if (!isValidFileLocation) {
                         logger.warn("Invalid file location {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
 
-                        errors.append("File is not in a valid location: ").append(Encode.forHtml(fileName)).append(".<br/>");
+                        errors.append("File is not in a valid location: ").append(SafeEncode.forHtml(fileName)).append(".<br/>");
                         continue;
                     }
 
                     if (file.exists()) {
                         boolean isMoved = moveFile(file);
                         if (isMoved) {
-                            messages.append("Archived file ").append(Encode.forHtml(file.getName())).append(" successfully.<br/>");
+                            messages.append("Archived file ").append(SafeEncode.forHtml(file.getName())).append(" successfully.<br/>");
                         } else {
-                            errors.append("Unable to archive ").append(Encode.forHtml(file.getName()));
+                            errors.append("Unable to archive ").append(SafeEncode.forHtml(file.getName()));
                         }
                     }
                 }
@@ -186,7 +202,7 @@ public class MoveMohFiles2Action extends ActionSupport {
         request.setAttribute("mohModel", buildViewModel(request, folderParam));
         request.setAttribute("__roleName", buildRoleName(request));
 
-        return "Success";
+        return SUCCESS;
     }
 
     /** Builds the {@code roleName} string the {@code <security:oscarSec>} tag wants. */
@@ -264,11 +280,14 @@ public class MoveMohFiles2Action extends ActionSupport {
                 }
             }
         } catch (SecurityException e) {
+            // Distinguish the path-traversal case from the IO-error case so
+            // the operator can tell whether their file selection is invalid
+            // vs the disk failed mid-unzip.
             logger.warn("viewMOHFiles: path traversal attempt blocked for unzipfile parameter");
-            unzipMSG = "(Cannot unzip)";
+            unzipMSG = "(Blocked: invalid file path)";
         } catch (Exception e) {
             logger.error("viewMOHFiles: unzip file Unhandled exception:", e);
-            unzipMSG = "(Cannot unzip)";
+            unzipMSG = "(Cannot unzip — see server logs)";
         }
 
         File f = new File(folderPath);

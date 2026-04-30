@@ -47,8 +47,8 @@
  *
  * <h2>Naming</h2>
  *
- * <p>All actions end in {@code *2Action} per the migration convention
- * established in PR #1632. {@code View*2Action} = read-only render gates.
+ * <p>All actions end in {@code *2Action} per the BC-billing-established
+ * migration convention. {@code View*2Action} = read-only render gates.
  * {@code *Save2Action} / {@code Update*2Action} = mutation gates (POST-only).
  * The bare-no-prefix {@code *2Action} (e.g. {@code BatchBill2Action}) is a
  * historical inconsistency.</p>

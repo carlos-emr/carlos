@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.commn.dao.RaDetailDao;
 import io.github.carlos_emr.carlos.commn.dao.RaHeaderDao;
 import io.github.carlos_emr.carlos.commn.model.RaDetail;
 import io.github.carlos_emr.carlos.commn.model.RaHeader;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 /**
  * Mutation service for the two RA settlement popups —
  * {@code onGenRAsettle.jsp} (settle all non-error bills, mark RA header
@@ -79,18 +80,28 @@ public class OnRaSettlementService {
     /**
      * Run the settle mutation for the given RA header.
      *
-     * @param raNoStr the {@code rano} request param (the RA header ID)
+     * @param raNoStr the {@code rano} request param (the RA header ID).
+     *                Must parse as a non-null integer; otherwise this method
+     *                throws {@link io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException}
+     *                so the calling action's exception mapping renders the
+     *                validation page rather than the operator seeing a clean
+     *                "Settle complete" with no rows actually settled.
      * @param mode {@link Mode#STANDARD} for {@code onGenRAsettle.jsp},
      *             {@link Mode#I2_35_WITH_QCODES} for
      *             {@code onGenRAsettle35.jsp}
-     * @return {@code true} when a settle ran (raNoStr was a valid integer
-     *         and resolved to an RA header). {@code false} when the input
-     *         was missing/invalid — the JSP renders nothing in that case.
+     * @return {@code true} when a settle ran. Currently always returns
+     *         {@code true} on the success path; kept for caller-side parity
+     *         until callers migrate to void.
      */
     public boolean settle(String raNoStr, Mode mode) {
         Integer raNo = parseInt(raNoStr);
         if (raNo == null) {
-            return false;
+            // Pre-fix: returned false; both ViewOnGenRaSettle2Action and
+            // ViewOnGenRaSettle352Action ignored the return and rendered
+            // SUCCESS — operator saw "Settle complete" while no rows were
+            // actually settled. Throw cleanly so the validation-error
+            // result page renders.
+            throw newInvalidRanoException(raNoStr);
         }
         // The legacy code used proNo + "%" against the search methods, but
         // never set proNo from a request param — preserved as empty string
@@ -154,5 +165,20 @@ public class OnRaSettlementService {
         } catch (NumberFormatException e) {
             return null;
         }
+    }
+
+    /**
+     * Helper kept out of the throw-site to keep the message constant-only
+     * (the static-analysis SQL-injection regex false-positives on string
+     * concatenation in exception messages). The offending input is already
+     * captured upstream by the action's MiscUtils.getLogger().
+     */
+    private static io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException newInvalidRanoException(String raNoStr) {
+        // Log the offending raw value with sanitisation so we keep diagnostic
+        // context out of the user-facing exception message.
+        MiscUtils.getLogger().warn("RA settle: rano parse rejected, raw value: {}",
+                io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(raNoStr));
+        return new io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException(
+                "RA settle rejected: rano parameter is missing or not a valid integer");
     }
 }

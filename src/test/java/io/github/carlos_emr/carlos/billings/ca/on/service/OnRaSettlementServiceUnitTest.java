@@ -40,7 +40,7 @@ import static org.mockito.Mockito.when;
  * Behavioral tests for {@link OnRaSettlementService}, the mutation path
  * behind {@code onGenRAsettle.jsp} and {@code onGenRAsettle35.jsp}. Covers
  * both {@link OnRaSettlementService.Mode} variants plus the input-validation
- * pre-checks called out in the PR #1967 review.
+ * pre-checks for the settle-vs-clear path.
  */
 @DisplayName("OnRaSettlementService")
 @Tag("unit")
@@ -61,27 +61,36 @@ class OnRaSettlementServiceUnitTest {
     }
 
     @Test
-    void shouldReturnFalseAndDoNothing_whenRaNoIsNull() {
-        boolean ran = service.settle(null, OnRaSettlementService.Mode.STANDARD);
+    void shouldThrowAndDoNothing_whenRaNoIsNull() {
+        // Pre-fix: returned false silently; both ViewOnGenRaSettle2Action and
+        // ViewOnGenRaSettle352Action ignored the boolean and rendered SUCCESS,
+        // so the operator saw "Settle complete" while no rows settled. Round 2
+        // #11 throws BillingValidationException so the action's exception
+        // mapping renders the validation page.
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                () -> service.settle(null, OnRaSettlementService.Mode.STANDARD))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("rano");
 
-        assertThat(ran).isFalse();
         verify(raDetailDao, never()).search_raerror35(anyInt(), anyString(), anyString(), anyString());
         verify(billingRaReportService, never()).updateBillingStatus(anyString(), anyString());
     }
 
     @Test
-    void shouldReturnFalseAndDoNothing_whenRaNoIsBlank() {
-        boolean ran = service.settle("", OnRaSettlementService.Mode.STANDARD);
+    void shouldThrowAndDoNothing_whenRaNoIsBlank() {
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                () -> service.settle("", OnRaSettlementService.Mode.STANDARD))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class);
 
-        assertThat(ran).isFalse();
         verify(raDetailDao, never()).search_raerror35(anyInt(), anyString(), anyString(), anyString());
     }
 
     @Test
-    void shouldReturnFalseAndDoNothing_whenRaNoIsNonNumeric() {
-        boolean ran = service.settle("not-a-number", OnRaSettlementService.Mode.STANDARD);
+    void shouldThrowAndDoNothing_whenRaNoIsNonNumeric() {
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                () -> service.settle("not-a-number", OnRaSettlementService.Mode.STANDARD))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class);
 
-        assertThat(ran).isFalse();
         verify(raDetailDao, never()).search_raerror35(anyInt(), anyString(), anyString(), anyString());
     }
 

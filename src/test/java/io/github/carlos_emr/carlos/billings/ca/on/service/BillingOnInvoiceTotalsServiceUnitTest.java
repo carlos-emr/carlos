@@ -42,27 +42,27 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 /**
- * Direct unit tests for {@link BillingOnInvoiceTotalsCalculator}, which now
+ * Direct unit tests for {@link BillingOnInvoiceTotalsService}, which now
  * holds only the cross-DAO {@code calculateBalanceOwing} method (the
  * "sum the active items" recompute lives on {@link BillingONCHeader1} as
  * pure entity arithmetic and is covered by {@code BillingONCHeader1UnitTest}).
  *
  * @since 2026-04-27
  */
-@DisplayName("BillingOnInvoiceTotalsCalculator.calculateBalanceOwing")
+@DisplayName("BillingOnInvoiceTotalsService.calculateBalanceOwing")
 @Tag("unit")
 @Tag("billing")
-class BillingOnInvoiceTotalsCalculatorUnitTest {
+class BillingOnInvoiceTotalsServiceUnitTest {
 
     private BillingONCHeader1Dao headerDao;
     private BillingONPaymentDao paymentDao;
-    private BillingOnInvoiceTotalsCalculator calc;
+    private BillingOnInvoiceTotalsService calc;
 
     @BeforeEach
     void setUp() {
         headerDao = Mockito.mock(BillingONCHeader1Dao.class);
         paymentDao = Mockito.mock(BillingONPaymentDao.class);
-        calc = new BillingOnInvoiceTotalsCalculator(headerDao, paymentDao);
+        calc = new BillingOnInvoiceTotalsService(headerDao, paymentDao);
     }
 
     private BillingONPayment payment(String paid, String refund) {

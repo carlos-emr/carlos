@@ -25,25 +25,25 @@ package io.github.carlos_emr.carlos.billings.ca.on.dto;
 
 
 public class BillingClaimItemDto {
-    String id;
-    String ch1_id;
-    String transc_id;
-    String rec_id;
-    String service_code;
-    String fee;
-    String ser_num;
-    String service_date;
-    String dx;
-    String dx1;
-    String dx2;
-    String paid;
-    String refund;
-    String credit;
-    String discount;
-    String status;
-    String timestamp;
-    String location;
-    String patientName;
+    private String id;
+    private String ch1_id;
+    private String transc_id;
+    private String rec_id;
+    private String service_code;
+    private String fee;
+    private String ser_num;
+    private String service_date;
+    private String dx;
+    private String dx1;
+    private String dx2;
+    private String paid;
+    private String refund;
+    private String credit;
+    private String discount;
+    private String status;
+    private String timestamp;
+    private String location;
+    private String patientName;
 
     /*
      *Default Constructor

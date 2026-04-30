@@ -582,16 +582,22 @@ public class BillingCorrectionService {
             }
         }
 
-        List<BillingONItem> bItemsExisting = bCh1.getBillingItems();
+        // Snapshot the existing items into a fresh list. The getter returns
+        // Collections.unmodifiableList(billingItems) over the live JPA-managed
+        // collection; the loop below calls bCh1.addBillingItem(...) which
+        // mutates the same backing list, which would CME the unmodifiable
+        // view's iterator (or the contains/indexOf checks once the list grows).
+        List<BillingONItem> bItemsExisting = new ArrayList<>(bCh1.getBillingItems());
         for (BillingONItem bItemCurrent : bItemsCurrent) {
             if (bItemsExisting.contains(bItemCurrent)) {
                 // Update an existing billing item that is now modified.
                 int index = bItemsExisting.indexOf(bItemCurrent);
                 BillingONItem bItemExisting = bItemsExisting.get(index);
 
+                // Status crossed the SETTLED boundary in either direction.
                 boolean statusChanged =
-                        (!bItemExisting.getStatus().equals("S") && bItemCurrent.getStatus().equals("S"))
-                        || (bItemExisting.getStatus().equals("S") && !bItemCurrent.getStatus().equals("S"));
+                        (!BillingONItem.SETTLED.equals(bItemExisting.getStatus()) && BillingONItem.SETTLED.equals(bItemCurrent.getStatus()))
+                        || (BillingONItem.SETTLED.equals(bItemExisting.getStatus()) && !BillingONItem.SETTLED.equals(bItemCurrent.getStatus()));
 
                 String fee = bItemCurrent.getFee();
                 String unit = bItemCurrent.getServiceCount();
@@ -618,14 +624,14 @@ public class BillingCorrectionService {
                 bItemExisting.setStatus(bItemCurrent.getStatus());
             } else {
                 // New billing item — append.
-                bCh1.getBillingItems().add(bItemCurrent);
+                bCh1.addBillingItem(bItemCurrent);
             }
         }
 
         // Soft-delete existing items now removed.
         for (BillingONItem bItemExisting : bItemsExisting) {
             if (!bItemsCurrent.contains(bItemExisting)) {
-                bItemExisting.setStatus("D");
+                bItemExisting.markDeleted();
             }
         }
     }

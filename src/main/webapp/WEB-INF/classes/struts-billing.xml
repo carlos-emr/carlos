@@ -404,16 +404,16 @@
         <action name="billing/CA/BC/ViewBillingCorrectionValid" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewBillingCorrectionValid2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/BC/billingCorrectionValid.jsp</result>
         </action>
-        <action name="billing/CA/BC/ViewBillingDigNewSearch" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewBillingDigNewSearch2Action">
+        <action name="billing/CA/BC/ViewBillingDigNewSearch" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewBillingDiagNewSearch2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/BC/billingDigNewSearch.jsp</result>
         </action>
-        <action name="billing/CA/BC/BillingDigNewUpdate" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingDigNewUpdate2Action">
+        <action name="billing/CA/BC/BillingDigNewUpdate" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingDiagNewUpdate2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/BC/billingDigNewUpdate.jsp</result>
         </action>
-        <action name="billing/CA/BC/ViewBillingDigSearch" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewBillingDigSearch2Action">
+        <action name="billing/CA/BC/ViewBillingDigSearch" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewBillingDiagSearch2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/BC/billingDigSearch.jsp</result>
         </action>
-        <action name="billing/CA/BC/ViewBillingDigUpdate" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewBillingDigUpdate2Action">
+        <action name="billing/CA/BC/ViewBillingDigUpdate" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewBillingDiagUpdate2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/BC/billingDigUpdate.jsp</result>
         </action>
         <action name="billing/CA/BC/ViewBillingGetPriceCode" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewBillingGetPriceCode2Action">

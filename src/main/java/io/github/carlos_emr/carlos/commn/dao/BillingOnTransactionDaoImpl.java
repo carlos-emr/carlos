@@ -39,11 +39,13 @@ import java.util.Date;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingOnTransaction;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 
 @Repository
@@ -61,11 +63,14 @@ public class BillingOnTransactionDaoImpl extends AbstractDaoImpl<BillingOnTransa
         SimpleDateFormat admissionDateFormat = new SimpleDateFormat("yyyy-MM-dd");
         BillingOnTransaction billTrans = new BillingOnTransaction();
         billTrans.setActionType(BillingOnConstants.ACTION_TYPE.C.name());
+        // BillingONCHeader1.getAdmissionDate() parses an internal String column that is nullable
+        // for non-admission claims. Surface the parse failure (malformed legacy data) but treat
+        // it as null on the audit row rather than aborting transaction-row creation entirely.
         try {
-            billTrans.setAdmissionDate(admissionDateFormat.parse(String.valueOf(cheader1.getAdmissionDate())));
-        } catch (Exception e) {
-            // TODO Auto-generated catch block
-            MiscUtils.getLogger().info(e.toString());
+            billTrans.setAdmissionDate(cheader1.getAdmissionDate());
+        } catch (ParseException e) {
+            MiscUtils.getLogger().error("Malformed stored admission_date on ch1 {}: storing null on transaction row",
+                    billNo, e);
             billTrans.setAdmissionDate(null);
         }
         billTrans.setBillingDate(cheader1.getBillingDate());
@@ -102,34 +107,57 @@ public class BillingOnTransactionDaoImpl extends AbstractDaoImpl<BillingOnTransa
         SimpleDateFormat admissionDateFormat = new SimpleDateFormat("yyyy-MM-dd");
         BillingOnTransaction billTrans = new BillingOnTransaction();
         billTrans.setActionType(BillingOnConstants.ACTION_TYPE.UH.name());
-        try {
-            billTrans.setAdmissionDate(admissionDateFormat.parse(cheader1.getAdmission_date()));
-        } catch (Exception e) {
-            // TODO Auto-generated catch block
-            MiscUtils.getLogger().info(e.toString());
+
+        // Admission date is nullable on the DTO; only attempt to parse when present.
+        String admission = cheader1.getAdmission_date();
+        if (admission == null || admission.isEmpty()) {
             billTrans.setAdmissionDate(null);
+        } else {
+            try {
+                billTrans.setAdmissionDate(admissionDateFormat.parse(admission));
+            } catch (ParseException e) {
+                MiscUtils.getLogger().error("Malformed admission_date {} on ch1 {}: storing null on transaction row",
+                        LogSanitizer.sanitize(admission), LogSanitizer.sanitize(cheader1.getId()), e);
+                billTrans.setAdmissionDate(null);
+            }
         }
+
+        // Billing date is required for OHIP submission — a malformed value would silently null
+        // the transaction's billing_date and produce a useless audit row. Fail loudly instead.
         try {
             billTrans.setBillingDate(admissionDateFormat.parse(cheader1.getBilling_date()));
-        } catch (ParseException e) {
-            // TODO Auto-generated catch block
-            MiscUtils.getLogger().info(e.toString());
-            billTrans.setBillingDate(null);
+        } catch (ParseException | NullPointerException e) {
+            MiscUtils.getLogger().error("Malformed billing_date {} on ch1 {}: aborting transaction-row build",
+                    LogSanitizer.sanitize(cheader1.getBilling_date()), LogSanitizer.sanitize(cheader1.getId()), e);
+            throw new BillingValidationException(
+                    "Cannot build BillingOnTransaction: billing_date is missing or not yyyy-MM-dd", e);
         }
+
         billTrans.setBillingNotes(cheader1.getComment());
+
+        // ch1Id is the FK back to BillingONCHeader1 — persisting -1 would create an orphan
+        // audit row that cannot be reconciled. Surface the malformed input instead.
         try {
             billTrans.setCh1Id(Integer.parseInt(cheader1.getId()));
-        } catch (Exception e) {
-            MiscUtils.getLogger().info(e.toString());
-            billTrans.setCh1Id(-1);
+        } catch (NumberFormatException | NullPointerException e) {
+            MiscUtils.getLogger().error("Non-numeric ch1 id {} supplied for transaction-row build",
+                    LogSanitizer.sanitize(cheader1.getId()), e);
+            throw new BillingValidationException(
+                    "Cannot build BillingOnTransaction: ch1 id is missing or non-numeric", e);
         }
         billTrans.setClinic(cheader1.getClinic());
         billTrans.setCreator(cheader1.getCreator());
+
+        // demographic_no FK must point at a real patient — -1 sentinel would mask a tampered
+        // form post and break downstream patient-history queries.
         try {
             billTrans.setDemographicNo(Integer.parseInt(cheader1.getDemographic_no()));
-        } catch (Exception e) {
-            MiscUtils.getLogger().info(e.toString());
-            billTrans.setDemographicNo(-1);
+        } catch (NumberFormatException | NullPointerException e) {
+            MiscUtils.getLogger().error("Non-numeric demographic_no {} supplied for ch1 {} transaction-row build",
+                    LogSanitizer.sanitize(cheader1.getDemographic_no()),
+                    LogSanitizer.sanitize(cheader1.getId()), e);
+            throw new BillingValidationException(
+                    "Cannot build BillingOnTransaction: demographic_no is missing or non-numeric", e);
         }
         billTrans.setFacilityNum(cheader1.getFacilty_num());
         billTrans.setManReview(cheader1.getMan_review());

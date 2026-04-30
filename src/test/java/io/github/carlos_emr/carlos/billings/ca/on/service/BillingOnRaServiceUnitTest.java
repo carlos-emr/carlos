@@ -43,7 +43,7 @@ import static org.mockito.Mockito.when;
  * Behavioral tests for {@link BillingOnRaService}, the RA (Remittance
  * Advice) processing service. The full surface (576 LOC) has a 200+ LOC
  * fixed-width parser ({@code importRAFile}) and complex {@code getRASummary}
- * iteration that the silent-failure review of PR #1967 flagged for
+ * iteration where a silent-failure review flagged the
  * partial-result swallow on DAO error. This suite covers the simpler
  * write/query methods and pins the silent-swallow contract on the summary
  * path so a future fix-closed change surfaces here.

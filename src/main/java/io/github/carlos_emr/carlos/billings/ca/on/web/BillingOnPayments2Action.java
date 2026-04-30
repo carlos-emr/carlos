@@ -53,6 +53,7 @@ import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingOnItemPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingOnTransaction;
 import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -118,7 +119,23 @@ public class BillingOnPayments2Action extends ActionSupport {
     }
 
     public String listPayments() {
-        Integer billingNo = Integer.parseInt(request.getParameter("billingNo"));
+        // billingNo is required for the legitimate flow (caller passes it from
+        // the parent invoice). A direct GET without the param previously NPE'd
+        // here with NumberFormatException("Cannot parse null string"); 400 with
+        // a clear message is the right response.
+        String billingNoParam = request.getParameter("billingNo");
+        Integer billingNo;
+        try {
+            billingNo = Integer.parseInt(billingNoParam);
+        } catch (NumberFormatException e) {
+            try {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST,
+                        "billingNo parameter is required");
+            } catch (java.io.IOException ignore) {
+                // Container is shutting down or response already committed.
+            }
+            return NONE;
+        }
 
         List<BillingONPayment> paymentLists = billingONPaymentDao.find3rdPartyPaymentsByBillingNo(billingNo);
         if (paymentLists == null) {
@@ -307,14 +324,34 @@ public class BillingOnPayments2Action extends ActionSupport {
     private static String nullToEmpty(String s) { return s == null ? "" : s; }
 
     public String savePayment() throws ParseException {
+        // POST gate: financial write — HttpMethodGuardFilter's MUTATOR_METHOD_PARAMS
+        // matches the bare token "save" but not "savePayment", so a forged GET
+        // would otherwise drive ~10 DAO writes. CSRFGuard's body-token check
+        // only fires on non-GET, so this gate is the line of defense.
+        if (!BillingRequestGuards.requirePost(request, response)) {
+            return null;
+        }
 
         Date curDate = new Date();
         String paymentdate1 = request.getParameter("paymentDate");
         SimpleDateFormat sim = new SimpleDateFormat("yyyy-MM-dd");
         Date paymentdate = sim.parse(paymentdate1);
 
-        int itemSize = Integer.parseInt(request.getParameter("size"));
-        int billNo = Integer.parseInt(request.getParameter("billingNo"));
+        // Required-numeric inputs from the JSP form. listPayments was hardened
+        // earlier; the same defensive parse belongs here so a malformed/forged
+        // request rejects cleanly with the same JSON contract instead of 500.
+        int itemSize;
+        int billNo;
+        try {
+            itemSize = Integer.parseInt(request.getParameter("size"));
+        } catch (NumberFormatException e) {
+            return writeRejectionJson("Missing or non-numeric 'size' parameter; payment not saved");
+        }
+        try {
+            billNo = Integer.parseInt(request.getParameter("billingNo"));
+        } catch (NumberFormatException e) {
+            return writeRejectionJson("Missing or non-numeric 'billingNo' parameter; payment not saved");
+        }
         String curProviderNo = (String) request.getSession().getAttribute("user");
         String paymentTypeId = request.getParameter("paymentType");
         if (paymentTypeId == null || paymentTypeId.isEmpty()) {
@@ -332,7 +369,14 @@ public class BillingOnPayments2Action extends ActionSupport {
             String payment = request.getParameter("payment" + i);
             String discount = request.getParameter("discount" + i);
             String itemId = request.getParameter("itemId" + i);
-            if (billingONItemDao.find(Integer.parseInt(itemId)) != null) {
+            int itemIdInt;
+            try {
+                itemIdInt = Integer.parseInt(itemId);
+            } catch (NumberFormatException e) {
+                return writeRejectionJson("Invalid itemId on row " + i + ": " + itemId
+                        + "; payment not saved");
+            }
+            if (billingONItemDao.find(itemIdInt) != null) {
                 String sel = request.getParameter("sel" + i);
                 try {
                     if ("payment".equals(sel)) {
@@ -393,7 +437,7 @@ public class BillingOnPayments2Action extends ActionSupport {
                 response.getWriter().flush();
                 response.getWriter().close();
             } catch (Exception e) {
-                logger.info(e.toString());
+                logger.error("Failed to write savePayment zero-totals JSON response", e);
                 return "failure";
             }
             return null;
@@ -538,7 +582,7 @@ public class BillingOnPayments2Action extends ActionSupport {
             response.getWriter().flush();
             response.getWriter().close();
         } catch (Exception e) {
-            logger.info(e.toString());
+            logger.error("Failed to write savePayment success JSON response", e);
             return "failure";
         }
         return null;
@@ -546,33 +590,38 @@ public class BillingOnPayments2Action extends ActionSupport {
     }
 
     public String deletePayment() {
+        // POST gate: destructive write — HttpMethodGuardFilter's MUTATOR_METHOD_PARAMS
+        // matches the bare token "delete" but not "deletePayment", so a forged
+        // GET could otherwise wipe a payment + rebalance the header. CSRFGuard's
+        // body-token check only fires on non-GET.
+        if (!BillingRequestGuards.requirePost(request, response)) {
+            return "failure";
+        }
 
-        Date curDate = new Date();
+        // The four writes (payment.remove + header.merge + 2× ext.setExtItem)
+        // are now bundled under @Transactional inside BillingPaymentDeletionService.
+        // Pre-fix any mid-sequence failure left the header `paid` total stale
+        // and the ext keys out of sync with the underlying payment table.
         try {
-            Integer paymentId = Integer.parseInt(request.getParameter("id"));
-            BillingONPayment payment = billingONPaymentDao.find(paymentId);
-            BillingONCHeader1 ch1 = payment.getBillingONCheader1();
-            Integer billingNo = payment.getBillingONCheader1().getId();
-
-            billingONPaymentDao.remove(paymentId);
-
-            BigDecimal paid = billingONPaymentDao.getPaymentsSumByBillingNo(billingNo);
-            BigDecimal refund = billingONPaymentDao.getPaymentsRefundByBillingNo(billingNo).negate();
-            NumberFormat currency = NumberFormat.getCurrencyInstance();
-            ch1.setPaid(paid.subtract(refund));
-            billingClaimDAO.merge(ch1);
-
-            billingONExtDao.setExtItem(billingNo, ch1.getDemographicNo(),
-                    BillingONExtDao.KEY_PAYMENT,
-                    currency.format(paid).replace("$", ""), curDate, '1');
-            billingONExtDao.setExtItem(billingNo, ch1.getDemographicNo(),
-                    BillingONExtDao.KEY_REFUND, currency.format(refund)
-                            .replace("$", ""), curDate, '1');
-
+            int paymentId = Integer.parseInt(request.getParameter("id"));
+            io.github.carlos_emr.carlos.utility.SpringUtils
+                    .getBean(io.github.carlos_emr.carlos.billings.ca.on.service.BillingPaymentDeletionService.class)
+                    .deletePayment(paymentId);
+        } catch (NumberFormatException nfe) {
+            logger.warn("deletePayment: invalid id parameter: {}",
+                    io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(request.getParameter("id")));
+            return "failure";
+        } catch (io.github.carlos_emr.carlos.billings.ca.on.service.BillingPaymentDeletionService.PaymentNotFoundException notFound) {
+            // Distinct outcome — operator hit "delete" on a row that's
+            // already gone (concurrent edit, or stale page). Render the
+            // current payment list rather than the generic failure page so
+            // they see the up-to-date state.
+            logger.warn("deletePayment: paymentId not found: {}",
+                    io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(request.getParameter("id")));
+            return listPayments();
         } catch (Exception ex) {
-            logger.error(
-                    "Failed to delete payment: " + request.getParameter("id"),
-                    ex);
+            logger.error("Failed to delete payment: {}",
+                    io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(request.getParameter("id")), ex);
             return "failure";
         }
 
@@ -589,7 +638,7 @@ public class BillingOnPayments2Action extends ActionSupport {
                 return "failure";
             }
         } catch (Exception e) {
-            logger.info(e.toString());
+            logger.error("Invalid paymentId parameter {}", LogSanitizer.sanitize(id), e);
             return "failure";
         }
         BillingONPayment billPayment = billingONPaymentDao.find(paymentId);
@@ -632,7 +681,7 @@ public class BillingOnPayments2Action extends ActionSupport {
             response.getWriter().flush();
             response.getWriter().close();
         } catch (Exception e) {
-            logger.info(e.toString());
+            logger.error("Failed to write viewPayment JSON response", e);
             return "failure";
         }
 
@@ -758,7 +807,7 @@ public class BillingOnPayments2Action extends ActionSupport {
             response.getWriter().flush();
             response.getWriter().close();
         } catch (Exception e) {
-            logger.info(e.toString());
+            logger.error("Failed to write rejection JSON response", e);
             return "failure";
         }
         return null;

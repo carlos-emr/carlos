@@ -81,9 +81,9 @@ public class RemovePaymentType2Action extends ActionSupport {
         try {
             paymentTypeId = Integer.parseInt(request.getParameter("paymentTypeId"));
         } catch (Exception e) {
-            MiscUtils.getLogger().info(e.toString());
+            MiscUtils.getLogger().error("Invalid paymentTypeId parameter on remove", e);
             ret.put("ret", 1);
-            ret.put("reason", e.toString());
+            ret.put("reason", "Invalid paymentTypeId");
             writeJsonResponse(response, ret);
             return null;
         }
@@ -112,7 +112,7 @@ public class RemovePaymentType2Action extends ActionSupport {
             response.getWriter().flush();
             response.getWriter().close();
         } catch (Exception e) {
-            MiscUtils.getLogger().info(e.toString());
+            MiscUtils.getLogger().error("Failed to write removePaymentType JSON response", e);
         }
     }
 }

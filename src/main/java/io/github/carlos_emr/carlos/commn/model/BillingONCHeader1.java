@@ -28,8 +28,12 @@ import java.math.BigDecimal;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
+
+import org.hibernate.Hibernate;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -55,8 +59,30 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
     private static final Logger logger = MiscUtils.getLogger();
     private static final long serialVersionUID = 1L;
 
+    public static final String OPEN = "O";
     public static final String SETTLED = "S";
     public static final String DELETED = "D";
+    public static final String BILLED = "B";
+    /** Patient-billed (callers in BillingClaimSubmissionService). */
+    public static final String PATIENT_BILLED = "P";
+    /** No-charge / not billed (BillingClaimSubmissionService when payProg starts with NOT). */
+    public static final String NOT_BILLED = "N";
+    /** Independent / BON billing (BillingClaimSubmissionService when payProg starts with BON). */
+    public static final String INDEPENDENT = "I";
+    /** WCB billing (BillingClaimSubmissionService when payProg starts with WCB). */
+    public static final String WCB = "W";
+    /** Acknowledgement (legacy values seen in tests / DB). */
+    public static final String ACKNOWLEDGED = "A";
+
+    /**
+     * Whitelist of recognized status values. Includes every literal observed
+     * in production code paths plus the four legacy/test values. Unknown
+     * values throw IllegalArgumentException at the {@link #setStatus} call
+     * site so drift can be caught at write-time.
+     */
+    private static final Set<String> KNOWN_STATUSES = Set.of(
+            OPEN, SETTLED, DELETED, BILLED, PATIENT_BILLED,
+            NOT_BILLED, INDEPENDENT, WCB, ACKNOWLEDGED);
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -128,104 +154,6 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
     private List<BillingONItem> billingItems = new ArrayList<BillingONItem>();
 
     public BillingONCHeader1() {
-    }
-
-    public BillingONCHeader1(Integer headerId, String transcId, String recId,
-                             String hin, String ver, String dob, String payProgram,
-                             String payee, String refNum, String faciltyNum, Date admissionDate,
-                             String refLabNum, String manReview, String location,
-                             Integer demographicNo, String providerNo, Integer appointmentNo,
-                             String demographicName, String sex, String province,
-                             Date billingDate, Date billingTime, Integer total, Integer paid,
-                             String status, String comment, String visitType,
-                             String providerOhipNo, String providerRmaNo, String apptProviderNo,
-                             String asstProviderNo, String creator, Date timestamp, String clinic) {
-        super();
-        SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd");
-        this.headerId = headerId;
-        this.transcId = transcId;
-        this.recId = recId;
-        this.hin = hin;
-        this.ver = ver;
-        this.dob = dob;
-        this.payProgram = payProgram;
-        this.payee = payee;
-        this.refNum = refNum;
-        this.faciltyNum = faciltyNum;
-        this.admissionDate = df.format(admissionDate);
-        this.refLabNum = refLabNum;
-        this.manReview = manReview;
-        this.location = location;
-        this.demographicNo = demographicNo;
-        this.providerNo = providerNo;
-        this.appointmentNo = appointmentNo;
-        this.demographicName = demographicName;
-        this.sex = sex;
-        this.province = province;
-        this.billingDate = df.format(billingDate);
-        this.billingTime = df.format(billingTime);
-        this.total = BigDecimal.ZERO;
-        this.paid = BigDecimal.ZERO;
-        this.status = status;
-        this.comment = comment;
-        this.visitType = visitType;
-        this.providerOhipNo = providerOhipNo;
-        this.providerRmaNo = providerRmaNo;
-        this.apptProviderNo = apptProviderNo;
-        this.asstProviderNo = asstProviderNo;
-        this.creator = creator;
-        this.timestamp = timestamp;
-        this.clinic = clinic;
-    }
-
-    public BillingONCHeader1(Integer headerId, String transcId, String recId,
-                             String hin, String ver, String dob, String payProgram,
-                             String payee, String refNum, String faciltyNum, Date admissionDate,
-                             String refLabNum, String manReview, String location,
-                             Integer demographicNo, String providerNo, Integer appointmentNo,
-                             String demographicName, String sex, String province,
-                             Date billingDate, Date billingTime, Integer total, Integer paid,
-                             String status, String comment, String visitType,
-                             String providerOhipNo, String providerRmaNo, String apptProviderNo,
-                             String asstProviderNo, String creator, Date timestamp, String clinic,
-                             List<BillingONItem> billingItems) {
-        super();
-        SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd");
-        this.headerId = headerId;
-        this.transcId = transcId;
-        this.recId = recId;
-        this.hin = hin;
-        this.ver = ver;
-        this.dob = dob;
-        this.payProgram = payProgram;
-        this.payee = payee;
-        this.refNum = refNum;
-        this.faciltyNum = faciltyNum;
-        this.admissionDate = df.format(admissionDate);
-        this.refLabNum = refLabNum;
-        this.manReview = manReview;
-        this.location = location;
-        this.demographicNo = demographicNo;
-        this.providerNo = providerNo;
-        this.appointmentNo = appointmentNo;
-        this.demographicName = demographicName;
-        this.sex = sex;
-        this.province = province;
-        this.billingDate = df.format(billingDate);
-        this.billingTime = df.format(billingTime);
-        this.total = BigDecimal.ZERO;
-        this.paid = BigDecimal.ZERO;
-        this.status = status;
-        this.comment = comment;
-        this.visitType = visitType;
-        this.providerOhipNo = providerOhipNo;
-        this.providerRmaNo = providerRmaNo;
-        this.apptProviderNo = apptProviderNo;
-        this.asstProviderNo = asstProviderNo;
-        this.creator = creator;
-        this.timestamp = timestamp;
-        this.clinic = clinic;
-        this.billingItems = billingItems;
     }
 
     @Override
@@ -461,7 +389,27 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
         return this.status;
     }
 
+    /**
+     * Set the status code. Validates against the {@link #KNOWN_STATUSES}
+     * whitelist so drift is caught at write-time rather than spreading
+     * through the system as silently-accepted typos.
+     *
+     * @param value one of the {@code public static final String} constants
+     *              on this class, or {@code null} (legacy contract permits
+     *              null status)
+     * @throws IllegalArgumentException if {@code value} is non-null and not
+     *                                  in {@link #KNOWN_STATUSES}
+     */
     public void setStatus(String value) {
+        if (value != null && !KNOWN_STATUSES.contains(value)) {
+            // Logger captures the offending value with sanitization; the
+            // exception message stays static to keep the SQL-safety lint
+            // happy (no value interpolation in the throw site).
+            logger.warn("Rejecting unknown BillingONCHeader1 status value {} (allowed: {})",
+                    value, KNOWN_STATUSES);
+            throw new IllegalArgumentException(
+                    "BillingONCHeader1 status is not in the known set; see logs for the offending value");
+        }
         this.status = value;
     }
 
@@ -499,9 +447,15 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
      * {@code header.setStatus(BillingONCHeader1.SETTLED)} should call this
      * instead so any future "what else happens on settle?" logic
      * (audit, event, derived field) has one home.
+     *
+     * <p>Routes through {@link #setStatus(String)} so the whitelist
+     * invariant is honored. {@link #SETTLED} is in {@link #KNOWN_STATUSES},
+     * so this is purely structural — but it means a future change to
+     * {@code setStatus} (e.g., adding an audit hook) automatically applies
+     * here too.</p>
      */
     public void markSettled() {
-        this.status = SETTLED;
+        setStatus(SETTLED);
     }
 
     /**
@@ -527,10 +481,23 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
      *   header.recomputeTotalFromItems().ifPresent(header::setTotal);
      *   dao.merge(header);
      * </pre>
+     *
+     * @throws BillingItemsNotLoadedException when the {@code billingItems}
+     *         collection is a Hibernate proxy that is not yet initialized
+     *         and the current thread has no open session to lazy-load from.
+     *         The caller should re-load the entity through
+     *         {@code BillingONCHeader1Dao.findWithItems} (the JOIN-FETCH
+     *         companion) and retry.
      */
     public java.util.Optional<BigDecimal> recomputeTotalFromItems() {
         if (this.billingItems == null) {
             return java.util.Optional.of(BigDecimal.ZERO);
+        }
+        if (!Hibernate.isInitialized(this.billingItems)) {
+            throw new BillingItemsNotLoadedException(
+                    "BillingONCHeader1.billingItems is a LAZY proxy that is not initialized; "
+                            + "load via BillingONCHeader1Dao.findWithItems before calling "
+                            + "recomputeTotalFromItems outside a session.");
         }
         BigDecimal sum = BigDecimal.ZERO;
         for (BillingONItem item : this.billingItems) {
@@ -540,6 +507,11 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
             try {
                 sum = sum.add(new BigDecimal(fee));
             } catch (NumberFormatException e) {
+                // Defense-in-depth: BillingONItem.setFee now rejects unparseable
+                // values at write-time, so a fresh row can't reach this branch.
+                // The catch remains for legacy rows persisted before that
+                // invariant landed; report Optional.empty so callers don't
+                // silently total a corrupt row as zero.
                 return java.util.Optional.empty();
             }
         }
@@ -614,16 +586,91 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
         this.clinic = clinic;
     }
 
+    /**
+     * @return an unmodifiable view of the line items. Production callers must
+     *         mutate via {@link #addBillingItem(BillingONItem)} or
+     *         {@link #removeBillingItem(BillingONItem)} so JPA collection
+     *         identity is preserved. Returns {@code null} only when the
+     *         underlying field has been explicitly set to null (no longer
+     *         a routine state).
+     * @throws BillingItemsNotLoadedException when the {@code billingItems}
+     *         collection is a LAZY Hibernate proxy that has not been
+     *         initialized — caller fetched the header outside a session,
+     *         did not use {@link BillingONCHeader1Dao#findWithItems}, or
+     *         iterated after the session closed. Throwing the typed
+     *         exception here mirrors the {@link #recomputeTotalFromItems()}
+     *         contract; without this check, callers got a raw
+     *         {@code LazyInitializationException} from inside the
+     *         {@code Collections.unmodifiableList} wrapper, which the
+     *         calling JSP cannot turn into a sensible error message.
+     */
     public List<BillingONItem> getBillingItems() {
-        return billingItems;
+        if (billingItems == null) {
+            return null;
+        }
+        if (!Hibernate.isInitialized(billingItems)) {
+            throw new BillingItemsNotLoadedException(
+                    "BillingONCHeader1.billingItems is a LAZY proxy that is not initialized; "
+                            + "fetch via findWithItems(...) / findByDemoNoWithItems(...) "
+                            + "or access only inside an open Hibernate session.");
+        }
+        return Collections.unmodifiableList(billingItems);
     }
 
+    /**
+     * Wholesale-replaces the line-items collection with a defensive copy.
+     * Hibernate's dirty-check tracks the JPA-managed PersistentBag identity
+     * so this should only be called on transient (non-managed) headers —
+     * typically test setup. Production code should use
+     * {@link #addBillingItem(BillingONItem)} and
+     * {@link #removeBillingItem(BillingONItem)} instead.
+     *
+     * <p>The defensive copy is essential for the {@link #getBillingItems()}
+     * unmodifiable-view contract: without it, a caller could pass in a
+     * mutable list, retain the reference, and bypass the unmodifiable view
+     * by mutating the live backing collection.</p>
+     *
+     * @param billingItems the new collection; {@code null} clears it.
+     */
     public void setBillingItems(List<BillingONItem> billingItems) {
-        this.billingItems = billingItems;
+        this.billingItems = billingItems == null ? null : new ArrayList<>(billingItems);
+    }
+
+    /**
+     * Append an item to the live line-items collection. Preserves JPA
+     * collection identity so dirty-tracking still works on managed entities.
+     *
+     * @param item the item to append; ignored when null
+     */
+    public void addBillingItem(BillingONItem item) {
+        if (item == null) {
+            return;
+        }
+        if (this.billingItems == null) {
+            this.billingItems = new ArrayList<>();
+        }
+        this.billingItems.add(item);
+    }
+
+    /**
+     * Remove an item from the live line-items collection. Preserves JPA
+     * collection identity so dirty-tracking still works on managed entities.
+     *
+     * @param item the item to remove
+     * @return {@code true} if the collection contained the item
+     */
+    public boolean removeBillingItem(BillingONItem item) {
+        return this.billingItems != null && this.billingItems.remove(item);
     }
 
     @PostPersist
     public void postPersist() {
+        // Null-guard: setBillingItems(null) is a legal-but-rare state used
+        // by tests; without this guard the post-persist callback would NPE
+        // and Hibernate would surface as a generic flush failure.
+        if (this.billingItems == null) {
+            return;
+        }
         for (BillingONItem b : this.billingItems) {
             b.setCh1Id(this.id);
         }

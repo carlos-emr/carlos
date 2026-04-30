@@ -48,6 +48,30 @@ public interface BillingONPaymentDao extends AbstractDao<BillingONPayment> {
 
     BillingONCHeader1Dao getBillingONCHeader1Dao();
 
+    /**
+     * Loads a {@link BillingONPayment} together with its
+     * {@code billingONExtItems} collection in a single {@code LEFT JOIN FETCH}
+     * query. Use this in code paths that touch
+     * {@link BillingONPayment#getBillingONExtItems()} <em>outside</em> an
+     * open Hibernate session — the plain {@link AbstractDao#find} returns a
+     * payment whose collection is uninitialised under
+     * {@code FetchType.LAZY}.
+     *
+     * @return the payment (with ext items) or {@code null} if no row matches.
+     * @since 2026-04-29
+     */
+    BillingONPayment findWithExtItems(Integer paymentId);
+
+    /**
+     * Variant of {@link #find3rdPartyPaymentsByBillingNo(Integer)} that also
+     * fetches each row's {@code billingONExtItems} collection in one query —
+     * for callers that post-process the ext items outside a Hibernate
+     * session.
+     *
+     * @since 2026-04-29
+     */
+    List<BillingONPayment> find3rdPartyPaymentsByBillingNoWithExtItems(Integer billingNo);
+
     List<BillingONPayment> listPaymentsByBillingNo(Integer billingNo);
 
     List<BillingONPayment> listPaymentsByBillingNoDesc(Integer billingNo);

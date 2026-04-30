@@ -45,7 +45,11 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
  * @since 2026-04-26
  */
 @org.springframework.stereotype.Service
-@org.springframework.transaction.annotation.Transactional(readOnly = true)
+// NOTE: this service is read+write — methods around lines 111/141/162 call
+// remove/persist/merge. Class-level MUST NOT be readOnly=true; Hibernate
+// would skip the flush on those writes (or throw on commit). Same fix as
+// BillingOnRaService.
+@org.springframework.transaction.annotation.Transactional
 public class BillingOnErrorReportService {
 
     private final BillingONEAReportDao billingONEARReportDao;

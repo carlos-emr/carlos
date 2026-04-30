@@ -55,7 +55,11 @@ import io.github.carlos_emr.carlos.commn.model.Clinic;
  * @since 2026-04-26
  */
 @org.springframework.stereotype.Service
-@org.springframework.transaction.annotation.Transactional(readOnly = true)
+// NOTE: this service is read+write — multiple methods call DAO persist/merge
+// (lines ~131, 148, 167, 183, 196). Class-level annotation MUST NOT be
+// readOnly=true; Hibernate would skip the flush on those writes (or throw on
+// commit, depending on the dialect). Same fix as BillingOnRaService.
+@org.springframework.transaction.annotation.Transactional
 public class BillingThirdPartyService {
 
     private final ClinicDAO clinicDao;

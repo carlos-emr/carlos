@@ -18,6 +18,8 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,8 +42,8 @@ import static org.mockito.Mockito.when;
 /**
  * Tests for {@link ManageCss2Action}'s default render path. Until this fix,
  * the action gated {@code save()} and {@code delete()} on {@code _admin/w}
- * but the bare {@code execute()} path forwarded to the form unauthenticated
- * — a privilege gap that the type-design review of PR #1967 surfaced.
+ * but the bare {@code execute()} path forwarded to the form unauthenticated.
+ * This pins the {@code _admin/r} gate that closes the privilege gap.
  */
 @DisplayName("ManageCss2Action")
 @Tag("unit")
@@ -49,6 +51,7 @@ import static org.mockito.Mockito.when;
 class ManageCss2ActionUnitTest extends CarlosUnitTestBase {
 
     private MockHttpServletRequest mockRequest;
+    private MockHttpServletResponse mockResponse;
     private SecurityInfoManager mockSecurity;
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
@@ -57,14 +60,14 @@ class ManageCss2ActionUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         mockRequest = new MockHttpServletRequest();
+        mockResponse = new MockHttpServletResponse();
         mockSecurity = mock(SecurityInfoManager.class);
         registerMock(SecurityInfoManager.class, mockSecurity);
         registerMock(CSSStylesDAO.class, mock(CSSStylesDAO.class));
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
-        servletActionContextMock.when(ServletActionContext::getResponse)
-                .thenReturn(new MockHttpServletResponse());
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(mockResponse);
 
         mockLoggedInInfo = mock(LoggedInInfo.class);
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
@@ -118,5 +121,40 @@ class ManageCss2ActionUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> new ManageCss2Action().execute())
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_admin");
+    }
+
+    @Test
+    void shouldReturn405WithAllowHeader_whenSaveCalledViaGet() throws Exception {
+        // POST gate guards the mutation path against forged GETs sidestepping
+        // CSRFGuard's body-token validation.
+        mockRequest.setMethod("GET");
+        mockRequest.setParameter("method", "save");
+        mockRequest.setParameter("editStyle", "test");
+        mockRequest.setParameter("styleName", "test");
+        when(mockSecurity.hasPrivilege(any(LoggedInInfo.class), eq("_admin"), eq("w"), isNull()))
+                .thenReturn(true);
+
+        String result = new ManageCss2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+    }
+
+    @Test
+    void shouldReturn405WithAllowHeader_whenDeleteCalledViaGet() throws Exception {
+        // delete() cascades a null update to billing_service.display_style
+        // for every code referencing the style — must be POST-only.
+        mockRequest.setMethod("GET");
+        mockRequest.setParameter("method", "delete");
+        mockRequest.setParameter("editStyle", "test");
+        when(mockSecurity.hasPrivilege(any(LoggedInInfo.class), eq("_admin"), eq("w"), isNull()))
+                .thenReturn(true);
+
+        String result = new ManageCss2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
     }
 }

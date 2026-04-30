@@ -60,13 +60,14 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Site;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.DateRange;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.providers.data.ProviderBillCenter;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
-import org.owasp.encoder.Encode;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 /**
  * OHIP claim-file generator for the ON billing module. Writes the
@@ -270,7 +271,7 @@ public class OhipClaimFileService {
         referral = ch1Obj.getRef_num().length() > 1 ? "R" : "";
         hcFlag = isRMB() ? "H" : "";
         m_Flag = ch1Obj.getMan_review().equals("Y") ? "M" : "";
-        _logger.info("buildHeader1(ver = " + ver + ")");
+        _logger.debug("buildHeader1(ver = {})", ver);
 
         header1 = ch1Obj.getTransc_id() + ch1Obj.getRec_id() + str1Hin + ver + dob + rightJustify("0", 8, ch1Obj.getId()) + ch1Obj.getPay_program() + ch1Obj.getPayee() + rightJustify(" ", 6, ch1Obj.getRef_num()) + rightJustify(" ", 4, ch1Obj.getFacilty_num().equals("0000") ? "" : ch1Obj.getFacilty_num()) + rightJustify(" ", 8, getCompactDateStr(ch1Obj.getAdmission_date() == null ? "" : ch1Obj.getAdmission_date())) + rightJustify(" ", 4, ch1Obj.getRef_lab_num())
                 + rightJustify(" ", 1, ch1Obj.getMan_review()) + leftJustify(" ", 4, ch1Obj.getLocation().equals("0000") ? "" : ch1Obj.getLocation()) + space(11) + space(6);
@@ -343,15 +344,15 @@ public class OhipClaimFileService {
         if (invCount == 0) {
             Demographic demo = demographicManager.getDemographic(loggedInInfo, ch1Obj.getDemographic_no());
             ret += "\n<tr " + (summaryView ? "style='display:none;' class='record" + providerNo + "'" : "") + ">";
-            String safeDemoName = Encode.forHtml(ch1Obj.getDemographic_name());
-            String safeBillId = Encode.forUriComponent(String.valueOf(ch1Obj.getId()));
-            String safeDemoNo = Encode.forUriComponent(String.valueOf(ch1Obj.getDemographic_no()));
-            String safeIdHtml = Encode.forHtml(String.valueOf(ch1Obj.getId()));
+            String safeDemoName = SafeEncode.forHtml(ch1Obj.getDemographic_name());
+            String safeBillId = SafeEncode.forUriComponent(String.valueOf(ch1Obj.getId()));
+            String safeDemoNo = SafeEncode.forUriComponent(String.valueOf(ch1Obj.getDemographic_no()));
+            String safeIdHtml = SafeEncode.forHtml(String.valueOf(ch1Obj.getId()));
             String tdOpen = "<td class=\"" + styleClass + "\">";
             if (simulation) {
                 String billOnclick = onclickPopup(1000, 800, contextPath + "/billing/CA/ON/BillingONCorrection?billing_no=" + safeBillId);
                 String demoOnclick = onclickPopup(720, 740, contextPath + "/demographic/DemographicEdit?demographic_no=" + safeDemoNo);
-                ret += tdOpen + Encode.forHtml(ch1Obj.getProvider_ohip_no()) + "</td>"
+                ret += tdOpen + SafeEncode.forHtml(ch1Obj.getProvider_ohip_no()) + "</td>"
                         + tdOpen + "<a href=\"javascript:void(0);\"  onclick=\"" + billOnclick + "\">" + safeIdHtml + "</a></td>"
                         + tdOpen + "<a href=\"javascript:void(0);\" onclick=\"" + demoOnclick + "\">" + safeDemoName + "</a></td>";
             } else {
@@ -377,10 +378,10 @@ public class OhipClaimFileService {
     private String buildSiteHTMLContentRecord(int invCount) {
         String ret = null;
         if (invCount == 0) {
-            String safeDemoName = Encode.forHtml(ch1Obj.getDemographic_name());
-            String safeBillId = Encode.forUriComponent(String.valueOf(ch1Obj.getId()));
-            String safeDemoNo = Encode.forUriComponent(String.valueOf(ch1Obj.getDemographic_no()));
-            String safeIdHtml = Encode.forHtml(String.valueOf(ch1Obj.getId()));
+            String safeDemoName = SafeEncode.forHtml(ch1Obj.getDemographic_name());
+            String safeBillId = SafeEncode.forUriComponent(String.valueOf(ch1Obj.getId()));
+            String safeDemoNo = SafeEncode.forUriComponent(String.valueOf(ch1Obj.getDemographic_no()));
+            String safeIdHtml = SafeEncode.forHtml(String.valueOf(ch1Obj.getId()));
             String billOnclick = onclickPopup(720, 740, contextPath + "/billing/CA/ON/BillingONCorrection?billing_no=" + safeBillId);
             String demoOnclick = onclickPopup(720, 740, contextPath + "/demographic/DemographicEdit?demographic_no=" + safeDemoNo);
             ret = "\n<tr><td class=\"myIvory\"><a href=\"#\" onclick=\"" + billOnclick + "\">" + safeIdHtml + "</a></td>"
@@ -566,7 +567,15 @@ public class OhipClaimFileService {
                 try {
                     ch1Obj.setAdmission_date(ConversionUtils.toDateString(h.getAdmissionDate()));
                 } catch (ParseException e) {
-                    MiscUtils.getLogger().warn("Unable to parse string", e);
+                    // A corrupt admission_date on a single bill must abort the
+                    // whole batch — the alternative (warn + continue) writes a
+                    // claim with admission_date stripped to the MOH submission
+                    // file, and the operator sees "file generated" with no
+                    // signal that one row inside is malformed.
+                    throw new BillingFileWriteException(
+                            "OHIP claim file aborted: bill " + h.getId()
+                                    + " has unparseable admission_date ["
+                                    + h.getAdmissionDate() + "]", e);
                 }
                 ch1Obj.setRef_lab_num(h.getRefLabNum());
                 ch1Obj.setMan_review(h.getManReview());
@@ -641,10 +650,13 @@ public class OhipClaimFileService {
                     bdFee = BillingMoney.amount(fee);
                     proTotal = proTotal.add(bdFee);
                     BigTotal = BigTotal.add(bdFee);
-                    _logger.info("createBillingFileStr(BigTotal = " + BigTotal + ")");
+                    _logger.debug("createBillingFileStr(BigTotal = {})", BigTotal);
                     checkItem();
                     value += buildItem();
-                    _logger.info("createBillingFileStr(value = " + value + ")");
+                    // The MOH claim record concatenated into `value` embeds the
+                    // patient HIN (10 chars) and DOB (8 chars) — see buildHeader1
+                    // above. Logging the running `value` is a HIPAA/PIPEDA leak;
+                    // do NOT reinstate.
                     htmlContent += buildHTMLContentRecord(loggedInInfo, invCount, simulation);
                     if (!simulation) {
                         htmlContent += printErrorPartMsg();
@@ -733,7 +745,14 @@ public class OhipClaimFileService {
                 try {
                     ch1Obj.setAdmission_date(ConversionUtils.toDateString(b.getAdmissionDate()));
                 } catch (ParseException e) {
-                    _logger.warn("parse admission date:" + e);
+                    // PHI/billing integrity: see matching note in the per-provider
+                    // branch above. A corrupt admission_date must abort, not be
+                    // silently stripped from the claim record we're about to
+                    // write to the MOH submission file.
+                    throw new BillingFileWriteException(
+                            "OHIP claim file aborted: bill " + b.getId()
+                                    + " has unparseable admission_date ["
+                                    + b.getAdmissionDate() + "]", e);
                 }
                 ch1Obj.setRef_lab_num(b.getRefLabNum());
                 ch1Obj.setMan_review(b.getManReview());
@@ -793,10 +812,11 @@ public class OhipClaimFileService {
                     fee = i.getFee();
                     bdFee = BillingMoney.amount(fee);
                     BigTotal = BigTotal.add(bdFee);
-                    _logger.info("createBillingFileStr(BigTotal = " + BigTotal + ")");
+                    _logger.debug("createBillingFileStr(BigTotal = {})", BigTotal);
                     checkItem();
                     value += buildItem();
-                    _logger.info("createBillingFileStr(value = " + value + ")");
+                    // PHI-leak guard — see the matching note in the per-provider
+                    // branch above. Do not log `value`; it embeds HIN + DOB.
                     htmlContent += buildSiteHTMLContentRecord(invCount);
                     htmlContent += printSiteErrorPartMsg();
                     invCount++;
@@ -896,7 +916,7 @@ public class OhipClaimFileService {
                 .getPatientCurBillingDemo(loggedInInfo, chObj.getDemographic_no());
 
         //Bonus Billing (Incentives)? Block out patient data : update with patient data
-        if (chObj.getStatus().equals("I")) {
+        if (BillingONCHeader1.INDEPENDENT.equals(chObj.getStatus())) {
             ch1Obj.setDemographic_name("");
             ch1Obj.setDob("");
             ch1Obj.setHin("");
@@ -1020,7 +1040,15 @@ public class OhipClaimFileService {
             } while (true);
 
         } catch (Exception e) {
-            _logger.error("Read OHIP File Error");
+            // Aborting here is critical: this method populates the dedup-set
+            // (propBillingNo) used during regeneration to skip already-billed
+            // records. A partial read would leave the set incomplete and the
+            // subsequent createBillingFileStr() would re-emit those records to
+            // OHIP — duplicate claim submission.
+            _logger.error("Failed to read OHIP file {} (record dedup will be incomplete; aborting to prevent duplicate-claim submission)",
+                    LogSanitizer.sanitize(ohipFilename), e);
+            throw new IllegalStateException(
+                    "Failed to read OHIP file for billing-no dedup; aborting regeneration", e);
         } finally {
             try {
                 if (raf != null) raf.close();
@@ -1034,24 +1062,52 @@ public class OhipClaimFileService {
     public void renameFile() {
         String home_dir;
         home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
-        File file = new File(home_dir + ohipFilename);
+        // PathValidationUtils for consistency with the rest of the billing
+        // module (MoveMohFiles2Action, BillingDocumentErrorReportUpload2Action).
+        // The filenames here are server-derived (not user input) so the
+        // immediate risk is low; the validation closes any path-traversal
+        // hole that would surface if a future caller wired filename through
+        // request params without sanitization.
+        File homeDirFile = new File(home_dir);
+        File file = io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath(ohipFilename, homeDirFile);
 
         // new filename
         String newName = ohipFilename + "." + GregorianCalendar.getInstance().getTimeInMillis();
 
-        File file2 = new File(home_dir + newName);
+        File file2 = io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath(newName, homeDirFile);
 
-        boolean success = file.renameTo(file2);
-        if (!success) {
-            _logger.error("Rename OHIP File Error");
+        // Pre-fix: file.renameTo returned false → only logged "Rename OHIP
+        // File Error" with no filename, no cause; caller continued. Next
+        // batch run re-picked the un-renamed file, producing a duplicate
+        // MOH submission. Use Files.move so we surface the actual IOException
+        // and throw cleanly so the action's exception mapping fires.
+        try {
+            java.nio.file.Files.move(file.toPath(), file2.toPath(),
+                    java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+        } catch (java.nio.file.AtomicMoveNotSupportedException atomicNotSupported) {
+            // Cross-volume rename — fall back to plain move.
+            try {
+                java.nio.file.Files.move(file.toPath(), file2.toPath(),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            } catch (java.io.IOException ioe) {
+                _logger.error("OHIP file rename failed: {} -> {}", ohipFilename, newName, ioe);
+                throw new BillingFileWriteException(
+                        "OHIP file rename failed: " + ohipFilename, ioe);
+            }
+        } catch (java.io.IOException ioe) {
+            _logger.error("OHIP file rename failed: {} -> {}", ohipFilename, newName, ioe);
+            throw new BillingFileWriteException(
+                    "OHIP file rename failed: " + ohipFilename, ioe);
         }
     }
 
     // write OHIP file to it
     public void writeFile(String value1) {
         String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
+        File safeOut = io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath(
+                ohipFilename, new File(home_dir));
         try {
-            FileOutputStream out = new FileOutputStream(home_dir + ohipFilename);
+            FileOutputStream out = new FileOutputStream(safeOut);
             PrintStream p = new PrintStream(out);
             p.println(value1);
 
@@ -1068,8 +1124,10 @@ public class OhipClaimFileService {
     // OscarDocument/.../billing/download/, and then write to it
     public void writeHtml(String htmlvalue1) {
         String home_dir1 = CarlosProperties.getInstance().getProperty("HOME_DIR");
+        File safeHtml = io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath(
+                htmlFilename, new File(home_dir1));
         try {
-            FileOutputStream out1 = new FileOutputStream(home_dir1 + htmlFilename);
+            FileOutputStream out1 = new FileOutputStream(safeHtml);
             PrintStream p1 = new PrintStream(out1);
             p1.println(htmlvalue1);
 

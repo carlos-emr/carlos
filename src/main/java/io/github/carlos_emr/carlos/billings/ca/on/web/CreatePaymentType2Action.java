@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao;
 import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import org.apache.struts2.ActionSupport;
@@ -94,8 +95,13 @@ public class CreatePaymentType2Action extends ActionSupport {
                 ret.put("ret", "0");
             }
         } catch (Exception e) {
+            // Log the full failure with stack trace for ops; the JSON
+            // response keeps a generic message so we don't echo PHI or
+            // raw exception internals back to the JS client.
+            MiscUtils.getLogger().error("Failed to create payment type {}",
+                    LogSanitizer.sanitize(paymentType), e);
             ret.put("ret", "1");
-            ret.put("reason", e.toString());
+            ret.put("reason", "Failed to create payment type; see server logs.");
         }
 
         writeJsonResponse(response, ret);
@@ -109,7 +115,7 @@ public class CreatePaymentType2Action extends ActionSupport {
             // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- JSON API response with application/json content-type
             response.getWriter().write(objectMapper.valueToTree(body).toString());
         } catch (IOException e) {
-            MiscUtils.getLogger().info(e.toString());
+            MiscUtils.getLogger().error("Failed to write JSON response", e);
         }
     }
 }

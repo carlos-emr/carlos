@@ -49,14 +49,27 @@ public class OnRaImportService {
         this.remittanceAdviceService = remittanceAdviceService;
     }
 
-    public void importDocumentBeanFile(HttpServletRequest request) {
+    /**
+     * Optionally import the RA file referenced by the request's
+     * {@code documentBean} attribute. Failures here must be observable to the
+     * caller — a payments-import that silently fails leaves
+     * {@code billing_on_payment} out of sync with reality and reconciliation
+     * drifts.
+     *
+     * @return {@code true} when no import was requested or the import
+     *         succeeded; {@code false} when an import was attempted but
+     *         was blocked, misconfigured, or threw. Callers should surface
+     *         {@code false} to the user rather than silently rendering the
+     *         post-import view.
+     */
+    public boolean importDocumentBeanFile(HttpServletRequest request) {
         Object dbAttr = request.getAttribute("documentBean");
         if (!(dbAttr instanceof DocumentBean documentBean)) {
-            return;
+            return true;
         }
         String filename = documentBean.getFilename();
         if (filename == null || filename.isEmpty()) {
-            return;
+            return true;
         }
 
         try {
@@ -64,18 +77,21 @@ public class OnRaImportService {
                     .getProperty("DOCUMENT_DIR", "").trim();
             if (documentDir.isEmpty()) {
                 MiscUtils.getLogger().warn("Skipping RA import because DOCUMENT_DIR is not configured");
-                return;
+                return false;
             }
             File safeFile = PathValidationUtils.validatePath(filename, new File(documentDir));
             remittanceAdviceService.importRAFile(safeFile.getPath());
+            return true;
         } catch (SecurityException e) {
             MiscUtils.getLogger().warn(
                     "Blocked unsafe RA import filename '{}'",
                     LogSanitizer.sanitize(filename));
+            return false;
         } catch (Exception e) {
             MiscUtils.getLogger().error(
                     "Failed to import RA file: {}",
                     LogSanitizer.sanitize(filename), e);
+            return false;
         }
     }
 }

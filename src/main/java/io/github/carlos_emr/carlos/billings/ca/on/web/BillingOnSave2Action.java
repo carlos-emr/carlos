@@ -38,8 +38,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 import java.util.ArrayList;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingClaimSubmissionService;
@@ -137,7 +137,15 @@ public class BillingOnSave2Action extends ActionSupport {
             if (xmlBillType != null
                     && xmlBillType.length() >= 3
                     && xmlBillType.substring(0, 3).matches(BillingOnConstants.BILLINGMATCHSTRING_3RDPARTY)) {
-                bObj.addPrivateBillExtRecord(request, vecObj, billingNo);
+                // Pre-fix: the boolean return was discarded — third-party ext
+                // rows that failed to write left only an internal error log,
+                // and the action returned SUCCESS. Mark the overall save as
+                // failed so the operator sees the failure result instead of
+                // a phantom green check on the bill.
+                boolean extOk = bObj.addPrivateBillExtRecord(request, vecObj, billingNo);
+                if (!extOk) {
+                    ret = false;
+                }
             } else {
                 bObj.addOhipInvoiceTrans(vecObj);
             }
@@ -193,7 +201,7 @@ public class BillingOnSave2Action extends ActionSupport {
             if (wrkloadmanagement != null && !wrkloadmanagement.isEmpty() && !wrkloadmanagement.equals(curBilf)) {
                 if (!safeUrlBack.isEmpty()) {
                     String separator = safeUrlBack.contains("?") ? "&" : "?";
-                    String urlBack = safeUrlBack + separator + "curBillForm=" + Encode.forUriComponent(wrkloadmanagement);
+                    String urlBack = safeUrlBack + separator + "curBillForm=" + SafeEncode.forUriComponent(wrkloadmanagement);
                     request.setAttribute("workloadUrlBack", urlBack);
                 }
                 return "workloadRedirect";

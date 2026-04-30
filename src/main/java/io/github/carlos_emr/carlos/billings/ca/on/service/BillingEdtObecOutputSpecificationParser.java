@@ -117,9 +117,13 @@ public class BillingEdtObecOutputSpecificationParser {
                 }
             }
         } catch (IOException ioe) {
-            MiscUtils.getLogger().error("Error", ioe);
+            // Symmetric closure with the other batch parsers — IOException
+            // now flips verdict false AND SIOOBE branch logs.
+            verdict = false;
+            MiscUtils.getLogger().error("EDT/OBEC parse failed (IOException), verdict=false", ioe);
         } catch (StringIndexOutOfBoundsException ioe) {
             verdict = false;
+            MiscUtils.getLogger().error("EDT/OBEC parse failed (malformed record layout), verdict=false", ioe);
         }
         return verdict;
     }

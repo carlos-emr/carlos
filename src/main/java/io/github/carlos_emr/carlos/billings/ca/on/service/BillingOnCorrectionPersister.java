@@ -100,6 +100,14 @@ public class BillingOnCorrectionPersister {
     private SimpleDateFormat timeFormatter = new SimpleDateFormat("HH:mm:ss");
     private SimpleDateFormat tsFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
+    /**
+     * Apply the DTO's correction-form fields to an existing
+     * {@code billing_on_cheader1} row identified by {@code ch1Obj.getId()}.
+     *
+     * @param ch1Obj BillingClaimHeaderDto the correction-form snapshot
+     * @return boolean {@code true} on success
+     * @throws ParseException when an ISO date field is malformed
+     */
     public boolean updateBillingClaimHeader(BillingClaimHeaderDto ch1Obj) throws ParseException {
         BillingONCHeader1 c = billingHeaderDao.find(ch1Obj.getId());
         c.setTranscId(ch1Obj.getTransc_id());
@@ -165,6 +173,14 @@ public class BillingOnCorrectionPersister {
         return true;
     }
 
+    /**
+     * Apply the DTO's correction-form fields to an existing
+     * {@code billing_on_item} row identified by {@code val.getId()}.
+     *
+     * @param val BillingClaimItemDto the correction-form snapshot
+     * @return boolean {@code true} on success
+     * @throws ParseException when an ISO date field is malformed
+     */
     public boolean updateBillingOneItem(BillingClaimItemDto val) throws ParseException {
         BillingONItem b = billingItemDao.find(val.getId());
         if (b != null) {
@@ -185,6 +201,14 @@ public class BillingOnCorrectionPersister {
     }
 
 
+    /**
+     * Set the status of a {@code billing_on_cheader1} row.
+     *
+     * @param id         String the claim header ID
+     * @param status     String one of the BillingONCHeader1 status constants
+     * @param providerNo String the provider performing the update
+     * @return boolean {@code true} on success
+     */
     public boolean updateBillingStatus(String id, String status, String providerNo) {
         BillingONCHeader1 h = billingHeaderDao.find(Integer.valueOf(id));
         if (h != null) {
@@ -226,6 +250,10 @@ public class BillingOnCorrectionPersister {
     }
 
     @SuppressWarnings("rawtypes")
+    /**
+     * @param id String the claim header ID
+     * @return List the {@code pay_program} value(s) for the row
+     */
     public List getPayprogramByBillNo(String id) {
         BillingONCHeader1 b = billingHeaderDao.find(id);
         List obj = new ArrayList();
@@ -236,6 +264,14 @@ public class BillingOnCorrectionPersister {
     }
 
     // 0-cheader1 obj, 1 - item1obj, 2 - item2obj, ...
+    /**
+     * Load the full correction-form snapshot. Returns a positional bag:
+     * index 0 = {@link BillingClaimHeaderDto}, index 1 =
+     * {@code List<BillingClaimItemDto>}.
+     *
+     * @param id String the claim header ID
+     * @return List the snapshot, or empty when not found
+     */
     public List getBillingRecordObj(String id) {
         List obj = new ArrayList();
         BillingClaimHeaderDto ch1Obj = null;
@@ -406,6 +442,10 @@ public class BillingOnCorrectionPersister {
         return obj;
     }
 
+    /**
+     * @param id String the claim header ID
+     * @return String the {@code total} field, or empty if not found
+     */
     public String getBillingTotal(String id) {
         BillingONCHeader1 b = billingHeaderDao.find(id);
         if (b != null) {
@@ -416,6 +456,10 @@ public class BillingOnCorrectionPersister {
     }
 
 
+    /**
+     * @param id String the claim header ID
+     * @return String the {@code paid} field, or empty if not found
+     */
     public String getBillingPaid(String id) {
         BillingONCHeader1 b = billingHeaderDao.find(id);
         if (b != null) {
@@ -425,6 +469,11 @@ public class BillingOnCorrectionPersister {
 
     }
 
+    /**
+     * @param fee String the new total as BigDecimal-parseable string
+     * @param id  String the claim header ID
+     * @return boolean {@code true} on success
+     */
     public boolean updateBillingTotal(String fee, String id) {
         BillingONCHeader1 b = billingHeaderDao.find(id);
         if (b != null) {
@@ -436,6 +485,11 @@ public class BillingOnCorrectionPersister {
 
     }
 
+    /**
+     * @param fee String the new paid amount as BigDecimal-parseable string
+     * @param id  String the claim header ID
+     * @return boolean {@code true} on success
+     */
     public boolean updateBillingPaid(String fee, String id) {
         BillingONCHeader1 b = billingHeaderDao.find(id);
         if (b != null) {
@@ -446,6 +500,14 @@ public class BillingOnCorrectionPersister {
         return false;
     }
 
+    /**
+     * Persist one {@code billing_on_transaction} audit row recording the
+     * insert of a new bill item during correction.
+     *
+     * @param billHeader        BillingClaimHeaderDto the parent header
+     * @param billItem          BillingClaimItemDto the inserted item
+     * @param updateProviderNo  String the provider performing the correction
+     */
     public void addInsertOneBillItemTrans(BillingClaimHeaderDto billHeader, BillingClaimItemDto billItem, String updateProviderNo) {
         // Strict-parse header dates upfront — silently nulling on malformed
         // input persisted an audit-incorrect billing_on_transaction row.
@@ -490,6 +552,14 @@ public class BillingOnCorrectionPersister {
         billOnTransDao.persist(billTrans);
     }
 
+    /**
+     * Persist one {@code billing_on_transaction} audit row recording the
+     * update of an existing bill item during correction.
+     *
+     * @param billHeader        BillingClaimHeaderDto the parent header
+     * @param billItem          BillingClaimItemDto the updated item
+     * @param updateProviderNo  String the provider performing the correction
+     */
     public void addUpdateOneBillItemTrans(BillingClaimHeaderDto billHeader, BillingClaimItemDto billItem, String updateProviderNo) {
         // Strict-parse — same reasoning as addInsertOneBillItemTrans above.
         Date admissionDate = BillingDates.parseOptionalIsoDate(billHeader.getAdmission_date(), "admission_date");

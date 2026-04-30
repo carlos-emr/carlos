@@ -46,7 +46,7 @@ EL_FN_RE = re.compile(r"\$\{\s*e:for[A-Za-z]+\s*\(")
 ENCODE_SCRIPTLET_RE = re.compile(r"<%=\s*Encode\.for[A-Za-z]+\s*\(")
 # Class C — context misuse: forHtmlContent inside an HTML attribute value.
 # `forHtmlContent` does NOT escape `"` or `'`, so a value containing a quote
-# breaks the markup. PR #1967 fixed several such sites by hand in
+# breaks the markup. Several sites were fixed by hand in
 # `billingONCorrection.jsp`; this regex catches the pattern so it can't
 # recur on a future JSP migration.
 #

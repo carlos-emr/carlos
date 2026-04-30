@@ -136,8 +136,8 @@ class AddEditServiceCode2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldReturn405WithAllowHeader_whenGetWithMutationIntent() throws Exception {
         // RFC 7231 §6.5.5 — a 405 response MUST include an Allow header.
-        // Sibling 2Actions in this PR set Allow on their 405 paths; this
-        // action lacked it before round-11.
+        // Sibling 2Actions set Allow on their 405 paths; pin that contract
+        // here so a future drop of the header surfaces as a test failure.
         mockRequest.setParameter("action", "delete");
 
         AddEditServiceCode2Action action = new AddEditServiceCode2Action(mockSecurityInfoManager, org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.assembler.AddEditServiceCodeViewModelAssembler.class));

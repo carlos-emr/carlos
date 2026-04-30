@@ -87,7 +87,7 @@ public class BillingShortcutPg1ViewModelAssembler {
     private final CtlBillingServicePremiumDao ctlBillingServicePremiumDao;
     private final ClinicLocationDao clinicLocationDao;
     private final ProfessionalSpecialistDao professionalSpecialistDao;
-    // Round-15: 3 new DAOs added so the JSP no longer needs SpringUtils.getBean
+    // 3 new DAOs added so the JSP no longer needs SpringUtils.getBean
     // for the side-panel service-type list, the dx-code panel list, or the
     // clinic-nbr dropdown. ProviderDao for the comments XML stays — it was
     // already a field above, the JSP reuse just uses the pre-loaded value.
@@ -362,7 +362,7 @@ public class BillingShortcutPg1ViewModelAssembler {
         // accumulated error/warning portion and the JSP keeps the i18n prefix.
         String msg = demoLoad.errorMessage + demoLoad.warningMessage;
 
-        // Round-15: pre-load the data the JSP previously fetched via inline
+        // pre-load the data the JSP previously fetched via inline
         // SpringUtils.getBean — clinic_nbr dropdown, service-type side panel,
         // dx-code panel, and the user provider's xml_p_nbr / xml_p_sli
         // comments-XML fields. All four legacy DAO calls in
@@ -419,7 +419,7 @@ public class BillingShortcutPg1ViewModelAssembler {
             }
         }
 
-        // Round-16: drain residual scriptlets — pre-resolve all the values
+        // drain residual scriptlets — pre-resolve all the values
         // the legacy JSP read inline via request.getParameter and session
         // attribute lookup. These move the form-state preservation into the
         // model so the JSP can use pure EL.

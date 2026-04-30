@@ -27,6 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.SxmlMisc;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.OnRaSummaryViewModel;
 import io.github.carlos_emr.carlos.commn.dao.RaHeaderDao;
 import io.github.carlos_emr.carlos.commn.model.RaHeader;
@@ -53,15 +54,30 @@ public class OnRaSummaryTotalsService {
     @Transactional
     public void mergeTotals(String raNoStr, BigDecimal localTotal, BigDecimal payTotal,
                             BigDecimal otherTotal, BigDecimal obTotal, BigDecimal coTotal) {
+        // Pre-fix this method silently returned on parse failure or null
+        // input, leaving the RA header content untouched while the caller
+        // (ViewOnGenRaSummary2Action) believed the merge succeeded — the
+        // operator's grand-total grid would silently drift out of sync with
+        // the underlying records. Surface the failure so the action's
+        // exception mapping renders the validation page.
+        if (raNoStr == null || raNoStr.isEmpty()) {
+            throw new BillingValidationException(
+                    "RA summary merge rejected: raNo is missing");
+        }
         int raNo;
         try {
-            raNo = Integer.parseInt(raNoStr);
+            raNo = Integer.parseInt(raNoStr.trim());
         } catch (NumberFormatException e) {
-            return;
+            throw new BillingValidationException(
+                    "RA summary merge rejected: raNo [" + raNoStr
+                            + "] is not a valid integer", e);
         }
         RaHeader header = raHeaderDao.find(raNo);
         if (header == null) {
-            return;
+            // Same rationale as above — better to fail visibly than to let
+            // the caller present "Saved" for a phantom raNo.
+            throw new BillingValidationException(
+                    "RA summary merge rejected: no RaHeader for raNo [" + raNo + "]");
         }
 
         String content = header.getContent();

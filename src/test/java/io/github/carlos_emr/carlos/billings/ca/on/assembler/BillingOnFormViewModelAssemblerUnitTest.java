@@ -124,7 +124,7 @@ class BillingOnFormViewModelAssemblerUnitTest extends CarlosUnitTestBase {
         EFormDao eFormDao = Mockito.mock(EFormDao.class);
         EncounterFormDao encounterFormDao = Mockito.mock(EncounterFormDao.class);
 
-        // Round-15: SiteDao + ClinicNbrDao added so the new
+        // SiteDao + ClinicNbrDao added so the new
         // BillingOnFormSiteContextComposer (multisite + RMA / clinic-nbr
         // pre-load) can resolve through SpringUtils. The composer itself
         // gates on IsPropertiesOn.isMultisitesEnable / rma_enabled, so

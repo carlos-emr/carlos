@@ -53,10 +53,10 @@ class BillingOnFormServiceGridComposerUnitTest {
                 .isFalse();
     }
 
-    // -- compose() integration: previously this file only exercised the
-    // -- isSafeInlineStyle() regex helper. The PR #1967 review flagged that
-    // -- compose() itself was untested. These tests cover the empty-input
-    // -- happy path; deeper grid-content tests can extend from here.
+    // -- compose() integration: this file previously only exercised the
+    // -- isSafeInlineStyle() regex helper. These tests cover the empty-input
+    // -- happy path of compose() itself; deeper grid-content tests can extend
+    // -- from here.
 
     private CtlBillingServiceDao ctlBillingServiceDao;
     private BillingServiceDao billingServiceDao;

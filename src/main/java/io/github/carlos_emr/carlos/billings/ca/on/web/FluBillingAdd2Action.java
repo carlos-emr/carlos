@@ -47,9 +47,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
-
-import org.owasp.encoder.Encode;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 /**
  * Struts2 action for adding a flu billing record.
@@ -67,13 +65,20 @@ public class FluBillingAdd2Action extends ActionSupport {
 
     private static final long serialVersionUID = 1L;
 
-    private final HttpServletRequest request = ServletActionContext.getRequest();
-    private final HttpServletResponse response = ServletActionContext.getResponse();
+    private final SecurityInfoManager securityInfoManager;
+    private final BillingDao billingDao;
+    private final BillingDetailDao billingDetailDao;
+    private final BillingServiceDao billingServiceDao;
 
-    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private final BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
-    private final BillingDetailDao billingDetailDao = SpringUtils.getBean(BillingDetailDao.class);
-    private final BillingServiceDao billingServiceDao = SpringUtils.getBean(BillingServiceDao.class);
+    public FluBillingAdd2Action(SecurityInfoManager securityInfoManager,
+                                BillingDao billingDao,
+                                BillingDetailDao billingDetailDao,
+                                BillingServiceDao billingServiceDao) {
+        this.securityInfoManager = securityInfoManager;
+        this.billingDao = billingDao;
+        this.billingDetailDao = billingDetailDao;
+        this.billingServiceDao = billingServiceDao;
+    }
 
     /**
      * Creates and persists a flu billing record and its detail line.
@@ -88,12 +93,23 @@ public class FluBillingAdd2Action extends ActionSupport {
      */
     @Override
     public String execute() throws Exception {
+        HttpServletRequest request = ServletActionContext.getRequest();
+        HttpServletResponse response = ServletActionContext.getResponse();
+
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
             return NONE;
         }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        // Explicit null-session guard matches the sibling 2Actions in this PR.
+        // hasPrivilege(null, ...) reaches SecurityInfoManagerImpl and emits a
+        // noisy internal ERROR before returning false; fail fast with a clean
+        // signal instead.
+        if (loggedInInfo == null) {
+            throw new SecurityException("missing session");
+        }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
             throw new SecurityException("missing required security object: _admin.billing");
         }
@@ -188,11 +204,8 @@ public class FluBillingAdd2Action extends ActionSupport {
         b.setApptProviderNo(request.getParameter("apptProvider"));
         b.setAsstProviderNo("0");
         b.setCreator(request.getParameter("doccreator"));
-        billingDao.persist(b);
 
-        // Use the persisted entity's PK directly instead of re-querying by (demoNo, appt)
         BillingDetail bd = new BillingDetail();
-        bd.setBillingNo(b.getId());
         bd.setServiceCode(request.getParameter("svcCode"));
         bd.setServiceDesc(svcDesc);
         bd.setBillingAmount(sPrice);
@@ -200,7 +213,15 @@ public class FluBillingAdd2Action extends ActionSupport {
         bd.setAppointmentDate(MyDateFormat.getSysDate(request.getParameter("apptDate")));
         bd.setStatus(request.getParameter("xml_billtype"));
         bd.setBillingUnit("1");
-        billingDetailDao.persist(bd);
+
+        // Atomic persist via @Transactional service. Pre-fix the two
+        // billingDao.persist + billingDetailDao.persist calls ran inline with
+        // no tx boundary — a detail-insert failure left an orphan parented-
+        // only Billing row.
+        io.github.carlos_emr.carlos.billings.ca.on.service.FluBillingPersistenceService persister =
+                io.github.carlos_emr.carlos.utility.SpringUtils.getBean(
+                        io.github.carlos_emr.carlos.billings.ca.on.service.FluBillingPersistenceService.class);
+        persister.persistFluBilling(b, bd);
 
         boolean billSaved = b.getId() != null && b.getId() > 0;
 
@@ -208,7 +229,7 @@ public class FluBillingAdd2Action extends ActionSupport {
         if ("goPrev".equals(goPrev) && billSaved) {
             String ctx = request.getContextPath();
             response.sendRedirect(ctx + "/prevention/ViewAddPreventionData?prevention=Flu&demographic_no="
-                    + Encode.forUriComponent(demoNo));
+                    + SafeEncode.forUriComponent(demoNo));
             return NONE;
         }
 

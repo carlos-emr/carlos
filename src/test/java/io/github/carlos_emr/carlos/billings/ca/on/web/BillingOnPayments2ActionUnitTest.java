@@ -119,6 +119,25 @@ class BillingOnPayments2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldReturn400_whenListPaymentsCalledWithoutBillingNo() throws Exception {
+        // Pre-fix: NumberFormatException("Cannot parse null string") leaked
+        // out of execute() and crashed the whole request with a 500 (visible
+        // when navigating directly to /billing/CA/ON/billingON3rdPayments
+        // without a query string). Defensive parse → 400 with a clear message.
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        // No billingNo parameter set.
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+        String result = new BillingOnPayments2Action().listPayments();
+
+        assertThat(result).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getErrorMessage()).contains("billingNo");
+    }
+
+    @Test
     void shouldNotDoublePrefixNegativeItemCurrencyValues() {
         BillingClaimItemDto item = new BillingClaimItemDto();
         item.setId("1");
@@ -150,6 +169,7 @@ class BillingOnPayments2ActionUnitTest extends CarlosUnitTestBase {
 
     private MockHttpServletRequest savePaymentRequestWithItem(String paymentValue, String discountValue) {
         MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setMethod("POST");                     // required by savePayment POST gate
         request.setParameter("size", "1");
         request.setParameter("billingNo", "4242");
         request.setParameter("paymentDate", "2026-04-29");
@@ -161,6 +181,45 @@ class BillingOnPayments2ActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("payment0", paymentValue);
         request.setParameter("discount0", discountValue);
         return request;
+    }
+
+    @Test
+    void shouldReturn405WithAllowHeader_whenSavePaymentInvokedViaGet() throws Exception {
+        // Pre-fix: HttpMethodGuardFilter's "save" token didn't match
+        // "savePayment", so a forged GET could drive ~10 DAO writes.
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setMethod("GET");
+        request.setParameter("size", "0");
+        request.setParameter("billingNo", "1");
+        request.setParameter("paymentDate", "2026-04-29");
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+        new BillingOnPayments2Action().savePayment();
+
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+    }
+
+    @Test
+    void shouldReturnFailure_whenDeletePaymentInvokedViaGet() throws Exception {
+        // Pre-fix: HttpMethodGuardFilter's "delete" token didn't match
+        // "deletePayment", so a forged GET could wipe a payment.
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setMethod("GET");
+        request.setParameter("id", "1");
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+        String result = new BillingOnPayments2Action().deletePayment();
+
+        assertThat(result).isEqualTo("failure");
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
     }
 
     private MockHttpServletResponse executeSavePayment(MockHttpServletRequest request) throws Exception {
@@ -201,6 +260,71 @@ class BillingOnPayments2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldWriteJsonRejection_whenSizeParamMissing() throws Exception {
+        // Pre-fix: NumberFormatException on Integer.parseInt(null) leaked
+        // out as a 500. Defensive parse → JSON rejection contract.
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setMethod("POST");
+        // size NOT set
+        request.setParameter("billingNo", "4242");
+        request.setParameter("paymentDate", "2026-04-29");
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+        new BillingOnPayments2Action().savePayment();
+
+        assertThat(response.getContentAsString()).contains("\"ret\":1");
+        assertThat(response.getContentAsString()).contains("size");
+        assertThat(response.getContentType()).contains("application/json");
+    }
+
+    @Test
+    void shouldWriteJsonRejection_whenBillingNoParamMissing() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setMethod("POST");
+        request.setParameter("size", "1");
+        // billingNo NOT set
+        request.setParameter("paymentDate", "2026-04-29");
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+        new BillingOnPayments2Action().savePayment();
+
+        assertThat(response.getContentAsString()).contains("\"ret\":1");
+        assertThat(response.getContentAsString()).contains("billingNo");
+    }
+
+    @Test
+    void shouldWriteJsonRejection_whenItemIdMalformed() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setMethod("POST");
+        request.setParameter("size", "1");
+        request.setParameter("billingNo", "4242");
+        request.setParameter("paymentDate", "2026-04-29");
+        request.setParameter("paymentType", "1");
+        request.setParameter("status", "");
+        request.getSession().setAttribute("user", "999998");
+        request.setParameter("itemId0", "not-an-int");  // malformed
+        request.setParameter("sel0", "payment");
+        request.setParameter("payment0", "10.00");
+        request.setParameter("discount0", "0.00");
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+        new BillingOnPayments2Action().savePayment();
+
+        assertThat(response.getContentAsString()).contains("\"ret\":1");
+        assertThat(response.getContentAsString()).contains("Invalid itemId on row 0");
+        assertThat(response.getContentAsString()).contains("not-an-int");
+    }
+
+    @Test
     void shouldWriteJsonRejection_andSkipPersist_whenSingleItemDiscountMalformed() throws Exception {
         MockHttpServletRequest request = savePaymentRequestWithItem("10.00", "abc");
         BillingONPaymentDao paymentDao = mock(BillingONPaymentDao.class);
@@ -217,6 +341,7 @@ class BillingOnPayments2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldRejectFirstMalformedRow_andNotProcessLaterRows_whenMultipleItems() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setMethod("POST");
         request.setParameter("size", "3");
         request.setParameter("billingNo", "4242");
         request.setParameter("paymentDate", "2026-04-29");

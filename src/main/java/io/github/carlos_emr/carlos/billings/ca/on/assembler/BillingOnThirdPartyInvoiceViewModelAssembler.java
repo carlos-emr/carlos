@@ -51,7 +51,7 @@ import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Site;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnInvoiceTotalsCalculator;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnInvoiceTotalsService;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -81,7 +81,7 @@ public class BillingOnThirdPartyInvoiceViewModelAssembler {
     private final DemographicDao demographicDao;
     private final ProviderDao providerDao;
     private final SiteDao siteDao;
-    private final BillingOnInvoiceTotalsCalculator totalsCalculator;
+    private final BillingOnInvoiceTotalsService totalsService;
     private final BillingThirdPartyRecordService thirdPartyRecordService;
 
     public BillingOnThirdPartyInvoiceViewModelAssembler(BillingONCHeader1Dao bCh1Dao,
@@ -92,7 +92,7 @@ public class BillingOnThirdPartyInvoiceViewModelAssembler {
                                  DemographicDao demographicDao,
                                  ProviderDao providerDao,
                                  SiteDao siteDao,
-                                 BillingOnInvoiceTotalsCalculator totalsCalculator,
+                                 BillingOnInvoiceTotalsService totalsService,
                                  BillingThirdPartyRecordService thirdPartyRecordService) {
         this.bCh1Dao = bCh1Dao;
         this.bExtDao = bExtDao;
@@ -102,7 +102,7 @@ public class BillingOnThirdPartyInvoiceViewModelAssembler {
         this.demographicDao = demographicDao;
         this.providerDao = providerDao;
         this.siteDao = siteDao;
-        this.totalsCalculator = totalsCalculator;
+        this.totalsService = totalsService;
         this.thirdPartyRecordService = thirdPartyRecordService;
     }
 
@@ -232,13 +232,13 @@ public class BillingOnThirdPartyInvoiceViewModelAssembler {
                 .balanceAmount(balance.toPlainString());
 
         // Side-effect parity: the legacy JSP also called find3rdPartyPayRecordsByBill
-        // and BillingOnInvoiceTotalsCalculator.calculateBalanceOwing. The values weren't actually
+        // and BillingOnInvoiceTotalsService.calculateBalanceOwing. The values weren't actually
         // displayed (the rendered Balance comes from the prop3rdPart math above),
         // but the call kept any logging/audit side effects active. Preserved here.
         List<BillingONPayment> ignoredPayments = bPaymentDao.find3rdPartyPayRecordsByBill(bCh1);
         BillingONPaymentDao.calculatePaymentTotal(ignoredPayments);
         BillingONPaymentDao.calculateRefundTotal(ignoredPayments);
-        totalsCalculator.calculateBalanceOwing(bCh1.getId());
+        totalsService.calculateBalanceOwing(bCh1.getId());
 
         // Logo: only used when not in multisite mode.
         if (!isMultisite) {

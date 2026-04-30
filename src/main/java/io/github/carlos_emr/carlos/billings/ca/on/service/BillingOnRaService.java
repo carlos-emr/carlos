@@ -34,6 +34,7 @@ import java.util.Properties;
 import java.util.Set;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingRaDetailDto;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
@@ -62,7 +63,12 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  * <p>Web security is enforced at the action layer before invocation.</p>
  */
 @org.springframework.stereotype.Service
-@org.springframework.transaction.annotation.Transactional(readOnly = true)
+// NOTE: this service is read+write — addOneRADtRecord/importDocumentBeanFile
+// call raDetailDao.persist, raHeaderDao.persist, cheader1Dao.merge (lines
+// 96, 184, 275, 335, 579). The class-level annotation MUST NOT be
+// readOnly=true; Hibernate would silently skip the flush on those writes
+// (or throw on commit, depending on the dialect).
+@org.springframework.transaction.annotation.Transactional
 public class BillingOnRaService {
     private static final Logger _logger = MiscUtils.getLogger();
 
@@ -457,7 +463,9 @@ public class BillingOnRaService {
                 }
             }
         } catch (Exception e) {
-            _logger.error("error", e);
+            _logger.error("Failed to load RA error report (raNo={}, providerOhipNo={}); reconciliation grid may silently drop entries",
+                    LogSanitizer.sanitize(raNo),
+                    LogSanitizer.sanitize(providerOhipNo), e);
         }
         return ret;
     }
@@ -526,11 +534,21 @@ public class BillingOnRaService {
                 String explain = r.getErrorCode();
                 String amountsubmit = r.getAmountClaim();
                 String amountpay = r.getAmountPay();
+                // unparseable flag — exposed to the JSP so the row renders
+                // with a "contact MOH" badge instead of a fake $0.00. Pre-fix
+                // this method silently coalesced bad values to "0.00" with a
+                // weak log; the operator's reconciliation grid then could not
+                // distinguish a malformed amount from a legitimate $0
+                // payment.
+                boolean amountUnreadable = false;
                 try {
                     BillingMoney.amount(amountpay);
                 } catch (NumberFormatException e) {
+                    amountUnreadable = true;
+                    MiscUtils.getLogger().error(
+                            "RA reconciliation: header {} row had unreadable amountPay [{}]; flagged for operator follow-up",
+                            id, amountpay);
                     amountpay = "0.00";
-                    MiscUtils.getLogger().error("RA HEADER " + id + " had bad amount pay value " + r.getAmountPay());
                 }
 
                 Properties prop = new Properties();
@@ -539,6 +557,9 @@ public class BillingOnRaService {
                 prop.setProperty("serviceno", serviceno);
                 prop.setProperty("explain", explain);
                 prop.setProperty("amountsubmit", amountsubmit);
+                if (amountUnreadable) {
+                    prop.setProperty("amountUnreadable", "true");
+                }
                 prop.setProperty("amountpay", amountpay);
                 prop.setProperty("location", location);
                 prop.setProperty("localServiceDate", localServiceDate);
@@ -552,7 +573,9 @@ public class BillingOnRaService {
                 ret.add(prop);
             }
         } catch (Exception e) {
-            _logger.error("errror", e);
+            _logger.error("Failed to load RA summary (raHeaderId={}, providerOhipNo={}); rows may be silently dropped",
+                    LogSanitizer.sanitize(id),
+                    LogSanitizer.sanitize(providerOhipNo), e);
         }
         return ret;
     }

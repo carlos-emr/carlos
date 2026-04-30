@@ -61,7 +61,16 @@ public final class OnRaViewModel {
     public static final class Builder {
         private List<Row> rows;
 
-        public Builder rows(List<Row> v) { this.rows = v; return this; }
+        public Builder rows(List<Row> v) {
+            // Defensive copy at the setter so a caller doing
+            //   builder.rows(myList); myList.clear(); builder.build();
+            // still produces a populated VM. The constructor also copies, but
+            // copying here as well closes the post-set/pre-build mutation hole
+            // and matches the discipline of BillingOnFormViewModel /
+            // BillingOnCorrectionViewModel.
+            this.rows = v == null ? null : List.copyOf(v);
+            return this;
+        }
 
         public OnRaViewModel build() { return new OnRaViewModel(this); }
     }

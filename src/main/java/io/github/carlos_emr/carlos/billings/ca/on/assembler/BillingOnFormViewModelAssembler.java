@@ -338,7 +338,7 @@ public class BillingOnFormViewModelAssembler {
 
         serviceGridComposer.compose(b, ctlBillForm, filterDate, billRefDate, demo);
 
-        // Round-15: site-context (multisite, RMA / clinic-nbr) loaded by the
+        // site-context (multisite, RMA / clinic-nbr) loaded by the
         // dedicated composer instead of inline in the JSP.
         siteContextComposer.populate(b, request, userNo, apptProviderNo, apptNo);
 

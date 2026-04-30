@@ -76,13 +76,30 @@ public class BillingClaimSubmissionService {
         claim1Obj.setId(Integer.toString(billingNo));
         if (val.size() > 1) {
             ret = dbObj.addItemRecord((List) val.get(1), billingNo);
-            if (!ret)
-                return new SaveResult(false, billingNo);
+            if (!ret) {
+                // Throw so the surrounding @Transactional rolls back the
+                // header write. Returning SaveResult(false, billingNo) on
+                // its own commits an orphan header (no items) and leaves
+                // billing reports parented to a row that has no service
+                // lines — visible in the "Settled $0" reconcile list with
+                // no way to distinguish from a legitimate empty.
+                throw new BillingItemPersistenceException(billingNo);
+            }
         } else {
             _logger.error("No billing item for billing # " + billingNo);
         }
 
         return new SaveResult(ret, billingNo);
+    }
+
+    /** Distinct exception so callers can map item-persist failures to a
+     *  rollback-and-render-error path rather than treating them as generic
+     *  IllegalStateException. */
+    public static class BillingItemPersistenceException extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+        public BillingItemPersistenceException(int billingNo) {
+            super("addABillingRecord rolled back: item persist failed for billingNo " + billingNo);
+        }
     }
 
     public boolean addPrivateBillExtRecord(HttpServletRequest requestData, int billingId) {

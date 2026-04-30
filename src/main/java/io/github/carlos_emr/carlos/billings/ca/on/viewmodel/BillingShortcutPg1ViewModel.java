@@ -95,7 +95,7 @@ public final class BillingShortcutPg1ViewModel {
     private final String headerTitle3;
     private final Map<String, String> propPremium;
 
-    // Round-15: data formerly loaded inline by billingShortcutPg1.jsp via
+    // data formerly loaded inline by billingShortcutPg1.jsp via
     // SpringUtils.getBean (CtlBillingServiceDao, DiagnosticCodeDao,
     // ClinicNbrDao, ProviderDao for comments XML). Pre-loaded here so the
     // JSP can iterate via EL/JSTL without any DAO lookups in body code.
@@ -104,7 +104,7 @@ public final class BillingShortcutPg1ViewModel {
     private final List<ServiceTypeEntry> serviceTypes;
     private final List<DxCodeEntry> dxCodes;
 
-    // Round-16: drain residual scriptlets — pre-resolved values the JSP
+    // drain residual scriptlets — pre-resolved values the JSP
     // previously computed inline in scriptlet code.
     private final Map<String, String> requestParamEchoes;
     private final String currentFormName;
@@ -448,7 +448,7 @@ public final class BillingShortcutPg1ViewModel {
             this.dxCodes = v == null ? null : List.copyOf(v); return this;
         }
 
-        // Round-16: drain residual scriptlets.
+        // drain residual scriptlets.
         private Map<String, String> requestParamEchoes;
         private String currentFormName;
         private String assgProviderDisplay;

@@ -47,12 +47,12 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * @since 2026-04-27
  */
 @Service
-public class BillingOnInvoiceTotalsCalculator {
+public class BillingOnInvoiceTotalsService {
 
     private final BillingONCHeader1Dao headerDao;
     private final BillingONPaymentDao paymentDao;
 
-    public BillingOnInvoiceTotalsCalculator(BillingONCHeader1Dao headerDao,
+    public BillingOnInvoiceTotalsService(BillingONCHeader1Dao headerDao,
                                             BillingONPaymentDao paymentDao) {
         this.headerDao = headerDao;
         this.paymentDao = paymentDao;

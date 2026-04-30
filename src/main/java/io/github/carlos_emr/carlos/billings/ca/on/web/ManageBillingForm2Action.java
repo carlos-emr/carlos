@@ -35,12 +35,12 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.ManageBillingFormVie
  * View gate for {@code billing/CA/ON/manageBillingform.jsp}. Enforces {@code _admin.billing}
  * {@code w} privilege before forwarding to the JSP at its
  * {@code /WEB-INF/jsp/} location. Created as part of the ON billing migration
- * to gate direct-access paths behind Struts2 actions (same pattern as
- * PR #1632 for BC billing).
+ * to gate direct-access paths behind Struts2 actions (matches the BC
+ * billing 2Action gate convention).
  *
  * <p>Also assembles the {@link ManageBillingFormViewModel} on the request as
  * {@code manageBillingformModel} so the JSP body can render in pure EL
- * (drained from 16 scriptlets in the round-2 billing-form refactor).</p>
+ * (drained from 16 inline scriptlets during the billing-form refactor).</p>
  *
  * @since 2026-04-13
  */

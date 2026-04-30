@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingPercLimitDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingPercLimit;
 import io.github.carlos_emr.carlos.utility.DateRange;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
@@ -108,7 +109,13 @@ public class BillingOnClaimLoader {
             }
 
         } catch (Exception e) {
-            _logger.error("error", e);
+            // Caller treats null as "no fee found"; without context the
+            // operator can't distinguish "code is unknown" from "DAO
+            // threw" or "date string was unparseable".
+            _logger.error("Failed to load fee for service code {} on date {}",
+                    LogSanitizer.sanitize(val),
+                    LogSanitizer.sanitize(billReferalDate),
+                    e);
         }
 
         return retval;
@@ -121,7 +128,10 @@ public class BillingOnClaimLoader {
                 retval = bs.getPercentage();
             }
         } catch (Exception e) {
-            _logger.error("error", e);
+            _logger.error("Failed to load percentage for service code {} on date {}",
+                    LogSanitizer.sanitize(val),
+                    LogSanitizer.sanitize(billReferalDate),
+                    e);
         }
         return retval;
     }
@@ -135,7 +145,10 @@ public class BillingOnClaimLoader {
                 retval[1] = b.getMax();
             }
         } catch (Exception e) {
-            _logger.error("error", e);
+            _logger.error("Failed to load percent min/max for service code {} on date {}",
+                    LogSanitizer.sanitize(val),
+                    LogSanitizer.sanitize(billReferalDate),
+                    e);
         }
         return retval;
     }
@@ -262,7 +275,15 @@ public class BillingOnClaimLoader {
                 retval.add(ch1Obj);
             }
         } catch (Exception e) {
-            _logger.error("error", e);
+            // Partial result is returned to caller; without this log, a
+            // transient DB outage is indistinguishable from "no bills" in
+            // the UI and the operator may re-bill the patient.
+            _logger.error("Failed to load billing list (provider={}, demo={}, dates {}..{}); returning partial/empty result",
+                    LogSanitizer.sanitize(providerNo),
+                    LogSanitizer.sanitize(demoNo),
+                    LogSanitizer.sanitize(startDate),
+                    LogSanitizer.sanitize(endDate),
+                    e);
         }
 
         applySort(retval, sortName, sortOrder);
@@ -415,7 +436,13 @@ public class BillingOnClaimLoader {
 
             }
         } catch (Exception e) {
-            _logger.error("error", e);
+            _logger.error("Failed to load billing list (provider={}, demo={}, claim={}, dates {}..{}); returning partial/empty result",
+                    LogSanitizer.sanitize(providerNo),
+                    LogSanitizer.sanitize(demoNo),
+                    LogSanitizer.sanitize(claimNo),
+                    LogSanitizer.sanitize(startDate),
+                    LogSanitizer.sanitize(endDate),
+                    e);
         }
 
         applySort(retval, sortName, sortOrder);
@@ -423,7 +450,27 @@ public class BillingOnClaimLoader {
         return retval;
     }
 
-    // billing page
+    /**
+     * Loads paginated billing history for a demographic, returning an
+     * interleaved list of {@link BillingClaimHeaderDto} and
+     * {@link BillingClaimItemDto} pairs (positional: even indexes hold
+     * headers, odd indexes hold the matching item summary).
+     *
+     * <p><b>Type-design known issue:</b> the {@code List<Object>} return
+     * type with positional casting is a tagged-union encoded as raw list
+     * elements. A future cleanup should introduce a
+     * {@code record BillingHistoryEntry(BillingClaimHeaderDto header,
+     * BillingClaimItemDto item)} and return {@code List<BillingHistoryEntry>}.
+     * Migration is non-trivial (10+ caller files iterate by
+     * {@code i = i + 2}) so it is tracked as a separate refactor and
+     * deliberately not tackled in this PR.</p>
+     *
+     * @param demoNo    String the demographic number
+     * @param iPageSize int max page size
+     * @param iOffSet   int offset for pagination
+     * @param dateRange DateRange optional date filter
+     * @return List interleaved [headerDto, itemDto, headerDto, itemDto, ...]
+     */
     public List<Object> getBillingHist(String demoNo, int iPageSize, int iOffSet, DateRange dateRange) {
         List<Object> retval = new ArrayList<Object>();
         int iRow = 0;
@@ -509,7 +556,8 @@ public class BillingOnClaimLoader {
                 retval.add(itObj);
             }
         } catch (Exception e) {
-            _logger.error("error", e);
+            _logger.error("Failed to load billing history for demo {}; returning partial/empty result",
+                    LogSanitizer.sanitize(demoNo), e);
         }
 
         return retval;
@@ -610,7 +658,7 @@ public class BillingOnClaimLoader {
 
             }
         } catch (Exception e) {
-            _logger.error("error", e);
+            _logger.error("Failed to load OHIP billing entries; returning partial/empty result", e);
         }
 
         return retval;

@@ -35,7 +35,7 @@ import java.util.Map;
  * computed total, and the post-save navigation directive.</p>
  *
  * <p>Populated by
- * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingShortcutPg2ViewModelAssembler#assemble}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.service.BillingShortcutPg2Service#assemble}
  * (invoked from
  * {@link io.github.carlos_emr.carlos.billings.ca.on.web.BillingShortcutPg2Save2Action})
  * and exposed to the JSP as request attribute {@code shortcutPg2Model}.</p>

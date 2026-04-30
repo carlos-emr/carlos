@@ -13,7 +13,6 @@
 package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -23,14 +22,14 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * Mutation gate for {@code billing/CA/BC/billingDigNewUpdate.jsp}. Enforces
- * {@code _billing} w privilege AND POST-only before forwarding to the
- * JSP (which executes the DAO merge in its scriptlet). Created as part of
- * the BC billing migration. GET requests return 405 Method Not Allowed.
+ * View gate for {@code billing/CA/BC/billingDigSearch.jsp}. Enforces
+ * {@code _billing} {@code w} privilege before forwarding to the
+ * JSP at its {@code /WEB-INF/jsp/} location. Created as part of the BC
+ * billing migration to gate direct-access paths behind Struts2 actions.
  *
  * @since 2026-04-13
  */
-public final class BillingDigNewUpdate2Action extends ActionSupport {
+public final class ViewBillingDiagSearch2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -46,14 +45,7 @@ public final class BillingDigNewUpdate2Action extends ActionSupport {
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
-        HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.setHeader("Allow", "POST");
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            return NONE;
-        }
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");

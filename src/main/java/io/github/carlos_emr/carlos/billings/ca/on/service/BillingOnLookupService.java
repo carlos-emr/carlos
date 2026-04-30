@@ -96,6 +96,18 @@ public class BillingOnLookupService {
         this.providerSiteDao = providerSiteDao;
     }
 
+    /**
+
+     * Returns cur team provider str.
+
+     *
+
+     * @param provider_no String
+
+     * @return List<String>
+
+     */
+
     public List<String> getCurTeamProviderStr(String provider_no) {
         List<String> retval = new ArrayList<String>();
         String proid = "";
@@ -118,6 +130,18 @@ public class BillingOnLookupService {
 
         return retval;
     }
+
+    /**
+
+     * Returns cur site provider str.
+
+     *
+
+     * @param provider_no String
+
+     * @return List<String>
+
+     */
 
     public List<String> getCurSiteProviderStr(String provider_no) {
         List<String> retval = new ArrayList<String>();
@@ -148,11 +172,22 @@ public class BillingOnLookupService {
                         + specialty_code);
             }
         } catch (Exception e) {
-            _logger.error("error", e);
+            // Without context, an outage here renders as an empty provider
+            // dropdown and the user is blocked from selecting; ops contacted
+            // for a "missing data" issue with no log evidence.
+            _logger.error("Failed to load provider dropdown list; returning partial/empty result", e);
         }
 
         return retval;
     }
+
+    /**
+
+     * Returns cur provider str.
+
+     * @return List<String>
+
+     */
 
     public List<String> getCurProviderStr() {
         List<String> retval = new ArrayList<String>();
@@ -184,6 +219,14 @@ public class BillingOnLookupService {
         return retval;
     }
 
+    /**
+
+     * Returns prop provider o h i p.
+
+     * @return Properties
+
+     */
+
     public Properties getPropProviderOHIP() {
         Properties retval = new Properties();
         List<Provider> ps = providerDao.getBillableProviders();
@@ -200,6 +243,14 @@ public class BillingOnLookupService {
         return retval;
     }
 
+    /**
+
+     * Returns prop provider name.
+
+     * @return Properties
+
+     */
+
     public Properties getPropProviderName() {
         Properties retval = new Properties();
 
@@ -214,6 +265,18 @@ public class BillingOnLookupService {
 
         return retval;
     }
+
+    /**
+
+     * Returns provider obj.
+
+     *
+
+     * @param providerNo String
+
+     * @return BillingProviderDto
+
+     */
 
     public BillingProviderDto getProviderObj(String providerNo) {
         BillingProviderDto pObj = null;
@@ -244,6 +307,18 @@ public class BillingOnLookupService {
 
         return pObj;
     }
+
+    /**
+
+     * Returns provider obj list.
+
+     *
+
+     * @param providerNo String
+
+     * @return List<BillingProviderDto>
+
+     */
 
     public List<BillingProviderDto> getProviderObjList(String providerNo) {
         BillingProviderDto pObj = null;
@@ -276,6 +351,18 @@ public class BillingOnLookupService {
         return res;
     }
 
+    /**
+
+     * Returns provider.
+
+     *
+
+     * @param diskId String
+
+     * @return List<BillingProviderDto>
+
+     */
+
     public List<BillingProviderDto> getProvider(String diskId) {
         List<BillingProviderDto> retval = new ArrayList<BillingProviderDto>();
         String providerNo = null;
@@ -304,6 +391,14 @@ public class BillingOnLookupService {
         return retval;
     }
 
+    /**
+
+     * Returns cur solo provider.
+
+     * @return List<BillingProviderDto>
+
+     */
+
     public List<BillingProviderDto> getCurSoloProvider() {
         List<BillingProviderDto> retval = new ArrayList<BillingProviderDto>();
         String specialty_code;
@@ -327,6 +422,14 @@ public class BillingOnLookupService {
 
         return retval;
     }
+
+    /**
+
+     * Returns cur grp provider.
+
+     * @return List<BillingProviderDto>
+
+     */
 
     public List<BillingProviderDto> getCurGrpProvider() {
         List<BillingProviderDto> retval = new ArrayList<BillingProviderDto>();
@@ -352,6 +455,22 @@ public class BillingOnLookupService {
         return retval;
     }
 
+    /**
+
+     * Updates appt status.
+
+     *
+
+     * @param apptNo String
+
+     * @param status String
+
+     * @param userNo String
+
+     * @return boolean
+
+     */
+
     public boolean updateApptStatus(String apptNo, String status, String userNo) {
         Appointment appt = appointmentDao.find(Integer.valueOf(apptNo));
         if (appt != null) {
@@ -364,6 +483,18 @@ public class BillingOnLookupService {
         return false;
     }
 
+    /**
+
+     * Returns appt status.
+
+     *
+
+     * @param apptNo String
+
+     * @return String
+
+     */
+
     public String getApptStatus(String apptNo) {
         String retval = "T";
 
@@ -374,6 +505,20 @@ public class BillingOnLookupService {
 
         return retval;
     }
+
+    /**
+
+     * Returns patient cur billing demographic.
+
+     *
+
+     * @param loggedInInfo LoggedInInfo
+
+     * @param demoNo String
+
+     * @return List<String>
+
+     */
 
     public List<String> getPatientCurBillingDemographic(LoggedInInfo loggedInInfo, String demoNo) {
         List<String> retval = null;
@@ -394,6 +539,18 @@ public class BillingOnLookupService {
         return retval;
     }
 
+    /**
+
+     * Returns refer doc spet.
+
+     *
+
+     * @param billingNo String
+
+     * @return String
+
+     */
+
     public String getReferDocSpet(String billingNo) {
         String retval = null;
         ProfessionalSpecialist specialist = professionalSpecialistDao.getByReferralNo(billingNo);
@@ -403,6 +560,20 @@ public class BillingOnLookupService {
 
         return retval;
     }
+
+    /**
+
+     * Returns patient cur billing demo.
+
+     *
+
+     * @param loggedInInfo LoggedInInfo
+
+     * @param demoNo String
+
+     * @return List<String>
+
+     */
 
     public List<String> getPatientCurBillingDemo(LoggedInInfo loggedInInfo, String demoNo) {
         List<String> retval = null;
@@ -423,6 +594,10 @@ public class BillingOnLookupService {
     }
 
     // name : code|dx|
+    /**
+     * Returns billing favourite list.
+     * @return List<String>
+     */
     public List<String> getBillingFavouriteList() {
         List<String> retval = new ArrayList<String>();
         List<BillingONFavourite> bs = billingONFavouriteDao.findCurrent();
@@ -433,6 +608,18 @@ public class BillingOnLookupService {
         }
         return retval;
     }
+
+    /**
+
+     * Returns billing favourite one.
+
+     *
+
+     * @param name String
+
+     * @return List<String>
+
+     */
 
     public List<String> getBillingFavouriteOne(String name) {
         List<String> retval = new ArrayList<String>();
@@ -445,6 +632,22 @@ public class BillingOnLookupService {
         }
         return retval;
     }
+
+    /**
+
+     * Persists billing favourite list.
+
+     *
+
+     * @param name String
+
+     * @param list String
+
+     * @param providerNo String
+
+     * @return int
+
+     */
 
     public int addBillingFavouriteList(String name, String list, String providerNo) {
         BillingONFavourite b = new BillingONFavourite();
@@ -459,6 +662,13 @@ public class BillingOnLookupService {
     }
 
     //	 @ OSCARSERVICE
+    /**
+     * delBillingFavouriteList.
+     *
+     * @param name String
+     * @param providerNo String
+     * @return boolean
+     */
     public boolean delBillingFavouriteList(String name, String providerNo) {
         List<BillingONFavourite> bs = billingONFavouriteDao.findByNameAndProviderNo(name, providerNo);
         for (BillingONFavourite b : bs) {
@@ -468,6 +678,22 @@ public class BillingOnLookupService {
         return true;
     }
     // @ OSCARSERVICE
+
+    /**
+
+     * Updates billing favourite list.
+
+     *
+
+     * @param name String
+
+     * @param list String
+
+     * @param providerNo String
+
+     * @return boolean
+
+     */
 
     public boolean updateBillingFavouriteList(String name, String list, String providerNo) {
         List<BillingONFavourite> bs = billingONFavouriteDao.findByName(name);
@@ -479,6 +705,14 @@ public class BillingOnLookupService {
         return true;
     }
 
+    /**
+
+     * Returns payment type.
+
+     * @return List<String>
+
+     */
+
     public List<String> getPaymentType() {
         List<String> retval = new ArrayList<String>();
         List<BillingPaymentType> bs = billingPaymentTypeDao.findAll();
@@ -489,6 +723,14 @@ public class BillingOnLookupService {
 
         return retval;
     }
+
+    /**
+
+     * Returns facilty num.
+
+     * @return List<String>
+
+     */
 
     public List<String> getFacilty_num() {
         List<String> retval = new ArrayList<String>();

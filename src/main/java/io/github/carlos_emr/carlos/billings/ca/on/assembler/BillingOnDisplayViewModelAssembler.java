@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnDisplayView
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnLookupService;
 import io.github.carlos_emr.carlos.commn.dao.BillingONErrorCodeDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONErrorCode;
+import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao;
 import io.github.carlos_emr.carlos.commn.model.ClinicNbr;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -223,7 +224,7 @@ public class BillingOnDisplayViewModelAssembler {
                 String billAmount = nullToEmpty(itemObj.getFee());
                 String dx = nullToEmpty(itemObj.getDx());
                 String unit = nullToEmpty(itemObj.getSer_num());
-                boolean settled = "S".equals(itemObj.getStatus());
+                boolean settled = BillingONItem.SETTLED.equals(itemObj.getStatus());
                 rowCount++;
                 serviceRows.add(new BillingOnDisplayViewModel.ServiceItemRow(
                         rowCount, serviceCode, nullToEmpty(serviceDesc),

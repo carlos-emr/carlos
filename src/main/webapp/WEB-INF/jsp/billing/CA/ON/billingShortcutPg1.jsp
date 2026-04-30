@@ -314,7 +314,7 @@
             </td>
         </tr>
 
-        <%-- Round-15: service-type panel iterates the pre-loaded
+        <%-- service-type panel iterates the pre-loaded
              shortcutPg1Model.serviceTypes list. The assembler does the
              findServiceTypesByStatus call + sanitisation; the JSP just
              walks the result. --%>
@@ -339,7 +339,7 @@
                               onClick="showHideLayers('Layer2','','hide');return false">X</a></td>
         </tr>
 
-        <%-- Round-15: dx-code panel iterates pre-loaded shortcutPg1Model.dxCodes. --%>
+        <%-- dx-code panel iterates pre-loaded shortcutPg1Model.dxCodes. --%>
         <c:forEach var="__dx" items="${shortcutPg1Model.dxCodes}" varStatus="__dxStatus">
             <tr bgcolor="${__dxStatus.count % 2 == 0 ? '#FFFFFF' : '#EEEEFF'}">
                 <td width="18%"><b><font size="-2" color="#7A388D"><a
@@ -507,7 +507,7 @@
                                     <td width="30%">
                                         <b><c:choose><c:when test="${shortcutPg1Model.rmaEnabled}">Clinic Nbr</c:when><c:otherwise><fmt:message key="billing.billingCorrection.formVisitType"/></c:otherwise></c:choose></b></td>
                                     <td width="20%"><select name="xml_visittype">
-                                        <%-- Round-15: clinic-nbr dropdown driven by pre-loaded
+                                        <%-- clinic-nbr dropdown driven by pre-loaded
                                              shortcutPg1Model.clinicNbrs. The auto-select uses
                                              shortcutPg1Model.selectedClinicNbrPrefix from the user
                                              provider's comments XML. --%>
@@ -569,7 +569,7 @@
                                     </select></td>
                                 </tr>
                                 <%--
-                                    Round-15: SLI-code dropdown auto-select reads from
+                                    SLI-code dropdown auto-select reads from
                                     shortcutPg1Model.selectedXmlPSli (assembler pre-loaded
                                     the user-provider's xml_p_sli comments-XML field).
                                 --%>

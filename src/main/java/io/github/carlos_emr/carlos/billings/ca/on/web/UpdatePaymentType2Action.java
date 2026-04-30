@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao;
 import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import org.apache.struts2.ActionSupport;
@@ -102,8 +103,11 @@ public class UpdatePaymentType2Action extends ActionSupport {
                 }
             }
         } catch (Exception e) {
+            MiscUtils.getLogger().error("Failed to update payment type {} -> {}",
+                    LogSanitizer.sanitize(oldPaymentType),
+                    LogSanitizer.sanitize(paymentType), e);
             ret.put("ret", "1");
-            ret.put("reason", e.toString());
+            ret.put("reason", "Failed to update payment type; see server logs.");
         }
 
         writeJsonResponse(response, ret);
@@ -117,7 +121,7 @@ public class UpdatePaymentType2Action extends ActionSupport {
             // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- JSON API response with application/json content-type
             response.getWriter().write(objectMapper.valueToTree(body).toString());
         } catch (IOException e) {
-            MiscUtils.getLogger().info(e.toString());
+            MiscUtils.getLogger().error("Failed to write JSON response", e);
         }
     }
 }

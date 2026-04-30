@@ -348,7 +348,8 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
         BillingONExt ext = null;
         try {
             ext = (BillingONExt) query.getSingleResult();
-        } catch (Exception e) {
+        } catch (NoResultException e) {
+            // Expected: no ext row for this (billingNo, key) tuple — return zeroed default below.
         }
         if (ext != null) {
             val = new BigDecimal(ext.getValue()).setScale(2, BigDecimal.ROUND_HALF_UP);

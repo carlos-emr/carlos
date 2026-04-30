@@ -172,8 +172,8 @@ public class BillingOnHistoryViewModelAssembler {
                 }
 
                 String status = nullToEmpty(obj.getStatus());
-                // Legacy logic: hide unbill on B/S (already-billed/settled) status.
-                boolean unbillLinkShown = !("B".equals(status) || "S".equals(status));
+                // Legacy logic: hide unbill on already-billed/settled status.
+                boolean unbillLinkShown = !(BillingONCHeader1.BILLED.equals(status) || BillingONCHeader1.SETTLED.equals(status));
 
                 rows.add(new BillingOnHistoryViewModel.HistoryRow(
                         nullToEmpty(obj.getId()),

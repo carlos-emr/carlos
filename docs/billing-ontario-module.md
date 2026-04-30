@@ -126,7 +126,7 @@ only when nothing more specific applies.
 | Sub-assembler / partial composer | `*RenderComposer` | `BillingOnCorrectionRenderComposer` |
 | Pure-read query service | `*Loader` | `BillingOnClaimLoader`, `BillingOnDiskLoader`, `ServiceCodeLoader` |
 | Pure-write persistence service | `*Persister` | `BillingOnClaimPersister`, `BillingOnReviewDiagPersister`, `ServiceCodePersister` |
-| Pure calculation | `*Calculator` | `BillingOnInvoiceTotalsCalculator` |
+| Pure calculation | `*Calculator` | _(none currently in the ON module — `BillingOnInvoiceTotalsService` reads multiple DAOs and is therefore a `*Service`.)_ |
 | Input validator | `*Validator` | `BillingOnReviewValidator` (with `BillingValidationException` for fail-fast paths) |
 | Mixed read/write orchestration | `*Service` | `BillingCorrectionService`, `BillingOnHeaderCreationService`, `BillingOnLookupService` |
 | Data access | `*Dao` | `BillingONCHeader1Dao`, `BillingONPaymentDao`, `BillingServiceDao` |
@@ -168,7 +168,7 @@ Three constraints drove the layered shape:
 2. **Single-purpose classes over catch-alls.** The legacy `BillingONService`
    grew to 30+ unrelated methods and was deleted; its responsibilities now
    live across `BillingOnClaimLoader`, `BillingOnClaimPersister`,
-   `BillingOnInvoiceTotalsCalculator`, and several others. The same shape
+   `BillingOnInvoiceTotalsService`, and several others. The same shape
    was applied to `*Step` / `*Prep` legacy classes.
 3. **Pure queries on the entity, cross-DAO work in services.** Pure-state
    checks (`isOhipBill`, `isPaidInFull`, `isActive`, `recomputeTotalFromItems`)
@@ -292,7 +292,7 @@ lists use `BillingONCHeader1Dao.findActiveItems(invoiceNo)` (which queries
 Calculations that need data beyond a single entity live in a service:
 
 ```java
-// service/BillingOnInvoiceTotalsCalculator
+// service/BillingOnInvoiceTotalsService
 public BigDecimal calculateBalanceOwing(Integer invoiceNo);
 //   total - paidTotal + refundTotal, where paid/refund come from
 //   BillingONPaymentDao.find3rdPartyPayRecordsByBill(header).
@@ -371,7 +371,7 @@ known operation.
 | `BillingOnClaimPersister` | Persister | Header/item/ext record inserts and updates |
 | `BillingOnReviewDiagPersister` | Persister | Diagnostic-code persistence on review save |
 | `BillingOnCorrectionPersister` | Persister | Correction lifecycle writes + colocated reads (split into `*Loader` is a candidate follow-up) |
-| `BillingOnInvoiceTotalsCalculator` | Calculator | `calculateBalanceOwing` (cross-DAO) |
+| `BillingOnInvoiceTotalsService` | Service | `calculateBalanceOwing` — reads `BillingONCHeader1Dao` + `BillingONExtDao` + `BillingONPaymentDao` (cross-DAO ⇒ `*Service` per layer-names rule 4) |
 | `BillingOnHeaderCreationService` | Service | Header creation orchestration (`@Transactional`) |
 | `BillingCorrectionService` | Service | `updateInvoice` + `addThirdPartyPayment` workflows |
 | `BillingCorrectionRecordService` | Service | Audit-snapshot writes to `billing_on_repo` |
@@ -717,10 +717,9 @@ Things this module would benefit from but which are not yet done:
   both reads and writes. They legitimately orchestrate mixed lifecycles
   today, but if any one of them grows further, splitting into
   `*Loader` + `*Persister` is the next step.
-- **JSP guardrail.** A `scripts/lint/check-jsp-size.sh` to fail CI on any
-  JSP under `WEB-INF/jsp/billing/**` that exceeds, say, 60 KB or has more
-  than 20 scriptlet blocks. Cheap insurance against the page-buffer
-  workaround returning.
+- **JSP guardrail.** `scripts/lint/check-jsp-size.sh` fails CI on any JSP
+  under `WEB-INF/jsp/billing/**` that exceeds the byte/scriptlet/getBean
+  thresholds. Cheap insurance against the page-buffer workaround returning.
 
 ## 13 — Cross-references
 

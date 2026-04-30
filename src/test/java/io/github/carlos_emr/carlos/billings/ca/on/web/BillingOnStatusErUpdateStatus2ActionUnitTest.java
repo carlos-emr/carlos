@@ -121,6 +121,10 @@ class BillingOnStatusErUpdateStatus2ActionUnitTest extends CarlosUnitTestBase {
     void shouldWriteChecked_whenValIsY() throws Exception {
         mockRequest.setParameter("id", "42");
         mockRequest.setParameter("val", "Y");
+        // The action takes a `!updated` 404 branch when the service returns
+        // false; without this stub Mockito's default-false hides the body
+        // assertion behind a 404.
+        when(mockErrorReportService.updateErrorReportStatus("42", "Y")).thenReturn(true);
 
         String result = newAction().execute();
 
@@ -134,6 +138,7 @@ class BillingOnStatusErUpdateStatus2ActionUnitTest extends CarlosUnitTestBase {
     void shouldWriteUncheck_whenValIsNotY() throws Exception {
         mockRequest.setParameter("id", "42");
         mockRequest.setParameter("val", "N");
+        when(mockErrorReportService.updateErrorReportStatus("42", "N")).thenReturn(true);
 
         String result = newAction().execute();
 

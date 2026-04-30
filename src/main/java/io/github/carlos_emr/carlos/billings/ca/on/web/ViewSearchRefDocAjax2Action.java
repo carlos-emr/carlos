@@ -154,8 +154,15 @@ public class ViewSearchRefDocAjax2Action extends ActionSupport {
                         }
                     }
                 }
-            } catch (Exception ignore) {
-                // Specialty lookup is best-effort; proceed with an empty map.
+            } catch (Exception e) {
+                // Cache poisoning guard: do NOT cache an empty map on
+                // failure. A transient DAO error during the first lookup
+                // would otherwise wedge specialty names to "" for the
+                // lifetime of the JVM. Log so the next lookup retries the
+                // load and the operator sees the failure.
+                MiscUtils.getLogger().warn(
+                        "Specialty-name lookup failed; returning empty map without caching", e);
+                return fresh;
             }
             application.setAttribute(SPECIALTY_CACHE_ATTR, fresh);
             return fresh;
@@ -174,8 +181,12 @@ public class ViewSearchRefDocAjax2Action extends ActionSupport {
                 "", "", "", term, true));
         try {
             addAll(merged, professionalSpecialistDao.findByPhoneContains(term, MAX_RESULTS));
-        } catch (Exception ignore) {
-            // Phone search is best-effort; some DAO impls may not support it.
+        } catch (UnsupportedOperationException unsupported) {
+            // Phone search is genuinely best-effort: some DAO impls
+            // legitimately don't support it. Narrowing the catch from
+            // generic Exception means a real DB failure (connection drop
+            // mid-search) propagates as expected instead of being silently
+            // swallowed under the "best-effort" comment.
         }
         return merged;
     }

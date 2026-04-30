@@ -24,6 +24,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingLegacyReportViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -97,7 +98,8 @@ public class BillingLegacyReport2Action extends ActionSupport {
                     }
                 }
             } catch (Exception e) {
-                MiscUtils.getLogger().warn("billingLreport: failed to read MOH response file", e);
+                MiscUtils.getLogger().warn("billingLreport: failed to read MOH response file {} from ONEDT_INBOX",
+                        LogSanitizer.sanitize(filename), e);
                 fileContents = "";
             }
         }

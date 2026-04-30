@@ -80,7 +80,7 @@ public class BillingCorrectionRecordService {
     private final BillingOnLookupService lookupService;
     private final BillingThirdPartyService thirdPartyService;
     private final ServiceCodeLoader serviceCodeLoader;
-    private final BillingOnClaimPersister claimPersistenceService;
+    private final BillingOnClaimPersister claimPersister;
     private final BillingOnClaimLoader claimQueryService;
     private final BillingOnTransactionDao billOnTransDao;
     private final BillingOnItemPaymentDao billOnItemPaymentDao;
@@ -92,7 +92,7 @@ public class BillingCorrectionRecordService {
                           BillingOnLookupService lookupService,
                           BillingThirdPartyService thirdPartyService,
                           ServiceCodeLoader serviceCodeLoader,
-                          BillingOnClaimPersister claimPersistenceService,
+                          BillingOnClaimPersister claimPersister,
                           BillingOnClaimLoader claimQueryService,
                           BillingOnTransactionDao billOnTransDao,
                           BillingOnItemPaymentDao billOnItemPaymentDao) {
@@ -103,11 +103,23 @@ public class BillingCorrectionRecordService {
         this.lookupService = lookupService;
         this.thirdPartyService = thirdPartyService;
         this.serviceCodeLoader = serviceCodeLoader;
-        this.claimPersistenceService = claimPersistenceService;
+        this.claimPersister = claimPersister;
         this.claimQueryService = claimQueryService;
         this.billOnTransDao = billOnTransDao;
         this.billOnItemPaymentDao = billOnItemPaymentDao;
     }
+
+    /**
+
+     * Returns billing record obj.
+
+     *
+
+     * @param id String
+
+     * @return List
+
+     */
 
     public List getBillingRecordObj(String id) {
         List ret = correctionPersister.getBillingRecordObj(id);
@@ -115,18 +127,37 @@ public class BillingCorrectionRecordService {
     }
 
     // get error code
+    /**
+     * Returns billing explanatory list.
+     *
+     * @param id String
+     * @return List
+     */
     public List getBillingExplanatoryList(String id) {
         List ret = correctionPersister.getBillingExplanatoryList(id);
         return ret;
     }
 
     // get rejected code
+    /**
+     * Returns billing reject list.
+     *
+     * @param id String
+     * @return List
+     */
     public List getBillingRejectList(String id) {
         List ret = correctionPersister.getBillingRejectList(id);
         return ret;
     }
 
     // compare the obj first, push old record to repo if needed.
+    /**
+     * Updates billing claim header.
+     *
+     * @param ch1Obj BillingClaimHeaderDto
+     * @param requestData HttpServletRequest
+     * @return boolean
+     */
     public boolean updateBillingClaimHeader(BillingClaimHeaderDto ch1Obj,
                                             HttpServletRequest requestData) throws ParseException {
         BillingClaimHeaderDto ch1DataBackup = new BillingClaimHeaderDto();
@@ -175,11 +206,11 @@ public class BillingCorrectionRecordService {
             ch1Obj.setPay_program(requestData.getParameter("payProgram"));
             ret = correctionPersister.updateBillingClaimHeader(ch1Obj);
 
-            if ("D".equals(ch1Obj.getStatus())) {
-                // change status in billing_on_item table
+            if (BillingONCHeader1.DELETED.equals(ch1Obj.getStatus())) {
+                // Cascade soft-delete to every line item under this header.
                 List<BillingONItem> billOnItems = billOnItemDao.getBillingItemByCh1Id(Integer.parseInt(ch1Obj.getId()));
                 for (BillingONItem billOnItem : billOnItems) {
-                    billOnItem.setStatus("D");
+                    billOnItem.markDeleted();
                     billOnItemDao.merge(billOnItem);
                 }
             }
@@ -203,18 +234,23 @@ public class BillingCorrectionRecordService {
         // 3rd party elements
         if (payProgram.matches(BillingOnConstants.BILLINGMATCHSTRING_3RDPARTY)) {
             if (requestData.getParameter("payment") != null) {
-                ret = update3rdPartyItem(BillingONExtDao.KEY_DISCOUNT, requestData);
-                ret = update3rdPartyItem(BillingONExtDao.KEY_TOTAL, requestData);
-                ret = update3rdPartyItem(BillingONExtDao.KEY_PAYMENT, requestData);
-                ret = update3rdPartyItem(BillingONExtDao.KEY_REFUND, requestData);
-                ret = update3rdPartyItem(BillingONExtDao.KEY_PAY_DATE, requestData);
-                ret = update3rdPartyItem(BillingONExtDao.KEY_CREDIT, requestData);
+                // Pre-fix six consecutive `ret = update3rdPartyItem(...)` calls
+                // overwrote each other, so the boolean return reflected only
+                // the last call's outcome — partial write failures upstream
+                // were silently dropped. Accumulate via `&=` so any single
+                // failure flips ret to false.
+                ret &= update3rdPartyItem(BillingONExtDao.KEY_DISCOUNT, requestData);
+                ret &= update3rdPartyItem(BillingONExtDao.KEY_TOTAL, requestData);
+                ret &= update3rdPartyItem(BillingONExtDao.KEY_PAYMENT, requestData);
+                ret &= update3rdPartyItem(BillingONExtDao.KEY_REFUND, requestData);
+                ret &= update3rdPartyItem(BillingONExtDao.KEY_PAY_DATE, requestData);
+                ret &= update3rdPartyItem(BillingONExtDao.KEY_CREDIT, requestData);
                 ch1Obj.setPaid(requestData.getParameter("payment"));
-                ret = correctionPersister.updateBillingClaimHeader(ch1Obj);
+                ret &= correctionPersister.updateBillingClaimHeader(ch1Obj);
             }
 
             if (requestData.getParameter("billTo") != null) {
-                ret = update3rdPartyItem("billTo", requestData);
+                ret &= update3rdPartyItem("billTo", requestData);
                 ch1Obj.setBillto(requestData.getParameter("billTo"));
             }
         }
@@ -230,6 +266,18 @@ public class BillingCorrectionRecordService {
         return ret;
     }
 
+    /**
+
+     * Updates inactive.
+
+     *
+
+     * @param key String
+
+     * @param request HttpServletRequest
+
+     */
+
     public void setInactive(String key, HttpServletRequest request) {
         String billingNo = request.getParameter("xml_billing_no");
         thirdPartyService.updateKeyStatus(billingNo, key, BillingThirdPartyService.INACTIVE);
@@ -242,6 +290,20 @@ public class BillingCorrectionRecordService {
     public void updateExt(String key, HttpServletRequest request) {
         update3rdPartyItem(key, request);
     }
+
+    /**
+
+     * Updates rd party item.
+
+     *
+
+     * @param key String
+
+     * @param request HttpServletRequest
+
+     * @return boolean
+
+     */
 
     public boolean update3rdPartyItem(String key, HttpServletRequest request) {
         boolean ret = true;
@@ -259,6 +321,18 @@ public class BillingCorrectionRecordService {
         return ret;
     }
 
+    /**
+
+     * Updates rd party item.
+
+     *
+
+     * @param request HttpServletRequest
+
+     * @return boolean
+
+     */
+
     public boolean update3rdPartyItem(HttpServletRequest request) {
         boolean ret = true;
         String billingNo = request.getParameter("xml_billing_no");
@@ -267,6 +341,20 @@ public class BillingCorrectionRecordService {
         thirdPartyService.updateKeyValue(billingNo, "refund", request.getParameter("refund"));
         return ret;
     }
+
+    /**
+
+     * Updates billing item.
+
+     *
+
+     * @param lItemObj List
+
+     * @param request HttpServletRequest
+
+     * @return boolean
+
+     */
 
     public boolean updateBillingItem(List lItemObj, HttpServletRequest request) throws ParseException {
         boolean ret = true; // thirdPartyService.updateBillingClaimHeader(ch1Obj);
@@ -370,6 +458,12 @@ public class BillingCorrectionRecordService {
     }
 
     // billing correction
+    /**
+     * Returns billing code desc.
+     *
+     * @param codeName String
+     * @return String
+     */
     public String getBillingCodeDesc(String codeName) {
         String ret = null;
         List descL = serviceCodeLoader.getBillingCodeAttr(codeName);
@@ -378,6 +472,12 @@ public class BillingCorrectionRecordService {
     }
 
     // billing correction
+    /**
+     * Returns billing code desc.
+     *
+     * @param codeName List
+     * @return Properties
+     */
     public Properties getBillingCodeDesc(List codeName) {
         Properties ret = new Properties();
         for (int i = 0; i < codeName.size(); i++) {
@@ -389,6 +489,12 @@ public class BillingCorrectionRecordService {
     }
 
     // from billing correction
+    /**
+     * Returns billing claim header obj.
+     *
+     * @param ch1Id String
+     * @return List
+     */
     public List getBillingClaimHeaderObj(String ch1Id) {
         List recordObj = null;
         recordObj = getBillingRecordObj(ch1Id);
@@ -582,8 +688,9 @@ public class BillingCorrectionRecordService {
             boolean bStatusChange = false;
             // String cStatus = (String) oldObj.getStatus();
             String cStatus = status;
-            if ((!oldObj.getStatus().equals("S") && cStatus.equals("S"))
-                    || (oldObj.getStatus().equals("S") && !cStatus.equals("S"))) {
+            // Status crossed the SETTLED boundary in either direction.
+            if ((!BillingONItem.SETTLED.equals(oldObj.getStatus()) && BillingONItem.SETTLED.equals(cStatus))
+                    || (BillingONItem.SETTLED.equals(oldObj.getStatus()) && !BillingONItem.SETTLED.equals(cStatus))) {
                 bStatusChange = true;
             }
 
@@ -738,9 +845,16 @@ public class BillingCorrectionRecordService {
             newObj.setService_date(serviceDate);
             newObj.setDx(sDx);
             newObj.setStatus(sStatus);
-            int i = claimPersistenceService.addOneItemRecord(newObj);
+            int i = claimPersister.addOneItemRecord(newObj);
             if (0 == i) {
-                return false;
+                // Pre-fix: returned false silently; the surrounding caller
+                // logged at INFO and continued to writeAmount + ext-row
+                // writes for an item that was never persisted, leaving
+                // amount/ext keys dangling against a non-existent line.
+                // Throw so the surrounding @Transactional rolls back.
+                throw new IllegalStateException(
+                        "addItem: claimPersister.addOneItemRecord returned 0 for service code "
+                                + io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(sName));
             }
             correctionPersister.addInsertOneBillItemTrans(ch1Obj, newObj, updateProviderNo);
             lItemObj.add(newObj);
@@ -751,10 +865,28 @@ public class BillingCorrectionRecordService {
     }
 
     // for appt unbill; 0 - id, 1 - status
+    /**
+     * Returns billing no status by appt.
+     *
+     * @param apptNo String
+     * @return List<String>
+     */
     public List<String> getBillingNoStatusByAppt(String apptNo) {
         List<String> ret = correctionPersister.getBillingCH1NoStatusByAppt(apptNo);
         return ret;
     }
+
+    /**
+
+     * Returns billing no status by bill no.
+
+     *
+
+     * @param billNo String
+
+     * @return List
+
+     */
 
     public List getBillingNoStatusByBillNo(String billNo) {
         List ret = correctionPersister.getBillingCH1NoStatusByBillNo(billNo);
@@ -762,9 +894,17 @@ public class BillingCorrectionRecordService {
     }
 
     // for appt unbill;
+    /**
+     * Deletes billing.
+     *
+     * @param id String
+     * @param status String
+     * @param providerNo String
+     * @return boolean
+     */
     public boolean deleteBilling(String id, String status, String providerNo) {
         boolean ret = correctionPersister.updateBillingStatus(id, status, providerNo);
-        if ("D".equals(status)) {
+        if (BillingONCHeader1.DELETED.equals(status)) {
             // change status in billing_on_item table
 
             List<BillingONItem> billOnItems = billOnItemDao.getBillingItemByCh1Id(Integer.parseInt(id));
@@ -775,6 +915,14 @@ public class BillingCorrectionRecordService {
         }
         return ret;
     }
+
+    /**
+
+     * Returns facilty num.
+
+     * @return List
+
+     */
 
     public List getFacilty_num() {
         return lookupService.getFacilty_num();

@@ -150,10 +150,13 @@ public class BillingClaimsErrorReportParser {
 
             }
         } catch (IOException ioe) {
-            MiscUtils.getLogger().error("Error", ioe);
+            // Pre-fix verdict was left true on IOException — caller saw
+            // "import succeeded" when the file was unreadable mid-parse.
+            verdict = false;
+            MiscUtils.getLogger().error("Claims-error parse failed (IOException), verdict=false", ioe);
         } catch (StringIndexOutOfBoundsException ioe) {
             verdict = false;
-            MiscUtils.getLogger().error("Error, setting verdict to false:", ioe);
+            MiscUtils.getLogger().error("Claims-error parse failed (malformed record layout), verdict=false", ioe);
         }
 
         return verdict;

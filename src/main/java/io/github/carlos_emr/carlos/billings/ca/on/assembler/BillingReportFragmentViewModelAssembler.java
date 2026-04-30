@@ -38,8 +38,10 @@ import io.github.carlos_emr.carlos.billing.CA.model.BillingDetail;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingReportFragmentViewModel;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
+import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * Assembles {@link BillingReportFragmentViewModel} for the four ON billing
@@ -254,8 +256,14 @@ public class BillingReportFragmentViewModelAssembler {
                 try {
                     BigDecimal fee = new BigDecimal(formattedTotal).setScale(2, RoundingMode.HALF_UP);
                     total = total.add(fee);
-                } catch (NumberFormatException ignored) {
-                    // legacy script swallowed parse errors; preserve that.
+                } catch (NumberFormatException e) {
+                    // Pre-fix swallowed silently per "preserve legacy" comment —
+                    // a malformed Settled row was excluded from the running
+                    // total with no operator-visible signal. Log so drift in
+                    // the "Total Paid" footer is at least diagnosable.
+                    MiscUtils.getLogger().warn(
+                            "BillingReportFragment: bill {} has unparseable total [{}]; excluded from Total Paid",
+                            bId, formattedTotal);
                 }
             }
             // Service codes: up to 10 non-D-status detail entries.
@@ -266,7 +274,7 @@ public class BillingReportFragmentViewModelAssembler {
             if (bds != null) {
                 for (BillingDetail bd : bds) {
                     if (count >= 10) break;
-                    if (bd.getStatus() != null && !"D".equals(bd.getStatus())) {
+                    if (bd.getStatus() != null && !BillingONItem.DELETED.equals(bd.getStatus())) {
                         codes.add(nullToEmpty(bd.getServiceCode()));
                         count++;
                     }

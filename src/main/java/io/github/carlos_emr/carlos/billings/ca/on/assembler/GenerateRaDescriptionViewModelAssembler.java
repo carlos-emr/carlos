@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.assembler;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -44,6 +45,7 @@ import io.github.carlos_emr.carlos.commn.model.RaHeader;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 /**
  * Assembles {@link GenerateRaDescriptionViewModel} for {@code genRADesc.jsp}, the OHIP RA
@@ -207,7 +209,15 @@ public class GenerateRaDescriptionViewModelAssembler {
         String docDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "").trim();
         StringBuilder messages = new StringBuilder();
 
-        try (FileInputStream file = new FileInputStream(docDir + filename);
+        File raFile;
+        try {
+            raFile = PathValidationUtils.validatePath(filename, new File(docDir));
+        } catch (SecurityException se) {
+            MiscUtils.getLogger().error("Rejected RA filename outside DOCUMENT_DIR", se);
+            return out;
+        }
+
+        try (FileInputStream file = new FileInputStream(raFile);
              InputStreamReader reader = new InputStreamReader(file, StandardCharsets.ISO_8859_1);
              BufferedReader input = new BufferedReader(reader)) {
             String nextline;

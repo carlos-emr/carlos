@@ -189,11 +189,35 @@ public class BillingONPayment extends AbstractModel<Integer> implements Serializ
     }
 
     /**
-     * This comparator sorts EncounterForm ascending based on the formName
+     * Ascending payment-date order. Null payment dates sort last so callers
+     * that didn't filter pre-persist rows don't get an NPE in the middle of
+     * a comparator-driven sort.
      */
-    public static final Comparator<BillingONPayment> BILLING_ON_PAYMENT_COMPARATOR = new Comparator<BillingONPayment>() {
-        public int compare(BillingONPayment p1, BillingONPayment p2) {
-            return (p1.getPaymentDate().compareTo(p2.getPaymentDate()));
+    public static final Comparator<BillingONPayment> BILLING_ON_PAYMENT_COMPARATOR =
+            Comparator.comparing(BillingONPayment::getPaymentDate,
+                    Comparator.nullsLast(Comparator.naturalOrder()));
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        BillingONPayment that = (BillingONPayment) o;
+        // Id-based when both persisted; identity otherwise. Mirrors the
+        // BillingONItem fix from this PR — but unlike BillingONItem there is
+        // no natural-key alternative, so two transient instances are only
+        // equal when they're the same object.
+        if (id == null || that.id == null) {
+            return false;
         }
-    };
+        return id.equals(that.id);
+    }
+
+    @Override
+    public int hashCode() {
+        // Stable across persist for a single instance (id is set once),
+        // contract-correct: any two .equals() instances share id therefore
+        // share hash. Transient instances all hash to 0 — they only equal
+        // themselves anyway, so collisions on 0 are harmless.
+        return id != null ? id.hashCode() : 0;
+    }
 }

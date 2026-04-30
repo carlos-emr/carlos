@@ -19,7 +19,7 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.billings.ca.on.assembler;
+package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -35,6 +35,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao;
 import io.github.carlos_emr.carlos.billing.CA.model.BillingDetail;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingPercLimitDao;
@@ -47,15 +48,14 @@ import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingClaimSubmissionService;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 /**
- * Assembles {@link BillingShortcutPg2ViewModel} for {@code billingShortcutPg2.jsp},
- * the fast-track confirmation page that:
+ * Multi-step service for {@code billingShortcutPg2.jsp}, the fast-track
+ * confirmation page that:
  *
  * <ol>
  *   <li>Reads provider + demographic context to render the patient header.</li>
@@ -69,15 +69,17 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
  * perform: BillingDao, BillingDetailDao, ProviderDao, DemographicDao,
  * BillingServiceDao, BillingPercLimitDao.</p>
  *
- * <p>Class is intentionally on the larger side (≈350 lines) because the
- * legacy JSP pipelined provider + demo lookups, fee calculation, and bill
- * persistence into a single 400-line scriptlet. Splitting that into named
- * methods here gives reviewers a structured view of the same logic.</p>
+ * <p>Class is named {@code *Service} (not {@code *ViewModelAssembler}) because
+ * it both reads view-state AND persists Billing/BillingDetail rows on the
+ * confirm path — see {@code docs/architecture/layer-names.md} decision rule 4
+ * (anything that writes / mutates state / calls across DAOs as the main verb
+ * of a single business op is a {@code *Service}). A future split into
+ * read-only assembler + write-only persister is tracked separately.</p>
  *
  * @since 2026-04-26
  */
 @org.springframework.stereotype.Service
-public class BillingShortcutPg2ViewModelAssembler {
+public class BillingShortcutPg2Service {
 
     private final BillingDao billingDao;
     private final BillingDetailDao billingDetailDao;
@@ -87,7 +89,7 @@ public class BillingShortcutPg2ViewModelAssembler {
     private final BillingPercLimitDao billingPercLimitDao;
     private final BillingClaimSubmissionService saveObj;
 
-    public BillingShortcutPg2ViewModelAssembler(BillingDao billingDao,
+    public BillingShortcutPg2Service(BillingDao billingDao,
                                     BillingDetailDao billingDetailDao,
                                     ProviderDao providerDao,
                                     DemographicDao demographicDao,
@@ -108,8 +110,9 @@ public class BillingShortcutPg2ViewModelAssembler {
      *
      * @param request in-flight request — provides patient/provider IDs,
      *                bill-line params, submit-button decision
-     * @param userNo logged-in user's provider number (from session); used as
-     *               the {@code creator} on persisted {@code Billing} rows
+     * @param loggedInInfo logged-in user — provider-no derived locally as
+     *                     {@code userNo} for the {@code creator} field on
+     *                     persisted {@code Billing} rows
      * @return populated view model. The {@code postSaveAction} field tells the
      *         JSP what to render after the form body (close popup, redirect).
      */
@@ -290,7 +293,7 @@ public class BillingShortcutPg2ViewModelAssembler {
             String[] parts = billDateRaw.split("\\n");
             for (int i = 0; i < parts.length; i++) {
                 if (i > 0) sb.append("<br>");
-                sb.append(org.owasp.encoder.Encode.forHtml(parts[i]));
+                sb.append(SafeEncode.forHtml(parts[i]));
             }
             b.billDateHtml(sb.toString());
         }
@@ -508,10 +511,15 @@ public class BillingShortcutPg2ViewModelAssembler {
                                              CalcResult calc, DemoContext demo,
                                              Provider provider, String userNo) {
         Billing b = new Billing();
-        b.setClinicNo(parseInt(request.getParameter("clinic_no")));
-        b.setDemographicNo(parseInt(request.getParameter("demographic_no")));
+        // FK fields: must be valid integers. The legacy parseInt helper
+        // returned 0 on failure, which silently persisted bills keyed to
+        // demographic_no=0 / clinic_no=0 / appointment_no=0 — orphan rows
+        // that contaminate downstream reports. Throw cleanly so the action's
+        // BillingValidationException mapping renders the validation page.
+        b.setClinicNo(parseRequiredInt("clinic_no", request.getParameter("clinic_no")));
+        b.setDemographicNo(parseRequiredInt("demographic_no", request.getParameter("demographic_no")));
         b.setProviderNo(request.getParameter("xml_provider"));
-        b.setAppointmentNo(parseInt(request.getParameter("appointment_no")));
+        b.setAppointmentNo(parseRequiredInt("appointment_no", request.getParameter("appointment_no")));
         b.setOrganizationSpecCode(request.getParameter("ohip_version"));
         b.setDemographicName(request.getParameter("demographic_name"));
         b.setHin(request.getParameter("hin"));
@@ -610,7 +618,12 @@ public class BillingShortcutPg2ViewModelAssembler {
                 .append("&providerview=1&user_no=")
                 .append(URLEncoder.encode(nullToEmpty(userNo), StandardCharsets.UTF_8))
                 .append("&apptProvider_no=none&appointment_date=")
-                .append(curYear).append("-").append(curMonth).append("-").append(curDay)
+                // Zero-pad month/day so the value matches the canonical
+                // yyyy-MM-dd shape consumed by Pg1's calendar widget and any
+                // downstream DateUtils.parseDate caller. Single-digit M / d
+                // are visually wrong even when SimpleDateFormat is lenient,
+                // and round-trip into form input echoes as e.g. "2026-4-7".
+                .append(String.format("%d-%02d-%02d", curYear, curMonth, curDay))
                 .append("&start_time=0:00:00&bNewForm=1&status=t");
         return url.toString();
     }
@@ -625,6 +638,26 @@ public class BillingShortcutPg2ViewModelAssembler {
             return Integer.parseInt(s);
         } catch (NumberFormatException | NullPointerException ex) {
             return 0;
+        }
+    }
+
+    /**
+     * Strict parse for FK fields (demographic_no, clinic_no, appointment_no).
+     * Throws {@link BillingValidationException} so the missing or malformed
+     * value rolls back the persist path rather than silently writing a row
+     * keyed to 0.
+     */
+    private static int parseRequiredInt(String paramName, String value) {
+        if (value == null || value.isEmpty()) {
+            throw new BillingValidationException(
+                    "Bill save rejected: required parameter [" + paramName + "] is missing");
+        }
+        try {
+            return Integer.parseInt(value.trim());
+        } catch (NumberFormatException ex) {
+            throw new BillingValidationException(
+                    "Bill save rejected: parameter [" + paramName
+                            + "] is not a valid integer", ex);
         }
     }
 

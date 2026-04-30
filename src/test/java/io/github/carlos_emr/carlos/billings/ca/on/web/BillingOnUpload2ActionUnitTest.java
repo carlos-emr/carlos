@@ -35,8 +35,7 @@ import static org.mockito.Mockito.when;
  * Pins the view-only contract of {@link BillingOnUpload2Action}. The action
  * only forwards to {@code billingONUpload.jsp}, which renders a file-picker
  * form whose {@code onSubmit} JS reroutes the multipart POST to the actual
- * upload endpoints. A POST gate here would 405 the GET that renders the form
- * (regression caught in PR #1967 review).
+ * upload endpoints. A POST gate here would 405 the GET that renders the form.
  */
 @DisplayName("BillingOnUpload2Action")
 @Tag("unit")

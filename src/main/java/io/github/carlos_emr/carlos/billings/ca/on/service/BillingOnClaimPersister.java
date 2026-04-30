@@ -105,11 +105,14 @@ public class BillingOnClaimPersister {
         this.billingPaymentTypeDao = billingPaymentTypeDao;
     }
 
-    SimpleDateFormat dateformatter = new SimpleDateFormat("yyyy-MM-dd");
-    SimpleDateFormat timeFormatter = new SimpleDateFormat("HH:mm:ss");
-    SimpleDateFormat tsFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-
-
+    /**
+     * Persist one OHIP batch header row built from the DTO and return its
+     * generated ID. Used at the start of an OHIP claim file write to record
+     * the batch's disk/transaction/record/spec/MOH-office bookkeeping.
+     *
+     * @param val BillingBatchHeaderDto the batch metadata
+     * @return int the generated {@code billing_on_header.id}
+     */
     public int addOneBatchHeaderRecord(BillingBatchHeaderDto val) {
         BillingONHeader b = new BillingONHeader();
         b.setDiskId(Integer.parseInt(val.getDisk_id()));
@@ -137,6 +140,18 @@ public class BillingOnClaimPersister {
         return b.getId();
     }
 
+    /**
+     * Persist one claim header (billing_on_cheader1) row built from the DTO
+     * and return its generated ID. Strict-parses optional date/time fields
+     * — a malformed value aborts the surrounding {@code @Transactional}
+     * unit-of-work rather than silently substituting today's date.
+     *
+     * @param val BillingClaimHeaderDto the claim header fields
+     * @return int the generated {@code billing_on_cheader1.id}
+     * @throws IllegalArgumentException when {@code admission_date},
+     *         {@code billing_date}, or {@code billing_time} is non-null and
+     *         not a valid ISO date
+     */
     public int addOneClaimHeaderRecord(BillingClaimHeaderDto val) {
         BillingONCHeader1 b = new BillingONCHeader1();
         b.setHeaderId(0);
@@ -214,6 +229,15 @@ public class BillingOnClaimPersister {
         return b.getId();
     }
 
+    /**
+     * Persist a list of claim items (billing_on_item rows) for the given
+     * claim header ID.
+     *
+     * @param lVal List a list of {@link BillingClaimItemDto} rows; raw
+     *             {@code List} for legacy compatibility
+     * @param id   int the parent claim header ID ({@code billing_on_cheader1.id})
+     * @return boolean {@code true} on success
+     */
     public boolean addItemRecord(List lVal, int id) {
 
         boolean retval = true;
@@ -240,6 +264,18 @@ public class BillingOnClaimPersister {
         return retval;
     }
 
+    /**
+     * Persist a list of item-payment join rows ({@code billing_on_item_payment})
+     * linking each {@link BillingClaimItemDto} to a payment. Pre-parses
+     * amounts strictly so a malformed value aborts the @Transactional
+     * unit-of-work before any row is written.
+     *
+     * @param lVal        List a list of {@link BillingClaimItemDto} rows
+     * @param id          int the parent claim header ID
+     * @param paymentId   int the parent {@code billing_on_payment.id}
+     * @param paymentType int the payment-type ID (legacy passthrough)
+     * @return boolean legacy contract — see implementation; treat as success indicator
+     */
     public boolean addItemPaymentRecord(List lVal, int id, int paymentId, int paymentType) {
         int retval = 0;
         BillingOnItemPayment billOnItemPayment = null;
@@ -321,6 +357,15 @@ public class BillingOnClaimPersister {
         }
     }
 
+    /**
+     * Persist one {@code billing_on_transaction} audit row per item at OHIP-claim
+     * creation time. Amounts are intentionally zero (no payment received yet).
+     * Header dates are strict-parsed up front so any malformed value aborts the
+     * surrounding @Transactional unit-of-work.
+     *
+     * @param billHeader   BillingClaimHeaderDto the claim header
+     * @param billItemList List the per-item rows to record audit entries for
+     */
     public void addCreateOhipInvoiceTrans(BillingClaimHeaderDto billHeader, List<BillingClaimItemDto> billItemList) {
         if (billItemList.size() < 1) {
             return;
@@ -371,6 +416,20 @@ public class BillingOnClaimPersister {
     }
 
 
+    /**
+     * Persist the 9 BillingONExt rows for a third-party bill (billTo, remitTo,
+     * total, payment, discount, provider_no, gst, payDate, payMethod) plus the
+     * matching {@code billing_on_payment} parent. Strict-parses {@code payDate}
+     * up front so a malformed value aborts before any orphaned ext rows are
+     * written.
+     *
+     * @param mVal   Map form-field value lookup (keyed by field name)
+     * @param id     int the parent claim header ID
+     * @param vecObj ArrayList positional bag: index 0 = {@link BillingClaimHeaderDto},
+     *               index 1 = {@code List<BillingClaimItemDto>}
+     * @return boolean {@code true} on success
+     * @throws BillingValidationException when {@code payDate} is malformed
+     */
     @SuppressWarnings("unchecked")
     public boolean add3rdBillExt(Map<String, String> mVal, int id, ArrayList vecObj) {
         BillingClaimHeaderDto claim1Obj = (BillingClaimHeaderDto) vecObj.get(0);
@@ -437,6 +496,15 @@ public class BillingOnClaimPersister {
     }
 
 
+    /**
+     * Persist one item row for an existing claim header. Strict-parses the
+     * ISO {@code service_date}; throws on null/blank/malformed input.
+     *
+     * @param val BillingClaimItemDto the item fields
+     * @return int the generated {@code billing_on_item.id}
+     * @throws ParseException retained for API compatibility; the strict-parse
+     *         actually throws {@link IllegalArgumentException} on bad date
+     */
     public int addOneItemRecord(BillingClaimItemDto val) throws ParseException {
         BillingONItem item = new BillingONItem();
         item.setCh1Id(Integer.parseInt(val.getCh1_id()));
@@ -445,7 +513,7 @@ public class BillingOnClaimPersister {
         item.setServiceCode(val.getService_code());
         item.setFee(val.getFee());
         item.setServiceCount(val.getSer_num());
-        item.setServiceDate(dateformatter.parse(val.getService_date()));
+        item.setServiceDate(BillingDates.parseIsoDate(val.getService_date()));
         item.setDx(val.getDx());
         item.setDx1(val.getDx1());
         item.setDx2(val.getDx2());
@@ -455,6 +523,16 @@ public class BillingOnClaimPersister {
 
     }
 
+    /**
+     * Single-arg overload of {@link #add3rdBillExt(Map, int, ArrayList)} that
+     * persists the 9 ext rows together with a new {@code billing_on_payment}
+     * parent. Used when a third-party bill is paid at creation time without
+     * needing the positional vector argument.
+     *
+     * @param mVal Map form-field values
+     * @param id   int the parent claim header ID
+     * @return boolean {@code true} on success
+     */
     public boolean add3rdBillExt(Map<String, String> mVal, int id) {
         boolean retval = true;
         String[] temp = {"billTo", "remitTo", "total", "payment", "refund", "provider_no", "gst", "payDate", "payMethod"};
@@ -484,7 +562,13 @@ public class BillingOnClaimPersister {
         return retval;
     }
 
-    // add disk file
+    /**
+     * Persist a {@code billing_on_diskname} row plus, on success, one
+     * {@code billing_on_filename} row per provider entry in {@code val}.
+     *
+     * @param val BillingDiskNameDto the disk metadata + filename arrays
+     * @return int the generated {@code billing_on_diskname.id}, or 0 on failure
+     */
     public int addBillingDiskName(BillingDiskNameDto val) {
         BillingONDiskName b = new BillingONDiskName();
         b.setMonthCode(val.getMonthCode());
@@ -522,6 +606,13 @@ public class BillingOnClaimPersister {
         return retval;
     }
 
+    /**
+     * Persist the diskname (and its filenames) into the {@code billing_on_repo}
+     * archive table for OHIP regeneration tracking.
+     *
+     * @param val BillingDiskNameDto the disk metadata
+     * @return int the generated {@code billing_on_repo.id}, or 0 on failure
+     */
     public int addRepoDiskName(BillingDiskNameDto val) {
         int retval = 0;
         BillingONRepo b = new BillingONRepo();
@@ -555,6 +646,13 @@ public class BillingOnClaimPersister {
         return retval;
     }
 
+    /**
+     * Update an existing {@code billing_on_diskname} row with the provided
+     * status / filename / claim-record snapshot from the DTO.
+     *
+     * @param val BillingDiskNameDto the updated disk metadata
+     * @return boolean {@code true} on success
+     */
     public boolean updateDiskName(BillingDiskNameDto val) {
         BillingONDiskName b = diskNameDao.find(Integer.parseInt(val.getId()));
         if (b != null) {
@@ -564,6 +662,13 @@ public class BillingOnClaimPersister {
         return true;
     }
 
+    /**
+     * Archive a {@code billing_on_header} batch into the {@code billing_on_repo}
+     * snapshot table for OHIP regeneration tracking.
+     *
+     * @param val BillingBatchHeaderDto the batch fields to archive
+     * @return int the generated {@code billing_on_repo.id}
+     */
     public int addRepoBatchHeader(BillingBatchHeaderDto val) {
         BillingONRepo b = new BillingONRepo();
         b.sethId(Integer.parseInt(val.getId()));
@@ -579,6 +684,14 @@ public class BillingOnClaimPersister {
         return b.getId();
     }
 
+    /**
+     * Update an existing batch header row with the operator-modifiable fields
+     * (MOH office, batch id, specialty, comment, action). Other fields are
+     * preserved.
+     *
+     * @param val BillingBatchHeaderDto the updated batch metadata
+     * @return boolean {@code true} on success (or if the row was not found)
+     */
     public boolean updateBatchHeaderRecord(BillingBatchHeaderDto val) {
         BillingONHeader b = dao.find(Integer.parseInt(val.getId()));
         if (b != null) {

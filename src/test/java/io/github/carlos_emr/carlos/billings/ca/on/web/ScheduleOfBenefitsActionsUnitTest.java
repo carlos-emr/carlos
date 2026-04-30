@@ -89,6 +89,10 @@ class ScheduleOfBenefitsActionsUnitTest {
 
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_admin.billing"), eq("w"), isNull()))
                 .thenReturn(true);
+
+        // Update is POST-only; default mocks need to satisfy the gate so the
+        // existing fee-application happy-path test still drives applySelected.
+        request.setMethod("POST");
     }
 
     @AfterEach
@@ -122,7 +126,7 @@ class ScheduleOfBenefitsActionsUnitTest {
     }
 
     @Test
-    void shouldApplySelectedChanges_withInjectedService_onUpdate() {
+    void shouldApplySelectedChanges_withInjectedService_onUpdate() throws Exception {
         request.setParameter("change", "A001A|33.70|20260428|99999999|Minor assessment");
         when(feeScheduleImportService.applySelected(any()))
                 .thenReturn(new FeeScheduleApplyResult(

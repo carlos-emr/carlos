@@ -191,7 +191,7 @@ public class BillingOnHeaderCreationService {
             item.setDx1(dxcodes.size() >= 2 ? dxcodes.get(1) : "");
             item.setDx2(dxcodes.size() >= 3 ? dxcodes.get(2) : "");
 
-            h1.getBillingItems().add(item);
+            h1.addBillingItem(item);
         }
     }
 

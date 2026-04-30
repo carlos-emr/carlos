@@ -47,12 +47,14 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnLookupService
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingRaLookupService;
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
+import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Site;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingStatusQueryService;
 import io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingOnStatus2Action;
@@ -134,14 +136,20 @@ public class BillingOnStatusViewModelAssembler {
         String dx = firstNonNull(request.getParameter("dx"), "");
         String visitType = firstNonNull(request.getParameter("visitType"), "-");
 
-        String serviceCode = request.getParameter("serviceCode");
-        if (serviceCode == null || serviceCode.isEmpty()) {
-            serviceCode = "%";
-        }
+        // Track whether the request actually carried these filters so we can
+        // route ad-hoc / URL-navigated calls (without the filter params) to
+        // the simpler getBills() DAO path below — matching the legacy
+        // scriptlet's behavior. Once normalized to "%"/"---" the original
+        // intent is no longer recoverable, so capture it before defaulting.
+        String rawServiceCode = request.getParameter("serviceCode");
+        boolean serviceCodeFilterAbsent = rawServiceCode == null || rawServiceCode.isEmpty();
+        String serviceCode = serviceCodeFilterAbsent ? "%" : rawServiceCode;
 
         // Legacy "any billing form" sentinel is three dashes; a single "-" is a
         // real value in some installations and would mis-filter the search.
-        String billingForm = firstNonNull(request.getParameter("billing_form"), "---");
+        String rawBillingForm = request.getParameter("billing_form");
+        boolean billingFormFilterAbsent = rawBillingForm == null;
+        String billingForm = billingFormFilterAbsent ? "---" : rawBillingForm;
         String visitLocation = firstNonNull(request.getParameter("xml_location"), "");
         String selectedSite = request.getParameter("site");
         String sortName = firstNonNull(request.getParameter("sortName"), "ServiceDate");
@@ -226,11 +234,11 @@ public class BillingOnStatusViewModelAssembler {
                     StringBuilder html = new StringBuilder();
                     for (BillingMultisiteContext.MultisiteProvider mp : providerOpts) {
                         html.append("<option value='")
-                                .append(escapeHtmlAttr(mp.providerNo()))
+                                .append(SafeEncode.forHtmlAttribute(mp.providerNo()))
                                 .append("'>")
-                                .append(escapeHtml(mp.lastName()))
+                                .append(SafeEncode.forHtml(mp.lastName()))
                                 .append(", ")
-                                .append(escapeHtml(mp.firstName()))
+                                .append(SafeEncode.forHtml(mp.firstName()))
                                 .append("</option>");
                     }
                     multisiteProviderHtml.put(site.getName(), html.toString());
@@ -261,8 +269,14 @@ public class BillingOnStatusViewModelAssembler {
         }
 
         // ---- bill list (rejected vs sorted) ----
+        // Legacy semantics: when the request omitted either the serviceCode or
+        // the billing_form filter (and dx/visitType are short), use the
+        // simpler getBills() query that doesn't take those filter dimensions.
+        // After normalization above the params are always "%"/"---", so we
+        // route on the captured-before-defaulting flags rather than on the
+        // string values.
         List<BillingClaimHeaderDto> bList;
-        if ((serviceCode == null || billingForm == null)
+        if ((serviceCodeFilterAbsent || billingFormFilterAbsent)
                 && dx.length() < 2 && visitType.length() < 2) {
             // deepcode ignore SqlInjection: BillingStatusQueryService delegates to
             // BillingOnClaimLoader which uses JPA criteria queries (parameterized)
@@ -387,7 +401,7 @@ public class BillingOnStatusViewModelAssembler {
                     formattedFee = "N/A";
                 }
                 String stdCurr = ch2StdCurrFromNoDot(formattedFee);
-                boolean checked = !"N".equals(bObj.getStatus());
+                boolean checked = !BillingONCHeader1.NOT_BILLED.equals(bObj.getStatus());
                 rows.add(new BillingOnStatusViewModel.RejectedBillRow(
                         bObj.getId(),
                         bObj.getHin(),
@@ -477,8 +491,16 @@ public class BillingOnStatusViewModelAssembler {
             BigDecimal valueToAdd = new BigDecimal("0.00");
             try {
                 valueToAdd = new BigDecimal(ch1Obj.getTotal()).setScale(2, RoundingMode.HALF_UP);
-            } catch (Exception ignored) {
-                // Mirror legacy: keep going with zero on parse failure.
+            } catch (NumberFormatException | NullPointerException e) {
+                // Pre-fix this caught Exception with `ignored` and zeroed
+                // silently — the running grand-total understated by every
+                // malformed bill row. Continue with zero so the page still
+                // renders, but log so ops can spot drift, and narrow to the
+                // two parse-failure modes (NFE on bad numeric, NPE on null
+                // total) so any other Exception still surfaces.
+                MiscUtils.getLogger().warn(
+                        "BillingOnStatus: bill {} has unparseable total [{}]; excluded from grand total",
+                        ch1Obj.getId(), ch1Obj.getTotal());
             }
             total = total.add(valueToAdd);
 
@@ -492,9 +514,14 @@ public class BillingOnStatusViewModelAssembler {
                         ch1Obj.getId(), ch1Obj.getTransc_id());
                 errorCode = raLookupService.getErrorCodes(raList);
             }
-            // 3rd-party billing pulls paid amount from the row directly
+            // 3rd-party billing pulls paid amount from the row directly.
+            // Use the shared constant so this and the second matcher below
+            // (around line 561) can't drift apart silently — pre-fix the
+            // ||-chain matcher omitted IFH, so an IFH bill skipped the
+            // 3rd-party formatting path while this one applied it.
             if (ch1Obj.getPay_program() != null
-                    && ch1Obj.getPay_program().matches("PAT|OCF|ODS|CPP|STD|IFH")) {
+                    && ch1Obj.getPay_program().matches(
+                            io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants.BILLINGMATCHSTRING_3RDPARTY)) {
                 amountPaid = ch1Obj.getPaid();
             }
             if (amountPaid == null || amountPaid.isEmpty() || "null".equals(amountPaid)) {
@@ -529,16 +556,21 @@ public class BillingOnStatusViewModelAssembler {
             String rowClass = nC ? "success" : "";
 
             String settleDate = ch1Obj.getSettle_date();
-            if (settleDate == null || !"S".equals(ch1Obj.getStatus())) {
+            if (settleDate == null || !BillingONCHeader1.SETTLED.equals(ch1Obj.getStatus())) {
                 settleDate = "N/A";
             } else if (settleDate.indexOf(' ') >= 0) {
                 settleDate = settleDate.substring(0, settleDate.indexOf(' '));
             }
 
             String payProgram = ch1Obj.getPay_program();
-            boolean thirdParty = "PAT".equals(payProgram) || "OCF".equals(payProgram)
-                    || "ODS".equals(payProgram) || "CPP".equals(payProgram)
-                    || "STD".equals(payProgram);
+            // Same membership predicate as the matcher above — use the shared
+            // constant so the two checks can't diverge. Pre-fix this chain
+            // omitted IFH that the regex above includes; an IFH bill silently
+            // skipped the third-party formatting path here while still being
+            // treated as third-party for amountPaid sourcing.
+            boolean thirdParty = payProgram != null
+                    && payProgram.matches(
+                            io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants.BILLINGMATCHSTRING_3RDPARTY);
 
             String cash = formatter.format(ch1Obj.getCashTotal());
             String debit = formatter.format(ch1Obj.getDebitTotal());
@@ -615,14 +647,6 @@ public class BillingOnStatusViewModelAssembler {
             return s + "00".substring(0, suffix);
         }
         return s + ".00";
-    }
-
-    private static String escapeHtml(String s) {
-        return org.owasp.encoder.Encode.forHtml(s == null ? "" : s);
-    }
-
-    private static String escapeHtmlAttr(String s) {
-        return org.owasp.encoder.Encode.forHtmlAttribute(s == null ? "" : s);
     }
 
     /** Mirrors {@code <%! String ch2StdCurrFromNoDot(...) %>} from the legacy JSP. */

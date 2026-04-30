@@ -24,6 +24,11 @@ public record FeeScheduleSelectedChange(
         String description) {
 
     public FeeScheduleSelectedChange {
+        // Reject null upfront with a clear message rather than NPEing inside
+        // toPlainString() — every caller path supplies a parsed BigDecimal,
+        // but a future caller passing null would otherwise crash with no
+        // useful diagnostic.
+        java.util.Objects.requireNonNull(newPrice, "newPrice must not be null");
         newPrice = BillingMoney.amount(newPrice.toPlainString());
     }
 

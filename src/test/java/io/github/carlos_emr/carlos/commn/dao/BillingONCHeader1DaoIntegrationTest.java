@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import io.github.carlos_emr.carlos.commn.model.BillingItemsNotLoadedException;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
@@ -1089,6 +1090,54 @@ public class BillingONCHeader1DaoIntegrationTest extends CarlosTestBase {
 
             assertThat(loaded).isNotNull();
             assertThat(loaded.getBillingItems()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("recomputeTotalFromItems should throw BillingItemsNotLoadedException on uninitialized LAZY proxy")
+        void shouldThrowBillingItemsNotLoadedException_whenLazyProxyUninitialized() {
+            // Given — header persisted with items, then re-loaded via plain
+            // find() (no JOIN FETCH) and detached. The billingItems collection
+            // is now a Hibernate PersistentBag in unloaded state. Accessing
+            // it outside an open session would throw LazyInitializationException
+            // historically; recomputeTotalFromItems explicitly distinguishes
+            // this case from "no items" by guarding with Hibernate.isInitialized
+            // and throwing a typed BillingItemsNotLoadedException.
+            BillingONCHeader1 h = createAndPersist(DEMO_NO, PROVIDER_NO, "O", today);
+            createAndPersistItem(h.getId(), "A007", "10.00", today);
+            entityManager.flush();
+            entityManager.clear();
+
+            // Plain find() — does NOT eagerly fetch billingItems.
+            BillingONCHeader1 reloaded = billingONCHeader1Dao.find(h.getId());
+            entityManager.detach(reloaded);
+
+            // When/Then — recomputeTotalFromItems must throw the typed exception
+            // rather than silently returning Optional.of(ZERO).
+            assertThatThrownBy(reloaded::recomputeTotalFromItems)
+                    .isInstanceOf(BillingItemsNotLoadedException.class)
+                    .hasMessageContaining("LAZY proxy");
+        }
+
+        @Test
+        @DisplayName("getBillingItems should also throw BillingItemsNotLoadedException on uninitialized LAZY proxy")
+        void shouldThrowBillingItemsNotLoadedException_fromGetter_whenLazyProxyUninitialized() {
+            // The getter has its own Hibernate.isInitialized guard (round 2 #9)
+            // distinct from recomputeTotalFromItems'. A regression that drops
+            // either guard would otherwise produce a raw
+            // LazyInitializationException from inside the unmodifiableList
+            // wrapper, which the calling JSP cannot turn into a sensible
+            // operator-facing message.
+            BillingONCHeader1 h = createAndPersist(DEMO_NO, PROVIDER_NO, "O", today);
+            createAndPersistItem(h.getId(), "A007", "10.00", today);
+            entityManager.flush();
+            entityManager.clear();
+
+            BillingONCHeader1 reloaded = billingONCHeader1Dao.find(h.getId());
+            entityManager.detach(reloaded);
+
+            assertThatThrownBy(reloaded::getBillingItems)
+                    .isInstanceOf(BillingItemsNotLoadedException.class)
+                    .hasMessageContaining("LAZY proxy");
         }
     }
 

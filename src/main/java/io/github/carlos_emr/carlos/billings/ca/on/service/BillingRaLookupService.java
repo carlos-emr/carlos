@@ -49,6 +49,12 @@ public class BillingRaLookupService {
     // radetail_no | raheader_no | providerohip_no | billing_no | service_code |
     // service_count | hin | amountclaim | amountpay | service_date | error_code
     // | billtype |
+    /**
+     * Returns r a data.
+     *
+     * @param billingNo String
+     * @return ArrayList<HashMap<String, String>>
+     */
     public ArrayList<HashMap<String, String>> getRAData(String billingNo) {
         ArrayList<HashMap<String, String>> list = new ArrayList<HashMap<String, String>>();
         for (RaDetail ra : dao.findByBillingNo(ConversionUtils.fromIntString(billingNo))) {
@@ -74,6 +80,22 @@ public class BillingRaLookupService {
         return h;
     }
 
+    /**
+
+     * Returns r a data intern.
+
+     *
+
+     * @param billingNo String
+
+     * @param service_date String
+
+     * @param ohip_no String
+
+     * @return ArrayList<HashMap<String, String>>
+
+     */
+
     public ArrayList<HashMap<String, String>> getRADataIntern(String billingNo, String service_date, String ohip_no) {
         ArrayList<HashMap<String, String>> list = new ArrayList<HashMap<String, String>>();
         for (RaDetail ra : dao.findByBillingNoServiceDateAndProviderNo(ConversionUtils.fromIntString(billingNo), service_date, ohip_no)) {
@@ -81,6 +103,18 @@ public class BillingRaLookupService {
         }
         return list;
     }
+
+    /**
+
+     * Returns error codes.
+
+     *
+
+     * @param a ArrayList<HashMap<String, String>>
+
+     * @return String
+
+     */
 
     public String getErrorCodes(ArrayList<HashMap<String, String>> a) {
         StringBuilder sb = new StringBuilder();
@@ -92,6 +126,18 @@ public class BillingRaLookupService {
         return sb.toString();
     }
 
+    /**
+
+     * Returns amount paid.
+
+     *
+
+     * @param a ArrayList<HashMap<String, String>>
+
+     * @return String
+
+     */
+
     public String getAmountPaid(ArrayList<HashMap<String, String>> a) {
         BigDecimal total = BillingMoney.zero();
         for (int i = 0; i < a.size(); i++) {
@@ -100,13 +146,35 @@ public class BillingRaLookupService {
             try {
                 valueToAdd = BillingMoney.amount(h.get("amountpay"));
             } catch (Exception badValueException) {
-                MiscUtils.getLogger().debug(" Error calculating value for " + h.get("billing_no"));
-                MiscUtils.getLogger().error("Error", badValueException);
+                // Coalescing to zero understates the displayed total — log
+                // with billing_no + raw amountpay so ops can reconcile the
+                // pay-stub vs DB rather than puzzling at a generic "Error".
+                MiscUtils.getLogger().error(
+                        "Failed to parse amountpay {} for billing_no {}; coalescing to zero (total will understate)",
+                        io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(h.get("amountpay")),
+                        io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(h.get("billing_no")),
+                        badValueException);
             }
             total = total.add(valueToAdd);
         }
         return BillingMoney.format(total);
     }
+
+    /**
+
+     * Returns amount paid.
+
+     *
+
+     * @param a ArrayList<HashMap<String, String>>
+
+     * @param billingNo String
+
+     * @param serviceCode String
+
+     * @return String
+
+     */
 
     public String getAmountPaid(ArrayList<HashMap<String, String>> a, String billingNo, String serviceCode) {
         BigDecimal total = BillingMoney.zero();
@@ -120,13 +188,31 @@ public class BillingRaLookupService {
             try {
                 valueToAdd = BillingMoney.amount(h.get("amountpay"));
             } catch (Exception badValueException) {
-                MiscUtils.getLogger().debug(" Error calculating value for " + h.get("billing_no"));
-                MiscUtils.getLogger().error("Error", badValueException);
+                MiscUtils.getLogger().error(
+                        "Failed to parse amountpay {} for billing_no {} service_code {}; coalescing to zero",
+                        io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(h.get("amountpay")),
+                        io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(h.get("billing_no")),
+                        io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(serviceCode),
+                        badValueException);
             }
             total = total.add(valueToAdd);
         }
         return BillingMoney.format(total);
     }
+
+    /**
+
+     * Returns error code as a boolean.
+
+     *
+
+     * @param billingNo String
+
+     * @param errorCode String
+
+     * @return boolean
+
+     */
 
     public boolean isErrorCode(String billingNo, String errorCode) {
         List<RaDetail> ras = dao.findByBillingNoAndErrorCode(ConversionUtils.fromIntString(billingNo), errorCode);

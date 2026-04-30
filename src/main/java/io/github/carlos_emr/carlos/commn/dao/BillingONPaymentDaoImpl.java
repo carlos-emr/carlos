@@ -44,6 +44,8 @@ import jakarta.persistence.Query;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONExt;
 import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
@@ -83,6 +85,40 @@ public class BillingONPaymentDaoImpl extends AbstractDaoImpl<BillingONPayment> i
         query.setParameter(1, billingNo);
         List<BillingONPayment> payments = query.getResultList();
         return payments;
+    }
+
+    @Override
+    public BillingONPayment findWithExtItems(Integer paymentId) {
+        if (paymentId == null) {
+            return null;
+        }
+        // LEFT JOIN FETCH eagerly initializes the LAZY billingONExtItems
+        // collection in a single query. Mirrors BillingONCHeader1Dao.findWithItems.
+        Query query = entityManager.createQuery(
+                "SELECT DISTINCT bp FROM BillingONPayment bp LEFT JOIN FETCH bp.billingONExtItems WHERE bp.id = ?1");
+        query.setParameter(1, paymentId);
+        List<BillingONPayment> rows = query.getResultList();
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    @Override
+    public List<BillingONPayment> find3rdPartyPaymentsByBillingNoWithExtItems(Integer billingNo) {
+        // DISTINCT keeps the parent count correct when LEFT JOIN FETCH produces
+        // one row per child ext item; the ext-items collection is still
+        // populated correctly in each returned entity.
+        Query query = entityManager.createQuery(
+                "SELECT DISTINCT bp FROM BillingONPayment bp LEFT JOIN FETCH bp.billingONExtItems WHERE bp.billingNo = ?1 ORDER BY bp.id ASC");
+        query.setParameter(1, billingNo);
+
+        @SuppressWarnings("unchecked")
+        List<BillingONPayment> results = query.getResultList();
+        for (BillingONPayment payment : results) {
+            if (payment.getBillingNo() != null) {
+                BillingONCHeader1 cheader1 = billingONCHeader1Dao.find(payment.getBillingNo());
+                payment.setBillingOnCheader1(cheader1);
+            }
+        }
+        return results;
     }
 
     public List<BillingONPayment> listPaymentsByBillingNoDesc(Integer billingNo) {
@@ -130,11 +166,16 @@ public class BillingONPaymentDaoImpl extends AbstractDaoImpl<BillingONPayment> i
 
     public String getTotalSumByBillingNoWeb(String billingNo) {
         Query query = entityManager.createQuery("select sum(bp.total_payment) from BillingONPayment bp where bp.billingNo = ?1 group by bp.billingONCheader1");
-        BigDecimal paymentsSum = null;
+        BigDecimal paymentsSum;
         try {
             query.setParameter(1, Integer.parseInt(billingNo));
             paymentsSum = (BigDecimal) query.getSingleResult();
-        } catch (Exception ex) {
+        } catch (NoResultException ex) {
+            // Expected: a billing row with no payments yet — return zero formatted as currency.
+            paymentsSum = new BigDecimal(0);
+        } catch (NumberFormatException ex) {
+            MiscUtils.getLogger().error("Non-numeric billingNo {} passed to getTotalSumByBillingNoWeb",
+                    LogSanitizer.sanitize(billingNo), ex);
             paymentsSum = new BigDecimal(0);
         }
         NumberFormat currency = NumberFormat.getCurrencyInstance(Locale.US);
@@ -143,11 +184,16 @@ public class BillingONPaymentDaoImpl extends AbstractDaoImpl<BillingONPayment> i
 
     public String getPaymentsRefundByBillingNoWeb(String billingNo) {
         Query query = entityManager.createQuery("select -sum(bp.total_payment) from BillingONPayment bp where bp.billingNo = ?1 and bp.total_payment<0 group by bp.billingONCheader1");
-        BigDecimal paymentsSum = null;
+        BigDecimal paymentsSum;
         try {
             query.setParameter(1, Integer.parseInt(billingNo));
             paymentsSum = (BigDecimal) query.getSingleResult();
-        } catch (Exception ex) {
+        } catch (NoResultException ex) {
+            // Expected: no refund rows on this bill — render zero.
+            paymentsSum = new BigDecimal(0);
+        } catch (NumberFormatException ex) {
+            MiscUtils.getLogger().error("Non-numeric billingNo {} passed to getPaymentsRefundByBillingNoWeb",
+                    LogSanitizer.sanitize(billingNo), ex);
             paymentsSum = new BigDecimal(0);
         }
         NumberFormat currency = NumberFormat.getCurrencyInstance();
@@ -159,7 +205,8 @@ public class BillingONPaymentDaoImpl extends AbstractDaoImpl<BillingONPayment> i
         try {
             query.setParameter(1, Integer.valueOf(billingNo));
             return (Integer) query.getSingleResult();
-        } catch (Exception e) {
+        } catch (NoResultException e) {
+            // Expected: bill has no payment row yet — caller treats 0 as "no payment".
             return 0;
         }
     }

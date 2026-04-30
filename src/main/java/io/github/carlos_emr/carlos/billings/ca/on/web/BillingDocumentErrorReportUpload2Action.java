@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.commn.model.BatchEligibility;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicCust;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -124,10 +125,12 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
     }
 
     /**
-     * Save a Jakarta FormFile to a preconfigured place.
+     * Save the uploaded report file under {@code DOCUMENT_DIR}.
      *
-     * @param file
-     * @return boolean
+     * @param file the uploaded file (validated upstream via PathValidationUtils)
+     * @param fileName the original filename used as the destination basename
+     * @return {@code true} on successful copy, {@code false} on configuration
+     *         or IO failure (the failure is logged on the way out)
      */
     public static boolean saveFile(File file, String fileName) {
         boolean isAdded = true;
@@ -204,10 +207,18 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
 
 
     /**
-     * Get Data from the file.
+     * Read the uploaded MOH report file, dispatch to the right parser by
+     * filename prefix, and stash the parser result on the request for the
+     * view JSP.
      *
-     * @param file
-     * @return
+     * @param loggedInInfo logged-in user (passed through to {@code generateReportR})
+     * @param fileName the validated source filename inside {@code pathDir}
+     * @param pathDir the {@code carlos.properties} key holding the base directory
+     * @param request the in-flight request used to expose parser results to the view
+     * @return {@code true} when the parser reports a clean read; {@code false}
+     *         on missing file, validation failure, or partial-read mid-parse
+     * @throws ServletException unused (kept for back-compat with caller signature)
+     * @throws IOException unused (kept for back-compat with caller signature)
      */
     private boolean getData(LoggedInInfo loggedInInfo, String fileName, String pathDir, HttpServletRequest request)
             throws ServletException, IOException {
@@ -281,10 +292,15 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
     }
 
     /**
-     * Generate Claims Error Report (E).
+     * Generate the Claims Error Report (E-prefix files).
      *
-     * @param file
-     * @return BillingClaimsErrorReportParser
+     * @param file open input stream over the uploaded report
+     * @param bB {@code true} when the new ON-billing import path is enabled
+     *           (routes through {@link BillingClaimsErrorReportImportService}),
+     *           {@code false} for the legacy parse-only path
+     * @param filename original filename — used by the import service for audit
+     * @return populated parser carrying parsed records and a {@code verdict}
+     *         flag indicating whether the read completed cleanly
      */
     private BillingClaimsErrorReportParser generateReportE(FileInputStream file, boolean bB, String filename) {
         BillingClaimsErrorReportParser hd = null;
@@ -326,7 +342,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
         messages.add("M02 | File:    File Name    Date:   Mail Date   Time: Mail Time     Process Date");
         InputStreamReader reader = new InputStreamReader(file);
         BufferedReader input = new BufferedReader(reader);
-        String nextline;
+        String nextline = null;
         try {
             while ((nextline = input.readLine()) != null) {
                 String headerCount = nextline.substring(2, 3);
@@ -354,18 +370,28 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
             }
 
         } catch (IOException ioe) {
-            MiscUtils.getLogger().error("Error", ioe);
-        } catch (StringIndexOutOfBoundsException ioe) {
             reportXIsGenerated = false;
+            MiscUtils.getLogger().error("I/O error parsing MOH X-report claim-rejection file", ioe);
+        } catch (StringIndexOutOfBoundsException ioe) {
+            // Without the offending line the operator has no way to tell which
+            // record in the X-report is malformed. Log the sanitized line so
+            // they can pinpoint the failure.
+            reportXIsGenerated = false;
+            MiscUtils.getLogger().warn(
+                    "Malformed MOH X-report row (substring offset out of range): {}",
+                    LogSanitizer.sanitize(nextline), ioe);
         }
         return messages;
     }
 
     /**
-     * Generate EDT OBEC Output Specification (R).
+     * Generate the EDT OBEC Output Specification report (R-prefix files).
      *
-     * @param file
-     * @return BillingEdtObecOutputSpecificationParser
+     * @param loggedInInfo logged-in user — recorded as the eligibility-check
+     *                     audit subject by the parser
+     * @param file open input stream over the uploaded report
+     * @return populated parser carrying the spec records and a {@code verdict}
+     *         flag indicating whether the read completed cleanly
      */
     @SuppressWarnings("unchecked")
     private BillingEdtObecOutputSpecificationParser generateReportR(LoggedInInfo loggedInInfo, FileInputStream file) {
@@ -382,12 +408,20 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
             try {
                 responseCodeNum = Integer.parseInt(responseCode);
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                // Skip unparseable rows: the legacy code fell through to a
+                // second unguarded Integer.parseInt(responseCode) below
+                // which would crash the whole upload. Skipping here keeps
+                // the rest of the file processing intact and the operator
+                // sees the malformed row in the server log.
+                MiscUtils.getLogger().warn("Skipping OBEC output-spec row with unparseable response code {} for hin {}",
+                        LogSanitizer.sanitize(responseCode),
+                        LogSanitizer.sanitize(hin), e);
+                continue;
             }
 
             if (responseCodeNum < 50 || responseCodeNum > 59) {
 
-                BatchEligibility batchEligibility = batchEligibilityDao.find(Integer.parseInt(responseCode));
+                BatchEligibility batchEligibility = batchEligibilityDao.find(responseCodeNum);
 
                 List<Demographic> ds = demographicManager.searchByHealthCard(loggedInInfo, hin);
 

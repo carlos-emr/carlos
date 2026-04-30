@@ -90,8 +90,14 @@ public class BillingClaimBatchAcknowledgementReportParser {
                 }
             }
         } catch (IOException ioe) {
-            MiscUtils.getLogger().error("Error", ioe);
+            // Pre-fix verdict was left true on IOException — caller could not
+            // distinguish a clean parse from a partial-read mid-stream
+            // failure. Both branches now flip verdict false AND log so the
+            // operator's import-result page reflects the actual outcome.
+            MiscUtils.getLogger().error("Batch ack parse failed (IOException)", ioe);
+            verdict = false;
         } catch (StringIndexOutOfBoundsException ioe) {
+            MiscUtils.getLogger().error("Batch ack parse failed (malformed record layout)", ioe);
             verdict = false;
         }
         return verdict;

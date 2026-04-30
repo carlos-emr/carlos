@@ -32,24 +32,24 @@ import java.util.ArrayList;
  * attributes in the view layer.</p>
  */
 public class BillingDiskNameDto {
-    String id;
-    String monthCode;
-    String batchcount;
-    String ohipfilename;
-    String groupno;
-    String creator;
-    String claimrecord;
-    String createdatetime;
-    String status;
-    String total;
-    String updatedatetime;
-    ArrayList<String> vecFilenameId;
-    ArrayList<String> htmlfilename;
-    ArrayList<String> providerohipno;
-    ArrayList<String> providerno;
-    ArrayList<String> vecClaimrecord;
-    ArrayList<String> vecStatus;
-    ArrayList<String> vecTotal;
+    private String id;
+    private String monthCode;
+    private String batchcount;
+    private String ohipfilename;
+    private String groupno;
+    private String creator;
+    private String claimrecord;
+    private String createdatetime;
+    private String status;
+    private String total;
+    private String updatedatetime;
+    private ArrayList<String> vecFilenameId;
+    private ArrayList<String> htmlfilename;
+    private ArrayList<String> providerohipno;
+    private ArrayList<String> providerno;
+    private ArrayList<String> vecClaimrecord;
+    private ArrayList<String> vecStatus;
+    private ArrayList<String> vecTotal;
 
     public String getBatchcount() {
         return batchcount;

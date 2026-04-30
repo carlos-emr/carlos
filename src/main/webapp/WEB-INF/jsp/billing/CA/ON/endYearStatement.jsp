@@ -112,27 +112,27 @@
     <div class="row card card-body bg-body-tertiary">
         <form action="${pageContext.request.contextPath}/billing/CA/ON/endYearStatement/search" method="post">
             <input type="hidden" name="demographicNoParam" id="demographicNoParam"
-                   value="<c:out value='${demographicNoParamEcho}'/>"/>
+                   value="${carlos:forHtmlAttribute(demographicNoParamEcho)}"/>
 
             <div class="col-md-5">
                 Patient Name: <br>
                 <div class="input-group">
                     <input class="form-control" id="nameForlooksOnly" type="text"
-                           value="<c:out value='${not empty patientNameDisplay ? patientNameDisplay : (not empty summary.patientName ? summary.patientName : "")}'/>">
+                           value="${carlos:forHtmlAttribute(not empty patientNameDisplay ? patientNameDisplay : (not empty summary.patientName ? summary.patientName : ''))}">
                     <button class="btn btn-primary" type="button" value="Search" onclick="demographicSearch()"><i
                             class="fa-solid fa-magnifying-glass"></i></button>
                 </div>
             </div>
 
-            <input type="hidden" name="firstNameParam" id="fname" value="<c:out value='${firstNameParamEcho}'/>"/>
-            <input type="hidden" name="lastNameParam" id="lname" value="<c:out value='${lastNameParamEcho}'/>"/>
+            <input type="hidden" name="firstNameParam" id="fname" value="${carlos:forHtmlAttribute(firstNameParamEcho)}"/>
+            <input type="hidden" name="lastNameParam" id="lname" value="${carlos:forHtmlAttribute(lastNameParamEcho)}"/>
 
 
             <div class="col-md-2">
                 <label>Start Date:</label>
                 <div class="input-group">
                     <input type="text" class="form-control" style="width:90px" name="fromDateParam" id="fromDateParam"
-                           value="<c:out value='${empty fromDateParam ? "" : fromDateParam}'/>"
+                           value="${carlos:forHtmlAttribute(empty fromDateParam ? '' : fromDateParam)}"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -143,7 +143,7 @@
                 <label>End Date:</label>
                 <div class="input-group">
                     <input type="text" class="form-control" style="width:90px" name="toDateParam" id="toDateParam"
-                           value="<c:out value='${empty toDateParam ? "" : toDateParam}'/>"
+                           value="${carlos:forHtmlAttribute(empty toDateParam ? '' : toDateParam)}"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>

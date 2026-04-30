@@ -34,7 +34,9 @@ import io.github.carlos_emr.carlos.commn.dao.BillingONItemDao;
 import io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * Assembles {@link BillingEditWithApptNoViewModel} for
@@ -179,11 +181,15 @@ public class BillingEditWithApptNoViewModelAssembler {
                     }
                 }
             } catch (RuntimeException e) {
-                // SpringUtils bean lookup or DAO error: keep going with
-                // empty service-fields rather than fail the whole render.
-                // Matches legacy behavior — the JSP would have thrown a
-                // generic NPE; the assembler logs and keeps the form
-                // populated with the header context.
+                // SpringUtils bean lookup or DAO error: keep going with empty
+                // service-fields rather than fail the whole render. Matches
+                // legacy behavior — the JSP would have thrown a generic NPE.
+                // Log so the operator can distinguish "no items" from "DAO
+                // broken"; without this, the user re-enters codes thinking
+                // nothing was billed yet, risking a duplicate claim.
+                MiscUtils.getLogger().error(
+                        "Failed to load billing items for bill {}; rendering form with empty service fields",
+                        LogSanitizer.sanitize(billNo), e);
             }
         }
         b.serviceFields(serviceFields)

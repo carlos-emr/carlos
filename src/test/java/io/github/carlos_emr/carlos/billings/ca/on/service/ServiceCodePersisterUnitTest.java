@@ -37,8 +37,8 @@ import static org.mockito.Mockito.when;
  * Behavioral tests for {@link ServiceCodePersister}. Covers the three
  * pre-existing methods plus the new
  * {@link ServiceCodePersister#updateDescriptionByServiceCode(String, String)}
- * extracted from {@code BillingCodeUpdateViewModelAssembler} to remove the
- * Assembler-doing-write role violation surfaced in the PR #1967 review.
+ * extracted from {@code BillingCodeUpdateViewModelAssembler} to keep the
+ * Assembler read-only per the layer-naming policy.
  */
 @DisplayName("ServiceCodePersister")
 @Tag("unit")
@@ -141,7 +141,7 @@ class ServiceCodePersisterUnitTest {
         verify(dao, never()).remove(anyInt());
     }
 
-    // --- updateDescriptionByServiceCode (new in PR #1967 hypocrisy fix) -----
+    // --- updateDescriptionByServiceCode --------------------------------------
 
     @Test
     void shouldUpdateDescriptionAndMergeEachMatchingRow_whenUpdateDescriptionByServiceCode() {

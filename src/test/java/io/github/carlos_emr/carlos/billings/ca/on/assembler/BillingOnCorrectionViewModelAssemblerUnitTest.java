@@ -235,7 +235,7 @@ class BillingOnCorrectionViewModelAssemblerUnitTest extends CarlosUnitTestBase {
         when(raDetailDao.getRaDetailByClaimNo("ABC-XYZ")).thenReturn(List.of(raDetail));
 
         BillingONCHeader1 bCh1 = new BillingONCHeader1();
-        bCh1.setStatus("X");
+        bCh1.setStatus(BillingONCHeader1.OPEN);
         bCh1.setManReview("");
         bCh1.setProviderNo("999998");
         when(bCh1Dao.findWithItems(Integer.valueOf(12345))).thenReturn(bCh1);
@@ -295,7 +295,7 @@ class BillingOnCorrectionViewModelAssemblerUnitTest extends CarlosUnitTestBase {
 
         BillingONCHeader1 bCh1 = new BillingONCHeader1();
         bCh1.setProviderNo("555555"); // not in access list
-        bCh1.setStatus("X");
+        bCh1.setStatus(BillingONCHeader1.OPEN);
         bCh1.setManReview("");
         bCh1.setClinic("OtherClinic");
         request.setParameter("billing_no", "12345");

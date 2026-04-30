@@ -1,0 +1,108 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.billings.ca.on.service;
+
+import java.math.BigDecimal;
+import java.util.Date;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
+import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
+import io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao;
+import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
+import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
+
+/**
+ * Atomic deletion of a third-party payment row + the cascading header / ext
+ * updates. The four writes (payment.remove, header.merge, ext payment-key
+ * update, ext refund-key update) used to live inline in
+ * {@code BillingOnPayments2Action.deletePayment} with no @Transactional
+ * boundary — a mid-sequence failure left the header `paid` total stale and
+ * the ext keys out of sync with the underlying payment table.
+ *
+ * <p>Lifting them into a single {@code @Transactional} method gives us
+ * rollback semantics: if any of the four writes fails, none of them takes
+ * effect.</p>
+ *
+ * @since 2026-04-30
+ */
+@Service
+@Transactional
+public class BillingPaymentDeletionService {
+
+    private final BillingONPaymentDao billingONPaymentDao;
+    private final BillingONCHeader1Dao billingClaimDao;
+    private final BillingONExtDao billingONExtDao;
+
+    public BillingPaymentDeletionService(BillingONPaymentDao billingONPaymentDao,
+                                         BillingONCHeader1Dao billingClaimDao,
+                                         BillingONExtDao billingONExtDao) {
+        this.billingONPaymentDao = billingONPaymentDao;
+        this.billingClaimDao = billingClaimDao;
+        this.billingONExtDao = billingONExtDao;
+    }
+
+    /**
+     * Atomically delete a third-party payment and rebalance the header /
+     * ext-keys. Throws (so the surrounding tx rolls back) if the payment id
+     * is unknown.
+     *
+     * @throws PaymentNotFoundException when no payment row exists for {@code paymentId}
+     */
+    public void deletePayment(int paymentId) {
+        Date now = new Date();
+        BillingONPayment payment = billingONPaymentDao.find(paymentId);
+        if (payment == null) {
+            throw new PaymentNotFoundException(paymentId);
+        }
+        BillingONCHeader1 ch1 = payment.getBillingONCheader1();
+        Integer billingNo = ch1.getId();
+
+        billingONPaymentDao.remove(paymentId);
+
+        BigDecimal paid = billingONPaymentDao.getPaymentsSumByBillingNo(billingNo);
+        BigDecimal refund = billingONPaymentDao.getPaymentsRefundByBillingNo(billingNo).negate();
+        ch1.setPaid(paid.subtract(refund));
+        billingClaimDao.merge(ch1);
+
+        // Use BigDecimal.toPlainString() rather than NumberFormat.getCurrencyInstance().
+        // The legacy code used the platform-default currency formatter and stripped
+        // a literal "$" — on a non-CA-locale JVM that stored "€1,234.56" into
+        // billing_on_ext, then the read path's `new BigDecimal(ext.getValue())`
+        // threw NumberFormatException. Plain decimal with 2-place scaling matches
+        // the format other paths use to write into this column.
+        billingONExtDao.setExtItem(billingNo, ch1.getDemographicNo(),
+                BillingONExtDao.KEY_PAYMENT,
+                paid.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString(),
+                now, '1');
+        billingONExtDao.setExtItem(billingNo, ch1.getDemographicNo(),
+                BillingONExtDao.KEY_REFUND,
+                refund.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString(),
+                now, '1');
+    }
+
+    /**
+     * Distinct exception so the calling action can render the up-to-date
+     * payment list (a likely concurrent-edit / stale-page scenario) rather
+     * than the generic failure page that any other DAO error would produce.
+     * {@link BillingOnPayments2Action#deletePayment} catches this explicitly.
+     */
+    public static class PaymentNotFoundException extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+        public PaymentNotFoundException(int paymentId) {
+            super(String.format("BillingONPayment paymentId=%d not found", paymentId));
+        }
+    }
+}

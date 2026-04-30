@@ -2,11 +2,11 @@
 #
 # check-jsp-size.sh
 #
-# CI guard against the "god JSP" anti-pattern that caused #1922 (billingON.jsp
-# rendered output exceeding 1 MB page buffer -> truncation mid-forward). The
-# refactor in chore/billing-refactor moved ~22 KB of source and ~19 DAO lookups
-# out of billingON.jsp into BillingONFormDataAssembler + BillingONFormViewModel
-# + JSTL iteration. This script prevents silent regression by failing CI when a
+# CI guard against the "god JSP" anti-pattern (billingON.jsp rendered output
+# exceeding 1 MB page buffer -> truncation mid-forward). The Ontario-billing
+# refactor moved ~22 KB of source and ~19 DAO lookups out of billingON.jsp
+# into BillingOnFormViewModelAssembler + BillingOnFormViewModel + JSTL
+# iteration. This script prevents silent regression by failing CI when a
 # billing JSP grows back past a threshold.
 #
 # Thresholds (tunable via env vars):

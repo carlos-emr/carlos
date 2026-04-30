@@ -31,7 +31,10 @@ package io.github.carlos_emr.carlos.commn.model;
 
 import java.io.Serializable;
 import java.util.Date;
+import java.util.Set;
 import jakarta.persistence.*;
+import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * @author mweston4
@@ -40,7 +43,22 @@ import jakarta.persistence.*;
 @Table(name = "billing_on_item")
 public class BillingONItem extends AbstractModel<Integer> implements Serializable {
 
+    private static final Logger logger = MiscUtils.getLogger();
+
+    public static final String OPEN = "O";
+    public static final String SETTLED = "S";
     public static final String DELETED = "D";
+    public static final String BILLED = "B";
+    public static final String PATIENT_BILLED = "P";
+    public static final String NOT_BILLED = "N";
+    public static final String INDEPENDENT = "I";
+    public static final String WCB = "W";
+    public static final String ACKNOWLEDGED = "A";
+
+    /** See {@code BillingONCHeader1.KNOWN_STATUSES} — same closed set. */
+    private static final Set<String> KNOWN_STATUSES = Set.of(
+            OPEN, SETTLED, DELETED, BILLED, PATIENT_BILLED,
+            NOT_BILLED, INDEPENDENT, WCB, ACKNOWLEDGED);
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -117,7 +135,29 @@ public class BillingONItem extends AbstractModel<Integer> implements Serializabl
         return fee;
     }
 
+    /**
+     * Set the fee as a parseable {@link java.math.BigDecimal} string, or null
+     * for "no fee". Invalid (unparseable) values throw at write-time so a
+     * future caller's typo doesn't propagate as an
+     * {@code Optional.empty()} from
+     * {@code BillingONCHeader1.recomputeTotalFromItems()} that the user
+     * sees as a generic failure.
+     *
+     * @param fee BigDecimal-parseable string, or {@code null}
+     * @throws IllegalArgumentException if {@code fee} is non-null and not
+     *                                  a valid {@code BigDecimal}
+     */
     public void setFee(String fee) {
+        if (fee != null) {
+            try {
+                new java.math.BigDecimal(fee);
+            } catch (NumberFormatException e) {
+                logger.warn("Rejecting unparseable BillingONItem fee value (length={})",
+                        fee.length());
+                throw new IllegalArgumentException(
+                        "BillingONItem fee is not a valid BigDecimal; see logs for length");
+            }
+        }
         this.fee = fee;
     }
 
@@ -165,7 +205,20 @@ public class BillingONItem extends AbstractModel<Integer> implements Serializabl
         return status;
     }
 
+    /**
+     * Set the status code. Validates against the {@link #KNOWN_STATUSES}
+     * whitelist. See {@code BillingONCHeader1#setStatus(String)}.
+     *
+     * @throws IllegalArgumentException if {@code status} is non-null and not
+     *                                  in {@link #KNOWN_STATUSES}
+     */
     public void setStatus(String status) {
+        if (status != null && !KNOWN_STATUSES.contains(status)) {
+            logger.warn("Rejecting unknown BillingONItem status value {} (allowed: {})",
+                    status, KNOWN_STATUSES);
+            throw new IllegalArgumentException(
+                    "BillingONItem status is not in the known set; see logs for the offending value");
+        }
         this.status = status;
     }
 
@@ -182,6 +235,18 @@ public class BillingONItem extends AbstractModel<Integer> implements Serializabl
     /** @return {@code true} when this item has been soft-deleted. */
     public boolean isDeleted() {
         return DELETED.equals(this.status);
+    }
+
+    /**
+     * Soft-delete this item by setting its status to {@link #DELETED}. Mirrors
+     * {@code BillingONCHeader1#markSettled()} so callers can avoid the
+     * {@code setStatus("D")} string-literal anti-pattern.
+     *
+     * <p>Routes through {@link #setStatus(String)} so the whitelist invariant
+     * stays the single source of truth.</p>
+     */
+    public void markDeleted() {
+        setStatus(DELETED);
     }
 
     public Date getLastEditDT() {
@@ -209,13 +274,30 @@ public class BillingONItem extends AbstractModel<Integer> implements Serializabl
 
         if ((id != null) && (item.getId() != null))
             return id.equals(item.getId());
-        else
-            return ch1Id.equals(item.getCh1Id()) && this.serviceCode.equals(item.getServiceCode());
+        // Null-safe natural-key fallback. Two transient items with all-null
+        // (ch1Id, serviceCode) are equal; one with a partial key set is not
+        // equal to one with a different partial key. Pre-fix this branch
+        // NPE'd on any transient item with one of the two fields unset
+        // (e.g., bItem.setCh1Id(parent.getId()) where parent is unsaved).
+        return java.util.Objects.equals(ch1Id, item.getCh1Id())
+                && java.util.Objects.equals(serviceCode, item.getServiceCode());
     }
 
     @Override
     public int hashCode() {
-        return (id != null ? id.hashCode() : 0);
+        // Must mirror equals() to honour the equals/hashCode contract:
+        // equals() falls back to (ch1Id, serviceCode) when either id is null,
+        // so a transient item (id=null) and a persisted item with the same
+        // (ch1Id, serviceCode) are .equals() — they MUST therefore hash the
+        // same. The previous implementation hashed on id alone (returning 0
+        // for transient instances) which silently broke any future hash-keyed
+        // dedup of pre-persistence items. Hashing on the business-natural key
+        // is correct in both branches: two persisted rows with the same
+        // (ch1Id, serviceCode) would also share an id (PK constraint), so
+        // the hash stays consistent for both equals branches.
+        int h = (ch1Id != null ? ch1Id.hashCode() : 0);
+        h = 31 * h + (serviceCode != null ? serviceCode.hashCode() : 0);
+        return h;
     }
 
     @PrePersist

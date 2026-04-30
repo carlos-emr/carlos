@@ -37,8 +37,8 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingReportFragmen
  * View gate for {@code billing/CA/ON/billingReportControl.jsp}. Enforces {@code _report}
  * {@code r} privilege before forwarding to the JSP at its
  * {@code /WEB-INF/jsp/} location. Created as part of the ON billing migration
- * to gate direct-access paths behind Struts2 actions (same pattern as
- * PR #1632 for BC billing).
+ * to gate direct-access paths behind Struts2 actions (matches the BC
+ * billing 2Action gate convention).
  *
  * <p>Also assembles the {@link BillingReportControlViewModel} the JSP renders
  * (parameter echoes, provider-dropdown options, calendar-popup year/month

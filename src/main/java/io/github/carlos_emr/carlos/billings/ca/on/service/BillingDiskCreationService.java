@@ -50,7 +50,11 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  * <p>Web security is enforced at the action layer before invocation.</p>
  */
 @org.springframework.stereotype.Service
-@org.springframework.transaction.annotation.Transactional(readOnly = true)
+// NOTE: this service is read+write — addBillingDiskName/addRepoDiskName/
+// updateDiskName (lines ~135/166/177/187) write through the persister. Class-
+// level MUST NOT be readOnly=true; Hibernate would skip the flush on those
+// writes (or throw on commit). Same fix as BillingOnRaService.
+@org.springframework.transaction.annotation.Transactional
 public class BillingDiskCreationService {
     private static final Logger _logger = MiscUtils.getLogger();
     private final BillingOnClaimPersister dbObj;

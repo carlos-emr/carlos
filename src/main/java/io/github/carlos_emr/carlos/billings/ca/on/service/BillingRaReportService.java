@@ -50,24 +50,98 @@ public class BillingRaReportService {
     }
 
     // ret - ArrayList = || ||
+    /**
+     * Returns provider list from r a report.
+     *
+     * @param raNo String
+     * @return List
+     */
     public List getProviderListFromRAReport(String raNo) {
         List ret = dbObj.getProviderListFromRAReport(raNo);
         return ret;
     }
+
+    /**
+
+     * Returns r a error report.
+
+     *
+
+     * @param raNo String
+
+     * @param providerOhipNo String
+
+     * @param notErrorCode String[]
+
+     * @return List<Properties>
+
+     */
 
     public List<Properties> getRAErrorReport(String raNo, String providerOhipNo, String[] notErrorCode) {
         List<Properties> ret = dbObj.getRAErrorReport(raNo, providerOhipNo, notErrorCode);
         return ret;
     }
 
+    /**
+
+     * Returns r a billing no code.
+
+     *
+
+     * @param raNo String
+
+     * @param codes String
+
+     * @return List<String>
+
+     */
+
     public List<String> getRABillingNo4Code(String raNo, String codes) {
         List<String> ret = dbObj.getRABillingNo4Code(raNo, codes);
         return ret;
     }
 
+    /**
+
+     * Returns r a summary.
+
+     *
+
+     * @param raNo String
+
+     * @param providerOhipNo String
+
+     * @param OBbilling_no List
+
+     * @param CObilling_no List
+
+     * @return List
+
+     */
+
     public List getRASummary(String raNo, String providerOhipNo, List OBbilling_no, List CObilling_no) {
         return getRASummary(raNo, providerOhipNo, OBbilling_no, CObilling_no, null);
     }
+
+    /**
+
+     * Returns r a summary.
+
+     *
+
+     * @param raNo String
+
+     * @param providerOhipNo String
+
+     * @param OBbilling_no List
+
+     * @param CObilling_no List
+
+     * @param map Map
+
+     * @return List
+
+     */
 
     public List getRASummary(String raNo, String providerOhipNo, List OBbilling_no, List CObilling_no, Map map) {
         List rett = new ArrayList();
@@ -204,6 +278,24 @@ public class BillingRaReportService {
         return rett;
     }
 
+    /**
+
+     * Returns r a no error bill.
+
+     *
+
+     * @param raNo String
+
+     * @param providerOhipNo String
+
+     * @param noErrorCodes String
+
+     * @param errorCodes String
+
+     * @return List
+
+     */
+
     public List getRANoErrorBill(String raNo, String providerOhipNo, String noErrorCodes, String errorCodes) {
         List ret = new ArrayList();
         List errorBill = dbObj.getRAError35(raNo, providerOhipNo, errorCodes); // !=i2,
@@ -219,6 +311,20 @@ public class BillingRaReportService {
         }
         return ret;
     }
+
+    /**
+
+     * Updates billing status.
+
+     *
+
+     * @param id String
+
+     * @param status String
+
+     * @return boolean
+
+     */
 
     public boolean updateBillingStatus(String id, String status) {
         boolean ret = dbObj.updateBillingStatus(id, status);

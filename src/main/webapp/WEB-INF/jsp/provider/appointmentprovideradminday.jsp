@@ -402,7 +402,8 @@
         java.util.ResourceBundle prop = ResourceBundle.getBundle("oscarResources", request.getLocale());
         formatDate = UtilDateUtilities.DateToString(inform.parse(strDate), prop.getString("date.EEEyyyyMMdd"), request.getLocale());
     } catch (Exception e) {
-        MiscUtils.getLogger().error("Error", e);
+        MiscUtils.getLogger().error("appointmentprovideradminday: missing 'date.EEEyyyyMMdd' bundle key for locale {}; falling back to default format",
+                request.getLocale(), e);
         formatDate = UtilDateUtilities.DateToString(inform.parse(strDate), "EEE, yyyy-MM-dd");
     }
     String strYear = "" + year;
@@ -1589,7 +1590,8 @@
                                     try {
                                         formatDate = UtilDateUtilities.DateToString(inform.parse(strDate), wdProp.getString("date.EEEyyyyMMdd"), request.getLocale());
                                     } catch (Exception e) {
-                                        MiscUtils.getLogger().error("Error", e);
+                                        MiscUtils.getLogger().error("appointmentprovideradminday weekday loop: missing 'date.EEEyyyyMMdd' bundle key for locale {}; falling back to default format",
+                                                request.getLocale(), e);
                                         formatDate = UtilDateUtilities.DateToString(inform.parse(strDate), "EEE, yyyy-MM-dd");
                                     }
                                     strYear = "" + year;
@@ -2391,6 +2393,7 @@
 
     <!-- key shortcut hotkey block added by phc -->
     <fmt:message var="labTitle" key="global.lab"/>
+    <c:set var="__enc_21"><carlos:encode value='<%= mygroupno %>' context="uriComponent"/></c:set>
     <script language="JavaScript">
 
         // popup blocking for the site must be off!
@@ -2454,9 +2457,7 @@
                     }
                     case <fmt:message key="global.searchShortcut"/> :
                         popupOscarRx(550, 687, '<%= request.getContextPath() %>/demographic/ViewSearch');
-                        <c:set var="__enc_21"><carlos:encode value='<%= mygroupno %>' context="uriComponent"/></c:set>
-                        return false;  //run c                        
-ode for 'S'earch
+                        return false;  //run code for 'S'earch
                     case <fmt:message key="global.dayShortcut"/> :
                         window.open("<%= request.getContextPath() %>/provider/providercontrol?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%><%=viewString%>&displaymode=day&dboperation=searchappointmentday", "_self");
                         return false;  //run code for 'T'oday

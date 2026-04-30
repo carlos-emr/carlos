@@ -36,8 +36,8 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.OnRaImportService;
  * View gate for {@code billing/CA/ON/onGenRA.jsp}. Enforces {@code _billing}
  * {@code r} privilege before forwarding to the JSP at its
  * {@code /WEB-INF/jsp/} location. Created as part of the ON billing migration
- * to gate direct-access paths behind Struts2 actions (same pattern as
- * PR #1632 for BC billing).
+ * to gate direct-access paths behind Struts2 actions (matches the BC
+ * billing 2Action gate convention).
  *
  * <p>Also assembles the {@link OnRaViewModel} the JSP renders (RA-header
  * row list filtered by {@code _team_billing_only}, {@code _team_access_privacy},
@@ -75,7 +75,14 @@ public class ViewOnGenRa2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        importService.importDocumentBeanFile(request);
+        boolean importedOk = importService.importDocumentBeanFile(request);
+        if (!importedOk) {
+            // Surface the failure to the JSP so the user sees an error banner
+            // rather than a clean post-import view. The page still renders so
+            // the existing RA list is still visible.
+            request.setAttribute("raImportFailed", Boolean.TRUE);
+        }
+
         OnRaViewModel model = assembler.assemble(request, loggedInInfo);
         request.setAttribute("onGenRAModel", model);
 

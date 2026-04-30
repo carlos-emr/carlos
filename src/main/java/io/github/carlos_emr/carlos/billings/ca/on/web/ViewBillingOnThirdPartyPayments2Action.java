@@ -33,8 +33,8 @@ import org.apache.struts2.ServletActionContext;
  * View gate for {@code billing/CA/ON/billingON3rdPayments.jsp}. Enforces {@code _team_billing_only}
  * {@code r} privilege before forwarding to the JSP at its
  * {@code /WEB-INF/jsp/} location. Created as part of the ON billing migration
- * to gate direct-access paths behind Struts2 actions (same pattern as
- * PR #1632 for BC billing).
+ * to gate direct-access paths behind Struts2 actions (matches the BC
+ * billing 2Action gate convention).
  *
  * @since 2026-04-13
  */

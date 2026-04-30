@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONHeader;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingBatchHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingDiskNameDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
@@ -58,17 +59,53 @@ public class BillingOnDiskLoader {
     private final SimpleDateFormat dateformatter = new SimpleDateFormat("yyyy-MM-dd");
     private final SimpleDateFormat tsFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
+    /**
+
+     * Returns latest solo month code batch num.
+
+     *
+
+     * @param providerOhipNo String
+
+     * @return String[]
+
+     */
+
     public String[] getLatestSoloMonthCodeBatchNum(String providerOhipNo) {
         BillingONDiskName b = diskNameDao.getLatestSoloMonthCodeBatchNum(providerOhipNo);
         if (b == null) return null;
         return new String[] { b.getMonthCode(), "" + b.getBatchCount() };
     }
 
+    /**
+
+     * Returns latest grp month code batch num.
+
+     *
+
+     * @param groupNo String
+
+     * @return String[]
+
+     */
+
     public String[] getLatestGrpMonthCodeBatchNum(String groupNo) {
         BillingONDiskName b = diskNameDao.findByGroupNo(groupNo);
         if (b == null) return null;
         return new String[] { b.getMonthCode(), "" + b.getBatchCount() };
     }
+
+    /**
+
+     * Returns prev disk create date.
+
+     *
+
+     * @param diskId String
+
+     * @return String
+
+     */
 
     public String getPrevDiskCreateDate(String diskId) {
         BillingONDiskName b = diskNameDao.find(Integer.valueOf(diskId));
@@ -81,11 +118,39 @@ public class BillingOnDiskLoader {
         return dateformatter.format(x.getCreateDateTime());
     }
 
+    /**
+
+     * Returns disk create date.
+
+     *
+
+     * @param diskId String
+
+     * @return String
+
+     */
+
     public String getDiskCreateDate(String diskId) {
         BillingONDiskName b = diskNameDao.find(Integer.parseInt(diskId));
         if (b == null) return null;
         return dateformatter.format(b.getCreateDateTime());
     }
+
+    /**
+
+     * Returns m r i list.
+
+     *
+
+     * @param sDate String
+
+     * @param eDate String
+
+     * @param status String
+
+     * @return List
+
+     */
 
     public List getMRIList(String sDate, String eDate, String status) {
         List retval = new ArrayList();
@@ -134,16 +199,51 @@ public class BillingOnDiskLoader {
                 retval.add(obj);
             }
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            // Distinguish DB-outage / parse failure from clean books: the
+            // caller maps null to an empty list, so without context the UI
+            // would render "no MRI records" indistinguishably from a real
+            // failure.
+            MiscUtils.getLogger().error(
+                    "Failed to load MRI list for date range {}..{} status={}: returning null",
+                    LogSanitizer.sanitize(sDate),
+                    LogSanitizer.sanitize(eDate),
+                    LogSanitizer.sanitize(status),
+                    e);
             return null;
         }
         return retval;
     }
 
+    /**
+
+     * Returns ohipfilename.
+
+     *
+
+     * @param diskId int
+
+     * @return String
+
+     */
+
     public String getOhipfilename(int diskId) {
         BillingONDiskName b = diskNameDao.find(diskId);
         return b == null ? "" : b.getOhipFilename();
     }
+
+    /**
+
+     * Returns htmlfilename.
+
+     *
+
+     * @param diskId int
+
+     * @param providerNo String
+
+     * @return String
+
+     */
 
     public String getHtmlfilename(int diskId, String providerNo) {
         String obj = "";
@@ -153,6 +253,18 @@ public class BillingOnDiskLoader {
         }
         return obj;
     }
+
+    /**
+
+     * Returns diskname obj.
+
+     *
+
+     * @param diskId String
+
+     * @return BillingDiskNameDto
+
+     */
 
     public BillingDiskNameDto getDisknameObj(String diskId) {
         BillingDiskNameDto obj = new BillingDiskNameDto();
@@ -200,6 +312,20 @@ public class BillingOnDiskLoader {
 
         return obj;
     }
+
+    /**
+
+     * Returns batch header obj.
+
+     *
+
+     * @param providerData BillingProviderDto
+
+     * @param disk_id String
+
+     * @return BillingBatchHeaderDto
+
+     */
 
     public BillingBatchHeaderDto getBatchHeaderObj(BillingProviderDto providerData, String disk_id) {
         BillingBatchHeaderDto obj = new BillingBatchHeaderDto();
