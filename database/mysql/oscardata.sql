@@ -1516,6 +1516,7 @@ insert into `secObjectName` (`objectName`,`description`,`orgapplicable`) values(
 insert into `secObjectName` (`objectName`) values ('_admin.messenger');
 insert into `secObjectName` (`objectName`) values ('_admin.eform');
 insert into `secObjectName` (`objectName`) values ('_admin.eformreporttool');
+insert into `secObjectName` (`objectName`) values ('_admin.billing');
 insert into `secObjectName` (`objectName`) values ('_admin.encounter');
 insert into `secObjectName` (`objectName`) values ('_admin.misc');
 insert into `secObjectName` (`objectName`,`description`,`orgapplicable`) values('_admin.flowsheet','Manage Flowsheets',0);
