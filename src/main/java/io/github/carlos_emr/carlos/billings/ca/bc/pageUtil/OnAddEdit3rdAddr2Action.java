@@ -49,14 +49,14 @@ public final class OnAddEdit3rdAddr2Action extends ActionSupport {
         HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
-        }
-
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
         }
 
         return SUCCESS;

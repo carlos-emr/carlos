@@ -35,8 +35,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.EditBillingPaymentTy
  * View-scope gate for {@code billing/CA/ON/editBillingPaymentType.jsp}. Enforces
  * {@code _admin.billing} w privilege before forwarding to the JSP, then assembles
  * the {@link EditBillingPaymentTypeViewModel} on the request as
- * {@code paymentTypeModel} so the JSP body can render in pure EL (drained from
- * 12 scriptlets in the round-2 billing-form refactor).
+ * {@code paymentTypeModel} so the JSP body can render in pure EL.
  *
  * <p>This action is read-only: the assembler does not mutate any state, it only
  * echoes the {@code id}/{@code type} request parameters into a viewmodel that
