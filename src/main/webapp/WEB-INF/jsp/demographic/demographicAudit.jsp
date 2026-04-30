@@ -29,6 +29,8 @@
 
 --%>
 
+<!DOCTYPE html>
+
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@page import="java.text.SimpleDateFormat" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.OscarLog" %>
@@ -55,16 +57,12 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
-<%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
-<%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
-<%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -91,7 +89,7 @@
             searching: true,
             paging: true,
             pageLength: 10,
-            lengthMenu: [ [10, 50, 100, 250, -1], [12, 50, 100, 250, "<fmt:message key="admin.logReport.all"/>"] ],
+            lengthMenu: [ [10, 50, 100, 250, -1], [10, 50, 100, 250, "<fmt:message key="admin.logReport.all"/>"] ],
             language: {
                 url: '${pageContext.request.contextPath}/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json'
                 }
@@ -115,7 +113,7 @@
 
 </head>
 <body>
-<h2><fmt:message key="demographic.demographiceditdemographic.btnAuditInfo"/>%nbsp;(<carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="html"/>)</h2>
+<h2><fmt:message key="demographic.demographiceditdemographic.btnAuditInfo"/>&nbsp;(<carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="html"/>)</h2>
 <table style="width:100%" class="table table-striped" id="auditLog">
     <thead>
     <th><fmt:message key="admin.logReport.table.time"/></th>
