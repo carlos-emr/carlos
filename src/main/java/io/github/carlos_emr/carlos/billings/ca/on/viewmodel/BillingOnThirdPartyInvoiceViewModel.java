@@ -102,6 +102,13 @@ public final class BillingOnThirdPartyInvoiceViewModel {
     private final String refundAmount;
     private final String balanceAmount;
     private final String paymentMethodLabel;
+    /**
+     * True when at least one of {@code payment / discount / refund / credit}
+     * could not be parsed and was zero-coalesced. The JSP must render an
+     * "AMOUNT UNREADABLE — DO NOT REMIT" banner and refuse to show
+     * {@link #getBalanceAmount()} as a remittable figure.
+     */
+    private final boolean amountsUnreadable;
 
     public record InvoiceItem(String itemId, String description, String serviceCode,
                               String quantity, String dx, String fee) {}
@@ -149,6 +156,7 @@ public final class BillingOnThirdPartyInvoiceViewModel {
         this.refundAmount = nullToZero(b.refundAmount);
         this.balanceAmount = nullToZero(b.balanceAmount);
         this.paymentMethodLabel = nullToEmpty(b.paymentMethodLabel);
+        this.amountsUnreadable = b.amountsUnreadable;
     }
 
     private static String nullToEmpty(String s) { return s == null ? "" : s; }
@@ -196,6 +204,7 @@ public final class BillingOnThirdPartyInvoiceViewModel {
     public String getCreditAmount() { return creditAmount; }
     public String getRefundAmount() { return refundAmount; }
     public String getBalanceAmount() { return balanceAmount; }
+    public boolean isAmountsUnreadable() { return amountsUnreadable; }
     public String getPaymentMethodLabel() { return paymentMethodLabel; }
 
     public static final class Builder {
@@ -239,6 +248,7 @@ public final class BillingOnThirdPartyInvoiceViewModel {
         private String creditAmount;
         private String refundAmount;
         private String balanceAmount;
+        private boolean amountsUnreadable;
         private String paymentMethodLabel;
 
         public Builder invoiceNoStr(String v) { this.invoiceNoStr = v; return this; }
@@ -282,6 +292,7 @@ public final class BillingOnThirdPartyInvoiceViewModel {
         public Builder creditAmount(String v) { this.creditAmount = v; return this; }
         public Builder refundAmount(String v) { this.refundAmount = v; return this; }
         public Builder balanceAmount(String v) { this.balanceAmount = v; return this; }
+        public Builder amountsUnreadable(boolean v) { this.amountsUnreadable = v; return this; }
         public Builder paymentMethodLabel(String v) { this.paymentMethodLabel = v; return this; }
 
         public BillingOnThirdPartyInvoiceViewModel build() { return new BillingOnThirdPartyInvoiceViewModel(this); }

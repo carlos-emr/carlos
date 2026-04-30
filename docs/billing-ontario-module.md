@@ -404,7 +404,10 @@ known operation.
 - **Adding a pure-write?** Add to an existing `*Persister`, or create a new
   one. Annotate with `@Transactional`.
 - **Adding pure arithmetic?** First check if it fits on the entity (rich-
-  domain). If it needs cross-aggregate state, add a method to a `*Calculator`.
+  domain). If it needs cross-aggregate state but no DAO writes and no
+  cross-DAO reads, create a `*Calculator` (no `*Calculator` exists in the
+  ON module today — see the table above). If it does cross DAOs, fall
+  back to `*Service`.
 - **Adding a multi-step lifecycle?** That's a `*Service` — put it on the
   most relevant existing one if it's small, else create a new service.
 

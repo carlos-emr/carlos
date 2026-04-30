@@ -218,10 +218,11 @@ public class BillingOnThirdPartyInvoiceViewModelAssembler {
         // re-computed from the same inputs so the displayed Balance line
         // matches the math the legacy JSP did inline (line 435).
         BigDecimal total = bCh1.getTotal() == null ? ZERO : bCh1.getTotal().setScale(2, RoundingMode.HALF_UP);
-        BigDecimal payment = parseScale(prop3rdPart.getProperty("payment", "0.00"));
-        BigDecimal discount = parseScale(prop3rdPart.getProperty("discount", "0.00"));
-        BigDecimal refund = parseScale(prop3rdPart.getProperty("refund", "0.00"));
-        BigDecimal credit = parseScale(prop3rdPart.getProperty("credit", "0.00"));
+        UnreadableTracker tracker = new UnreadableTracker();
+        BigDecimal payment = parseScale(prop3rdPart.getProperty("payment", "0.00"), tracker);
+        BigDecimal discount = parseScale(prop3rdPart.getProperty("discount", "0.00"), tracker);
+        BigDecimal refund = parseScale(prop3rdPart.getProperty("refund", "0.00"), tracker);
+        BigDecimal credit = parseScale(prop3rdPart.getProperty("credit", "0.00"), tracker);
         BigDecimal balance = total.subtract(payment).subtract(discount).add(credit);
 
         b.totalAmount(total.toPlainString())
@@ -229,7 +230,8 @@ public class BillingOnThirdPartyInvoiceViewModelAssembler {
                 .discountAmount(discount.toPlainString())
                 .creditAmount(credit.toPlainString())
                 .refundAmount(refund.toPlainString())
-                .balanceAmount(balance.toPlainString());
+                .balanceAmount(balance.toPlainString())
+                .amountsUnreadable(tracker.isUnreadable());
 
         // Side-effect parity: the legacy JSP also called find3rdPartyPayRecordsByBill
         // and BillingOnInvoiceTotalsService.calculateBalanceOwing. The values weren't actually
@@ -348,13 +350,33 @@ public class BillingOnThirdPartyInvoiceViewModelAssembler {
     }
 
     private static BigDecimal parseScale(String s) {
+        return parseScale(s, null);
+    }
+
+    /**
+     * Variant that records a malformed-amount via the supplied tracker.
+     * Pre-fix the silent zero-coalesce caused the printed invoice to show a
+     * computed balance line below malformed amounts that the operator could
+     * not see — passing this method an {@link UnreadableTracker} now flips
+     * a flag the JSP renders as "AMOUNT UNREADABLE — DO NOT REMIT".
+     */
+    private static BigDecimal parseScale(String s, UnreadableTracker tracker) {
         if (s == null || s.isEmpty()) return ZERO;
         try {
             return new BigDecimal(s).setScale(2, RoundingMode.HALF_UP);
         } catch (NumberFormatException e) {
             MiscUtils.getLogger().warn("Could not parse 3rd-party invoice amount '{}'", s);
+            if (tracker != null) tracker.markUnreadable();
             return ZERO;
         }
+    }
+
+    /** Mutable single-flag holder used to surface the per-row malformed-amount
+     *  signal up to the assembler's view-model build phase. */
+    private static final class UnreadableTracker {
+        private boolean unreadable;
+        void markUnreadable() { this.unreadable = true; }
+        boolean isUnreadable() { return unreadable; }
     }
 
     /**

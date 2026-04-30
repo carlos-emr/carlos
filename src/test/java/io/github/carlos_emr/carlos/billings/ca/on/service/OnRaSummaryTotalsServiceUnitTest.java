@@ -145,4 +145,30 @@ class OnRaSummaryTotalsServiceUnitTest {
         verify(raHeaderDao, never()).find(org.mockito.ArgumentMatchers.anyInt());
         verify(raHeaderDao, never()).merge(org.mockito.ArgumentMatchers.any());
     }
+
+    @Test
+    void shouldThrowBillingValidationException_whenViewModelIsPartial() {
+        // Round-5 contract: when the upstream RA summary excluded rows due
+        // to amountUnreadable=true, the totals understate the true
+        // reconciliation. mergeTotals must refuse to overwrite
+        // RaHeader.content rather than persist the partial figure.
+        io.github.carlos_emr.carlos.billings.ca.on.viewmodel.OnRaSummaryViewModel partial =
+                io.github.carlos_emr.carlos.billings.ca.on.viewmodel.OnRaSummaryViewModel.builder()
+                        .raNo("42")
+                        .localTotal(new BigDecimal("100.00"))
+                        .payTotal(new BigDecimal("50.00"))
+                        .otherTotal(BigDecimal.ZERO)
+                        .obTotal(BigDecimal.ZERO)
+                        .coTotal(BigDecimal.ZERO)
+                        .unreadableRowCount(3)  // <-- triggers isPartial() == true
+                        .build();
+
+        assertThatThrownBy(() -> service.mergeTotals(partial))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("3");  // count surfaced in the message
+
+        // Critical: when partial, mergeTotals must NOT persist anything.
+        verify(raHeaderDao, never()).find(org.mockito.ArgumentMatchers.anyInt());
+        verify(raHeaderDao, never()).merge(org.mockito.ArgumentMatchers.any());
+    }
 }

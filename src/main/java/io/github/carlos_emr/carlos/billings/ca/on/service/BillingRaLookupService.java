@@ -139,7 +139,21 @@ public class BillingRaLookupService {
      */
 
     public String getAmountPaid(ArrayList<HashMap<String, String>> a) {
+        return getAmountPaidWithCount(a).formattedTotal();
+    }
+
+    /**
+     * Same as {@link #getAmountPaid(ArrayList)} but returns the formatted
+     * total alongside a count of rows whose {@code amountpay} couldn't be
+     * parsed and was zero-coalesced. Callers that aggregate this method's
+     * output into a grand total (e.g. {@code BillingOnStatusViewModelAssembler})
+     * can propagate {@code unreadableCount} into their own
+     * {@code unreadableTotalRowCount} so the JSP banner reflects the true
+     * "rows excluded" count instead of silently understating the total.
+     */
+    public AmountPaidResult getAmountPaidWithCount(ArrayList<HashMap<String, String>> a) {
         BigDecimal total = BillingMoney.zero();
+        int unreadable = 0;
         for (int i = 0; i < a.size(); i++) {
             HashMap<String, String> h = a.get(i);
             BigDecimal valueToAdd = BillingMoney.zero();
@@ -149,6 +163,7 @@ public class BillingRaLookupService {
                 // Coalescing to zero understates the displayed total — log
                 // with billing_no + raw amountpay so ops can reconcile the
                 // pay-stub vs DB rather than puzzling at a generic "Error".
+                unreadable++;
                 MiscUtils.getLogger().error(
                         "Failed to parse amountpay {} for billing_no {}; coalescing to zero (total will understate)",
                         io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(h.get("amountpay")),
@@ -157,8 +172,14 @@ public class BillingRaLookupService {
             }
             total = total.add(valueToAdd);
         }
-        return BillingMoney.format(total);
+        return new AmountPaidResult(BillingMoney.format(total), unreadable);
     }
+
+    /**
+     * Tuple result for {@link #getAmountPaidWithCount}: the same formatted
+     * String the legacy callers consume, plus a count of zero-coalesced rows.
+     */
+    public record AmountPaidResult(String formattedTotal, int unreadableCount) { }
 
     /**
 
@@ -177,7 +198,14 @@ public class BillingRaLookupService {
      */
 
     public String getAmountPaid(ArrayList<HashMap<String, String>> a, String billingNo, String serviceCode) {
+        return getAmountPaidWithCount(a, billingNo, serviceCode).formattedTotal();
+    }
+
+    /** Counted variant of {@link #getAmountPaid(ArrayList, String, String)}. */
+    public AmountPaidResult getAmountPaidWithCount(ArrayList<HashMap<String, String>> a,
+                                                   String billingNo, String serviceCode) {
         BigDecimal total = BillingMoney.zero();
+        int unreadable = 0;
         for (int i = 0; i < a.size(); i++) {
             HashMap<String, String> h = a.get(i);
             if (!(h.get("billing_no").equals(billingNo)) || !(h.get("service_code").equals(serviceCode))) {
@@ -188,6 +216,7 @@ public class BillingRaLookupService {
             try {
                 valueToAdd = BillingMoney.amount(h.get("amountpay"));
             } catch (Exception badValueException) {
+                unreadable++;
                 MiscUtils.getLogger().error(
                         "Failed to parse amountpay {} for billing_no {} service_code {}; coalescing to zero",
                         io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(h.get("amountpay")),
@@ -197,7 +226,7 @@ public class BillingRaLookupService {
             }
             total = total.add(valueToAdd);
         }
-        return BillingMoney.format(total);
+        return new AmountPaidResult(BillingMoney.format(total), unreadable);
     }
 
     /**

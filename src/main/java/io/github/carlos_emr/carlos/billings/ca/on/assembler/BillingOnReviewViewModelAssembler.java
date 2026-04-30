@@ -56,6 +56,7 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Site;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnRequestParameters;
@@ -631,7 +632,11 @@ public class BillingOnReviewViewModelAssembler {
                     name = p.getFormattedName();
                 }
             } catch (RuntimeException e) {
-                MiscUtils.getLogger().debug("BillingOnReviewViewModelAssembler: providerDao lookup failed", e);
+                // The peer catches in this assembler all log at WARN; DEBUG
+                // would mask a DB outage during provider-name lookup, leaving
+                // the operator with a blank name and no signal in the log.
+                MiscUtils.getLogger().warn("BillingOnReviewViewModelAssembler: providerDao lookup failed for providerNo {}",
+                        LogSanitizer.sanitize(providerNo), e);
             }
         }
         return nullToEmpty(name);

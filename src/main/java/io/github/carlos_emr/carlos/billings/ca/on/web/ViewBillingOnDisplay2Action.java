@@ -39,9 +39,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOnDisplayView
  * {@link BillingOnDisplayViewModel} exposed on the request as the
  * {@code displayModel} attribute (so the JSP body can be 100% EL/JSTL).
  *
- * <p>Created as part of the ON billing migration to gate direct-access paths
- * behind Struts2 actions (matches the BC billing 2Action gate convention).</p>
- *
  * @since 2026-04-13
  */
 public class ViewBillingOnDisplay2Action extends ActionSupport {

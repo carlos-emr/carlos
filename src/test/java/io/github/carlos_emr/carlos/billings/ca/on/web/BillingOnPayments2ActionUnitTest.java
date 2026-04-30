@@ -370,8 +370,9 @@ class BillingOnPayments2ActionUnitTest extends CarlosUnitTestBase {
         verify(paymentDao, never()).persist(any(BillingONPayment.class));
     }
 
-    // -- viewPayment_ext: round-4 fix returns "failure" instead of null on
-    // -- bad input or missing payment, replacing the silent-blank-page behavior.
+    // -- viewPayment_ext: returns "failure" instead of null on bad input
+    // -- or missing payment so the JSP renders an explicit error page
+    // -- rather than the silent blank page the legacy contract produced.
 
     @Test
     void shouldReturnFailure_whenBillPaymentIdIsNonNumeric() {

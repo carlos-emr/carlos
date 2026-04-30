@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingReviewCodeItem;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingReviewPercentageItem;
 import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
+import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 
 /**
@@ -97,7 +98,7 @@ public class BillingReviewQueryService {
                                 + vecCode.get(i));
                 continue;
             }
-            if (fee.equals("defunct")) {
+            if (BillingONItem.DEFUNCT_FEE.equals(fee)) {
                 codeItem = new BillingReviewCodeItem();
                 codeItem.setCodeName((String) vecCode.get(i));
                 codeItem.setCodeUnit((String) vecUnit.get(i));

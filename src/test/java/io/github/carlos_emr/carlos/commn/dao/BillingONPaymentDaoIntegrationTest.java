@@ -247,4 +247,25 @@ public class BillingONPaymentDaoIntegrationTest extends CarlosTestBase {
         int totalExt = result.stream().mapToInt(p -> p.getBillingONExtItems().size()).sum();
         assertThat(totalExt).isEqualTo(1);
     }
+
+    @Test
+    @Tag("read")
+    @DisplayName("getTotalSumByBillingNoWeb should return zero when billingNo is non-numeric")
+    void shouldReturnZeroAsCurrency_whenBillingNoNonNumericInTotalSum() {
+        // The narrowed catch must observe and convert NFE to a zero render
+        // path; a future refactor that swaps NumberFormatException for a
+        // broader Exception (or removes the catch) would surface here.
+        String result = dao.getTotalSumByBillingNoWeb("not-a-number");
+        assertThat(result).isNotNull();
+        assertThat(result).contains("0.00");
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("getPaymentsRefundByBillingNoWeb should return zero when billingNo is non-numeric")
+    void shouldReturnZeroAsCurrency_whenBillingNoNonNumericInRefund() {
+        String result = dao.getPaymentsRefundByBillingNoWeb("not-a-number");
+        assertThat(result).isNotNull();
+        assertThat(result).contains("0.00");
+    }
 }

@@ -168,6 +168,13 @@ public class BillingRaReportService {
         // Paid Clinic Pay Hospital Pay OB Error
         for (int j = 0; j < ret.size(); j++) {
             Properties prop = (Properties) ret.get(j);
+            // BillingOnRaService.getRASummary appends this marker when its
+            // outer catch fires mid-iteration. Skip the marker as a row but
+            // bump unreadableRowCount so the partial-totals contract trips.
+            if ("true".equals(prop.getProperty(BillingOnRaService.LOAD_FAILURE_MARKER))) {
+                unreadableRowCount++;
+                continue;
+            }
             String servicedate = prop.getProperty("servicedate");
             servicedate = servicedate.length() == 8 ? (servicedate.substring(0, 4) + "-" + servicedate.substring(4, 6)
                     + "-" + servicedate.substring(6)) : servicedate;

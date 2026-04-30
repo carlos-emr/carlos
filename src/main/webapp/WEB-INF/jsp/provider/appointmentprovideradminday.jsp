@@ -404,7 +404,15 @@
     } catch (Exception e) {
         MiscUtils.getLogger().error("appointmentprovideradminday: missing 'date.EEEyyyyMMdd' bundle key for locale {}; falling back to default format",
                 request.getLocale(), e);
-        formatDate = UtilDateUtilities.DateToString(inform.parse(strDate), "EEE, yyyy-MM-dd");
+        // The fallback parse can itself throw ParseException (same parser, same input).
+        // Use the literal strDate as a final fallback so the page still renders
+        // rather than propagating an uncaught exception out of the scriptlet.
+        try {
+            formatDate = UtilDateUtilities.DateToString(inform.parse(strDate), "EEE, yyyy-MM-dd");
+        } catch (Exception fallbackEx) {
+            MiscUtils.getLogger().error("appointmentprovideradminday: fallback date parse also failed; rendering raw strDate", fallbackEx);
+            formatDate = strDate;
+        }
     }
     String strYear = "" + year;
     String strMonth = month > 9 ? ("" + month) : ("0" + month);
@@ -1592,7 +1600,12 @@
                                     } catch (Exception e) {
                                         MiscUtils.getLogger().error("appointmentprovideradminday weekday loop: missing 'date.EEEyyyyMMdd' bundle key for locale {}; falling back to default format",
                                                 request.getLocale(), e);
-                                        formatDate = UtilDateUtilities.DateToString(inform.parse(strDate), "EEE, yyyy-MM-dd");
+                                        try {
+                                            formatDate = UtilDateUtilities.DateToString(inform.parse(strDate), "EEE, yyyy-MM-dd");
+                                        } catch (Exception fallbackEx) {
+                                            MiscUtils.getLogger().error("appointmentprovideradminday weekday loop: fallback date parse also failed; rendering raw strDate", fallbackEx);
+                                            formatDate = strDate;
+                                        }
                                     }
                                     strYear = "" + year;
                                     strMonth = month > 9 ? ("" + month) : ("0" + month);

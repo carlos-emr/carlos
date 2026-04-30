@@ -137,13 +137,17 @@ public class BillingOnSave2Action extends ActionSupport {
             ret = saveResult.saved();
             billingNo = saveResult.billingId();
         } catch (io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException e) {
-            // Service rolled back. Surface the same "save rejected" outcome
-            // the operator would have seen with the round-3 boolean signal.
+            // Service rolled back. Stash the typed-exception narrative on
+            // the request so the failure JSP can render it next to "Save
+            // Failed!" — pre-fix this just logged the message and rendered
+            // a generic banner with no operator-actionable detail.
             MiscUtils.getLogger().error("Bill save rejected and rolled back: {}", e.getMessage());
+            request.setAttribute("billingFailureReason", e.getMessage());
             ret = false;
             billingNo = 0;
         } catch (BillingClaimSubmissionService.BillingItemPersistenceException e) {
             MiscUtils.getLogger().error("Bill save rolled back: {}", e.getMessage());
+            request.setAttribute("billingFailureReason", e.getMessage());
             ret = false;
             billingNo = 0;
         }

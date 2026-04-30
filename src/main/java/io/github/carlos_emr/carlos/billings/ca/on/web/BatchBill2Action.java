@@ -247,19 +247,25 @@ public class BatchBill2Action extends ActionSupport {
         }
 
         String[] billingInfo = request.getParameterValues("bill");
-        BatchBillingDAO batchBillingDAO = (BatchBillingDAO) SpringUtils.getBean(BatchBillingDAO.class);
-        List<BatchBilling> batchBillingList;
-        BatchBilling batchBilling;
 
-        //create the invoice and update batch_billing table
+        // Atomic remove via @Transactional service. Pre-fix the per-row
+        // loop ran inline with no tx — a mid-loop failure (stale row,
+        // FK constraint, concurrent edit) committed prior removes and
+        // left the rest unprocessed, silently desyncing the queue.
         if (billingInfo != null) {
-
+            java.util.List<io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingRemovalService.Row> rows =
+                    new java.util.ArrayList<>();
             for (int idx = 0; idx < billingInfo.length; ++idx) {
                 BatchBillRow row = parseBatchBillRow(billingInfo[idx]);
-
-                batchBillingList = batchBillingDAO.find(row.demographicNo(), row.serviceCode());
-                batchBilling = batchBillingList.get(0);
-                batchBillingDAO.remove(batchBilling.getId());
+                rows.add(new io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingRemovalService.Row(
+                        row.demographicNo(), row.serviceCode()));
+            }
+            try {
+                SpringUtils.getBean(io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingRemovalService.class)
+                        .removeAll(rows);
+            } catch (RuntimeException e) {
+                MiscUtils.getLogger().error("BatchBilling remove rolled back; queue unchanged", e);
+                throw e;
             }
         }
 

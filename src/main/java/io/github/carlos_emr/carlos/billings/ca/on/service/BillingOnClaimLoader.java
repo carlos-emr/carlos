@@ -104,7 +104,7 @@ public class BillingOnClaimLoader {
                 DateFormat df = new SimpleDateFormat("yyyy-MM-dd");
                 Date serviceDate = df.parse(billReferalDate);
                 if (bs.getTerminationDate().before(serviceDate)) {
-                    retval = "defunct";
+                    retval = BillingONItem.DEFUNCT_FEE;
                 }
             }
 
@@ -279,6 +279,13 @@ public class BillingOnClaimLoader {
             // Partial result is returned to caller; without this log, a
             // transient DB outage is indistinguishable from "no bills" in
             // the UI and the operator may re-bill the patient.
+            //
+            // FOLLOW-UP (round-6 P1-9 carryover): change the return type to
+            // a wrapper that carries a `partial` flag so consumers can
+            // surface a "data may be incomplete" banner instead of relying
+            // on operators reading server logs. Multi-consumer change —
+            // tracked separately because the JSP-side rendering and the
+            // ~6 action-layer call sites all need to thread the flag.
             _logger.error("Failed to load billing list (provider={}, demo={}, dates {}..{}); returning partial/empty result",
                     LogSanitizer.sanitize(providerNo),
                     LogSanitizer.sanitize(demoNo),

@@ -576,9 +576,26 @@ public class BillingOnRaService {
             _logger.error("Failed to load RA summary (raHeaderId={}, providerOhipNo={}); rows may be silently dropped",
                     LogSanitizer.sanitize(id),
                     LogSanitizer.sanitize(providerOhipNo), e);
+            // Append a sentinel marker row so downstream consumers
+            // (BillingRaReportService.getRASummary) can detect the partial
+            // load and bump xml_partial_count, which propagates into the
+            // OnRaSummaryViewModel.partial flag and ultimately blocks the
+            // OnRaSummaryTotalsService.mergeTotals persist (round-5 contract).
+            // Pre-fix this catch silently truncated the list.
+            Properties marker = new Properties();
+            marker.setProperty(LOAD_FAILURE_MARKER, "true");
+            ret.add(marker);
         }
         return ret;
     }
+
+    /**
+     * Sentinel property key used by {@link #getRASummary} to flag a
+     * partial result from a mid-iteration DAO failure. Consumers detect
+     * the marker and bump their unreadable-row count so the round-5
+     * partial-totals persist-block contract still applies.
+     */
+    public static final String LOAD_FAILURE_MARKER = "_raSummaryLoadFailed";
 
     public List<String> getRAError35(String id, String providerOhipNo, String codes) {
         List<String> ret = new ArrayList<String>();

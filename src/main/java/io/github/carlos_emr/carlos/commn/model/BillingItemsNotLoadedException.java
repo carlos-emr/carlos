@@ -39,11 +39,14 @@ public final class BillingItemsNotLoadedException extends IllegalStateException 
 
     private final int headerId;
 
-    public BillingItemsNotLoadedException(String message) {
-        super(message);
-        this.headerId = -1;
-    }
-
+    /**
+     * @param message human-readable explanation; goes to operator logs
+     * @param headerId the failing header's id, used by callers to recover
+     *                 via {@code BillingONCHeader1Dao.findWithItems(headerId())}.
+     *                 Pass {@code -1} only if the throw site truly cannot
+     *                 supply the id (rare — both internal throw sites have
+     *                 the id in scope).
+     */
     public BillingItemsNotLoadedException(String message, int headerId) {
         super(message);
         this.headerId = headerId;
@@ -51,8 +54,7 @@ public final class BillingItemsNotLoadedException extends IllegalStateException 
 
     /**
      * Header id whose lazy items collection failed to initialize.
-     * Returns {@code -1} when the throw site couldn't supply the id
-     * (legacy ctor); callers can {@code findWithItems(headerId())} to
+     * Callers can {@code BillingONCHeader1Dao.findWithItems(headerId())} to
      * re-fetch with eager loading.
      */
     public int headerId() {

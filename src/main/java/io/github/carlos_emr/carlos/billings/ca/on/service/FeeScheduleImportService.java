@@ -202,6 +202,12 @@ public class FeeScheduleImportService {
                     BillingMoney.ohipFeeAmount(rawLine.substring(53, 64)),
                     BillingMoney.ohipFeeAmount(rawLine.substring(64, 75)));
         } catch (RuntimeException e) {
+            // The expected case is NumberFormatException from BillingMoney.ohipFeeAmount;
+            // the catch is intentionally broad in case BillingMoney's contract drifts.
+            // Log the line number + exception type so unknown failure modes remain
+            // debuggable instead of disappearing into the validation-error bag.
+            MiscUtils.getLogger().warn("Schedule of Benefits line {} failed to parse ({})",
+                    lineNumber, e.getClass().getSimpleName(), e);
             errors.add(new FeeScheduleValidationError(lineNumber, rawLine, "line", e.getMessage()));
             return null;
         }

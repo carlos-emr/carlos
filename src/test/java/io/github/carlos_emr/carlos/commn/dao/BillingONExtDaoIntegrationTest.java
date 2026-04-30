@@ -127,8 +127,13 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
 
     @Test
     @Tag("read")
-    @DisplayName("should return zero when payment value is not a valid number")
-    void shouldReturnZeroPayment_whenValueIsInvalid() throws Exception {
+    @DisplayName("should throw BillingValidationException when payment value is corrupt")
+    void shouldThrowBillingValidationException_whenPaymentValueIsInvalid() throws Exception {
+        // Pre-fix the DAO silently coalesced unparseable currency to $0.00 at WARN
+        // — operator saw an understated payment total with no UI signal. The
+        // narrowed catch now rethrows as BillingValidationException so the
+        // surrounding @Transactional unit-of-work rolls back instead of
+        // rendering a silently wrong total.
         BillingONPayment paymentRecord = new BillingONPayment();
         paymentRecord.setBillingNo(parentHeader.getId());
         paymentRecord.setPaymentDate(new Date());
@@ -144,8 +149,9 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
         dao.persist(extraBillingPayment);
         hibernateTemplate.flush();
 
-        BigDecimal payment = dao.getPayment(paymentRecord);
-        assertThat(payment).isEqualTo(new BigDecimal("0.00"));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> dao.getPayment(paymentRecord))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("Corrupt billing_on_ext.payment");
     }
 
     // --- getRefund tests ---
@@ -197,8 +203,11 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
 
     @Test
     @Tag("read")
-    @DisplayName("should return zero refund when refund value is not a valid number")
-    void shouldReturnZeroRefund_whenValueIsInvalid() throws Exception {
+    @DisplayName("should throw BillingValidationException when refund value is corrupt")
+    void shouldThrowBillingValidationException_whenRefundValueIsInvalid() throws Exception {
+        // Same reasoning as shouldThrowBillingValidationException_whenPaymentValueIsInvalid:
+        // a corrupt currency value silently understating the displayed refund
+        // is worse than failing loudly.
         BillingONPayment paymentRecord = new BillingONPayment();
         paymentRecord.setBillingNo(parentHeader.getId());
         paymentRecord.setPaymentDate(new Date());
@@ -214,8 +223,9 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
         dao.persist(extraBillingPayment);
         hibernateTemplate.flush();
 
-        BigDecimal refund = dao.getRefund(paymentRecord);
-        assertThat(refund).isEqualTo(new BigDecimal("0.00"));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> dao.getRefund(paymentRecord))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("Corrupt billing_on_ext.refund");
     }
 
     // --- getRemitTo tests ---

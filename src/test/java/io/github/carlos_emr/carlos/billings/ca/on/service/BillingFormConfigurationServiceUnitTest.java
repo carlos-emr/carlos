@@ -45,8 +45,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Behavior-pinning tests for {@link BillingFormConfigurationService}, the
- * round-4 atomic boundary covering 7 multi-write Manage Billing Form / Location
+ * Behavior-pinning tests for {@link BillingFormConfigurationService} — the
+ * atomic boundary covering 7 multi-write Manage Billing Form / Location
  * flows. The {@code @Transactional} rollback semantics themselves are
  * Spring-AOP-driven and can't be exercised without the proxy; what we DO
  * verify here:
@@ -56,7 +56,7 @@ import static org.mockito.Mockito.when;
  * </ul>
  *
  * <p>The propagation tests pin the contract that a future "swallow and
- * continue" change would re-introduce the partial-write bug round 4 fixed.
+ * continue" change would re-introduce the partial-write bug.
  */
 @DisplayName("BillingFormConfigurationService")
 @Tag("unit")

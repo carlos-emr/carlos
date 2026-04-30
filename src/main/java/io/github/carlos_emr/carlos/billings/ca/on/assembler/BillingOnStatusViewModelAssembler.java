@@ -513,11 +513,17 @@ public class BillingOnStatusViewModelAssembler {
             String amountPaid = "0.00";
             String errorCode = "";
             if ("-".equals(serviceCode) && raList.size() > 0) {
-                amountPaid = raLookupService.getAmountPaid(raList);
+                io.github.carlos_emr.carlos.billings.ca.on.service.BillingRaLookupService.AmountPaidResult r =
+                        raLookupService.getAmountPaidWithCount(raList);
+                amountPaid = r.formattedTotal();
+                unreadableTotalRowCount += r.unreadableCount();
                 errorCode = raLookupService.getErrorCodes(raList);
             } else if (raList.size() > 0) {
-                amountPaid = raLookupService.getAmountPaid(raList,
-                        ch1Obj.getId(), ch1Obj.getTransc_id());
+                io.github.carlos_emr.carlos.billings.ca.on.service.BillingRaLookupService.AmountPaidResult r =
+                        raLookupService.getAmountPaidWithCount(raList,
+                                ch1Obj.getId(), ch1Obj.getTransc_id());
+                amountPaid = r.formattedTotal();
+                unreadableTotalRowCount += r.unreadableCount();
                 errorCode = raLookupService.getErrorCodes(raList);
             }
             // 3rd-party billing pulls paid amount from the row directly.
@@ -535,17 +541,26 @@ public class BillingOnStatusViewModelAssembler {
             }
 
             BigDecimal bTemp;
-            BigDecimal adj;
             try {
                 bTemp = new BigDecimal(amountPaid.trim()).setScale(2, RoundingMode.HALF_UP);
-                adj = new BigDecimal(ch1Obj.getTotal()).setScale(2, RoundingMode.HALF_UP);
             } catch (NumberFormatException nfe) {
+                // amountPaid comes from raLookupService.getAmountPaid which
+                // formats to "$X.XX" — a parse failure here means the lookup
+                // returned malformed data. Surface as an unreadable-row so
+                // the operator sees the same banner as malformed totals.
                 MiscUtils.getLogger().error(
-                        "Could not parse amount paid for invoice " + ch1Obj.getId(), nfe);
-                throw nfe;
+                        "Could not parse amount paid for invoice {}; excluded from grand total",
+                        ch1Obj.getId(), nfe);
+                unreadableTotalRowCount++;
+                bTemp = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
             }
+            // Reuse the already-parsed `valueToAdd` (which is zeroed for
+            // unreadable rows above). Pre-fix this re-parsed ch1Obj.getTotal()
+            // here and rethrew on NFE, defeating the unreadableTotalRowCount
+            // mechanism — every malformed-total row would 500 the status page
+            // even though it was already "excluded from grand total" upstream.
+            BigDecimal adj = valueToAdd.subtract(bTemp);
             paidTotal = paidTotal.add(bTemp);
-            adj = adj.subtract(bTemp);
             adjTotal = adjTotal.add(adj);
 
             int qty = ch1Obj.getNumItems();

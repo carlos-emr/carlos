@@ -64,6 +64,22 @@ import static org.mockito.Mockito.when;
  * page-reload. A future refactor that re-introduces silent returns must
  * fail these tests loudly.</p>
  *
+ * <p><strong>Round-5 throw paths cross-referenced upstream:</strong></p>
+ * <ul>
+ *   <li>{@code updateInvoice} throws {@link BillingValidationException}
+ *       when {@code BillingONCHeader1.recomputeTotalFromItems()} returns
+ *       {@code Optional.empty} — the Optional-empty contract is pinned by
+ *       {@code BillingONCHeader1UnitTest.recomputeTotalFromItems#shouldReturnEmpty_whenAnyActiveItemFeeIsNull}
+ *       and the unparseable-fee variant. A regression that re-introduces
+ *       {@code return "failure"} would commit dirty-flushed item edits
+ *       without rolling back; the upstream pinning ensures the precondition
+ *       still triggers the throw.</li>
+ *   <li>{@code updateInvoice} throws when {@code updateBillingONCHeader1}
+ *       returns false — currently unreachable (the helper only returns
+ *       true), the throw is forward-looking guard code preserved by the
+ *       round-5 fix in case future changes introduce a false return.</li>
+ * </ul>
+ *
  * @since 2026-04-25
  */
 @DisplayName("BillingCorrectionService validation throws")

@@ -6,16 +6,16 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.billings.ca.on.web;
+package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 
-import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionSubmitCommand;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionSubmissionService;
-import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
+import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
+import io.github.carlos_emr.carlos.commn.dao.BillingDao;
+import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
@@ -29,37 +29,38 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Pins {@code _billing/w} privilege + POST-only on the submit boundary,
- * and verifies that a {@link BillingValidationException} from the service
- * is converted to {@code ERROR} (not propagated) so the JSP can render the
- * error banner.
+ * Pins {@code _billing/w} privilege on the BC bill-delete-by-billing-no
+ * action and verifies the soft-delete is not invoked when the gate denies.
  *
- * @since 2026-04-29
+ * @since 2026-04-30
  */
-@DisplayName("BillingCorrectionSubmit2Action")
+@DisplayName("BillingDeleteNoAppt2Action (BC)")
 @Tag("unit")
 @Tag("billing")
-class BillingCorrectionSubmit2ActionUnitTest {
+class BillingDeleteNoAppt2ActionUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
     private AutoCloseable mockitoCloseable;
 
     @Mock private SecurityInfoManager mockSecurityInfoManager;
-    @Mock private BillingCorrectionSubmissionService mockSubmissionService;
+    @Mock private BillingDao mockBillingDao;
+    @Mock private BillingmasterDAO mockBillingmasterDao;
     @Mock private LoggedInInfo mockLoggedInInfo;
+    @Mock private Billing mockBilling;
 
     private MockHttpServletRequest mockRequest;
     private MockHttpServletResponse mockResponse;
@@ -70,16 +71,20 @@ class BillingCorrectionSubmit2ActionUnitTest {
         mockRequest = new MockHttpServletRequest();
         mockResponse = new MockHttpServletResponse();
         mockRequest.setMethod("POST");
-        // itemCount=0 → empty items list, avoids the parser branch.
-        mockRequest.setParameter("itemCount", "0");
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
         servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(mockResponse);
 
+        registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
+        registerMock(BillingDao.class, mockBillingDao);
+        registerMock(BillingmasterDAO.class, mockBillingmasterDao);
+
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(mockLoggedInInfo);
+
+        when(mockBillingmasterDao.getBillingMasterByBillingNo(any())).thenReturn(List.of());
     }
 
     @AfterEach
@@ -90,60 +95,61 @@ class BillingCorrectionSubmit2ActionUnitTest {
     }
 
     @Test
-    void shouldDelegateAndReturnSuccess_whenPrivilegeGrantedAndPost() {
-        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
-                .thenReturn(true);
-
-        BillingCorrectionSubmit2Action action = new BillingCorrectionSubmit2Action(
-                mockSecurityInfoManager, mockSubmissionService);
-
-        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
-        verify(mockSubmissionService).submit(eq(mockLoggedInInfo), any(BillingCorrectionSubmitCommand.class));
-    }
-
-    @Test
     void shouldThrowSecurityException_whenPrivilegeMissing() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(false);
+        mockRequest.setParameter("billCode", "A001");
+        mockRequest.setParameter("billing_no", "42");
 
-        BillingCorrectionSubmit2Action action = new BillingCorrectionSubmit2Action(
-                mockSecurityInfoManager, mockSubmissionService);
+        BillingDeleteNoAppt2Action action = new BillingDeleteNoAppt2Action();
 
         assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_billing");
-        verify(mockSubmissionService, never()).submit(any(LoggedInInfo.class), any(BillingCorrectionSubmitCommand.class));
+        verify(mockBillingDao, never()).merge(any());
     }
 
     @Test
-    void shouldReturnError_whenServiceThrowsValidationException() {
+    void shouldSoftDelete_whenPrivilegeGrantedAndValidParams() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(true);
-        doThrow(new BillingValidationException("billing_date is missing or not yyyy-MM-dd"))
-                .when(mockSubmissionService).submit(any(LoggedInInfo.class), any(BillingCorrectionSubmitCommand.class));
+        when(mockBillingDao.find(42)).thenReturn(mockBilling);
+        mockRequest.setParameter("billCode", "A001");
+        mockRequest.setParameter("billing_no", "42");
 
-        BillingCorrectionSubmit2Action action = new BillingCorrectionSubmit2Action(
-                mockSecurityInfoManager, mockSubmissionService);
+        BillingDeleteNoAppt2Action action = new BillingDeleteNoAppt2Action();
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(mockBilling).setStatus("D");
+        verify(mockBillingDao).merge(mockBilling);
+    }
+
+    @Test
+    void shouldReturnCannotDelete_whenBillCodeStartsWithB() {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        // A "B" prefix indicates the bill has already been billed (B for billed)
+        // and is therefore not deletable. The legacy contract was a string-prefix
+        // check; this pins it so a future refactor that drops the guard
+        // surfaces here.
+        mockRequest.setParameter("billCode", "B001");
+        mockRequest.setParameter("billing_no", "42");
+
+        BillingDeleteNoAppt2Action action = new BillingDeleteNoAppt2Action();
+
+        assertThat(action.execute()).isEqualTo("cannotDelete");
+        assertThat(mockRequest.getAttribute("cannotDelete")).isEqualTo(Boolean.TRUE);
+        verify(mockBillingDao, never()).merge(any());
+    }
+
+    @Test
+    void shouldReturnError_whenBillCodeMissing() {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(true);
+
+        BillingDeleteNoAppt2Action action = new BillingDeleteNoAppt2Action();
 
         assertThat(action.execute()).isEqualTo(ActionSupport.ERROR);
-        assertThat(mockRequest.getAttribute("correctionError")).isEqualTo(Boolean.TRUE);
-        // The specific message must round-trip to the request so the JSP
-        // can render the cause inline instead of a generic banner.
-        assertThat(mockRequest.getAttribute("correctionErrorMessage"))
-                .isEqualTo("billing_date is missing or not yyyy-MM-dd");
-    }
-
-    @Test
-    void shouldReturn405_whenNotPost() {
-        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
-                .thenReturn(true);
-        mockRequest.setMethod("GET");
-
-        BillingCorrectionSubmit2Action action = new BillingCorrectionSubmit2Action(
-                mockSecurityInfoManager, mockSubmissionService);
-
-        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
-        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-        verify(mockSubmissionService, never()).submit(any(LoggedInInfo.class), any(BillingCorrectionSubmitCommand.class));
+        verify(mockBillingDao, never()).merge(any());
     }
 }

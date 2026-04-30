@@ -59,30 +59,30 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
     private static final Logger logger = MiscUtils.getLogger();
     private static final long serialVersionUID = 1L;
 
-    public static final String OPEN = "O";
-    public static final String SETTLED = "S";
-    public static final String DELETED = "D";
-    public static final String BILLED = "B";
+    // Status constants are re-exported from BillingStatus so existing
+    // callers (BillingONCHeader1.OPEN etc.) keep compiling, while the
+    // canonical whitelist lives in one place.
+    public static final String OPEN = BillingStatus.OPEN;
+    public static final String SETTLED = BillingStatus.SETTLED;
+    public static final String DELETED = BillingStatus.DELETED;
+    public static final String BILLED = BillingStatus.BILLED;
     /** Patient-billed (callers in BillingClaimSubmissionService). */
-    public static final String PATIENT_BILLED = "P";
+    public static final String PATIENT_BILLED = BillingStatus.PATIENT_BILLED;
     /** No-charge / not billed (BillingClaimSubmissionService when payProg starts with NOT). */
-    public static final String NOT_BILLED = "N";
+    public static final String NOT_BILLED = BillingStatus.NOT_BILLED;
     /** Independent / BON billing (BillingClaimSubmissionService when payProg starts with BON). */
-    public static final String INDEPENDENT = "I";
+    public static final String INDEPENDENT = BillingStatus.INDEPENDENT;
     /** WCB billing (BillingClaimSubmissionService when payProg starts with WCB). */
-    public static final String WCB = "W";
+    public static final String WCB = BillingStatus.WCB;
     /** Acknowledgement (legacy values seen in tests / DB). */
-    public static final String ACKNOWLEDGED = "A";
+    public static final String ACKNOWLEDGED = BillingStatus.ACKNOWLEDGED;
 
     /**
-     * Whitelist of recognized status values. Includes every literal observed
-     * in production code paths plus the four legacy/test values. Unknown
-     * values throw IllegalArgumentException at the {@link #setStatus} call
-     * site so drift can be caught at write-time.
+     * Whitelist of recognized status values. Aliased to
+     * {@link BillingStatus#KNOWN} so {@link BillingONCHeader1} and
+     * {@link BillingONItem} share one source of truth.
      */
-    private static final Set<String> KNOWN_STATUSES = Set.of(
-            OPEN, SETTLED, DELETED, BILLED, PATIENT_BILLED,
-            NOT_BILLED, INDEPENDENT, WCB, ACKNOWLEDGED);
+    private static final Set<String> KNOWN_STATUSES = BillingStatus.KNOWN;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -635,6 +635,18 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
      * @param billingItems the new collection; {@code null} clears it.
      */
     public void setBillingItems(List<BillingONItem> billingItems) {
+        // Hibernate uses field access on this entity, so flush sees the field
+        // directly rather than going through getBillingItems(). Replacing the
+        // PersistentBag with an ArrayList on a managed (already-persisted)
+        // header silently breaks dirty tracking — the orphan-removal cascade
+        // re-deletes the existing children and re-inserts the new list, which
+        // is almost never the caller's intent. Guard at runtime so the misuse
+        // surfaces immediately rather than as a downstream Hibernate quirk.
+        if (this.id != null) {
+            throw new IllegalStateException(
+                    "setBillingItems must not be called on a managed (persisted) header — "
+                            + "use addBillingItem/removeBillingItem instead. ch1.id=" + this.id);
+        }
         this.billingItems = billingItems == null ? null : new ArrayList<>(billingItems);
     }
 

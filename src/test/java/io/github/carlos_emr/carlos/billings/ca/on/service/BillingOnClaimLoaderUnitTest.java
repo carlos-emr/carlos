@@ -138,7 +138,7 @@ class BillingOnClaimLoaderUnitTest {
         assertThat(fee).isNull();
     }
 
-    // ---- getBill(...) dedup contract (round-4 fix) ----------------------
+    // ---- getBill(...) dedup contract ------------------------------------
 
     /** Build the 18-element row[] shape that BillingDao.findBillingData returns. */
     private static String[] billRow(String ch1Id, String payProgram, String paid, String itemId) {

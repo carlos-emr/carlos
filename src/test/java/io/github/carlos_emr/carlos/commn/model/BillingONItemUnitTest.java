@@ -156,6 +156,19 @@ class BillingONItemUnitTest {
         }
 
         @Test
+        void shouldAcceptDefunctSentinel_persistedByCorrectionServiceForTerminatedCodes() {
+            // BillingCorrectionService writes this sentinel when an item references
+            // a service code whose termination date precedes the service date.
+            // Downstream code detects it via DEFUNCT_FEE.equals(item.getFee())
+            // and skips numeric operations. The setter MUST allow the sentinel
+            // through unchanged or correcting a bill containing a terminated
+            // code throws IllegalArgumentException and aborts the entire save.
+            BillingONItem item = new BillingONItem();
+            item.setFee(BillingONItem.DEFUNCT_FEE);
+            assertThat(item.getFee()).isEqualTo(BillingONItem.DEFUNCT_FEE);
+        }
+
+        @Test
         void shouldNotMutateField_whenRejectingInvalidValue() {
             BillingONItem item = new BillingONItem();
             item.setFee("100.00");

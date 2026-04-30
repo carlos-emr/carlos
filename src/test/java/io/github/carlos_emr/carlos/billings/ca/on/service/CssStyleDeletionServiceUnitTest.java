@@ -35,7 +35,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link CssStyleDeletionService}, the round-3 atomic
+ * Unit tests for {@link CssStyleDeletionService} — the atomic
  * soft-delete + cascade for css_styles. Pins:
  * <ul>
  *   <li>null styleId → false, no DAO writes</li>

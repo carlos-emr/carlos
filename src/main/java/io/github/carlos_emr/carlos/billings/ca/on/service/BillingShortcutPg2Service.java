@@ -79,6 +79,7 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
  * @since 2026-04-26
  */
 @org.springframework.stereotype.Service
+@org.springframework.transaction.annotation.Transactional
 public class BillingShortcutPg2Service {
 
     private final BillingDao billingDao;
@@ -247,7 +248,7 @@ public class BillingShortcutPg2Service {
      * {@code providerBean} populated at login), visit-type / bill-type /
      * location split-on-pipe labels, SLI-applicable flag, request-param
      * echoes for the hidden-input loop, and the pre-rendered billDate column
-     * HTML. Centralizing these in the assembler keeps the JSP body 100% EL.
+     * HTML. Centralizing these in the service keeps the JSP body 100% EL.
      */
     private void applyJspViewFieldsToBuilder(BillingShortcutPg2ViewModel.Builder b,
                                              HttpServletRequest request) {
@@ -572,12 +573,15 @@ public class BillingShortcutPg2Service {
             billingDetailDao.persist(bd);
 
             if (bd.getId() == 0) {
-                Billing bb = billingDao.find(nBillNo);
-                if (bb != null) {
-                    bb.setStatus("D");
-                    billingDao.merge(bb);
-                }
-                break;
+                // Pre-fix this branch set the parent's status to "D" and
+                // break, leaving any earlier-persisted detail rows pointing
+                // at a now-deleted bill — partial write that the action
+                // never saw. With the class @Transactional, throwing here
+                // rolls back BOTH the parent Billing AND every successfully-
+                // persisted detail in this loop.
+                throw new BillingValidationException(
+                        "Bill save rolled back: detail persist failed at row " + i
+                                + " for bill " + nBillNo);
             }
         }
     }

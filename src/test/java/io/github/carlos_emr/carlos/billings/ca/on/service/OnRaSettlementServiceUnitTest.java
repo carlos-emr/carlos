@@ -62,11 +62,11 @@ class OnRaSettlementServiceUnitTest {
 
     @Test
     void shouldThrowAndDoNothing_whenRaNoIsNull() {
-        // Pre-fix: returned false silently; both ViewOnGenRaSettle2Action and
-        // ViewOnGenRaSettle352Action ignored the boolean and rendered SUCCESS,
-        // so the operator saw "Settle complete" while no rows settled. Round 2
-        // #11 throws BillingValidationException so the action's exception
-        // mapping renders the validation page.
+        // The legacy boolean-return contract was silently ignored by both
+        // ViewOnGenRaSettle2Action and ViewOnGenRaSettle352Action, so a null
+        // raNo produced "Settle complete" with no rows actually settled.
+        // Throwing BillingValidationException routes the failure to the
+        // action's exception mapping and renders the validation page.
         org.assertj.core.api.Assertions.assertThatThrownBy(
                 () -> service.settle(null, OnRaSettlementService.Mode.STANDARD))
                 .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)

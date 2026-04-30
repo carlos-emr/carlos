@@ -38,9 +38,7 @@ import org.apache.struts2.ServletActionContext;
 /**
  * View gate for {@code billing/CA/ON/billingReportCenter.jsp}. Enforces {@code _report}
  * {@code r} privilege before forwarding to the JSP at its
- * {@code /WEB-INF/jsp/} location. Created as part of the ON billing migration
- * to gate direct-access paths behind Struts2 actions (matches the BC
- * billing 2Action gate convention).
+ * {@code /WEB-INF/jsp/} location.
  *
  * <p>Admin / doctor roles are redirected to the new-report dashboard to
  * preserve the legacy {@code request.getRequestDispatcher("...").include}

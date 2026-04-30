@@ -73,13 +73,10 @@ import static org.mockito.Mockito.verify;
  *   <li>Happy path: {@code addOneClaimHeaderRecord}, {@code addItemRecord},
  *       and {@code addItemPaymentRecord} all populate entities and call
  *       {@code persist} once per row.</li>
- *   <li>Date parse swallow at {@code addOneClaimHeaderRecord:154} (admission
- *       date) and {@code addItemRecord:225} (service date) — documents the
- *       legacy preservation: a malformed date string is silently dropped and
- *       the entity persists with whatever default the field holds (admission
- *       date stays {@code null}). This is a known regression target tracked
- *       outside this PR; the test exists so a future fix has an explicit
- *       failing-spec to flip.</li>
+ *   <li>Strict-parse contract: malformed admission_date / billing_date /
+ *       service_date abort the {@code @Transactional} unit-of-work via
+ *       {@link IllegalArgumentException}, so the surrounding transaction
+ *       rolls back rather than persisting a row with silently-dropped fields.</li>
  *   <li>Legacy {@code addItemRecord} return-value oddity: the boolean is
  *       initialised to {@code true} and never flipped, so the caller's
  *       {@code if (!ret)} guard is dead. The test pins the contract.</li>
@@ -202,14 +199,12 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
             verify(cheaderDao, times(1)).persist(any(BillingONCHeader1.class));
         }
 
-        // The following four tests close the gap left by commit 02364aed59
-        // ("close 4 remaining swallow-and-persist sites in *Persister methods")
-        // — the admission_date fix at line 157 missed the billing_date and
-        // billing_time catches five lines below at 178-189. With the swallow
-        // present, malformed input was silently logged and the row persisted
-        // with date/time NULL. The fix routes both fields through the
-        // strict-but-blank-tolerant {@link BillingDates#parseOptionalIsoDate}
-        // and {@link BillingDates#parseOptionalIsoTime} helpers.
+        // These four tests pin strict-parse on billing_date and billing_time
+        // (admission_date is covered by the tests above). Malformed input
+        // must not silently persist a row with the field NULLed out — both
+        // sites route through {@link BillingDates#parseOptionalIsoDate} and
+        // {@link BillingDates#parseOptionalIsoTime}, which accept blank but
+        // throw on garbage.
 
         @Test
         void shouldThrow_whenBillingDateIsMalformed() {

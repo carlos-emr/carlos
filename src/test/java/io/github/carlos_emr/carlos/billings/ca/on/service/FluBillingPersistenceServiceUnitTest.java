@@ -35,7 +35,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 /**
- * Unit tests for {@link FluBillingPersistenceService}, the round-3 atomic
+ * Unit tests for {@link FluBillingPersistenceService} — the atomic
  * Billing+BillingDetail persist pair. Pins:
  * <ul>
  *   <li>parent persists before child, and the FK is stamped from the

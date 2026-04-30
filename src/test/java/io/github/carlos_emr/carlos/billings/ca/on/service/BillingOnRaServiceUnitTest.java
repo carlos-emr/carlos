@@ -213,16 +213,21 @@ class BillingOnRaServiceUnitTest {
     // ---- getRASummary: pin the silent-swallow contract -----------------
 
     @Test
-    void shouldReturnPartialList_whenGetRASummaryHitsDaoError() {
-        // Legacy contract per silent-failure agent: catch (Exception) ->
-        // logger.error -> return partial list. Pin this until the wider
-        // "Important" tier follow-up changes the contract to fail-closed.
+    void shouldAppendLoadFailureMarker_whenGetRASummaryHitsDaoError() {
+        // Round-6 P1-8 contract change: when the outer catch fires, the
+        // service appends a marker Properties row with LOAD_FAILURE_MARKER=true
+        // so the downstream consumer (BillingRaReportService.getRASummary)
+        // can detect the partial load and bump xml_partial_count, which
+        // ultimately blocks OnRaSummaryTotalsService.mergeTotals from
+        // overwriting RaHeader.content with the partial total.
         when(raDetailDao.findByRaHeaderNoAndProviderOhipNo(anyInt(), org.mockito.ArgumentMatchers.anyString()))
                 .thenThrow(new RuntimeException("simulated DAO failure"));
 
         List<Properties> result = service.getRASummary("99", "012345");
 
-        assertThat(result).isEmpty(); // partial-list-on-error contract
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getProperty(BillingOnRaService.LOAD_FAILURE_MARKER))
+                .isEqualTo("true");
     }
 
     @Test

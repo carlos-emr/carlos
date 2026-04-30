@@ -41,6 +41,7 @@ import java.util.List;
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.NativeSql;
+import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
 import org.springframework.stereotype.Repository;
 
@@ -415,7 +416,7 @@ public class BillingServiceDaoImpl extends AbstractDaoImpl<BillingService> imple
             }
             Date tDate = b.getTerminationDate();
             if (tDate.before(serviceDate)) {
-                retval = "defunct";
+                retval = BillingONItem.DEFUNCT_FEE;
             }
         }
 

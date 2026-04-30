@@ -88,7 +88,16 @@ public class RemovePaymentType2Action extends ActionSupport {
             return null;
         }
 
-        if (paymentTypeId != 0) {
+        if (paymentTypeId == 0) {
+            // Explicit reject branch — the legacy code skipped the if-body
+            // and wrote an empty {} JSON, which the client JS interprets as
+            // missing/undefined fields and either silently fails or throws
+            // on `.ret`. Surface a real reason so the operator sees the
+            // rejection in the popup.
+            MiscUtils.getLogger().info("RemovePaymentType: paymentTypeId=0 rejected (would-be no-op silent ack)");
+            ret.put("ret", 1);
+            ret.put("reason", "Invalid paymentTypeId");
+        } else {
             int count = billPaymentDao.getCountOfPaymentByPaymentTypeId(paymentTypeId);
             if (count == 0) {
                 billingPaymentTypeDao.remove(paymentTypeId);

@@ -45,20 +45,32 @@ public class BillingONItem extends AbstractModel<Integer> implements Serializabl
 
     private static final Logger logger = MiscUtils.getLogger();
 
-    public static final String OPEN = "O";
-    public static final String SETTLED = "S";
-    public static final String DELETED = "D";
-    public static final String BILLED = "B";
-    public static final String PATIENT_BILLED = "P";
-    public static final String NOT_BILLED = "N";
-    public static final String INDEPENDENT = "I";
-    public static final String WCB = "W";
-    public static final String ACKNOWLEDGED = "A";
+    // Status constants re-exported from BillingStatus so existing callers
+    // (BillingONItem.OPEN etc.) keep compiling while the canonical
+    // whitelist lives in one place.
+    public static final String OPEN = BillingStatus.OPEN;
+    public static final String SETTLED = BillingStatus.SETTLED;
+    public static final String DELETED = BillingStatus.DELETED;
+    public static final String BILLED = BillingStatus.BILLED;
+    public static final String PATIENT_BILLED = BillingStatus.PATIENT_BILLED;
+    public static final String NOT_BILLED = BillingStatus.NOT_BILLED;
+    public static final String INDEPENDENT = BillingStatus.INDEPENDENT;
+    public static final String WCB = BillingStatus.WCB;
+    public static final String ACKNOWLEDGED = BillingStatus.ACKNOWLEDGED;
 
-    /** See {@code BillingONCHeader1.KNOWN_STATUSES} — same closed set. */
-    private static final Set<String> KNOWN_STATUSES = Set.of(
-            OPEN, SETTLED, DELETED, BILLED, PATIENT_BILLED,
-            NOT_BILLED, INDEPENDENT, WCB, ACKNOWLEDGED);
+    /** See {@link BillingStatus#KNOWN} — same closed set. */
+    private static final Set<String> KNOWN_STATUSES = BillingStatus.KNOWN;
+
+    /**
+     * Sentinel fee value written by {@code BillingCorrectionService} when an
+     * item references a service code whose termination date precedes the
+     * service date. Persisted as-is so the correction UI can render
+     * "(defunct)" inline; downstream consumers detect it via
+     * {@code DEFUNCT_FEE.equals(item.getFee())}. Excluded from the
+     * BigDecimal-parseability check in {@link #setFee} so a corrected
+     * bill with a terminated-code line can still be saved.
+     */
+    public static final String DEFUNCT_FEE = "defunct";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -143,12 +155,19 @@ public class BillingONItem extends AbstractModel<Integer> implements Serializabl
      * {@code BillingONCHeader1.recomputeTotalFromItems()} that the user
      * sees as a generic failure.
      *
-     * @param fee BigDecimal-parseable string, or {@code null}
-     * @throws IllegalArgumentException if {@code fee} is non-null and not
-     *                                  a valid {@code BigDecimal}
+     * <p>The {@link #DEFUNCT_FEE} sentinel is allowed unchanged so a corrected
+     * bill referencing a service code past its termination date can still be
+     * persisted (see {@code BillingCorrectionService.updateInvoice} where this
+     * sentinel is written when {@code bService.getTerminationDate().before(serviceDate)}).</p>
+     *
+     * @param fee BigDecimal-parseable string, the {@link #DEFUNCT_FEE}
+     *            sentinel, or {@code null}
+     * @throws IllegalArgumentException if {@code fee} is non-null, not equal
+     *                                  to {@link #DEFUNCT_FEE}, and not a
+     *                                  valid {@code BigDecimal}
      */
     public void setFee(String fee) {
-        if (fee != null) {
+        if (fee != null && !DEFUNCT_FEE.equals(fee)) {
             try {
                 new java.math.BigDecimal(fee);
             } catch (NumberFormatException e) {
@@ -159,6 +178,34 @@ public class BillingONItem extends AbstractModel<Integer> implements Serializabl
             }
         }
         this.fee = fee;
+    }
+
+    /**
+     * Read the fee as a {@link java.math.BigDecimal}, or empty when the
+     * field is null or carries the {@link #DEFUNCT_FEE} sentinel.
+     *
+     * <p>Centralises the parse so callers don't repeat
+     * {@code new BigDecimal(item.getFee())} (which NPEs on null and throws
+     * on the {@code "defunct"} sentinel). Pre-condition: {@link #setFee}'s
+     * BigDecimal-parseability invariant holds for non-null, non-defunct
+     * values, so the wrapped {@code new BigDecimal(...)} cannot throw on
+     * data written through the setter — but legacy rows may bypass the
+     * setter, hence the swallow + empty return that mirrors the same
+     * defence used in
+     * {@link BillingONCHeader1#recomputeTotalFromItems()}.</p>
+     *
+     * @return the parsed amount, or {@link java.util.Optional#empty()} for
+     *         null / defunct / legacy-malformed values
+     */
+    public java.util.Optional<java.math.BigDecimal> getFeeAsBigDecimal() {
+        if (fee == null || DEFUNCT_FEE.equals(fee)) {
+            return java.util.Optional.empty();
+        }
+        try {
+            return java.util.Optional.of(new java.math.BigDecimal(fee));
+        } catch (NumberFormatException e) {
+            return java.util.Optional.empty();
+        }
     }
 
     public String getServiceCount() {
@@ -261,6 +308,18 @@ public class BillingONItem extends AbstractModel<Integer> implements Serializabl
         return ch1Id;
     }
 
+    /**
+     * Direct setter on the FK column. Most callers should prefer
+     * {@link BillingONCHeader1#addBillingItem(BillingONItem)} which sets
+     * this field implicitly so the parent-child relationship can't drift.
+     * Direct invocation is supported for the persister/correction services
+     * that build {@code BillingONItem} from a DTO before the parent header
+     * is in scope (see {@code BillingOnClaimPersister.parseItem}); those
+     * callers are responsible for matching the assigned id to a real
+     * persisted header on the same transaction.
+     *
+     * @param ch1Id FK to {@link BillingONCHeader1#getId()}
+     */
     public void setCh1Id(Integer ch1Id) {
         this.ch1Id = ch1Id;
     }

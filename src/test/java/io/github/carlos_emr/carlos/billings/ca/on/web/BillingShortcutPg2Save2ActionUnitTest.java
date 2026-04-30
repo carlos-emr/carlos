@@ -59,7 +59,7 @@ class BillingShortcutPg2Save2ActionUnitTest extends CarlosUnitTestBase {
     private MockHttpServletRequest mockRequest;
     private MockHttpServletResponse mockResponse;
     private SecurityInfoManager mockSecurityInfoManager;
-    private BillingShortcutPg2Service mockAssembler;
+    private BillingShortcutPg2Service mockService;
     private LoggedInInfo mockLoggedInInfo;
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
@@ -71,7 +71,7 @@ class BillingShortcutPg2Save2ActionUnitTest extends CarlosUnitTestBase {
         mockRequest.setMethod("POST");
 
         mockSecurityInfoManager = mock(SecurityInfoManager.class);
-        mockAssembler = mock(BillingShortcutPg2Service.class);
+        mockService = mock(BillingShortcutPg2Service.class);
         mockLoggedInInfo = mock(LoggedInInfo.class);
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
@@ -93,7 +93,7 @@ class BillingShortcutPg2Save2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     private BillingShortcutPg2Save2Action newAction() {
-        return new BillingShortcutPg2Save2Action(mockSecurityInfoManager, mockAssembler);
+        return new BillingShortcutPg2Save2Action(mockSecurityInfoManager, mockService);
     }
 
     @Test

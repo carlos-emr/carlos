@@ -35,9 +35,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.OnRaImportService;
 /**
  * View gate for {@code billing/CA/ON/onGenRA.jsp}. Enforces {@code _billing}
  * {@code r} privilege before forwarding to the JSP at its
- * {@code /WEB-INF/jsp/} location. Created as part of the ON billing migration
- * to gate direct-access paths behind Struts2 actions (matches the BC
- * billing 2Action gate convention).
+ * {@code /WEB-INF/jsp/} location.
  *
  * <p>Also assembles the {@link OnRaViewModel} the JSP renders (RA-header
  * row list filtered by {@code _team_billing_only}, {@code _team_access_privacy},

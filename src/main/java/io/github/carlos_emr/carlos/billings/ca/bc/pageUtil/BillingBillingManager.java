@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
@@ -366,6 +367,17 @@ public class BillingBillingManager implements Serializable {
                         this.percentage = 100.00;
                     }
                 } catch (NumberFormatException eNum) {
+                    // A malformed gstPercent/getPercentage drives wrong invoice
+                    // totals downstream — surface the exact offending values
+                    // and the service code so reconciliation can find them,
+                    // then default to 100 (legacy behaviour, kept to avoid a
+                    // hot-path regression in BC billing rendering).
+                    MiscUtils.getLogger().error(
+                            "BC BillingBillingManager: invalid percentage on service {} (gstPercent={}, bsPercentage={}); defaulting to 100",
+                            LogSanitizer.sanitize(bs.getServiceCode()),
+                            LogSanitizer.sanitize(gstPercent),
+                            LogSanitizer.sanitize(bs.getPercentage()),
+                            eNum);
                     this.percentage = 100;
                 }
             }

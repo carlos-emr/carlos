@@ -98,9 +98,15 @@ public class BillingLegacyReport2Action extends ActionSupport {
                     }
                 }
             } catch (Exception e) {
-                MiscUtils.getLogger().warn("billingLreport: failed to read MOH response file {} from ONEDT_INBOX",
+                // Failing to read an admin-selected MOH response file is an
+                // operator-facing problem, not a debug detail — log at ERROR
+                // and stash a message on the request so the JSP can render an
+                // explicit banner instead of a silent blank report.
+                MiscUtils.getLogger().error("billingLreport: failed to read MOH response file {} from ONEDT_INBOX",
                         LogSanitizer.sanitize(filename), e);
                 fileContents = "";
+                request.setAttribute("readError",
+                        "Could not read MOH response file: " + filename);
             }
         }
 

@@ -31,10 +31,12 @@ import jakarta.persistence.Query;
 import jakarta.persistence.NoResultException;
 import jakarta.persistence.NonUniqueResultException;
 
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONExt;
 import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.stereotype.Repository;
@@ -121,9 +123,17 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
             try {
                 amtPaid = new BigDecimal(payment.getValue());
             } catch (NumberFormatException e) {
-                MiscUtils.getLogger().warn("Payment not a valid currency amount (" + payment.getValue()
-                        + ") for Payment Id:" + paymentRecord.getId());
-                amtPaid = new BigDecimal("0.00");
+                // A malformed currency value would silently understate the
+                // displayed payment total. Promote to ERROR with sanitized
+                // context (paymentId + billingNo) so reconciliation can find
+                // the offending row, and rethrow as the typed billing
+                // exception so callers see the corruption rather than a
+                // misleading $0.00.
+                MiscUtils.getLogger().error("billing_on_ext.payment for paymentId={} billingNo={} is not a valid currency amount",
+                        LogSanitizer.sanitize(String.valueOf(paymentRecord.getId())),
+                        LogSanitizer.sanitize(String.valueOf(paymentRecord.getBillingNo())), e);
+                throw new BillingValidationException(
+                        "Corrupt billing_on_ext.payment value; see logs for paymentId/billingNo", e);
             }
         }
         return amtPaid;
@@ -151,9 +161,13 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
             try {
                 amtRefunded = new BigDecimal(refund.getValue());
             } catch (NumberFormatException e) {
-                MiscUtils.getLogger().warn("Refund not a valid currency amount (" + refund.getValue()
-                        + ") for Payment Id:" + paymentRecord.getId());
-                amtRefunded = new BigDecimal("0.00");
+                // Same reasoning as getPayment: silently understated refund
+                // totals are worse than failing loudly. Rethrow.
+                MiscUtils.getLogger().error("billing_on_ext.refund for paymentId={} billingNo={} is not a valid currency amount",
+                        LogSanitizer.sanitize(String.valueOf(paymentRecord.getId())),
+                        LogSanitizer.sanitize(String.valueOf(paymentRecord.getBillingNo())), e);
+                throw new BillingValidationException(
+                        "Corrupt billing_on_ext.refund value; see logs for paymentId/billingNo", e);
             }
         }
         return amtRefunded;
@@ -330,6 +344,13 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
         try {
             return Integer.parseInt(billingNo);
         } catch (NumberFormatException e) {
+            // Caller (getBillingExtItems / getInactiveBillingExtItems)
+            // translates null to an empty list. Without a log the UI's
+            // "no items" rendering is indistinguishable from "billingNo
+            // was garbage from a broken caller" — emit a debug entry so
+            // ops can grep for it without spamming production logs.
+            MiscUtils.getLogger().debug("parseBillingNo: non-numeric billingNo {} — returning null",
+                    LogSanitizer.sanitize(billingNo));
             return null;
         }
     }
@@ -360,38 +381,38 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
     @Override
     public BillingONExt getClaimExtItem(Integer billingNo, Integer demographicNo, String keyVal)
             throws NonUniqueResultException {
-        String filter1 = (billingNo == null ? "" : "ext.billingNo = ?1");
-        String filter2 = (demographicNo == null ? "" : "ext.demographicNo = ?2");
-        String filter3 = (keyVal == null ? "" : "ext.keyVal = ?3");
-        String sql = "select ext from BillingONExt ext";
-        boolean isWhere = false;
-        if (filter1 != null) {
-            sql += " where ext.billingNo = ?1";
-            isWhere = true;
+        // Three optional named-parameter clauses. The legacy version stored
+        // ternary "" / "ext.x=?n" strings and tested them with `!= null`,
+        // which always passed (the empty branch was unreachable); it also
+        // gated the second setParameter on filter1 instead of filter2 so
+        // demographicNo was bound whenever billingNo was bound. The eight
+        // case combinations below are an exhaustive whitelist of fully
+        // literal HQL — no concatenation, no user input in the query text.
+        boolean hb = (billingNo != null);
+        boolean hd = (demographicNo != null);
+        boolean hk = (keyVal != null);
+        String hql;
+        if (hb && hd && hk) {
+            hql = "select ext from BillingONExt ext where ext.billingNo = ?1 and ext.demographicNo = ?2 and ext.keyVal = ?3";
+        } else if (hb && hd) {
+            hql = "select ext from BillingONExt ext where ext.billingNo = ?1 and ext.demographicNo = ?2";
+        } else if (hb && hk) {
+            hql = "select ext from BillingONExt ext where ext.billingNo = ?1 and ext.keyVal = ?3";
+        } else if (hd && hk) {
+            hql = "select ext from BillingONExt ext where ext.demographicNo = ?2 and ext.keyVal = ?3";
+        } else if (hb) {
+            hql = "select ext from BillingONExt ext where ext.billingNo = ?1";
+        } else if (hd) {
+            hql = "select ext from BillingONExt ext where ext.demographicNo = ?2";
+        } else if (hk) {
+            hql = "select ext from BillingONExt ext where ext.keyVal = ?3";
+        } else {
+            hql = "select ext from BillingONExt ext";
         }
-        if (filter2 != null) {
-            if (isWhere)
-                sql += " and demographicNo = ?2";
-            else {
-                sql += "where demographicNo = ?2";
-                isWhere = true;
-            }
-        }
-        if (filter3 != null) {
-            if (isWhere)
-                sql += " and keyVal = ?3";
-            else {
-                sql += "where keyVal = ?3";
-                isWhere = true;
-            }
-        }
-        Query query = entityManager.createQuery(sql);
-        if (filter1 != null)
-            query.setParameter(1, billingNo);
-        if (filter1 != null)
-            query.setParameter(2, demographicNo);
-        if (filter3 != null)
-            query.setParameter(3, keyVal);
+        Query query = entityManager.createQuery(hql);
+        if (hb) query.setParameter(1, billingNo);
+        if (hd) query.setParameter(2, demographicNo);
+        if (hk) query.setParameter(3, keyVal);
         BillingONExt res = null;
         try {
             res = (BillingONExt) query.getSingleResult();

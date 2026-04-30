@@ -224,12 +224,12 @@ class BillingCorrectionRecordServiceUnitTest {
 
     // ---- updateBillingItem strict-date contract ------------------------
     //
-    // Pins the fix in commit c79814781b: a malformed xml_appointment_date
-    // must abort the @Transactional unit-of-work via
-    // BillingDates.parseIsoDate rather than silently substituting today's
-    // date. A regression that swaps parseIsoDate back to `new Date()`
-    // would record audit-incorrect rows (wrong date of service on the
-    // claim), so the negative test below is the canary.
+    // A malformed xml_appointment_date must abort the @Transactional
+    // unit-of-work via BillingDates.parseIsoDate rather than silently
+    // substituting today's date. A regression that swaps parseIsoDate
+    // back to `new Date()` would record audit-incorrect rows (wrong
+    // date of service on the claim), so the negative test below is the
+    // canary.
 
     @Test
     void shouldThrow_whenServiceDateMalformed_andNotPersistNewItem_onUpdateBillingItem() throws Exception {

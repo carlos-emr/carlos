@@ -1112,17 +1112,22 @@ public class BillingONCHeader1DaoIntegrationTest extends CarlosTestBase {
             entityManager.detach(reloaded);
 
             // When/Then — recomputeTotalFromItems must throw the typed exception
-            // rather than silently returning Optional.of(ZERO).
+            // rather than silently returning Optional.of(ZERO). The headerId
+            // round-trips through the exception so callers can recover via
+            // findWithItems(e.headerId()).
+            int expectedHeaderId = reloaded.getId();
             assertThatThrownBy(reloaded::recomputeTotalFromItems)
                     .isInstanceOf(BillingItemsNotLoadedException.class)
-                    .hasMessageContaining("LAZY proxy");
+                    .hasMessageContaining("LAZY proxy")
+                    .extracting(e -> ((BillingItemsNotLoadedException) e).headerId())
+                    .isEqualTo(expectedHeaderId);
         }
 
         @Test
         @DisplayName("getBillingItems should also throw BillingItemsNotLoadedException on uninitialized LAZY proxy")
         void shouldThrowBillingItemsNotLoadedException_fromGetter_whenLazyProxyUninitialized() {
-            // The getter has its own Hibernate.isInitialized guard (round 2 #9)
-            // distinct from recomputeTotalFromItems'. A regression that drops
+            // The getter has its own Hibernate.isInitialized guard distinct
+            // from recomputeTotalFromItems'. A regression that drops
             // either guard would otherwise produce a raw
             // LazyInitializationException from inside the unmodifiableList
             // wrapper, which the calling JSP cannot turn into a sensible
@@ -1135,9 +1140,12 @@ public class BillingONCHeader1DaoIntegrationTest extends CarlosTestBase {
             BillingONCHeader1 reloaded = billingONCHeader1Dao.find(h.getId());
             entityManager.detach(reloaded);
 
+            int expectedHeaderId = reloaded.getId();
             assertThatThrownBy(reloaded::getBillingItems)
                     .isInstanceOf(BillingItemsNotLoadedException.class)
-                    .hasMessageContaining("LAZY proxy");
+                    .hasMessageContaining("LAZY proxy")
+                    .extracting(e -> ((BillingItemsNotLoadedException) e).headerId())
+                    .isEqualTo(expectedHeaderId);
         }
     }
 

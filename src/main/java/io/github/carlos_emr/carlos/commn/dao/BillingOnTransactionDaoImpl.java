@@ -56,6 +56,15 @@ public class BillingOnTransactionDaoImpl extends AbstractDaoImpl<BillingOnTransa
     }
 
     public BillingOnTransaction getTransTemplate(BillingONCHeader1 cheader1, BillingONItem billItem, BillingONPayment billPayment, String curProviderNo, int itempaymentId) {
+        // Symmetric to getUpdateCheader1TransTemplate's strict-parse: the
+        // ch1 id is a required FK back to BillingONCHeader1 — a transient
+        // (still-null id) header here would NPE on the unboxing below and
+        // produce an audit row with a meaningless billNo. Fail loudly so
+        // the surrounding @Transactional unit-of-work can roll back.
+        if (cheader1.getId() == null) {
+            throw new BillingValidationException(
+                    "Cannot build BillingOnTransaction: BillingONCHeader1 id is null (transient header)");
+        }
         int billNo = cheader1.getId();
         //Date curDate1 = billPayment.getPaymentDate();
         Date curDate = new Date();

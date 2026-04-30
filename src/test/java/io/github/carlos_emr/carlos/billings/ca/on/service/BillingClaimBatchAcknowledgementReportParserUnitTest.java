@@ -25,10 +25,9 @@ import java.nio.file.Path;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Round-2 #12 closure pin: verifies BillingClaimBatchAcknowledgementReportParser
- * flips {@code verdict=false} on IOException. Pre-fix the IOException catch
- * only logged and left verdict=true, so a torn read masqueraded as a clean
- * import.
+ * Verifies BillingClaimBatchAcknowledgementReportParser flips
+ * {@code verdict=false} on IOException so a torn read cannot masquerade
+ * as a clean import.
  *
  * @since 2026-04-30
  */

@@ -34,9 +34,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.ManageBillingFormBil
 /**
  * View gate for {@code billing/CA/ON/manageBillingform_billtype.jsp}. Enforces {@code _admin.billing}
  * {@code w} privilege before forwarding to the JSP at its
- * {@code /WEB-INF/jsp/} location. Created as part of the ON billing migration
- * to gate direct-access paths behind Struts2 actions (matches the BC
- * billing 2Action gate convention).
+ * {@code /WEB-INF/jsp/} location.
  *
  * <p>Also assembles the {@link ManageBillingFormBillTypeViewModel} on the
  * request as {@code billtypeModel} so the JSP body can render in pure EL

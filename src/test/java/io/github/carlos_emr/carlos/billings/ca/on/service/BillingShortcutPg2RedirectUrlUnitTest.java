@@ -65,7 +65,7 @@ class BillingShortcutPg2RedirectUrlUnitTest {
 
     @Test
     void shouldEmitZeroPaddedDate_inAppointmentDateQueryParam() throws Exception {
-        BillingShortcutPg2Service assembler = new BillingShortcutPg2Service(
+        BillingShortcutPg2Service service = new BillingShortcutPg2Service(
                 mock(BillingDao.class),
                 mock(BillingDetailDao.class),
                 mock(ProviderDao.class),
@@ -94,7 +94,7 @@ class BillingShortcutPg2RedirectUrlUnitTest {
                 String.class);
         m.setAccessible(true);
 
-        String url = (String) m.invoke(assembler, req, demo, "12345");
+        String url = (String) m.invoke(service, req, demo, "12345");
 
         assertThat(url)
                 .as("redirect URL must contain a zero-padded yyyy-MM-dd appointment_date")

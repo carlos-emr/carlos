@@ -368,14 +368,13 @@ public class BillingOnPaymentViewModelAssembler {
             numItems++;
             rowColor = "myWhite".equals(rowColor) ? "myPurple" : "myWhite";
 
-            String amountPaid = "0.00";
-            try {
-                amountPaid = nullToEmpty(bPremium.getAmountPay());
-                if (amountPaid.isEmpty()) {
-                    amountPaid = "0.00";
-                }
-            } catch (NumberFormatException e) {
-                MiscUtils.getLogger().warn("Premium Amount Paid not a number", e);
+            // Read-side default — neither nullToEmpty nor isEmpty() can
+            // throw, so the legacy NumberFormatException catch here was
+            // dead code (the actual NFE risk is on the BigDecimal.add call
+            // below, which is already guarded).
+            String amountPaid = nullToEmpty(bPremium.getAmountPay());
+            if (amountPaid.isEmpty()) {
+                amountPaid = "0.00";
             }
 
             String providerName = "";

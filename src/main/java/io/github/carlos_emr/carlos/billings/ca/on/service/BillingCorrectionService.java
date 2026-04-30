@@ -569,7 +569,7 @@ public class BillingCorrectionService {
                     }
                     if (bService != null) {
                         if (bService.getTerminationDate().before(serviceDate)) {
-                            fee = "defunct";
+                            fee = BillingONItem.DEFUNCT_FEE;
                         } else {
                             fee = bService.getValue();
                             BigDecimal feeAmt = new BigDecimal(fee);
@@ -621,7 +621,7 @@ public class BillingCorrectionService {
                     billRepoDao.createBillingONItemEntry(bItemExisting, request.getLocale());
                 }
 
-                if (!fee.equals("defunct") && !bItemExisting.getServiceCount().equals(unit)) {
+                if (!BillingONItem.DEFUNCT_FEE.equals(fee) && !bItemExisting.getServiceCount().equals(unit)) {
                     BigDecimal feeAmt = new BigDecimal(fee);
                     BigDecimal unitAmt = new BigDecimal(unit);
                     feeAmt = feeAmt.multiply(unitAmt).setScale(2, RoundingMode.HALF_UP);

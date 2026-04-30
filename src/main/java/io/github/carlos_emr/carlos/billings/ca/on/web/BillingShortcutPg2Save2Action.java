@@ -43,7 +43,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingShortcutPg2Serv
  * {@link BillingShortcutPg2ViewModel} as a pure presentation layer — the 6
  * inline {@code SpringUtils.getBean} lookups it used to perform
  * (BillingDao, BillingDetailDao, ProviderDao, DemographicDao,
- * BillingServiceDao, BillingPercLimitDao) are now owned by the assembler.</p>
+ * BillingServiceDao, BillingPercLimitDao) are now owned by the service.</p>
  *
  * @since 2026
  */
@@ -51,12 +51,12 @@ public class BillingShortcutPg2Save2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
 
-    private final BillingShortcutPg2Service billingShortcutPg2Assembler;
+    private final BillingShortcutPg2Service billingShortcutPg2Service;
 
     public BillingShortcutPg2Save2Action(SecurityInfoManager securityInfoManager,
-                                          BillingShortcutPg2Service billingShortcutPg2Assembler) {
+                                          BillingShortcutPg2Service billingShortcutPg2Service) {
         this.securityInfoManager = securityInfoManager;
-        this.billingShortcutPg2Assembler = billingShortcutPg2Assembler;
+        this.billingShortcutPg2Service = billingShortcutPg2Service;
     }
     @Override
     public String execute() {
@@ -70,7 +70,7 @@ public class BillingShortcutPg2Save2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        // The assembler's persist branch writes Billing + BillingDetail rows.
+        // The service's persist branch writes Billing + BillingDetail rows.
         // Without a POST gate a forged GET URL would drive the persist path,
         // sidestepping CSRFGuard's body-token validation (default config only
         // validates non-GET request bodies). The "Back to Edit" branch below
@@ -83,7 +83,7 @@ public class BillingShortcutPg2Save2Action extends ActionSupport {
             return "backToEdit";
         }
 
-        BillingShortcutPg2ViewModel model = billingShortcutPg2Assembler
+        BillingShortcutPg2ViewModel model = billingShortcutPg2Service
                 .assemble(request, loggedInInfo);
         request.setAttribute("shortcutPg2Model", model);
 

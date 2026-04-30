@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillActivityDao;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao;
 import io.github.carlos_emr.carlos.billing.CA.model.BillActivity;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -291,7 +292,7 @@ public class OhipReportGenerationService {
                                       String creator, OhipClaimExtractService extract) {
         BillActivity ba = new BillActivity();
         ba.setMonthCode(monthCode);
-        ba.setBatchCount(parseIntOrZero(batchCount));
+        ba.setBatchCount(parseStrictBatchCount(batchCount));
         ba.setHtmlFilename(htmlFilename);
         ba.setOhipFilename(ohipFilename);
         ba.setProviderOhipNo(proOHIP);
@@ -314,7 +315,23 @@ public class OhipReportGenerationService {
         return (raw == null || raw.isEmpty() || "null".equals(raw)) ? "00" : raw;
     }
 
-    private static int parseIntOrZero(String s) {
-        try { return Integer.parseInt(s); } catch (NumberFormatException | NullPointerException e) { return 0; }
+    /**
+     * Parse a batch-count string for {@link BillActivity#setBatchCount(int)}. The
+     * batchCount feeds {@code nextBatchCount} (max+1) and the OHIP-filename
+     * counter ({@code H{monthCode}.{batchCount}}); a silent zero on a malformed
+     * value would risk colliding filenames and duplicate-claim submission. Throw
+     * a typed exception so the caller (the surrounding {@code @Transactional}
+     * report generation) rolls back and surfaces the bad input.
+     */
+    private static int parseStrictBatchCount(String s) {
+        if (s == null) {
+            throw new BillingValidationException("OHIP batch count is null");
+        }
+        try {
+            return Integer.parseInt(s);
+        } catch (NumberFormatException e) {
+            throw new BillingValidationException(
+                    "OHIP batch count is not a valid integer; see logs", e);
+        }
     }
 }
