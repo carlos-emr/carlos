@@ -23,7 +23,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Unit tests for the pure-domain methods on {@link BillingONCHeader1}. These
@@ -64,11 +63,15 @@ class BillingONCHeader1UnitTest {
         }
 
         @Test
-        void shouldRejectNegativeValues() {
+        void shouldClampNegativeToZero_andPreserveLegacyContract() {
+            // The earlier design threw IllegalArgumentException on negative
+            // input. That escape through the Hibernate transaction boundary
+            // surfaced as a 500 on corrupt RA imports / unexpected upstream
+            // values. The current contract WARN-logs the anomaly and clamps
+            // to ZERO so the @Transactional unit-of-work survives.
             BillingONCHeader1 header = new BillingONCHeader1();
-            assertThatThrownBy(() -> header.setTotal(new BigDecimal("-0.01")))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("refusing negative total");
+            header.setTotal(new BigDecimal("-0.01"));
+            assertThat(header.getTotal()).isEqualByComparingTo(BigDecimal.ZERO);
         }
     }
 

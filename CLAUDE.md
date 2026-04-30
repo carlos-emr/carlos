@@ -222,9 +222,12 @@ public class Example2Action extends ActionSupport {
 
 ### Struts 7.1.1 Notes
 
-All 458 *2Action files use `org.apache.struts2.ActionSupport` (the Struts 7 package location).
-The deprecated `com.opensymphony.xwork2.*` packages from Struts 6.x were migrated to
-`org.apache.struts2.*` as part of the Jakarta EE migration.
+`*2Action` files extend `org.apache.struts2.ActionSupport` (the Struts 7
+package location). The deprecated `com.opensymphony.xwork2.*` packages
+from Struts 6.x were migrated to `org.apache.struts2.*` as part of the
+Jakarta EE migration. A handful of gate / view actions extend
+specialized base classes; treat the Struts 7 `ActionSupport` as the
+default for new code.
 
 **Migration History**:
 - Struts 2.5.33 → 6.8.0 (January 2026, PR #88) — security fix for CVE-2025-64775
@@ -236,7 +239,7 @@ The deprecated `com.opensymphony.xwork2.*` packages from Struts 6.x were migrate
 **Suffix == role + lifecycle.** Pick the most specific verb-suffix that fits; fall back to `*Service` only when nothing more specific applies. **Never** combine two role-suffixes (no `*LoaderService`, `*ServiceManager`).
 
 Sanctioned suffixes for new code:
-`*Action`, `*ViewModelAssembler`, `*ViewModel`, `*Loader`, `*Resolver`, `*Composer`, `*Validator`, `*Persister`, `*Calculator`, `*Service`, `*Dao`. Static-utility classes use a domain noun with no suffix.
+`*Action`, `*ViewModelAssembler`, `*ViewModel`, `*Loader`, `*Resolver`, `*Composer`, `*Validator`, `*Persister`, `*Calculator`, `*Parser`, `*Service`, `*Dao`, `*Dto`, `*Command`. Static-utility classes use a domain noun with no suffix.
 
 Forbidden in new code: `*Prep`, `*Manager`, `*Helper`, `*Utils`, compound suffixes. DAOs may not inject other DAOs (cross-DAO orchestration goes in a `*Service`).
 
@@ -501,7 +504,7 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 ### Web Technologies
 - **Struts 7.1.1**: Modern actions (2Action pattern) using `org.apache.struts2.ActionSupport`
   - Upgraded from 6.8.0 (March 2026) - Jakarta EE namespace migration
-  - All 458 *2Action files migrated from `com.opensymphony.xwork2.*` to `org.apache.struts2.*`
+  - `*2Action` classes migrated from `com.opensymphony.xwork2.*` to `org.apache.struts2.*`
   - Requires Caffeine 3.2.3 cache dependency for internal caching
 - **Apache CXF 4.1.5**: Web services framework for healthcare integrations (Jakarta EE 10, upgrade to 4.2.x pending Jackson 3 migration)
 - **JSP/JSTL**: View layer with extensive medical form templates

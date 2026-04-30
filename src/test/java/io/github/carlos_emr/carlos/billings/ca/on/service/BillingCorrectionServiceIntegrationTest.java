@@ -205,6 +205,153 @@ public class BillingCorrectionServiceIntegrationTest extends CarlosTestBase {
                 .isEmpty();
     }
 
+    /**
+     * Refund path ({@code payType="R"}). The {@code createPayment} contract
+     * subtracts the amount from the bill's running {@code paid} total
+     * (R-type is the negative of P-type) and records the value in a
+     * {@code BillingONExt} row keyed {@code "refund"} on the new payment.
+     */
+    @Test
+    @DisplayName("should persist refund payment and decrement bill paid total")
+    void shouldPersistRefundPayment_andDecrementBillPaidTotal_whenPayTypeIsRefund() {
+        request.setParameter("billing_no", String.valueOf(persistedHeader.getId()));
+        request.setParameter("amtPaid", "10.00");
+        request.setParameter("payMethod", String.valueOf(persistedPaymentType.getId()));
+        request.setParameter("payType", "R");
+
+        String result = service.addThirdPartyPayment(loggedInInfo, request);
+
+        assertThat(result).isEqualTo("success");
+        entityManager.flush();
+        entityManager.clear();
+
+        List<BillingONPayment> payments = entityManager
+                .createQuery("FROM BillingONPayment p WHERE p.billingNo = :id", BillingONPayment.class)
+                .setParameter("id", persistedHeader.getId())
+                .getResultList();
+        assertThat(payments).hasSize(1);
+
+        BillingONCHeader1 reloaded = bCh1Dao.find(persistedHeader.getId());
+        assertThat(reloaded.getPaid())
+                .as("R-type payment subtracts from the running paid total: 0.00 - 10.00 = -10.00")
+                .isEqualByComparingTo("-10.00");
+    }
+
+    @Test
+    @DisplayName("should reject when billing_no is missing")
+    void shouldThrow_andNotPersist_whenBillingNoIsMissing() {
+        request.setParameter("amtPaid", "25.00");
+        request.setParameter("payMethod", String.valueOf(persistedPaymentType.getId()));
+        request.setParameter("payType", "P");
+        // billing_no parameter intentionally absent
+
+        assertThatThrownBy(() -> service.addThirdPartyPayment(loggedInInfo, request))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("invalid billing_no");
+
+        assertNoPaymentRowsForHeader();
+    }
+
+    @Test
+    @DisplayName("should reject when billing_no resolves to no row (404)")
+    void shouldThrow_andNotPersist_whenBillNotFound() {
+        request.setParameter("billing_no", "99999999");  // no header exists with this id
+        request.setParameter("amtPaid", "25.00");
+        request.setParameter("payMethod", String.valueOf(persistedPaymentType.getId()));
+        request.setParameter("payType", "P");
+
+        assertThatThrownBy(() -> service.addThirdPartyPayment(loggedInInfo, request))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("not found");
+
+        assertNoPaymentRowsForHeader();
+    }
+
+    @Test
+    @DisplayName("should reject when amtPaid is missing")
+    void shouldThrow_andNotPersist_whenAmtPaidMissing() {
+        request.setParameter("billing_no", String.valueOf(persistedHeader.getId()));
+        request.setParameter("payMethod", String.valueOf(persistedPaymentType.getId()));
+        request.setParameter("payType", "P");
+        // amtPaid intentionally absent — covers the null branch separately
+        // from the "amount is non-numeric" branch in the existing test.
+
+        assertThatThrownBy(() -> service.addThirdPartyPayment(loggedInInfo, request))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("amount is missing");
+
+        assertNoPaymentRowsForHeader();
+    }
+
+    @Test
+    @DisplayName("should reject when payMethod is not configured")
+    void shouldThrow_andNotPersist_whenPayMethodInvalid() {
+        request.setParameter("billing_no", String.valueOf(persistedHeader.getId()));
+        request.setParameter("amtPaid", "25.00");
+        request.setParameter("payMethod", "99999");  // no BillingPaymentType row with this id
+        request.setParameter("payType", "P");
+
+        assertThatThrownBy(() -> service.addThirdPartyPayment(loggedInInfo, request))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("pay-method");
+
+        assertNoPaymentRowsForHeader();
+    }
+
+    @Test
+    @DisplayName("should reject when payType is neither P nor R")
+    void shouldThrow_andNotPersist_whenPayTypeInvalid() {
+        request.setParameter("billing_no", String.valueOf(persistedHeader.getId()));
+        request.setParameter("amtPaid", "25.00");
+        request.setParameter("payMethod", String.valueOf(persistedPaymentType.getId()));
+        request.setParameter("payType", "X");  // not P or R
+
+        assertThatThrownBy(() -> service.addThirdPartyPayment(loggedInInfo, request))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("pay-type");
+
+        assertNoPaymentRowsForHeader();
+    }
+
+    @Test
+    @DisplayName("should aggregate two separate payments against the same bill")
+    void shouldAggregatePaidTotal_acrossTwoSequentialPayments() {
+        // Sequential add of two P-type payments — bill.paid should reflect
+        // the running sum, and two BillingONPayment rows should exist.
+        request.setParameter("billing_no", String.valueOf(persistedHeader.getId()));
+        request.setParameter("payMethod", String.valueOf(persistedPaymentType.getId()));
+        request.setParameter("payType", "P");
+
+        request.setParameter("amtPaid", "15.00");
+        service.addThirdPartyPayment(loggedInInfo, request);
+        request.setParameter("amtPaid", "10.00");
+        service.addThirdPartyPayment(loggedInInfo, request);
+
+        entityManager.flush();
+        entityManager.clear();
+
+        List<BillingONPayment> payments = entityManager
+                .createQuery("FROM BillingONPayment p WHERE p.billingNo = :id", BillingONPayment.class)
+                .setParameter("id", persistedHeader.getId())
+                .getResultList();
+        assertThat(payments).hasSize(2);
+
+        BillingONCHeader1 reloaded = bCh1Dao.find(persistedHeader.getId());
+        assertThat(reloaded.getPaid()).isEqualByComparingTo("25.00");
+    }
+
+    private void assertNoPaymentRowsForHeader() {
+        hibernateTemplate.flush();
+        entityManager.clear();
+        List<BillingONPayment> payments = entityManager
+                .createQuery("FROM BillingONPayment p WHERE p.billingNo = :id", BillingONPayment.class)
+                .setParameter("id", persistedHeader.getId())
+                .getResultList();
+        assertThat(payments)
+                .as("rejected payment must not leave any BillingONPayment row behind")
+                .isEmpty();
+    }
+
     private BillingONCHeader1 createAndPersistHeader(int demoNo, String providerNo) {
         BillingONCHeader1 h = new BillingONCHeader1();
         h.setHeaderId(0);

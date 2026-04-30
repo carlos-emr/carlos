@@ -55,13 +55,19 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 /**
- * Service-layer component for {@code BillingCorrectionRecordService}.
+ * Read+write surface for the bill-correction screen: loads the
+ * correction-record graph (header + items + ext rows + explanatory /
+ * rejection codes), then applies operator edits — header field updates,
+ * soft-delete via {@code setInactive}, ext-key updates, and the
+ * third-party item updates that drive {@code billingON3rdInv.jsp}.
  *
- * <p>Services centralize billing-domain work that should not live in Struts
- * actions or JSPs. Callers are expected to enforce web security before invoking
- * service methods that read or mutate billing state.</p>
+ * <p>Date strings flow through {@link BillingDates#parseIsoDate(String)};
+ * money strings flow through {@link BillingMoney#amount(String)} so a
+ * malformed value aborts the {@code @Transactional} unit-of-work rather
+ * than silently writing zero.</p>
+ *
+ * <p>Web security is enforced at the action layer before invocation.</p>
  */
-
 @org.springframework.stereotype.Service
 @org.springframework.transaction.annotation.Transactional
 public class BillingCorrectionRecordService {

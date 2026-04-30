@@ -12,22 +12,28 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONItemDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingOnItemPaymentDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingOnTransactionDao;
+import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpServletRequest;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -214,5 +220,69 @@ class BillingCorrectionRecordServiceUnitTest {
         boolean ret = service.deleteBilling("42", "D", "999998");
 
         assertThat(ret).isFalse();
+    }
+
+    // ---- updateBillingItem strict-date contract ------------------------
+    //
+    // Pins the fix in commit c79814781b: a malformed xml_appointment_date
+    // must abort the @Transactional unit-of-work via
+    // BillingDates.parseIsoDate rather than silently substituting today's
+    // date. A regression that swaps parseIsoDate back to `new Date()`
+    // would record audit-incorrect rows (wrong date of service on the
+    // claim), so the negative test below is the canary.
+
+    @Test
+    void shouldThrow_whenServiceDateMalformed_andNotPersistNewItem_onUpdateBillingItem() throws Exception {
+        BillingClaimHeaderDto ch1Obj = new BillingClaimHeaderDto();
+        ch1Obj.setStatus("O");
+        BillingClaimItemDto existingItem = new BillingClaimItemDto();
+        existingItem.setCh1_id("42");
+        existingItem.setRec_id("");
+        existingItem.setTransc_id("");
+        existingItem.setService_code("A001A");  // existing code
+        existingItem.setSer_num("1");
+        existingItem.setFee("33.70");
+        existingItem.setDx("");
+        existingItem.setDx1("");
+        existingItem.setDx2("");
+        existingItem.setStatus("O");
+        existingItem.setService_date("2026-04-28");
+
+        // changeItem's else-branch (service code differs) writes a delete
+        // transaction to billOnTransDao and only THEN calls the strict-date
+        // private addItem for the new code. So billOnTransDao.persist may
+        // be invoked; the regression target is billOnItemDao.persist of
+        // the NEW item.
+        BillingONCHeader1 header = new BillingONCHeader1();
+        // The BillingOnTransaction.setCh1Id(int) call inside changeItem
+        // unboxes header.getId(); without an id we'd NPE before reaching
+        // the strict-date parser. JPA assigns this on persist; reflect it
+        // in directly for the test.
+        java.lang.reflect.Field idField = BillingONCHeader1.class.getDeclaredField("id");
+        idField.setAccessible(true);
+        idField.set(header, Integer.valueOf(42));
+        when(cheader1Dao.find(42)).thenReturn(header);
+
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        List itemList = new ArrayList();
+        itemList.add(ch1Obj);
+        itemList.add(existingItem);
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("xml_diagnostic_detail", "401");
+        request.setParameter("xml_appointment_date", "not-a-date");
+        request.setParameter("servicecode0", "B999B");  // different from existing
+        request.setParameter("billingunit0", "1");
+        request.setParameter("billingamount0", "44.50");
+
+        assertThatThrownBy(() -> service.updateBillingItem(itemList, request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("not-a-date");
+
+        // The new item must NOT have been persisted via the persister —
+        // a regression that fell back to `new Date()` would have happily
+        // persisted a row with today's date.
+        verify(claimPersister, never()).addOneItemRecord(any(BillingClaimItemDto.class));
+        verify(billOnItemDao, never()).persist(any(BillingONItem.class));
     }
 }

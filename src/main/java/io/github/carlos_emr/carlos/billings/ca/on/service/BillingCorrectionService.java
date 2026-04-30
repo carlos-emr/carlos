@@ -80,15 +80,13 @@ import io.github.carlos_emr.carlos.billings.ca.on.web.BillingCorrection2Action;
  * .SecurityInfoManager} is available. The service trusts that callers
  * have already verified privilege.</p>
  *
- * <p><strong>Transactional boundary (TODO):</strong> {@link #updateInvoice}
- * runs a {@link BillingONCHeader1Dao#merge} after several in-memory
- * mutations and audit writes. A merge failure mid-sequence currently
- * leaves the bCh1 dirty in the Hibernate session for the next request.
- * The clean fix is a {@code TransactionTemplate} or
- * {@code @Transactional} on this service class once it's wired through
- * the Spring proxy. The {@link BillingValidationException} fast-fail on
- * input parse closes the most acute exposure (validation rejects before
- * any mutation begins).</p>
+ * <p><strong>Transactional boundary:</strong> the class is annotated
+ * {@code @Transactional} (see below), so {@link #updateInvoice} and the
+ * {@link #addThirdPartyPayment} flow run inside a Spring-managed
+ * transaction. {@link BillingValidationException} thrown from the parse
+ * step rolls back any in-flight mutations cleanly. Manual
+ * instantiation via {@code new} bypasses the proxy; always inject this
+ * service through Spring.</p>
  *
  * @since 2026-04-25
  */

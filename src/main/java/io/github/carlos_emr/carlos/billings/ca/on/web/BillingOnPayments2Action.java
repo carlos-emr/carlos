@@ -61,22 +61,22 @@ import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnThirdPartyP
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingThirdPartyService;
 
 
-/**
- * @author rjonasz
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 /**
- * Struts action for the {@code BillingOnPayments2Action} request flow.
+ * Multi-method third-party payment manager: routes by {@code method=}
+ * request parameter to {@code listPayments}, {@code savePayment},
+ * {@code deletePayment}, {@code viewPayment}, or {@code viewPayment_ext}.
+ * Strict-parses each item amount through {@link BillingMoney} and rejects
+ * the request as a JSON {@code {"ret":1,"reason":...}} body if any value
+ * is malformed. Requires {@code _billing w}.
  *
- * <p>The action owns web-layer orchestration: privilege checks, request
- * parameter normalization, delegation to services or assemblers, and the
- * Struts result used to render the next JSP. Keep billing rules and database
- * work outside the JSP when changing this flow.</p>
+ * <p>Split candidate per the one-method-per-action convention; carved out
+ * later because the JSP serializes a variable-width "items" list and the
+ * single-method split needs a typed command first.</p>
  */
-
 public class BillingOnPayments2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 

@@ -36,13 +36,19 @@ import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingDiskNameDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 /**
- * Service-layer component for {@code BillingDiskCreationService}.
+ * Builds the per-provider OHIP submission "disk" that backs an MOH file
+ * upload — assembles {@code BillingONDiskName} headers and per-provider
+ * {@code BillingONFilename} rows, looks up the active provider set (solo
+ * vs group), and resolves the OHIP / HTML filename pair for an existing
+ * disk id.
  *
- * <p>Services centralize billing-domain work that should not live in Struts
- * actions or JSPs. Callers are expected to enforce web security before invoking
- * service methods that read or mutate billing state.</p>
+ * <p>This service straddles read+write: read paths consult
+ * {@link BillingOnDiskLoader}, writes go through
+ * {@link BillingOnClaimPersister}. If it grows further, the write side is
+ * a candidate for a dedicated {@code BillingOnDiskPersister}.</p>
+ *
+ * <p>Web security is enforced at the action layer before invocation.</p>
  */
-
 @org.springframework.stereotype.Service
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
 public class BillingDiskCreationService {

@@ -34,9 +34,6 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
-/**
- * @author Jay Gallagher
- */
 public class BillingCodeLookupService {
 
     private final BillingServiceDao billingServiceDao;

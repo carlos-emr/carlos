@@ -81,4 +81,62 @@ class BillingDatesUnitTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("04/28/2026");
     }
+
+    // ---- parseOptionalIsoDate: lenient on null/blank, strict otherwise ----
+
+    @Test
+    void shouldReturnNull_whenOptionalIsoDateIsNull() {
+        assertThat(BillingDates.parseOptionalIsoDate(null, "service_date")).isNull();
+    }
+
+    @Test
+    void shouldReturnNull_whenOptionalIsoDateIsBlank() {
+        assertThat(BillingDates.parseOptionalIsoDate("   ", "service_date")).isNull();
+    }
+
+    @Test
+    void shouldParse_whenOptionalIsoDateIsValid() {
+        assertThat(BillingDates.parseOptionalIsoDate("2026-04-28", "service_date"))
+                .hasToString("2026-04-28");
+    }
+
+    @Test
+    void shouldThrowWithFieldName_whenOptionalIsoDateIsMalformed() {
+        assertThatThrownBy(() -> BillingDates.parseOptionalIsoDate("not-a-date", "billing_date"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("billing_date")
+                .hasMessageContaining("not-a-date");
+    }
+
+    // ---- parseOptionalIsoTime: HH:mm:ss companion to parseOptionalIsoDate ----
+
+    @Test
+    void shouldReturnNull_whenOptionalIsoTimeIsNull() {
+        assertThat(BillingDates.parseOptionalIsoTime(null, "billing_time")).isNull();
+    }
+
+    @Test
+    void shouldReturnNull_whenOptionalIsoTimeIsBlank() {
+        assertThat(BillingDates.parseOptionalIsoTime("   ", "billing_time")).isNull();
+    }
+
+    @Test
+    void shouldParse_whenOptionalIsoTimeIsValid() {
+        assertThat(BillingDates.parseOptionalIsoTime("12:34:56", "billing_time")).isNotNull();
+    }
+
+    @Test
+    void shouldThrowWithFieldName_whenOptionalIsoTimeIsMalformed() {
+        assertThatThrownBy(() -> BillingDates.parseOptionalIsoTime("99:99:99", "billing_time"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("billing_time")
+                .hasMessageContaining("99:99:99");
+    }
+
+    @Test
+    void shouldThrowWithFieldName_whenOptionalIsoTimeHasWrongFormat() {
+        assertThatThrownBy(() -> BillingDates.parseOptionalIsoTime("12-34-56", "billing_time"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("billing_time");
+    }
 }

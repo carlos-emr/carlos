@@ -174,4 +174,140 @@ class BillingOnSave2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(persistedExt.getKeyVal()).isEqualTo("payee");
         assertThat(persistedExt.getValue()).isEqualTo("Acme Payee");
     }
+
+    // -- Security & validation -----------------------------------------
+
+    @Test
+    void shouldThrowSecurityException_whenPrivilegeMissing() {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(false);
+        mockRequest.setParameter("submit", "Save");
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> newAction().execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_billing");
+
+        // No persistence on a security failure.
+        verifyNoInteractions(mockSaveService, mockExtDao, mockCheader1Dao);
+    }
+
+    // -- Open-redirect validation (CWE-601) ----------------------------
+
+    @org.junit.jupiter.params.ParameterizedTest(name = "url_back={0} should be rejected")
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+            "//evil.com/phish",        // protocol-relative escapes the host
+            "https://evil.com",        // absolute URL
+            "/path/../../etc/passwd",  // traversal
+            "/path\\with\\backslash",  // backslash injection
+            "/path\rwith\rcr",         // CR injection
+            "/path\nwith\nlf"          // LF injection
+    })
+    void shouldRejectMaliciousUrlBack_andSetEmptySafeUrlBack(String maliciousUrlBack) {
+        mockRequest.setParameter("submit", "Save");
+        mockRequest.setParameter("url_back", maliciousUrlBack);
+        // Make submit fail-fast so we don't need to stub the whole save path.
+        mockRequest.setParameter("submit", "");
+
+        newAction().execute();
+
+        assertThat(mockRequest.getAttribute("safeUrlBack"))
+                .as("Malicious url_back must be coerced to empty string to block open-redirect (CWE-601)")
+                .isEqualTo("");
+    }
+
+    @Test
+    void shouldAcceptSafeRelativeUrlBack() {
+        mockRequest.setParameter("submit", "");
+        mockRequest.setParameter("url_back", "/billing/CA/ON/billingON");
+
+        newAction().execute();
+
+        assertThat(mockRequest.getAttribute("safeUrlBack")).isEqualTo("/billing/CA/ON/billingON");
+    }
+
+    // -- Submit-value branch matrix ------------------------------------
+
+    @Test
+    void shouldReturnBackToEdit_onBackButton() {
+        mockRequest.setParameter("button", "Back to Edit");
+
+        String result = newAction().execute();
+
+        assertThat(result).isEqualTo("backToEdit");
+        verifyNoInteractions(mockSaveService, mockExtDao);
+    }
+
+    @Test
+    void shouldReturnSuccess_andSkipSave_whenSubmitParameterIsUnknown() {
+        // Empty/unknown submit value → action renders the form again
+        // without saving. Pins the contract that a stray POST without a
+        // recognized submit-button value never persists.
+        mockRequest.setParameter("submit", "Unknown");
+
+        String result = newAction().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        verifyNoInteractions(mockSaveService, mockExtDao, mockCheader1Dao);
+    }
+
+    @Test
+    void shouldCallOhipInvoiceTrans_andNotPrivateExtension_whenBillTypeIsHcp() {
+        mockRequest.setParameter("submit", "Save");
+        mockRequest.setParameter("xml_billtype", "HCP");  // not 3rd-party
+        mockRequest.setParameter("payeename", "");
+        mockRequest.setParameter("curBillForm", "ON");
+
+        ArrayList<Object> claim = new ArrayList<>();
+        when(mockSaveService.getBillingClaimObj(mockRequest)).thenReturn(claim);
+        when(mockSaveService.addABillingRecord(claim))
+                .thenReturn(new BillingClaimSubmissionService.SaveResult(true, 4321));
+        when(mockCheader1Dao.find(4321)).thenReturn(null);
+        when(mockUserPropertyDao.getProp("999998", UserProperty.WORKLOAD_MANAGEMENT)).thenReturn(null);
+
+        String result = newAction().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        // OHIP branch — addOhipInvoiceTrans called, addPrivateBillExtRecord skipped.
+        verify(mockSaveService).addOhipInvoiceTrans(claim);
+        verify(mockSaveService, never()).addPrivateBillExtRecord(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
+    void shouldReturnPrintInvoice_onSaveAndPrintInvoiceButton() {
+        mockRequest.setParameter("submit", "Save & Print Invoice");
+        mockRequest.setParameter("xml_billtype", "HCP");
+        mockRequest.setParameter("payeename", "");
+        mockRequest.setParameter("curBillForm", "ON");
+
+        ArrayList<Object> claim = new ArrayList<>();
+        when(mockSaveService.getBillingClaimObj(mockRequest)).thenReturn(claim);
+        when(mockSaveService.addABillingRecord(claim))
+                .thenReturn(new BillingClaimSubmissionService.SaveResult(true, 4321));
+        when(mockCheader1Dao.find(4321)).thenReturn(null);
+        when(mockUserPropertyDao.getProp("999998", UserProperty.WORKLOAD_MANAGEMENT)).thenReturn(null);
+
+        String result = newAction().execute();
+
+        assertThat(result).isEqualTo("printInvoice");
+    }
+
+    @Test
+    void shouldReturnAddAnother_onSaveAndAddAnotherBillButton() {
+        mockRequest.setParameter("submit", "Save & Add Another Bill");
+        mockRequest.setParameter("xml_billtype", "HCP");
+        mockRequest.setParameter("payeename", "");
+        mockRequest.setParameter("curBillForm", "ON");
+
+        ArrayList<Object> claim = new ArrayList<>();
+        when(mockSaveService.getBillingClaimObj(mockRequest)).thenReturn(claim);
+        when(mockSaveService.addABillingRecord(claim))
+                .thenReturn(new BillingClaimSubmissionService.SaveResult(true, 4321));
+        when(mockCheader1Dao.find(4321)).thenReturn(null);
+        when(mockUserPropertyDao.getProp("999998", UserProperty.WORKLOAD_MANAGEMENT)).thenReturn(null);
+
+        String result = newAction().execute();
+
+        assertThat(result).isEqualTo("addAnother");
+        assertThat(mockRequest.getAttribute("addAnotherBill")).isEqualTo(Boolean.TRUE);
+    }
 }

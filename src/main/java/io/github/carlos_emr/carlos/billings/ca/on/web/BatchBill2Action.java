@@ -46,18 +46,13 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-/**
- * @author rjonasz
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 /**
- * Struts action for the {@code BatchBill2Action} request flow.
- *
- * <p>The action owns web-layer orchestration: privilege checks, request
- * parameter normalization, delegation to services or assemblers, and the
- * Struts result used to render the next JSP. Keep billing rules and database
- * work outside the JSP when changing this flow.</p>
+ * Manages the saved batch-billing entries: list / select view (default
+ * {@code execute}), {@code doBatchBill} which expands the selected batch
+ * into one OHIP claim per appointment, and {@code remove} for deletion.
+ * All three methods require {@code _billing w}.
  */
 
 public class BatchBill2Action extends ActionSupport {

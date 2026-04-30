@@ -49,13 +49,18 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 /**
- * Service-layer component for {@code BillingOnRaService}.
+ * Parses a Remittance Advice (RA) flat file from MOH and writes the
+ * resulting {@code RaHeader} / {@code RaDetail} rows. Also exposes lookups
+ * keyed by RA header number ({@code getPropBillNoRAHeaderNo},
+ * {@code getRAClaimNo4BillingNo}) and the per-bill status flip used during
+ * settlement ({@code updateBillingStatus}).
  *
- * <p>Services centralize billing-domain work that should not live in Struts
- * actions or JSPs. Callers are expected to enforce web security before invoking
- * service methods that read or mutate billing state.</p>
+ * <p>Callers must drive imports through {@link OnRaImportService} (which
+ * applies {@code PathValidationUtils}); the {@code importRAFile(String)}
+ * entry point on this class trusts the caller to validate the path.</p>
+ *
+ * <p>Web security is enforced at the action layer before invocation.</p>
  */
-
 @org.springframework.stereotype.Service
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
 public class BillingOnRaService {

@@ -435,15 +435,30 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
     }
 
     /**
-     * @throws IllegalArgumentException if {@code total} is negative — invoice
-     *         totals are always non-negative; a negative value indicates a
-     *         calling-side bug (refunds are tracked on payments, not by
-     *         negating the total).
+     * Set the invoice total. Negative values are not legal — refunds are
+     * tracked on the payments table, not by negating the total. The earlier
+     * design of this guard threw {@link IllegalArgumentException} on negative
+     * input, but a single corrupt RA-import row or a stray unsigned-int parse
+     * could escape through the Hibernate transaction boundary as an HTTP 500.
+     *
+     * <p>The current contract WARN-logs the anomaly and clamps to
+     * {@link BigDecimal#ZERO}. Operators see the anomaly in the logs (so audit
+     * trails of bad inputs survive); the surrounding {@code @Transactional}
+     * unit-of-work continues; callers that genuinely care about strict
+     * rejection should validate the input <em>before</em> reaching this setter.</p>
+     *
+     * @param total BigDecimal the total amount; null is allowed (legacy contract);
+     *              negative values are clamped to zero
      */
     public void setTotal(BigDecimal total) {
         if (total != null && total.signum() < 0) {
-            throw new IllegalArgumentException(
-                    "BillingONCHeader1.setTotal: refusing negative total (refunds belong on the payments table)");
+            logger.warn(
+                    "BillingONCHeader1.setTotal: clamping negative total {} to ZERO "
+                            + "(refunds belong on the payments table; check upstream "
+                            + "validation if this is unexpected)",
+                    total);
+            this.total = BigDecimal.ZERO;
+            return;
         }
         this.total = total;
     }

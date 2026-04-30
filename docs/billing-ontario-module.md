@@ -43,6 +43,8 @@ src/main/java/io/github/carlos_emr/carlos/billings/
 │   ├── pageUtil/                          ← cross-province router (Billing2Action)
 │   ├── bc/                                ← BC implementation (out of scope)
 │   └── on/                                ← Ontario implementation (this doc)
+│       ├── BillingDates.java                top-level utility (date parsing / formatting)
+│       ├── BillingMoney.java                top-level utility (BigDecimal money helpers)
 │       ├── assembler/                       *ViewModelAssembler classes + composers/loaders
 │       ├── command/                         typed write/validation commands
 │       ├── dto/                             persistence/query transfer DTOs (incl. FeeSchedule* records)
@@ -52,7 +54,6 @@ src/main/java/io/github/carlos_emr/carlos/billings/
 │       ├── validator/                       input-validator classes + typed exception
 │       ├── viewmodel/                       immutable presentation records
 │       └── web/                             *2Action Struts gates
-└── ca/on/
 
 src/main/webapp/WEB-INF/jsp/billing/CA/ON/    ← JSP views (incl. shared jspf fragments)
 src/main/webapp/WEB-INF/classes/struts-billing.xml  ← Struts mappings (one entry per public route)
@@ -131,8 +132,10 @@ only when nothing more specific applies.
 | Data access | `*Dao` | `BillingONCHeader1Dao`, `BillingONPaymentDao`, `BillingServiceDao` |
 
 DAOs do **not** orchestrate other DAOs — cross-DAO operations live in a
-service. Static-utility classes (`BillingDateOfBirths`, `BillingDomIdTokens`) live
-in `support/` and use a domain noun with no suffix.
+service. Static-utility classes use a domain noun with no suffix and live
+either at the top of `billings/ca/on/` (`BillingDates`, `BillingMoney`)
+or, for module-internal helpers, under `support/` (`BillingDateOfBirths`,
+`BillingDomIdTokens`).
 
 Forbidden in new code (and currently absent from this module): `*Prep`,
 `*Manager`, `*Helper`, `*Utils`, compound suffixes like `*ServiceManager` or
@@ -199,8 +202,8 @@ province decision should not have BC-specific imports. The dedicated BC
 setup action carries the BC-only coupling (`BillingSessionBean`,
 `BillingGuidelines`, `BillingCreateBilling2Form`), and the ON path chains
 through its own `ViewBillingOn2Action`. This was previously violated —
-`Billing2Action` lived in `ca.bc.pageUtil` with BC imports — and was fixed
-in commit `91d176501a`.
+`Billing2Action` lived in `ca.bc.pageUtil` with BC imports — and was
+hoisted to `ca.pageUtil` to break the cycle.
 
 Region resolution rules (`Billing2Action.execute`):
 
@@ -252,10 +255,20 @@ no cross-aggregate state. They are unit-tested at
 
 ### 5.2 Setter invariants
 
-`BillingONCHeader1.setTotal` rejects negative values. Invoice totals are
-non-negative by construction; refunds belong on the payments table. A
-negative argument indicates a calling-side bug, so we fail fast with
-`IllegalArgumentException` rather than silently allowing it.
+`BillingONCHeader1.setTotal` enforces that invoice totals are non-negative
+(refunds belong on the payments table). Rather than throwing on negative
+input, the setter **WARN-logs the anomaly and clamps to `BigDecimal.ZERO`**:
+a single corrupt RA-import row or a stray unsigned-int parse can otherwise
+escape the transaction boundary as an HTTP 500, so the clamp keeps the
+unit-of-work alive while leaving an audit trail. Callers that need strict
+rejection should validate **before** reaching the setter — the clamp is
+defense-in-depth, not the primary contract.
+
+The invariant is bypassable via field-level access (Hibernate load,
+direct constructors), so it is not a structural guarantee on every read.
+See the JavaDoc on `BillingONCHeader1.setTotal` for the full contract; the
+unit test that pins it is
+`BillingONCHeader1UnitTest.shouldClampNegativeToZero_andPreserveLegacyContract`.
 
 Other setters are unchanged from the legacy shape and accept any input
 (including null) — invariant tightening is incremental and only added
@@ -294,8 +307,8 @@ The single-aggregate sum-of-items recompute lives on the entity as
 
 ## 6 — Hibernate fetch policy
 
-Two `@OneToMany` collections were `FetchType.EAGER` historically and were
-flipped to `LAZY` in commit `3e81a5c8d9`:
+Two `@OneToMany` collections were `FetchType.EAGER` historically and have
+been flipped to `LAZY`:
 
 - `BillingONCHeader1.billingItems`
 - `BillingONPayment.billingONExtItems`
@@ -408,13 +421,12 @@ consistent shape:
 real source, lightly trimmed (see `web/ViewBillingOnReview2Action.java`):
 
 ```java
-public final class ViewBillingOnReview2Action extends ActionSupport {
+public class ViewBillingOnReview2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
     private final BillingOnReviewDiagPersister dxPersister;
     private final BillingOnReviewViewModelAssembler assembler;
 
-    @Autowired
     public ViewBillingOnReview2Action(SecurityInfoManager securityInfoManager,
                                        BillingOnReviewDiagPersister dxPersister,
                                        BillingOnReviewViewModelAssembler assembler) {
@@ -474,9 +486,8 @@ Notes on this template:
 - **HTTP method gate.** Mutation actions reject non-POST with
   `405 Method Not Allowed` and an `Allow` response header. Read actions
   accept GET/HEAD/POST (the billing form self-posts on titlesearch).
-- **Final classes.** All migrated actions are `public final` to forbid
-  subclassing — Struts doesn't need it and it caused confusion in legacy
-  code.
+  View actions that only forward to a render JSP (no side effect) accept
+  any method; gating them with POST-only breaks the navigation link.
 - **Throw or `return NONE`.** Never silently swallow validation failures.
 
 ### 8.2 Struts mapping
@@ -731,29 +742,41 @@ Provincial siblings (out of scope here):
 - BC Teleplan upload: `src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/Teleplan/`
 - Cross-province MSP: `src/main/java/io/github/carlos_emr/carlos/billings/MSP/`
 
-## 14 — Refactor history (selected)
+## 14 — Refactor themes (selected)
 
-The current shape of this module was reached over a series of focused
-commits on the `chore/billing-refactor` branch. The most architecturally
-significant ones, newest first:
+The current shape of this module was reached through a series of focused
+slices. The architectural themes, in rough dependency order:
 
-| Commit | Slice |
-|---|---|
-| `a1f94adbdc` | Removed redundant `@Lazy` from 64 services + assemblers |
-| `3e81a5c8d9` | Flipped `BillingONCHeader1.billingItems` and `BillingONPayment.billingONExtItems` to LAZY; added `findWithItems` / `findByDemoNoWithItems` |
-| `eee331f027` | Renamed 5 misnamed `*Service` to `*Loader` / `*Persister`; split `BillingONServiceCodeService` into `ServiceCodeLoader` + `ServiceCodePersister` |
-| `91d176501a` | Hoisted cross-province `Billing2Action` from `ca.bc.pageUtil` to `ca.pageUtil`; extracted `BillingBCSetup2Action`; stripped dead ON branch from BC `BillingView2Action` |
-| `d6169b6813` | Partial DDD — added 9 domain methods to `BillingONCHeader1`/`BillingONItem`; added `setTotal` invariant |
-| `13c0ec060c` | Closed test debt — 51 new tests for refactored actions/services |
-| `faebd82653` | Split `BillingONService` catch-all into single-purpose pieces |
-| `af86635bc2` | Codified the layer-naming policy + retired all `*Prep` classes |
-| `e38d36813b` | Typed `GstSettingsService` API (dropped Properties bag); extracted dependency-free helpers |
-| `533806d0b9` | Extracted `BillingOnHeaderCreationService` so DAO no longer orchestrates other DAOs |
-| `8a11f59b52` | Split `PaymentType2Action` and `PatientEndYearStatement2Action` into single-method actions |
-| `cbcc95ac29` | Migrated gstControl + gstreport JSPs to View2Action + ViewModel |
-| `2f922b98a9` | Drained remaining service-locator and dual-bean bandaids |
-| `8d138bf86c` | Converted 32 assemblers + validator to single-ctor injection |
-| `3b7501c2dd` | Converted 53 field-init actions to ctor injection; added `@Primary` on `BillingDaoImpl` |
-| `2618f98df7` | Converted 24 dual-ctor 2Actions to `@Autowired` ctor injection |
+- **Layer-naming policy codified** — `*Service`, `*Loader`, `*Persister`,
+  `*Composer`, `*Resolver`, `*Validator`, `*Calculator`, `*Parser`,
+  `*ViewModelAssembler`, `*ViewModel`, `*Command`, `*Dto`, `*Action`,
+  `*Dao`. The retired `*Prep` suffix was eliminated module-wide.
+- **`BillingONService` catch-all split** into single-purpose pieces along
+  the suffix lines above. `BillingONServiceCodeService` was further split
+  into `ServiceCodeLoader` + `ServiceCodePersister`.
+- **DAO orchestration extracted** — `BillingOnHeaderCreationService`
+  was extracted so that the DAO layer stops calling other DAOs.
+- **Partial DDD on `BillingONCHeader1` / `BillingONItem`** — domain
+  methods (`isOhipBill`, `isSettled`, `markSettled`, `isPaidInFull`,
+  `recomputeTotalFromItems`, `isActive`, `isDeleted`) and a `setTotal`
+  invariant moved domain rules out of the assemblers.
+- **Fetch-policy fix** — `BillingONCHeader1.billingItems` and
+  `BillingONPayment.billingONExtItems` were flipped from EAGER to LAZY,
+  with `findWithItems` / `findByDemoNoWithItems` JOIN-FETCH companions
+  added for the read paths that need both.
+- **Cross-province router hoist** — `Billing2Action` moved from
+  `ca.bc.pageUtil` to `ca.pageUtil`; BC-specific setup was extracted
+  into `BillingBCSetup2Action`; the dead ON branch was stripped from
+  BC's `BillingView2Action`.
+- **GstSettingsService typed API** — replaced the legacy `Properties`
+  bag; dependency-free helpers were extracted off the orchestrator.
+- **Multi-method action split** — `PaymentType2Action` and
+  `PatientEndYearStatement2Action` were split into single-method actions
+  to match the one-method-per-action convention.
+- **gstControl + gstreport JSPs migrated** to View2Action + ViewModel.
+- **Constructor injection** — service-locator and dual-bean bandaids
+  drained; assemblers, validators, and `*2Action` classes converted to
+  single-ctor injection.
 
-For the full history, see `git log --oneline chore/billing-refactor`.
+For the commit-level history, see
+`git log --oneline -- src/main/java/io/github/carlos_emr/carlos/billings/ca/on/`.

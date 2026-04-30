@@ -42,6 +42,16 @@ import java.text.NumberFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+
+/**
+ * Read-only loader for OHIP claim queries: bill lists by status / provider /
+ * date range / location, service-code fee + percentage lookups by date,
+ * service-code descriptions, and the dropdown / picker queries used by
+ * the claim-entry and review screens. Pairs with
+ * {@link BillingOnClaimPersister} on the write side.
+ *
+ * <p>Web security is enforced at the action layer before invocation.</p>
+ */
 @org.springframework.stereotype.Service
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
 public class BillingOnClaimLoader {

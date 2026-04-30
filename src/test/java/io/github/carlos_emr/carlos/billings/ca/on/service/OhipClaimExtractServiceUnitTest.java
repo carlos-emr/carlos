@@ -13,18 +13,28 @@
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao;
 import io.github.carlos_emr.carlos.billing.CA.model.BillingDetail;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
@@ -76,5 +86,102 @@ class OhipClaimExtractServiceUnitTest {
         extract.dbQuery();
 
         assertThat(extract.getTotalAmount()).isEqualTo("0.0101");
+    }
+
+    /**
+     * Pins the {@code BillingFileWriteException} contract on the write-path:
+     * {@code writeFile} and {@code writeHtml} both go through
+     * {@code PathValidationUtils.validatePath}, then write via
+     * {@code FileOutputStream}. Both reach a swallow-and-log site historically,
+     * which the recent fix wave turned into {@code BillingFileWriteException}
+     * throws. Without these tests, a future refactor reverting either path to
+     * a {@code catch (Exception) { logger.error(...); }} would pass CI.
+     */
+    @Nested
+    @DisplayName("write-path exception propagation")
+    class WritePath {
+
+        // Field-level @TempDir is shared across @BeforeEach and every @Test
+        // method in this nested class — declaring @TempDir as a method
+        // parameter creates a fresh temp dir per parameter, so the setUp
+        // and test would point at different directories.
+        @TempDir
+        Path tempDir;
+
+        private OhipClaimExtractService extract;
+        private Object homeDirBefore;
+
+        @BeforeEach
+        void setUp() {
+            BillingDao billingDao = mock(BillingDao.class);
+            BillingDetailDao billingDetailDao = mock(BillingDetailDao.class);
+            extract = new OhipClaimExtractService(billingDao, billingDetailDao);
+
+            // Point HOME_DIR at the JUnit @TempDir so writeFile / writeHtml have
+            // a real (writable) base directory. The FileOutputStream concats
+            // home_dir + ohipFilename literally — no separator added — so the
+            // base path must end in '/'.
+            homeDirBefore = CarlosProperties.getInstance().get("HOME_DIR");
+            CarlosProperties.getInstance().setProperty(
+                    "HOME_DIR", tempDir.toString() + File.separator);
+        }
+
+        @AfterEach
+        void tearDown() {
+            // Restore prior HOME_DIR so we don't leak test state across the
+            // CarlosProperties singleton into other test classes.
+            if (homeDirBefore == null) {
+                CarlosProperties.getInstance().remove("HOME_DIR");
+            } else {
+                CarlosProperties.getInstance().put("HOME_DIR", homeDirBefore);
+            }
+        }
+
+        @Test
+        void shouldWriteFile_andLeaveContentOnDisk() throws IOException {
+            extract.setOhipFilename("HCPv03.txt");
+
+            extract.writeFile("HE B0001234V03 ...");
+
+            File written = new File(tempDir.toFile(), "HCPv03.txt");
+            assertThat(written).exists();
+            assertThat(Files.readString(written.toPath())).contains("HE B0001234V03");
+        }
+
+        @Test
+        void shouldThrowBillingFileWriteException_whenWriteFileTargetIsADirectory() {
+            // FileOutputStream throws FileNotFoundException when the target
+            // path is an existing directory — a realistic failure shape for
+            // an admin who manually pre-created the file as a folder.
+            File asDir = new File(tempDir.toFile(), "claim.000");
+            assertThat(asDir.mkdir()).isTrue();
+            extract.setOhipFilename("claim.000");
+
+            assertThatThrownBy(() -> extract.writeFile("payload"))
+                    .isInstanceOf(BillingFileWriteException.class)
+                    .hasMessageContaining("OHIP claim file");
+        }
+
+        @Test
+        void shouldWriteHtml_andLeaveContentOnDisk() throws IOException {
+            extract.setHtmlFilename("HCPv03.html");
+
+            extract.writeHtml("<table><tr><td>HE B0001234</td></tr></table>");
+
+            File written = new File(tempDir.toFile(), "HCPv03.html");
+            assertThat(written).exists();
+            assertThat(Files.readString(written.toPath())).contains("HE B0001234");
+        }
+
+        @Test
+        void shouldThrowBillingFileWriteException_whenWriteHtmlTargetIsADirectory() {
+            File asDir = new File(tempDir.toFile(), "report.html");
+            assertThat(asDir.mkdir()).isTrue();
+            extract.setHtmlFilename("report.html");
+
+            assertThatThrownBy(() -> extract.writeHtml("<html/>"))
+                    .isInstanceOf(BillingFileWriteException.class)
+                    .hasMessageContaining("HTML companion file");
+        }
     }
 }

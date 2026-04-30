@@ -691,7 +691,14 @@ public class OhipClaimFileService {
                 updateBatchHeaderSum(bhObj.getId(), "" + healthcardCount, "" + patientCount, "" + recordCount);
             }
         } catch (Exception e) {
-            _logger.error("Error", e);
+            // The body wraps DAO writes (updateHeader1BilledBatchId,
+            // updateBatchHeaderSum). Swallowing here hid partial-billed
+            // state from the operator while reporting "success". Propagate
+            // so the @Transactional caller / 2Action exception-mapping
+            // surfaces the failure.
+            _logger.error("OHIP claim file generation failed", e);
+            throw new BillingFileWriteException(
+                    "OHIP claim file generation failed", e);
         }
     }
 
@@ -821,7 +828,13 @@ public class OhipClaimFileService {
                 updateBatchHeaderSum(bhObj.getId(), "" + healthcardCount, "" + patientCount, "" + recordCount);
             }
         } catch (Exception e) {
-            _logger.error("Error", e);
+            // Same swallow-and-persist hazard as createBillingFileStr above —
+            // updateBatchHeaderSum is a DAO write that runs partway through
+            // the loop. Propagate so the operator sees the failure rather
+            // than a "success" page over partially-flipped batch state.
+            _logger.error("OHIP site claim file generation failed", e);
+            throw new BillingFileWriteException(
+                    "OHIP site claim file generation failed", e);
         }
     }
 

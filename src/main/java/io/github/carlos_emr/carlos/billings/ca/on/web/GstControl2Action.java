@@ -44,14 +44,11 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.action.ServletRequestAware;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 /**
- * Struts action for the {@code GstControl2Action} request flow.
- *
- * <p>The action owns web-layer orchestration: privilege checks, request
- * parameter normalization, delegation to services or assemblers, and the
- * Struts result used to render the next JSP. Keep billing rules and database
- * work outside the JSP when changing this flow.</p>
+ * Admin form gate for the GST percent setting: GET renders the current
+ * percent (via {@link GstControlViewModel}), POST parses the submitted
+ * percent and persists it through {@link GstSettingsService}. Requires
+ * {@code _admin.billing w}.
  */
-
 public class GstControl2Action extends ActionSupport implements ServletRequestAware {
     private HttpServletRequest request;
 

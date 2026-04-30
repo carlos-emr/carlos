@@ -31,13 +31,14 @@ import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 /**
- * Service-layer component for {@code BillingRaReportService}.
+ * Read-side queries that back the RA report screens: provider list for an
+ * RA number, per-provider RA summary rows ({@code OBbilling_no} +
+ * {@code CObilling_no}), and the no-error vs error-coded bill split used
+ * by the operator's correction queue. {@code updateBillingStatus} is the
+ * one write operation, used during interactive settlement.
  *
- * <p>Services centralize billing-domain work that should not live in Struts
- * actions or JSPs. Callers are expected to enforce web security before invoking
- * service methods that read or mutate billing state.</p>
+ * <p>Web security is enforced at the action layer before invocation.</p>
  */
-
 @org.springframework.stereotype.Service
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
 public class BillingRaReportService {

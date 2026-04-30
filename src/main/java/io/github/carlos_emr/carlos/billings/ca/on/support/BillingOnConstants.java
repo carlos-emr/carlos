@@ -59,9 +59,72 @@ public final class BillingOnConstants {
     public enum ACTION_TYPE {C, R, U, D, UH}
 
 
-    public static final Properties propMonthCode = new Properties();
-    public static final Properties propBillingCenter = new Properties();
-    public static final Properties propBillingType = new Properties();
+    /**
+     * {@link Properties} subclass that rejects every mutator after
+     * construction. Build the table via {@link #buildEntry(String, String)} —
+     * which delegates to {@code Hashtable.put} (the parent class's
+     * implementation, bypassing this subclass's overrides) — then call
+     * {@link #seal()}. After {@code seal()}, every public mutator throws
+     * {@link UnsupportedOperationException}, so the {@code public static
+     * final} fields below are effectively immutable from every one of their
+     * 88 call sites.
+     *
+     * <p>The previous design exposed bare {@code Properties}; any caller
+     * could {@code setProperty()} and corrupt shared state process-wide.
+     * This was caught by a cross-test pollution failure where one test's
+     * {@code setProperty("1", "Z")} poisoned every later read.</p>
+     */
+    private static final class FrozenProperties extends Properties {
+        private static final long serialVersionUID = 1L;
+        private boolean sealed = false;
+
+        private void buildEntry(String key, String value) {
+            // Use the parent class's put() directly — calling our own
+            // setProperty() would either throw (if sealed) or recurse.
+            super.put(key, value);
+        }
+
+        private void seal() {
+            this.sealed = true;
+        }
+
+        @Override
+        public synchronized Object setProperty(String key, String value) {
+            throw new UnsupportedOperationException(
+                    "BillingOnConstants lookup tables are immutable");
+        }
+
+        @Override
+        public synchronized Object put(Object key, Object value) {
+            if (sealed) {
+                throw new UnsupportedOperationException(
+                        "BillingOnConstants lookup tables are immutable");
+            }
+            return super.put(key, value);
+        }
+
+        @Override
+        public synchronized Object remove(Object key) {
+            throw new UnsupportedOperationException(
+                    "BillingOnConstants lookup tables are immutable");
+        }
+
+        @Override
+        public synchronized void clear() {
+            throw new UnsupportedOperationException(
+                    "BillingOnConstants lookup tables are immutable");
+        }
+
+        @Override
+        public synchronized void putAll(java.util.Map<?, ?> t) {
+            throw new UnsupportedOperationException(
+                    "BillingOnConstants lookup tables are immutable");
+        }
+    }
+
+    public static final Properties propMonthCode = new FrozenProperties();
+    public static final Properties propBillingCenter = new FrozenProperties();
+    public static final Properties propBillingType = new FrozenProperties();
     public static final List<String> vecPaymentType = Collections.unmodifiableList(Arrays.asList(
             "HCP",
             "Bill OHIP",
@@ -86,37 +149,43 @@ public final class BillingOnConstants {
     ));
 
     static {
-        propMonthCode.setProperty("1", "A");
-        propMonthCode.setProperty("2", "B");
-        propMonthCode.setProperty("3", "C");
-        propMonthCode.setProperty("4", "D");
-        propMonthCode.setProperty("5", "E");
-        propMonthCode.setProperty("6", "F");
-        propMonthCode.setProperty("7", "G");
-        propMonthCode.setProperty("8", "H");
-        propMonthCode.setProperty("9", "I");
-        propMonthCode.setProperty("10", "J");
-        propMonthCode.setProperty("11", "K");
-        propMonthCode.setProperty("12", "L");
+        FrozenProperties pmc = (FrozenProperties) propMonthCode;
+        pmc.buildEntry("1", "A");
+        pmc.buildEntry("2", "B");
+        pmc.buildEntry("3", "C");
+        pmc.buildEntry("4", "D");
+        pmc.buildEntry("5", "E");
+        pmc.buildEntry("6", "F");
+        pmc.buildEntry("7", "G");
+        pmc.buildEntry("8", "H");
+        pmc.buildEntry("9", "I");
+        pmc.buildEntry("10", "J");
+        pmc.buildEntry("11", "K");
+        pmc.buildEntry("12", "L");
+        pmc.seal();
 
-        propBillingCenter.setProperty("G", "Hamilton");
-        propBillingCenter.setProperty("J", "Kingston");
-        propBillingCenter.setProperty("P", "London");
-        propBillingCenter.setProperty("E", "Mississauga");
-        propBillingCenter.setProperty("F", "Oshawa");
-        propBillingCenter.setProperty("D", "Ottawa");
-        propBillingCenter.setProperty("R", "Sudbury");
-        propBillingCenter.setProperty("U", "Thunder Bay");
-        propBillingCenter.setProperty("N", "Toronto");
+        FrozenProperties pbc = (FrozenProperties) propBillingCenter;
+        pbc.buildEntry("G", "Hamilton");
+        pbc.buildEntry("J", "Kingston");
+        pbc.buildEntry("P", "London");
+        pbc.buildEntry("E", "Mississauga");
+        pbc.buildEntry("F", "Oshawa");
+        pbc.buildEntry("D", "Ottawa");
+        pbc.buildEntry("R", "Sudbury");
+        pbc.buildEntry("U", "Thunder Bay");
+        pbc.buildEntry("N", "Toronto");
+        pbc.seal();
 
-        propBillingType.setProperty("O", "Bill OHIP");
-        propBillingType.setProperty("B", "Submitted OHIP");
-        propBillingType.setProperty("N", "Do Not Bill");
-        propBillingType.setProperty("P", "Bill Patient");
-        propBillingType.setProperty("W", "Bill WCB");
-        propBillingType.setProperty("H", "Capitated");
-        propBillingType.setProperty("S", "Settled");
-        propBillingType.setProperty("D", "Deleted");
-        propBillingType.setProperty("X", "Bad Debt");
+        FrozenProperties pbt = (FrozenProperties) propBillingType;
+        pbt.buildEntry("O", "Bill OHIP");
+        pbt.buildEntry("B", "Submitted OHIP");
+        pbt.buildEntry("N", "Do Not Bill");
+        pbt.buildEntry("P", "Bill Patient");
+        pbt.buildEntry("W", "Bill WCB");
+        pbt.buildEntry("H", "Capitated");
+        pbt.buildEntry("S", "Settled");
+        pbt.buildEntry("D", "Deleted");
+        pbt.buildEntry("X", "Bad Debt");
+        pbt.seal();
     }
 }

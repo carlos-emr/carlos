@@ -28,6 +28,17 @@ import io.github.carlos_emr.carlos.util.LabelValueBean;
 
 import java.util.ArrayList;
 import java.util.List;
+
+/**
+ * Read-only filter for the bill-status screens — turns the operator's form
+ * inputs (bill types, status, provider, date range, demographic, visit
+ * location, payment date range) into a query against the underlying
+ * {@link BillingOnClaimLoader}, normalizing the "any" sentinels
+ * ({@code "all"}, {@code "%"}, {@code "---"}, {@code "0000"}) to the
+ * {@code null}-shaped wildcards the loader expects.
+ *
+ * <p>Web security is enforced at the action layer before invocation.</p>
+ */
 @org.springframework.stereotype.Service
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
 public class BillingStatusQueryService {

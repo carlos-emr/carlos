@@ -520,8 +520,8 @@ public class BillingOnCorrectionPersister {
         billTrans.setStatus(billItem.getStatus());
 
         billTrans.setServiceCodePaid(BigDecimal.ZERO);
-        billTrans.setServiceCodePaid(BigDecimal.ZERO);
-        billTrans.setServiceCodePaid(BigDecimal.ZERO);
+        billTrans.setServiceCodeDiscount(BigDecimal.ZERO);
+        billTrans.setServiceCodeRefund(BigDecimal.ZERO);
 
         billTrans.setSliCode(billHeader.getLocation());
         billTrans.setUpdateProviderNo(updateProviderNo);

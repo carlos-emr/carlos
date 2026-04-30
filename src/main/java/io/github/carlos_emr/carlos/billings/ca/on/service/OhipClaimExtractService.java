@@ -416,7 +416,13 @@ public class OhipClaimExtractService implements Serializable {
             //}
             //dbExt.closeConnection();
         } catch (Exception e) {
-            MiscUtils.getLogger().error("error", e);
+            // The body wraps a setAsBilled DAO write inside the per-claim
+            // loop. Swallowing here masked partial-billed state from the
+            // operator while reporting "success". Propagate so the caller
+            // / 2Action exception-mapping surfaces the failure.
+            logger.error("OHIP claim extraction failed", e);
+            throw new BillingFileWriteException(
+                    "OHIP claim extraction failed", e);
         }
     }
 

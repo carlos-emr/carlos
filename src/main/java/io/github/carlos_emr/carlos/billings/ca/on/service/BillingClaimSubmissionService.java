@@ -40,13 +40,17 @@ import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 /**
- * Service-layer component for {@code BillingClaimSubmissionService}.
+ * Orchestrates the save side of OHIP claim entry: turns a request payload into
+ * a {@code BillingONCHeader1} + {@code BillingONItem} graph, persists it via
+ * {@link BillingOnClaimPersister}, optionally creates a private-bill
+ * {@code BillingONExt} payment record, and updates the source appointment's
+ * billing status. {@code addABillingRecord(...)} is the canonical entry point
+ * and returns {@link SaveResult} so the caller can distinguish "saved with id"
+ * from "rejected".
  *
- * <p>Services centralize billing-domain work that should not live in Struts
- * actions or JSPs. Callers are expected to enforce web security before invoking
- * service methods that read or mutate billing state.</p>
+ * <p>Web security is enforced at the action layer before invocation; this
+ * service trusts the caller to have run {@code SecurityInfoManager.hasPrivilege}.
  */
-
 @org.springframework.stereotype.Service
 @org.springframework.transaction.annotation.Transactional
 public class BillingClaimSubmissionService {

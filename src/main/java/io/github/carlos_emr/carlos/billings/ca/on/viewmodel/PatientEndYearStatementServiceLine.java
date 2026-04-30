@@ -23,9 +23,6 @@
 package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;
 
 
-/**
- * @author Eugene Katyukhin
- */
 public class PatientEndYearStatementServiceLine {
     private String code;
     private String fee;

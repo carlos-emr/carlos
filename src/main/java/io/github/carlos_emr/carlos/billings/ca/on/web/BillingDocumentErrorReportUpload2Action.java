@@ -55,14 +55,15 @@ import java.util.List;
 import java.util.ArrayList;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 /**
- * Struts action for the {@code BillingDocumentErrorReportUpload2Action} request flow.
- *
- * <p>The action owns web-layer orchestration: privilege checks, request
- * parameter normalization, delegation to services or assemblers, and the
- * Struts result used to render the next JSP. Keep billing rules and database
- * work outside the JSP when changing this flow.</p>
+ * Routes operator-uploaded MOH return files to the right parser based on
+ * the leading filename character: {@code B*} → batch acknowledgement, {@code
+ * E*} → claims error report, {@code R*} → batch eligibility / OBEC report.
+ * Each branch delegates to the matching parser
+ * ({@link BillingClaimBatchAcknowledgementReportParser},
+ * {@link BillingClaimsErrorReportImportService},
+ * {@link BillingEdtObecOutputSpecificationParser}) and renders the
+ * resulting summary HTML. Requires {@code _billing w}.
  */
-
 public class BillingDocumentErrorReportUpload2Action extends ActionSupport implements UploadedFilesAware {
     private final SecurityInfoManager securityInfoManager;
     private final BatchEligibilityDao batchEligibilityDao;

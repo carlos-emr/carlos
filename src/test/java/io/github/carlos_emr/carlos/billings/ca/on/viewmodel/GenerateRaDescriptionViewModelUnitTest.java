@@ -71,7 +71,7 @@ class GenerateRaDescriptionViewModelUnitTest {
     }
 
     @Test
-    void structuredRowsShouldNormalizeNullCellValues() {
+    void shouldNormalizeNullCellValues_inStructuredRows() {
         GenerateRaDescriptionViewModel.BalanceForwardRow balance =
                 new GenerateRaDescriptionViewModel.BalanceForwardRow(null, null, null, null);
         GenerateRaDescriptionViewModel.TransactionRow transaction =

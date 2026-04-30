@@ -99,7 +99,7 @@ class ScheduleOfBenefitsActionsUnitTest {
     }
 
     @Test
-    void uploadShouldPreviewFeeScheduleWithInjectedService() throws Exception {
+    void shouldPreviewFeeSchedule_withInjectedService_onUpload() throws Exception {
         uploadFile = Files.createTempFile("schedule-of-benefits", ".txt");
         Files.writeString(uploadFile,
                 "A001" + "20260428" + "99999999"
@@ -122,7 +122,7 @@ class ScheduleOfBenefitsActionsUnitTest {
     }
 
     @Test
-    void updateShouldApplySelectedChangesWithInjectedService() {
+    void shouldApplySelectedChanges_withInjectedService_onUpdate() {
         request.setParameter("change", "A001A|33.70|20260428|99999999|Minor assessment");
         when(feeScheduleImportService.applySelected(any()))
                 .thenReturn(new FeeScheduleApplyResult(
@@ -136,5 +136,53 @@ class ScheduleOfBenefitsActionsUnitTest {
         assertThat((List) request.getAttribute("changes")).singleElement()
                 .satisfies(change -> assertThat((java.util.Map) change).containsEntry("code", "A001A"));
         verify(feeScheduleImportService).applySelected(any());
+    }
+
+    // -- Security tier --------------------------------------------------
+
+    @Test
+    void shouldThrowSecurityException_onUpload_whenAdminBillingPrivilegeMissing() {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_admin.billing"), eq("w"), isNull()))
+                .thenReturn(false);
+
+        ScheduleOfBenefitsUpload2Action action =
+                new ScheduleOfBenefitsUpload2Action(securityInfoManager, feeScheduleImportService);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(action::execute)
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_admin.billing");
+    }
+
+    @Test
+    void shouldThrowSecurityException_onUpdate_whenAdminBillingPrivilegeMissing() {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_admin.billing"), eq("w"), isNull()))
+                .thenReturn(false);
+
+        ScheduleOfBenefitsUpdate2Action action =
+                new ScheduleOfBenefitsUpdate2Action(securityInfoManager, feeScheduleImportService);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(action::execute)
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_admin.billing");
+    }
+
+    @Test
+    void shouldRecordValidationException_outcome_whenImportServiceThrows() throws Exception {
+        // The action's broad catch-all must surface as outcome=exception so
+        // the JSP renders the error banner. Pin the contract because a
+        // future refactor that changes the catch label or removes the
+        // attribute would silently render a misleading "success" page.
+        uploadFile = Files.createTempFile("schedule-of-benefits-bad", ".txt");
+        Files.writeString(uploadFile, "garbage");
+        when(feeScheduleImportService.preview(any(), any()))
+                .thenThrow(new RuntimeException("boom"));
+
+        ScheduleOfBenefitsUpload2Action action =
+                new ScheduleOfBenefitsUpload2Action(securityInfoManager, feeScheduleImportService);
+        action.setImportFile(uploadFile.toFile());
+
+        action.execute();
+
+        assertThat(request.getAttribute("outcome")).isEqualTo("exception");
     }
 }

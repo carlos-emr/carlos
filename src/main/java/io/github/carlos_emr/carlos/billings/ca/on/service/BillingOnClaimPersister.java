@@ -61,7 +61,7 @@ import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingONRepo;
 import io.github.carlos_emr.carlos.commn.model.BillingOnItemPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingOnTransaction;
-import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
@@ -175,18 +175,20 @@ public class BillingOnClaimPersister {
         b.setDemographicName(val.getDemographic_name());
         b.setSex(val.getSex());
         b.setProvince(val.getProvince());
-        if (val.getBilling_date().length() > 0)
-            try {
-                b.setBillingDate(dateformatter.parse(val.getBilling_date()));
-            } catch (ParseException e) {
-                MiscUtils.getLogger().error("Invalid date", e);
-            }
-        if (val.getBilling_time().length() > 0)
-            try {
-                b.setBillingTime(timeFormatter.parse(val.getBilling_time()));
-            } catch (ParseException e) {
-                MiscUtils.getLogger().error("Invalid time", e);
-            }
+        // Strict parse — silently logging on ParseException and persisting a
+        // row with a default-valued billing_date/billing_time was an
+        // audit-trail correctness hole. Null/blank stays tolerated; a
+        // malformed value now aborts the @Transactional unit-of-work. Setters
+        // are guarded against null because BillingONCHeader1.setBillingDate /
+        // setBillingTime call format() and NPE on null.
+        Date billingDate = BillingDates.parseOptionalIsoDate(val.getBilling_date(), "billing_date");
+        if (billingDate != null) {
+            b.setBillingDate(billingDate);
+        }
+        Date billingTime = BillingDates.parseOptionalIsoTime(val.getBilling_time(), "billing_time");
+        if (billingTime != null) {
+            b.setBillingTime(billingTime);
+        }
 
 
         b.setTotal(new BigDecimal(val.getTotal() == null ? "0.00" : val.getTotal()));
@@ -372,15 +374,26 @@ public class BillingOnClaimPersister {
     @SuppressWarnings("unchecked")
     public boolean add3rdBillExt(Map<String, String> mVal, int id, ArrayList vecObj) {
         BillingClaimHeaderDto claim1Obj = (BillingClaimHeaderDto) vecObj.get(0);
-        boolean retval = true;
         String[] temp = {"billTo", "remitTo", "total", "payment", "discount", "provider_no", "gst", "payDate", "payMethod"};
         String demoNo = mVal.get("demographic_no");
         String dateTime = UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss");
         mVal.put("payDate", dateTime);
-        String paymentSumParam = null;
-        String paymentDateParam = null;
-        String paymentTypeParam = null;
-        String provider_no = mVal.get("provider_no");
+        String paymentSumParam = mVal.get("total_payment");
+
+        // Parse the payment date upfront so a malformed value aborts the
+        // @Transactional unit-of-work BEFORE any BillingONExt rows are written.
+        // Earlier shape persisted the 9 ext rows first and then returned silently
+        // on ParseException, leaving orphan ext rows with no parent payment.
+        Date paymentDate = null;
+        if (paymentSumParam != null) {
+            try {
+                paymentDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(dateTime);
+            } catch (ParseException ex) {
+                throw new BillingValidationException(
+                        "add3rdBillExt: malformed payDate [" + dateTime + "] for billingNo=" + id, ex);
+            }
+        }
+
         for (int i = 0; i < temp.length; i++) {
             String val = mVal.get(temp[i]);
             if ("discount".equals(temp[i])) {
@@ -397,46 +410,30 @@ public class BillingOnClaimPersister {
             billingONExt.setDateTime(new Date());
             billingONExt.setStatus('1');
             extDao.persist(billingONExt);
-
-            if (i == 3) paymentSumParam = mVal.get("total_payment"); // total_payment
-            else if (i == 7) paymentDateParam = mVal.get(temp[i]); // paymentDate
-            else if (i == 8) paymentTypeParam = mVal.get(temp[i]); // paymentMethod
-
         }
 
         if (paymentSumParam != null) {
             BillingONCHeader1 ch1 = cheaderDao.find(id);
-            Date paymentDate = null;
-            try {
-                paymentDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(paymentDateParam);
-            } catch (ParseException ex) {
-                _logger.error("add3rdBillExt wrong date format " + paymentDateParam);
-                return retval;
-            }
-            if (paymentTypeParam == null || paymentTypeParam.equals("")) {
+            String paymentTypeParam = mVal.get("payMethod");
+            if (paymentTypeParam == null || paymentTypeParam.isEmpty()) {
                 paymentTypeParam = "1";
             }
-            BillingPaymentType type = billingPaymentTypeDao.find(Integer.parseInt(paymentTypeParam));
-            BillingONPayment payment = null;
 
-            if (paymentSumParam != null) {
-                payment = new BillingONPayment();
-                payment.setTotal_payment(BillingMoney.amount(paymentSumParam));
-                payment.setTotal_discount(BillingMoney.amount(mVal.get("total_discount")));
-                payment.setTotal_refund(BillingMoney.zero());
-                payment.setPaymentDate(paymentDate);
-                payment.setBillingOnCheader1(ch1);
-                payment.setBillingNo(id);
-                payment.setCreator(claim1Obj.getCreator());
-                payment.setPaymentTypeId(Integer.parseInt(paymentTypeParam));
+            BillingONPayment payment = new BillingONPayment();
+            payment.setTotal_payment(BillingMoney.amount(paymentSumParam));
+            payment.setTotal_discount(BillingMoney.amount(mVal.get("total_discount")));
+            payment.setTotal_refund(BillingMoney.zero());
+            payment.setPaymentDate(paymentDate);
+            payment.setBillingOnCheader1(ch1);
+            payment.setBillingNo(id);
+            payment.setCreator(claim1Obj.getCreator());
+            payment.setPaymentTypeId(Integer.parseInt(paymentTypeParam));
 
-                //payment.setBillingPaymentType(type);
-                billingONPaymentDao.persist(payment);
-                addItemPaymentRecord((List) vecObj.get(1), id, payment.getId(), Integer.parseInt(paymentTypeParam));
-                addCreate3rdInvoiceTrans((BillingClaimHeaderDto) vecObj.get(0), (List<BillingClaimItemDto>) vecObj.get(1), payment);
-            }
+            billingONPaymentDao.persist(payment);
+            addItemPaymentRecord((List) vecObj.get(1), id, payment.getId(), Integer.parseInt(paymentTypeParam));
+            addCreate3rdInvoiceTrans((BillingClaimHeaderDto) vecObj.get(0), (List<BillingClaimItemDto>) vecObj.get(1), payment);
         }
-        return retval;
+        return true;
     }
 
 
@@ -582,7 +579,6 @@ public class BillingOnClaimPersister {
         return b.getId();
     }
 
-    // TODO more update data
     public boolean updateBatchHeaderRecord(BillingBatchHeaderDto val) {
         BillingONHeader b = dao.find(Integer.parseInt(val.getId()));
         if (b != null) {

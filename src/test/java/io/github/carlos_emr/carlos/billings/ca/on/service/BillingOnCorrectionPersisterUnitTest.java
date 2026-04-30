@@ -277,6 +277,38 @@ class BillingOnCorrectionPersisterUnitTest {
         verify(transDao, never()).persist(any(BillingOnTransaction.class));
     }
 
+    /**
+     * Regression test for the copy-paste bug at
+     * {@code BillingOnCorrectionPersister.addUpdateOneBillItemTrans:522-524}
+     * where three identical {@code setServiceCodePaid(BigDecimal.ZERO)} calls
+     * were emitted instead of {@code setServiceCodePaid} /
+     * {@code setServiceCodeDiscount} / {@code setServiceCodeRefund}. The
+     * sibling {@code addInsertOneBillItemTrans:479-481} has the correct trio.
+     *
+     * <p>The {@code BillingOnTransaction} entity defaults the three fields to
+     * {@code new BigDecimal("0.00")} (scale=2), so the bug doesn't corrupt
+     * runtime values — but it does mean the persister's intent isn't expressed.
+     * We pin intent by asserting each field equals the canonical
+     * {@code BigDecimal.ZERO} (scale=0). With the bug present, the un-set
+     * fields keep their scale-2 default and {@code .isEqualTo(ZERO)} fails.</p>
+     */
+    @Test
+    void shouldSetAllThreeMoneyFieldsExplicitly_whenUpdateTrans() {
+        BillingClaimHeaderDto h = headerDto("2026-01-15", "2026-01-20");
+        BillingClaimItemDto i = itemDto();
+
+        persister.addUpdateOneBillItemTrans(h, i, "999998");
+
+        ArgumentCaptor<BillingOnTransaction> captor =
+                ArgumentCaptor.forClass(BillingOnTransaction.class);
+        verify(transDao).persist(captor.capture());
+        BillingOnTransaction t = captor.getValue();
+        // .isEqualTo uses BigDecimal.equals (scale-sensitive); ZERO has scale 0.
+        assertThat(t.getServiceCodePaid()).isEqualTo(BigDecimal.ZERO);
+        assertThat(t.getServiceCodeDiscount()).isEqualTo(BigDecimal.ZERO);
+        assertThat(t.getServiceCodeRefund()).isEqualTo(BigDecimal.ZERO);
+    }
+
     // ---- helpers ---------------------------------------------------------
 
     private static BillingClaimHeaderDto headerDto(String admissionDate, String billingDate) {

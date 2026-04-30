@@ -24,13 +24,15 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.util.Properties;
 /**
- * Service-layer component for {@code BillingThirdPartyRecordService}.
+ * Bridge between the third-party invoice JSPs and the underlying ext-row
+ * store: returns {@link Properties} bags keyed by ext key (payment, refund,
+ * discount, GST, payment method, billing/remit address, plus the local
+ * clinic address) plus the matching key/value updater. Operations delegate
+ * through {@link BillingThirdPartyService}; the {@link Properties} return
+ * shape exists for backward compatibility with the legacy JSP scriptlets.
  *
- * <p>Services centralize billing-domain work that should not live in Struts
- * actions or JSPs. Callers are expected to enforce web security before invoking
- * service methods that read or mutate billing state.</p>
+ * <p>Web security is enforced at the action layer before invocation.</p>
  */
-
 @org.springframework.stereotype.Service
 @org.springframework.transaction.annotation.Transactional
 public class BillingThirdPartyRecordService {

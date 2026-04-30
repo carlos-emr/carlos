@@ -22,10 +22,10 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
-import java.io.*;
+import java.io.File;
+import java.io.InputStream;
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -33,12 +33,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.CarlosProperties;
 
-
-/**
- * @author Jay Gallagher
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
@@ -52,14 +47,13 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 /**
- * Struts action for the {@code ScheduleOfBenefitsUpload2Action} request flow.
- *
- * <p>The action owns web-layer orchestration: privilege checks, request
- * parameter normalization, delegation to services or assemblers, and the
- * Struts result used to render the next JSP. Keep billing rules and database
- * work outside the JSP when changing this flow.</p>
+ * Admin upload gate for an OHIP Schedule of Benefits fee-schedule file.
+ * Validates the upload through {@link PathValidationUtils} and delegates
+ * preview rendering to {@link FeeScheduleImportService} ({@link
+ * FeeScheduleImportRequest} in, {@link FeeScheduleImportResult} out).
+ * The actual apply step is the sibling {@code ScheduleOfBenefitsUpdate2Action}.
+ * Requires {@code _admin.billing w}.
  */
-
 public class ScheduleOfBenefitsUpload2Action extends ActionSupport implements UploadedFilesAware {
     private final SecurityInfoManager securityInfoManager;
     private final FeeScheduleImportService feeScheduleImportService;
@@ -137,55 +131,6 @@ public class ScheduleOfBenefitsUpload2Action extends ActionSupport implements Up
         return BillingMoney.amount(value);
     }
 
-
-    /**
-     * @param stream
-     * @param filename
-     * @return boolean
-     */
-    public static boolean saveFile(InputStream stream, String filename) {
-        String retVal = null;
-        boolean isAdded = true;
-
-        try {
-            //retrieve the file data
-            //ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            //InputStream stream = file.getInputStream();
-            CarlosProperties props = CarlosProperties.getInstance();
-
-            //properties must exist
-            String place = props.getProperty("DOCUMENT_DIR");
-
-            if (!place.endsWith("/"))
-                place = new StringBuilder(place).insert(place.length(), "/").toString();
-            retVal = place + "LabUpload." + filename + "." + (new Date()).getTime();
-            MiscUtils.getLogger().debug(retVal);
-            //write the file to the file specified
-            OutputStream bos = new FileOutputStream(retVal);
-            int bytesRead = 0;
-            //byte[] buffer = file.getFileData();
-            //while ((bytesRead = stream.read(buffer)) != -1){
-            //   bos.write(buffer, 0, bytesRead);
-            while ((bytesRead = stream.read()) != -1) {
-                bos.write(bytesRead);
-            }
-            bos.close();
-
-            //close the stream
-            stream.close();
-        } catch (FileNotFoundException fnfe) {
-
-            MiscUtils.getLogger().debug("File not found");
-            MiscUtils.getLogger().error("Error", fnfe);
-            return isAdded = false;
-
-        } catch (IOException ioe) {
-            MiscUtils.getLogger().error("Error", ioe);
-            return isAdded = false;
-        }
-
-        return isAdded;
-    }
 
     private File importFile;          // 上传的文件
     private String importFileFileName; // 上传文件的名称

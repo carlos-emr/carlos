@@ -25,9 +25,6 @@ package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;
 import java.util.Date;
 import java.util.List;
 
-/**
- * @author Eugene Katyukhin
- */
 public class PatientEndYearStatementInvoice {
     private Date invoiceDate;
     private int invoiceNo;

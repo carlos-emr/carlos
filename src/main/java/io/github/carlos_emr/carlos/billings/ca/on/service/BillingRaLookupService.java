@@ -36,9 +36,6 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
-/**
- * @author jay
- */
 @Service
 public class BillingRaLookupService {
 

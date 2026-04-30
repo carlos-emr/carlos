@@ -29,10 +29,12 @@
 <%--
     Authentication / authorization is enforced by BillingOnUpload2Action
     (struts mapping billing/CA/ON/billingONUpload), which gates _admin.billing
-    w privilege and POST-only. The legacy session-user check / project_home
-    sessioning that was here is now handled by the upstream action; the
-    DocumentErrorReportUpload form action below uses an extensionless
-    Struts route, so no JSP-side project_home lookup is needed.
+    w privilege before forwarding to this page. The form's onSubmit handler
+    reroutes the multipart POST to the appropriate upload endpoint
+    (DocumentUploadServlet for MOH diskette files, DocumentErrorReportUpload
+    for error reports), so this page does not POST back to the gate action.
+    The DocumentErrorReportUpload form target uses an extensionless Struts
+    route, so no JSP-side project_home lookup is needed.
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>

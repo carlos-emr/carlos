@@ -99,7 +99,7 @@ class BillingDeleteActionsPostGuardUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest
     @ValueSource(strings = {"GET", "HEAD"})
-    void billingDeleteNoApptShouldRejectNonPostMethods_beforeDeleting(String method) {
+    void shouldRejectNonPostMethods_beforeDeleting_onBillingDeleteNoAppt(String method) {
         mockRequest.setMethod(method);
         mockRequest.setParameter("billCode", "A");
         mockRequest.setParameter("billing_no", "123");
@@ -113,7 +113,7 @@ class BillingDeleteActionsPostGuardUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest
     @ValueSource(strings = {"GET", "HEAD"})
-    void billingDeleteWithBillNoShouldRejectNonPostMethods_beforeDeleting(String method) {
+    void shouldRejectNonPostMethods_beforeDeleting_onBillingDeleteWithBillNo(String method) {
         mockRequest.setMethod(method);
         mockRequest.setParameter("appointment_no", "");
         mockRequest.setParameter("billNo_old", "123");
@@ -128,7 +128,7 @@ class BillingDeleteActionsPostGuardUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest
     @ValueSource(strings = {"GET", "HEAD"})
-    void billingDeleteWithoutNoShouldRejectNonPostMethods_beforeDeleting(String method) {
+    void shouldRejectNonPostMethods_beforeDeleting_onBillingDeleteWithoutNo(String method) {
         mockRequest.setMethod(method);
         mockRequest.setParameter("appointment_no", "123");
         mockRequest.setParameter("status", "A");

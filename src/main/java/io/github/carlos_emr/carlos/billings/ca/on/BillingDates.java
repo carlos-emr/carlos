@@ -13,6 +13,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Date;
@@ -23,6 +24,7 @@ import java.util.Date;
 public final class BillingDates {
     private static final DateTimeFormatter SERVICE_DATE = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final DateTimeFormatter OHIP_DATE = DateTimeFormatter.BASIC_ISO_DATE;
+    private static final DateTimeFormatter ISO_TIME = DateTimeFormatter.ofPattern("HH:mm:ss");
 
     private BillingDates() {
     }
@@ -88,6 +90,34 @@ public final class BillingDates {
         } catch (java.time.format.DateTimeParseException e) {
             throw new IllegalArgumentException(
                     "BillingDates.parseOptionalIsoDate: malformed " + fieldName + " [" + raw + "]");
+        }
+    }
+
+    /**
+     * Parse an {@code HH:mm:ss} ISO time that may legitimately be missing.
+     * Mirrors the contract of {@link #parseOptionalIsoDate(String, String)}:
+     * null/blank yields {@code null} (legacy "no value" tolerated), non-blank
+     * but unparseable throws so the surrounding {@code @Transactional}
+     * unit-of-work rolls back instead of persisting a row with a silently
+     * nulled time.
+     *
+     * @param raw       String the {@code HH:mm:ss} time, or null/blank for absent
+     * @param fieldName String diagnostic name embedded in the throw message
+     * @return Date a {@link java.util.Date} on the JVM-zone epoch day at the
+     *         parsed time-of-day, or {@code null} when {@code raw} is null/blank
+     * @throws IllegalArgumentException when {@code raw} is non-blank and unparseable
+     */
+    public static Date parseOptionalIsoTime(String raw, String fieldName) {
+        if (raw == null || raw.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            LocalTime t = LocalTime.parse(raw.trim(), ISO_TIME);
+            return Date.from(t.atDate(LocalDate.ofEpochDay(0))
+                    .atZone(ZoneId.systemDefault()).toInstant());
+        } catch (java.time.format.DateTimeParseException e) {
+            throw new IllegalArgumentException(
+                    "BillingDates.parseOptionalIsoTime: malformed " + fieldName + " [" + raw + "]");
         }
     }
 

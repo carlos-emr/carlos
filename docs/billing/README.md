@@ -71,7 +71,8 @@ Page numbers refer to the original PDF. The Markdown has matching
 - **5.6 Remittance Advice (RA) Record Layout (p.89)** — File Header,
   Address, Claim Header, Claim Item, Balance Forward, Accounting
   Transaction, Message Facility records (Record Types 1-8). Drives
-  `BillingONRemittanceAdviceService`.
+  `BillingOnRaService` (parsing/import) and `OnRaSettlementService`
+  (per-bill settlement against parsed RA rows).
 - 5.7 Accounting Transactions for Record Type 7 (p.105)
 - 5.8 Remittance Advice Explanatory Codes (p.106) — full table at
   [`external/remittance_advice_explanatory_codes.md`](external/remittance_advice_explanatory_codes.md) (224 codes)
@@ -102,11 +103,12 @@ Page numbers refer to the original PDF. The Markdown has matching
 
 The manual hyperlinks out to several documents that it does not include
 inline. Snapshots of all of them were captured at conversion time
-(2026-04-29) and committed under `external/`. **MOH itself was returning
-HTTP 502 with an expired TLS certificate at fetch time**, so the snapshots
-were taken via the Internet Archive Wayback Machine. Re-fetches must
-continue to use Wayback (`https://web.archive.org/web/<timestamp>id_/<url>`)
-or wait until MOH brings their site back up.
+(2026-04-29) and committed under `external/`. **As of that snapshot
+date, direct fetches against MOH were failing with HTTP 502 and an
+expired TLS certificate**, so the snapshots were taken via the Internet
+Archive Wayback Machine. If you re-fetch later and MOH is healthy again,
+the upstream URLs may resolve directly; otherwise use Wayback
+(`https://web.archive.org/web/<timestamp>id_/<url>`).
 
 ### Critical OHIP code tables (referenced from §4.x and §5.8 / §6.3 / §6.4)
 
@@ -182,7 +184,13 @@ varies:
 - Claim record DTOs (Batch Header, Claim Header, Item, Trailer):
   `src/main/java/io/github/carlos_emr/carlos/billings/ca/on/dto/Billing*Dto.java`
 - Disk creation & batch assembly: `src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingDiskCreationService.java`
-- Remittance Advice import & reconciliation: `src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingONRemittanceAdviceService.java`
+- Remittance Advice import & reconciliation:
+  `src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnRaService.java`
+  (record parsing + RA detail/header writes),
+  `src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/OnRaImportService.java`
+  (import entry point with path validation),
+  `src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/OnRaSettlementService.java`
+  (per-bill settlement + RA-header status flip)
 - Correction workflow: `src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingCorrectionRecordService.java`
-- Bill review loader: `src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingReviewLoader.java`
+- Bill review query layer: `src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingReviewQueryService.java`
 - Struts gates (`*2Action`): `src/main/java/io/github/carlos_emr/carlos/billings/ca/on/web/`

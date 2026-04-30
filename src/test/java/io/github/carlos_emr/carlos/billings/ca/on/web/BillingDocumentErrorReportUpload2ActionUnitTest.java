@@ -1,0 +1,125 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ */
+package io.github.carlos_emr.carlos.billings.ca.on.web;
+
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.commn.dao.BatchEligibilityDao;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnErrorReportService;
+import io.github.carlos_emr.carlos.commn.dao.DemographicCustDao;
+import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+
+import jakarta.servlet.http.HttpServletRequest;
+
+import org.apache.struts2.ServletActionContext;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import org.mockito.MockitoAnnotations;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
+
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
+/**
+ * Pins the security-critical surface of {@link BillingDocumentErrorReportUpload2Action}.
+ * The silent-failure-hunter agent flagged that this action mutates patient
+ * demographic records via the {@code R*} branch with no POST gate; that
+ * remains an open finding (out of this PR's scope to fix), but the privilege
+ * check itself is the primary line of defence and must not regress.
+ */
+@DisplayName("BillingDocumentErrorReportUpload2Action")
+@Tag("unit")
+@Tag("billing")
+class BillingDocumentErrorReportUpload2ActionUnitTest extends CarlosUnitTestBase {
+
+    private MockedStatic<ServletActionContext> servletActionContextMock;
+    private MockedStatic<LoggedInInfo> loggedInInfoMock;
+    private AutoCloseable mockitoCloseable;
+
+    @Mock private SecurityInfoManager mockSecurityInfoManager;
+    @Mock private DemographicManager mockDemographicManager;
+    @Mock private BatchEligibilityDao mockBatchEligibilityDao;
+    @Mock private DemographicCustDao mockDemographicCustDao;
+    @Mock private ProviderDao mockProviderDao;
+    @Mock private BillingOnErrorReportService mockErrorReportService;
+    @Mock private LoggedInInfo mockLoggedInInfo;
+
+    private MockHttpServletRequest mockRequest;
+
+    @BeforeEach
+    void setUp() {
+        mockitoCloseable = MockitoAnnotations.openMocks(this);
+        mockRequest = new MockHttpServletRequest();
+        mockRequest.setMethod("POST");
+
+        servletActionContextMock = mockStatic(ServletActionContext.class);
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
+        servletActionContextMock.when(ServletActionContext::getResponse)
+                .thenReturn(new MockHttpServletResponse());
+
+        loggedInInfoMock = mockStatic(LoggedInInfo.class);
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                .thenReturn(mockLoggedInInfo);
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        if (loggedInInfoMock != null) loggedInInfoMock.close();
+        if (servletActionContextMock != null) servletActionContextMock.close();
+        if (mockitoCloseable != null) mockitoCloseable.close();
+    }
+
+    private BillingDocumentErrorReportUpload2Action newAction() {
+        return new BillingDocumentErrorReportUpload2Action(mockSecurityInfoManager,
+                mockDemographicManager, mockBatchEligibilityDao, mockDemographicCustDao,
+                mockProviderDao, mockErrorReportService);
+    }
+
+    @Test
+    void shouldThrowSecurityException_whenPrivilegeMissing() {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(false);
+        mockRequest.setParameter("filename", "Bsomething.txt");
+
+        assertThatThrownBy(() -> newAction().execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_billing");
+
+        // No DAO interaction on a security failure — the gate must be the
+        // first line of defense before any file IO or DB lookup.
+        verifyNoInteractions(mockDemographicManager, mockBatchEligibilityDao,
+                mockDemographicCustDao, mockProviderDao, mockErrorReportService);
+    }
+
+    @Test
+    void shouldThrowSecurityException_whenPrivilegeMissing_evenWithBlankFilename() {
+        // Even the upload branch (blank filename → falls into saveFile path)
+        // must hit the security gate first.
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(false);
+        // filename intentionally absent → upload branch
+
+        assertThatThrownBy(() -> newAction().execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_billing");
+
+        verifyNoInteractions(mockDemographicManager, mockBatchEligibilityDao,
+                mockDemographicCustDao, mockProviderDao, mockErrorReportService);
+    }
+}

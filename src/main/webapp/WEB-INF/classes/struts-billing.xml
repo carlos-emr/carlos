@@ -41,10 +41,20 @@
         -->
         <global-results>
             <result name="billingValidationError">/WEB-INF/jsp/billing/CA/ON/billingValidationError.jsp</result>
+            <!--
+              Operator-facing landing page for OHIP claim-file generation
+              failures (disk full, path traversal, mid-loop DAO failure).
+              The exception class is thrown 6 places inside
+              billings/ca/on/service/* but historically had zero catches —
+              users saw the generic 500 page. Route it here.
+            -->
+            <result name="billingFileWriteError">/WEB-INF/jsp/billing/CA/ON/billingFileWriteError.jsp</result>
         </global-results>
         <global-exception-mappings>
             <exception-mapping result="billingValidationError"
                 exception="io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException"/>
+            <exception-mapping result="billingFileWriteError"
+                exception="io.github.carlos_emr.carlos.billings.ca.on.service.BillingFileWriteException"/>
         </global-exception-mappings>
 
         <action name="quickBillingBC" class="io.github.carlos_emr.carlos.billings.ca.bc.quickbilling.QuickBillingBC2Action">

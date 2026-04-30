@@ -37,6 +37,17 @@ import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingReviewCodeIte
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingReviewPercentageItem;
 import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
 import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
+
+/**
+ * Read-only queries that back the bill-review screen: service-code and
+ * percentage-code review rows, the MRI list, the provider dropdown sets
+ * (own / team / site), and diagnostic-code descriptions. Composes
+ * {@link BillingOnClaimLoader}, {@link BillingOnDiskLoader}, and
+ * {@link BillingOnLookupService} under one query-side surface so the
+ * action / assembler tier doesn't have to wire them up individually.
+ *
+ * <p>Web security is enforced at the action layer before invocation.</p>
+ */
 @org.springframework.stereotype.Service
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
 public class BillingReviewQueryService {

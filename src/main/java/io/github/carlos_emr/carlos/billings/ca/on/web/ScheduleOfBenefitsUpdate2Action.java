@@ -35,22 +35,18 @@ import io.github.carlos_emr.carlos.billings.ca.on.dto.FeeScheduleChange;
 import io.github.carlos_emr.carlos.billings.ca.on.service.FeeScheduleImportService;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.FeeScheduleSelectedChange;
 
-/**
- * @author Jay Gallagher
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 /**
- * Struts action for the {@code ScheduleOfBenefitsUpdate2Action} request flow.
- *
- * <p>The action owns web-layer orchestration: privilege checks, request
- * parameter normalization, delegation to services or assemblers, and the
- * Struts result used to render the next JSP. Keep billing rules and database
- * work outside the JSP when changing this flow.</p>
+ * Apply step for the OHIP fee-schedule import flow: takes the operator's
+ * {@link FeeScheduleSelectedChange} picks from the preview screen
+ * ({@code ScheduleOfBenefitsUpload2Action}) and runs them through
+ * {@link FeeScheduleImportService}, returning a {@link FeeScheduleApplyResult}
+ * for the JSP to render row-level success / failure. Requires
+ * {@code _admin.billing w}.
  */
-
 public class ScheduleOfBenefitsUpdate2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
     private final FeeScheduleImportService feeScheduleImportService;

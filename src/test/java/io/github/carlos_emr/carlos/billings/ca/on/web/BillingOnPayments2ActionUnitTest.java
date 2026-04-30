@@ -12,6 +12,10 @@ import io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingOnItemPaymentDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingOnTransactionDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao;
+import io.github.carlos_emr.carlos.commn.model.BillingONItem;
+import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
+import io.github.carlos_emr.carlos.commn.model.BillingOnItemPayment;
+import io.github.carlos_emr.carlos.commn.model.BillingOnTransaction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
@@ -27,8 +31,13 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @DisplayName("BillingOnPayments2Action")
 @Tag("unit")
@@ -127,5 +136,112 @@ class BillingOnPayments2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(model.getItems().get(0).realPaidDisplay()).doesNotContain("--");
         assertThat(model.getItems().get(0).balanceDisplay()).doesNotContain("--");
         assertThat(model.getBalanceDisplay()).doesNotContain("--");
+    }
+
+    // -- savePayment(): JSON rejection contract.
+    //
+    // The legacy shape silently zeroed malformed amounts inside per-item
+    // catch blocks and persisted $0 rows for every malformed cell — turning
+    // a typo into a duplicate-/zero-payment ledger row. The fix in commit
+    // c79814781b validates every amount UPFRONT and aborts the entire
+    // request before any persist if any single cell fails. The tests below
+    // pin that contract end-to-end so a regression that re-introduces an
+    // empty per-item catch is caught.
+
+    private MockHttpServletRequest savePaymentRequestWithItem(String paymentValue, String discountValue) {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("size", "1");
+        request.setParameter("billingNo", "4242");
+        request.setParameter("paymentDate", "2026-04-29");
+        request.setParameter("paymentType", "1");
+        request.setParameter("status", "");
+        request.getSession().setAttribute("user", "999998");
+        request.setParameter("itemId0", "11");
+        request.setParameter("sel0", "payment");
+        request.setParameter("payment0", paymentValue);
+        request.setParameter("discount0", discountValue);
+        return request;
+    }
+
+    private MockHttpServletResponse executeSavePayment(MockHttpServletRequest request) throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+        // Stub the item lookup so the savePayment loop reaches the parse step.
+        BillingONItemDao itemDao = mock(BillingONItemDao.class);
+        when(itemDao.find(anyInt())).thenReturn(new BillingONItem());
+        registerMock(BillingONItemDao.class, itemDao);
+
+        new BillingOnPayments2Action().savePayment();
+        return response;
+    }
+
+    @Test
+    void shouldWriteJsonRejection_andSkipPersist_whenSingleItemPaymentMalformed() throws Exception {
+        MockHttpServletRequest request = savePaymentRequestWithItem("not-a-number", "0.00");
+        BillingONPaymentDao paymentDao = mock(BillingONPaymentDao.class);
+        BillingOnItemPaymentDao itemPaymentDao = mock(BillingOnItemPaymentDao.class);
+        BillingOnTransactionDao txDao = mock(BillingOnTransactionDao.class);
+        registerMock(BillingONPaymentDao.class, paymentDao);
+        registerMock(BillingOnItemPaymentDao.class, itemPaymentDao);
+        registerMock(BillingOnTransactionDao.class, txDao);
+
+        MockHttpServletResponse response = executeSavePayment(request);
+
+        assertThat(response.getContentAsString()).contains("\"ret\":1");
+        assertThat(response.getContentAsString()).contains("Invalid amount on row 0");
+        assertThat(response.getContentAsString()).contains("not-a-number");
+        assertThat(response.getContentType()).contains("application/json");
+
+        // Critical contract: nothing persists when any single amount is malformed.
+        verify(paymentDao, never()).persist(any(BillingONPayment.class));
+        verify(itemPaymentDao, never()).persist(any(BillingOnItemPayment.class));
+        verify(txDao, never()).persist(any(BillingOnTransaction.class));
+    }
+
+    @Test
+    void shouldWriteJsonRejection_andSkipPersist_whenSingleItemDiscountMalformed() throws Exception {
+        MockHttpServletRequest request = savePaymentRequestWithItem("10.00", "abc");
+        BillingONPaymentDao paymentDao = mock(BillingONPaymentDao.class);
+        registerMock(BillingONPaymentDao.class, paymentDao);
+
+        MockHttpServletResponse response = executeSavePayment(request);
+
+        assertThat(response.getContentAsString()).contains("\"ret\":1");
+        assertThat(response.getContentAsString()).contains("Invalid amount on row 0");
+
+        verify(paymentDao, never()).persist(any(BillingONPayment.class));
+    }
+
+    @Test
+    void shouldRejectFirstMalformedRow_andNotProcessLaterRows_whenMultipleItems() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("size", "3");
+        request.setParameter("billingNo", "4242");
+        request.setParameter("paymentDate", "2026-04-29");
+        request.setParameter("paymentType", "1");
+        request.setParameter("status", "");
+        request.getSession().setAttribute("user", "999998");
+        // Row 0 valid, row 1 malformed, row 2 valid → must reject on row 1.
+        request.setParameter("itemId0", "11"); request.setParameter("sel0", "payment");
+        request.setParameter("payment0", "10.00"); request.setParameter("discount0", "0.00");
+        request.setParameter("itemId1", "12"); request.setParameter("sel1", "payment");
+        request.setParameter("payment1", "BAD");  request.setParameter("discount1", "0.00");
+        request.setParameter("itemId2", "13"); request.setParameter("sel2", "payment");
+        request.setParameter("payment2", "5.00"); request.setParameter("discount2", "0.00");
+
+        BillingONPaymentDao paymentDao = mock(BillingONPaymentDao.class);
+        registerMock(BillingONPaymentDao.class, paymentDao);
+
+        MockHttpServletResponse response = executeSavePayment(request);
+
+        // The rejection should reference row 1 (zero-indexed) — proving
+        // validation iterated past row 0 but stopped at row 1.
+        assertThat(response.getContentAsString()).contains("Invalid amount on row 1");
+
+        // Critical: even though row 0 was valid, NO persist call happened.
+        // This is what makes the upfront-validate-then-persist split safe.
+        verify(paymentDao, never()).persist(any(BillingONPayment.class));
     }
 }

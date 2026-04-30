@@ -33,8 +33,16 @@ import io.github.carlos_emr.carlos.commn.dao.BillingOnTransactionDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
+import io.github.carlos_emr.carlos.commn.model.BillingONExt;
+import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingOnItemPayment;
+import io.github.carlos_emr.carlos.commn.model.BillingOnTransaction;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,10 +52,13 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -190,6 +201,73 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
             assertThat(captor.getValue().getAdmissionDate()).isNull();
             verify(cheaderDao, times(1)).persist(any(BillingONCHeader1.class));
         }
+
+        // The following four tests close the gap left by commit 02364aed59
+        // ("close 4 remaining swallow-and-persist sites in *Persister methods")
+        // — the admission_date fix at line 157 missed the billing_date and
+        // billing_time catches five lines below at 178-189. With the swallow
+        // present, malformed input was silently logged and the row persisted
+        // with date/time NULL. The fix routes both fields through the
+        // strict-but-blank-tolerant {@link BillingDates#parseOptionalIsoDate}
+        // and {@link BillingDates#parseOptionalIsoTime} helpers.
+
+        @Test
+        void shouldThrow_whenBillingDateIsMalformed() {
+            BillingClaimHeaderDto dto = headerDto();
+            dto.setBilling_date("not-a-date");
+
+            org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                    persister.addOneClaimHeaderRecord(dto))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("billing_date")
+                    .hasMessageContaining("not-a-date");
+
+            verify(cheaderDao, never()).persist(any(BillingONCHeader1.class));
+        }
+
+        @Test
+        void shouldTreatBlankBillingDateAsNull_andPersist() {
+            BillingClaimHeaderDto dto = headerDto();
+            dto.setBilling_date("");
+
+            ArgumentCaptor<BillingONCHeader1> captor = ArgumentCaptor.forClass(BillingONCHeader1.class);
+            doAssignId(captor, 1);
+
+            persister.addOneClaimHeaderRecord(dto);
+
+            assertThat(captor.getValue().getBillingDate()).isNull();
+            verify(cheaderDao, times(1)).persist(any(BillingONCHeader1.class));
+        }
+
+        @Test
+        void shouldThrow_whenBillingTimeIsMalformed() {
+            BillingClaimHeaderDto dto = headerDto();
+            dto.setBilling_time("99:99:99");
+
+            org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                    persister.addOneClaimHeaderRecord(dto))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("billing_time")
+                    .hasMessageContaining("99:99:99");
+
+            verify(cheaderDao, never()).persist(any(BillingONCHeader1.class));
+        }
+
+        @Test
+        void shouldPersistRow_whenBillingTimeBlank() {
+            // Blank billing_time keeps the BillingONCHeader1 model's default
+            // string ("00:00:00") — that's a separate model-layer concern.
+            // The persister's contract is just "don't throw, do persist".
+            BillingClaimHeaderDto dto = headerDto();
+            dto.setBilling_time("");
+
+            ArgumentCaptor<BillingONCHeader1> captor = ArgumentCaptor.forClass(BillingONCHeader1.class);
+            doAssignId(captor, 1);
+
+            persister.addOneClaimHeaderRecord(dto);
+
+            verify(cheaderDao, times(1)).persist(any(BillingONCHeader1.class));
+        }
     }
 
     @Nested
@@ -322,6 +400,99 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Nested
+    @DisplayName("add3rdBillExt(Map, int, ArrayList) — 3-arg variant")
+    class Add3rdBillExt {
+
+        /**
+         * Pins the swallow-and-persist fix: earlier shape persisted 9
+         * BillingONExt rows then bailed silently on a date-parse failure,
+         * leaving orphan ext rows with no parent BillingONPayment. The fix
+         * parses the payment date BEFORE writing any ext rows; on failure
+         * it throws BillingValidationException so the @Transactional
+         * unit-of-work rolls back. This test stubs UtilDateUtilities.getToday
+         * to return a malformed string and asserts no extDao.persist or
+         * billingONPaymentDao.persist call slipped through.
+         */
+        @Test
+        void shouldThrow_andPersistNoRows_whenPayDateIsMalformed() {
+            BillingClaimHeaderDto header = headerDto();
+            ArrayList<Object> vecObj = new ArrayList<>();
+            vecObj.add(header);
+            vecObj.add(new ArrayList<BillingClaimItemDto>());
+
+            Map<String, String> mVal = new HashMap<>();
+            mVal.put("demographic_no", "7");
+            mVal.put("total_payment", "100.00");
+            mVal.put("total_discount", "0.00");
+            mVal.put("payMethod", "1");
+
+            try (MockedStatic<UtilDateUtilities> dates = mockStatic(UtilDateUtilities.class)) {
+                dates.when(() -> UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss"))
+                        .thenReturn("not-a-timestamp");
+
+                assertThatThrownBy(() -> persister.add3rdBillExt(mVal, 4242, vecObj))
+                        .isInstanceOf(BillingValidationException.class)
+                        .hasMessageContaining("malformed payDate")
+                        .hasMessageContaining("billingNo=4242");
+            }
+
+            verify(extDao, never()).persist(any(BillingONExt.class));
+            verify(billingONPaymentDao, never()).persist(any(BillingONPayment.class));
+            verify(billOnItemPaymentDao, never()).persist(any(BillingOnItemPayment.class));
+            verify(billTransDao, never()).persist(any(BillingOnTransaction.class));
+        }
+
+        /**
+         * Happy path: with a valid date and total_payment, all 9 BillingONExt
+         * rows AND the BillingONPayment row are persisted in the same call.
+         * Pins the post-fix completeness contract.
+         */
+        @Test
+        void shouldPersistAllNineExtRows_andOnePayment_whenInputsAreWellFormed() {
+            BillingClaimHeaderDto header = headerDto();
+            ArrayList<Object> vecObj = new ArrayList<>();
+            vecObj.add(header);
+            vecObj.add(new ArrayList<BillingClaimItemDto>());
+
+            Map<String, String> mVal = new HashMap<>();
+            mVal.put("demographic_no", "7");
+            mVal.put("total_payment", "100.00");
+            mVal.put("total_discount", "0.00");
+            mVal.put("payMethod", "1");
+
+            doAssignPaymentId(99);
+
+            persister.add3rdBillExt(mVal, 4242, vecObj);
+
+            verify(extDao, times(9)).persist(any(BillingONExt.class));
+            verify(billingONPaymentDao, times(1)).persist(any(BillingONPayment.class));
+        }
+
+        /**
+         * When total_payment is null, the method writes the 9 ext rows but
+         * skips the payment record entirely (legacy contract preserved).
+         */
+        @Test
+        void shouldSkipPaymentRow_whenTotalPaymentIsNull() {
+            BillingClaimHeaderDto header = headerDto();
+            ArrayList<Object> vecObj = new ArrayList<>();
+            vecObj.add(header);
+            vecObj.add(new ArrayList<BillingClaimItemDto>());
+
+            Map<String, String> mVal = new HashMap<>();
+            mVal.put("demographic_no", "7");
+            mVal.put("total_discount", "0.00");
+            mVal.put("payMethod", "1");
+            // total_payment intentionally absent
+
+            persister.add3rdBillExt(mVal, 4242, vecObj);
+
+            verify(extDao, times(9)).persist(any(BillingONExt.class));
+            verify(billingONPaymentDao, never()).persist(any(BillingONPayment.class));
+        }
+    }
+
     // ---- helpers ---------------------------------------------------------
 
     private static BillingClaimHeaderDto headerDto() {
@@ -427,5 +598,13 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
             entity.setId(id);
             return null;
         }).when(billOnItemPaymentDao).persist(any(BillingOnItemPayment.class));
+    }
+
+    private void doAssignPaymentId(int id) {
+        org.mockito.Mockito.doAnswer(inv -> {
+            BillingONPayment entity = inv.getArgument(0);
+            entity.setId(id);
+            return null;
+        }).when(billingONPaymentDao).persist(any(BillingONPayment.class));
     }
 }

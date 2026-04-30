@@ -22,7 +22,6 @@
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -31,9 +30,14 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * Mutation gate for {@code billing/CA/ON/billingONUpload.jsp}. Enforces {@code _admin.billing}
- * w privilege AND POST-only before forwarding to the JSP. GET requests return
- * 405 Method Not Allowed.
+ * View gate for {@code billing/CA/ON/billingONUpload.jsp}. Enforces {@code _admin.billing}
+ * w privilege then forwards to the JSP, which renders the file-picker form.
+ *
+ * <p>The form's {@code onSubmit} JavaScript reroutes the multipart POST to either
+ * {@code /servlet/io.github.carlos_emr.DocumentUploadServlet} (for "P"/"S"-prefixed
+ * MOH diskette files) or {@code /oscarBilling/DocumentErrorReportUpload} (for error
+ * reports). This action never receives the upload itself, so a POST gate would
+ * just break the GET that renders the form.
  *
  * @since 2026-04-13
  */
@@ -44,19 +48,14 @@ public class BillingOnUpload2Action extends ActionSupport {
     public BillingOnUpload2Action(SecurityInfoManager securityInfoManager) {
         this.securityInfoManager = securityInfoManager;
     }
+
     @Override
-    public String execute() throws Exception {
+    public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();
-        HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.billing)");
-        }
-
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            return NONE;
         }
 
         return SUCCESS;

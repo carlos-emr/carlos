@@ -25,6 +25,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFileWriteException;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 
 @DisplayName("Struts billing config Tests")
@@ -57,6 +58,16 @@ class StrutsBillingConfigTest {
 
         assertThat(mappings)
                 .containsEntry("billingValidationError", BillingValidationException.class.getName());
+    }
+
+    @Test
+    void shouldMapBillingFileWriteException_toCurrentServicePackage() throws Exception {
+        Map<String, String> mappings = collectExceptionMappings();
+
+        assertThat(mappings)
+                .as("BillingFileWriteException must route to billingFileWriteError so the "
+                        + "user-facing JSP renders instead of the generic CARLOS error page")
+                .containsEntry("billingFileWriteError", BillingFileWriteException.class.getName());
     }
 
     private Map<String, String> collectExceptionMappings() throws Exception {
