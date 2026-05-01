@@ -29,7 +29,15 @@
 
 --%>
 
+
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_measurements" rights="r" reverse="<%=true%>">
+    <%authed = false; %>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_eChart");%>
+</security:oscarSec>
+
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils"%>
+
 <%
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
@@ -37,6 +45,8 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+
+
 
 <fmt:setBundle basename="oscarResources"/>
 
@@ -69,6 +79,19 @@
 
     <%-- Session-level error and info messages --%>
     <%=WebUtils.popErrorAndInfoMessagesAsHtml(session)%>
+
+ <% 
+    java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
+    if (actionErrors != null && !actionErrors.isEmpty()) {
+%>
+    <div class="alert alert-danger">
+        <ul>
+            <% for (String error : actionErrors) { %>
+                <li><%= error %></li>
+            <% } %>
+        </ul>
+    </div>
+<% } %>
 
     <div class="page-header-bar d-flex align-items-center justify-content-between py-2 mb-3 border-bottom" id="header">
         <div class="d-flex align-items-center gap-2">
