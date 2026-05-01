@@ -72,7 +72,7 @@ public class EctDisplayLabAction22Action extends EctDisplayAction {
 
             // set link for lefthand module title
             String winName = "Labs" + bean.demographicNo;
-            Dao.setLeftPopup(1100, 660, winName, request.getContextPath() + "/lab/ViewDemographicLab?demographicNo=" + bean.demographicNo);
+            Dao.setLeftPopup(800, 1100, winName, request.getContextPath() + "/lab/ViewDemographicLab?demographicNo=" + bean.demographicNo);
 
             // we're going to display popup menu of 2 selections - row display and grid display
             String menuId = "2";
