@@ -163,7 +163,6 @@
             jQuery('#labResultsTbl').DataTable({
                 searching: true,
                 pageLength: 25,
-                order: [[0, 'desc']],
                 language: {
                     url: '${ctx}/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json'
                 }
@@ -178,9 +177,15 @@
     <form name="reassignForm" method="post" action="${ctx}/oscarMDS/ReportReassign" id="lab_form">
         <input type="hidden" name="providerNo" value="<carlos:encode value='<%= providerNo %>' context='htmlAttribute'/>">
         <input type="hidden" name="searchProviderNo" value="<carlos:encode value='<%= searchProviderNo %>' context='htmlAttribute'/>">
-        <%= (request.getParameter("lname") == null ? "" : "<input type=\"hidden\" name=\"lname\" value=\"" + SafeEncode.forHtmlAttribute(request.getParameter("lname")) + "\">") %>
-        <%= (request.getParameter("fname") == null ? "" : "<input type=\"hidden\" name=\"fname\" value=\"" + SafeEncode.forHtmlAttribute(request.getParameter("fname")) + "\">") %>
-        <%= (request.getParameter("hnum") == null ? "" : "<input type=\"hidden\" name=\"hnum\" value=\"" + SafeEncode.forHtmlAttribute(request.getParameter("hnum")) + "\">") %>
+        <c:if test="${not empty param.lname}">
+            <input type="hidden" name="lname" value="<carlos:encode value='${param.lname}' context='htmlAttribute'/>">
+        </c:if>
+        <c:if test="${not empty param.fname}">
+            <input type="hidden" name="fname" value="<carlos:encode value='${param.fname}' context='htmlAttribute'/>">
+        </c:if>
+        <c:if test="${not empty param.hnum}">
+            <input type="hidden" name="hnum" value="<carlos:encode value='${param.hnum}' context='htmlAttribute'/>">
+        </c:if>
         <input type="hidden" name="status" value="<carlos:encode value='<%= ackStatus %>' context='htmlAttribute'/>">
         <input type="hidden" name="selectedProviders">
 
@@ -267,7 +272,7 @@
                                 String status = (String) result.acknowledgedStatus;
 
                                 String rowClass = result.isMatchedToPatient() ? "" : "table-warning";
-                                if (result.isAbnormal()) rowClass = "table-danger";
+                                if (result.isAbnormal()) rowClass += " table-danger";
 
                                 Date d1 = getServiceDate(loggedInInfo, result);
                                 String formattedDate = DateUtils.getDate(d1);
