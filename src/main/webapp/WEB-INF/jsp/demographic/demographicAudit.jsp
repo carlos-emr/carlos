@@ -31,8 +31,10 @@
 
 <%-- 
 demographicAudit.jsp
-- provides the log entries for the demographic for audit purposes
+- provides the log entries for the passed demographic_no for audit purposes
 - DataTables enables filtering ("search") and pagation functions
+
+@param demographic_no
 
 @since 2019
 
