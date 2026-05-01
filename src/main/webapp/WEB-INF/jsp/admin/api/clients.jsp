@@ -83,7 +83,7 @@
 
             function listClients() {
                 $("#clientTable tbody").find("tr").remove();
-                jQuery.getJSON("clientManage.json.jsp.jsp", {method: "list"},
+                jQuery.getJSON("clientManage.json.jsp", {method: "list"},
                     function (data, textStatus) {
                         for (var x = 0; x < data.length; x++) {
                             var id = data[x].id;
