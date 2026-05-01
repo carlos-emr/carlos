@@ -40,11 +40,14 @@
  *       injection plus an {@code assemble(...)} method.</dd>
  *
  *   <dt>{@code *Composer} / {@code *Loader} / {@code *Resolver}</dt>
- *   <dd><em>Reusable</em> inner step shared by ≥2 assemblers. Mutates a
- *       supplied {@code Builder} or returns a partial result. Owned by the
- *       assemblers that consume it; never instantiated from {@code web/}.
- *       Example: {@link BillingOnFormSiteContextComposer} — used by both
- *       {@link BillingOnFormViewModelAssembler} and the legacy correction flow.</dd>
+ *   <dd>Focused read-side step for a cohesive slice of a view model. Mutates a
+ *       supplied {@code Builder}, returns a partial result, or resolves one
+ *       value. Owned by the assemblers that consume it; never instantiated
+ *       from {@code web/}. Example:
+ *       {@link BillingOnFormSiteContextComposer} is currently a single-caller
+ *       composer used by {@link BillingOnFormViewModelAssembler}; it remains
+ *       separate because site/multisite/RMA/clinic-number context is a
+ *       complex sub-structure with dedicated tests.</dd>
  * </dl>
  *
  * <p>For side effects (DAO writes, file I/O, audit, mutation), see the
@@ -54,9 +57,11 @@
  * <h2>Anti-pattern guard rails</h2>
  *
  * <ul>
- *   <li>Don't extract a {@code *Composer}/{@code *Loader} for a single
- *       caller. Wait until a second assembler actually needs the same step.
- *       Premature reuse abstractions hide intent.</li>
+ *   <li>Don't extract a trivial one-off helper into a
+ *       {@code *Composer}/{@code *Loader}/{@code *Resolver}. A single-caller
+ *       extraction is acceptable only when the role names a cohesive
+ *       read-side slice and its tests make the top-level assembler easier to
+ *       maintain.</li>
  *   <li>Side-effect logic does not belong in this package. If a class
  *       writes to the database, writes a file, or sends a notification,
  *       it's a {@code *Service} and lives next door.</li>

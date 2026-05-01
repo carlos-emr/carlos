@@ -806,6 +806,14 @@
         submitting to avoid duplicate billing.
     </div>
 </c:if>
+<c:if test="${shortcutPg1Model.historyPartial}">
+    <div class="alert alert-warning" role="alert" style="margin: 8px 0;">
+        <strong>Billing history may be incomplete.</strong>
+        <carlos:encode value="${shortcutPg1Model.historyPartialRowCount}" context="html"/>
+        history row(s) could not be displayed. Verify history through another
+        channel before submitting to avoid duplicate billing.
+    </div>
+</c:if>
 <%-- Both branches now iterate the unified billingHistory + billingHistoryDetails
      that the assembler builds for legacy and new-ON-billing modes alike. --%>
 <c:choose>

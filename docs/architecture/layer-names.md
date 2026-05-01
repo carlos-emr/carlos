@@ -71,6 +71,9 @@ Plus utility classes — static-only, no Spring annotation. Use a domain noun (p
    - …one decision through a priority chain → `*Resolver`
    - …pure math → `*Calculator`
    - …pure validation result → `*Validator`
+   A loader/composer/resolver may have one caller when it names a cohesive
+   slice and keeps the top-level assembler readable; the suffix is about role,
+   not reuse count.
 6. **Does it do data access on one entity?** → `*Dao` (and only that — no cross-DAO calls)
 7. **Otherwise** → `*Service`
 

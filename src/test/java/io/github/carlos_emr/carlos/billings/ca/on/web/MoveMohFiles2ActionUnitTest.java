@@ -177,4 +177,17 @@ class MoveMohFiles2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
     }
+
+    @Test
+    void shouldReturn405WithAllowHeader_onGetWithUnzipMutationIntent() throws Exception {
+        mockRequest.setMethod("GET");
+        mockRequest.addParameter("folder", "inbox");
+        mockRequest.addParameter("unzipfile", "claim.zip");
+
+        MoveMohFiles2Action action = new MoveMohFiles2Action();
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+    }
 }

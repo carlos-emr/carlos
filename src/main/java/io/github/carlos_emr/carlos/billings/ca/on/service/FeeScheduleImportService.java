@@ -7,6 +7,15 @@
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
  *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
@@ -72,7 +81,7 @@ public class FeeScheduleImportService {
                 if (line == null) {
                     continue;
                 }
-                changes.addAll(previewLine(line, request));
+                changes.addAll(previewLine(line, request, errors));
             }
         } catch (IOException e) {
             MiscUtils.getLogger().error("SOB Upload error", e);
@@ -104,22 +113,23 @@ public class FeeScheduleImportService {
         return new FeeScheduleApplyResult(applied, List.of());
     }
 
-    private List<FeeScheduleChange> previewLine(FeeScheduleLine line, FeeScheduleImportRequest request) {
+    private List<FeeScheduleChange> previewLine(FeeScheduleLine line, FeeScheduleImportRequest request,
+                                                List<FeeScheduleValidationError> errors) {
         List<FeeScheduleChange> changes = new ArrayList<>();
         String morePrices = line.pricesSummary();
         String defaultDescription = billingServiceDao.searchDescBillingCode(line.feeCode(), REGION_ON);
 
         BigDecimal newPrice = firstNonZero(line.gpFee(), line.specialistFee(), line.assistantCompFee());
-        addChange(changes, compareBillingCode(line, "A", newPrice, morePrices, defaultDescription, request));
+        addChange(changes, compareBillingCode(line, "A", newPrice, morePrices, defaultDescription, request, errors));
 
         if (BillingMoney.isNonZero(request.updateAssistantFeesValue())) {
             addChange(changes, compareBillingCode(line, "B", request.updateAssistantFeesValue(), morePrices,
-                    defaultDescription, request));
+                    defaultDescription, request, errors));
         }
 
         if (BillingMoney.isNonZero(request.updateAnaesthetistFeesValue())) {
             addChange(changes, compareBillingCode(line, "C", request.updateAnaesthetistFeesValue(), morePrices,
-                    defaultDescription, request));
+                    defaultDescription, request, errors));
         }
 
         return changes;
@@ -127,7 +137,8 @@ public class FeeScheduleImportService {
 
     private FeeScheduleChange compareBillingCode(FeeScheduleLine line, String feeType, BigDecimal fee,
                                                  String morePrices, String defaultDescription,
-                                                 FeeScheduleImportRequest request) {
+                                                 FeeScheduleImportRequest request,
+                                                 List<FeeScheduleValidationError> errors) {
         String serviceCode = line.feeCode() + feeType;
         List<BillingService> existingServices = billingServiceDao.findMostRecentByServiceCode(serviceCode);
         BillingService existing = latest(existingServices);
@@ -143,7 +154,10 @@ public class FeeScheduleImportService {
             return null;
         }
 
-        BigDecimal oldPrice = existing == null ? null : BillingMoney.amountOrZero(existing.getValue());
+        BigDecimal oldPrice = existing == null ? null : parseExistingPrice(existing, serviceCode, line, errors);
+        if (existing != null && oldPrice == null) {
+            return null;
+        }
         boolean feeChanged = oldPrice == null || oldPrice.compareTo(fee) != 0;
         if (existing != null && request.addChangedCodes() && !feeChanged) {
             return null;
@@ -160,6 +174,17 @@ public class FeeScheduleImportService {
 
         return new FeeScheduleChange(serviceCode, oldPrice, fee, diff, morePrices, line.effectiveDate(),
                 line.terminationDate(), description, existingServices.size(), newCode);
+    }
+
+    private BigDecimal parseExistingPrice(BillingService existing, String serviceCode, FeeScheduleLine line,
+                                          List<FeeScheduleValidationError> errors) {
+        try {
+            return BillingMoney.amountOrThrow(existing.getValue());
+        } catch (NumberFormatException e) {
+            errors.add(new FeeScheduleValidationError(line.lineNumber(), line.rawLine(), "existingValue",
+                    "Existing billing_service value for " + serviceCode + " is malformed"));
+            return null;
+        }
     }
 
     private void persistBillingCode(String code, BigDecimal value, String effectiveDate, String terminationDate,
@@ -193,6 +218,8 @@ public class FeeScheduleImportService {
 
         try {
             return new FeeScheduleLine(
+                    lineNumber,
+                    rawLine,
                     rawLine.substring(0, 4),
                     rawLine.substring(4, 12),
                     rawLine.substring(12, 20),
@@ -242,6 +269,8 @@ public class FeeScheduleImportService {
     }
 
     private record FeeScheduleLine(
+            int lineNumber,
+            String rawLine,
             String feeCode,
             String effectiveDate,
             String terminationDate,

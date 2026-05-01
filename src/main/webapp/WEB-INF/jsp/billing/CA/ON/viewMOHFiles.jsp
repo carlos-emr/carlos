@@ -1,24 +1,32 @@
 <%--
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+    Copyright (c) 2008-2012 Indivica Inc.
+
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; version 2
+    of the License.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    CARLOS EMR Project
+    https://github.com/carlos-emr/carlos
+--%>
+<%--
   Page role: Renders `viewMOHFiles.jsp` for the Ontario billing workflow.
   Expected request model data includes: mohModel.
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.
 --%>
 <!DOCTYPE html>
-<%--
-
-    Copyright (c) 2008-2012 Indivica Inc.
-
-    This software is made available under the terms of the
-    GNU General Public License, Version 2, 1991 (GPLv2).
-    License details are available via "indivica.ca/gplv2"
-    and "gnu.org/licenses/gpl-2.0.html".
-
-    Now maintained by the CARLOS EMR Project (2026+).
-    https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
---%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>

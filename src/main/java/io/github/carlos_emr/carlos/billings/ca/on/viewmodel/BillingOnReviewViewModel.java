@@ -66,6 +66,7 @@ public final class BillingOnReviewViewModel {
     private final java.util.Map<String, String> requestParamEchoes;
     private final String demoName;
     private final String wrongMessage;
+    private final java.util.List<ReviewAlert> reviewAlerts;
     private final String demoSexLabel;
     private final String demoHeaderLine;
     private final boolean mReview;
@@ -140,6 +141,12 @@ public final class BillingOnReviewViewModel {
     /** Generic (name,value) pair used for the dump-all-params hidden inputs. */
     public record ParamPair(String name, String value) { }
 
+    /** Plain-text billing review alert rendered by the JSP. */
+    public record ReviewAlert(String level, String message) {
+        public String getLevel() { return level; }
+        public String getMessage() { return message; }
+    }
+
     private BillingOnReviewViewModel(Builder b) {
         this.demographic = (b.demographic != null)
                 ? b.demographic
@@ -188,6 +195,9 @@ public final class BillingOnReviewViewModel {
                 : java.util.Map.copyOf(b.requestParamEchoes);
         this.demoName = nullToEmpty(b.demoName);
         this.wrongMessage = nullToEmpty(b.wrongMessage);
+        this.reviewAlerts = b.reviewAlerts == null
+                ? java.util.Collections.emptyList()
+                : java.util.List.copyOf(b.reviewAlerts);
         this.demoSexLabel = nullToEmpty(b.demoSexLabel);
         this.demoHeaderLine = nullToEmpty(b.demoHeaderLine);
         this.mReview = b.mReview;
@@ -298,6 +308,7 @@ public final class BillingOnReviewViewModel {
     public java.util.Map<String, String> getRequestParamEchoes() { return requestParamEchoes; }
     public String getDemoName() { return demoName; }
     public String getWrongMessage() { return wrongMessage; }
+    public java.util.List<ReviewAlert> getReviewAlerts() { return reviewAlerts; }
     public String getDemoSexLabel() { return demoSexLabel; }
     public String getDemoHeaderLine() { return demoHeaderLine; }
     public boolean isMultisitesEnabled() { return multisite.enabled(); }
@@ -377,6 +388,7 @@ public final class BillingOnReviewViewModel {
         private java.util.Map<String, String> requestParamEchoes;
         private String demoName = "";
         private String wrongMessage = "";
+        private java.util.List<ReviewAlert> reviewAlerts;
         private String demoSexLabel = "";
         private String demoHeaderLine = "";
         private boolean multisitesEnabled = false;
@@ -448,6 +460,7 @@ public final class BillingOnReviewViewModel {
         public Builder requestParamEchoes(java.util.Map<String, String> v) { this.requestParamEchoes = v == null ? null : java.util.Map.copyOf(v); return this; }
         public Builder demoName(String v) { this.demoName = v; return this; }
         public Builder wrongMessage(String v) { this.wrongMessage = v; return this; }
+        public Builder reviewAlerts(java.util.List<ReviewAlert> v) { this.reviewAlerts = v == null ? null : java.util.List.copyOf(v); return this; }
         public Builder demoSexLabel(String v) { this.demoSexLabel = v; return this; }
         public Builder demoHeaderLine(String v) { this.demoHeaderLine = v; return this; }
         public Builder multisitesEnabled(boolean v) { this.multisitesEnabled = v; return this; }

@@ -169,6 +169,7 @@ public class BillingShortcutPg1ViewModelAssembler {
         // so an empty history pane isn't mistaken for "patient was never billed
         // before" (duplicate-bill risk).
         boolean historyUnavailable = false;
+        int historyPartialRowCount = 0;
         String referralDoctorOhip = demoLoad.referralDoctorOhip;
         boolean isNewOnBilling = "true".equals(props.getProperty("isNewONbilling", ""));
 
@@ -188,6 +189,7 @@ public class BillingShortcutPg1ViewModelAssembler {
                     // re-flagging the inner b.getId() deref) and avoids
                     // taking the NPE detour through the catch.
                     if (b == null) {
+                        historyPartialRowCount++;
                         MiscUtils.getLogger().warn(
                                 "BillingShortcutPg1: null Billing row in history for demo {}; skipping",
                                 LogSanitizer.sanitize(demoNo));
@@ -214,6 +216,7 @@ public class BillingShortcutPg1ViewModelAssembler {
                             }
                         }
                     } catch (RuntimeException rowEx) {
+                        historyPartialRowCount++;
                         io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
                                 "Shortcut history: skipping malformed billing row id={} for demo={}",
                                 capturedBillId, demoNo, rowEx);
@@ -240,6 +243,7 @@ public class BillingShortcutPg1ViewModelAssembler {
                             }
                         }
                     } catch (RuntimeException detailEx) {
+                        historyPartialRowCount++;
                         io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
                                 "Shortcut history: detail lookup failed for billing_no={}",
                                 billingNo, detailEx);
@@ -280,10 +284,12 @@ public class BillingShortcutPg1ViewModelAssembler {
                         billingHistory.add(p);
                         billingHistoryDetails.add(detail);
                     } catch (ClassCastException ccEx) {
+                        historyPartialRowCount++;
                         io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
                                 "Shortcut history: data-shape regression at pair index {} for demo={}",
                                 i, demoNo, ccEx);
                     } catch (RuntimeException rowEx) {
+                        historyPartialRowCount++;
                         io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
                                 "Shortcut history: skipping malformed pair at index {} for demo={}",
                                 i, demoNo, rowEx);
@@ -301,6 +307,7 @@ public class BillingShortcutPg1ViewModelAssembler {
             billingHistory.clear();
             billingHistoryDetails.clear();
             historyUnavailable = true;
+            historyPartialRowCount = 0;
         }
 
         // Provider list (doctors with OHIP)
@@ -514,6 +521,7 @@ public class BillingShortcutPg1ViewModelAssembler {
                 .billingHistory(billingHistory)
                 .billingHistoryDetails(billingHistoryDetails)
                 .historyUnavailable(historyUnavailable)
+                .historyPartialRowCount(historyPartialRowCount)
                 .providers(providers)
                 .clinicLocations(clinicLocations)
                 .serviceCodeCol1(g1.entries)

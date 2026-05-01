@@ -321,9 +321,14 @@
                     <tr>
                         <td style="white-space:nowrap; width:10%; text-align:center"><carlos:encode value="${reviewModel.demoName}" context="html"/>
                             &nbsp;&nbsp; <carlos:encode value="${reviewModel.demoSexLabel}" context="html"/> &nbsp;&nbsp;
-                            ${carlos:forHtmlContent(reviewModel.demoHeaderLine)}
+                            <carlos:encode value="${reviewModel.demoHeaderLine}" context="html"/>
                         </td>
-                        <td style="text-align:center">${carlos:forHtmlContent(reviewModel.wrongMessage)}
+                        <td style="text-align:center">
+                            <c:forEach var="alert" items="${reviewModel.reviewAlerts}">
+                                <div class="alert alert-danger" role="alert">
+                                    <carlos:encode value="${alert.message}" context="html"/>
+                                </div>
+                            </c:forEach>
                         </td>
                     </tr>
                 </table>

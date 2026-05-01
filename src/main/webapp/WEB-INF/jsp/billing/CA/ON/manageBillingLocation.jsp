@@ -1,11 +1,4 @@
 <%--
-  Page role: Renders `manageBillingLocation.jsp` for the Ontario billing workflow.
-  Expected request model data includes: manageLocationModel.
-  Keep request setup in the paired action and use CARLOS encoding helpers
-  for dynamic output rendered by the page.
---%>
-<!DOCTYPE html>
-<%--
     Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
 
@@ -27,6 +20,13 @@
     CARLOS EMR Project
     https://github.com/carlos-emr/carlos
 --%>
+<%--
+  Page role: Renders `manageBillingLocation.jsp` for the Ontario billing workflow.
+  Expected request model data includes: manageLocationModel.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
+<!DOCTYPE html>
 <%--
     manageBillingLocation.jsp (view) - Ontario billing clinic-location admin.
     Rendered by ManageBillingLocation2Action which:

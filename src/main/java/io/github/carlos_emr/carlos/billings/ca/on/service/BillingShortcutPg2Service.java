@@ -145,9 +145,12 @@ public class BillingShortcutPg2Service {
             return b.postSaveAction(BillingShortcutPg2ViewModel.PostSaveAction.NONE).build();
         }
 
-        // Calculate-only case (submit=Save/Next/Save and Back without addition=Confirm)
-        // never actually happened in the legacy code — both calculation and persist
-        // ran inside the same `if(submit && addition=Confirm)` block. Preserved here.
+        // Calculate-only path (submit=Save/Next/Save and Back without
+        // addition=Confirm) is reachable but unused in practice — the
+        // original control flow gated calculation behind the same Confirm
+        // check that gates persistence, so a calculate-without-Confirm
+        // exit was never observable. Kept here so the assembler stays
+        // usable for a future preview-only caller.
         CalcResult calc = calculate(request);
         b.calculationHtml(calc.html).totalAmount(calc.total);
 

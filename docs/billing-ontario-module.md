@@ -4,7 +4,7 @@
 > workflow in CARLOS EMR. Frontend (JSP) details for the bill-entry form
 > itself are out of scope here — see the JSP layer notes below.
 
-> **Last refreshed**: 2026-04-28. Codebase changes after that date should be
+> **Last refreshed**: 2026-05-01. Codebase changes after that date should be
 > verified against the current source before relying on this document.
 
 ## 1 — At a glance
@@ -360,41 +360,57 @@ known operation.
 
 | Class | Role | What it does |
 |---|---|---|
-| `BillingOnClaimLoader` | Loader | Bulk + filtered claim queries, history, code/fee lookups |
-| `BillingOnDiskLoader` | Loader | Disk record queries, batch header reads, MRI list |
-| `BillingOnLookupService` | Service | Provider/team/site lookups + a few status writes (mixed) |
-| `BillingReviewQueryService` | Loader | Review-page service-code + percentage/dx queries |
-| `BillingStatusQueryService` | Loader | Param-normalising facade over `BillingOnClaimLoader` for the status page |
-| `ServiceCodeLoader` | Loader | `billing_service` table reads (code attrs, dropdown desc) |
-| `ServiceCodePersister` | Persister | `billing_service` writes (admin add/update/delete of private codes) |
+| `BatchBillingRemovalService` | Service | Transactional removal of selected batch-billing rows |
 | `BillingClaimBatchAcknowledgementReportParser` | Parser | Fixed-width batch acknowledgement report parsing |
-| `BillingClaimsErrorReportParser` | Parser | Fixed-width claims error report parsing |
-| `BillingEdtObecOutputSpecificationParser` | Parser | EDT OBEC output report parsing |
+| `BillingClaimSubmissionService` | Service | Save-side orchestration (legacy; mixed) |
 | `BillingClaimsErrorReportImportService` | Import service | Claims error report upload/import workflow |
+| `BillingClaimsErrorReportParser` | Parser | Fixed-width claims error report parsing |
+| `BillingCodeLookupService` | Service | Legacy billing-code search and admin edit facade |
+| `BillingCorrectionRecordService` | Service | Loads correction-record graph and applies operator edits |
+| `BillingCorrectionReviewPreparationService` | Service | Builds correction-review draft state after validation |
+| `BillingCorrectionService` | Service | `updateInvoice` + `addThirdPartyPayment` workflows |
+| `BillingCorrectionSubmissionService` | Service | Transactional correction submission persistence |
+| `BillingDiskCreationService` | Service | OHIP disk creation lifecycle |
+| `BillingEdtObecOutputSpecificationParser` | Parser | EDT OBEC output report parsing |
+| `BillingFormConfigurationService` | Service | Billing form/service/diagnosis/location configuration writes |
+| `BillingObecOutputApplyService` | Service | Applies parsed OBEC output records to batch eligibility state |
+| `BillingOnAuditLogService` | Service | Audit log writes |
+| `BillingOnClaimLoader` | Loader | Bulk + filtered claim queries, history, code/fee lookups |
 | `BillingOnClaimPersister` | Persister | Header/item/ext record inserts and updates |
-| `BillingOnReviewDiagPersister` | Persister | Diagnostic-code persistence on review save |
 | `BillingOnCorrectionPersister` | Persister | Correction lifecycle writes + colocated reads (split into `*Loader` is a candidate follow-up) |
+| `BillingOnDiskLoader` | Loader | Disk record queries, batch header reads, MRI list |
+| `BillingOnDiskService` | Service | Disk operations facade |
+| `BillingOnErrorReportService` | Service | RA error-report generation |
 | `BillingOnInvoiceTotalsService` | Service | `calculateBalanceOwing` — reads `BillingONCHeader1Dao` + `BillingONExtDao` + `BillingONPaymentDao` (cross-DAO ⇒ `*Service` per layer-names rule 4) |
 | `BillingOnHeaderCreationService` | Service | Header creation orchestration (`@Transactional`) |
-| `BillingCorrectionService` | Service | `updateInvoice` + `addThirdPartyPayment` workflows |
-| `BillingCorrectionRecordService` | Service | Loads correction-record graph (header + items + ext) and applies operator edits — header field updates, soft-delete, ext-key updates, third-party item updates |
+| `BillingOnLookupService` | Service | Provider/team/site lookups + a few status writes (mixed) |
 | `BillingOnRaService` | Service | RA import + status updates |
-| `BillingOnErrorReportService` | Service | RA error-report generation |
+| `BillingOnReviewDiagPersister` | Persister | Diagnostic-code persistence on review save |
+| `BillingPaymentDeletionService` | Service | Transactional third-party payment deletion and balance refresh |
+| `BillingPaymentSaveService` | Service | Transactional third-party payment save and balance refresh |
+| `BillingRaLookupService` | Service | RA detail lookup, error-code checks, and typed amount-paid totals |
 | `BillingRaReportService` | Service | RA summary/desc report data prep |
-| `OnRaSettlementService` | Service | RA settlement workflow |
-| `BillingDiskCreationService` | Service | OHIP disk creation lifecycle |
-| `BillingOnDiskService` | Service | Disk operations facade |
-| `OhipClaimFileService` | Service | OHIP fixed-width claim file generation |
-| `OhipClaimExtractService` | Service | OHIP claim extract rendering/state carrier |
-| `OhipReportGenerationService` | Service | OHIP report generation |
-| `GstReportService` | Service | GST report query workflow |
-| `GstSettingsService` | Service | GST percent settings read/write workflow |
+| `BillingReviewQueryService` | Loader | Review-page service-code + percentage/dx queries |
+| `BillingShortcutPg2Service` | Service | Shortcut page 2 assembly, validation, and persistence workflow |
+| `BillingSiteIdService` | Service | Site-list and suggested-site lookup helpers |
 | `BillingSpecialistClaimService` | Service | Specialist-billing workflow |
-| `BillingClaimSubmissionService` | Service | Save-side orchestration (legacy; mixed) |
-| `BillingOnAuditLogService` | Service | Audit log writes |
+| `BillingStatusQueryService` | Loader | Param-normalising facade over `BillingOnClaimLoader` for the status page |
 | `BillingThirdPartyService` | Service | Third-party billing workflow |
 | `BillingThirdPartyRecordService` | Service | Third-party record lifecycle |
+| `CssStyleDeletionService` | Service | Transactional CSS style deletion with billing-service cleanup |
+| `FeeScheduleImportService` | Service | Schedule of Benefits preview/apply workflow |
+| `FluBillingPersistenceService` | Service | Transactional flu billing header/detail persistence |
+| `GstReportService` | Service | GST report query workflow |
+| `GstSettingsService` | Service | GST percent settings read/write workflow |
+| `OhipClaimExtractService` | Service | OHIP claim extract rendering/state carrier |
+| `OhipClaimFileService` | Service | OHIP fixed-width claim file generation |
+| `OhipReportGenerationService` | Service | OHIP report generation |
+| `OnRaImportService` | Service | RA document-bean import facade |
+| `OnRaSettlementService` | Service | RA settlement workflow |
+| `OnRaSummaryTotalsService` | Service | RA summary local/pay total merge workflow |
 | `PatientEndYearStatementService` | Service | Year-end statement generation |
+| `ServiceCodeLoader` | Loader | `billing_service` table reads (code attrs, dropdown desc) |
+| `ServiceCodePersister` | Persister | `billing_service` writes (admin add/update/delete of private codes) |
 
 ### 7.1 When to add which type
 
@@ -479,9 +495,11 @@ Notes on this template:
 
 ### 8.1 Action conventions
 
-- **One method per action.** Multi-method "router" actions (`?method=...`)
-  have all been split into single-purpose actions over the course of this
-  refactor. Don't add new method-dispatch actions.
+- **One method per action.** Most multi-method "router" actions
+  (`?method=...`) have been split into single-purpose actions over the
+  course of this refactor. Don't add new method-dispatch actions; see the
+  [remaining method-dispatch cleanup](#remaining-method-dispatch-cleanup)
+  follow-up for the known remainders.
 - **Constructor injection.** No `field = SpringUtils.getBean(...)` shims.
 - **Privilege check first.** `_billing r` for read, `_billing w` for write.
   Throw `SecurityException` (the global Struts exception mapping renders
@@ -744,6 +762,13 @@ Things this module would benefit from but which are not yet done:
   both reads and writes. They legitimately orchestrate mixed lifecycles
   today, but if any one of them grows further, splitting into
   `*Loader` + `*Persister` is the next step.
+
+<a id="remaining-method-dispatch-cleanup"></a>
+- **Remaining method-dispatch cleanup.** Active method-param dispatch remains
+  in `BatchBill2Action`, `ManageCss2Action`, and `BillingOnPayments2Action`.
+  The correction routes `BillingCorrection2Action` and
+  `UpdateBillingOnCorrection2Action` also retain legacy correction-flow
+  compatibility and should be tracked with the same cleanup issue.
 - **JSP guardrail.** `scripts/lint/check-jsp-size.sh` fails CI on any JSP
   under `WEB-INF/jsp/billing/**` that exceeds the byte/scriptlet/getBean
   thresholds. Cheap insurance against the page-buffer workaround returning.

@@ -134,7 +134,19 @@ public class OhipReportGenerationService {
      * leaking stack-trace detail; the full cause is in the server log.</p>
      */
     public record FailedProvider(String providerNo, String ohipNo,
-                                 String causeClass, String causeMessage) {}
+                                 String causeClass, String causeMessage) {
+        public FailedProvider {
+            // Coalesce nulls into safe defaults at the type boundary so the
+            // JSP never renders the literal word "null" through SafeEncode,
+            // and so a future caller / deserializer / test fixture can't
+            // bypass the producer-side coalescing.
+            providerNo = providerNo == null ? "" : providerNo;
+            ohipNo = ohipNo == null ? "" : ohipNo;
+            causeClass = causeClass == null ? "Unknown" : causeClass;
+            causeMessage = (causeMessage == null || causeMessage.isEmpty())
+                    ? "<no message; check server log>" : causeMessage;
+        }
+    }
 
     /**
      * Run the OHIP extract for a group/solo submission. Persists

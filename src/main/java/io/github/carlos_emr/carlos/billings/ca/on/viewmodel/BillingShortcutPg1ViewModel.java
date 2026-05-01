@@ -117,6 +117,7 @@ public final class BillingShortcutPg1ViewModel {
     // billing" banner so the provider doesn't accidentally rebill: an empty
     // history pane is otherwise indistinguishable from a clean slate.
     private final boolean historyUnavailable;
+    private final int historyPartialRowCount;
 
     public record ServiceTypeEntry(String code, String name) { }
     public record DxCodeEntry(String code, String description) { }
@@ -186,6 +187,7 @@ public final class BillingShortcutPg1ViewModel {
         this.newOnBilling = b.newOnBilling;
         this.admissionDate = nullToEmpty(b.admissionDate);
         this.historyUnavailable = b.historyUnavailable;
+        this.historyPartialRowCount = b.historyPartialRowCount;
     }
 
     public static Builder builder() {
@@ -296,6 +298,14 @@ public final class BillingShortcutPg1ViewModel {
      * from a clean slate, creating a duplicate-bill risk.
      */
     public boolean isHistoryUnavailable() { return historyUnavailable; }
+
+    /**
+     * {@code true} when row-level history parsing skipped one or more rows
+     * while leaving surrounding rows visible.
+     */
+    public boolean isHistoryPartial() { return historyPartialRowCount > 0; }
+
+    public int getHistoryPartialRowCount() { return historyPartialRowCount; }
 
     /**
      * ArrayList view of {@link #getBillingHistory()} for legacy JSP scriptlets that
@@ -465,6 +475,8 @@ public final class BillingShortcutPg1ViewModel {
 
         private boolean historyUnavailable;
         public Builder historyUnavailable(boolean v) { this.historyUnavailable = v; return this; }
+        private int historyPartialRowCount;
+        public Builder historyPartialRowCount(int v) { this.historyPartialRowCount = v; return this; }
 
         public BillingShortcutPg1ViewModel build() {
             return new BillingShortcutPg1ViewModel(this);

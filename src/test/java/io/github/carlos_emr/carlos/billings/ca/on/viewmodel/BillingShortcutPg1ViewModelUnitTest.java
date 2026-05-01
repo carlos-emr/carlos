@@ -73,6 +73,14 @@ class BillingShortcutPg1ViewModelUnitTest {
     }
 
     @Test
+    void shouldDefaultHistoryPartialStateToFalse_whenBuilderUnused() {
+        BillingShortcutPg1ViewModel m = BillingShortcutPg1ViewModel.builder().build();
+
+        assertThat(m.isHistoryPartial()).isFalse();
+        assertThat(m.getHistoryPartialRowCount()).isZero();
+    }
+
+    @Test
     void shouldRoundTripIdentityAndDemographicFields_whenBuilderSetsThem() {
         BillingShortcutPg1ViewModel m = BillingShortcutPg1ViewModel.builder()
                 .userProviderNo("999998")
@@ -150,6 +158,16 @@ class BillingShortcutPg1ViewModelUnitTest {
         assertThat(m.getServiceCodeCol2Vec()).hasSize(1);
         assertThat(m.getServiceCodeCol3Vec()).hasSize(1);
         assertThat(m.getBillingHistoryVec().get(0).getProperty("billing_no")).isEqualTo("1");
+    }
+
+    @Test
+    void shouldExposeHistoryPartial_whenSkippedRowCountIsPositive() {
+        BillingShortcutPg1ViewModel m = BillingShortcutPg1ViewModel.builder()
+                .historyPartialRowCount(2)
+                .build();
+
+        assertThat(m.isHistoryPartial()).isTrue();
+        assertThat(m.getHistoryPartialRowCount()).isEqualTo(2);
     }
 
     @Test

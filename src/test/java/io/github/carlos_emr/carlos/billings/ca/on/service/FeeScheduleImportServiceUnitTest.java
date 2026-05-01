@@ -7,6 +7,15 @@
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
  *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
@@ -91,6 +100,29 @@ class FeeScheduleImportServiceUnitTest {
             assertThat(change.newPrice()).isEqualByComparingTo("2.00");
             assertThat(change.diff()).isEqualByComparingTo("0.99");
             assertThat(change.numCodes()).isEqualTo(1);
+        });
+    }
+
+    @Test
+    void shouldReportMalformedExistingValueInsteadOfPreviewingFictionalDelta() {
+        BillingServiceDao billingServiceDao = mock(BillingServiceDao.class);
+        BillingService existing = new BillingService();
+        existing.setServiceCode("A001A");
+        existing.setValue("not-money");
+        existing.setDescription("Existing description");
+        existing.setBillingserviceDate(Date.from(Instant.parse("2026-04-27T00:00:00Z")));
+        when(billingServiceDao.findMostRecentByServiceCode("A001A")).thenReturn(List.of(existing));
+
+        FeeScheduleImportService service = newService(billingServiceDao);
+
+        FeeScheduleImportResult result = service.preview(stream(line("A001", "00000020000")),
+                new FeeScheduleImportRequest(false, true, false, null, null));
+
+        assertThat(result.changes()).isEmpty();
+        assertThat(result.validationErrors()).singleElement().satisfies(error -> {
+            assertThat(error.lineNumber()).isEqualTo(1);
+            assertThat(error.field()).isEqualTo("existingValue");
+            assertThat(error.message()).contains("A001A");
         });
     }
 

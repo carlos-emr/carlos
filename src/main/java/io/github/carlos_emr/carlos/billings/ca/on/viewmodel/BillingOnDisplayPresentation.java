@@ -1,5 +1,6 @@
 /**
  * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ * Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
  *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or

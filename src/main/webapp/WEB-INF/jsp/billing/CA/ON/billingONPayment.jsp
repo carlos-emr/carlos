@@ -1,11 +1,4 @@
 <%--
-  Page role: Renders `billingONPayment.jsp` for the Ontario billing workflow.
-  Expected request model data includes: paymentModel.
-  Keep request setup in the paired action and use CARLOS encoding helpers
-  for dynamic output rendered by the page.
---%>
-<!DOCTYPE html>
-<%--
     Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
 
@@ -27,6 +20,13 @@
     CARLOS EMR Project
     https://github.com/carlos-emr/carlos
 --%>
+<%--
+  Page role: Renders `billingONPayment.jsp` for the Ontario billing workflow.
+  Expected request model data includes: paymentModel.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
+<!DOCTYPE html>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -119,6 +119,14 @@
             </div>
 
     </div>
+
+    <c:if test="${paymentModel.paymentsPartial}">
+        <div class="alert alert-warning" role="alert" style="margin: 8px 0;">
+            <strong>Payment totals may be incomplete.</strong>
+            One or more payment rows had unreadable amounts and were skipped
+            from totals. Review the source rows before relying on the totals.
+        </div>
+    </c:if>
 
     <div class="row">
         <h4><fmt:message key="oscar.billing.on.paymentReceived.raBillingReport"/></h4>

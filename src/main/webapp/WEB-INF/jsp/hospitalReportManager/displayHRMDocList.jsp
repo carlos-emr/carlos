@@ -1,17 +1,24 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2008-2012 Indivica Inc.
 
-    This software is made available under the terms of the
-    GNU General Public License, Version 2, 1991 (GPLv2).
-    License details are available via "indivica.ca/gplv2"
-    and "gnu.org/licenses/gpl-2.0.html".
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; version 2
+    of the License.
 
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
 
-    Now maintained by the CARLOS EMR Project (2026+).
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
 <%--
   Page role: Renders `displayHRMDocList.jsp` for the CARLOS EMR workflow.

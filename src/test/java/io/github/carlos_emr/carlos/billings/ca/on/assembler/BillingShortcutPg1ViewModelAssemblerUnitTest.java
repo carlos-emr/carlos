@@ -22,10 +22,15 @@
 package io.github.carlos_emr.carlos.billings.ca.on.assembler;
 
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao;
+import io.github.carlos_emr.carlos.billing.CA.model.BillingDetail;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingShortcutPg1ViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnClaimLoader;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
@@ -34,6 +39,7 @@ import io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao;
 import io.github.carlos_emr.carlos.commn.dao.CtlBillingServicePremiumDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
+import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.commn.model.ClinicLocation;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -52,6 +58,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -93,10 +100,13 @@ class BillingShortcutPg1ViewModelAssemblerUnitTest extends CarlosUnitTestBase {
     private MockHttpServletRequest request;
     private LoggedInInfo loggedInInfo;
     private AutoCloseable mockitoCloseable;
+    private String previousIsNewOnBilling;
 
     @BeforeEach
     void setUp() {
         mockitoCloseable = MockitoAnnotations.openMocks(this);
+        previousIsNewOnBilling = CarlosProperties.getInstance().getProperty("isNewONbilling", "");
+        CarlosProperties.getInstance().setProperty("isNewONbilling", "false");
 
         // Default: empty everything (the assembler shouldn't NPE on no data).
         when(billingDao.findActiveBillingsByDemoNo(anyInt(), anyInt())).thenReturn(Collections.emptyList());
@@ -124,6 +134,7 @@ class BillingShortcutPg1ViewModelAssemblerUnitTest extends CarlosUnitTestBase {
 
     @AfterEach
     void tearDown() throws Exception {
+        CarlosProperties.getInstance().setProperty("isNewONbilling", previousIsNewOnBilling);
         if (mockitoCloseable != null) mockitoCloseable.close();
     }
 
@@ -299,5 +310,120 @@ class BillingShortcutPg1ViewModelAssemblerUnitTest extends CarlosUnitTestBase {
         BillingShortcutPg1ViewModel m = assembler.assemble(request, loggedInInfo);
 
         assertThat(m.getProviderView()).isEqualTo("999998");
+    }
+
+    @Test
+    void shouldFlagPartialHistory_whenLegacyBillingRowIsSkipped() {
+        request.setParameter("demographic_no", "1");
+        Billing good = legacyBillingRow(1);
+        Billing malformed = mock(Billing.class);
+        when(malformed.getId()).thenReturn(2);
+        when(malformed.getVisitDate()).thenThrow(new RuntimeException("bad visit date"));
+        when(billingDao.findActiveBillingsByDemoNo(1, 5)).thenReturn(List.of(good, malformed));
+        when(billingDetailDao.findByBillingNo(Integer.valueOf(1))).thenReturn(List.of(detail("A001A", "401", "1")));
+
+        BillingShortcutPg1ViewModel m = assembler.assemble(request, loggedInInfo);
+
+        assertThat(m.isHistoryUnavailable()).isFalse();
+        assertThat(m.isHistoryPartial()).isTrue();
+        assertThat(m.getHistoryPartialRowCount()).isEqualTo(1);
+        assertThat(m.getBillingHistory()).hasSize(1);
+        assertThat(m.getBillingHistory().get(0).getProperty("billing_no")).isEqualTo("1");
+    }
+
+    @Test
+    void shouldFlagPartialHistory_whenLegacyDetailLookupIsSkipped() {
+        request.setParameter("demographic_no", "1");
+        Billing billing = legacyBillingRow(1);
+        when(billingDao.findActiveBillingsByDemoNo(1, 5)).thenReturn(List.of(billing));
+        when(billingDetailDao.findByBillingNo(Integer.valueOf(1))).thenThrow(new RuntimeException("detail lookup failed"));
+
+        BillingShortcutPg1ViewModel m = assembler.assemble(request, loggedInInfo);
+
+        assertThat(m.isHistoryUnavailable()).isFalse();
+        assertThat(m.isHistoryPartial()).isTrue();
+        assertThat(m.getHistoryPartialRowCount()).isEqualTo(1);
+        assertThat(m.getBillingHistory()).hasSize(1);
+        assertThat(m.getBillingHistoryDetails()).hasSize(1);
+        assertThat(m.getBillingHistoryDetails().get(0).getProperty("service_code")).isEmpty();
+    }
+
+    @Test
+    void shouldFlagPartialHistory_whenNewOnBillingPairIsSkipped() {
+        String previous = CarlosProperties.getInstance().getProperty("isNewONbilling", "");
+        CarlosProperties.getInstance().setProperty("isNewONbilling", "true");
+        try {
+            request.setParameter("demographic_no", "1");
+            BillingClaimHeaderDto goodHeader = newClaimHeader("10");
+            BillingClaimItemDto goodItem = newClaimItem("A001A", "401");
+            when(billingReviewImpl.getBillingHist(eq("1"), eq(5), eq(0), any()))
+                    .thenReturn(List.of(goodHeader, goodItem, "not-a-header", goodItem));
+
+            BillingShortcutPg1ViewModel m = assembler.assemble(request, loggedInInfo);
+
+            assertThat(m.isHistoryUnavailable()).isFalse();
+            assertThat(m.isHistoryPartial()).isTrue();
+            assertThat(m.getHistoryPartialRowCount()).isEqualTo(1);
+            assertThat(m.getBillingHistory()).hasSize(1);
+            assertThat(m.getBillingHistoryDetails()).hasSize(1);
+        } finally {
+            if (previous == null) {
+                CarlosProperties.getInstance().remove("isNewONbilling");
+            } else {
+                CarlosProperties.getInstance().setProperty("isNewONbilling", previous);
+            }
+        }
+    }
+
+    @Test
+    void shouldKeepPartialHistoryFalse_whenOuterHistoryLookupFails() {
+        request.setParameter("demographic_no", "1");
+        when(billingDao.findActiveBillingsByDemoNo(1, 5)).thenThrow(new RuntimeException("database down"));
+
+        BillingShortcutPg1ViewModel m = assembler.assemble(request, loggedInInfo);
+
+        assertThat(m.isHistoryUnavailable()).isTrue();
+        assertThat(m.isHistoryPartial()).isFalse();
+        assertThat(m.getHistoryPartialRowCount()).isZero();
+        assertThat(m.getBillingHistory()).isEmpty();
+        assertThat(m.getBillingHistoryDetails()).isEmpty();
+    }
+
+    private Billing legacyBillingRow(Integer id) {
+        Billing billing = mock(Billing.class);
+        when(billing.getId()).thenReturn(id);
+        when(billing.getVisitDate()).thenReturn(new Date());
+        when(billing.getBillingDate()).thenReturn(new Date());
+        when(billing.getUpdateDate()).thenReturn(new Date());
+        when(billing.getVisitType()).thenReturn("00");
+        when(billing.getClinicRefCode()).thenReturn("clinic");
+        when(billing.getContent()).thenReturn("");
+        return billing;
+    }
+
+    private BillingDetail detail(String serviceCode, String diagnosticCode, String units) {
+        BillingDetail detail = new BillingDetail();
+        detail.setServiceCode(serviceCode);
+        detail.setDiagnosticCode(diagnosticCode);
+        detail.setBillingUnit(units);
+        return detail;
+    }
+
+    private BillingClaimHeaderDto newClaimHeader(String id) {
+        BillingClaimHeaderDto header = new BillingClaimHeaderDto();
+        header.setId(id);
+        header.setBilling_date("2026-04-30");
+        header.setAdmission_date("2026-04-29");
+        header.setVisittype("00");
+        header.setFacilty_num("clinic");
+        header.setUpdate_datetime("2026-04-30 12:00:00");
+        return header;
+    }
+
+    private BillingClaimItemDto newClaimItem(String serviceCode, String dx) {
+        BillingClaimItemDto item = new BillingClaimItemDto();
+        item.setService_code(serviceCode);
+        item.setDx(dx);
+        return item;
     }
 }

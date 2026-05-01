@@ -1,11 +1,4 @@
 <%--
-  Page role: Renders `billingONMRI.jsp` for the Ontario billing workflow.
-  Expected request model data includes: mriModel.
-  Keep request setup in the paired action and use CARLOS encoding helpers
-  for dynamic output rendered by the page.
---%>
-<!DOCTYPE html>
-<%--
     Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
 
@@ -27,6 +20,13 @@
     CARLOS EMR Project
     https://github.com/carlos-emr/carlos
 --%>
+<%--
+  Page role: Renders `billingONMRI.jsp` for the Ontario billing workflow.
+  Expected request model data includes: mriModel.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
+<!DOCTYPE html>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -121,6 +121,34 @@
 <div class="container-fluid">
 
     <div id="Layer1" style="position: absolute; left: 90px; top: 35px; width: 0px; height: 12px; z-index: 1"></div>
+
+    <%--
+        Per-provider rollback banner. ViewGenReport2Action /
+        ViewGenGroupReport2Action stash the OhipReportGenerationService
+        skipped-providers list as request attribute "skippedProviders"
+        before chaining here. Without this banner the operator sees a
+        clean success page even when one or more providers' batches
+        rolled back — the "missing claim file" only surfaces during
+        next-month MOH reconciliation.
+    --%>
+    <c:if test="${not empty skippedProviders}">
+        <div class="alert alert-warning d-print-none" role="alert">
+            <strong>${fn:length(skippedProviders)} provider(s) skipped</strong>
+            — per-provider transactions rolled back. The other providers'
+            files were generated as usual; re-run the report for the
+            named providers and check the server log for the full cause.
+            <ul class="mb-0">
+                <c:forEach var="fp" items="${skippedProviders}">
+                    <li>
+                        provider <carlos:encode value="${fp.providerNo}" context="html"/>
+                        (ohip <carlos:encode value="${fp.ohipNo}" context="html"/>):
+                        <carlos:encode value="${fp.causeClass}" context="html"/>
+                        — <carlos:encode value="${fp.causeMessage}" context="html"/>
+                    </li>
+                </c:forEach>
+            </ul>
+        </div>
+    </c:if>
 
     <div class="row card card-body bg-body-tertiary d-print-none">
 

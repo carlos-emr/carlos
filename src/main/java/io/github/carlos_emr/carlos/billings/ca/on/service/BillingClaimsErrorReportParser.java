@@ -77,8 +77,10 @@ public class BillingClaimsErrorReportParser {
                 if (nextline.length() >= 3) {
                     headerCount = nextline.substring(2, 3);
                 } else {
-                    // Handle unexpected short line gracefully, e.g. skip and log warning
-                    MiscUtils.getLogger().warn("Skipping short or malformed line: '" + nextline + "'");
+                    // Short/malformed line: log sanitized and leave headerCount
+                    // empty so none of the dispatch branches below match.
+                    MiscUtils.getLogger().warn("Skipping short or malformed line: {}",
+                            io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(nextline));
                 }
 
                 if (headerCount.compareTo("1") == 0) {

@@ -128,17 +128,20 @@ public class MoveMohFiles2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin)");
         }
 
-        // Dual-purpose action: GET = render file listing, POST = archive selected
-        // files. Only enforce POST when the mutation-intent parameter (`mohFile`)
-        // is present. Without this conditional gate, the HttpMethodGuardFilter
+        // Dual-purpose action: GET = render file listing, POST = mutate MOH
+        // files. Only enforce POST when mutation-intent parameters are present:
+        // `mohFile` archives selected files and `unzipfile` extracts a zip into
+        // the EDT folder. Without this conditional gate, the HttpMethodGuardFilter
         // blocks the legitimate render-on-GET path; with an unconditional gate,
         // the page can't be loaded at all. Mirrors the AddEditServiceCode2Action
         // mutation-intent pattern.
         String[] mutationFiles = request.getParameterValues("mohFile");
-        if (mutationFiles != null && mutationFiles.length > 0
-                && !"POST".equalsIgnoreCase(request.getMethod())) {
+        String unzipFile = request.getParameter("unzipfile");
+        boolean hasMutationIntent = (mutationFiles != null && mutationFiles.length > 0)
+                || (unzipFile != null && !unzipFile.isBlank());
+        if (hasMutationIntent && !"POST".equalsIgnoreCase(request.getMethod())) {
             response.setHeader("Allow", "POST");
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required for archival");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required for MOH file mutation");
             return NONE;
         }
 

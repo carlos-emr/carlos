@@ -196,6 +196,37 @@ class BillingOnSave2ActionUnitTest extends CarlosUnitTestBase {
                 .contains("third-party ext write failed");
     }
 
+    @Test
+    void shouldReturnFailure_whenServiceThrowsItemPersistenceException() {
+        // Multi-catch covers BillingItemPersistenceException too (the typed
+        // partial-write signal raised when the inner item cascade rolls
+        // back). Without this test, a future refactor that splits the
+        // multi-catch and forgets the item-persistence arm would let the
+        // exception escape as a generic 500.
+        mockRequest.setParameter("submit", "Save");
+        mockRequest.setParameter("xml_billtype", "PAT");
+        mockRequest.setParameter("payeename", "Acme Payee");
+        mockRequest.setParameter("curBillForm", "ON");
+
+        BillingClaimSubmissionService.BillingClaimSubmission submission =
+                new BillingClaimSubmissionService.BillingClaimSubmission(
+                        new io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto(),
+                        java.util.List.of());
+        when(mockSaveService.getSubmission(mockRequest)).thenReturn(submission);
+        when(mockSaveService.saveBillingWithExtAndPayee(any(BillingClaimSubmissionService.BillingClaimSubmission.class),
+                any(), anyString(), anyString()))
+                .thenThrow(new BillingClaimSubmissionService.BillingItemPersistenceException(4321));
+
+        String result = newAction().execute();
+
+        assertThat(result).isEqualTo("failure");
+        assertThat(mockRequest.getAttribute("billingNo")).isNull();
+        assertThat(mockRequest.getAttribute("billingFailed")).isEqualTo(Boolean.TRUE);
+        assertThat(mockRequest.getAttribute("billingFailureReason"))
+                .asString()
+                .contains("4321");
+    }
+
     // -- Security & validation -----------------------------------------
 
     @Test

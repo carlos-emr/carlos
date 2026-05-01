@@ -50,6 +50,7 @@ class BillingOnReviewViewModelUnitTest {
         assertThat(m.getErrorFlag()).isEmpty();
         assertThat(m.getErrorMessage()).isEmpty();
         assertThat(m.getWarningMessage()).isEmpty();
+        assertThat(m.getReviewAlerts()).isEmpty();
     }
 
     @Test
@@ -75,8 +76,11 @@ class BillingOnReviewViewModelUnitTest {
                 .dxCode("401")
                 .dxDesc("Essential, benign hypertension")
                 .errorFlag("1")
-                .errorMessage("<br><div>err</div>")
-                .warningMessage("<br><div>warn</div>")
+                .errorMessage("Error: err")
+                .warningMessage("Warning: warn")
+                .reviewAlerts(java.util.List.of(
+                        new BillingOnReviewViewModel.ReviewAlert("danger", "Error: err"),
+                        new BillingOnReviewViewModel.ReviewAlert("danger", "Warning: warn")))
                 .build();
 
         assertThat(m.getDemoFirst()).isEqualTo("Jones");
@@ -101,6 +105,9 @@ class BillingOnReviewViewModelUnitTest {
         assertThat(m.getErrorFlag()).isEqualTo("1");
         assertThat(m.getErrorMessage()).contains("err");
         assertThat(m.getWarningMessage()).contains("warn");
+        assertThat(m.getReviewAlerts())
+                .extracting(BillingOnReviewViewModel.ReviewAlert::message)
+                .containsExactly("Error: err", "Warning: warn");
     }
 
     @Test
@@ -182,8 +189,8 @@ class BillingOnReviewViewModelUnitTest {
     void shouldExposeValidationMessagesAsRecord_mirroringFlatGetters() {
         BillingOnReviewViewModel m = BillingOnReviewViewModel.builder()
                 .errorFlag("1")
-                .errorMessage("<b>err</b>")
-                .warningMessage("<i>warn</i>")
+                .errorMessage("Error: err")
+                .warningMessage("Warning: warn")
                 .build();
 
         BillingValidationMessages msgs = m.getValidationMessagesAggregate();

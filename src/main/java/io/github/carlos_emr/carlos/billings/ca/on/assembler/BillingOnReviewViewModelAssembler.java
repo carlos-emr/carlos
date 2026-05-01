@@ -184,6 +184,7 @@ public class BillingOnReviewViewModelAssembler {
 
         StringBuilder errorMessage = new StringBuilder();
         StringBuilder warningMessage = new StringBuilder();
+        List<BillingOnReviewViewModel.ReviewAlert> reviewAlerts = new ArrayList<>();
         String errorFlag = "";
 
         // Canonical demographic projection (HC type defaulting, DOB padding,
@@ -216,21 +217,22 @@ public class BillingOnReviewViewModelAssembler {
 
         if (demo.getHin() == null) {
             errorFlag = "1";
-            errorMessage.append("<br><div class='alert alert-danger'>Error: The patient does not have a HIN </div><br>");
+            appendReviewAlert(errorMessage, reviewAlerts, "Error: The patient does not have a HIN");
         } else if (demo.getHin().isEmpty()) {
-            warningMessage.append("<br><div class='alert alert-danger'>Warning: The patient does not have a HIN </div><br>");
+            appendReviewAlert(warningMessage, reviewAlerts, "Warning: The patient does not have a HIN");
         }
         if (!referralDoctorOhip.isEmpty() && referralDoctorOhip.length() != 6) {
-            warningMessage.append("<br><div class='alert alert-danger'>Warning: the referral doctor's no is wrong. </div><br>");
+            appendReviewAlert(warningMessage, reviewAlerts, "Warning: the referral doctor's no is wrong.");
         }
         if (summary.dob().length() != 8) {
             errorFlag = "1";
-            errorMessage.append("<br><div class='alert alert-danger'>Error: The patient does not have a valid DOB. </div><br>");
+            appendReviewAlert(errorMessage, reviewAlerts, "Error: The patient does not have a valid DOB.");
         }
 
         b.errorFlag(errorFlag)
                 .errorMessage(errorMessage.toString())
-                .warningMessage(warningMessage.toString());
+                .warningMessage(warningMessage.toString())
+                .reviewAlerts(reviewAlerts);
     }
 
     private static String buildPatientAddress(Demographic demo) {
@@ -243,6 +245,28 @@ public class BillingOnReviewViewModelAssembler {
 
     private static String nullToEmpty(String s) {
         return s == null ? "" : s;
+    }
+
+    private static void appendReviewAlert(StringBuilder messages,
+                                          List<BillingOnReviewViewModel.ReviewAlert> reviewAlerts,
+                                          String message) {
+        if (messages.length() > 0) {
+            messages.append('\n');
+        }
+        messages.append(message);
+        reviewAlerts.add(new BillingOnReviewViewModel.ReviewAlert("danger", message));
+    }
+
+    private static String combineMessages(String first, String second) {
+        String a = nullToEmpty(first);
+        String b = nullToEmpty(second);
+        if (a.isEmpty()) {
+            return b;
+        }
+        if (b.isEmpty()) {
+            return a;
+        }
+        return a + "\n" + b;
     }
 
     // -- 2026-04-25 expansion helpers --------------------------------------
@@ -305,12 +329,12 @@ public class BillingOnReviewViewModelAssembler {
         String sexLabel = "1".equals(demoSex) ? "Male" : "Female";
         b.demoSexLabel(sexLabel);
 
-        String header = " DOB: " + partial.getDemoDobYy() + "/"
+        String header = "DOB: " + partial.getDemoDobYy() + "/"
                 + partial.getDemoDobMm() + "/" + partial.getDemoDobDd()
-                + " &nbsp;&nbsp; HIN: " + partial.getDemoHin() + partial.getDemoVer();
+                + " HIN: " + partial.getDemoHin() + partial.getDemoVer();
         b.demoHeaderLine(header);
 
-        String wrong = nullToEmpty(partial.getErrorMessage()) + nullToEmpty(partial.getWarningMessage());
+        String wrong = combineMessages(partial.getErrorMessage(), partial.getWarningMessage());
         b.wrongMessage(wrong);
 
         List<String> serviceDateLines = new ArrayList<>();

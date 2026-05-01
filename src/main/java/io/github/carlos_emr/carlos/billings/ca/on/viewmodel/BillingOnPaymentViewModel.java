@@ -55,6 +55,7 @@ public final class BillingOnPaymentViewModel {
     private final String errorMsg;
     private final boolean reportRendered;
     private final boolean isThisProviderOnly;
+    private final boolean paymentsPartial;
 
     private final List<RaReportRow> raRows;
     private final int raItemCount;
@@ -122,6 +123,7 @@ public final class BillingOnPaymentViewModel {
         this.errorMsg = nullToEmpty(b.errorMsg);
         this.reportRendered = b.reportRendered;
         this.isThisProviderOnly = b.isThisProviderOnly;
+        this.paymentsPartial = b.paymentsPartial;
         this.raRows = b.raRows == null ? Collections.emptyList() : List.copyOf(b.raRows);
         this.raItemCount = b.raItemCount;
         this.raFeeTotal = nullToZero(b.raFeeTotal);
@@ -153,6 +155,7 @@ public final class BillingOnPaymentViewModel {
     public String getErrorMsg() { return errorMsg; }
     public boolean isReportRendered() { return reportRendered; }
     public boolean isThisProviderOnly() { return isThisProviderOnly; }
+    public boolean isPaymentsPartial() { return paymentsPartial; }
     public List<RaReportRow> getRaRows() { return raRows; }
     public int getRaItemCount() { return raItemCount; }
     public String getRaFeeTotal() { return raFeeTotal; }
@@ -179,6 +182,7 @@ public final class BillingOnPaymentViewModel {
         private String errorMsg;
         private boolean reportRendered;
         private boolean isThisProviderOnly;
+        private boolean paymentsPartial;
         private List<RaReportRow> raRows;
         private int raItemCount;
         private String raFeeTotal;
@@ -207,6 +211,7 @@ public final class BillingOnPaymentViewModel {
         public Builder errorMsg(String v) { this.errorMsg = v; return this; }
         public Builder reportRendered(boolean v) { this.reportRendered = v; return this; }
         public Builder isThisProviderOnly(boolean v) { this.isThisProviderOnly = v; return this; }
+        public Builder paymentsPartial(boolean v) { this.paymentsPartial = v; return this; }
         public Builder raRows(List<RaReportRow> v) { this.raRows = v == null ? null : List.copyOf(v); return this; }
         public Builder raItemCount(int v) { this.raItemCount = v; return this; }
         public Builder raFeeTotal(String v) { this.raFeeTotal = v; return this; }

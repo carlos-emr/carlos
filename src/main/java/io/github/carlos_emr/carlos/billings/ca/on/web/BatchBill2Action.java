@@ -116,12 +116,12 @@ public class BatchBill2Action extends ActionSupport {
         String[] billingInfo = request.getParameterValues("bill");
 
         if (billingInfo != null) {
-            // Pre-validate the entire batch BEFORE the first DAO write. The
-            // legacy code parsed and persisted in the same loop, so a malformed
-            // row N (wrong split count or non-numeric demo no) crashed AFTER
-            // bills 0..N-1 were already committed — leaving the operator with
-            // a generic 500 and no signal which bills posted. Validate-then-
-            // execute keeps the batch atomic from the operator's perspective.
+            // Pre-validate the entire batch BEFORE the first DAO write so a
+            // malformed row N (wrong split count or non-numeric demo no)
+            // cannot land bills 0..N-1 and then leave the operator with
+            // a generic 500 and no signal which bills posted. Validate-
+            // then-execute keeps the batch atomic from the operator's
+            // perspective.
             for (int idx = 0; idx < billingInfo.length; ++idx) {
                 try {
                     parseBatchBillRow(billingInfo[idx]);
@@ -264,10 +264,10 @@ public class BatchBill2Action extends ActionSupport {
                         .removeAll(rows);
             } catch (io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingRemovalService.RemovalRowMissingException missing) {
                 // The typed exception's whole point is its .row() field —
-                // without surfacing it the operator gets the same opaque
-                // 500 page they'd have got from the pre-fix .get(0) NPE.
-                // Render the row id on the action result so the JSP can
-                // banner "Row not found: demographicNo=N serviceCode=C".
+                // without surfacing it the operator gets only an opaque
+                // 500 with no row identifier. Render the row id on the
+                // action result so the JSP can banner "Row not found:
+                // demographicNo=N serviceCode=C".
                 MiscUtils.getLogger().error(
                         "BatchBilling remove rolled back; row not found: demographicNo={} serviceCode={}",
                         LogSanitizer.sanitize(String.valueOf(missing.row().demographicNo())),

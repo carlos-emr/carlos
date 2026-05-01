@@ -1,10 +1,4 @@
 <%--
-  Page role: Renders `endYearStatement.jsp` for the Ontario billing workflow.
-  Keep request setup in the paired action and use CARLOS encoding helpers
-  for dynamic output rendered by the page.
---%>
-<!DOCTYPE html>
-<%--
     Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
 
@@ -26,6 +20,12 @@
     CARLOS EMR Project
     https://github.com/carlos-emr/carlos
 --%>
+<%--
+  Page role: Renders `endYearStatement.jsp` for the Ontario billing workflow.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
+<!DOCTYPE html>
 <%@ page language="java" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>

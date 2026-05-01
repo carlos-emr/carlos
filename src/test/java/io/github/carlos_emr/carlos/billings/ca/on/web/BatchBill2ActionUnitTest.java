@@ -7,6 +7,15 @@
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
  *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
@@ -163,6 +172,56 @@ class BatchBill2ActionUnitTest extends CarlosUnitTestBase {
         String result = new BatchBill2Action(headerCreationService, securityInfoManager, batchBillingAssembler).doBatchBill();
 
         assertThat(result).isEqualTo(ActionSupport.ERROR);
+        verify(headerCreationService, never())
+                .createBill(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldNotPersistAnyBills_whenLaterRowFailsPreValidation_inDoBatchBill() {
+        // Atomicity contract: if row N is malformed (non-numeric demo no
+        // here), rows 0..N-1 must NOT be persisted. The pre-validate loop
+        // at BatchBill2Action.java:192-201 runs the parse on every row
+        // before the persist loop touches a single createBill call.
+        // Without this test the contract holds trivially with one row but
+        // a regression that drops the pre-validate loop slips through.
+        request.setMethod("POST");
+        request.setParameter("bill",
+                new String[] {
+                        "A007A;250;42;999998",                  // row 0: valid
+                        "A008A;251;NOT_NUMERIC;999998"          // row 1: malformed demo no
+                });
+
+        String result = new BatchBill2Action(
+                headerCreationService, securityInfoManager, batchBillingAssembler).doBatchBill();
+
+        assertThat(result).isEqualTo(ActionSupport.ERROR);
+        // No bills persisted — neither row 0 nor row 1.
+        verify(headerCreationService, never())
+                .createBill(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldNotPersistAnyBills_whenLaterRowFailsPreValidation_inExecute() {
+        // Same atomicity contract on the execute() path (different
+        // pre-validate block at BatchBill2Action.java:119-135).
+        request.setMethod("POST");
+        request.setParameter("bill",
+                new String[] {
+                        "A007A;250;42;999998",
+                        "A008A;251;NOT_NUMERIC;999998"
+                });
+
+        // execute() routes to doBatchBill when method=doBatchBill, so set
+        // a different method to land on the execute body.
+        request.setParameter("method", "executeBody");
+
+        // Executing.
+        try {
+            new BatchBill2Action(headerCreationService, securityInfoManager, batchBillingAssembler).execute();
+        } catch (Exception ignore) {
+            // Body may throw if the assembler fails to assemble; the
+            // load-bearing assertion is still that no bills were persisted.
+        }
         verify(headerCreationService, never())
                 .createBill(any(), any(), any(), any(), any(), any(), any());
     }

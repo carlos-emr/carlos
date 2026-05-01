@@ -39,6 +39,7 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
@@ -145,6 +146,12 @@ class BillingOnReviewViewModelAssemblerUnitTest extends CarlosUnitTestBase {
 
         assertThat(m.getErrorFlag()).isEqualTo("1");
         assertThat(m.getErrorMessage()).contains("does not have a valid DOB");
+        assertThat(m.getErrorMessage()).doesNotContain("<", ">", "&nbsp;");
+        assertThat(m.getWrongMessage()).doesNotContain("<", ">", "&nbsp;");
+        assertThat(m.getReviewAlerts())
+                .extracting(BillingOnReviewViewModel.ReviewAlert::level,
+                        BillingOnReviewViewModel.ReviewAlert::message)
+                .contains(tuple("danger", "Error: The patient does not have a valid DOB."));
     }
 
     @Test
@@ -165,6 +172,11 @@ class BillingOnReviewViewModelAssemblerUnitTest extends CarlosUnitTestBase {
         BillingOnReviewViewModel m = assembler.assemble(request, null);
 
         assertThat(m.getWarningMessage()).contains("does not have a HIN");
+        assertThat(m.getWarningMessage()).doesNotContain("<", ">", "&nbsp;");
+        assertThat(m.getReviewAlerts())
+                .extracting(BillingOnReviewViewModel.ReviewAlert::level,
+                        BillingOnReviewViewModel.ReviewAlert::message)
+                .contains(tuple("danger", "Warning: The patient does not have a HIN"));
     }
 
     @Test
@@ -186,6 +198,30 @@ class BillingOnReviewViewModelAssemblerUnitTest extends CarlosUnitTestBase {
 
         assertThat(m.getErrorFlag()).isEqualTo("1");
         assertThat(m.getErrorMessage()).contains("does not have a HIN");
+        assertThat(m.getReviewAlerts())
+                .extracting(BillingOnReviewViewModel.ReviewAlert::message)
+                .contains("Error: The patient does not have a HIN");
+    }
+
+    @Test
+    void shouldBuildPlainTextDemographicHeader_withoutHtmlEntities() {
+        Demographic demo = new Demographic();
+        demo.setFirstName("Jones");
+        demo.setLastName("Jacky");
+        demo.setSex("M");
+        demo.setHin("9876543225");
+        demo.setVer("AB");
+        demo.setHcType("ON");
+        demo.setYearOfBirth("1985");
+        demo.setMonthOfBirth("06");
+        demo.setDateOfBirth("15");
+        when(demographicDao.getDemographic("1")).thenReturn(demo);
+        request.setParameter("demographic_no", "1");
+
+        BillingOnReviewViewModel m = assembler.assemble(request, null);
+
+        assertThat(m.getDemoHeaderLine()).isEqualTo("DOB: 1985/06/15 HIN: 9876543225AB");
+        assertThat(m.getDemoHeaderLine()).doesNotContain("&nbsp;");
     }
 
     @Test

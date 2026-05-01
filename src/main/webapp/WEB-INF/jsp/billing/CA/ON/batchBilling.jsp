@@ -1,11 +1,4 @@
 <%--
-  Page role: Renders `batchBilling.jsp` for the Ontario billing workflow.
-  Expected request model data includes: batchModel.
-  Keep request setup in the paired action and use CARLOS encoding helpers
-  for dynamic output rendered by the page.
---%>
-<!DOCTYPE html>
-<%--
     Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
 
@@ -27,6 +20,13 @@
     CARLOS EMR Project
     https://github.com/carlos-emr/carlos
 --%>
+<%--
+  Page role: Renders `batchBilling.jsp` for the Ontario billing workflow.
+  Expected request model data includes: batchModel.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
+<!DOCTYPE html>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@ taglib uri="carlos" prefix="carlos" %>

@@ -206,8 +206,9 @@ public class BillingOnPaymentViewModelAssembler {
         }
 
         buildRaReport(b, raList, providerNo);
-        buildPremiumReport(b, premiumList, locale);
-        buildThirdPartyReport(b, ptList, startDate, endDate, locale);
+        boolean premiumPartial = buildPremiumReport(b, premiumList, locale);
+        boolean thirdPartyPartial = buildThirdPartyReport(b, ptList, startDate, endDate, locale);
+        b.paymentsPartial(premiumPartial || thirdPartyPartial);
 
         BigDecimal raPaidTotal = new BigDecimal(b.build().getRaPaidTotal());
         BigDecimal threePaid = new BigDecimal(b.build().getThirdPartyPaidTotal());
@@ -351,16 +352,17 @@ public class BillingOnPaymentViewModelAssembler {
                 .raAdjTotal(adjTotal.toPlainString());
     }
 
-    private void buildPremiumReport(BillingOnPaymentViewModel.Builder b,
-                                    List<BillingONPremium> premiumList,
-                                    Locale locale) {
+    private boolean buildPremiumReport(BillingOnPaymentViewModel.Builder b,
+                                       List<BillingONPremium> premiumList,
+                                       Locale locale) {
         BigDecimal totalPremiums = ZERO;
         int numItems = 0;
+        boolean paymentsPartial = false;
         List<BillingOnPaymentViewModel.PremiumRow> rows = new ArrayList<>();
 
         if (premiumList == null) {
             b.premiumRows(rows).premiumItemCount(0).premiumTotal(totalPremiums.toPlainString());
-            return;
+            return false;
         }
 
         String rowColor = "myWhite";
@@ -392,20 +394,23 @@ public class BillingOnPaymentViewModelAssembler {
             try {
                 totalPremiums = totalPremiums.add(new BigDecimal(amountPaid));
             } catch (NumberFormatException e) {
+                paymentsPartial = true;
                 MiscUtils.getLogger().warn("Premium Amount Paid not a number on tally", e);
             }
         }
         b.premiumRows(rows).premiumItemCount(numItems).premiumTotal(totalPremiums.toPlainString());
+        return paymentsPartial;
     }
 
-    private void buildThirdPartyReport(BillingOnPaymentViewModel.Builder b,
-                                       List<BillingONCHeader1> ptList,
-                                       Date startDate, Date endDate,
-                                       Locale locale) {
+    private boolean buildThirdPartyReport(BillingOnPaymentViewModel.Builder b,
+                                          List<BillingONCHeader1> ptList,
+                                          Date startDate, Date endDate,
+                                          Locale locale) {
         BigDecimal total3rdPaid = ZERO;
         BigDecimal total3rdRefunded = ZERO;
         BigDecimal total3rdBilled = ZERO;
         int num3rdItems = 0;
+        boolean paymentsPartial = false;
         List<BillingOnPaymentViewModel.ThirdPartyBillRow> rows = new ArrayList<>();
 
         if (ptList == null) {
@@ -413,7 +418,7 @@ public class BillingOnPaymentViewModelAssembler {
                     .thirdPartyBilledTotal(total3rdBilled.toPlainString())
                     .thirdPartyPaidTotal(total3rdPaid.toPlainString())
                     .thirdPartyRefundedTotal(total3rdRefunded.toPlainString());
-            return;
+            return false;
         }
 
         String rowColor = "myWhite";
@@ -447,6 +452,7 @@ public class BillingOnPaymentViewModelAssembler {
                         totalBilled = totalBilled.add(new BigDecimal(amtBilled));
                     }
                 } catch (NumberFormatException e) {
+                    paymentsPartial = true;
                     MiscUtils.getLogger().warn("BillItem fee is not a valid amount: {}", amtBilled);
                 }
 
@@ -512,6 +518,7 @@ public class BillingOnPaymentViewModelAssembler {
                 .thirdPartyBilledTotal(total3rdBilled.toPlainString())
                 .thirdPartyPaidTotal(total3rdPaid.toPlainString())
                 .thirdPartyRefundedTotal(total3rdRefunded.toPlainString());
+        return paymentsPartial;
     }
 
     private static String nullToEmpty(String s) { return s == null ? "" : s; }
