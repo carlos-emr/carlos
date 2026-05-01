@@ -32,12 +32,20 @@ import org.apache.struts2.ServletActionContext;
 public final class ViewCreateLab2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-
+    
+    /**
+     * Enforces the create-lab view gate and forwards to the configured success result.
+     *
+     * `@return` {`@link` `#SUCCESS`} when the caller has required lab write privilege
+     * `@throws` Exception when action processing fails
+     */
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
+        if (loggedInInfo == null) {
+            throw new SecurityException("missing LoggedInInfo");
+        }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "w", null)) {
             throw new SecurityException("missing required sec object (_lab)");
         }
