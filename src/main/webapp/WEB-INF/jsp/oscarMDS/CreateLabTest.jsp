@@ -65,9 +65,9 @@
                 <div class="col-md-4">
                     <label class="form-label"
                            for="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.valDate">
-                        <fmt:message key="oscarMDS.createLab.date"/>
+                        <span class="text-danger" aria-hidden="true">*</span> <fmt:message key="oscarMDS.createLab.date"/>
                     </label>
-                    <div class="input-group">
+                    <div class="input-group has-validation">
                         <input type="text" class="form-control"
                                name="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.valDate"
                                id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.valDate"
@@ -75,6 +75,7 @@
                         <img src="<%=request.getContextPath()%>/images/cal.gif"
                              id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.valDate_cal"
                              class="input-group-text" style="cursor:pointer;">
+                        <div class="invalid-feedback"><fmt:message key="oscarMDS.createLab.validation.testDate"/></div>
                     </div>
                 </div>
                 <div class="col-md-4">
@@ -130,12 +131,13 @@
                 <div class="col-md-3">
                     <label class="form-label"
                            for="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.lab_test_name">
-                        <fmt:message key="oscarMDS.createLab.testName"/>
+                        <span class="text-danger" aria-hidden="true">*</span> <fmt:message key="oscarMDS.createLab.testName"/>
                     </label>
                     <input type="text" class="form-control"
                            name="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.lab_test_name"
                            id="test_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.lab_test_name"
                            required>
+                    <div class="invalid-feedback"><fmt:message key="oscarMDS.createLab.validation.testName"/></div>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label"

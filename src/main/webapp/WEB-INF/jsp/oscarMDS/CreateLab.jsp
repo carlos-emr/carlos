@@ -181,6 +181,12 @@
         }
 
         function confirmSave() {
+            var form = document.querySelector('form[name="testForm"]');
+            if (!form.checkValidity()) {
+                form.classList.add('was-validated');
+                return false;
+            }
+            form.classList.add('was-validated');
             return confirm("${carlos:forJavaScript(confirmSaveMsg)}");
         }
     </script>
@@ -205,7 +211,7 @@
     </s:if>
 
     <form name="testForm" method="post" action="<%=request.getContextPath()%>/oscarMDS/SubmitLab?method=saveManage"
-          onsubmit="return confirmSave();">
+          onsubmit="return confirmSave();" novalidate>
 
         <div class="row mb-3">
             <%-- Laboratory Information --%>
@@ -226,10 +232,11 @@
                             <input type="text" class="form-control" name="accession" id="accession"/>
                         </div>
                         <div class="mb-2">
-                            <label class="form-label" for="lab_req_date"><fmt:message key="oscarMDS.createLab.labReqDate"/></label>
-                            <div class="input-group">
+                            <label class="form-label" for="lab_req_date"><span class="text-danger" aria-hidden="true">*</span> <fmt:message key="oscarMDS.createLab.labReqDate"/></label>
+                            <div class="input-group has-validation">
                                 <input type="text" class="form-control" name="lab_req_date" id="lab_req_date" required>
                                 <img src="<carlos:encode value='<%= request.getContextPath() %>' context="htmlAttribute"/>/images/cal.gif" id="lab_req_date_cal" class="input-group-text" style="cursor:pointer;">
+                                <div class="invalid-feedback"><fmt:message key="oscarMDS.createLab.validation.labReqDate"/></div>
                             </div>
                         </div>
                     </div>
@@ -268,8 +275,9 @@
             <div class="card-body">
                 <div class="row mb-2">
                     <div class="col-md-4">
-                        <label class="form-label" for="lastname"><fmt:message key="oscarMDS.createLab.lastname"/></label>
+                        <label class="form-label" for="lastname"><span class="text-danger" aria-hidden="true">*</span> <fmt:message key="oscarMDS.createLab.lastname"/></label>
                         <input type="text" class="form-control" name="lastname" id="lastname" required>
+                        <div class="invalid-feedback"><fmt:message key="oscarMDS.createLab.validation.lastname"/></div>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label" for="firstname"><fmt:message key="oscarMDS.createLab.firstname"/></label>
@@ -285,10 +293,11 @@
                 </div>
                 <div class="row">
                     <div class="col-md-4">
-                        <label class="form-label" for="dob"><fmt:message key="oscarMDS.createLab.dob"/></label>
-                        <div class="input-group">
+                        <label class="form-label" for="dob"><span class="text-danger" aria-hidden="true">*</span> <fmt:message key="oscarMDS.createLab.dob"/></label>
+                        <div class="input-group has-validation">
                             <input type="text" class="form-control" required name="dob" id="dob"/>
                             <img src="<carlos:encode value='<%= request.getContextPath() %>' context="htmlAttribute"/>/images/cal.gif" id="dob_cal" class="input-group-text" style="cursor:pointer;">
+                            <div class="invalid-feedback"><fmt:message key="oscarMDS.createLab.validation.dob"/></div>
                         </div>
                     </div>
                     <div class="col-md-4">
