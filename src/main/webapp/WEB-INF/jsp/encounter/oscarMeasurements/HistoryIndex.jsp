@@ -29,12 +29,22 @@
 
 --%>
 
+<%
+    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+    boolean authed = true;
+%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_measurements" rights="r" reverse="<%=true%>">
     <%authed = false; %>
     <%response.sendRedirect(request.getContextPath() + "/securityError?type=_eChart");%>
 </security:oscarSec>
+
+<%
+    if (!authed) {
+        return;
+    }
+%>
 
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils"%>
 
@@ -87,7 +97,7 @@
     <div class="alert alert-danger">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
+                <li><carlos:encode value="<%= error %>" context="html"/></li>
             <% } %>
         </ul>
     </div>
