@@ -154,8 +154,13 @@
         function checkAll(formId) {
             var f = document.getElementById(formId);
             var val = f.checkA.checked;
-            for (var i = 0; i < f.flaggedLabs.length; i++) {
-                f.flaggedLabs[i].checked = val;
+            var boxes = f.flaggedLabs;
+            if (boxes.length === undefined) {
+                boxes.checked = val;
+            } else {
+                for (var i = 0; i < boxes.length; i++) {
+                    boxes[i].checked = val;
+                }
             }
         }
 
