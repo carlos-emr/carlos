@@ -218,7 +218,7 @@ public class BillingOnHeaderCreationService {
 
             if (bs.getGstFlag()) {
                 BigDecimal gst = gstControl.getGstPercent()
-                        .divide(new BigDecimal("100"))
+                        .divide(new BigDecimal("100"), 8, RoundingMode.HALF_UP)
                         .multiply(BillingMoney.amount(bs.getValue()));
                 total = total.add(gst).setScale(2, RoundingMode.HALF_UP);
             }

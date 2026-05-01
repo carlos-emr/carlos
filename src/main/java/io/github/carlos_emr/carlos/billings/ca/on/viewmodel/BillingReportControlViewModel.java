@@ -54,18 +54,16 @@ public final class BillingReportControlViewModel {
     private final List<ProviderOption> providerOptions;
 
     private BillingReportControlViewModel(Builder b) {
-        this.reportAction = nullToEmpty(b.reportAction);
+        this.reportAction = BillingViewStrings.nullToEmpty(b.reportAction);
         this.providerView = b.providerView == null ? "all" : b.providerView;
-        this.xmlVdate = nullToEmpty(b.xmlVdate);
-        this.xmlAppointmentDate = nullToEmpty(b.xmlAppointmentDate);
+        this.xmlVdate = BillingViewStrings.nullToEmpty(b.xmlVdate);
+        this.xmlAppointmentDate = BillingViewStrings.nullToEmpty(b.xmlAppointmentDate);
         this.curYear = b.curYear;
         this.curMonth = b.curMonth;
         this.providerOptions = b.providerOptions == null
                 ? Collections.emptyList()
                 : List.copyOf(b.providerOptions);
     }
-
-    private static String nullToEmpty(String s) { return s == null ? "" : s; }
 
     public static Builder builder() { return new Builder(); }
 

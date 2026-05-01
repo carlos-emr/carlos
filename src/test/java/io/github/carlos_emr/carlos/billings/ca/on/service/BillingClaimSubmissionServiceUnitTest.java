@@ -76,13 +76,13 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
         claim.add(items);
 
         when(mockPersister.addOneClaimHeaderRecord(header)).thenReturn(1234);
-        when(mockPersister.addItemRecord(items, 1234)).thenReturn(true);
 
         BillingClaimSubmissionService.SaveResult result = service.addABillingRecord(claim);
 
         assertThat(result.saved()).isTrue();
         assertThat(result.billingId()).isEqualTo(1234);
         assertThat(header.getId()).isEqualTo("1234");
+        verify(mockPersister).addItemRecord(items, 1234);
     }
 
     @Test

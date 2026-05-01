@@ -89,8 +89,8 @@ public final class ManageBillingFormViewModel {
     private final Map<String, String> requestParamEchoes;
 
     private ManageBillingFormViewModel(Builder b) {
-        this.clinicView = nullToEmpty(b.clinicView);
-        this.reportAction = nullToEmpty(b.reportAction);
+        this.clinicView = BillingViewStrings.nullToEmpty(b.clinicView);
+        this.reportAction = BillingViewStrings.nullToEmpty(b.reportAction);
         this.serviceTypes = b.serviceTypes == null
                 ? Collections.emptyList() : List.copyOf(b.serviceTypes);
         this.dxCodes = b.dxCodes == null
@@ -101,15 +101,13 @@ public final class ManageBillingFormViewModel {
                 ? Collections.emptyList() : List.copyOf(b.premiumDeleteRows);
         this.serviceGroups = b.serviceGroups == null
                 ? Collections.emptyList() : List.copyOf(b.serviceGroups);
-        this.currentServiceTypeName = nullToEmpty(b.currentServiceTypeName);
+        this.currentServiceTypeName = BillingViewStrings.nullToEmpty(b.currentServiceTypeName);
         this.uniqueServiceTypes = b.uniqueServiceTypes == null
                 ? Collections.emptyList() : List.copyOf(b.uniqueServiceTypes);
         this.uniqueServiceTypesLoaded = b.uniqueServiceTypesLoaded;
         this.requestParamEchoes = b.requestParamEchoes == null
                 ? Collections.emptyMap() : Map.copyOf(b.requestParamEchoes);
     }
-
-    private static String nullToEmpty(String s) { return s == null ? "" : s; }
 
     public static Builder builder() { return new Builder(); }
 

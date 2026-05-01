@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -38,6 +39,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
@@ -189,5 +191,44 @@ class MoveMohFiles2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+    }
+
+    @Test
+    void shouldTreatBlankMohFileParameterAsRenderOnly_onGet() throws Exception {
+        mockRequest.setMethod("GET");
+        mockRequest.addParameter("folder", "inbox");
+        mockRequest.addParameter("mohFile", " ");
+
+        MoveMohFiles2Action action = new MoveMohFiles2Action();
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+    }
+
+    @Test
+    void shouldReturn405WithAllowHeader_onGetWithAnyNonBlankMohFile() throws Exception {
+        mockRequest.setMethod("GET");
+        mockRequest.addParameter("mohFile", " ", "claim.000");
+
+        MoveMohFiles2Action action = new MoveMohFiles2Action();
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+    }
+
+    @Test
+    void shouldPropagateProgrammingErrorsFromFileLocationValidation() {
+        MoveMohFiles2Action action = new MoveMohFiles2Action();
+
+        try (MockedStatic<PathValidationUtils> pathMock = mockStatic(PathValidationUtils.class)) {
+            pathMock.when(() -> PathValidationUtils.validateExistingPath(any(), any()))
+                    .thenThrow(new NullPointerException("programming error"));
+
+            assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(
+                    action, "validateFileLocation", new java.io.File("claim.000")))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessageContaining("programming error");
+        }
     }
 }

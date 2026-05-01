@@ -70,21 +70,19 @@ public final class BillingOhipSimulationViewModel {
 
     private BillingOhipSimulationViewModel(Builder b) {
         this.multisites = b.multisites;
-        this.billCenter = nullToEmpty(b.billCenter);
-        this.healthOffice = nullToEmpty(b.healthOffice);
-        this.monthCode = nullToEmpty(b.monthCode);
-        this.nowDate = nullToEmpty(b.nowDate);
-        this.userNo = nullToEmpty(b.userNo);
-        this.providerView = nullToEmpty(b.providerView);
-        this.startDate = nullToEmpty(b.startDate);
-        this.endDate = nullToEmpty(b.endDate);
+        this.billCenter = BillingViewStrings.nullToEmpty(b.billCenter);
+        this.healthOffice = BillingViewStrings.nullToEmpty(b.healthOffice);
+        this.monthCode = BillingViewStrings.nullToEmpty(b.monthCode);
+        this.nowDate = BillingViewStrings.nullToEmpty(b.nowDate);
+        this.userNo = BillingViewStrings.nullToEmpty(b.userNo);
+        this.providerView = BillingViewStrings.nullToEmpty(b.providerView);
+        this.startDate = BillingViewStrings.nullToEmpty(b.startDate);
+        this.endDate = BillingViewStrings.nullToEmpty(b.endDate);
         this.summaryView = b.summaryView;
         this.providers = b.providers == null
                 ? Collections.emptyList() : List.copyOf(b.providers);
-        this.previewHtml = nullToEmpty(b.previewHtml);
+        this.previewHtml = BillingViewStrings.nullToEmpty(b.previewHtml);
     }
-
-    private static String nullToEmpty(String s) { return s == null ? "" : s; }
 
     public static Builder builder() { return new Builder(); }
 

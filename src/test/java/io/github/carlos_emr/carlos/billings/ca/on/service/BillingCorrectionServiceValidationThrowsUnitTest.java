@@ -178,6 +178,19 @@ class BillingCorrectionServiceValidationThrowsUnitTest {
         verify(bCh1Dao, never()).find(Mockito.anyInt());
     }
 
+    @Test
+    void shouldThrowBillingValidationException_whenStatusParamMissing() {
+        BillingCorrectionService service = newService();
+        mockRequest.setParameter("xml_billing_no", "42");
+        when(bCh1Dao.findWithItems(Integer.valueOf(42))).thenReturn(new BillingONCHeader1());
+
+        assertThatThrownBy(() -> service.updateInvoice(loggedInInfo, mockRequest))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("missing required field [status]");
+
+        verify(bCh1Dao, never()).merge(Mockito.any(BillingONCHeader1.class));
+    }
+
     // -------- addThirdPartyPayment --------
 
     @Test

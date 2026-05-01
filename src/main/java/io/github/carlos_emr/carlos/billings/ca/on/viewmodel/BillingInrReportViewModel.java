@@ -82,17 +82,17 @@ public final class BillingInrReportViewModel {
     private final List<BillRow> billRows;
 
     private BillingInrReportViewModel(Builder b) {
-        this.userNo = nullToEmpty(b.userNo);
-        this.providerView = nullToEmpty(b.providerView);
-        this.clinicView = nullToEmpty(b.clinicView);
-        this.clinicNo = nullToEmpty(b.clinicNo);
-        this.inrBillingActionUrl = nullToEmpty(b.inrBillingActionUrl);
-        this.nowDate = nullToEmpty(b.nowDate);
-        this.nowTime = nullToEmpty(b.nowTime);
+        this.userNo = BillingViewStrings.nullToEmpty(b.userNo);
+        this.providerView = BillingViewStrings.nullToEmpty(b.providerView);
+        this.clinicView = BillingViewStrings.nullToEmpty(b.clinicView);
+        this.clinicNo = BillingViewStrings.nullToEmpty(b.clinicNo);
+        this.inrBillingActionUrl = BillingViewStrings.nullToEmpty(b.inrBillingActionUrl);
+        this.nowDate = BillingViewStrings.nullToEmpty(b.nowDate);
+        this.nowTime = BillingViewStrings.nullToEmpty(b.nowTime);
         this.curYear = b.curYear;
         this.curMonth = b.curMonth;
         this.curDay = b.curDay;
-        this.defaultServiceDate = nullToEmpty(b.defaultServiceDate);
+        this.defaultServiceDate = BillingViewStrings.nullToEmpty(b.defaultServiceDate);
         this.providers = b.providers == null ? Collections.emptyList() : List.copyOf(b.providers);
         this.clinicLocations = b.clinicLocations == null
                 ? Collections.emptyList() : List.copyOf(b.clinicLocations);
@@ -100,8 +100,6 @@ public final class BillingInrReportViewModel {
     }
 
     public static Builder builder() { return new Builder(); }
-
-    private static String nullToEmpty(String s) { return s == null ? "" : s; }
 
     public String getUserNo() { return userNo; }
     public String getProviderView() { return providerView; }

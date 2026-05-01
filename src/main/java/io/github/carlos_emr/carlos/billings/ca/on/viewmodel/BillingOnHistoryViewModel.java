@@ -74,14 +74,12 @@ public final class BillingOnHistoryViewModel {
     private final boolean partial;
 
     private BillingOnHistoryViewModel(Builder b) {
-        this.demographicNo = nullToEmpty(b.demographicNo);
-        this.patientDisplayName = nullToEmpty(b.patientDisplayName);
+        this.demographicNo = BillingViewStrings.nullToEmpty(b.demographicNo);
+        this.patientDisplayName = BillingViewStrings.nullToEmpty(b.patientDisplayName);
         this.warnOnDeleteBill = b.warnOnDeleteBill;
         this.rows = b.rows == null ? Collections.emptyList() : List.copyOf(b.rows);
         this.partial = b.partial;
     }
-
-    private static String nullToEmpty(String s) { return s == null ? "" : s; }
 
     public static Builder builder() { return new Builder(); }
 

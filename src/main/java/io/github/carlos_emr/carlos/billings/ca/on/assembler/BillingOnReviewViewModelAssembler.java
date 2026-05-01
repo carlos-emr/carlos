@@ -471,14 +471,14 @@ public class BillingOnReviewViewModelAssembler {
                 bPerc = true;
                 BillingReviewPercentageItem percItem = (BillingReviewPercentageItem) vecPercCodeItem.get(nPerc);
                 String percFee = nullToEmpty(percItem.getCodeFee());
-                ArrayList vecPercFee = percItem.getVecCodeFee() == null ? new ArrayList() : percItem.getVecCodeFee();
-                ArrayList vecPercTotal = percItem.getVecCodeTotal() == null ? new ArrayList() : percItem.getVecCodeTotal();
+                List<String> vecPercFee = percItem.getVecCodeFee() == null ? List.of() : percItem.getVecCodeFee();
+                List<String> vecPercTotal = percItem.getVecCodeTotal() == null ? List.of() : percItem.getVecCodeTotal();
                 String codeUnit = nullToEmpty(percItem.getCodeUnit());
 
                 List<BillingOnReviewViewModel.PercSegment> segments = new ArrayList<>();
                 int unitInt = parseIntSafe(codeUnit, 0);
                 for (int j = 0; j < vecPercTotal.size(); j++) {
-                    String pt = String.valueOf((Float.parseFloat((String) vecPercTotal.get(j))) * unitInt);
+                    String pt = String.valueOf((Float.parseFloat(vecPercTotal.get(j))) * unitInt);
                     String factor = j < vecPercFee.size() ? String.valueOf(vecPercFee.get(j)) : "";
                     segments.add(new BillingOnReviewViewModel.PercSegment(pt, factor));
                 }

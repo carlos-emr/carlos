@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -146,6 +147,14 @@ class BillingOnInvoiceTotalsServiceUnitTest {
 
         // 100.0001 - 99.9999 + 0 = 0.0002
         assertThat(calc.calculateBalanceOwing(1)).isEqualByComparingTo("0.0002");
+    }
+
+    @Test
+    void shouldBeReadOnlyTransactional() {
+        Transactional tx = BillingOnInvoiceTotalsService.class.getAnnotation(Transactional.class);
+
+        assertThat(tx).isNotNull();
+        assertThat(tx.readOnly()).isTrue();
     }
 
     @Test

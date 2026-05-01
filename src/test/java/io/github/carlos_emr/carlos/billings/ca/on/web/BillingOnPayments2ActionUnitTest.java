@@ -39,7 +39,10 @@ import io.github.carlos_emr.carlos.commn.model.BillingOnItemPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingOnTransaction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingPaymentSaveService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,6 +57,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentCaptor.forClass;
+import org.mockito.ArgumentCaptor;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -66,10 +73,15 @@ import static org.mockito.Mockito.when;
 class BillingOnPayments2ActionUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
+    private MockedStatic<LoggedInInfo> loggedInInfoMock;
+    private SecurityInfoManager mockSecurityInfoManager;
+    private LoggedInInfo mockLoggedInInfo;
 
     @BeforeEach
     void registerActionDependencies() {
-        registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
+        mockSecurityInfoManager = mock(SecurityInfoManager.class);
+        mockLoggedInInfo = mock(LoggedInInfo.class);
+        registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         registerMock(BillingONItemDao.class, mock(BillingONItemDao.class));
         registerMock(BillingONPaymentDao.class, mock(BillingONPaymentDao.class));
         registerMock(BillingPaymentTypeDao.class, mock(BillingPaymentTypeDao.class));
@@ -82,10 +94,19 @@ class BillingOnPayments2ActionUnitTest extends CarlosUnitTestBase {
                 .thenReturn(new MockHttpServletRequest());
         servletActionContextMock.when(ServletActionContext::getResponse)
                 .thenReturn(new MockHttpServletResponse());
+
+        loggedInInfoMock = mockStatic(LoggedInInfo.class);
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                .thenReturn(mockLoggedInInfo);
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(true);
     }
 
     @AfterEach
     void closeServletActionContextMock() {
+        if (loggedInInfoMock != null) {
+            loggedInInfoMock.close();
+        }
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
         }
@@ -175,6 +196,16 @@ class BillingOnPayments2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo("none");
         assertThat(response.getStatus()).isEqualTo(404);
         assertThat(response.getErrorMessage()).contains("Billing record not found");
+    }
+
+    @Test
+    void shouldCheckPrivilege_whenListPaymentsCalledDirectly() {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> new BillingOnPayments2Action().listPayments())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_billing");
     }
 
     @Test
@@ -410,6 +441,37 @@ class BillingOnPayments2ActionUnitTest extends CarlosUnitTestBase {
         verify(paymentDao, never()).persist(any(BillingONPayment.class));
     }
 
+    @Test
+    void shouldNormalizePaymentTypeAfterSingleParse_whenSavingPayment() throws Exception {
+        MockHttpServletRequest request = savePaymentRequestWithItem("10.00", "0.00");
+        request.setParameter("paymentType", "007");
+        request.setParameter("status", io.github.carlos_emr.carlos.commn.model.BillingONCHeader1.OPEN);
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+
+        BillingONItemDao itemDao = mock(BillingONItemDao.class);
+        when(itemDao.find(11)).thenReturn(new BillingONItem());
+        registerMock(BillingONItemDao.class, itemDao);
+
+        BillingONCHeader1Dao headerDao = mock(BillingONCHeader1Dao.class);
+        io.github.carlos_emr.carlos.commn.model.BillingONCHeader1 header =
+                new io.github.carlos_emr.carlos.commn.model.BillingONCHeader1();
+        header.setStatus(io.github.carlos_emr.carlos.commn.model.BillingONCHeader1.OPEN);
+        when(headerDao.find(4242)).thenReturn(header);
+        registerMock(BillingONCHeader1Dao.class, headerDao);
+
+        BillingPaymentSaveService saveService = mock(BillingPaymentSaveService.class);
+        registerMock(BillingPaymentSaveService.class, saveService);
+
+        new BillingOnPayments2Action().savePayment();
+
+        ArgumentCaptor<BillingPaymentSaveService.Command> commandCaptor =
+                forClass(BillingPaymentSaveService.Command.class);
+        verify(saveService).saveThirdPartyPayment(commandCaptor.capture());
+        assertThat(commandCaptor.getValue().paymentTypeId).isEqualTo(7);
+        assertThat(commandCaptor.getValue().paymentTypeIdRaw).isEqualTo("7");
+    }
+
     // -- viewPayment_ext: returns "failure" instead of null on bad input
     // -- or missing payment so the JSP renders an explicit error page
     // -- rather than the silent blank page the legacy contract produced.
@@ -426,6 +488,16 @@ class BillingOnPayments2ActionUnitTest extends CarlosUnitTestBase {
 
         // Pre-fix: returned null → JSP rendered an empty page with no error.
         assertThat(result).isEqualTo("failure");
+    }
+
+    @Test
+    void shouldCheckPrivilege_whenViewPaymentExtCalledDirectly() {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> new BillingOnPayments2Action().viewPayment_ext())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_billing");
     }
 
     @Test

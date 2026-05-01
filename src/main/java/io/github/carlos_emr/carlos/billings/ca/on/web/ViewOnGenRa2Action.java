@@ -73,12 +73,13 @@ public class ViewOnGenRa2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        boolean importedOk = importService.importDocumentBeanFile(request);
-        if (!importedOk) {
+        OnRaImportService.ImportOutcome importOutcome = importService.importDocumentBeanFileOutcome(request);
+        if (!importOutcome.ok()) {
             // Surface the failure to the JSP so the user sees an error banner
             // rather than a clean post-import view. The page still renders so
             // the existing RA list is still visible.
             request.setAttribute("raImportFailed", Boolean.TRUE);
+            request.setAttribute("raImportOutcome", importOutcome.name());
         }
 
         OnRaViewModel model = assembler.assemble(request, loggedInInfo);

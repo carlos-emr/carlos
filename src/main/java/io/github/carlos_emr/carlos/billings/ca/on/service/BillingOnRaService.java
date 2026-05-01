@@ -132,6 +132,7 @@ public class BillingOnRaService {
 
         int accountno = 0, totalsum = 0, recFlag = 0, count = 0, tCount = 0, amountPaySum = 0, amountSubmitSum = 0;
         String raNo = "";
+        boolean currentHeaderStarted = false;
 
         if (filePathName.indexOf("/") >= 0) {
             filename = filePathName.substring(filePathName.lastIndexOf("/") + 1);
@@ -156,6 +157,22 @@ public class BillingOnRaService {
                 headerCount = nextline.substring(2, 3);
 
                 if (headerCount.compareTo("1") == 0) {
+                    if (currentHeaderStarted) {
+                        mergeRaHeaderSummary(filename, paymentdate, total, transaction,
+                                abf_ca, abf_ad, abf_re, abf_de, count, tCount);
+                    }
+                    transaction = "";
+                    message_txt = "";
+                    abf_ca = "";
+                    abf_ad = "";
+                    abf_re = "";
+                    abf_de = "";
+                    count = 0;
+                    tCount = 0;
+                    recFlag = 0;
+                    raNo = "";
+                    currentHeaderStarted = true;
+
                     paymentdate = nextline.substring(21, 29);
                     payable = nextline.substring(29, 59);
                     total = nextline.substring(59, 68);
@@ -333,23 +350,33 @@ public class BillingOnRaService {
         }
         } // try-with-resources closes file/reader/input
 
-        if (transaction.compareTo("") != 0) {
-            transaction = "<xml_transaction><table width='100%' border='0' cellspacing='0' cellpadding='0'><tr><td colspan='5'>Accounting Transaction Record</td></tr><tr><td width='14%'>Transaction</td><td width='12%'>Transaction Date</td><td width='17%'>Cheque Issued</td><td width='13%'>Amount</td><td width='44%'>Message</td></tr>" + transaction + "</table></xml_transaction>";
+        if (currentHeaderStarted) {
+            mergeRaHeaderSummary(filename, paymentdate, total, transaction,
+                    abf_ca, abf_ad, abf_re, abf_de, count, tCount);
         }
 
-        balancefwd = "<xml_balancefwd><table width='100%' border='0' cellspacing='0' cellpadding='0'><tr><td colspan='4'>Balance Forward Record - Amount Brought Forward (ABF)</td></tr><tr><td>Claims Adjustment</td><td>Advances</td><td>Reductions</td><td>Deductions</td></tr><tr><td>" + abf_ca + "</td><td>" + abf_ad + "</td><td>" + abf_re + "</td><td>" + abf_de + "</td></tr></table></xml_balancefwd>";
-        xml_ra = transaction + balancefwd + "<xml_cheque>" + total + "</xml_cheque>";
+        return true;
+    }
+
+    private void mergeRaHeaderSummary(String filename, String paymentdate, String total,
+                                      String transaction, String abfCa, String abfAd,
+                                      String abfRe, String abfDe, int count, int tCount) {
+        String transactionXml = "";
+        if (transaction.compareTo("") != 0) {
+            transactionXml = "<xml_transaction><table width='100%' border='0' cellspacing='0' cellpadding='0'><tr><td colspan='5'>Accounting Transaction Record</td></tr><tr><td width='14%'>Transaction</td><td width='12%'>Transaction Date</td><td width='17%'>Cheque Issued</td><td width='13%'>Amount</td><td width='44%'>Message</td></tr>" + transaction + "</table></xml_transaction>";
+        }
+
+        String balancefwd = "<xml_balancefwd><table width='100%' border='0' cellspacing='0' cellpadding='0'><tr><td colspan='4'>Balance Forward Record - Amount Brought Forward (ABF)</td></tr><tr><td>Claims Adjustment</td><td>Advances</td><td>Reductions</td><td>Deductions</td></tr><tr><td>" + abfCa + "</td><td>" + abfAd + "</td><td>" + abfRe + "</td><td>" + abfDe + "</td></tr></table></xml_balancefwd>";
+        String xmlRa = transactionXml + balancefwd + "<xml_cheque>" + total + "</xml_cheque>";
 
         List<RaHeader> headers = raHeaderDao.findByFilenamePaymentDate(filename, paymentdate);
         for (RaHeader h : headers) {
             h.setTotalAmount(total);
             h.setRecords(String.valueOf(count));
             h.setClaims(String.valueOf(tCount));
-            h.setContent(xml_ra);
+            h.setContent(xmlRa);
             raHeaderDao.merge(h);
         }
-
-        return true;
     }
 
     public List<Properties> getAllRahd(String status) {

@@ -60,7 +60,6 @@ public class BillingDiskCreationService {
     private final BillingOnClaimPersister dbObj;
     private final BillingOnDiskLoader diskQuery;
     private final BillingOnLookupService lookupService;
-    Properties propProOHIP = null;
 
     BillingDiskCreationService(BillingOnClaimPersister dbObj,
                           BillingOnDiskLoader diskQuery,
@@ -68,7 +67,6 @@ public class BillingDiskCreationService {
         this.dbObj = dbObj;
         this.diskQuery = diskQuery;
         this.lookupService = lookupService;
-        this.propProOHIP = lookupService.getPropProviderOHIP();
     }
 
     public Properties getPropProviderOHIP() {
@@ -105,7 +103,7 @@ public class BillingDiskCreationService {
 
     public int createNewSoloDiskName(String providerNo, String creator) {
         int ret = 0;
-        String ohipNo = propProOHIP.getProperty(providerNo);
+        String ohipNo = lookupService.getPropProviderOHIP().getProperty(providerNo);
         // set up obj
         String groupNo = "";
         String temp[] = getCurSoloMonthCodeBatchNum(ohipNo);

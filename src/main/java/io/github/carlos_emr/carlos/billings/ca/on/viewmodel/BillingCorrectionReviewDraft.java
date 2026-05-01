@@ -54,35 +54,31 @@ public record BillingCorrectionReviewDraft(boolean dataLoaded,
                                            String diagCode,
                                            List<BillingCorrectionReviewItemDraft> items) {
     public BillingCorrectionReviewDraft {
-        content = nullToEmpty(content);
-        billingNo = nullToEmpty(billingNo);
-        hin = nullToEmpty(hin);
-        dob = nullToEmpty(dob);
-        visitType = nullToEmpty(visitType);
-        visitDate = nullToEmpty(visitDate);
-        status = nullToEmpty(status);
-        clinicRefCode = nullToEmpty(clinicRefCode);
-        providerNo = nullToEmpty(providerNo);
-        billingDate = nullToEmpty(billingDate);
-        updateDate = nullToEmpty(updateDate);
-        total = nullToEmpty(total);
-        demoName = nullToEmpty(demoName);
-        demoAddress = nullToEmpty(demoAddress);
-        demoProvince = nullToEmpty(demoProvince);
-        demoCity = nullToEmpty(demoCity);
-        demoPostal = nullToEmpty(demoPostal);
-        demoSex = nullToEmpty(demoSex);
-        referralDoctor = nullToEmpty(referralDoctor);
-        referralDoctorOhip = nullToEmpty(referralDoctorOhip);
-        hcType = nullToEmpty(hcType);
-        manualReviewLabel = nullToEmpty(manualReviewLabel);
-        referralCheckedLabel = nullToEmpty(referralCheckedLabel);
-        rosterStatus = nullToEmpty(rosterStatus);
-        diagCode = nullToEmpty(diagCode);
+        content = BillingViewStrings.nullToEmpty(content);
+        billingNo = BillingViewStrings.nullToEmpty(billingNo);
+        hin = BillingViewStrings.nullToEmpty(hin);
+        dob = BillingViewStrings.nullToEmpty(dob);
+        visitType = BillingViewStrings.nullToEmpty(visitType);
+        visitDate = BillingViewStrings.nullToEmpty(visitDate);
+        status = BillingViewStrings.nullToEmpty(status);
+        clinicRefCode = BillingViewStrings.nullToEmpty(clinicRefCode);
+        providerNo = BillingViewStrings.nullToEmpty(providerNo);
+        billingDate = BillingViewStrings.nullToEmpty(billingDate);
+        updateDate = BillingViewStrings.nullToEmpty(updateDate);
+        total = BillingViewStrings.nullToEmpty(total);
+        demoName = BillingViewStrings.nullToEmpty(demoName);
+        demoAddress = BillingViewStrings.nullToEmpty(demoAddress);
+        demoProvince = BillingViewStrings.nullToEmpty(demoProvince);
+        demoCity = BillingViewStrings.nullToEmpty(demoCity);
+        demoPostal = BillingViewStrings.nullToEmpty(demoPostal);
+        demoSex = BillingViewStrings.nullToEmpty(demoSex);
+        referralDoctor = BillingViewStrings.nullToEmpty(referralDoctor);
+        referralDoctorOhip = BillingViewStrings.nullToEmpty(referralDoctorOhip);
+        hcType = BillingViewStrings.nullToEmpty(hcType);
+        manualReviewLabel = BillingViewStrings.nullToEmpty(manualReviewLabel);
+        referralCheckedLabel = BillingViewStrings.nullToEmpty(referralCheckedLabel);
+        rosterStatus = BillingViewStrings.nullToEmpty(rosterStatus);
+        diagCode = BillingViewStrings.nullToEmpty(diagCode);
         items = items == null ? List.of() : List.copyOf(items);
-    }
-
-    private static String nullToEmpty(String value) {
-        return value == null ? "" : value;
     }
 }

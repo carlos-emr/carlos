@@ -46,12 +46,10 @@ public final class BillingLegacyReportViewModel {
     private final String filename;
 
     private BillingLegacyReportViewModel(Builder b) {
-        this.fileContents = nullToEmpty(b.fileContents);
-        this.xslName = nullToEmpty(b.xslName);
-        this.filename = nullToEmpty(b.filename);
+        this.fileContents = BillingViewStrings.nullToEmpty(b.fileContents);
+        this.xslName = BillingViewStrings.nullToEmpty(b.xslName);
+        this.filename = BillingViewStrings.nullToEmpty(b.filename);
     }
-
-    private static String nullToEmpty(String s) { return s == null ? "" : s; }
 
     public static Builder builder() { return new Builder(); }
 

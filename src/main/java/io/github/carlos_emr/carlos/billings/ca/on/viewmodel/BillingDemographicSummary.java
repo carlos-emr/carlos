@@ -124,9 +124,9 @@ public record BillingDemographicSummary(
                 ? "ON"
                 : hcType.substring(0, 2).toUpperCase(Locale.ROOT);
 
-        String dobYy = nullToEmpty(d.getYearOfBirth());
-        String dobMm = padTwo(nullToEmpty(d.getMonthOfBirth()));
-        String dobDd = padTwo(nullToEmpty(d.getDateOfBirth()));
+        String dobYy = BillingViewStrings.nullToEmpty(d.getYearOfBirth());
+        String dobMm = padTwo(BillingViewStrings.nullToEmpty(d.getMonthOfBirth()));
+        String dobDd = padTwo(BillingViewStrings.nullToEmpty(d.getDateOfBirth()));
         String dob = dobYy + dobMm + dobDd;
 
         return new BillingDemographicSummary(
@@ -141,8 +141,6 @@ public record BillingDemographicSummary(
                 dobMm,
                 dobDd);
     }
-
-    private static String nullToEmpty(String s) { return s == null ? "" : s; }
 
     private static String padTwo(String s) {
         return s.length() == 1 ? "0" + s : s;

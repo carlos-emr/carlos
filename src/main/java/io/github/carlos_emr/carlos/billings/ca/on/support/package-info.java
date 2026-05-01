@@ -25,5 +25,7 @@
  * <p>Classes in this package use focused domain nouns instead of generic
  * helper names. They should remain static or value-like, with no Spring
  * dependencies and no persistence side effects.</p>
+ *
+ * @since 2026-04-28
  */
 package io.github.carlos_emr.carlos.billings.ca.on.support;

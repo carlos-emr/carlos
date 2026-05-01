@@ -62,18 +62,16 @@ public final class BillingOnHistorySpecialistViewModel {
     private final boolean partial;
 
     private BillingOnHistorySpecialistViewModel(Builder b) {
-        this.demographicNo = nullToEmpty(b.demographicNo);
-        this.demoName = nullToEmpty(b.demoName);
-        this.day = nullToEmpty(b.day);
-        this.serviceCodeFilter = nullToEmpty(b.serviceCodeFilter);
-        this.todayStr = nullToEmpty(b.todayStr);
-        this.startDayStr = nullToEmpty(b.startDayStr);
+        this.demographicNo = BillingViewStrings.nullToEmpty(b.demographicNo);
+        this.demoName = BillingViewStrings.nullToEmpty(b.demoName);
+        this.day = BillingViewStrings.nullToEmpty(b.day);
+        this.serviceCodeFilter = BillingViewStrings.nullToEmpty(b.serviceCodeFilter);
+        this.todayStr = BillingViewStrings.nullToEmpty(b.todayStr);
+        this.startDayStr = BillingViewStrings.nullToEmpty(b.startDayStr);
         this.rows = b.rows == null ? Collections.emptyList() : List.copyOf(b.rows);
         this.itemCount = b.itemCount;
         this.partial = b.partial;
     }
-
-    private static String nullToEmpty(String s) { return s == null ? "" : s; }
 
     public static Builder builder() { return new Builder(); }
 

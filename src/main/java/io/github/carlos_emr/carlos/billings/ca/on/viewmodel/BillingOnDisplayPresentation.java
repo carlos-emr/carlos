@@ -34,12 +34,8 @@ public record BillingOnDisplayPresentation(
             new BillingOnDisplayPresentation("", "", "");
 
     public BillingOnDisplayPresentation {
-        displayMessage = nullToEmpty(displayMessage);
-        primaryCareIncentive = nullToEmpty(primaryCareIncentive);
-        defaultView = nullToEmpty(defaultView);
-    }
-
-    private static String nullToEmpty(String s) {
-        return s == null ? "" : s;
+        displayMessage = BillingViewStrings.nullToEmpty(displayMessage);
+        primaryCareIncentive = BillingViewStrings.nullToEmpty(primaryCareIncentive);
+        defaultView = BillingViewStrings.nullToEmpty(defaultView);
     }
 }

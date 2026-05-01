@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONEAReportDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
@@ -53,6 +54,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.ArgumentCaptor;
+import org.springframework.test.util.ReflectionTestUtils;
 
 /**
  * Behavioral tests for {@link BillingOnCorrectionPersister} (renamed from
@@ -158,6 +160,18 @@ class BillingOnCorrectionPersisterUnitTest {
 
         assertThat(ret).isFalse();
         verify(headerDao, never()).merge(any(BillingONCHeader1.class));
+    }
+
+    @Test
+    void shouldThrowValidationException_whenAdmissionDateIsCorruptOnCorrectionLoad() {
+        BillingONCHeader1 header = new BillingONCHeader1();
+        ReflectionTestUtils.setField(header, "id", 42);
+        ReflectionTestUtils.setField(header, "admissionDate", "not-a-date");
+        when(headerDao.find(42)).thenReturn(header);
+
+        assertThatThrownBy(() -> persister.getBillingRecordObj("42"))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("unparseable admission date");
     }
 
     @Test

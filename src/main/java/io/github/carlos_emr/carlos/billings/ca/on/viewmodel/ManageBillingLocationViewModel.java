@@ -24,8 +24,6 @@ package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;
 import java.util.Collections;
 import java.util.List;
 
-import io.github.carlos_emr.carlos.commn.model.ClinicLocation;
-
 /**
  * Immutable view model for {@code manageBillingLocation.jsp}, the Ontario
  * billing clinic-location admin page.
@@ -39,25 +37,23 @@ import io.github.carlos_emr.carlos.commn.model.ClinicLocation;
  */
 public final class ManageBillingLocationViewModel {
 
-    private final List<ClinicLocation> locations;
+    private final List<ClinicLocationRow> locations;
     private final String defaultView;
     private final String reportAction;
     private final String selectedClinicView;
 
     private ManageBillingLocationViewModel(Builder b) {
         this.locations = b.locations == null
-                ? Collections.<ClinicLocation>emptyList()
+                ? Collections.<ClinicLocationRow>emptyList()
                 : Collections.unmodifiableList(b.locations);
-        this.defaultView = nullToEmpty(b.defaultView);
-        this.reportAction = nullToEmpty(b.reportAction);
-        this.selectedClinicView = nullToEmpty(b.selectedClinicView);
+        this.defaultView = BillingViewStrings.nullToEmpty(b.defaultView);
+        this.reportAction = BillingViewStrings.nullToEmpty(b.reportAction);
+        this.selectedClinicView = BillingViewStrings.nullToEmpty(b.selectedClinicView);
     }
-
-    private static String nullToEmpty(String s) { return s == null ? "" : s; }
 
     public static Builder builder() { return new Builder(); }
 
-    public List<ClinicLocation> getLocations() { return locations; }
+    public List<ClinicLocationRow> getLocations() { return locations; }
     public String getDefaultView() { return defaultView; }
     public String getReportAction() { return reportAction; }
     public String getSelectedClinicView() { return selectedClinicView; }
@@ -67,13 +63,23 @@ public final class ManageBillingLocationViewModel {
      *  "failed!!!"). */
     public boolean isEmpty() { return locations.isEmpty(); }
 
+    public record ClinicLocationRow(String clinicLocationNo, String clinicLocationName) {
+        public ClinicLocationRow {
+            clinicLocationNo = BillingViewStrings.nullToEmpty(clinicLocationNo);
+            clinicLocationName = BillingViewStrings.nullToEmpty(clinicLocationName);
+        }
+
+        public String getClinicLocationNo() { return clinicLocationNo; }
+        public String getClinicLocationName() { return clinicLocationName; }
+    }
+
     public static final class Builder {
-        private List<ClinicLocation> locations;
+        private List<ClinicLocationRow> locations;
         private String defaultView;
         private String reportAction;
         private String selectedClinicView;
 
-        public Builder locations(List<ClinicLocation> v) { this.locations = v; return this; }
+        public Builder locations(List<ClinicLocationRow> v) { this.locations = v; return this; }
         public Builder defaultView(String v) { this.defaultView = v; return this; }
         public Builder reportAction(String v) { this.reportAction = v; return this; }
         public Builder selectedClinicView(String v) { this.selectedClinicView = v; return this; }

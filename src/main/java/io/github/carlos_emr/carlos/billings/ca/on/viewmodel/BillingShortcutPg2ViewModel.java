@@ -148,46 +148,44 @@ public final class BillingShortcutPg2ViewModel {
     private final String referralCodeParam;
 
     private BillingShortcutPg2ViewModel(Builder b) {
-        this.demoFirst = nullToEmpty(b.demoFirst);
-        this.demoLast = nullToEmpty(b.demoLast);
-        this.demoSex = nullToEmpty(b.demoSex);
-        this.demoDobYy = nullToEmpty(b.demoDobYy);
-        this.demoDobMm = nullToEmpty(b.demoDobMm);
-        this.demoDobDd = nullToEmpty(b.demoDobDd);
-        this.demoHin = nullToEmpty(b.demoHin);
-        this.demoHcType = nullToEmpty(b.demoHcType);
-        this.referralDoctor = nullToEmpty(b.referralDoctor);
-        this.referralDoctorOhip = nullToEmpty(b.referralDoctorOhip);
-        this.providerOhipNo = nullToEmpty(b.providerOhipNo);
-        this.providerRmaNo = nullToEmpty(b.providerRmaNo);
-        this.errorMsg = nullToEmpty(b.errorMsg);
-        this.warningMsg = nullToEmpty(b.warningMsg);
+        this.demoFirst = BillingViewStrings.nullToEmpty(b.demoFirst);
+        this.demoLast = BillingViewStrings.nullToEmpty(b.demoLast);
+        this.demoSex = BillingViewStrings.nullToEmpty(b.demoSex);
+        this.demoDobYy = BillingViewStrings.nullToEmpty(b.demoDobYy);
+        this.demoDobMm = BillingViewStrings.nullToEmpty(b.demoDobMm);
+        this.demoDobDd = BillingViewStrings.nullToEmpty(b.demoDobDd);
+        this.demoHin = BillingViewStrings.nullToEmpty(b.demoHin);
+        this.demoHcType = BillingViewStrings.nullToEmpty(b.demoHcType);
+        this.referralDoctor = BillingViewStrings.nullToEmpty(b.referralDoctor);
+        this.referralDoctorOhip = BillingViewStrings.nullToEmpty(b.referralDoctorOhip);
+        this.providerOhipNo = BillingViewStrings.nullToEmpty(b.providerOhipNo);
+        this.providerRmaNo = BillingViewStrings.nullToEmpty(b.providerRmaNo);
+        this.errorMsg = BillingViewStrings.nullToEmpty(b.errorMsg);
+        this.warningMsg = BillingViewStrings.nullToEmpty(b.warningMsg);
         this.errorFlagged = b.errorFlagged;
-        this.calculationHtml = nullToEmpty(b.calculationHtml);
-        this.totalAmount = nullToEmpty(b.totalAmount);
+        this.calculationHtml = BillingViewStrings.nullToEmpty(b.calculationHtml);
+        this.totalAmount = BillingViewStrings.nullToEmpty(b.totalAmount);
         this.postSaveAction = b.postSaveAction == null ? PostSaveAction.NONE : b.postSaveAction;
-        this.redirectUrl = nullToEmpty(b.redirectUrl);
+        this.redirectUrl = BillingViewStrings.nullToEmpty(b.redirectUrl);
         requirePairCoherence(this.postSaveAction, this.redirectUrl);
-        this.displaySex = nullToEmpty(b.displaySex);
+        this.displaySex = BillingViewStrings.nullToEmpty(b.displaySex);
         this.requestParamEchoes = b.requestParamEchoes == null
                 ? Collections.emptyMap() : Map.copyOf(b.requestParamEchoes);
-        this.billDateHtml = nullToEmpty(b.billDateHtml);
-        this.billingProviderLabel = nullToEmpty(b.billingProviderLabel);
-        this.assignedProviderLabel = nullToEmpty(b.assignedProviderLabel);
-        this.visitTypeLabel = nullToEmpty(b.visitTypeLabel);
-        this.billTypeLabel = nullToEmpty(b.billTypeLabel);
-        this.visitLocationLabel = nullToEmpty(b.visitLocationLabel);
-        this.sliCode = nullToEmpty(b.sliCode);
+        this.billDateHtml = BillingViewStrings.nullToEmpty(b.billDateHtml);
+        this.billingProviderLabel = BillingViewStrings.nullToEmpty(b.billingProviderLabel);
+        this.assignedProviderLabel = BillingViewStrings.nullToEmpty(b.assignedProviderLabel);
+        this.visitTypeLabel = BillingViewStrings.nullToEmpty(b.visitTypeLabel);
+        this.billTypeLabel = BillingViewStrings.nullToEmpty(b.billTypeLabel);
+        this.visitLocationLabel = BillingViewStrings.nullToEmpty(b.visitLocationLabel);
+        this.sliCode = BillingViewStrings.nullToEmpty(b.sliCode);
         this.sliNotApplicable = b.sliNotApplicable;
-        this.admissionDate = nullToEmpty(b.admissionDate);
-        this.demographicName = nullToEmpty(b.demographicName);
-        this.dxCode = nullToEmpty(b.dxCode);
-        this.rulePerc = nullToEmpty(b.rulePerc);
-        this.referralDocName = nullToEmpty(b.referralDocName);
-        this.referralCodeParam = nullToEmpty(b.referralCodeParam);
+        this.admissionDate = BillingViewStrings.nullToEmpty(b.admissionDate);
+        this.demographicName = BillingViewStrings.nullToEmpty(b.demographicName);
+        this.dxCode = BillingViewStrings.nullToEmpty(b.dxCode);
+        this.rulePerc = BillingViewStrings.nullToEmpty(b.rulePerc);
+        this.referralDocName = BillingViewStrings.nullToEmpty(b.referralDocName);
+        this.referralCodeParam = BillingViewStrings.nullToEmpty(b.referralCodeParam);
     }
-
-    private static String nullToEmpty(String s) { return s == null ? "" : s; }
 
     /**
      * Pair invariant: REDIRECT_TO_PG1 requires a non-empty URL, every

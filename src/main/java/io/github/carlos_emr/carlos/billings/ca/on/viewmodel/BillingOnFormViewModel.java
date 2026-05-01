@@ -224,9 +224,6 @@ public final class BillingOnFormViewModel {
      * the {@code nullToEmpty} pattern already used by
      * {@link BillingOnCorrectionViewModel} and {@link BillingShortcutPg1ViewModel}.
      */
-    private static String nullToEmpty(String s) {
-        return s == null ? "" : s;
-    }
 
     // ---- composed-record getters (preferred) ----
 

@@ -91,46 +91,44 @@ public final class BillingEditWithApptNoViewModel {
 
     private BillingEditWithApptNoViewModel(Builder b) {
         this.billedItemBlocked = b.billedItemBlocked;
-        this.apptProviderNo = nullToEmpty(b.apptProviderNo);
-        this.providerView = nullToEmpty(b.providerView);
-        this.appointmentDate = nullToEmpty(b.appointmentDate);
-        this.demographicName = nullToEmpty(b.demographicName);
-        this.appointmentNo = nullToEmpty(b.appointmentNo);
-        this.demographicNo = nullToEmpty(b.demographicNo);
-        this.startTime = nullToEmpty(b.startTime);
-        this.billForm = nullToEmpty(b.billForm);
-        this.billNo = nullToEmpty(b.billNo);
-        this.status = nullToEmpty(b.status);
-        this.visitDate = nullToEmpty(b.visitDate);
-        this.visitType = nullToEmpty(b.visitType);
-        this.location = nullToEmpty(b.location);
-        this.billingDate = nullToEmpty(b.billingDate);
-        this.clinicNo = nullToEmpty(b.clinicNo);
-        this.asstProviderNo = nullToEmpty(b.asstProviderNo);
-        this.assgProviderNo = nullToEmpty(b.assgProviderNo);
-        this.mReview = nullToEmpty(b.mReview);
-        this.xmlProvider = nullToEmpty(b.xmlProvider);
-        this.referralCode = nullToEmpty(b.referralCode);
-        this.site = nullToEmpty(b.site);
-        this.xmlBilltype = nullToEmpty(b.xmlBilltype);
-        this.demoHin = nullToEmpty(b.demoHin);
-        this.demoVer = nullToEmpty(b.demoVer);
-        this.demoHcType = nullToEmpty(b.demoHcType);
-        this.demoDob = nullToEmpty(b.demoDob);
-        this.demoName = nullToEmpty(b.demoName);
-        this.serviceDate = nullToEmpty(b.serviceDate);
-        this.serviceCode = nullToEmpty(b.serviceCode);
-        this.dxCode = nullToEmpty(b.dxCode);
-        this.dxCode1 = nullToEmpty(b.dxCode1);
-        this.dxCode2 = nullToEmpty(b.dxCode2);
-        this.curBillForm = nullToEmpty(b.curBillForm);
+        this.apptProviderNo = BillingViewStrings.nullToEmpty(b.apptProviderNo);
+        this.providerView = BillingViewStrings.nullToEmpty(b.providerView);
+        this.appointmentDate = BillingViewStrings.nullToEmpty(b.appointmentDate);
+        this.demographicName = BillingViewStrings.nullToEmpty(b.demographicName);
+        this.appointmentNo = BillingViewStrings.nullToEmpty(b.appointmentNo);
+        this.demographicNo = BillingViewStrings.nullToEmpty(b.demographicNo);
+        this.startTime = BillingViewStrings.nullToEmpty(b.startTime);
+        this.billForm = BillingViewStrings.nullToEmpty(b.billForm);
+        this.billNo = BillingViewStrings.nullToEmpty(b.billNo);
+        this.status = BillingViewStrings.nullToEmpty(b.status);
+        this.visitDate = BillingViewStrings.nullToEmpty(b.visitDate);
+        this.visitType = BillingViewStrings.nullToEmpty(b.visitType);
+        this.location = BillingViewStrings.nullToEmpty(b.location);
+        this.billingDate = BillingViewStrings.nullToEmpty(b.billingDate);
+        this.clinicNo = BillingViewStrings.nullToEmpty(b.clinicNo);
+        this.asstProviderNo = BillingViewStrings.nullToEmpty(b.asstProviderNo);
+        this.assgProviderNo = BillingViewStrings.nullToEmpty(b.assgProviderNo);
+        this.mReview = BillingViewStrings.nullToEmpty(b.mReview);
+        this.xmlProvider = BillingViewStrings.nullToEmpty(b.xmlProvider);
+        this.referralCode = BillingViewStrings.nullToEmpty(b.referralCode);
+        this.site = BillingViewStrings.nullToEmpty(b.site);
+        this.xmlBilltype = BillingViewStrings.nullToEmpty(b.xmlBilltype);
+        this.demoHin = BillingViewStrings.nullToEmpty(b.demoHin);
+        this.demoVer = BillingViewStrings.nullToEmpty(b.demoVer);
+        this.demoHcType = BillingViewStrings.nullToEmpty(b.demoHcType);
+        this.demoDob = BillingViewStrings.nullToEmpty(b.demoDob);
+        this.demoName = BillingViewStrings.nullToEmpty(b.demoName);
+        this.serviceDate = BillingViewStrings.nullToEmpty(b.serviceDate);
+        this.serviceCode = BillingViewStrings.nullToEmpty(b.serviceCode);
+        this.dxCode = BillingViewStrings.nullToEmpty(b.dxCode);
+        this.dxCode1 = BillingViewStrings.nullToEmpty(b.dxCode1);
+        this.dxCode2 = BillingViewStrings.nullToEmpty(b.dxCode2);
+        this.curBillForm = BillingViewStrings.nullToEmpty(b.curBillForm);
         this.serviceFields = b.serviceFields == null
                 ? Collections.<HiddenServiceField>emptyList()
                 : Collections.unmodifiableList(b.serviceFields);
         this.servicesCheckedNum = b.servicesCheckedNum;
     }
-
-    private static String nullToEmpty(String s) { return s == null ? "" : s; }
 
     public static Builder builder() { return new Builder(); }
 
@@ -196,10 +194,10 @@ public final class BillingEditWithApptNoViewModel {
 
         private HiddenServiceField(boolean checkedVariant, String name, String value, String unitName, String unitValue) {
             this.checkedVariant = checkedVariant;
-            this.name = nullToEmpty(name);
-            this.value = nullToEmpty(value);
-            this.unitName = nullToEmpty(unitName);
-            this.unitValue = nullToEmpty(unitValue);
+            this.name = BillingViewStrings.nullToEmpty(name);
+            this.value = BillingViewStrings.nullToEmpty(value);
+            this.unitName = BillingViewStrings.nullToEmpty(unitName);
+            this.unitValue = BillingViewStrings.nullToEmpty(unitValue);
         }
 
         public boolean isCheckedVariant() { return checkedVariant; }

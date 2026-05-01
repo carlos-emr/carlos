@@ -72,40 +72,53 @@ public class BillingReviewQueryService {
     public ArrayList getServiceCodeReviewVec(ArrayList vecCode, ArrayList vecUnit,
                                           ArrayList vecAt, String billReferalDate) {
         ArrayList ret = new ArrayList();
-        BillingReviewCodeItem codeItem = null;
-
         for (int i = 0; i < vecCode.size(); i++) {
             if (((String) vecCode.get(i)).equals(""))
                 continue;
 
             // get fee
-            String fee = dbObj.getCodeFee((String) vecCode.get(i), billReferalDate);
+            BillingOnClaimLoader.FeeLookupResult feeResult =
+                    dbObj.getCodeFeeResult((String) vecCode.get(i), billReferalDate);
+            String fee = feeResult.value();
 
             // get code description
             String codeDescription = dbObj.getCodeDescription((String) vecCode.get(i), billReferalDate);
 
             // judge fee
+            if (feeResult.partial()) {
+                ret.add(new BillingReviewCodeItem(
+                        (String) vecCode.get(i),
+                        (String) vecUnit.get(i),
+                        "0",
+                        "0",
+                        "",
+                        "<b>Fee lookup failed; totals may be incomplete.</b>",
+                        codeDescription));
+                continue;
+            }
             if (fee == null) {
-                codeItem = new BillingReviewCodeItem();
-                codeItem.setCodeName((String) vecCode.get(i));
-                codeItem.setCodeUnit((String) vecUnit.get(i));
-                codeItem.setCodeFee("0");
-                codeItem.setCodeTotal("0");
-                codeItem.setMsg("<b>This code is NOT in the database!!!</b>");
-                ret.add(codeItem);
+                ret.add(new BillingReviewCodeItem(
+                        (String) vecCode.get(i),
+                        (String) vecUnit.get(i),
+                        "0",
+                        "0",
+                        "",
+                        "<b>This code is NOT in the database!!!</b>",
+                        ""));
                 _logger
                         .error("getServiceCodeReviewVec: This code is NOT in the database! "
                                 + vecCode.get(i));
                 continue;
             }
             if (BillingONItem.DEFUNCT_FEE.equals(fee)) {
-                codeItem = new BillingReviewCodeItem();
-                codeItem.setCodeName((String) vecCode.get(i));
-                codeItem.setCodeUnit((String) vecUnit.get(i));
-                codeItem.setCodeFee("0");
-                codeItem.setCodeTotal("0");
-                codeItem.setMsg("<b>This code has expired!!!</b>");
-                ret.add(codeItem);
+                ret.add(new BillingReviewCodeItem(
+                        (String) vecCode.get(i),
+                        (String) vecUnit.get(i),
+                        "0",
+                        "0",
+                        "",
+                        "<b>This code has expired!!!</b>",
+                        ""));
                 _logger
                         .error("getServiceCodeReviewVec: This code has expired! "
                                 + vecCode.get(i));
@@ -125,18 +138,16 @@ public class BillingReviewQueryService {
             bigFee = bigFee.multiply(bigCodeAt);
 
             bigFee = bigFee.setScale(2, RoundingMode.HALF_UP);
-            // bigFee = bigFee.round(new MathContext(2));
             MiscUtils.getLogger().debug("big end: " + bigFee.toString());
 
-            codeItem = new BillingReviewCodeItem();
-            codeItem.setCodeName((String) vecCode.get(i));
-            codeItem.setCodeUnit((String) vecUnit.get(i));
-            codeItem.setCodeAt((String) vecAt.get(i));
-            codeItem.setCodeFee(fee);
-            codeItem.setCodeTotal(bigFee.toString());
-            codeItem.setMsg("");
-            codeItem.setCodeDescription(codeDescription);
-            ret.add(codeItem);
+            ret.add(new BillingReviewCodeItem(
+                    (String) vecCode.get(i),
+                    (String) vecUnit.get(i),
+                    fee,
+                    bigFee.toString(),
+                    (String) vecAt.get(i),
+                    "",
+                    codeDescription));
         }
         return ret;
     }
@@ -149,9 +160,7 @@ public class BillingReviewQueryService {
         if (vecCode.size() == vecReviewCodeItem.size())
             return ret;
 
-        // BillingReviewCodeItem codeItem = null;
-        BillingReviewPercentageItem percItem = null;
-        ArrayList vecCodeFee = new ArrayList();
+        ArrayList<String> vecCodeFee = new ArrayList<String>();
         for (int i = 0; i < vecReviewCodeItem.size(); i++) {
             vecCodeFee.add(((BillingReviewCodeItem) vecReviewCodeItem.get(i))
                     .getCodeFee());
@@ -169,19 +178,32 @@ public class BillingReviewQueryService {
             }
             // take perc. code
             // get fee
-            String fee = dbObj.getPercFee((String) vecCode.get(i), billReferalDate);
+            BillingOnClaimLoader.FeeLookupResult feeResult =
+                    dbObj.getPercFeeResult((String) vecCode.get(i), billReferalDate);
+            String fee = feeResult.value();
 
+            if (feeResult.partial()) {
+                ret.add(new BillingReviewPercentageItem(
+                        (String) vecCode.get(i),
+                        (String) vecUnit.get(i),
+                        "0.00",
+                        "",
+                        "",
+                        java.util.List.of(),
+                        java.util.List.of(),
+                        "<b>Percentage lookup failed; totals may be incomplete.</b>"));
+                continue;
+            }
             if (fee == null) {
-                percItem = new BillingReviewPercentageItem();
-                percItem.setCodeName((String) vecCode.get(i));
-                percItem.setCodeUnit((String) vecUnit.get(i));
-                percItem.setCodeFee("0.00");
-                percItem.setCodeMinFee("");
-                percItem.setCodeMaxFee("");
-                percItem.setVecCodeFee(new ArrayList());
-                percItem.setVecCodeTotal(new ArrayList());
-                percItem.setMsg("<b>No this perc. code in the database!!!</b>");
-                ret.add(percItem);
+                ret.add(new BillingReviewPercentageItem(
+                        (String) vecCode.get(i),
+                        (String) vecUnit.get(i),
+                        "0.00",
+                        "",
+                        "",
+                        java.util.List.of(),
+                        java.util.List.of(),
+                        "<b>No this perc. code in the database!!!</b>"));
                 _logger
                         .error("getServiceCodeReviewVec: No this perc. code in the database! "
                                 + vecCode.get(i));
@@ -189,7 +211,7 @@ public class BillingReviewQueryService {
             }
 
             // calculate fee
-            ArrayList vecCodeTotal = new ArrayList();
+            ArrayList<String> vecCodeTotal = new ArrayList<String>();
             for (int j = 0; j < vecCodeFee.size(); j++) {
                 BigDecimal bigCodeFee = new BigDecimal((String) vecCodeFee
                         .get(j));
@@ -207,21 +229,20 @@ public class BillingReviewQueryService {
                 // bigFee = bigFee.multiply(bigCodeAt);
 
                 bigFee = bigFee.setScale(4, RoundingMode.HALF_UP);
-                // bigFee = bigFee.round(new MathContext(2));
                 vecCodeTotal.add(bigFee.toString());
             }
             // get min/max fee
-            String[] mFee = dbObj.getPercMinMaxFee((String) vecCode.get(i), billReferalDate);
-            percItem = new BillingReviewPercentageItem();
-            percItem.setCodeName((String) vecCode.get(i));
-            percItem.setCodeUnit((String) vecUnit.get(i));
-            percItem.setCodeFee(fee);
-            percItem.setCodeMinFee(mFee[0]);
-            percItem.setCodeMaxFee(mFee[1]);
-            percItem.setVecCodeFee(vecCodeFee);
-            percItem.setVecCodeTotal(vecCodeTotal);
-            percItem.setMsg("");
-            ret.add(percItem);
+            BillingOnClaimLoader.FeeRangeLookupResult mFee =
+                    dbObj.getPercMinMaxFeeResult((String) vecCode.get(i), billReferalDate);
+            ret.add(new BillingReviewPercentageItem(
+                    (String) vecCode.get(i),
+                    (String) vecUnit.get(i),
+                    fee,
+                    mFee.min(),
+                    mFee.max(),
+                    vecCodeFee,
+                    vecCodeTotal,
+                    mFee.partial() ? "<b>Percentage min/max lookup failed; limits may be incomplete.</b>" : ""));
         }
         return ret;
     }

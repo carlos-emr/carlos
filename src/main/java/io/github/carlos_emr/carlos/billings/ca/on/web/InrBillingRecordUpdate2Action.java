@@ -72,13 +72,13 @@ public class InrBillingRecordUpdate2Action extends ActionSupport {
      */
     @Override
     public String execute() throws Exception {
-        if (!BillingRequestGuards.requirePost(request, response)) {
-            return NONE;
-        }
-
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
             throw new SecurityException("missing required security object: _admin.billing");
+        }
+
+        if (!BillingRequestGuards.requirePost(request, response)) {
+            return NONE;
         }
 
         String billinginrNo = request.getParameter("billinginr_no") != null ? request.getParameter("billinginr_no").trim() : null;

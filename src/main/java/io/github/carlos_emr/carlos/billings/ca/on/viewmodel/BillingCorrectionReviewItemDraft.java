@@ -31,15 +31,11 @@ public record BillingCorrectionReviewItemDraft(String serviceCode,
                                                String percentage,
                                                String diagCode) {
     public BillingCorrectionReviewItemDraft {
-        serviceCode = nullToEmpty(serviceCode);
-        description = nullToEmpty(description);
-        quantity = nullToEmpty(quantity);
-        storedFee = nullToEmpty(storedFee);
-        percentage = nullToEmpty(percentage);
-        diagCode = nullToEmpty(diagCode);
-    }
-
-    private static String nullToEmpty(String value) {
-        return value == null ? "" : value;
+        serviceCode = BillingViewStrings.nullToEmpty(serviceCode);
+        description = BillingViewStrings.nullToEmpty(description);
+        quantity = BillingViewStrings.nullToEmpty(quantity);
+        storedFee = BillingViewStrings.nullToEmpty(storedFee);
+        percentage = BillingViewStrings.nullToEmpty(percentage);
+        diagCode = BillingViewStrings.nullToEmpty(diagCode);
     }
 }

@@ -51,6 +51,8 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewQueryService;
 
 /**
@@ -367,6 +369,12 @@ public class BillingOnMriViewModelAssembler {
 
     private static int parseIntOrZero(String s) {
         if (s == null) return 0;
-        try { return Integer.parseInt(s); } catch (NumberFormatException e) { return 0; }
+        try {
+            return Integer.parseInt(s);
+        } catch (NumberFormatException e) {
+            MiscUtils.getLogger().warn("BillingOnMri: invalid integer [{}]; using 0",
+                    LogSanitizer.sanitize(s));
+            return 0;
+        }
     }
 }

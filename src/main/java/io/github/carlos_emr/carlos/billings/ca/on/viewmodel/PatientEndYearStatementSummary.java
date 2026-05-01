@@ -46,23 +46,21 @@ public final class PatientEndYearStatementSummary {
     private final String todateParam;
 
     private PatientEndYearStatementSummary(Builder b) {
-        this.patientName = nullToEmpty(b.patientName);
-        this.patientNo = nullToEmpty(b.patientNo);
-        this.hin = nullToEmpty(b.hin);
-        this.address = nullToEmpty(b.address);
-        this.phone = nullToEmpty(b.phone);
+        this.patientName = BillingViewStrings.nullToEmpty(b.patientName);
+        this.patientNo = BillingViewStrings.nullToEmpty(b.patientNo);
+        this.hin = BillingViewStrings.nullToEmpty(b.hin);
+        this.address = BillingViewStrings.nullToEmpty(b.address);
+        this.phone = BillingViewStrings.nullToEmpty(b.phone);
         this.invoiced = b.invoiced == null ? "0.00" : b.invoiced;
         this.paid = b.paid == null ? "0.00" : b.paid;
         this.count = b.count == null ? "0" : b.count;
         this.fromDate = b.fromDate == null ? null : new Date(b.fromDate.getTime());
         this.toDate = b.toDate == null ? null : new Date(b.toDate.getTime());
-        this.fromDateParam = nullToEmpty(b.fromDateParam);
-        this.todateParam = nullToEmpty(b.todateParam);
+        this.fromDateParam = BillingViewStrings.nullToEmpty(b.fromDateParam);
+        this.todateParam = BillingViewStrings.nullToEmpty(b.todateParam);
     }
 
     public static Builder builder() { return new Builder(); }
-
-    private static String nullToEmpty(String s) { return s == null ? "" : s; }
 
     public String getPatientName() { return patientName; }
     public String getPatientNo() { return patientNo; }

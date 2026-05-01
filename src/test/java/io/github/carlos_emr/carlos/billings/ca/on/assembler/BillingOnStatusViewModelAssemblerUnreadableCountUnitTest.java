@@ -41,6 +41,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -98,6 +99,14 @@ class BillingOnStatusViewModelAssemblerUnreadableCountUnitTest {
         return h;
     }
 
+    private Map<String, ArrayList<HashMap<String, String>>> raBatch(BillingClaimHeaderDto header,
+                                                                    ArrayList<HashMap<String, String>> rows) {
+        return Map.of(BillingRaLookupService.RaDataRequest.key(
+                header.getId(),
+                header.getBilling_date().replaceAll("\\D", ""),
+                header.getProvider_ohip_no()), rows);
+    }
+
     @Test
     void shouldExposeUnreadableCount_whenAmountPaidResultReportsUnreadable() {
         // Two unreadable rows surfaced by raLookupService.getAmountPaidWithCount;
@@ -112,8 +121,8 @@ class BillingOnStatusViewModelAssemblerUnreadableCountUnitTest {
 
         ArrayList<HashMap<String, String>> raList = new ArrayList<>();
         raList.add(new HashMap<>());
-        when(raLookupService.getRADataIntern(anyString(), anyString(), anyString()))
-                .thenReturn(raList);
+        when(raLookupService.getRADataInternBatch(any()))
+                .thenReturn(raBatch(header, raList));
         when(raLookupService.getAmountPaidWithCount(any(), anyString(), anyString()))
                 .thenReturn(new BillingRaLookupService.AmountPaidResult("50.00", 2));
         when(raLookupService.getErrorCodes(any())).thenReturn("");
@@ -137,8 +146,8 @@ class BillingOnStatusViewModelAssemblerUnreadableCountUnitTest {
         when(statusPrep.getBills(any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(List.of(header));
 
-        when(raLookupService.getRADataIntern(anyString(), anyString(), anyString()))
-                .thenReturn(new ArrayList<>());
+        when(raLookupService.getRADataInternBatch(any()))
+                .thenReturn(raBatch(header, new ArrayList<>()));
 
         BillingOnStatusViewModel vm = assembler.assemble(req, loggedInInfo);
 
@@ -157,8 +166,8 @@ class BillingOnStatusViewModelAssemblerUnreadableCountUnitTest {
         when(statusPrep.getBills(any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(List.of(header));
 
-        when(raLookupService.getRADataIntern(anyString(), anyString(), anyString()))
-                .thenReturn(new ArrayList<>());
+        when(raLookupService.getRADataInternBatch(any()))
+                .thenReturn(raBatch(header, new ArrayList<>()));
 
         BillingOnStatusViewModel vm = assembler.assemble(req, loggedInInfo);
 

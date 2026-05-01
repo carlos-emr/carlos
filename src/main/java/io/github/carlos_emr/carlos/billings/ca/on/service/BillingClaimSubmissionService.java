@@ -109,44 +109,19 @@ public class BillingClaimSubmissionService {
     // save a billing record
     @SuppressWarnings("rawtypes")
     public SaveResult addABillingRecord(ArrayList val) {
-        boolean ret = false;
         BillingClaimHeaderDto claim1Obj = (BillingClaimHeaderDto) val.get(0);
         int billingNo = dbObj.addOneClaimHeaderRecord(claim1Obj);
         if (billingNo == 0)
             return new SaveResult(false, 0);
         claim1Obj.setId(Integer.toString(billingNo));
         if (val.size() > 1) {
-            ret = dbObj.addItemRecord((List) val.get(1), billingNo);
-            if (!ret) {
-                // Throw so the surrounding @Transactional rolls back the
-                // header write. Returning SaveResult(false, billingNo) on
-                // its own commits an orphan header (no items) and leaves
-                // billing reports parented to a row that has no service
-                // lines — visible in the "Settled $0" reconcile list with
-                // no way to distinguish from a legitimate empty.
-                throw new BillingItemPersistenceException(billingNo);
-            }
+            dbObj.addItemRecord((List) val.get(1), billingNo);
+            return new SaveResult(true, billingNo);
         } else {
             _logger.error("No billing item for billing # " + billingNo);
         }
 
-        return new SaveResult(ret, billingNo);
-    }
-
-    /** Distinct exception so callers can map item-persist failures to a
-     *  rollback-and-render-error path rather than treating them as generic
-     *  IllegalStateException. Carries the billing-header id so callers can
-     *  log/render it without re-parsing the message string. */
-    public static class BillingItemPersistenceException extends RuntimeException {
-        private static final long serialVersionUID = 1L;
-        private final int billingNo;
-        public BillingItemPersistenceException(int billingNo) {
-            super("addABillingRecord rolled back: item persist failed for billingNo " + billingNo);
-            this.billingNo = billingNo;
-        }
-        public int billingNo() {
-            return billingNo;
-        }
+        return new SaveResult(false, billingNo);
     }
 
     public boolean addPrivateBillExtRecord(HttpServletRequest requestData, int billingId) {

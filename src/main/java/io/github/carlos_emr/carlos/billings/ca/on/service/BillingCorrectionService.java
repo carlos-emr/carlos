@@ -281,7 +281,7 @@ public class BillingCorrectionService {
 
         bCh1Dao.merge(bCh1);
 
-        String newStatus = request.getParameter("status").substring(0, 1);
+        String newStatus = requireParam(request, "status").substring(0, 1);
         String oldStatus = bCh1.getStatus();
 
         // Add payment audit if bill has just been settled.
@@ -374,7 +374,7 @@ public class BillingCorrectionService {
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         Locale locale = request.getLocale();
 
-        String status = request.getParameter("status").substring(0, 1);
+        String status = requireParam(request, "status").substring(0, 1);
         boolean statusChangedToSettled = status.equals("S") && !bCh1.getStatus().equals(status);
 
         String payProgram = "";
@@ -675,8 +675,9 @@ public class BillingCorrectionService {
         }
 
         String manualReview = request.getParameter("m_review") != null ? "Y" : "";
+        String status = requireParam(request, "status").substring(0, 1);
 
-        return !bCh1.getStatus().equals(request.getParameter("status").substring(0, 1))
+        return !bCh1.getStatus().equals(status)
                 || !bCh1.getPayProgram().equals(request.getParameter("payProgram"))
                 || !bCh1.getRefNum().equals(request.getParameter("rdohip"))
                 || !bCh1.getVisitType().equals(request.getParameter("visittype"))
@@ -698,6 +699,14 @@ public class BillingCorrectionService {
                 LogSanitizer.sanitize(rawBillingNo));
         return new BillingValidationException(
                 "Bill change rejected: header update failed; please refresh and retry.");
+    }
+
+    private static String requireParam(HttpServletRequest request, String name) {
+        String value = request.getParameter(name);
+        if (value == null || value.isEmpty()) {
+            throw new BillingValidationException("Bill correction rejected: missing required field [" + name + "]");
+        }
+        return value;
     }
 
     private static BillingValidationException newItemFeeUnparseable() {

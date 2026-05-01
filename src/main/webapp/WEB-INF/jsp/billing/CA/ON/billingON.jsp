@@ -146,8 +146,8 @@
         }
 
         function onNext() {
-            var codeToAddStr = "<carlos:encode value='${formModel.patient.patientDxAddCode}' context="javaScriptBlock"/>";
-            var codeToMatchStr = "<carlos:encode value='${formModel.patient.patientDxMatchCode}' context="javaScriptBlock"/>";
+            var codeToAddStr = '<carlos:encode value="${formModel.patient.patientDxAddCode}" context="javaScriptBlock"/>';
+            var codeToMatchStr = '<carlos:encode value="${formModel.patient.patientDxMatchCode}" context="javaScriptBlock"/>';
 
             var codeToAdd = codeToAddStr.split(",");
             var codeToMatch = {};
@@ -449,8 +449,8 @@
                 document.forms[0].referralCode.value = "";
                 document.forms[0].referralDocName.value = "";
             } else {
-                document.forms[0].referralCode.value = "<carlos:encode value='${formModel.referral.ohip}' context="javaScriptBlock"/>";
-                document.forms[0].referralDocName.value = "<carlos:encode value='${formModel.referral.name}' context="javaScriptBlock"/>";
+                document.forms[0].referralCode.value = '<carlos:encode value="${formModel.referral.ohip}" context="javaScriptBlock"/>';
+                document.forms[0].referralDocName.value = '<carlos:encode value="${formModel.referral.name}" context="javaScriptBlock"/>';
             }
         }
 
@@ -505,10 +505,10 @@
             // WARN and the post-save redirect lost the form context.
             document.forms[0].url_back.value = location.pathname + location.search;
 
-            showBillFormDiv("group1_", "<carlos:encode value='${formModel.requestContext.ctlBillForm}' context="javaScriptBlock"/>");
-            showBillFormDiv("group2_", "<carlos:encode value='${formModel.requestContext.ctlBillForm}' context="javaScriptBlock"/>");
-            showBillFormDiv("group3_", "<carlos:encode value='${formModel.requestContext.ctlBillForm}' context="javaScriptBlock"/>");
-            showBillFormDiv("dxCodeSearchDiv_", "<carlos:encode value='${formModel.requestContext.ctlBillForm}' context="javaScriptBlock"/>");
+            showBillFormDiv("group1_", '<carlos:encode value="${formModel.requestContext.ctlBillForm}" context="javaScriptBlock"/>');
+            showBillFormDiv("group2_", '<carlos:encode value="${formModel.requestContext.ctlBillForm}" context="javaScriptBlock"/>');
+            showBillFormDiv("group3_", '<carlos:encode value="${formModel.requestContext.ctlBillForm}" context="javaScriptBlock"/>');
+            showBillFormDiv("dxCodeSearchDiv_", '<carlos:encode value="${formModel.requestContext.ctlBillForm}" context="javaScriptBlock"/>');
 
         }
 
@@ -782,7 +782,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
 </div>
 <%-- Build billing form data for billFormName autocomplete --%>
 <script>
-var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" varStatus="st"><c:if test="${not st.first}">,</c:if>{"code":"<carlos:encode value='${bf.code}' context="javaScriptBlock"/>","name":"<carlos:encode value='${bf.name}' context="javaScriptBlock"/>","billType":"<carlos:encode value='${bf.billType}' context="javaScriptBlock"/>","label":"<carlos:encode value='${bf.name}' context="javaScriptBlock"/>","value":"<carlos:encode value='${bf.name}' context="javaScriptBlock"/>"}</c:forEach>];
+var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" varStatus="st"><c:if test="${not st.first}">,</c:if>{'code':'<carlos:encode value="${bf.code}" context="javaScriptBlock"/>','name':'<carlos:encode value="${bf.name}" context="javaScriptBlock"/>','billType':'<carlos:encode value="${bf.billType}" context="javaScriptBlock"/>','label':'<carlos:encode value="${bf.name}" context="javaScriptBlock"/>','value':'<carlos:encode value="${bf.name}" context="javaScriptBlock"/>'}</c:forEach>];
 </script>
 
 <div id="Layer2"
@@ -1259,26 +1259,26 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                     <tr>
                                         <td style="${entry.displayStyle} text-align: left; white-space:nowrap; ${bgcolor}">
                                             <input
-                                                    type="checkbox" id="xml_${entry.serviceCode}"
-                                                    name="xml_${entry.serviceCode}" value="checked"
+                                                    type="checkbox" id="xml_${carlos:forHtmlAttribute(entry.serviceCode)}"
+                                                    name="xml_${carlos:forHtmlAttribute(entry.serviceCode)}" value="checked"
                                                     onclick="refreshServicesChecked(this);"
                                                     <c:if test="${param[xmlParamKey] eq 'checked'}">checked</c:if>
                                                     <c:if test="${formModel.visit.singleClickEnabled}">onClick='onClickServiceCode(this)'</c:if> />
-                                            <span id="sc${rowLoop.index}${entry.serviceCode}"
-                                                  onclick="getElementById('xml_${entry.serviceCode}').click();"
+                                            <span id="sc${rowLoop.index}${carlos:forHtmlAttribute(entry.serviceCode)}"
+                                                  onclick="getElementById('xml_${carlos:forHtmlAttribute(carlos:forJavaScript(entry.serviceCode))}').click();"
                                                   ondblclick="onDblClickServiceCode(this)"><carlos:encode value='${entry.serviceCode}' context='html'/></span>
                                         </td>
                                         <td style="${entry.displayStyle} ${bgcolor}"
                                                 title="${carlos:forHtmlAttribute(fn:length(entry.serviceDesc) gt 30 ? entry.serviceDesc : '')}"
                                                 class="${entry.displayStyle eq '' ? 'smallFont' : ''}">
-                                            <div onclick="getElementById('xml_${entry.serviceCode}').click();"><c:choose><c:when test="${fn:length(entry.serviceDesc) gt 30}"><carlos:encode value="${fn:substring(entry.serviceDesc, 0, 30)}"/>...</c:when><c:otherwise><carlos:encode value="${entry.serviceDesc}"/></c:otherwise></c:choose>
+                                            <div onclick="getElementById('xml_${carlos:forHtmlAttribute(carlos:forJavaScript(entry.serviceCode))}').click();"><c:choose><c:when test="${fn:length(entry.serviceDesc) gt 30}"><carlos:encode value="${fn:substring(entry.serviceDesc, 0, 30)}"/>...</c:when><c:otherwise><carlos:encode value="${entry.serviceDesc}"/></c:otherwise></c:choose>
                                             </div>
                                         </td>
                                         <td style="text-align: right; ${entry.displayStyle} ${bgcolor}">
                                             <div class="smallFont"><carlos:encode value='${entry.serviceDisp}' context='html'/>
                                             </div>
                                             <input
-                                                    type="hidden" name="sli_xml_${entry.serviceCode}"
+                                                    type="hidden" name="sli_xml_${carlos:forHtmlAttribute(entry.serviceCode)}"
                                                     value="${entry.sliFlag}"/>
                                         </td>
                                     </tr>
@@ -1311,19 +1311,19 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                     <tr>
                                         <td style="text-align: left; ${entry.displayStyle} white-space:nowrap; ${bgcolor}">
                                             <input
-                                                    type="checkbox" id="xml_${entry.serviceCode}"
-                                                    name="xml_${entry.serviceCode}" value="checked"
+                                                    type="checkbox" id="xml_${carlos:forHtmlAttribute(entry.serviceCode)}"
+                                                    name="xml_${carlos:forHtmlAttribute(entry.serviceCode)}" value="checked"
                                                     onclick="refreshServicesChecked(this);"
                                                     <c:if test="${param[xmlParamKey] eq 'checked'}">checked</c:if>
                                                     <c:if test="${formModel.visit.singleClickEnabled}">onClick='onClickServiceCode(this)'</c:if> />
-                                            <span id="sc${rowLoop.index}${entry.serviceCode}"
-                                                  onclick="getElementById('xml_${entry.serviceCode}').click();"
+                                            <span id="sc${rowLoop.index}${carlos:forHtmlAttribute(entry.serviceCode)}"
+                                                  onclick="getElementById('xml_${carlos:forHtmlAttribute(carlos:forJavaScript(entry.serviceCode))}').click();"
                                                   onDblClick="onDblClickServiceCode(this)"><carlos:encode value='${entry.serviceCode}' context='html'/></span>
                                         </td>
                                         <td style="${entry.displayStyle} ${bgcolor}"
                                                 title="${carlos:forHtmlAttribute(fn:length(entry.serviceDesc) gt 30 ? entry.serviceDesc : '')}"
                                                 class="${entry.displayStyle eq '' ? 'smallFont' : ''}">
-                                            <div onclick="getElementById('xml_${entry.serviceCode}').click();">
+                                            <div onclick="getElementById('xml_${carlos:forHtmlAttribute(carlos:forJavaScript(entry.serviceCode))}').click();">
                                                 <c:choose><c:when test="${fn:length(entry.serviceDesc) gt 30}"><carlos:encode value="${fn:substring(entry.serviceDesc, 0, 30)}"/>...</c:when><c:otherwise><carlos:encode value="${entry.serviceDesc}"/></c:otherwise></c:choose>
                                             </div>
                                         </td>
@@ -1331,7 +1331,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                             <div class="smallFont"><carlos:encode value='${entry.serviceDisp}' context='html'/>
                                             </div>
                                             <input
-                                                    type="hidden" name="sli_xml_${entry.serviceCode}"
+                                                    type="hidden" name="sli_xml_${carlos:forHtmlAttribute(entry.serviceCode)}"
                                                     value="${entry.sliFlag}"/>
                                         </td>
                                     </tr>
@@ -1364,19 +1364,19 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                     <tr>
                                         <td style="text-align: left; ${entry.displayStyle} white-space:nowrap; ${bgcolor}">
                                             <input
-                                                    type="checkbox" id="xml_${entry.serviceCode}"
-                                                    name="xml_${entry.serviceCode}" value="checked"
+                                                    type="checkbox" id="xml_${carlos:forHtmlAttribute(entry.serviceCode)}"
+                                                    name="xml_${carlos:forHtmlAttribute(entry.serviceCode)}" value="checked"
                                                     onclick="refreshServicesChecked(this);"
                                                     <c:if test="${param[xmlParamKey] eq 'checked'}">checked</c:if>
                                                     <c:if test="${formModel.visit.singleClickEnabled}">onClick='onClickServiceCode(this)'</c:if> />
-                                            <span id="sc${rowLoop.index}${entry.serviceCode}"
-                                                  onclick="getElementById('xml_${entry.serviceCode}').click();"
+                                            <span id="sc${rowLoop.index}${carlos:forHtmlAttribute(entry.serviceCode)}"
+                                                  onclick="getElementById('xml_${carlos:forHtmlAttribute(carlos:forJavaScript(entry.serviceCode))}').click();"
                                                   onDblClick="onDblClickServiceCode(this)"><carlos:encode value='${entry.serviceCode}' context='html'/></span>
                                         </td>
                                         <td style="${entry.displayStyle} ${bgcolor} "
                                                 title="${carlos:forHtmlAttribute(fn:length(entry.serviceDesc) gt 30 ? entry.serviceDesc : '')}"
                                                 class="${entry.displayStyle eq '' ? 'smallFont' : ''}">
-                                            <div onclick="getElementById('xml_${entry.serviceCode}').click();">
+                                            <div onclick="getElementById('xml_${carlos:forHtmlAttribute(carlos:forJavaScript(entry.serviceCode))}').click();">
                                                 <c:choose><c:when test="${fn:length(entry.serviceDesc) gt 30}"><carlos:encode value="${fn:substring(entry.serviceDesc, 0, 30)}"/>...</c:when><c:otherwise><carlos:encode value="${entry.serviceDesc}"/></c:otherwise></c:choose>
                                             </div>
                                         </td>
@@ -1384,7 +1384,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                             <div class="smallFont"><carlos:encode value='${entry.serviceDisp}' context='html'/>
                                             </div>
                                             <input
-                                                    type="hidden" name="sli_xml_${entry.serviceCode}"
+                                                    type="hidden" name="sli_xml_${carlos:forHtmlAttribute(entry.serviceCode)}"
                                                     value="${entry.sliFlag}"/>
                                         </td>
                                     </tr>

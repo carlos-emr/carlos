@@ -389,8 +389,8 @@ public class OhipClaimFileService {
         String strDemoName = ch1Obj.getDemographic_name();
         hcLast = strDemoName.substring(0, strDemoName.indexOf(",")).toUpperCase();
         hcFirst = strDemoName.substring(strDemoName.indexOf(",") + 1).toUpperCase();
-        hcLast.replaceAll("\\W", "");
-        hcFirst.replaceAll("\\W", "");
+        hcLast = hcLast.replaceAll("\\W", "");
+        hcFirst = hcFirst.replaceAll("\\W", "");
         hcLast = hcLast.length() < 9 ? (hcLast + space(9 - hcLast.length())) : (hcLast.substring(0, 9));
         hcFirst = hcFirst.length() < 5 ? (hcFirst + space(5 - hcFirst.length())) : (hcFirst.substring(0, 5));
 

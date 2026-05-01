@@ -93,10 +93,6 @@ public class FluBillingAdd2Action extends ActionSupport {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 
-        if (!BillingRequestGuards.requirePost(request, response)) {
-            return NONE;
-        }
-
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         // Explicit null-session guard matches the sibling 2Actions in this module.
         // hasPrivilege(null, ...) reaches SecurityInfoManagerImpl and emits a
@@ -107,6 +103,10 @@ public class FluBillingAdd2Action extends ActionSupport {
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
             throw new SecurityException("missing required security object: _admin.billing");
+        }
+
+        if (!BillingRequestGuards.requirePost(request, response)) {
+            return NONE;
         }
 
         // Legacy parameter name "functionid" carries the demographic (patient) number

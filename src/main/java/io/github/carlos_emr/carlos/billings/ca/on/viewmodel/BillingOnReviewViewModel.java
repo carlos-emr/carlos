@@ -174,13 +174,13 @@ public final class BillingOnReviewViewModel {
                         false,
                         java.util.Collections.emptyList(),
                         "");
-        this.patientAddress = nullToEmpty(b.patientAddress);
-        this.assignedProviderNo = nullToEmpty(b.assignedProviderNo);
-        this.providerOhip = nullToEmpty(b.providerOhip);
-        this.providerRma = nullToEmpty(b.providerRma);
-        this.providerView = nullToEmpty(b.providerView);
-        this.dxCode = nullToEmpty(b.dxCode);
-        this.dxDesc = nullToEmpty(b.dxDesc);
+        this.patientAddress = BillingViewStrings.nullToEmpty(b.patientAddress);
+        this.assignedProviderNo = BillingViewStrings.nullToEmpty(b.assignedProviderNo);
+        this.providerOhip = BillingViewStrings.nullToEmpty(b.providerOhip);
+        this.providerRma = BillingViewStrings.nullToEmpty(b.providerRma);
+        this.providerView = BillingViewStrings.nullToEmpty(b.providerView);
+        this.dxCode = BillingViewStrings.nullToEmpty(b.dxCode);
+        this.dxDesc = BillingViewStrings.nullToEmpty(b.dxDesc);
         this.validationMessages = b.validationMessages == null
                 ? java.util.Collections.emptyList()
                 : java.util.List.copyOf(b.validationMessages);
@@ -193,26 +193,26 @@ public final class BillingOnReviewViewModel {
         this.requestParamEchoes = b.requestParamEchoes == null
                 ? java.util.Collections.emptyMap()
                 : java.util.Map.copyOf(b.requestParamEchoes);
-        this.demoName = nullToEmpty(b.demoName);
-        this.wrongMessage = nullToEmpty(b.wrongMessage);
+        this.demoName = BillingViewStrings.nullToEmpty(b.demoName);
+        this.wrongMessage = BillingViewStrings.nullToEmpty(b.wrongMessage);
         this.reviewAlerts = b.reviewAlerts == null
                 ? java.util.Collections.emptyList()
                 : java.util.List.copyOf(b.reviewAlerts);
-        this.demoSexLabel = nullToEmpty(b.demoSexLabel);
-        this.demoHeaderLine = nullToEmpty(b.demoHeaderLine);
+        this.demoSexLabel = BillingViewStrings.nullToEmpty(b.demoSexLabel);
+        this.demoHeaderLine = BillingViewStrings.nullToEmpty(b.demoHeaderLine);
         this.mReview = b.mReview;
         this.serviceDateLines = b.serviceDateLines == null
                 ? java.util.Collections.emptyList()
                 : java.util.List.copyOf(b.serviceDateLines);
-        this.billingPhysicianLabel = nullToEmpty(b.billingPhysicianLabel);
-        this.mrpLabel = nullToEmpty(b.mrpLabel);
-        this.visitTypeLabel = nullToEmpty(b.visitTypeLabel);
-        this.billTypeLabel = nullToEmpty(b.billTypeLabel);
-        this.billType = nullToEmpty(b.billType);
-        this.locationLabel = nullToEmpty(b.locationLabel);
-        this.sliCodeLabel = nullToEmpty(b.sliCodeLabel);
-        this.admissionDate = nullToEmpty(b.admissionDate);
-        this.siteName = nullToEmpty(b.siteName);
+        this.billingPhysicianLabel = BillingViewStrings.nullToEmpty(b.billingPhysicianLabel);
+        this.mrpLabel = BillingViewStrings.nullToEmpty(b.mrpLabel);
+        this.visitTypeLabel = BillingViewStrings.nullToEmpty(b.visitTypeLabel);
+        this.billTypeLabel = BillingViewStrings.nullToEmpty(b.billTypeLabel);
+        this.billType = BillingViewStrings.nullToEmpty(b.billType);
+        this.locationLabel = BillingViewStrings.nullToEmpty(b.locationLabel);
+        this.sliCodeLabel = BillingViewStrings.nullToEmpty(b.sliCodeLabel);
+        this.admissionDate = BillingViewStrings.nullToEmpty(b.admissionDate);
+        this.siteName = BillingViewStrings.nullToEmpty(b.siteName);
         this.serviceCodeRows = b.serviceCodeRows == null
                 ? java.util.Collections.emptyList()
                 : java.util.List.copyOf(b.serviceCodeRows);
@@ -222,9 +222,9 @@ public final class BillingOnReviewViewModel {
         this.codeDescriptions = b.codeDescriptions == null
                 ? java.util.Collections.emptyMap()
                 : java.util.Map.copyOf(b.codeDescriptions);
-        this.gstTotal = nullToEmpty(b.gstTotal);
-        this.gstBilledTotal = nullToEmpty(b.gstBilledTotal);
-        this.gstPercent = nullToEmpty(b.gstPercent);
+        this.gstTotal = BillingViewStrings.nullToEmpty(b.gstTotal);
+        this.gstBilledTotal = BillingViewStrings.nullToEmpty(b.gstBilledTotal);
+        this.gstPercent = BillingViewStrings.nullToEmpty(b.gstPercent);
         this.percRendered = b.percRendered;
         this.dupServiceCode = b.dupServiceCode;
         this.totalItem = b.totalItem;
@@ -233,11 +233,11 @@ public final class BillingOnReviewViewModel {
                 : java.util.List.copyOf(b.percJsHandlers);
         this.publicPayer = b.publicPayer;
         this.privatePayer = b.privatePayer;
-        this.billingNotes = nullToEmpty(b.billingNotes);
-        this.clinicAddress = nullToEmpty(b.clinicAddress);
-        this.payeeProviderNo = nullToEmpty(b.payeeProviderNo);
-        this.payeeName = nullToEmpty(b.payeeName);
-        this.payeeFromConfig = nullToEmpty(b.payeeFromConfig);
+        this.billingNotes = BillingViewStrings.nullToEmpty(b.billingNotes);
+        this.clinicAddress = BillingViewStrings.nullToEmpty(b.clinicAddress);
+        this.payeeProviderNo = BillingViewStrings.nullToEmpty(b.payeeProviderNo);
+        this.payeeName = BillingViewStrings.nullToEmpty(b.payeeName);
+        this.payeeFromConfig = BillingViewStrings.nullToEmpty(b.payeeFromConfig);
         this.payeeFromConfigSet = b.payeeFromConfigSet;
         this.paymentTypes = b.paymentTypes == null
                 ? java.util.Collections.emptyList()
@@ -245,15 +245,11 @@ public final class BillingOnReviewViewModel {
         this.allRequestParams = b.allRequestParams == null
                 ? java.util.Collections.emptyList()
                 : java.util.List.copyOf(b.allRequestParams);
-        this.loggedInUserNo = nullToEmpty(b.loggedInUserNo);
+        this.loggedInUserNo = BillingViewStrings.nullToEmpty(b.loggedInUserNo);
     }
 
     public static Builder builder() {
         return new Builder();
-    }
-
-    private static String nullToEmpty(String s) {
-        return s == null ? "" : s;
     }
 
     /** Aggregated demographic snapshot — primary internal storage. */

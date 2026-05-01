@@ -70,6 +70,26 @@ public class BillingOnClaimLoader {
     private final BillingONItemDao itemDao;
     private final CtlBillingServiceDao ctlBillingServiceDao;
 
+    public record FeeLookupResult(String value, boolean partial, String message) {
+        public static FeeLookupResult found(String value) {
+            return new FeeLookupResult(value, false, "");
+        }
+
+        public static FeeLookupResult partial(String message) {
+            return new FeeLookupResult(null, true, message);
+        }
+    }
+
+    public record FeeRangeLookupResult(String min, String max, boolean partial, String message) {
+        public static FeeRangeLookupResult found(String min, String max) {
+            return new FeeRangeLookupResult(min, max, false, "");
+        }
+
+        public static FeeRangeLookupResult partial(String message) {
+            return new FeeRangeLookupResult("", "", true, message);
+        }
+    }
+
     /** Test-friendly constructor — package-private, takes DAO mocks directly. */
     BillingOnClaimLoader(ClinicLocationDao clinicLocationDao,
                                BillingONCHeader1Dao dao,
@@ -96,6 +116,10 @@ public class BillingOnClaimLoader {
     }
 
     public String getCodeFee(String val, String billReferalDate) {
+        return getCodeFeeResult(val, billReferalDate).value();
+    }
+
+    public FeeLookupResult getCodeFeeResult(String val, String billReferalDate) {
         String retval = null;
         try {
             for (BillingService bs : serviceDao.findByServiceCodeAndLatestDate(val, ConversionUtils.fromDateString(billReferalDate))) {
@@ -107,6 +131,7 @@ public class BillingOnClaimLoader {
                     retval = BillingONItem.DEFUNCT_FEE;
                 }
             }
+            return FeeLookupResult.found(retval);
 
         } catch (Exception e) {
             // Caller treats null as "no fee found"; without context the
@@ -116,27 +141,36 @@ public class BillingOnClaimLoader {
                     LogSanitizer.sanitize(val),
                     LogSanitizer.sanitize(billReferalDate),
                     e);
+            return FeeLookupResult.partial("Fee lookup failed for service code " + LogSanitizer.sanitizeForDisplay(val));
         }
-
-        return retval;
     }
 
     public String getPercFee(String val, String billReferalDate) {
+        return getPercFeeResult(val, billReferalDate).value();
+    }
+
+    public FeeLookupResult getPercFeeResult(String val, String billReferalDate) {
         String retval = null;
         try {
             for (BillingService bs : serviceDao.findByServiceCodeAndLatestDate(val, ConversionUtils.fromDateString(billReferalDate))) {
                 retval = bs.getPercentage();
             }
+            return FeeLookupResult.found(retval);
         } catch (Exception e) {
             _logger.error("Failed to load percentage for service code {} on date {}",
                     LogSanitizer.sanitize(val),
                     LogSanitizer.sanitize(billReferalDate),
                     e);
+            return FeeLookupResult.partial("Percentage lookup failed for service code " + LogSanitizer.sanitizeForDisplay(val));
         }
-        return retval;
     }
 
     public String[] getPercMinMaxFee(String val, String billReferalDate) {
+        FeeRangeLookupResult result = getPercMinMaxFeeResult(val, billReferalDate);
+        return new String[] {result.min(), result.max()};
+    }
+
+    public FeeRangeLookupResult getPercMinMaxFeeResult(String val, String billReferalDate) {
         String[] retval = {"", ""};
 
         try {
@@ -144,13 +178,14 @@ public class BillingOnClaimLoader {
                 retval[0] = b.getMin();
                 retval[1] = b.getMax();
             }
+            return FeeRangeLookupResult.found(retval[0], retval[1]);
         } catch (Exception e) {
             _logger.error("Failed to load percent min/max for service code {} on date {}",
                     LogSanitizer.sanitize(val),
                     LogSanitizer.sanitize(billReferalDate),
                     e);
+            return FeeRangeLookupResult.partial("Percentage min/max lookup failed for service code " + LogSanitizer.sanitizeForDisplay(val));
         }
-        return retval;
     }
 
     // invoice report

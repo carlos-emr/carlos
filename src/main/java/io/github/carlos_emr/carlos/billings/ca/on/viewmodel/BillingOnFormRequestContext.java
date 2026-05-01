@@ -46,23 +46,19 @@ public record BillingOnFormRequestContext(
             "", "", "", "", "", "", "", "", "", "", "", "", Map.of());
 
     public BillingOnFormRequestContext {
-        userNo = nullToEmpty(userNo);
-        demographicNo = nullToEmpty(demographicNo);
-        appointmentNo = nullToEmpty(appointmentNo);
-        providerNo = nullToEmpty(providerNo);
-        apptProviderNo = nullToEmpty(apptProviderNo);
-        demoName = nullToEmpty(demoName);
-        today = nullToEmpty(today);
-        billReferenceDate = nullToEmpty(billReferenceDate);
-        mReview = nullToEmpty(mReview);
-        ctlBillForm = nullToEmpty(ctlBillForm);
-        curBillForm = nullToEmpty(curBillForm);
-        demoNameUrlEncoded = nullToEmpty(demoNameUrlEncoded);
+        userNo = BillingViewStrings.nullToEmpty(userNo);
+        demographicNo = BillingViewStrings.nullToEmpty(demographicNo);
+        appointmentNo = BillingViewStrings.nullToEmpty(appointmentNo);
+        providerNo = BillingViewStrings.nullToEmpty(providerNo);
+        apptProviderNo = BillingViewStrings.nullToEmpty(apptProviderNo);
+        demoName = BillingViewStrings.nullToEmpty(demoName);
+        today = BillingViewStrings.nullToEmpty(today);
+        billReferenceDate = BillingViewStrings.nullToEmpty(billReferenceDate);
+        mReview = BillingViewStrings.nullToEmpty(mReview);
+        ctlBillForm = BillingViewStrings.nullToEmpty(ctlBillForm);
+        curBillForm = BillingViewStrings.nullToEmpty(curBillForm);
+        demoNameUrlEncoded = BillingViewStrings.nullToEmpty(demoNameUrlEncoded);
         requestParamEchoes = requestParamEchoes == null
                 ? Collections.emptyMap() : Map.copyOf(requestParamEchoes);
-    }
-
-    private static String nullToEmpty(String s) {
-        return s == null ? "" : s;
     }
 }

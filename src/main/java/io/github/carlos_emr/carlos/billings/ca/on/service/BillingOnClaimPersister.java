@@ -241,11 +241,9 @@ public class BillingOnClaimPersister {
      * @param lVal List a list of {@link BillingClaimItemDto} rows; raw
      *             {@code List} for legacy compatibility
      * @param id   int the parent claim header ID ({@code billing_on_cheader1.id})
-     * @return boolean {@code true} on success
      */
-    public boolean addItemRecord(List lVal, int id) {
+    public void addItemRecord(List lVal, int id) {
 
-        boolean retval = true;
         for (int i = 0; i < lVal.size(); i++) {
             BillingClaimItemDto val = (BillingClaimItemDto) lVal.get(i);
 
@@ -266,7 +264,6 @@ public class BillingOnClaimPersister {
             itemDao.persist(b);
             val.setId(b.getId().toString());
         }
-        return retval;
     }
 
     /**
@@ -458,6 +455,30 @@ public class BillingOnClaimPersister {
             }
         }
 
+        BillingONPayment payment = null;
+        int paymentType = 0;
+        if (paymentSumParam != null) {
+            BillingONCHeader1 ch1 = cheaderDao.find(id);
+            String paymentTypeParam = mVal.get("payMethod");
+            if (paymentTypeParam == null || paymentTypeParam.isEmpty()) {
+                paymentTypeParam = "1";
+            }
+            paymentType = Integer.parseInt(paymentTypeParam);
+
+            payment = new BillingONPayment();
+            payment.setTotal_payment(BillingMoney.amount(paymentSumParam));
+            payment.setTotal_discount(BillingMoney.amount(mVal.get("total_discount")));
+            payment.setTotal_refund(BillingMoney.zero());
+            payment.setPaymentDate(paymentDate);
+            payment.setBillingOnCheader1(ch1);
+            payment.setBillingNo(id);
+            payment.setCreator(claim1Obj.getCreator());
+            payment.setPaymentTypeId(paymentType);
+
+            billingONPaymentDao.persist(payment);
+        }
+        Integer paymentId = payment == null ? Integer.valueOf(0) : payment.getId();
+
         for (int i = 0; i < temp.length; i++) {
             String val = mVal.get(temp[i]);
             if ("discount".equals(temp[i])) {
@@ -473,28 +494,12 @@ public class BillingOnClaimPersister {
             billingONExt.setValue(val);
             billingONExt.setDateTime(new Date());
             billingONExt.setStatus('1');
+            billingONExt.setPaymentId(paymentId);
             extDao.persist(billingONExt);
         }
 
-        if (paymentSumParam != null) {
-            BillingONCHeader1 ch1 = cheaderDao.find(id);
-            String paymentTypeParam = mVal.get("payMethod");
-            if (paymentTypeParam == null || paymentTypeParam.isEmpty()) {
-                paymentTypeParam = "1";
-            }
-
-            BillingONPayment payment = new BillingONPayment();
-            payment.setTotal_payment(BillingMoney.amount(paymentSumParam));
-            payment.setTotal_discount(BillingMoney.amount(mVal.get("total_discount")));
-            payment.setTotal_refund(BillingMoney.zero());
-            payment.setPaymentDate(paymentDate);
-            payment.setBillingOnCheader1(ch1);
-            payment.setBillingNo(id);
-            payment.setCreator(claim1Obj.getCreator());
-            payment.setPaymentTypeId(Integer.parseInt(paymentTypeParam));
-
-            billingONPaymentDao.persist(payment);
-            addItemPaymentRecord((List) vecObj.get(1), id, payment.getId(), Integer.parseInt(paymentTypeParam));
+        if (payment != null) {
+            addItemPaymentRecord((List) vecObj.get(1), id, payment.getId(), paymentType);
             addCreate3rdInvoiceTrans((BillingClaimHeaderDto) vecObj.get(0), (List<BillingClaimItemDto>) vecObj.get(1), payment);
         }
         return true;

@@ -107,6 +107,28 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
     }
 
     @Override
+    public List<BillingONItem> findActiveItemsByInvoiceNos(List<Integer> invoiceNos) {
+        if (invoiceNos == null || invoiceNos.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        Query q = entityManager.createQuery(
+                "SELECT i FROM BillingONItem i WHERE i.ch1Id IN (?1) AND i.status != 'D' ORDER BY i.ch1Id, i.id");
+        q.setParameter(1, invoiceNos);
+        return q.getResultList();
+    }
+
+    @Override
+    public List<BillingONItem> findItemsByInvoiceNos(List<Integer> invoiceNos) {
+        if (invoiceNos == null || invoiceNos.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        Query q = entityManager.createQuery(
+                "SELECT i FROM BillingONItem i WHERE i.ch1Id IN (?1) ORDER BY i.ch1Id, i.id");
+        q.setParameter(1, invoiceNos);
+        return q.getResultList();
+    }
+
+    @Override
     public BillingONCHeader1 findWithItems(Integer id) {
         if (id == null) {
             return null;

@@ -93,8 +93,12 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
         String filename = request.getParameter("filename");
 
         if (StringUtils.isBlank(filename)) {
+            if (file1 == null || StringUtils.isBlank(file1FileName)) {
+                addActionError("No report file was uploaded.");
+                return ERROR;
+            }
             if (!saveFile(file1, file1FileName)) {
-                addActionError(getText("errors.fileNotAdded"));
+                addActionError("Report file could not be added.");
                 return ERROR;
             } else {
                 if (getData(loggedInInfo, file1FileName, "DOCUMENT_DIR", request)) {

@@ -225,4 +225,30 @@ class BillingClaimsErrorReportParserUnitTest {
         }
         assertThat(parser.isVerdict()).isTrue();
     }
+
+    @Test
+    void shouldCloseInputStreamAfterParsing() throws Exception {
+        java.io.File f = Files.createTempFile(tempDir, "close", ".txt").toFile();
+        Files.writeString(f.toPath(), "  9" + "0000001" + "0000002" + "0000003" + "0000004" + "\n");
+        CloseTrackingFileInputStream input = new CloseTrackingFileInputStream(f);
+
+        BillingClaimsErrorReportParser parser = new BillingClaimsErrorReportParser(input);
+
+        assertThat(parser.isVerdict()).isTrue();
+        assertThat(input.closed).isTrue();
+    }
+
+    private static final class CloseTrackingFileInputStream extends FileInputStream {
+        private boolean closed;
+
+        private CloseTrackingFileInputStream(File file) throws IOException {
+            super(file);
+        }
+
+        @Override
+        public void close() throws IOException {
+            closed = true;
+            super.close();
+        }
+    }
 }

@@ -28,6 +28,8 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -237,6 +239,14 @@ public class BillingReportFragmentViewModelAssembler {
             b.billobRows(rows).billobTotal(total.toPlainString());
             return;
         }
+        List<Integer> billingNos = bs.stream()
+                .map(row -> (Integer) row[0])
+                .filter(id -> id != null)
+                .distinct()
+                .toList();
+        Map<Integer, List<BillingDetail>> detailsByBillingNo =
+                billingDetailDao.findByBillingNos(billingNos).stream()
+                        .collect(Collectors.groupingBy(BillingDetail::getBillingNo));
         boolean bodd = false;
         for (Object[] row : bs) {
             bodd = !bodd;
@@ -270,7 +280,7 @@ public class BillingReportFragmentViewModelAssembler {
             List<String> codes = new ArrayList<>(10);
             int count = 0;
             int billingNo = bId == null ? 0 : bId.intValue();
-            List<BillingDetail> bds = billingDetailDao.findByBillingNo(billingNo);
+            List<BillingDetail> bds = detailsByBillingNo.get(billingNo);
             if (bds != null) {
                 for (BillingDetail bd : bds) {
                     if (count >= 10) break;
@@ -326,6 +336,9 @@ public class BillingReportFragmentViewModelAssembler {
             try {
                 fee = new BigDecimal(formattedTotal).setScale(2, RoundingMode.HALF_UP);
             } catch (NumberFormatException nfe) {
+                MiscUtils.getLogger().warn(
+                        "BillingReportFragment: Flu bill {} has unparseable total [{}]; using 0",
+                        billingNo, formattedTotal);
                 fee = new BigDecimal(0).setScale(2, RoundingMode.HALF_UP);
             }
             if ("flu".equals(specialty)) {

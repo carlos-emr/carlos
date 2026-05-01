@@ -68,13 +68,13 @@ public class ManageBillingFormBillTypeSave2Action extends ActionSupport {
      */
     @Override
     public String execute() throws Exception {
-        if (!BillingRequestGuards.requirePost(request, response)) {
-            return NONE;
-        }
-
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.billing)");
+        }
+
+        if (!BillingRequestGuards.requirePost(request, response)) {
+            return NONE;
         }
 
         String servicetype = Objects.toString(request.getParameter("servicetype"), "");

@@ -38,6 +38,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.commons.lang3.time.DateUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.assembler.BatchBillingViewModelAssembler;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BatchBillingViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingSubmissionService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnHeaderCreationService;
 import io.github.carlos_emr.carlos.commn.dao.BatchBillingDAO;
 import io.github.carlos_emr.carlos.commn.model.BatchBilling;
@@ -182,11 +183,6 @@ public class BatchBill2Action extends ActionSupport {
         String clinic_view = request.getParameter("clinic_view");
         String curUser = (String) request.getSession().getAttribute("user");
         String[] billingInfo = request.getParameterValues("bill");
-        BatchBillingDAO batchBillingDAO = (BatchBillingDAO) SpringUtils.getBean(BatchBillingDAO.class);
-        List<BatchBilling> batchBillingList;
-        BatchBilling batchBilling;
-        String total;
-
         //create the invoice and update batch_billing table
         if (billingInfo != null) {
             // Pre-validate every row's shape and demo-no parse BEFORE any
@@ -205,18 +201,19 @@ public class BatchBill2Action extends ActionSupport {
                 }
             }
 
-            for (int idx = 0; idx < billingInfo.length; ++idx) {
-                BatchBillRow row = parseBatchBillRow(billingInfo[idx]);
-                //passed in order is billing providers, demographic no, service code, dx code
-                total = this.headerCreationService.createBill(row.providerNo(), row.demographicNo(),
-                        row.serviceCode(), row.dxCode(), clinic_view, billingDate, curUser);
-
-                batchBillingList = batchBillingDAO.find(row.demographicNo(), row.serviceCode());
-                batchBilling = batchBillingList.get(0);
-                batchBilling.setBillingAmount(total);
-                batchBilling.setLastBilledDate(billingDate);
-                batchBillingDAO.merge(batchBilling);
-
+            java.util.List<BatchBillingSubmissionService.Row> rows = new java.util.ArrayList<>();
+            for (String raw : billingInfo) {
+                BatchBillRow row = parseBatchBillRow(raw);
+                rows.add(new BatchBillingSubmissionService.Row(
+                        row.serviceCode(), row.dxCode(), row.demographicNo(), row.providerNo()));
+            }
+            try {
+                SpringUtils.getBean(BatchBillingSubmissionService.class)
+                        .submitAll(rows, clinic_view, billingDate, curUser);
+            } catch (RuntimeException e) {
+                MiscUtils.getLogger().error("BatchBill doBatchBill: batch creation rolled back", e);
+                request.setAttribute("error", oscarResource.getString("billing.batchbilling.badRow"));
+                return "error";
             }
 
         }

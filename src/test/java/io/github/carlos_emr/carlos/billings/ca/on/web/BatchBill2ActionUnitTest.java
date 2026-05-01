@@ -27,6 +27,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnHeaderCreationService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingSubmissionService;
 import io.github.carlos_emr.carlos.commn.dao.BatchBillingDAO;
 import io.github.carlos_emr.carlos.commn.model.BatchBilling;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -79,6 +80,9 @@ class BatchBill2ActionUnitTest extends CarlosUnitTestBase {
     private BatchBillingDAO batchBillingDAO;
 
     @Mock
+    private BatchBillingSubmissionService batchBillingSubmissionService;
+
+    @Mock
     private io.github.carlos_emr.carlos.billings.ca.on.assembler.BatchBillingViewModelAssembler batchBillingAssembler;
 
     @Mock
@@ -101,6 +105,7 @@ class BatchBill2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(BillingOnHeaderCreationService.class, headerCreationService);
         registerMock(BatchBillingDAO.class, batchBillingDAO);
+        registerMock(BatchBillingSubmissionService.class, batchBillingSubmissionService);
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
@@ -159,9 +164,14 @@ class BatchBill2ActionUnitTest extends CarlosUnitTestBase {
         String result = new BatchBill2Action(headerCreationService, securityInfoManager, batchBillingAssembler).doBatchBill();
 
         assertThat(result).isNull();
-        verify(headerCreationService)
-                .createBill(eq("999998"), eq(42), eq("A007A"), eq("250"), eq("clinic-a"), any(), eq("999998"));
-        verify(batchBillingDAO).find(42, "A007A");
+        verify(batchBillingSubmissionService)
+                .submitAll(org.mockito.ArgumentMatchers.argThat(rows ->
+                                rows.size() == 1
+                                        && rows.get(0).providerNo().equals("999998")
+                                        && rows.get(0).demographicNo().equals(42)
+                                        && rows.get(0).serviceCode().equals("A007A")
+                                        && rows.get(0).dxCode().equals("250")),
+                        eq("clinic-a"), any(), eq("999998"));
     }
 
     @Test
@@ -172,8 +182,8 @@ class BatchBill2ActionUnitTest extends CarlosUnitTestBase {
         String result = new BatchBill2Action(headerCreationService, securityInfoManager, batchBillingAssembler).doBatchBill();
 
         assertThat(result).isEqualTo(ActionSupport.ERROR);
-        verify(headerCreationService, never())
-                .createBill(any(), any(), any(), any(), any(), any(), any());
+        verify(batchBillingSubmissionService, never())
+                .submitAll(any(), any(), any(), any());
     }
 
     @Test
@@ -196,8 +206,23 @@ class BatchBill2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.ERROR);
         // No bills persisted — neither row 0 nor row 1.
-        verify(headerCreationService, never())
-                .createBill(any(), any(), any(), any(), any(), any(), any());
+        verify(batchBillingSubmissionService, never())
+                .submitAll(any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldReturnError_whenBatchSubmissionServiceRollsBack() {
+        request.setMethod("POST");
+        request.setParameter("bill", "A007A;250;42;999998");
+        org.mockito.Mockito.doThrow(new RuntimeException("DB outage simulation"))
+                .when(batchBillingSubmissionService)
+                .submitAll(any(), any(), any(), any());
+
+        String result = new BatchBill2Action(
+                headerCreationService, securityInfoManager, batchBillingAssembler).doBatchBill();
+
+        assertThat(result).isEqualTo(ActionSupport.ERROR);
+        assertThat(request.getAttribute("error")).isNotNull();
     }
 
     @Test

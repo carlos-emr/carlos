@@ -326,11 +326,8 @@ public class BillingRaReportService {
 
     public List getRANoErrorBill(String raNo, String providerOhipNo, String noErrorCodes, String errorCodes) {
         List ret = new ArrayList();
-        List errorBill = dbObj.getRAError35(raNo, providerOhipNo, errorCodes); // !=i2,
-        // ...
-        List noErrorBill = dbObj.getRAError35(raNo, providerOhipNo, noErrorCodes); // =
-        // I2,
-        // ...
+        List errorBill = dbObj.getRAError35(raNo, providerOhipNo, errorCodes);
+        List noErrorBill = dbObj.getRAError35(raNo, providerOhipNo, noErrorCodes);
         for (int i = 0; i < noErrorBill.size(); i++) {
             String errorAccount = (String) noErrorBill.get(i);
             if (!errorBill.contains(errorAccount)) {

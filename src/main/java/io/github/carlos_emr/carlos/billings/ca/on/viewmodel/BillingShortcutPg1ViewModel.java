@@ -150,22 +150,22 @@ public final class BillingShortcutPg1ViewModel {
                         b.rmaEnabled,
                         b.clinicNbrs,
                         b.selectedClinicNbrPrefix);
-        this.userProviderNo = nullToEmpty(b.userProviderNo);
-        this.providerView = nullToEmpty(b.providerView);
-        this.demoNo = nullToEmpty(b.demoNo);
-        this.demoName = nullToEmpty(b.demoName);
-        this.apptNo = nullToEmpty(b.apptNo);
-        this.apptProviderNo = nullToEmpty(b.apptProviderNo);
-        this.apptDate = nullToEmpty(b.apptDate);
-        this.startTime = nullToEmpty(b.startTime);
-        this.ctlBillForm = nullToEmpty(b.ctlBillForm);
-        this.clinicNo = nullToEmpty(b.clinicNo);
-        this.assignedProviderNo = nullToEmpty(b.assignedProviderNo);
-        this.visitType = nullToEmpty(b.visitType);
-        this.clinicView = nullToEmpty(b.clinicView);
-        this.visitDate = nullToEmpty(b.visitDate);
-        this.dxCode = nullToEmpty(b.dxCode);
-        this.msg = nullToEmpty(b.msg);
+        this.userProviderNo = BillingViewStrings.nullToEmpty(b.userProviderNo);
+        this.providerView = BillingViewStrings.nullToEmpty(b.providerView);
+        this.demoNo = BillingViewStrings.nullToEmpty(b.demoNo);
+        this.demoName = BillingViewStrings.nullToEmpty(b.demoName);
+        this.apptNo = BillingViewStrings.nullToEmpty(b.apptNo);
+        this.apptProviderNo = BillingViewStrings.nullToEmpty(b.apptProviderNo);
+        this.apptDate = BillingViewStrings.nullToEmpty(b.apptDate);
+        this.startTime = BillingViewStrings.nullToEmpty(b.startTime);
+        this.ctlBillForm = BillingViewStrings.nullToEmpty(b.ctlBillForm);
+        this.clinicNo = BillingViewStrings.nullToEmpty(b.clinicNo);
+        this.assignedProviderNo = BillingViewStrings.nullToEmpty(b.assignedProviderNo);
+        this.visitType = BillingViewStrings.nullToEmpty(b.visitType);
+        this.clinicView = BillingViewStrings.nullToEmpty(b.clinicView);
+        this.visitDate = BillingViewStrings.nullToEmpty(b.visitDate);
+        this.dxCode = BillingViewStrings.nullToEmpty(b.dxCode);
+        this.msg = BillingViewStrings.nullToEmpty(b.msg);
         this.billingHistory = b.billingHistory == null ? Collections.emptyList() : List.copyOf(b.billingHistory);
         this.billingHistoryDetails = b.billingHistoryDetails == null ? Collections.emptyList() : List.copyOf(b.billingHistoryDetails);
         this.providers = b.providers == null ? Collections.emptyList() : List.copyOf(b.providers);
@@ -173,29 +173,25 @@ public final class BillingShortcutPg1ViewModel {
         this.serviceCodeCol1 = b.serviceCodeCol1 == null ? Collections.emptyList() : List.copyOf(b.serviceCodeCol1);
         this.serviceCodeCol2 = b.serviceCodeCol2 == null ? Collections.emptyList() : List.copyOf(b.serviceCodeCol2);
         this.serviceCodeCol3 = b.serviceCodeCol3 == null ? Collections.emptyList() : List.copyOf(b.serviceCodeCol3);
-        this.headerTitle1 = nullToEmpty(b.headerTitle1);
-        this.headerTitle2 = nullToEmpty(b.headerTitle2);
-        this.headerTitle3 = nullToEmpty(b.headerTitle3);
+        this.headerTitle1 = BillingViewStrings.nullToEmpty(b.headerTitle1);
+        this.headerTitle2 = BillingViewStrings.nullToEmpty(b.headerTitle2);
+        this.headerTitle3 = BillingViewStrings.nullToEmpty(b.headerTitle3);
         this.propPremium = b.propPremium == null ? Collections.emptyMap() : Map.copyOf(b.propPremium);
-        this.selectedXmlPSli = nullToEmpty(b.selectedXmlPSli);
+        this.selectedXmlPSli = BillingViewStrings.nullToEmpty(b.selectedXmlPSli);
         this.serviceTypes = b.serviceTypes == null ? Collections.emptyList() : List.copyOf(b.serviceTypes);
         this.dxCodes = b.dxCodes == null ? Collections.emptyList() : List.copyOf(b.dxCodes);
         this.requestParamEchoes = b.requestParamEchoes == null
                 ? Collections.emptyMap() : Map.copyOf(b.requestParamEchoes);
-        this.currentFormName = nullToEmpty(b.currentFormName);
-        this.assgProviderDisplay = nullToEmpty(b.assgProviderDisplay);
+        this.currentFormName = BillingViewStrings.nullToEmpty(b.currentFormName);
+        this.assgProviderDisplay = BillingViewStrings.nullToEmpty(b.assgProviderDisplay);
         this.newOnBilling = b.newOnBilling;
-        this.admissionDate = nullToEmpty(b.admissionDate);
+        this.admissionDate = BillingViewStrings.nullToEmpty(b.admissionDate);
         this.historyUnavailable = b.historyUnavailable;
         this.historyPartialRowCount = b.historyPartialRowCount;
     }
 
     public static Builder builder() {
         return new Builder();
-    }
-
-    private static String nullToEmpty(String s) {
-        return s == null ? "" : s;
     }
 
     /** Aggregated demographic snapshot — primary internal storage. */

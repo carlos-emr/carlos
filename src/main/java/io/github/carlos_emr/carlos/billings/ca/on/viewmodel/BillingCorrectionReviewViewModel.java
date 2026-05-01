@@ -81,38 +81,36 @@ public final class BillingCorrectionReviewViewModel {
 
     private BillingCorrectionReviewViewModel(Builder b) {
         this.dataLoaded = b.dataLoaded;
-        this.demoName = nullToEmpty(b.demoName);
-        this.hin = nullToEmpty(b.hin);
-        this.demoSex = nullToEmpty(b.demoSex);
-        this.demoDob = nullToEmpty(b.demoDob);
-        this.demoAddress = nullToEmpty(b.demoAddress);
-        this.demoCity = nullToEmpty(b.demoCity);
-        this.demoProvince = nullToEmpty(b.demoProvince);
-        this.demoPostal = nullToEmpty(b.demoPostal);
-        this.referralDoctor = nullToEmpty(b.referralDoctor);
-        this.referralDoctorOhip = nullToEmpty(b.referralDoctorOhip);
-        this.hcType = nullToEmpty(b.hcType);
-        this.manualReviewLabel = nullToEmpty(b.manualReviewLabel);
-        this.referralCheckedLabel = nullToEmpty(b.referralCheckedLabel);
-        this.rosterStatus = nullToEmpty(b.rosterStatus);
-        this.billingType = nullToEmpty(b.billingType);
-        this.billingDate = nullToEmpty(b.billingDate);
-        this.visitLocation = nullToEmpty(b.visitLocation);
-        this.billingPhysicianNo = nullToEmpty(b.billingPhysicianNo);
-        this.visitType = nullToEmpty(b.visitType);
-        this.visitDate = nullToEmpty(b.visitDate);
-        this.updateDate = nullToEmpty(b.updateDate);
-        this.billingNo = nullToEmpty(b.billingNo);
+        this.demoName = BillingViewStrings.nullToEmpty(b.demoName);
+        this.hin = BillingViewStrings.nullToEmpty(b.hin);
+        this.demoSex = BillingViewStrings.nullToEmpty(b.demoSex);
+        this.demoDob = BillingViewStrings.nullToEmpty(b.demoDob);
+        this.demoAddress = BillingViewStrings.nullToEmpty(b.demoAddress);
+        this.demoCity = BillingViewStrings.nullToEmpty(b.demoCity);
+        this.demoProvince = BillingViewStrings.nullToEmpty(b.demoProvince);
+        this.demoPostal = BillingViewStrings.nullToEmpty(b.demoPostal);
+        this.referralDoctor = BillingViewStrings.nullToEmpty(b.referralDoctor);
+        this.referralDoctorOhip = BillingViewStrings.nullToEmpty(b.referralDoctorOhip);
+        this.hcType = BillingViewStrings.nullToEmpty(b.hcType);
+        this.manualReviewLabel = BillingViewStrings.nullToEmpty(b.manualReviewLabel);
+        this.referralCheckedLabel = BillingViewStrings.nullToEmpty(b.referralCheckedLabel);
+        this.rosterStatus = BillingViewStrings.nullToEmpty(b.rosterStatus);
+        this.billingType = BillingViewStrings.nullToEmpty(b.billingType);
+        this.billingDate = BillingViewStrings.nullToEmpty(b.billingDate);
+        this.visitLocation = BillingViewStrings.nullToEmpty(b.visitLocation);
+        this.billingPhysicianNo = BillingViewStrings.nullToEmpty(b.billingPhysicianNo);
+        this.visitType = BillingViewStrings.nullToEmpty(b.visitType);
+        this.visitDate = BillingViewStrings.nullToEmpty(b.visitDate);
+        this.updateDate = BillingViewStrings.nullToEmpty(b.updateDate);
+        this.billingNo = BillingViewStrings.nullToEmpty(b.billingNo);
         this.billingItems = b.billingItems == null
                 ? Collections.<Item>emptyList()
                 : Collections.unmodifiableList(b.billingItems);
-        this.diagCode = nullToEmpty(b.diagCode);
-        this.formattedTotal = nullToEmpty(b.formattedTotal);
-        this.content = nullToEmpty(b.content);
-        this.storedTotal = nullToEmpty(b.storedTotal);
+        this.diagCode = BillingViewStrings.nullToEmpty(b.diagCode);
+        this.formattedTotal = BillingViewStrings.nullToEmpty(b.formattedTotal);
+        this.content = BillingViewStrings.nullToEmpty(b.content);
+        this.storedTotal = BillingViewStrings.nullToEmpty(b.storedTotal);
     }
-
-    private static String nullToEmpty(String s) { return s == null ? "" : s; }
 
     public static Builder builder() { return new Builder(); }
 
@@ -161,13 +159,13 @@ public final class BillingCorrectionReviewViewModel {
 
         public Item(String serviceCode, String description, String quantity, String formattedFee,
                     String storedFee, String percentage, String diagCode) {
-            this.serviceCode = nullToEmpty(serviceCode);
-            this.description = nullToEmpty(description);
-            this.quantity = nullToEmpty(quantity);
-            this.formattedFee = nullToEmpty(formattedFee);
-            this.storedFee = nullToEmpty(storedFee);
-            this.percentage = nullToEmpty(percentage);
-            this.diagCode = nullToEmpty(diagCode);
+            this.serviceCode = BillingViewStrings.nullToEmpty(serviceCode);
+            this.description = BillingViewStrings.nullToEmpty(description);
+            this.quantity = BillingViewStrings.nullToEmpty(quantity);
+            this.formattedFee = BillingViewStrings.nullToEmpty(formattedFee);
+            this.storedFee = BillingViewStrings.nullToEmpty(storedFee);
+            this.percentage = BillingViewStrings.nullToEmpty(percentage);
+            this.diagCode = BillingViewStrings.nullToEmpty(diagCode);
         }
 
         public String getServiceCode() { return serviceCode; }

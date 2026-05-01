@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.ArrayList;
 import io.github.carlos_emr.carlos.billings.ca.on.BillingDates;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
@@ -310,9 +311,11 @@ public class BillingOnCorrectionPersister {
                 // so the operator can distinguish "missing" from "corrupt"
                 // admission_date in the audit trail.
                 MiscUtils.getLogger().warn(
-                        "BillingOnCorrectionPersister: unparseable admission_date on ch1.id={}; rendering empty",
+                        "BillingOnCorrectionPersister: unparseable admission_date on ch1.id={}; refusing to render blank",
                         h.getId(), e);
-                ch1Obj.setAdmission_date("");
+                throw new BillingValidationException(
+                        "Bill " + h.getId() + " has an unparseable admission date; refusing to render a blank correction field",
+                        e);
             }
             ch1Obj.setRef_lab_num(h.getRefLabNum());
             ch1Obj.setMan_review(h.getManReview());

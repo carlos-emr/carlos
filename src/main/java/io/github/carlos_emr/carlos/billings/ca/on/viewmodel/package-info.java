@@ -25,5 +25,7 @@
  * <p>View models are shaped for rendering, not persistence. They are assembled
  * by sibling {@code assembler.*ViewModelAssembler} classes and consumed by JSPs
  * through request attributes.</p>
+ *
+ * @since 2026-04-28
  */
 package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;

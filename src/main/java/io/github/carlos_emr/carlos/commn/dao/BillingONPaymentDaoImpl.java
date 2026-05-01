@@ -279,6 +279,24 @@ public class BillingONPaymentDaoImpl extends AbstractDaoImpl<BillingONPayment> i
         return results;
     }
 
+    @Override
+    public List<BillingONPayment> find3rdPartyPayRecordsByBills(List<Integer> billingNos, Date startDate, Date endDate) {
+        if (billingNos == null || billingNos.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        String sql = "select bPay from BillingONPayment bPay where bPay.billingNo in (?1) and bPay.paymentdate >= ?2 and bPay.paymentdate < ?3 order by bPay.billingNo, bPay.paymentdate";
+        Query query = entityManager.createQuery(sql);
+        query.setParameter(1, billingNos);
+        query.setParameter(2, startDate);
+        query.setParameter(3, endDate);
+
+        @SuppressWarnings("unchecked")
+        List<BillingONPayment> results = query.getResultList();
+
+        Collections.sort(results, BillingONPayment.BILLING_ON_PAYMENT_COMPARATOR);
+        return results;
+    }
+
     public void createPayment(BillingONCHeader1 bCh1, Locale locale, String payType, BigDecimal paidAmt, String payMethod, String providerNo) {
         //add new payment
         BillingONPayment newPayment = new BillingONPayment();

@@ -24,8 +24,13 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 
@@ -102,6 +107,69 @@ public class BillingRaLookupService {
             list.add(getAsMap(ra));
         }
         return list;
+    }
+
+    public Map<String, ArrayList<HashMap<String, String>>> getRADataInternBatch(Collection<RaDataRequest> requests) {
+        Map<String, ArrayList<HashMap<String, String>>> result = new LinkedHashMap<>();
+        if (requests == null || requests.isEmpty()) {
+            return result;
+        }
+
+        Set<Integer> billingNos = new HashSet<>();
+        for (RaDataRequest request : requests) {
+            result.put(request.key(), new ArrayList<HashMap<String, String>>());
+            Integer billingNo = ConversionUtils.fromIntString(request.billingNo());
+            if (billingNo != null) {
+                billingNos.add(billingNo);
+            }
+        }
+        if (billingNos.isEmpty()) {
+            return result;
+        }
+
+        for (RaDetail ra : dao.findByBillingNos(new ArrayList<>(billingNos))) {
+            String key = RaDataRequest.key(String.valueOf(ra.getBillingNo()), ra.getServiceDate(), ra.getProviderOhipNo());
+            ArrayList<HashMap<String, String>> rows = result.get(key);
+            if (rows != null) {
+                rows.add(getAsMap(ra));
+            }
+        }
+        return result;
+    }
+
+    public Set<String> findBillingNosWithErrorCode(Collection<String> billingNos, String errorCode) {
+        Set<String> result = new HashSet<>();
+        if (billingNos == null || billingNos.isEmpty()) {
+            return result;
+        }
+
+        List<Integer> parsedBillingNos = new ArrayList<>();
+        for (String billingNo : billingNos) {
+            Integer parsed = ConversionUtils.fromIntString(billingNo);
+            if (parsed != null) {
+                parsedBillingNos.add(parsed);
+            }
+        }
+        if (parsedBillingNos.isEmpty()) {
+            return result;
+        }
+
+        for (RaDetail ra : dao.findByBillingNosAndErrorCode(parsedBillingNos, errorCode)) {
+            result.add(String.valueOf(ra.getBillingNo()));
+        }
+        return result;
+    }
+
+    public record RaDataRequest(String billingNo, String serviceDate, String providerOhipNo) {
+        public String key() {
+            return key(billingNo, serviceDate, providerOhipNo);
+        }
+
+        public static String key(String billingNo, String serviceDate, String providerOhipNo) {
+            return String.valueOf(billingNo) + "\u0001"
+                    + String.valueOf(serviceDate) + "\u0001"
+                    + String.valueOf(providerOhipNo);
+        }
     }
 
     /**

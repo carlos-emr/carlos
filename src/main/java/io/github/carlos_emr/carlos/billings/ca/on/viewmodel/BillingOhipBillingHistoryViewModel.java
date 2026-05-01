@@ -85,26 +85,26 @@ public final class BillingOhipBillingHistoryViewModel {
 
     private BillingOhipBillingHistoryViewModel(Builder b) {
         this.billLoaded = b.billLoaded;
-        this.demoNo = nullToEmpty(b.demoNo);
-        this.demoName = nullToEmpty(b.demoName);
-        this.demoSex = nullToEmpty(b.demoSex);
-        this.demoAddress = nullToEmpty(b.demoAddress);
-        this.demoCity = nullToEmpty(b.demoCity);
-        this.demoProvince = nullToEmpty(b.demoProvince);
-        this.demoPostal = nullToEmpty(b.demoPostal);
-        this.demoDob = nullToEmpty(b.demoDob);
-        this.hin = nullToEmpty(b.hin);
-        this.billType = nullToEmpty(b.billType);
-        this.billDate = nullToEmpty(b.billDate);
-        this.visitType = nullToEmpty(b.visitType);
-        this.visitDate = nullToEmpty(b.visitDate);
-        this.billLocation = nullToEmpty(b.billLocation);
-        this.billTotal = nullToEmpty(b.billTotal);
-        this.updateDate = nullToEmpty(b.updateDate);
+        this.demoNo = BillingViewStrings.nullToEmpty(b.demoNo);
+        this.demoName = BillingViewStrings.nullToEmpty(b.demoName);
+        this.demoSex = BillingViewStrings.nullToEmpty(b.demoSex);
+        this.demoAddress = BillingViewStrings.nullToEmpty(b.demoAddress);
+        this.demoCity = BillingViewStrings.nullToEmpty(b.demoCity);
+        this.demoProvince = BillingViewStrings.nullToEmpty(b.demoProvince);
+        this.demoPostal = BillingViewStrings.nullToEmpty(b.demoPostal);
+        this.demoDob = BillingViewStrings.nullToEmpty(b.demoDob);
+        this.hin = BillingViewStrings.nullToEmpty(b.hin);
+        this.billType = BillingViewStrings.nullToEmpty(b.billType);
+        this.billDate = BillingViewStrings.nullToEmpty(b.billDate);
+        this.visitType = BillingViewStrings.nullToEmpty(b.visitType);
+        this.visitDate = BillingViewStrings.nullToEmpty(b.visitDate);
+        this.billLocation = BillingViewStrings.nullToEmpty(b.billLocation);
+        this.billTotal = BillingViewStrings.nullToEmpty(b.billTotal);
+        this.updateDate = BillingViewStrings.nullToEmpty(b.updateDate);
         // Defaults match the legacy JSP locals: "Not" / "Available" appear in
         // the rendered "First Last" cells when no provider record is loaded.
-        this.providerFirst = nullToEmpty(b.providerFirst);
-        this.providerLast = nullToEmpty(b.providerLast);
+        this.providerFirst = BillingViewStrings.nullToEmpty(b.providerFirst);
+        this.providerLast = BillingViewStrings.nullToEmpty(b.providerLast);
         this.apptProviderFirst = b.apptProviderFirst == null ? "Not" : b.apptProviderFirst;
         this.apptProviderLast = b.apptProviderLast == null ? "Available" : b.apptProviderLast;
         this.asstProviderFirst = b.asstProviderFirst == null ? "Not" : b.asstProviderFirst;
@@ -112,15 +112,13 @@ public final class BillingOhipBillingHistoryViewModel {
         this.creatorFirst = b.creatorFirst == null ? "Not" : b.creatorFirst;
         this.creatorLast = b.creatorLast == null ? "Available" : b.creatorLast;
         this.billDetailLoaded = b.billDetailLoaded;
-        this.serviceCode = nullToEmpty(b.serviceCode);
-        this.serviceDesc = nullToEmpty(b.serviceDesc);
-        this.billUnit = nullToEmpty(b.billUnit);
-        this.billAmount = nullToEmpty(b.billAmount);
-        this.diagCode = nullToEmpty(b.diagCode);
-        this.diagDesc = nullToEmpty(b.diagDesc);
+        this.serviceCode = BillingViewStrings.nullToEmpty(b.serviceCode);
+        this.serviceDesc = BillingViewStrings.nullToEmpty(b.serviceDesc);
+        this.billUnit = BillingViewStrings.nullToEmpty(b.billUnit);
+        this.billAmount = BillingViewStrings.nullToEmpty(b.billAmount);
+        this.diagCode = BillingViewStrings.nullToEmpty(b.diagCode);
+        this.diagDesc = BillingViewStrings.nullToEmpty(b.diagDesc);
     }
-
-    private static String nullToEmpty(String s) { return s == null ? "" : s; }
 
     public static Builder builder() { return new Builder(); }
 

@@ -46,6 +46,11 @@ public class ManageCss2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     public String execute() throws Exception {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("missing session");
+        }
+
         String method = request.getParameter("method");
         if ("save".equals(method)) {
             return save();
@@ -55,10 +60,6 @@ public class ManageCss2Action extends ActionSupport {
         // Default render path: gate on _admin/r before any DAO read. The
         // per-method save()/delete() paths still gate independently on
         // _admin/w because mutation writes need the stronger privilege.
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null) {
-            throw new SecurityException("missing session");
-        }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
             throw new SecurityException("missing required sec object (_admin)");
         }

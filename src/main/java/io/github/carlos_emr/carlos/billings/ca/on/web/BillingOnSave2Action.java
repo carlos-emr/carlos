@@ -135,8 +135,7 @@ public class BillingOnSave2Action extends ActionSupport {
                     bObj.saveBillingWithExtAndPayee(submission, request, xmlBillType, payeeValue);
             ret = saveResult.saved();
             billingNo = saveResult.billingId();
-        } catch (io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException
-                | BillingClaimSubmissionService.BillingItemPersistenceException e) {
+        } catch (io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException e) {
             // Service rolled back. Stash the typed-exception narrative on
             // the request so the failure JSP can render it next to "Save
             // Failed!" rather than a generic banner with no operator-

@@ -284,9 +284,8 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
             BillingClaimItemDto b = itemDto("B002B", "2026-04-28");
             doAssignItemId(99);
 
-            boolean ret = persister.addItemRecord(new ArrayList<>(List.of(a, b)), 4242);
+            persister.addItemRecord(new ArrayList<>(List.of(a, b)), 4242);
 
-            assertThat(ret).isTrue();
             verify(itemDao, times(2)).persist(any(BillingONItem.class));
         }
 
@@ -318,13 +317,9 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        void shouldReturnTrue_evenWhenItemListEmpty() {
-            // The retval flag is initialised true and never flipped, so an
-            // empty list also returns true. Caller's `if (!ret)` is dead;
-            // pinning this contract makes future refactors explicit.
-            boolean ret = persister.addItemRecord(new ArrayList<BillingClaimItemDto>(), 4242);
+        void shouldNoOp_whenItemListEmpty() {
+            persister.addItemRecord(new ArrayList<BillingClaimItemDto>(), 4242);
 
-            assertThat(ret).isTrue();
             verify(itemDao, never()).persist(any(BillingONItem.class));
         }
     }
@@ -469,7 +464,11 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
 
             persister.add3rdBillExt(mVal, 4242, vecObj);
 
-            verify(extDao, times(9)).persist(any(BillingONExt.class));
+            ArgumentCaptor<BillingONExt> extCaptor = ArgumentCaptor.forClass(BillingONExt.class);
+            verify(extDao, times(9)).persist(extCaptor.capture());
+            assertThat(extCaptor.getAllValues())
+                    .extracting(BillingONExt::getPaymentId)
+                    .containsOnly(99);
             verify(billingONPaymentDao, times(1)).persist(any(BillingONPayment.class));
         }
 

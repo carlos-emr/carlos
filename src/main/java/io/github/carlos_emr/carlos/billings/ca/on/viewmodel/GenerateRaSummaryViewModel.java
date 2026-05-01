@@ -99,8 +99,8 @@ public final class GenerateRaSummaryViewModel {
     }
 
     private GenerateRaSummaryViewModel(Builder b) {
-        this.raNo = nullToEmpty(b.raNo);
-        this.selectedProviderOhipNo = nullToEmpty(b.selectedProviderOhipNo);
+        this.raNo = BillingViewStrings.nullToEmpty(b.raNo);
+        this.selectedProviderOhipNo = BillingViewStrings.nullToEmpty(b.selectedProviderOhipNo);
         this.providerOptions = b.providerOptions == null
                 ? Collections.emptyList() : List.copyOf(b.providerOptions);
         this.rows = b.rows == null ? Collections.emptyList() : List.copyOf(b.rows);
@@ -113,8 +113,6 @@ public final class GenerateRaSummaryViewModel {
         this.otherPayTotal = nullToZero(b.otherPayTotal);
         this.coTotal = nullToZero(b.coTotal);
     }
-
-    private static String nullToEmpty(String s) { return s == null ? "" : s; }
     private static String nullToZero(String s) { return s == null ? "0.00" : s; }
 
     public static Builder builder() { return new Builder(); }

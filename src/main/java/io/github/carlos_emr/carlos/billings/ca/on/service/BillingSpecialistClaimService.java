@@ -60,7 +60,8 @@ public class BillingSpecialistClaimService {
             return false;
         }
         if (!claim.items().isEmpty()) {
-            return dbObj.addItemRecord(claim.items(), billingNo);
+            dbObj.addItemRecord(claim.items(), billingNo);
+            return true;
         }
         _logger.error("No billing item for billing # " + billingNo);
         return false;

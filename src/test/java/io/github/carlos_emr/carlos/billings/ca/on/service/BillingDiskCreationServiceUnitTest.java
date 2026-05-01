@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingBatchHeaderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingDiskNameDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
 
@@ -69,8 +70,8 @@ class BillingDiskCreationServiceUnitTest {
         claimPersister = mock(BillingOnClaimPersister.class);
         diskLoader = mock(BillingOnDiskLoader.class);
         lookupService = mock(BillingOnLookupService.class);
-        // Constructor reads getPropProviderOHIP() once — return a Properties
-        // with at least one provider entry so createNewSoloDiskName can run.
+        // Default lookup data for tests that do not exercise refreshed OHIP
+        // mappings.
         Properties props = new Properties();
         props.setProperty("999998", "012345");
         when(lookupService.getPropProviderOHIP()).thenReturn(props);
@@ -157,6 +158,27 @@ class BillingDiskCreationServiceUnitTest {
         Properties got = service.getPropProviderOHIP();
 
         assertThat(got.getProperty("888888")).isEqualTo("088888");
+    }
+
+    @Test
+    void shouldResolveSoloDiskProviderOhipFromLiveLookupSnapshot() {
+        Properties startup = new Properties();
+        startup.setProperty("999998", "012345");
+        Properties refreshed = new Properties();
+        refreshed.setProperty("999998", "054321");
+        when(lookupService.getPropProviderOHIP()).thenReturn(startup);
+        service = newService();
+        when(lookupService.getPropProviderOHIP()).thenReturn(refreshed);
+        when(claimPersister.addBillingDiskName(org.mockito.ArgumentMatchers.any(BillingDiskNameDto.class)))
+                .thenReturn(33);
+
+        int diskId = service.createNewSoloDiskName("999998", "creator");
+
+        assertThat(diskId).isEqualTo(33);
+        ArgumentCaptor<BillingDiskNameDto> captor = ArgumentCaptor.forClass(BillingDiskNameDto.class);
+        verify(claimPersister).addBillingDiskName(captor.capture());
+        assertThat(captor.getValue().getProviderohipno()).containsExactly("054321");
+        assertThat(captor.getValue().getOhipfilename()).contains("054321");
     }
 
     // ---- createBatchHeader: assembles the BillingBatchHeaderDto ---------

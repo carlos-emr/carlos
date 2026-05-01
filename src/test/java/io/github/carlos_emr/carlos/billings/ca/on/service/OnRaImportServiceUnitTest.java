@@ -83,6 +83,8 @@ class OnRaImportServiceUnitTest {
     void shouldReturnTrue_whenNoDocumentBeanAttribute() throws Exception {
         // No `documentBean` request attribute → no-op success.
         assertThat(service.importDocumentBeanFile(request)).isTrue();
+        assertThat(service.importDocumentBeanFileOutcome(request))
+                .isEqualTo(OnRaImportService.ImportOutcome.NOT_REQUESTED);
         verify(mockRaService, never()).importRAFile(anyString());
     }
 
@@ -93,6 +95,8 @@ class OnRaImportServiceUnitTest {
         request.setAttribute("documentBean", db);
 
         assertThat(service.importDocumentBeanFile(request)).isTrue();
+        assertThat(service.importDocumentBeanFileOutcome(request))
+                .isEqualTo(OnRaImportService.ImportOutcome.EMPTY_FILENAME);
         verify(mockRaService, never()).importRAFile(anyString());
     }
 
@@ -121,6 +125,8 @@ class OnRaImportServiceUnitTest {
                     .thenThrow(new SecurityException("path traversal"));
 
             assertThat(service.importDocumentBeanFile(request)).isFalse();
+            assertThat(service.importDocumentBeanFileOutcome(request))
+                    .isEqualTo(OnRaImportService.ImportOutcome.BLOCKED_PATH);
             verify(mockRaService, never()).importRAFile(anyString());
         }
     }
@@ -137,7 +143,9 @@ class OnRaImportServiceUnitTest {
             when(mockRaService.importRAFile(anyString()))
                     .thenThrow(new RuntimeException("DAO crash mid-import"));
 
-            assertThat(service.importDocumentBeanFile(request)).isFalse();
+            OnRaImportService.ImportOutcome outcome = service.importDocumentBeanFileOutcome(request);
+            assertThat(outcome).isEqualTo(OnRaImportService.ImportOutcome.IMPORT_FAILED);
+            assertThat(outcome.ok()).isFalse();
             verify(mockRaService).importRAFile(anyString());
         }
     }

@@ -59,13 +59,13 @@ public final class BatchBillingViewModel {
     private final List<Row> rows;
 
     private BatchBillingViewModel(Builder b) {
-        this.userNo = nullToEmpty(b.userNo);
-        this.nowDate = nullToEmpty(b.nowDate);
-        this.nowTime = nullToEmpty(b.nowTime);
-        this.defaultBillDate = nullToEmpty(b.defaultBillDate);
-        this.providerView = nullToEmpty(b.providerView);
-        this.serviceCode = nullToEmpty(b.serviceCode);
-        this.clinicView = nullToEmpty(b.clinicView);
+        this.userNo = BillingViewStrings.nullToEmpty(b.userNo);
+        this.nowDate = BillingViewStrings.nullToEmpty(b.nowDate);
+        this.nowTime = BillingViewStrings.nullToEmpty(b.nowTime);
+        this.defaultBillDate = BillingViewStrings.nullToEmpty(b.defaultBillDate);
+        this.providerView = BillingViewStrings.nullToEmpty(b.providerView);
+        this.serviceCode = BillingViewStrings.nullToEmpty(b.serviceCode);
+        this.clinicView = BillingViewStrings.nullToEmpty(b.clinicView);
         this.providers = b.providers == null ? Collections.<ProviderOption>emptyList()
                 : List.copyOf(b.providers);
         this.serviceCodes = b.serviceCodes == null ? Collections.<String>emptyList()
@@ -77,8 +77,6 @@ public final class BatchBillingViewModel {
         this.rows = b.rows == null ? Collections.<Row>emptyList()
                 : List.copyOf(b.rows);
     }
-
-    private static String nullToEmpty(String s) { return s == null ? "" : s; }
 
     public static Builder builder() { return new Builder(); }
 
@@ -110,9 +108,9 @@ public final class BatchBillingViewModel {
         private final String lastName;
 
         public ProviderOption(String providerNo, String firstName, String lastName) {
-            this.providerNo = nullToEmpty(providerNo);
-            this.firstName = nullToEmpty(firstName);
-            this.lastName = nullToEmpty(lastName);
+            this.providerNo = BillingViewStrings.nullToEmpty(providerNo);
+            this.firstName = BillingViewStrings.nullToEmpty(firstName);
+            this.lastName = BillingViewStrings.nullToEmpty(lastName);
         }
 
         public String getProviderNo() { return providerNo; }
@@ -126,8 +124,8 @@ public final class BatchBillingViewModel {
         private final String name;
 
         public ClinicOption(String code, String name) {
-            this.code = nullToEmpty(code);
-            this.name = nullToEmpty(name);
+            this.code = BillingViewStrings.nullToEmpty(code);
+            this.name = BillingViewStrings.nullToEmpty(name);
         }
 
         public String getCode() { return code; }
@@ -146,13 +144,13 @@ public final class BatchBillingViewModel {
 
         public Row(String checkboxValue, String demoName, String providerName, String serviceCode,
                    String billingAmount, String diagnosticCode, String lastBilledDate) {
-            this.checkboxValue = nullToEmpty(checkboxValue);
-            this.demoName = nullToEmpty(demoName);
-            this.providerName = nullToEmpty(providerName);
-            this.serviceCode = nullToEmpty(serviceCode);
-            this.billingAmount = nullToEmpty(billingAmount);
-            this.diagnosticCode = nullToEmpty(diagnosticCode);
-            this.lastBilledDate = nullToEmpty(lastBilledDate);
+            this.checkboxValue = BillingViewStrings.nullToEmpty(checkboxValue);
+            this.demoName = BillingViewStrings.nullToEmpty(demoName);
+            this.providerName = BillingViewStrings.nullToEmpty(providerName);
+            this.serviceCode = BillingViewStrings.nullToEmpty(serviceCode);
+            this.billingAmount = BillingViewStrings.nullToEmpty(billingAmount);
+            this.diagnosticCode = BillingViewStrings.nullToEmpty(diagnosticCode);
+            this.lastBilledDate = BillingViewStrings.nullToEmpty(lastBilledDate);
         }
 
         public String getCheckboxValue() { return checkboxValue; }

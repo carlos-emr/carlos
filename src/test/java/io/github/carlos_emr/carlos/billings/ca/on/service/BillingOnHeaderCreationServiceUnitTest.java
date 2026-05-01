@@ -150,6 +150,19 @@ class BillingOnHeaderCreationServiceUnitTest {
     }
 
     @Test
+    void shouldApplyNonTerminatingGstPercent_withoutArithmeticException() {
+        when(providerDao.getProvider("999998")).thenReturn(provider("999998"));
+        when(demographicDao.getDemographicById(1)).thenReturn(demographic(1, "ON"));
+        BillingService bs = stubServiceCode("A007A", "100.00", true, "");
+        when(billingServiceDao.searchBillingCode(eq("A007A"), eq("ON"), any())).thenReturn(bs);
+        when(gstControlDao.find(any(Integer.class))).thenReturn(gstControl("8.333"));
+
+        String total = service.createBill("999998", 1, "A007A", "00001", new Date(), "999998");
+
+        assertThat(new BigDecimal(total)).isEqualByComparingTo("108.33");
+    }
+
+    @Test
     void shouldPersistOneHeaderPerDemographic_inBatchCreate() {
         when(providerDao.getProvider("999998")).thenReturn(provider("999998"));
         when(demographicDao.getDemographicById(1)).thenReturn(demographic(1, "ON"));

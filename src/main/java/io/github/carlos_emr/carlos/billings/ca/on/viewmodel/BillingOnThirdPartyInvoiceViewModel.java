@@ -114,39 +114,39 @@ public final class BillingOnThirdPartyInvoiceViewModel {
                               String quantity, String dx, String fee) {}
 
     private BillingOnThirdPartyInvoiceViewModel(Builder b) {
-        this.invoiceNoStr = nullToEmpty(b.invoiceNoStr);
+        this.invoiceNoStr = BillingViewStrings.nullToEmpty(b.invoiceNoStr);
         this.invoiceLoaded = b.invoiceLoaded;
         this.multisiteEnabled = b.multisiteEnabled;
         this.siteLogoAvailable = b.siteLogoAvailable;
         this.siteLogoId = b.siteLogoId;
-        this.siteName = nullToEmpty(b.siteName);
-        this.siteAddress = nullToEmpty(b.siteAddress);
-        this.siteCity = nullToEmpty(b.siteCity);
-        this.siteProvince = nullToEmpty(b.siteProvince);
-        this.sitePostal = nullToEmpty(b.sitePostal);
-        this.sitePhone = nullToEmpty(b.sitePhone);
+        this.siteName = BillingViewStrings.nullToEmpty(b.siteName);
+        this.siteAddress = BillingViewStrings.nullToEmpty(b.siteAddress);
+        this.siteCity = BillingViewStrings.nullToEmpty(b.siteCity);
+        this.siteProvince = BillingViewStrings.nullToEmpty(b.siteProvince);
+        this.sitePostal = BillingViewStrings.nullToEmpty(b.sitePostal);
+        this.sitePhone = BillingViewStrings.nullToEmpty(b.sitePhone);
         this.clinicLogoImgExists = b.clinicLogoImgExists;
-        this.clinicName = nullToEmpty(b.clinicName);
-        this.clinicAddress = nullToEmpty(b.clinicAddress);
-        this.clinicCity = nullToEmpty(b.clinicCity);
-        this.clinicProvince = nullToEmpty(b.clinicProvince);
-        this.clinicPostal = nullToEmpty(b.clinicPostal);
-        this.clinicPhone = nullToEmpty(b.clinicPhone);
-        this.billingDateStr = nullToEmpty(b.billingDateStr);
+        this.clinicName = BillingViewStrings.nullToEmpty(b.clinicName);
+        this.clinicAddress = BillingViewStrings.nullToEmpty(b.clinicAddress);
+        this.clinicCity = BillingViewStrings.nullToEmpty(b.clinicCity);
+        this.clinicProvince = BillingViewStrings.nullToEmpty(b.clinicProvince);
+        this.clinicPostal = BillingViewStrings.nullToEmpty(b.clinicPostal);
+        this.clinicPhone = BillingViewStrings.nullToEmpty(b.clinicPhone);
+        this.billingDateStr = BillingViewStrings.nullToEmpty(b.billingDateStr);
         this.dueDateEnabled = b.dueDateEnabled;
-        this.dueDateStr = nullToEmpty(b.dueDateStr);
-        this.printDate = nullToEmpty(b.printDate);
-        this.billTo = nullToEmpty(b.billTo);
-        this.remitTo = nullToEmpty(b.remitTo);
-        this.patientName = nullToEmpty(b.patientName);
-        this.patientDemoNo = nullToEmpty(b.patientDemoNo);
-        this.patientGender = nullToEmpty(b.patientGender);
-        this.patientDob = nullToEmpty(b.patientDob);
-        this.patientHin = nullToEmpty(b.patientHin);
-        this.invoiceComment = nullToEmpty(b.invoiceComment);
-        this.providerFormattedName = nullToEmpty(b.providerFormattedName);
-        this.payeeName = nullToEmpty(b.payeeName);
-        this.invoiceRefNum = nullToEmpty(b.invoiceRefNum);
+        this.dueDateStr = BillingViewStrings.nullToEmpty(b.dueDateStr);
+        this.printDate = BillingViewStrings.nullToEmpty(b.printDate);
+        this.billTo = BillingViewStrings.nullToEmpty(b.billTo);
+        this.remitTo = BillingViewStrings.nullToEmpty(b.remitTo);
+        this.patientName = BillingViewStrings.nullToEmpty(b.patientName);
+        this.patientDemoNo = BillingViewStrings.nullToEmpty(b.patientDemoNo);
+        this.patientGender = BillingViewStrings.nullToEmpty(b.patientGender);
+        this.patientDob = BillingViewStrings.nullToEmpty(b.patientDob);
+        this.patientHin = BillingViewStrings.nullToEmpty(b.patientHin);
+        this.invoiceComment = BillingViewStrings.nullToEmpty(b.invoiceComment);
+        this.providerFormattedName = BillingViewStrings.nullToEmpty(b.providerFormattedName);
+        this.payeeName = BillingViewStrings.nullToEmpty(b.payeeName);
+        this.invoiceRefNum = BillingViewStrings.nullToEmpty(b.invoiceRefNum);
         this.invoiceItems = b.invoiceItems == null
                 ? Collections.emptyList() : List.copyOf(b.invoiceItems);
         this.totalAmount = nullToZero(b.totalAmount);
@@ -155,11 +155,9 @@ public final class BillingOnThirdPartyInvoiceViewModel {
         this.creditAmount = nullToZero(b.creditAmount);
         this.refundAmount = nullToZero(b.refundAmount);
         this.balanceAmount = nullToZero(b.balanceAmount);
-        this.paymentMethodLabel = nullToEmpty(b.paymentMethodLabel);
+        this.paymentMethodLabel = BillingViewStrings.nullToEmpty(b.paymentMethodLabel);
         this.amountsUnreadable = b.amountsUnreadable;
     }
-
-    private static String nullToEmpty(String s) { return s == null ? "" : s; }
     private static String nullToZero(String s) { return s == null ? "0.00" : s; }
 
     public static Builder builder() { return new Builder(); }

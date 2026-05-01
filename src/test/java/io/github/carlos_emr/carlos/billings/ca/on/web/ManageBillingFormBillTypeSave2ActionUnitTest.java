@@ -1,6 +1,5 @@
 /**
  * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
- * Copyright (c) 2026. CARLOS EMR Project. All Rights Reserved.
  *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
@@ -22,16 +21,12 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
-import io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao;
-import io.github.carlos_emr.carlos.commn.dao.BillingDao;
-import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
+import io.github.carlos_emr.carlos.commn.dao.CtlBillingTypeDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
@@ -53,46 +48,18 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
-/**
- * Unit tests for {@link FluBillingAdd2Action} pinning the gate contract after
- * the conversion from {@code SpringUtils.getBean} field-init to constructor
- * injection.
- *
- * <p>Covered:
- * <ul>
- *   <li>GET request → 405 with {@code Allow: POST}</li>
- *   <li>missing session → {@code SecurityException} before {@code hasPrivilege}</li>
- *   <li>missing privilege → {@code SecurityException}</li>
- * </ul>
- *
- * @since 2026-04-29
- */
-@DisplayName("FluBillingAdd2Action")
+@DisplayName("ManageBillingFormBillTypeSave2Action")
 @Tag("unit")
 @Tag("billing")
-class FluBillingAdd2ActionUnitTest extends CarlosUnitTestBase {
+class ManageBillingFormBillTypeSave2ActionUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
     private AutoCloseable mockitoCloseable;
 
-    @Mock
-    private SecurityInfoManager mockSecurityInfoManager;
-
-    @Mock
-    private BillingDao mockBillingDao;
-
-    @Mock
-    private BillingDetailDao mockBillingDetailDao;
-
-    @Mock
-    private BillingServiceDao mockBillingServiceDao;
-
-    @Mock
-    private io.github.carlos_emr.carlos.billings.ca.on.service.FluBillingPersistenceService mockFluBillingPersistenceService;
-
-    @Mock
-    private LoggedInInfo mockLoggedInInfo;
+    @Mock private SecurityInfoManager mockSecurityInfoManager;
+    @Mock private CtlBillingTypeDao mockCtlBillingTypeDao;
+    @Mock private LoggedInInfo mockLoggedInInfo;
 
     private MockHttpServletRequest mockRequest;
     private MockHttpServletResponse mockResponse;
@@ -100,9 +67,12 @@ class FluBillingAdd2ActionUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         mockitoCloseable = MockitoAnnotations.openMocks(this);
-
         mockRequest = new MockHttpServletRequest();
         mockResponse = new MockHttpServletResponse();
+        mockRequest.setMethod("GET");
+
+        registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
+        registerMock(CtlBillingTypeDao.class, mockCtlBillingTypeDao);
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
@@ -111,9 +81,6 @@ class FluBillingAdd2ActionUnitTest extends CarlosUnitTestBase {
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(mockLoggedInInfo);
-
-        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.billing"), eq("w"), isNull()))
-                .thenReturn(true);
     }
 
     @AfterEach
@@ -123,59 +90,25 @@ class FluBillingAdd2ActionUnitTest extends CarlosUnitTestBase {
         if (mockitoCloseable != null) mockitoCloseable.close();
     }
 
-    private FluBillingAdd2Action newAction() {
-        return new FluBillingAdd2Action(
-                mockSecurityInfoManager, mockBillingDao, mockBillingDetailDao, mockBillingServiceDao,
-                mockFluBillingPersistenceService);
-    }
-
-    @Test
-    void shouldReturn405WithAllowHeader_whenMethodIsGet() throws Exception {
-        mockRequest.setMethod("GET");
-
-        FluBillingAdd2Action action = newAction();
-
-        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
-        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
-    }
-
     @Test
     void shouldCheckPrivilegeBeforePostMethodGate_whenMethodIsGet() {
-        mockRequest.setMethod("GET");
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.billing"), eq("w"), isNull()))
                 .thenReturn(false);
 
-        FluBillingAdd2Action action = newAction();
-
-        assertThatThrownBy(action::execute)
+        assertThatThrownBy(() -> new ManageBillingFormBillTypeSave2Action().execute())
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_admin.billing");
     }
 
     @Test
-    void shouldThrowSecurityException_whenSessionMissing() {
-        mockRequest.setMethod("POST");
-        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
-                .thenReturn(null);
-
-        FluBillingAdd2Action action = newAction();
-
-        assertThatThrownBy(action::execute)
-                .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("missing session");
-    }
-
-    @Test
-    void shouldThrowSecurityException_whenLackingPrivilege() {
-        mockRequest.setMethod("POST");
+    void shouldReturn405WithAllowHeader_whenAuthorizedGetAttemptsMutation() throws Exception {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.billing"), eq("w"), isNull()))
-                .thenReturn(false);
+                .thenReturn(true);
 
-        FluBillingAdd2Action action = newAction();
+        String result = new ManageBillingFormBillTypeSave2Action().execute();
 
-        assertThatThrownBy(action::execute)
-                .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("_admin.billing");
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
     }
 }

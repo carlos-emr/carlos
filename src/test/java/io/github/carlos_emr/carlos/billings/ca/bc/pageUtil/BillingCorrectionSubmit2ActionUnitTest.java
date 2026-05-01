@@ -21,9 +21,6 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 
-import io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao;
-import io.github.carlos_emr.carlos.commn.dao.BillingDao;
-import io.github.carlos_emr.carlos.commn.dao.RecycleBinDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -41,6 +38,7 @@ import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -71,9 +69,7 @@ class BillingCorrectionSubmit2ActionUnitTest extends CarlosUnitTestBase {
     private AutoCloseable mockitoCloseable;
 
     @Mock private SecurityInfoManager mockSecurityInfoManager;
-    @Mock private BillingDao mockBillingDao;
-    @Mock private BillingDetailDao mockBillingDetailDao;
-    @Mock private RecycleBinDao mockRecycleBinDao;
+    @Mock private BillingCorrectionSubmitService mockSubmitService;
     @Mock private LoggedInInfo mockLoggedInInfo;
 
     private MockHttpServletRequest mockRequest;
@@ -91,9 +87,7 @@ class BillingCorrectionSubmit2ActionUnitTest extends CarlosUnitTestBase {
         servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(mockResponse);
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
-        registerMock(BillingDao.class, mockBillingDao);
-        registerMock(BillingDetailDao.class, mockBillingDetailDao);
-        registerMock(RecycleBinDao.class, mockRecycleBinDao);
+        registerMock(BillingCorrectionSubmitService.class, mockSubmitService);
 
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
@@ -118,11 +112,7 @@ class BillingCorrectionSubmit2ActionUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_billing");
 
-        // Privilege deny must short-circuit before any DAO write.
-        verify(mockRecycleBinDao, never()).persist(any());
-        verify(mockBillingDao, never()).merge(any());
-        verify(mockBillingDetailDao, never()).persist(any());
-        verify(mockBillingDetailDao, never()).merge(any());
+        verify(mockSubmitService, never()).submit(any(), any(), any());
     }
 
     @Test
@@ -136,8 +126,12 @@ class BillingCorrectionSubmit2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(action.execute()).isEqualTo(ActionSupport.ERROR);
         assertThat(mockRequest.getAttribute("correctionError")).isEqualTo(Boolean.TRUE);
-        verify(mockRecycleBinDao, never()).persist(any());
-        verify(mockBillingDao, never()).merge(any());
-        verify(mockBillingDetailDao, never()).persist(any());
+        verify(mockSubmitService, never()).submit(any(), any(), any());
+    }
+
+    @Test
+    void shouldKeepCorrectionSubmitMutationsTransactional() {
+        assertThat(BillingCorrectionSubmitService.class.getAnnotation(Transactional.class))
+                .isNotNull();
     }
 }

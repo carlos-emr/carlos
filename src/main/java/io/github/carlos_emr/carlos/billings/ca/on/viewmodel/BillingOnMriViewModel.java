@@ -98,16 +98,16 @@ public final class BillingOnMriViewModel {
                                   String rowBgColor) {}
 
     private BillingOnMriViewModel(Builder b) {
-        this.selectedYear = nullToEmpty(b.selectedYear);
+        this.selectedYear = BillingViewStrings.nullToEmpty(b.selectedYear);
         this.archiveYears = b.archiveYears == null
                 ? Collections.emptyList() : List.copyOf(b.archiveYears);
-        this.currentYearColor = nullToEmpty(b.currentYearColor);
-        this.monthCode = nullToEmpty(b.monthCode);
-        this.currentTimestamp = nullToEmpty(b.currentTimestamp);
-        this.userProviderNo = nullToEmpty(b.userProviderNo);
-        this.defaultBillCenter = nullToEmpty(b.defaultBillCenter);
-        this.serviceDateStart = nullToEmpty(b.serviceDateStart);
-        this.serviceDateEnd = nullToEmpty(b.serviceDateEnd);
+        this.currentYearColor = BillingViewStrings.nullToEmpty(b.currentYearColor);
+        this.monthCode = BillingViewStrings.nullToEmpty(b.monthCode);
+        this.currentTimestamp = BillingViewStrings.nullToEmpty(b.currentTimestamp);
+        this.userProviderNo = BillingViewStrings.nullToEmpty(b.userProviderNo);
+        this.defaultBillCenter = BillingViewStrings.nullToEmpty(b.defaultBillCenter);
+        this.serviceDateStart = BillingViewStrings.nullToEmpty(b.serviceDateStart);
+        this.serviceDateEnd = BillingViewStrings.nullToEmpty(b.serviceDateEnd);
         this.useProviderMOHChecked = b.useProviderMOHChecked;
         this.providerOptions = b.providerOptions == null
                 ? Collections.emptyList() : List.copyOf(b.providerOptions);
@@ -120,8 +120,6 @@ public final class BillingOnMriViewModel {
         this.billActivityRows = b.billActivityRows == null
                 ? Collections.emptyList() : List.copyOf(b.billActivityRows);
     }
-
-    private static String nullToEmpty(String s) { return s == null ? "" : s; }
 
     public static Builder builder() { return new Builder(); }
 

@@ -25,5 +25,7 @@
  * <p>DTOs model DAO-facing or legacy-query shapes. They are deliberately
  * separate from {@code viewmodel} records so JSP presentation concerns do not
  * leak into persistence code.</p>
+ *
+ * @since 2026-04-28
  */
 package io.github.carlos_emr.carlos.billings.ca.on.dto;

@@ -23,69 +23,30 @@
 
 package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;
 
-public class BillingReviewCodeItem {
-    String codeName;
-    String codeUnit;
-    String codeFee;
-    String codeTotal;
-    String codeAt;
-    String msg;
-    String codeDescription;
+public record BillingReviewCodeItem(
+        String codeName,
+        String codeUnit,
+        String codeFee,
+        String codeTotal,
+        String codeAt,
+        String msg,
+        String codeDescription) {
 
-    public String getCodeAt() {
-        return codeAt;
+    public BillingReviewCodeItem {
+        codeName = BillingViewStrings.nullToEmpty(codeName);
+        codeUnit = BillingViewStrings.nullToEmpty(codeUnit);
+        codeFee = BillingViewStrings.nullToEmpty(codeFee);
+        codeTotal = BillingViewStrings.nullToEmpty(codeTotal);
+        codeAt = BillingViewStrings.nullToEmpty(codeAt);
+        msg = BillingViewStrings.nullToEmpty(msg);
+        codeDescription = BillingViewStrings.nullToEmpty(codeDescription);
     }
 
-    public void setCodeAt(String codeAt) {
-        this.codeAt = codeAt;
-    }
-
-    public String getCodeFee() {
-        return codeFee;
-    }
-
-    public void setCodeFee(String codeFee) {
-        this.codeFee = codeFee;
-    }
-
-    public String getCodeName() {
-        return codeName;
-    }
-
-    public void setCodeName(String codeName) {
-        this.codeName = codeName;
-    }
-
-    public String getCodeUnit() {
-        return codeUnit;
-    }
-
-    public void setCodeUnit(String codeUnit) {
-        this.codeUnit = codeUnit;
-    }
-
-    public String getMsg() {
-        return msg;
-    }
-
-    public void setMsg(String msg) {
-        this.msg = msg;
-    }
-
-    public String getCodeTotal() {
-        return codeTotal;
-    }
-
-    public void setCodeTotal(String codeTotal) {
-        this.codeTotal = codeTotal;
-    }
-
-    public String getCodeDescription() {
-        return codeDescription;
-    }
-
-    public void setCodeDescription(String codeDescription) {
-        this.codeDescription = codeDescription;
-    }
-
+    public String getCodeAt() { return codeAt; }
+    public String getCodeFee() { return codeFee; }
+    public String getCodeName() { return codeName; }
+    public String getCodeUnit() { return codeUnit; }
+    public String getMsg() { return msg; }
+    public String getCodeTotal() { return codeTotal; }
+    public String getCodeDescription() { return codeDescription; }
 }

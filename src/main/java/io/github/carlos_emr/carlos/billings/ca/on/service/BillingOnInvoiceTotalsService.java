@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * @since 2026-04-27
  */
 @Service
+@org.springframework.transaction.annotation.Transactional(readOnly = true)
 public class BillingOnInvoiceTotalsService {
 
     private final BillingONCHeader1Dao headerDao;

@@ -50,11 +50,9 @@ public final class BillingReportCenterViewModel {
                 ? Collections.<ProviderRow>emptyList()
                 : List.copyOf(b.providerRows);
         this.selectedProviderView = nullToAll(b.selectedProviderView);
-        this.xmlVdate = nullToEmpty(b.xmlVdate);
-        this.xmlAppointmentDate = nullToEmpty(b.xmlAppointmentDate);
+        this.xmlVdate = BillingViewStrings.nullToEmpty(b.xmlVdate);
+        this.xmlAppointmentDate = BillingViewStrings.nullToEmpty(b.xmlAppointmentDate);
     }
-
-    private static String nullToEmpty(String s) { return s == null ? "" : s; }
 
     /** Legacy default for the {@code providerview} parameter when absent. */
     private static String nullToAll(String s) { return s == null ? "all" : s; }
@@ -73,9 +71,9 @@ public final class BillingReportCenterViewModel {
         private final String lastName;
 
         public ProviderRow(String ohip, String firstName, String lastName) {
-            this.ohip = nullToEmpty(ohip);
-            this.firstName = nullToEmpty(firstName);
-            this.lastName = nullToEmpty(lastName);
+            this.ohip = BillingViewStrings.nullToEmpty(ohip);
+            this.firstName = BillingViewStrings.nullToEmpty(firstName);
+            this.lastName = BillingViewStrings.nullToEmpty(lastName);
         }
 
         public String getOhip() { return ohip; }

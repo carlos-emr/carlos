@@ -178,7 +178,7 @@ class BillingCorrectionRecordServiceUnitTest {
     }
 
     @Test
-    void shouldDelegateGetFacilty_num_toLookupService() {
+    void shouldDelegateGetFacilityNumToLookupService() {
         @SuppressWarnings("rawtypes")
         List stubbed = List.of("FAC1", "FAC2");
         when(lookupService.getFacilty_num()).thenReturn(stubbed);

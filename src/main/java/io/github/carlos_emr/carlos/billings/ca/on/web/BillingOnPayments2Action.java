@@ -95,10 +95,7 @@ public class BillingOnPayments2Action extends ActionSupport {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() throws Exception {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
-        }
+        requireBillingWritePrivilege();
 
         String method = request.getParameter("method");
         if ("listPayments".equals(method)) {
@@ -115,7 +112,16 @@ public class BillingOnPayments2Action extends ActionSupport {
         return listPayments();
     }
 
+    private void requireBillingWritePrivilege() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+    }
+
     public String listPayments() throws java.io.IOException {
+        requireBillingWritePrivilege();
+
         // billingNo is required for the legitimate flow (caller passes it from
         // the parent invoice). A direct GET without the param previously NPE'd
         // here with NumberFormatException("Cannot parse null string"); 400 with
@@ -366,14 +372,16 @@ public class BillingOnPayments2Action extends ActionSupport {
         }
         String curProviderNo = (String) request.getSession().getAttribute("user");
         String paymentTypeId = request.getParameter("paymentType");
+        int paymentTypeIdInt;
         if (paymentTypeId == null || paymentTypeId.isEmpty()) {
             paymentTypeId = "0";
+            paymentTypeIdInt = 0;
         } else {
             // Guard against forged/typo'd non-numeric paymentType — the
             // form's hidden input is "0" or a positive integer, never
             // alphanumeric.
             try {
-                Integer.parseInt(paymentTypeId);
+                paymentTypeIdInt = Integer.parseInt(paymentTypeId);
             } catch (NumberFormatException e) {
                 return writeRejectionJson("Non-numeric 'paymentType' parameter; payment not saved");
             }
@@ -475,7 +483,7 @@ public class BillingOnPayments2Action extends ActionSupport {
         // inconsistent state.
         BillingPaymentSaveService.Command cmd = new BillingPaymentSaveService.Command(
                 billNo, paymentdate, curProviderNo,
-                Integer.parseInt(paymentTypeId), paymentTypeId,
+                paymentTypeIdInt, String.valueOf(paymentTypeIdInt),
                 sumPaid, sumDiscount, sumRefund, sumCredit,
                 statusChanges ? status : null,
                 lines);
@@ -604,6 +612,8 @@ public class BillingOnPayments2Action extends ActionSupport {
     }
 
     public String viewPayment_ext() {
+        requireBillingWritePrivilege();
+
         // 1.get payment details according to billing_on_item_payment
         String billPaymentIdRaw = request.getParameter("billPaymentId");
         int billPaymentId;

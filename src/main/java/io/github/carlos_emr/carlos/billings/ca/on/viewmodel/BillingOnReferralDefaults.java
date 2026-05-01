@@ -33,12 +33,8 @@ public record BillingOnReferralDefaults(
             new BillingOnReferralDefaults("", "", "");
 
     public BillingOnReferralDefaults {
-        checkedDefault = nullToEmpty(checkedDefault);
-        nameDefault = nullToEmpty(nameDefault);
-        noDefault = nullToEmpty(noDefault);
-    }
-
-    private static String nullToEmpty(String s) {
-        return s == null ? "" : s;
+        checkedDefault = BillingViewStrings.nullToEmpty(checkedDefault);
+        nameDefault = BillingViewStrings.nullToEmpty(nameDefault);
+        noDefault = BillingViewStrings.nullToEmpty(noDefault);
     }
 }

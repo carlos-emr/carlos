@@ -116,11 +116,11 @@ public final class BillingOnPaymentViewModel {
         this.providerOptions = b.providerOptions == null
                 ? Collections.emptyList() : List.copyOf(b.providerOptions);
         this.allProvidersOption = b.allProvidersOption;
-        this.selectedProviderNo = nullToEmpty(b.selectedProviderNo);
-        this.startDateStr = nullToEmpty(b.startDateStr);
-        this.endDateStr = nullToEmpty(b.endDateStr);
-        this.today = nullToEmpty(b.today);
-        this.errorMsg = nullToEmpty(b.errorMsg);
+        this.selectedProviderNo = BillingViewStrings.nullToEmpty(b.selectedProviderNo);
+        this.startDateStr = BillingViewStrings.nullToEmpty(b.startDateStr);
+        this.endDateStr = BillingViewStrings.nullToEmpty(b.endDateStr);
+        this.today = BillingViewStrings.nullToEmpty(b.today);
+        this.errorMsg = BillingViewStrings.nullToEmpty(b.errorMsg);
         this.reportRendered = b.reportRendered;
         this.isThisProviderOnly = b.isThisProviderOnly;
         this.paymentsPartial = b.paymentsPartial;
@@ -140,8 +140,6 @@ public final class BillingOnPaymentViewModel {
         this.thirdPartyRefundedTotal = nullToZero(b.thirdPartyRefundedTotal);
         this.finalTotal = nullToZero(b.finalTotal);
     }
-
-    private static String nullToEmpty(String s) { return s == null ? "" : s; }
     private static String nullToZero(String s) { return s == null ? "0.00" : s; }
 
     public static Builder builder() { return new Builder(); }

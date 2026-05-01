@@ -65,10 +65,10 @@ public final class GenerateRaDescriptionViewModel {
                                     String reductions,
                                     String deductions) {
         public BalanceForwardRow {
-            claimsAdjustment = nullToEmpty(claimsAdjustment);
-            advances = nullToEmpty(advances);
-            reductions = nullToEmpty(reductions);
-            deductions = nullToEmpty(deductions);
+            claimsAdjustment = BillingViewStrings.nullToEmpty(claimsAdjustment);
+            advances = BillingViewStrings.nullToEmpty(advances);
+            reductions = BillingViewStrings.nullToEmpty(reductions);
+            deductions = BillingViewStrings.nullToEmpty(deductions);
         }
 
         static BalanceForwardRow zero() {
@@ -82,11 +82,11 @@ public final class GenerateRaDescriptionViewModel {
                                  String amount,
                                  String message) {
         public TransactionRow {
-            transaction = nullToEmpty(transaction);
-            transactionDate = nullToEmpty(transactionDate);
-            chequeIssued = nullToEmpty(chequeIssued);
-            amount = nullToEmpty(amount);
-            message = nullToEmpty(message);
+            transaction = BillingViewStrings.nullToEmpty(transaction);
+            transactionDate = BillingViewStrings.nullToEmpty(transactionDate);
+            chequeIssued = BillingViewStrings.nullToEmpty(chequeIssued);
+            amount = BillingViewStrings.nullToEmpty(amount);
+            message = BillingViewStrings.nullToEmpty(message);
         }
     }
 
@@ -110,22 +110,20 @@ public final class GenerateRaDescriptionViewModel {
     public record ProviderOption(String providerNo, String formattedName, boolean selected) {}
 
     private GenerateRaDescriptionViewModel(Builder b) {
-        this.raNo = nullToEmpty(b.raNo);
-        this.chequeTotal = nullToEmpty(b.chequeTotal);
-        this.localTotal = nullToEmpty(b.localTotal);
-        this.otherTotal = nullToEmpty(b.otherTotal);
-        this.obTotal = nullToEmpty(b.obTotal);
-        this.coTotal = nullToEmpty(b.coTotal);
+        this.raNo = BillingViewStrings.nullToEmpty(b.raNo);
+        this.chequeTotal = BillingViewStrings.nullToEmpty(b.chequeTotal);
+        this.localTotal = BillingViewStrings.nullToEmpty(b.localTotal);
+        this.otherTotal = BillingViewStrings.nullToEmpty(b.otherTotal);
+        this.obTotal = BillingViewStrings.nullToEmpty(b.obTotal);
+        this.coTotal = BillingViewStrings.nullToEmpty(b.coTotal);
         this.balanceForwardRow = b.balanceForwardRow == null
                 ? BalanceForwardRow.zero() : b.balanceForwardRow;
         this.transactionRows = b.transactionRows == null
                 ? Collections.emptyList() : List.copyOf(b.transactionRows);
-        this.messageTxt = nullToEmpty(b.messageTxt);
+        this.messageTxt = BillingViewStrings.nullToEmpty(b.messageTxt);
         this.premiumRows = b.premiumRows == null
                 ? Collections.emptyList() : List.copyOf(b.premiumRows);
     }
-
-    private static String nullToEmpty(String s) { return s == null ? "" : s; }
 
     public static Builder builder() { return new Builder(); }
 

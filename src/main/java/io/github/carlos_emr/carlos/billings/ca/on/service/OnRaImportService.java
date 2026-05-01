@@ -45,6 +45,25 @@ public class OnRaImportService {
 
     private final BillingOnRaService remittanceAdviceService;
 
+    public enum ImportOutcome {
+        NOT_REQUESTED(true),
+        EMPTY_FILENAME(true),
+        IMPORTED(true),
+        DOCUMENT_DIR_MISSING(false),
+        BLOCKED_PATH(false),
+        IMPORT_FAILED(false);
+
+        private final boolean ok;
+
+        ImportOutcome(boolean ok) {
+            this.ok = ok;
+        }
+
+        public boolean ok() {
+            return ok;
+        }
+    }
+
     public OnRaImportService(BillingOnRaService remittanceAdviceService) {
         this.remittanceAdviceService = remittanceAdviceService;
     }
@@ -63,13 +82,17 @@ public class OnRaImportService {
      *         post-import view.
      */
     public boolean importDocumentBeanFile(HttpServletRequest request) {
+        return importDocumentBeanFileOutcome(request).ok();
+    }
+
+    public ImportOutcome importDocumentBeanFileOutcome(HttpServletRequest request) {
         Object dbAttr = request.getAttribute("documentBean");
         if (!(dbAttr instanceof DocumentBean documentBean)) {
-            return true;
+            return ImportOutcome.NOT_REQUESTED;
         }
         String filename = documentBean.getFilename();
         if (filename == null || filename.isEmpty()) {
-            return true;
+            return ImportOutcome.EMPTY_FILENAME;
         }
 
         try {
@@ -77,21 +100,21 @@ public class OnRaImportService {
                     .getProperty("DOCUMENT_DIR", "").trim();
             if (documentDir.isEmpty()) {
                 MiscUtils.getLogger().warn("Skipping RA import because DOCUMENT_DIR is not configured");
-                return false;
+                return ImportOutcome.DOCUMENT_DIR_MISSING;
             }
             File safeFile = PathValidationUtils.validatePath(filename, new File(documentDir));
             remittanceAdviceService.importRAFile(safeFile.getPath());
-            return true;
+            return ImportOutcome.IMPORTED;
         } catch (SecurityException e) {
             MiscUtils.getLogger().warn(
                     "Blocked unsafe RA import filename '{}'",
                     LogSanitizer.sanitize(filename));
-            return false;
+            return ImportOutcome.BLOCKED_PATH;
         } catch (Exception e) {
             MiscUtils.getLogger().error(
                     "Failed to import RA file: {}",
                     LogSanitizer.sanitize(filename), e);
-            return false;
+            return ImportOutcome.IMPORT_FAILED;
         }
     }
 }

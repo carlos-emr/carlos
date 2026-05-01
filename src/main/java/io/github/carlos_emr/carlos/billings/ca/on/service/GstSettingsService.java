@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 import java.math.BigDecimal;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.billing.CA.dao.GstControlDao;
 import io.github.carlos_emr.carlos.billing.CA.model.GstControl;
@@ -42,6 +43,7 @@ import io.github.carlos_emr.carlos.billing.CA.model.GstControl;
  * @since 2026-04-27
  */
 @Service
+@Transactional
 public class GstSettingsService {
 
     private final GstControlDao dao;

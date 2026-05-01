@@ -44,6 +44,7 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -137,5 +138,17 @@ class BillingDocumentErrorReportUpload2ActionUnitTest extends CarlosUnitTestBase
 
         verifyNoInteractions(mockDemographicManager, mockBatchEligibilityDao,
                 mockDemographicCustDao, mockProviderDao, mockErrorReportService);
+    }
+
+    @Test
+    void shouldReturnError_whenBlankFilenameAndNoUploadedFile() throws Exception {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        // filename intentionally absent and no UploadedFilesAware callback.
+
+        BillingDocumentErrorReportUpload2Action action = newAction();
+
+        assertThat(action.execute()).isEqualTo("error");
+        assertThat(action.getActionErrors()).isNotEmpty();
     }
 }

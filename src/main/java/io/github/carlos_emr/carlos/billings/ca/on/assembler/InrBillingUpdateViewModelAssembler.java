@@ -27,6 +27,8 @@ import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.InrBillingUpdateViewModel;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * Assembles the {@link InrBillingUpdateViewModel} from request
@@ -73,7 +75,8 @@ public class InrBillingUpdateViewModelAssembler {
                     demoHin = (d.getHin() == null ? "" : d.getHin()) + ver;
                 }
             } catch (NumberFormatException ignore) {
-                // demono was non-numeric — leave HIN/DOB blank.
+                MiscUtils.getLogger().warn("INR billing update: invalid demographic number [{}]; leaving HIN/DOB blank",
+                        LogSanitizer.sanitize(demoNo));
             }
         }
 

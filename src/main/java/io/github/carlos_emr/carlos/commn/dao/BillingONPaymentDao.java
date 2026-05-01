@@ -92,6 +92,8 @@ public interface BillingONPaymentDao extends AbstractDao<BillingONPayment> {
 
     List<BillingONPayment> find3rdPartyPayRecordsByBill(BillingONCHeader1 bCh1, Date startDate, Date endDate);
 
+    List<BillingONPayment> find3rdPartyPayRecordsByBills(List<Integer> billingNos, Date startDate, Date endDate);
+
     void createPayment(BillingONCHeader1 bCh1, Locale locale, String payType, BigDecimal paidAmt, String payMethod, String providerNo);
 
     static BigDecimal calculatePaymentTotal(List<BillingONPayment> paymentRecords) {

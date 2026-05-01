@@ -37,13 +37,9 @@ public record BillingOnProviderPresentation(
             "", "", "", List.of());
 
     public BillingOnProviderPresentation {
-        providerView = nullToEmpty(providerView);
-        assgProviderNo = nullToEmpty(assgProviderNo);
-        assgProviderDisplay = nullToEmpty(assgProviderDisplay);
+        providerView = BillingViewStrings.nullToEmpty(providerView);
+        assgProviderNo = BillingViewStrings.nullToEmpty(assgProviderNo);
+        assgProviderDisplay = BillingViewStrings.nullToEmpty(assgProviderDisplay);
         providers = providers == null ? Collections.emptyList() : List.copyOf(providers);
-    }
-
-    private static String nullToEmpty(String s) {
-        return s == null ? "" : s;
     }
 }

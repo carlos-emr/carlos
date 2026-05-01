@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnHistorySpecialistViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnClaimLoader;
 import io.github.carlos_emr.carlos.utility.DateRange;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
@@ -84,6 +85,8 @@ public class BillingOnHistorySpecialistViewModelAssembler {
         try {
             daysInt = Integer.parseInt(safeDay);
         } catch (NumberFormatException e) {
+            MiscUtils.getLogger().warn("BillingOnHistorySpecialist: invalid day range [{}]; using 0",
+                    LogSanitizer.sanitize(safeDay));
             daysInt = 0;
         }
         calendar.add(Calendar.DATE, daysInt * (-1));

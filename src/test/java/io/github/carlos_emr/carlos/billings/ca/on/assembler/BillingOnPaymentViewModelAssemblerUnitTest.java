@@ -197,21 +197,24 @@ class BillingOnPaymentViewModelAssemblerUnitTest {
                 .thenReturn(List.of(header));
 
         BillingONPayment payment = new BillingONPayment();
+        payment.setBillingNo(123);
         payment.setTotal_payment(new BigDecimal("10.00"));
         payment.setTotal_refund(new BigDecimal("0.00"));
         payment.setPaymentDate(new Date());
-        when(bPaymentDao.find3rdPartyPayRecordsByBill(eq(header), any(), any()))
+        when(bPaymentDao.find3rdPartyPayRecordsByBills(any(), any(), any()))
                 .thenReturn(List.of(payment));
 
         BillingONItem item = mock(BillingONItem.class);
         when(item.getId()).thenReturn(987);
+        when(item.getCh1Id()).thenReturn(123);
         when(item.getFee()).thenReturn("bad-fee");
         when(item.getDx()).thenReturn("401");
         when(item.getServiceCode()).thenReturn("A001A");
         when(item.getServiceCount()).thenReturn("1");
-        when(bCh1Dao.findActiveItems(123)).thenReturn(List.of(item));
-        when(bItemPaymentDao.getItemPaymentByInvoiceNoItemId(123, 987))
+        when(bCh1Dao.findActiveItemsByInvoiceNos(any())).thenReturn(List.of(item));
+        when(bItemPaymentDao.findByBillingNos(any()))
                 .thenReturn(Collections.emptyList());
+        when(demographicDao.getDemographics(any())).thenReturn(Collections.emptyList());
 
         BillingOnPaymentViewModel vm = assembler.assemble(req, loggedInInfo, false, false);
 

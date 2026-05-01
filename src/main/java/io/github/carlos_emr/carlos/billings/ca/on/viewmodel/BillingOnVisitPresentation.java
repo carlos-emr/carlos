@@ -44,21 +44,17 @@ public record BillingOnVisitPresentation(
             "", "", "", false, false, "", "", "", "", "", "", "", "", "");
 
     public BillingOnVisitPresentation {
-        clinicView = nullToEmpty(clinicView);
-        clinicNo = nullToEmpty(clinicNo);
-        visitType = nullToEmpty(visitType);
-        dxCode = nullToEmpty(dxCode);
-        xmlVisitType = nullToEmpty(xmlVisitType);
-        xmlLocation = nullToEmpty(xmlLocation);
-        visitDate = nullToEmpty(visitDate);
-        defaultLocation = nullToEmpty(defaultLocation);
-        admissionDate = nullToEmpty(admissionDate);
-        defaultXmlVdate = nullToEmpty(defaultXmlVdate);
-        dxCodeDefault = nullToEmpty(dxCodeDefault);
-        serviceDateDefault = nullToEmpty(serviceDateDefault);
-    }
-
-    private static String nullToEmpty(String s) {
-        return s == null ? "" : s;
+        clinicView = BillingViewStrings.nullToEmpty(clinicView);
+        clinicNo = BillingViewStrings.nullToEmpty(clinicNo);
+        visitType = BillingViewStrings.nullToEmpty(visitType);
+        dxCode = BillingViewStrings.nullToEmpty(dxCode);
+        xmlVisitType = BillingViewStrings.nullToEmpty(xmlVisitType);
+        xmlLocation = BillingViewStrings.nullToEmpty(xmlLocation);
+        visitDate = BillingViewStrings.nullToEmpty(visitDate);
+        defaultLocation = BillingViewStrings.nullToEmpty(defaultLocation);
+        admissionDate = BillingViewStrings.nullToEmpty(admissionDate);
+        defaultXmlVdate = BillingViewStrings.nullToEmpty(defaultXmlVdate);
+        dxCodeDefault = BillingViewStrings.nullToEmpty(dxCodeDefault);
+        serviceDateDefault = BillingViewStrings.nullToEmpty(serviceDateDefault);
     }
 }

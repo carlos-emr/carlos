@@ -561,7 +561,7 @@ class BillingOnFormViewModelUnitTest {
 
     @Test
     @DisplayName("billingON.jsp consumes presentation slices instead of flat form fields")
-    void billingOnJspShouldUseComposedPresentationSlices_forMigratedFields() throws Exception {
+    void shouldUseComposedPresentationSlicesForMigratedBillingOnJspFields() throws Exception {
         String jsp = Files.readString(Path.of(
                 "src/main/webapp/WEB-INF/jsp/billing/CA/ON/billingON.jsp"));
 

@@ -26,8 +26,13 @@ import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -266,8 +271,29 @@ public class BillingOnPaymentViewModelAssembler {
         int curBillingNo = 0;
         BillingONItem prevItem = null;
 
+        List<Integer> billingNos = raList.stream()
+                .map(RaDetail::getBillingNo)
+                .filter(billingNo -> billingNo != null)
+                .distinct()
+                .toList();
+        Map<Integer, BillingONCHeader1> headersByBillingNo = bCh1Dao.getInvoicesByIds(billingNos).stream()
+                .collect(Collectors.toMap(BillingONCHeader1::getId, header -> header, (left, right) -> left));
+        Map<String, BillingONItem> itemsByInvoiceAndService = new HashMap<>();
+        for (BillingONItem item : bCh1Dao.findItemsByInvoiceNos(billingNos)) {
+            String key = invoiceServiceKey(item.getCh1Id(), item.getServiceCode());
+            itemsByInvoiceAndService.putIfAbsent(key, item);
+        }
+        Set<Integer> demographicNos = headersByBillingNo.values().stream()
+                .map(BillingONCHeader1::getDemographicNo)
+                .filter(demoNo -> demoNo != null)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<Integer, Demographic> demographicsByNo = demographicNos.isEmpty()
+                ? Map.of()
+                : demographicDao.getDemographics(new ArrayList<>(demographicNos)).stream()
+                        .collect(Collectors.toMap(Demographic::getDemographicNo, demographic -> demographic, (left, right) -> left));
+
         for (RaDetail rad : raList) {
-            BillingONCHeader1 bCh1 = bCh1Dao.find(rad.getBillingNo());
+            BillingONCHeader1 bCh1 = headersByBillingNo.get(rad.getBillingNo());
             if (bCh1 == null) {
                 continue;
             }
@@ -281,7 +307,7 @@ public class BillingOnPaymentViewModelAssembler {
             curBillingNo = rad.getBillingNo();
 
             String serviceCode = rad.getServiceCode();
-            BillingONItem bItem = bCh1Dao.findBillingONItemByServiceCode(bCh1, serviceCode);
+            BillingONItem bItem = itemsByInvoiceAndService.get(invoiceServiceKey(bCh1.getId(), serviceCode));
 
             String dxCode = "";
             String claimAmtStr = rad.getAmountClaim();
@@ -300,7 +326,7 @@ public class BillingOnPaymentViewModelAssembler {
             prevItem = bItem;
 
             Integer demoNo = bCh1.getDemographicNo();
-            Demographic d = demoNo == null ? null : demographicDao.getDemographicById(demoNo);
+            Demographic d = demoNo == null ? null : demographicsByNo.get(demoNo);
             String demographicName = "";
             String billStatus = "";
             String serviceDate = "";
@@ -421,9 +447,33 @@ public class BillingOnPaymentViewModelAssembler {
             return false;
         }
 
+        List<Integer> billingNos = ptList.stream()
+                .map(BillingONCHeader1::getId)
+                .filter(id -> id != null)
+                .distinct()
+                .toList();
+        Map<Integer, List<BillingONPayment>> paymentsByBillingNo =
+                bPaymentDao.find3rdPartyPayRecordsByBills(billingNos, startDate, endDate).stream()
+                        .collect(Collectors.groupingBy(BillingONPayment::getBillingNo));
+        Map<Integer, List<BillingONItem>> activeItemsByBillingNo =
+                bCh1Dao.findActiveItemsByInvoiceNos(billingNos).stream()
+                        .collect(Collectors.groupingBy(BillingONItem::getCh1Id));
+        Map<String, List<BillingOnItemPayment>> itemPaymentsByInvoiceAndItem =
+                bItemPaymentDao.findByBillingNos(billingNos).stream()
+                        .collect(Collectors.groupingBy(payment ->
+                                invoiceItemKey(payment.getCh1Id(), payment.getBillingOnItemId())));
+        Set<Integer> demographicNos = ptList.stream()
+                .map(BillingONCHeader1::getDemographicNo)
+                .filter(demoNo -> demoNo != null)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<Integer, Demographic> demographicsByNo = demographicNos.isEmpty()
+                ? Map.of()
+                : demographicDao.getDemographics(new ArrayList<>(demographicNos)).stream()
+                        .collect(Collectors.toMap(Demographic::getDemographicNo, demographic -> demographic, (left, right) -> left));
+
         String rowColor = "myWhite";
         for (BillingONCHeader1 bCh1 : ptList) {
-            List<BillingONPayment> bPayList = bPaymentDao.find3rdPartyPayRecordsByBill(bCh1, startDate, endDate);
+            List<BillingONPayment> bPayList = paymentsByBillingNo.getOrDefault(bCh1.getId(), List.of());
             BigDecimal totalPaid = BillingONPaymentDao.calculatePaymentTotal(bPayList);
             BigDecimal totalRefunded = BillingONPaymentDao.calculateRefundTotal(bPayList);
 
@@ -437,7 +487,7 @@ public class BillingOnPaymentViewModelAssembler {
 
             String billingDateStr = DateUtils.formatDate(bCh1.getBillingDate(), locale);
             Integer demoNo = bCh1.getDemographicNo();
-            Demographic d = demoNo == null ? null : demographicDao.getDemographicById(demoNo);
+            Demographic d = demoNo == null ? null : demographicsByNo.get(demoNo);
             String demographicName = d == null ? "" : d.getFormattedName();
             String billingNo = String.valueOf(bCh1.getId());
 
@@ -445,7 +495,7 @@ public class BillingOnPaymentViewModelAssembler {
             // its own payment/refund totals from the per-item payment table.
             BigDecimal totalBilled = ZERO;
             List<BillingOnPaymentViewModel.ThirdPartyItemRow> itemRows = new ArrayList<>();
-            for (BillingONItem bItem : bCh1Dao.findActiveItems(bCh1.getId())) {
+            for (BillingONItem bItem : activeItemsByBillingNo.getOrDefault(bCh1.getId(), List.of())) {
                 String amtBilled = nullToEmpty(bItem.getFee());
                 try {
                     if (!amtBilled.isEmpty()) {
@@ -457,7 +507,7 @@ public class BillingOnPaymentViewModelAssembler {
                 }
 
                 List<BillingOnItemPayment> bItemPayList =
-                        bItemPaymentDao.getItemPaymentByInvoiceNoItemId(bCh1.getId(), bItem.getId());
+                        itemPaymentsByInvoiceAndItem.getOrDefault(invoiceItemKey(bCh1.getId(), bItem.getId()), List.of());
                 BigDecimal amtPaid = BillingOnItemPaymentDao.calculateItemPaymentTotal(bItemPayList);
                 BigDecimal amtRefund = BillingOnItemPaymentDao.calculateItemRefundTotal(bItemPayList);
 
@@ -522,4 +572,12 @@ public class BillingOnPaymentViewModelAssembler {
     }
 
     private static String nullToEmpty(String s) { return s == null ? "" : s; }
+
+    private static String invoiceServiceKey(Integer invoiceNo, String serviceCode) {
+        return String.valueOf(invoiceNo) + "\u0001" + String.valueOf(serviceCode);
+    }
+
+    private static String invoiceItemKey(Integer invoiceNo, Integer itemId) {
+        return String.valueOf(invoiceNo) + "\u0001" + String.valueOf(itemId);
+    }
 }

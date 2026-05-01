@@ -140,6 +140,19 @@ class BillingOnClaimLoaderUnitTest {
     }
 
     @Test
+    void shouldExposePartialFlag_whenServiceDaoThrowsDuringFeeLookup() {
+        when(serviceDao.findByServiceCodeAndLatestDate(anyString(), any()))
+                .thenThrow(new RuntimeException("DB outage simulation"));
+
+        BillingOnClaimLoader.FeeLookupResult result =
+                loader.getCodeFeeResult("A007", "2026-04-29");
+
+        assertThat(result.value()).isNull();
+        assertThat(result.partial()).isTrue();
+        assertThat(result.message()).contains("A007");
+    }
+
+    @Test
     void shouldReturnNull_whenDateStringUnparseable() {
         // ConversionUtils.fromDateString throws on bad input; loader catches
         // and returns null per the same contract.

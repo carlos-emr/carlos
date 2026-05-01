@@ -111,27 +111,27 @@ public final class BillingOnDisplayViewModel {
     private BillingOnDisplayViewModel(Builder b) {
         this.billPresent = b.billPresent;
         this.rmaEnabled = b.rmaEnabled;
-        this.billingNo = nullToEmpty(b.billingNo);
-        this.updateDate = nullToEmpty(b.updateDate);
-        this.demoNo = nullToEmpty(b.demoNo);
-        this.demoName = nullToEmpty(b.demoName);
-        this.demoDOB = nullToEmpty(b.demoDOB);
-        this.demoSex = nullToEmpty(b.demoSex);
-        this.hcType = nullToEmpty(b.hcType);
-        this.hcSex = nullToEmpty(b.hcSex);
-        this.hin = nullToEmpty(b.hin);
-        this.location = nullToEmpty(b.location);
-        this.billDate = nullToEmpty(b.billDate);
-        this.provider = nullToEmpty(b.provider);
-        this.billType = nullToEmpty(b.billType);
-        this.payProgram = nullToEmpty(b.payProgram);
-        this.visitDate = nullToEmpty(b.visitDate);
-        this.visitType = nullToEmpty(b.visitType);
-        this.mReview = nullToEmpty(b.mReview);
-        this.comment = nullToEmpty(b.comment);
-        this.rDoctor = nullToEmpty(b.rDoctor);
-        this.rDoctorOhip = nullToEmpty(b.rDoctorOhip);
-        this.diagCode = nullToEmpty(b.diagCode);
+        this.billingNo = BillingViewStrings.nullToEmpty(b.billingNo);
+        this.updateDate = BillingViewStrings.nullToEmpty(b.updateDate);
+        this.demoNo = BillingViewStrings.nullToEmpty(b.demoNo);
+        this.demoName = BillingViewStrings.nullToEmpty(b.demoName);
+        this.demoDOB = BillingViewStrings.nullToEmpty(b.demoDOB);
+        this.demoSex = BillingViewStrings.nullToEmpty(b.demoSex);
+        this.hcType = BillingViewStrings.nullToEmpty(b.hcType);
+        this.hcSex = BillingViewStrings.nullToEmpty(b.hcSex);
+        this.hin = BillingViewStrings.nullToEmpty(b.hin);
+        this.location = BillingViewStrings.nullToEmpty(b.location);
+        this.billDate = BillingViewStrings.nullToEmpty(b.billDate);
+        this.provider = BillingViewStrings.nullToEmpty(b.provider);
+        this.billType = BillingViewStrings.nullToEmpty(b.billType);
+        this.payProgram = BillingViewStrings.nullToEmpty(b.payProgram);
+        this.visitDate = BillingViewStrings.nullToEmpty(b.visitDate);
+        this.visitType = BillingViewStrings.nullToEmpty(b.visitType);
+        this.mReview = BillingViewStrings.nullToEmpty(b.mReview);
+        this.comment = BillingViewStrings.nullToEmpty(b.comment);
+        this.rDoctor = BillingViewStrings.nullToEmpty(b.rDoctor);
+        this.rDoctorOhip = BillingViewStrings.nullToEmpty(b.rDoctorOhip);
+        this.diagCode = BillingViewStrings.nullToEmpty(b.diagCode);
 
         this.errorCodes = b.errorCodes == null
                 ? Collections.emptyList() : List.copyOf(b.errorCodes);
@@ -153,10 +153,6 @@ public final class BillingOnDisplayViewModel {
 
     public static Builder builder() {
         return new Builder();
-    }
-
-    private static String nullToEmpty(String s) {
-        return s == null ? "" : s;
     }
 
     public boolean isBillPresent() { return billPresent; }

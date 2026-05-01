@@ -31,6 +31,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -111,5 +112,10 @@ class GstSettingsServiceUnitTest {
         service.setCurrentPercent(new BigDecimal("5.00"));
 
         verify(dao, never()).merge(any(GstControl.class));
+    }
+
+    @Test
+    void shouldDeclareTransactionalBoundaryForMultiRowWrites() {
+        assertThat(GstSettingsService.class.getAnnotation(Transactional.class)).isNotNull();
     }
 }

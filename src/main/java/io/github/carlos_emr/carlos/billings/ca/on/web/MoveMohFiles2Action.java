@@ -137,7 +137,13 @@ public class MoveMohFiles2Action extends ActionSupport {
         // mutation-intent pattern.
         String[] mutationFiles = request.getParameterValues("mohFile");
         String unzipFile = request.getParameter("unzipfile");
-        boolean hasMutationIntent = (mutationFiles != null && mutationFiles.length > 0)
+        String[] selectedMutationFiles = mutationFiles == null
+                ? null
+                : Arrays.stream(mutationFiles)
+                        .filter(fileName -> fileName != null && !fileName.isBlank())
+                        .toArray(String[]::new);
+        boolean hasMohFileMutationIntent = selectedMutationFiles != null && selectedMutationFiles.length > 0;
+        boolean hasMutationIntent = hasMohFileMutationIntent
                 || (unzipFile != null && !unzipFile.isBlank());
         if (hasMutationIntent && !"POST".equalsIgnoreCase(request.getMethod())) {
             response.setHeader("Allow", "POST");
@@ -158,8 +164,8 @@ public class MoveMohFiles2Action extends ActionSupport {
 
         // Reuse the array fetched above for the mutation-intent gate so the
         // request parameter is read once instead of twice.
-        String[] fileNames = mutationFiles;
-        if (fileNames == null) {
+        String[] fileNames = selectedMutationFiles;
+        if (fileNames == null || fileNames.length == 0) {
             errors.append("Please select file(s) to archive.<br/>");
             isValid = false;
             // return "Unable to get file names";
@@ -344,30 +350,26 @@ public class MoveMohFiles2Action extends ActionSupport {
      */
     private boolean validateFileLocation(File file) {
         boolean result = false;
-        try {
-            for (EDTFolder folder : EDTFolder.values()) {
-                File edtFolderFile = new File(folder.getPath());
-                try {
-                    file = PathValidationUtils.validateExistingPath(file, edtFolderFile);
-                    result = true;
-                    break;
-                } catch (SecurityException e) {
-                    // SecurityException covers two distinct cases — "not in
-                    // this folder" (expected, try next) and "path-traversal
-                    // attempt" (attack). Both look the same to the caller,
-                    // so log at DEBUG with sanitized path. A traversal probe
-                    // produces N consecutive DEBUG entries (one per folder)
-                    // and surfaces as a pattern in audit triage; legitimate
-                    // calls that hit the right folder break out before more
-                    // than one DEBUG fires.
-                    logger.debug("EDT folder {} rejected file path during validation: {}",
-                            io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(folder.name()),
-                            io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(
-                                    file == null ? "null" : file.getPath()));
-                }
+        for (EDTFolder folder : EDTFolder.values()) {
+            File edtFolderFile = new File(folder.getPath());
+            try {
+                file = PathValidationUtils.validateExistingPath(file, edtFolderFile);
+                result = true;
+                break;
+            } catch (SecurityException e) {
+                // SecurityException covers two distinct cases — "not in
+                // this folder" (expected, try next) and "path-traversal
+                // attempt" (attack). Both look the same to the caller,
+                // so log at DEBUG with sanitized path. A traversal probe
+                // produces N consecutive DEBUG entries (one per folder)
+                // and surfaces as a pattern in audit triage; legitimate
+                // calls that hit the right folder break out before more
+                // than one DEBUG fires.
+                logger.debug("EDT folder {} rejected file path during validation: {}",
+                        io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(folder.name()),
+                        io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(
+                                file == null ? "null" : file.getPath()));
             }
-        } catch (Exception e) {
-            logger.error("Unable to validate file location", e);
         }
         return result;
     }

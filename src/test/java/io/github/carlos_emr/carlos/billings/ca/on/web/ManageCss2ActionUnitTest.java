@@ -109,6 +109,17 @@ class ManageCss2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldCheckSessionBeforeMethodDispatch_whenSaveRequested() {
+        mockRequest.setParameter("method", "save");
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                .thenReturn(null);
+
+        assertThatThrownBy(() -> new ManageCss2Action().execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("missing session");
+    }
+
+    @Test
     void shouldThrowSecurityException_whenAdminReadPrivilegeMissing() {
         when(mockSecurity.hasPrivilege(any(LoggedInInfo.class), eq("_admin"), eq("r"), isNull()))
                 .thenReturn(false);

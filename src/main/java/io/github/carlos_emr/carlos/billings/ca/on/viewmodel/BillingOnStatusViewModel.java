@@ -168,28 +168,28 @@ public final class BillingOnStatusViewModel {
         this.hideName = b.hideName;
         this.search = b.search;
         this.billTypes = b.billTypes == null ? Collections.emptyList() : List.copyOf(b.billTypes);
-        this.statusType = nullToEmpty(b.statusType);
-        this.providerNo = nullToEmpty(b.providerNo);
-        this.providerOhipNo = nullToEmpty(b.providerOhipNo);
-        this.startDate = nullToEmpty(b.startDate);
-        this.endDate = nullToEmpty(b.endDate);
-        this.demoNo = nullToEmpty(b.demoNo);
-        this.serviceCode = nullToEmpty(b.serviceCode);
-        this.raCode = nullToEmpty(b.raCode);
-        this.claimNo = nullToEmpty(b.claimNo);
-        this.dx = nullToEmpty(b.dx);
-        this.visitType = nullToEmpty(b.visitType);
-        this.filename = nullToEmpty(b.filename);
-        this.selectedSite = nullToEmpty(b.selectedSite);
-        this.billingForm = nullToEmpty(b.billingForm);
-        this.visitLocation = nullToEmpty(b.visitLocation);
-        this.sortName = nullToEmpty(b.sortName);
-        this.sortOrder = nullToEmpty(b.sortOrder);
-        this.paymentStartDate = nullToEmpty(b.paymentStartDate);
-        this.paymentEndDate = nullToEmpty(b.paymentEndDate);
-        this.endDateMinus30 = nullToEmpty(b.endDateMinus30);
-        this.endDateMinus60 = nullToEmpty(b.endDateMinus60);
-        this.endDateMinus90 = nullToEmpty(b.endDateMinus90);
+        this.statusType = BillingViewStrings.nullToEmpty(b.statusType);
+        this.providerNo = BillingViewStrings.nullToEmpty(b.providerNo);
+        this.providerOhipNo = BillingViewStrings.nullToEmpty(b.providerOhipNo);
+        this.startDate = BillingViewStrings.nullToEmpty(b.startDate);
+        this.endDate = BillingViewStrings.nullToEmpty(b.endDate);
+        this.demoNo = BillingViewStrings.nullToEmpty(b.demoNo);
+        this.serviceCode = BillingViewStrings.nullToEmpty(b.serviceCode);
+        this.raCode = BillingViewStrings.nullToEmpty(b.raCode);
+        this.claimNo = BillingViewStrings.nullToEmpty(b.claimNo);
+        this.dx = BillingViewStrings.nullToEmpty(b.dx);
+        this.visitType = BillingViewStrings.nullToEmpty(b.visitType);
+        this.filename = BillingViewStrings.nullToEmpty(b.filename);
+        this.selectedSite = BillingViewStrings.nullToEmpty(b.selectedSite);
+        this.billingForm = BillingViewStrings.nullToEmpty(b.billingForm);
+        this.visitLocation = BillingViewStrings.nullToEmpty(b.visitLocation);
+        this.sortName = BillingViewStrings.nullToEmpty(b.sortName);
+        this.sortOrder = BillingViewStrings.nullToEmpty(b.sortOrder);
+        this.paymentStartDate = BillingViewStrings.nullToEmpty(b.paymentStartDate);
+        this.paymentEndDate = BillingViewStrings.nullToEmpty(b.paymentEndDate);
+        this.endDateMinus30 = BillingViewStrings.nullToEmpty(b.endDateMinus30);
+        this.endDateMinus60 = BillingViewStrings.nullToEmpty(b.endDateMinus60);
+        this.endDateMinus90 = BillingViewStrings.nullToEmpty(b.endDateMinus90);
 
         this.providers = b.providers == null
                 ? Collections.emptyList() : List.copyOf(b.providers);
@@ -217,12 +217,12 @@ public final class BillingOnStatusViewModel {
         this.billRows = b.billRows == null
                 ? Collections.emptyList() : List.copyOf(b.billRows);
         this.patientCount = b.patientCount;
-        this.totalBilled = nullToEmpty(b.totalBilled);
-        this.totalPaid = nullToEmpty(b.totalPaid);
-        this.totalAdjustments = nullToEmpty(b.totalAdjustments);
+        this.totalBilled = BillingViewStrings.nullToEmpty(b.totalBilled);
+        this.totalPaid = BillingViewStrings.nullToEmpty(b.totalPaid);
+        this.totalAdjustments = BillingViewStrings.nullToEmpty(b.totalAdjustments);
         this.unreadableTotalRowCount = b.unreadableTotalRowCount;
-        this.totalCash = nullToEmpty(b.totalCash);
-        this.totalDebit = nullToEmpty(b.totalDebit);
+        this.totalCash = BillingViewStrings.nullToEmpty(b.totalCash);
+        this.totalDebit = BillingViewStrings.nullToEmpty(b.totalDebit);
         this.requestParamEchoes = b.requestParamEchoes == null
                 ? Collections.emptyMap() : Map.copyOf(b.requestParamEchoes);
     }
@@ -232,9 +232,6 @@ public final class BillingOnStatusViewModel {
     }
 
     /** Coalesce null Strings to empty so EL doesn't render literal "null". */
-    private static String nullToEmpty(String s) {
-        return s == null ? "" : s;
-    }
 
     public boolean isTeamBillingOnly() { return teamBillingOnly; }
     public boolean isSiteAccessPrivacy() { return siteAccessPrivacy; }

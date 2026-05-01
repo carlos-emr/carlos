@@ -27,13 +27,19 @@ import io.github.carlos_emr.carlos.commn.dao.RaDetailDao;
 import io.github.carlos_emr.carlos.commn.dao.RaHeaderDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.RaDetail;
+import io.github.carlos_emr.carlos.commn.model.RaHeader;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -66,6 +72,8 @@ class BillingOnRaServiceUnitTest {
     private RaHeaderDao raHeaderDao;
     private BillingONCHeader1Dao cheader1Dao;
     private BillingOnRaService service;
+    @TempDir
+    Path tempDir;
 
     @BeforeEach
     void setUp() {
@@ -219,6 +227,44 @@ class BillingOnRaServiceUnitTest {
         verify(cheader1Dao, never()).merge(any(BillingONCHeader1.class));
     }
 
+    @Test
+    void shouldResetHeaderTotals_whenImportFileContainsMultipleH1Records() throws Exception {
+        List<RaHeader> persistedHeaders = new ArrayList<>();
+        final int[] nextId = {1};
+        org.mockito.Mockito.doAnswer(invocation -> {
+            RaHeader header = invocation.getArgument(0);
+            ReflectionTestUtils.setField(header, "id", nextId[0]++);
+            persistedHeaders.add(header);
+            return null;
+        }).when(raHeaderDao).persist(any(RaHeader.class));
+        when(raHeaderDao.findCurrentByFilenamePaymentDate(any(), any())).thenReturn(List.of());
+        when(raHeaderDao.findByFilenamePaymentDate(any(), any())).thenAnswer(invocation -> {
+            String paymentDate = invocation.getArgument(1);
+            return persistedHeaders.stream()
+                    .filter(header -> paymentDate.equals(header.getPaymentDate()))
+                    .toList();
+        });
+
+        Path file = tempDir.resolve("multi-h1.ra");
+        Files.write(file, List.of(
+                h1("20260401", "000001000", "0"),
+                h4("00000001"),
+                h5(),
+                h1("20260415", "000002000", "0"),
+                h4("00000002"),
+                h5()));
+
+        service.importRAFile(file.toString());
+
+        ArgumentCaptor<RaHeader> mergeCaptor = ArgumentCaptor.forClass(RaHeader.class);
+        verify(raHeaderDao, org.mockito.Mockito.times(2)).merge(mergeCaptor.capture());
+        assertThat(mergeCaptor.getAllValues())
+                .extracting(RaHeader::getPaymentDate, RaHeader::getRecords, RaHeader::getClaims)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("20260401", "1", "1"),
+                        org.assertj.core.groups.Tuple.tuple("20260415", "1", "1"));
+    }
+
     // ---- getRASummary: pin the silent-swallow contract -----------------
 
     @Test
@@ -265,5 +311,56 @@ class BillingOnRaServiceUnitTest {
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getProperty(BillingOnRaService.LOAD_FAILURE_MARKER))
                 .isEqualTo("true");
+    }
+
+    private static String h1(String paymentDate, String total, String status) {
+        char[] line = fixedLine();
+        line[0] = 'H';
+        line[2] = '1';
+        put(line, 21, paymentDate);
+        put(line, 29, "PAYABLE");
+        put(line, 59, total);
+        put(line, 68, status);
+        return new String(line);
+    }
+
+    private static String h4(String account) {
+        char[] line = fixedLine();
+        line[0] = 'H';
+        line[2] = '4';
+        put(line, 3, "CLAIM000001");
+        put(line, 15, "123456");
+        put(line, 23, account);
+        put(line, 52, "123456789012");
+        put(line, 64, "AB");
+        put(line, 66, "HCP");
+        return new String(line);
+    }
+
+    private static String h5() {
+        char[] line = fixedLine();
+        line[0] = 'H';
+        line[2] = '5';
+        put(line, 3, "CLAIM000001");
+        put(line, 15, "20260401");
+        put(line, 23, "01");
+        put(line, 25, "A001A");
+        put(line, 31, "001000");
+        put(line, 37, "001000");
+        put(line, 43, "+");
+        put(line, 44, "00");
+        return new String(line);
+    }
+
+    private static char[] fixedLine() {
+        char[] line = new char[80];
+        Arrays.fill(line, ' ');
+        return line;
+    }
+
+    private static void put(char[] line, int start, String value) {
+        for (int i = 0; i < value.length(); i++) {
+            line[start + i] = value.charAt(i);
+        }
     }
 }

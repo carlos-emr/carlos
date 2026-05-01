@@ -45,13 +45,13 @@ public final class InrBillingUpdateViewModel {
     private final String dxCode;
 
     private InrBillingUpdateViewModel(Builder b) {
-        this.demoNo = nullToEmpty(b.demoNo);
-        this.billingInrNo = nullToEmpty(b.billingInrNo);
-        this.demoName = nullToEmpty(b.demoName);
-        this.demoHin = nullToEmpty(b.demoHin);
-        this.demoDob = nullToEmpty(b.demoDob);
-        this.serviceCode = nullToEmpty(b.serviceCode);
-        this.dxCode = nullToEmpty(b.dxCode);
+        this.demoNo = BillingViewStrings.nullToEmpty(b.demoNo);
+        this.billingInrNo = BillingViewStrings.nullToEmpty(b.billingInrNo);
+        this.demoName = BillingViewStrings.nullToEmpty(b.demoName);
+        this.demoHin = BillingViewStrings.nullToEmpty(b.demoHin);
+        this.demoDob = BillingViewStrings.nullToEmpty(b.demoDob);
+        this.serviceCode = BillingViewStrings.nullToEmpty(b.serviceCode);
+        this.dxCode = BillingViewStrings.nullToEmpty(b.dxCode);
     }
 
     public String getDemoNo()       { return demoNo; }
@@ -63,8 +63,6 @@ public final class InrBillingUpdateViewModel {
     public String getDxCode()       { return dxCode; }
 
     public static Builder builder() { return new Builder(); }
-
-    private static String nullToEmpty(String s) { return s == null ? "" : s; }
 
     public static final class Builder {
         private String demoNo;

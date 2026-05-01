@@ -201,12 +201,10 @@ GET/POST /carlos/billing?billRegion=ON&demographic_no=…
 ```
 
 Why the router lives at `ca.pageUtil` and not `ca.bc.pageUtil`: the cross-
-province decision should not have BC-specific imports. The dedicated BC
+province decision must not have BC-specific imports. The dedicated BC
 setup action carries the BC-only coupling (`BillingSessionBean`,
 `BillingGuidelines`, `BillingCreateBilling2Form`), and the ON path chains
-through its own `ViewBillingOn2Action`. This was previously violated —
-`Billing2Action` lived in `ca.bc.pageUtil` with BC imports — and was
-hoisted to `ca.pageUtil` to break the cycle.
+through its own `ViewBillingOn2Action`.
 
 Region resolution rules (`Billing2Action.execute`):
 
@@ -608,11 +606,10 @@ should:
 - Use `<carlos:encode>` (or the corresponding EL function) for every
   user-data interpolation.
 
-The largest remaining JSP, `billingON.jsp`, is in flight; the
-plan is in commit history under `chore/billing-refactor`. The other four
-fat ON JSPs (`billingONCorrection.jsp`, `billingONReview.jsp`,
-`billingONStatus.jsp`, `billingShortcutPg1.jsp`) follow the same recipe
-but are individually further along.
+The largest remaining JSP, `billingON.jsp`, follows the same recipe as the
+other fat ON JSPs (`billingONCorrection.jsp`, `billingONReview.jsp`,
+`billingONStatus.jsp`, `billingShortcutPg1.jsp`): move data access into
+services/loaders and render encoded view-model fields only.
 
 The recipe itself is documented in
 [`docs/JSP-REFACTORING-GUIDE.md`](JSP-REFACTORING-GUIDE.md).
@@ -793,29 +790,15 @@ Provincial siblings (out of scope here):
 - BC Teleplan upload: `src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/Teleplan/`
 - Cross-province MSP: `src/main/java/io/github/carlos_emr/carlos/billings/MSP/`
 
-## 14 — Refactor history (selected)
+## 14 — Refactor Rules
 
-The current shape of this module was reached over a series of focused
-commits on the `chore/billing-refactor` branch. The most architecturally
-significant ones, newest first:
+Keep this document focused on current module rules. Historical commit
+references belong in Git history and PR descriptions, not in architecture
+docs that future maintainers read as the source of truth.
 
-| Commit | Slice |
-|---|---|
-| `a1f94adbdc` | Removed redundant `@Lazy` from 64 services + assemblers |
-| `3e81a5c8d9` | Flipped `BillingONCHeader1.billingItems` and `BillingONPayment.billingONExtItems` to LAZY; added `findWithItems` / `findByDemoNoWithItems` |
-| `eee331f027` | Renamed 5 misnamed `*Service` to `*Loader` / `*Persister`; split `BillingONServiceCodeService` into `ServiceCodeLoader` + `ServiceCodePersister` |
-| `91d176501a` | Hoisted cross-province `Billing2Action` from `ca.bc.pageUtil` to `ca.pageUtil`; extracted `BillingBCSetup2Action`; stripped dead ON branch from BC `BillingView2Action` |
-| `d6169b6813` | Partial DDD — added 9 domain methods to `BillingONCHeader1`/`BillingONItem`; added `setTotal` invariant |
-| `13c0ec060c` | Closed test debt — 51 new tests for refactored actions/services |
-| `faebd82653` | Split `BillingONService` catch-all into single-purpose pieces |
-| `af86635bc2` | Codified the layer-naming policy + retired all `*Prep` classes |
-| `e38d36813b` | Typed `GstSettingsService` API (dropped Properties bag); extracted dependency-free helpers |
-| `533806d0b9` | Extracted `BillingOnHeaderCreationService` so DAO no longer orchestrates other DAOs |
-| `8a11f59b52` | Split `PaymentType2Action` and `PatientEndYearStatement2Action` into single-method actions |
-| `cbcc95ac29` | Migrated gstControl + gstreport JSPs to View2Action + ViewModel |
-| `2f922b98a9` | Drained remaining service-locator and dual-bean bandaids |
-| `8d138bf86c` | Converted 32 assemblers + validator to single-ctor injection |
-| `3b7501c2dd` | Converted 53 field-init actions to ctor injection; added `@Primary` on `BillingDaoImpl` |
-| `2618f98df7` | Converted 24 dual-ctor 2Actions to `@Autowired` ctor injection |
-
-For the full history, see `git log --oneline chore/billing-refactor`.
+- Prefer thin Struts actions that enforce HTTP method, privilege, and request
+  binding before delegating to services.
+- Keep write workflows inside explicit `*Service` or `*Persister`
+  transactional boundaries.
+- Keep JSPs rendering from view models, with all user-controlled values
+  encoded at the rendering boundary.

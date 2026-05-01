@@ -45,6 +45,8 @@ import io.github.carlos_emr.carlos.commn.model.RaHeader;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * Shared assembler for {@code genRASummary.jsp} and
@@ -266,7 +268,13 @@ public class GenerateRaSummaryViewModelAssembler {
     }
 
     private static int parseIntOrZero(String s) {
-        try { return Integer.parseInt(s); } catch (NumberFormatException | NullPointerException e) { return 0; }
+        try {
+            return Integer.parseInt(s);
+        } catch (NumberFormatException | NullPointerException e) {
+            MiscUtils.getLogger().warn("GenerateRaSummary: invalid integer [{}]; using 0",
+                    LogSanitizer.sanitize(s));
+            return 0;
+        }
     }
 
     private static String nullToEmpty(String s) { return s == null ? "" : s; }

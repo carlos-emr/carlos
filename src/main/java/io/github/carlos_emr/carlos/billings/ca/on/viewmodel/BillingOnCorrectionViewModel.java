@@ -156,9 +156,9 @@ public final class BillingOnCorrectionViewModel {
     public record PaymentTypeEntry(String code, String label) {}
 
     private BillingOnCorrectionViewModel(Builder b) {
-        this.userProviderNo = nullToEmpty(b.userProviderNo);
-        this.userFirstName = nullToEmpty(b.userFirstName);
-        this.userLastName = nullToEmpty(b.userLastName);
+        this.userProviderNo = BillingViewStrings.nullToEmpty(b.userProviderNo);
+        this.userFirstName = BillingViewStrings.nullToEmpty(b.userFirstName);
+        this.userLastName = BillingViewStrings.nullToEmpty(b.userLastName);
         this.siteAccessPrivacy = b.siteAccessPrivacy;
         this.teamAccessPrivacy = b.teamAccessPrivacy;
         this.teamBillingOnly = b.teamBillingOnly;
@@ -175,40 +175,40 @@ public final class BillingOnCorrectionViewModel {
         this.visitDateInvalid = b.visitDateInvalid;
         this.demoLoadError = b.demoLoadError;
         this.raLookupError = b.raLookupError;
-        this.billingNo = nullToEmpty(b.billingNo);
-        this.claimNo = nullToEmpty(b.claimNo);
-        this.createTimestamp = nullToEmpty(b.createTimestamp);
-        this.demoNo = nullToEmpty(b.demoNo);
-        this.demoName = nullToEmpty(b.demoName);
-        this.demoDob = nullToEmpty(b.demoDob);
-        this.demoSex = nullToEmpty(b.demoSex);
-        this.demoRosterStatus = nullToEmpty(b.demoRosterStatus);
-        this.hin = nullToEmpty(b.hin);
-        this.hcType = nullToEmpty(b.hcType);
-        this.hcSex = nullToEmpty(b.hcSex);
-        this.billLocationNo = nullToEmpty(b.billLocationNo);
-        this.billDate = nullToEmpty(b.billDate);
-        this.billProvider = nullToEmpty(b.billProvider);
-        this.billStatus = nullToEmpty(b.billStatus);
-        this.payProgram = nullToEmpty(b.payProgram);
-        this.billTotal = nullToEmpty(b.billTotal);
-        this.visitDate = nullToEmpty(b.visitDate);
-        this.visitType = nullToEmpty(b.visitType);
-        this.sliCode = nullToEmpty(b.sliCode);
-        this.referralDoctorOhip = nullToEmpty(b.referralDoctorOhip);
-        this.referralDoctor = nullToEmpty(b.referralDoctor);
-        this.manReview = nullToEmpty(b.manReview);
-        this.comment = nullToEmpty(b.comment);
-        this.clinicSite = nullToEmpty(b.clinicSite);
+        this.billingNo = BillingViewStrings.nullToEmpty(b.billingNo);
+        this.claimNo = BillingViewStrings.nullToEmpty(b.claimNo);
+        this.createTimestamp = BillingViewStrings.nullToEmpty(b.createTimestamp);
+        this.demoNo = BillingViewStrings.nullToEmpty(b.demoNo);
+        this.demoName = BillingViewStrings.nullToEmpty(b.demoName);
+        this.demoDob = BillingViewStrings.nullToEmpty(b.demoDob);
+        this.demoSex = BillingViewStrings.nullToEmpty(b.demoSex);
+        this.demoRosterStatus = BillingViewStrings.nullToEmpty(b.demoRosterStatus);
+        this.hin = BillingViewStrings.nullToEmpty(b.hin);
+        this.hcType = BillingViewStrings.nullToEmpty(b.hcType);
+        this.hcSex = BillingViewStrings.nullToEmpty(b.hcSex);
+        this.billLocationNo = BillingViewStrings.nullToEmpty(b.billLocationNo);
+        this.billDate = BillingViewStrings.nullToEmpty(b.billDate);
+        this.billProvider = BillingViewStrings.nullToEmpty(b.billProvider);
+        this.billStatus = BillingViewStrings.nullToEmpty(b.billStatus);
+        this.payProgram = BillingViewStrings.nullToEmpty(b.payProgram);
+        this.billTotal = BillingViewStrings.nullToEmpty(b.billTotal);
+        this.visitDate = BillingViewStrings.nullToEmpty(b.visitDate);
+        this.visitType = BillingViewStrings.nullToEmpty(b.visitType);
+        this.sliCode = BillingViewStrings.nullToEmpty(b.sliCode);
+        this.referralDoctorOhip = BillingViewStrings.nullToEmpty(b.referralDoctorOhip);
+        this.referralDoctor = BillingViewStrings.nullToEmpty(b.referralDoctor);
+        this.manReview = BillingViewStrings.nullToEmpty(b.manReview);
+        this.comment = BillingViewStrings.nullToEmpty(b.comment);
+        this.clinicSite = BillingViewStrings.nullToEmpty(b.clinicSite);
         this.thirdParty = b.thirdParty;
-        this.htmlPaid = nullToEmpty(b.htmlPaid);
-        this.payer = nullToEmpty(b.payer);
+        this.htmlPaid = BillingViewStrings.nullToEmpty(b.htmlPaid);
+        this.payer = BillingViewStrings.nullToEmpty(b.payer);
         this.dueDateAvailable = b.dueDateAvailable;
-        this.dueDateString = nullToEmpty(b.dueDateString);
+        this.dueDateString = BillingViewStrings.nullToEmpty(b.dueDateString);
         this.useDemoContactAvailable = b.useDemoContactAvailable;
         this.useDemoContactChecked = b.useDemoContactChecked;
         this.canEditBilling = b.canEditBilling;
-        this.clinicNo = nullToEmpty(b.clinicNo);
+        this.clinicNo = BillingViewStrings.nullToEmpty(b.clinicNo);
         this.rmaEnabled = b.rmaEnabled;
         this.clinicLocations = b.clinicLocations == null
                 ? Collections.emptyList() : List.copyOf(b.clinicLocations);
@@ -236,11 +236,7 @@ public final class BillingOnCorrectionViewModel {
                 ? Collections.emptyList() : List.copyOf(b.paymentTypes);
         this.requestParamEchoes = b.requestParamEchoes == null
                 ? Collections.emptyMap() : Map.copyOf(b.requestParamEchoes);
-        this.currentSite = nullToEmpty(b.currentSite);
-    }
-
-    private static String nullToEmpty(String s) {
-        return s == null ? "" : s;
+        this.currentSite = BillingViewStrings.nullToEmpty(b.currentSite);
     }
 
     public static Builder builder() {

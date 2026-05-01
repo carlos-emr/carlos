@@ -65,13 +65,12 @@ public class BillingClaimsErrorReportParser {
      * is the single entry point.
      */
     private boolean init(FileInputStream file) {
-        InputStreamReader reader = new InputStreamReader(file);
-        BufferedReader input = new BufferedReader(reader);
         String nextline;
         BillingClaimsErrorReportRecordDto CERBean = new BillingClaimsErrorReportRecordDto();
 
         boolean isNewHin = false;
-        try {
+        try (InputStreamReader reader = new InputStreamReader(file);
+             BufferedReader input = new BufferedReader(reader)) {
             while ((nextline = input.readLine()) != null) {     
                 String headerCount = "";
                 if (nextline.length() >= 3) {

@@ -150,6 +150,8 @@ class InrBillingRecordUpdate2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldReturn405_whenNotPost() throws Exception {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.billing"), eq("w"), isNull()))
+                .thenReturn(true);
         mockRequest.setMethod("GET");
 
         InrBillingRecordUpdate2Action action = new InrBillingRecordUpdate2Action();
@@ -157,6 +159,19 @@ class InrBillingRecordUpdate2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(405);
         verify(mockBillingInrDao, never()).merge(any(BillingInr.class));
+    }
+
+    @Test
+    void shouldCheckPrivilegeBeforePostMethodGate_whenMethodIsGet() {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.billing"), eq("w"), isNull()))
+                .thenReturn(false);
+        mockRequest.setMethod("GET");
+
+        InrBillingRecordUpdate2Action action = new InrBillingRecordUpdate2Action();
+
+        assertThatThrownBy(action::execute)
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_admin.billing");
     }
 
     @Test

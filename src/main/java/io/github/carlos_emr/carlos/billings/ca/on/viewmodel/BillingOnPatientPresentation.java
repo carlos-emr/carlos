@@ -43,17 +43,13 @@ public record BillingOnPatientPresentation(
             false, "", "", 0, List.of(), "", "", "", List.of(), List.of());
 
     public BillingOnPatientPresentation {
-        familyDoctor = nullToEmpty(familyDoctor);
-        rosterStatus = nullToEmpty(rosterStatus);
+        familyDoctor = BillingViewStrings.nullToEmpty(familyDoctor);
+        rosterStatus = BillingViewStrings.nullToEmpty(rosterStatus);
         patientDx = patientDx == null ? Collections.emptyList() : List.copyOf(patientDx);
-        patientDxAddCode = nullToEmpty(patientDxAddCode);
-        patientDxMatchCode = nullToEmpty(patientDxMatchCode);
-        billingRecommendations = nullToEmpty(billingRecommendations);
+        patientDxAddCode = BillingViewStrings.nullToEmpty(patientDxAddCode);
+        patientDxMatchCode = BillingViewStrings.nullToEmpty(patientDxMatchCode);
+        billingRecommendations = BillingViewStrings.nullToEmpty(billingRecommendations);
         billingHistory = billingHistory == null ? Collections.emptyList() : List.copyOf(billingHistory);
         billingHistoryRows = billingHistoryRows == null ? Collections.emptyList() : List.copyOf(billingHistoryRows);
-    }
-
-    private static String nullToEmpty(String s) {
-        return s == null ? "" : s;
     }
 }

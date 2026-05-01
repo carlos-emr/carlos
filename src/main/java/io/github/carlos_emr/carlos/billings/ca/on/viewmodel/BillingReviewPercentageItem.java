@@ -22,82 +22,39 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;
 
-import java.util.ArrayList;
+import java.util.List;
+
 /**
- * Legacy presentation bean for percentage-code rows on the billing review
- * screen.
+ * Immutable presentation record for percentage-code rows on the billing
+ * review screen.
  */
-public class BillingReviewPercentageItem {
-    String codeName;
-    String codeUnit;
-    String codeFee;
-    String codeMinFee;
-    String codeMaxFee;
-    ArrayList vecCodeFee;
-    ArrayList vecCodeTotal;
-    String msg;
+public record BillingReviewPercentageItem(
+        String codeName,
+        String codeUnit,
+        String codeFee,
+        String codeMinFee,
+        String codeMaxFee,
+        List<String> vecCodeFee,
+        List<String> vecCodeTotal,
+        String msg) {
 
-    public String getCodeName() {
-        return codeName;
+    public BillingReviewPercentageItem {
+        codeName = BillingViewStrings.nullToEmpty(codeName);
+        codeUnit = BillingViewStrings.nullToEmpty(codeUnit);
+        codeFee = BillingViewStrings.nullToEmpty(codeFee);
+        codeMinFee = BillingViewStrings.nullToEmpty(codeMinFee);
+        codeMaxFee = BillingViewStrings.nullToEmpty(codeMaxFee);
+        vecCodeFee = vecCodeFee == null ? List.of() : List.copyOf(vecCodeFee);
+        vecCodeTotal = vecCodeTotal == null ? List.of() : List.copyOf(vecCodeTotal);
+        msg = BillingViewStrings.nullToEmpty(msg);
     }
 
-    public void setCodeName(String codeName) {
-        this.codeName = codeName;
-    }
-
-    public String getCodeUnit() {
-        return codeUnit;
-    }
-
-    public void setCodeUnit(String codeUnit) {
-        this.codeUnit = codeUnit;
-    }
-
-    public String getMsg() {
-        return msg;
-    }
-
-    public void setMsg(String msg) {
-        this.msg = msg;
-    }
-
-    public ArrayList getVecCodeFee() {
-        return vecCodeFee;
-    }
-
-    public void setVecCodeFee(ArrayList vecCodeFee) {
-        this.vecCodeFee = vecCodeFee;
-    }
-
-    public ArrayList getVecCodeTotal() {
-        return vecCodeTotal;
-    }
-
-    public void setVecCodeTotal(ArrayList vecCodeTotal) {
-        this.vecCodeTotal = vecCodeTotal;
-    }
-
-    public String getCodeFee() {
-        return codeFee;
-    }
-
-    public void setCodeFee(String codeFee) {
-        this.codeFee = codeFee;
-    }
-
-    public String getCodeMaxFee() {
-        return codeMaxFee;
-    }
-
-    public void setCodeMaxFee(String codeMaxFee) {
-        this.codeMaxFee = codeMaxFee;
-    }
-
-    public String getCodeMinFee() {
-        return codeMinFee;
-    }
-
-    public void setCodeMinFee(String codeMinFee) {
-        this.codeMinFee = codeMinFee;
-    }
+    public String getCodeName() { return codeName; }
+    public String getCodeUnit() { return codeUnit; }
+    public String getCodeFee() { return codeFee; }
+    public String getCodeMinFee() { return codeMinFee; }
+    public String getCodeMaxFee() { return codeMaxFee; }
+    public List<String> getVecCodeFee() { return vecCodeFee; }
+    public List<String> getVecCodeTotal() { return vecCodeTotal; }
+    public String getMsg() { return msg; }
 }

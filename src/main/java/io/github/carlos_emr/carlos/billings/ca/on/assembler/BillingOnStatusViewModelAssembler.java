@@ -460,35 +460,45 @@ public class BillingOnStatusViewModelAssembler {
         String invoiceNo = "";
         boolean nC = false;
         boolean newInvoice;
+        boolean filterByRaCode = raCode != null
+                && (raCode.trim().length() == 2 || raCode.trim().length() == 3);
+        List<String> visibleBillingNos = new ArrayList<>();
+        List<BillingRaLookupService.RaDataRequest> raRequests = new ArrayList<>();
+        for (BillingClaimHeaderDto ch1Obj : bList) {
+            if (isFilteredBySite(ch1Obj, multisitesEnabled, selectedSite, siteAccessPrivacy)) {
+                continue;
+            }
+            visibleBillingNos.add(ch1Obj.getId());
+            raRequests.add(new BillingRaLookupService.RaDataRequest(
+                    ch1Obj.getId(),
+                    raServiceDate(ch1Obj),
+                    ch1Obj.getProvider_ohip_no()));
+        }
+        Set<String> billingNosWithRaCode = filterByRaCode
+                ? raLookupService.findBillingNosWithErrorCode(visibleBillingNos, raCode)
+                : Collections.emptySet();
+        Map<String, ArrayList<HashMap<String, String>>> raDataByKey =
+                raLookupService.getRADataInternBatch(raRequests);
 
         for (BillingClaimHeaderDto ch1Obj : bList) {
             // multi-site filtering rules (mirrors legacy scriptlet)
-            if (multisitesEnabled && ch1Obj.getClinic() != null && selectedSite != null
-                    && !ch1Obj.getClinic().equals(selectedSite) && siteAccessPrivacy) {
-                continue;
-            }
-            if (multisitesEnabled && selectedSite != null
-                    && !selectedSite.equals(ch1Obj.getClinic())) {
+            if (isFilteredBySite(ch1Obj, multisitesEnabled, selectedSite, siteAccessPrivacy)) {
                 continue;
             }
 
             patientCount++;
 
             // ra-code error filter (e.g. "33", "V07")
-            if (raCode != null
-                    && (raCode.trim().length() == 2 || raCode.trim().length() == 3)) {
-                if (!raLookupService.isErrorCode(ch1Obj.getId(), raCode)) {
+            if (filterByRaCode) {
+                if (!billingNosWithRaCode.contains(ch1Obj.getId())) {
                     continue;
                 }
             }
 
             String ohipNo = ch1Obj.getProvider_ohip_no();
-            ArrayList<HashMap<String, String>> raList = raLookupService.getRADataIntern(
-                    ch1Obj.getId(),
-                    ch1Obj.getBilling_date() == null
-                            ? ""
-                            : ch1Obj.getBilling_date().replaceAll("\\D", ""),
-                    ohipNo);
+            String raKey = BillingRaLookupService.RaDataRequest.key(ch1Obj.getId(), raServiceDate(ch1Obj), ohipNo);
+            ArrayList<HashMap<String, String>> raList =
+                    raDataByKey.getOrDefault(raKey, new ArrayList<HashMap<String, String>>());
 
             BigDecimal valueToAdd = new BigDecimal("0.00");
             try {
@@ -646,6 +656,22 @@ public class BillingOnStatusViewModelAssembler {
 
     private static boolean safeEquals(String a, String b) {
         return a == null ? b == null : a.equals(b);
+    }
+
+    private static boolean isFilteredBySite(BillingClaimHeaderDto ch1Obj, boolean multisitesEnabled,
+                                            String selectedSite, boolean siteAccessPrivacy) {
+        if (multisitesEnabled && ch1Obj.getClinic() != null && selectedSite != null
+                && !ch1Obj.getClinic().equals(selectedSite) && siteAccessPrivacy) {
+            return true;
+        }
+        return multisitesEnabled && selectedSite != null
+                && !selectedSite.equals(ch1Obj.getClinic());
+    }
+
+    private static String raServiceDate(BillingClaimHeaderDto ch1Obj) {
+        return ch1Obj.getBilling_date() == null
+                ? ""
+                : ch1Obj.getBilling_date().replaceAll("\\D", "");
     }
 
     private static String nullToSpace(String s) {

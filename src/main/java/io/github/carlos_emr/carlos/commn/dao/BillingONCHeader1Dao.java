@@ -53,6 +53,10 @@ public interface BillingONCHeader1Dao extends AbstractDao<BillingONCHeader1> {
      */
     public List<BillingONItem> findActiveItems(Integer invoiceNo);
 
+    public List<BillingONItem> findActiveItemsByInvoiceNos(List<Integer> invoiceNos);
+
+    public List<BillingONItem> findItemsByInvoiceNos(List<Integer> invoiceNos);
+
     /**
      * Loads a {@link BillingONCHeader1} together with its {@code billingItems}
      * collection in a single {@code LEFT JOIN FETCH} query. Use this in code

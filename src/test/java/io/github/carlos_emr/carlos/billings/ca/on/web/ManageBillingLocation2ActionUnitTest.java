@@ -21,7 +21,9 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.ManageBillingLocationViewModel;
 import io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao;
+import io.github.carlos_emr.carlos.commn.model.ClinicLocation;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -116,6 +118,29 @@ class ManageBillingLocation2ActionUnitTest {
                 .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.viewmodel
                         .ManageBillingLocationViewModel.class);
         verify(mockClinicLocationDao, never()).removeByClinicLocationNo(any());
+    }
+
+    @Test
+    void shouldExposeClinicLocationRowsInsteadOfJpaEntities() throws Exception {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        ClinicLocation location = new ClinicLocation();
+        location.setClinicLocationNo("42");
+        location.setClinicLocationName("Downtown");
+        when(mockClinicLocationDao.findByClinicNo(1)).thenReturn(List.of(location));
+
+        ManageBillingLocation2Action action = new ManageBillingLocation2Action(
+                mockSecurityInfoManager, mockClinicLocationDao);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        ManageBillingLocationViewModel model =
+                (ManageBillingLocationViewModel) mockRequest.getAttribute("manageLocationModel");
+        assertThat(model.getLocations()).hasSize(1);
+        assertThat(model.getLocations().get(0))
+                .isInstanceOf(ManageBillingLocationViewModel.ClinicLocationRow.class)
+                .isNotInstanceOf(ClinicLocation.class);
+        assertThat(model.getLocations().get(0).getClinicLocationNo()).isEqualTo("42");
+        assertThat(model.getLocations().get(0).getClinicLocationName()).isEqualTo("Downtown");
     }
 
     @Test

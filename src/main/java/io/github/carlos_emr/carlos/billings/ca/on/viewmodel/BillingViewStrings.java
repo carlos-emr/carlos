@@ -19,13 +19,19 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
+package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;
+
 /**
- * Typed input commands for Ontario billing write and validation workflows.
+ * Shared string normalization for Ontario billing presentation records.
  *
- * <p>Commands are request-derived value objects. They cross from the Struts
- * action layer into validators and services, but they do not perform
- * persistence, rendering, or request access themselves.</p>
- *
- * @since 2026-04-28
+ * @since 2026-05-01
  */
-package io.github.carlos_emr.carlos.billings.ca.on.command;
+final class BillingViewStrings {
+
+    private BillingViewStrings() {
+    }
+
+    static String nullToEmpty(String value) {
+        return value == null ? "" : value;
+    }
+}
