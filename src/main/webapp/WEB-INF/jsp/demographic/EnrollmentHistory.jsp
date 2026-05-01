@@ -41,6 +41,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.Util" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
+<%@ page import="org.apache.commons.lang3.math.NumberUtils" %>
 
 <%-- ========== TAGLIB DECLARATIONS ========== --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -74,7 +75,7 @@
     String demographicNo = request.getParameter("demographicNo");
 
     // Load demographic
-    Demographic demographic = demographicDao.getClientByDemographicNo(Integer.valueOf(demographicNo));
+    Demographic demographic = demographicDao.getClientByDemographicNo(NumberUtils.toInt((demographicNo)));
 
     // Build history rows — deduplicate consecutive identical entries
     List<Map<String, String>> historyRows = new ArrayList<>();
