@@ -44,6 +44,13 @@
 
 <body leftmargin="0" topmargin="0" marginwidth="0" marginheight="0">
 
+<c:if test="${onGenRAErrorModel.partial}">
+    <div style="background:#fff3cd;color:#7a5b00;border:1px solid #d4a700;padding:8px;margin:4px 0;">
+        <strong>Reconciliation grid may be incomplete.</strong>
+        A loader error truncated this list — refresh, or contact admin if persistent.
+    </div>
+</c:if>
+
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <form action="${pageContext.request.contextPath}/billing/CA/ON/ViewOnGenRAError">
         <tr class="myDarkGreen">

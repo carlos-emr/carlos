@@ -377,7 +377,7 @@ known operation.
 | `BillingOnInvoiceTotalsService` | Service | `calculateBalanceOwing` — reads `BillingONCHeader1Dao` + `BillingONExtDao` + `BillingONPaymentDao` (cross-DAO ⇒ `*Service` per layer-names rule 4) |
 | `BillingOnHeaderCreationService` | Service | Header creation orchestration (`@Transactional`) |
 | `BillingCorrectionService` | Service | `updateInvoice` + `addThirdPartyPayment` workflows |
-| `BillingCorrectionRecordService` | Service | Audit-snapshot writes to `billing_on_repo` |
+| `BillingCorrectionRecordService` | Service | Loads correction-record graph (header + items + ext) and applies operator edits — header field updates, soft-delete, ext-key updates, third-party item updates |
 | `BillingOnRaService` | Service | RA import + status updates |
 | `BillingOnErrorReportService` | Service | RA error-report generation |
 | `BillingRaReportService` | Service | RA summary/desc report data prep |
@@ -553,6 +553,27 @@ ViewBillingOnReview2Action          ← gate
 - No DAO writes. If the page submission triggers a write, the action
   delegates to a service (e.g., `BillingCorrectionService.updateInvoice`)
   before calling the assembler to render the post-write view.
+
+### 9.2.1 Partial-load signalling — `partial` flag vs `LOAD_FAILURE_MARKER`
+
+Two patterns coexist for "the loader caught an exception mid-iteration and
+the result is incomplete":
+
+- **`partial` flag on the ViewModel** (preferred): a `boolean partial` field
+  on the immutable view model, set by the assembler in its catch branch.
+  The JSP renders a "data may be incomplete" banner via
+  `<c:if test="${model.partial}">…</c:if>`. Type-safe, out-of-band, no
+  pollution of the row stream, count-correct.
+- **`LOAD_FAILURE_MARKER` sentinel row** (legacy): a sentinel `Properties`
+  row appended to the returned `List` with the marker key set to `"true"`.
+  Callers must filter the marker before iterating and bump a partial flag
+  themselves. Used in `BillingOnRaService.getRASummary` and
+  `getRAErrorReport` because their return type is `List<Properties>` with
+  no view-model layer of their own.
+
+**When introducing a viewmodel for a path that currently uses
+`LOAD_FAILURE_MARKER`, migrate to a `partial` flag.** Do not add new
+`LOAD_FAILURE_MARKER` sites; the sentinel is a transitional shape.
 
 ### 9.3 The JSP itself
 

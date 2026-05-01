@@ -32,6 +32,7 @@
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE html>
 <html>
@@ -53,6 +54,14 @@
             </c:choose>
         </font></th>
     </tr>
+    <c:if test="${not empty correctionErrorMessage}">
+        <tr>
+            <td align="CENTER">
+                <p style="color:#bd4848"><strong>Reason:</strong>
+                    <carlos:encode value="${correctionErrorMessage}"/></p>
+            </td>
+        </tr>
+    </c:if>
 </table>
 
 <form action="${pageContext.request.contextPath}/billing/CA/ON/ViewBillingCorrection">

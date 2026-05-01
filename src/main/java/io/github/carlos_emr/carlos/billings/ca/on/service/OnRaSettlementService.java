@@ -96,11 +96,10 @@ public class OnRaSettlementService {
     public boolean settle(String raNoStr, Mode mode) {
         Integer raNo = parseInt(raNoStr);
         if (raNo == null) {
-            // Pre-fix: returned false; both ViewOnGenRaSettle2Action and
-            // ViewOnGenRaSettle352Action ignored the return and rendered
-            // SUCCESS — operator saw "Settle complete" while no rows were
-            // actually settled. Throw cleanly so the validation-error
-            // result page renders.
+            // Throw cleanly so the validation-error result page renders.
+            // Returning false would let the action render SUCCESS (the
+            // boolean is ignored) and operator would see "Settle complete"
+            // when no rows were actually settled.
             throw newInvalidRanoException(raNoStr);
         }
         // The legacy code used proNo + "%" against the search methods, but

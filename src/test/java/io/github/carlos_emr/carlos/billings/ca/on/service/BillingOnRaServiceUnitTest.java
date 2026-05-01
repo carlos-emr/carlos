@@ -239,4 +239,22 @@ class BillingOnRaServiceUnitTest {
 
         assertThat(result).isEmpty();
     }
+
+    // ---- getRAErrorReport: same partial-load contract as getRASummary --
+
+    @Test
+    void shouldAppendLoadFailureMarker_whenGetRAErrorReportHitsDaoError() {
+        // Mirror of the getRASummary marker test. The consumer
+        // OnRaErrorViewModelAssembler skips this row and raises a partial
+        // flag on the viewmodel so the JSP renders an "incomplete" banner.
+        when(raDetailDao.findDistinctIdOhipWithError(anyInt(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.<List<String>>any()))
+                .thenThrow(new RuntimeException("simulated DAO failure"));
+
+        List<Properties> result = service.getRAErrorReport("99", "012345", new String[0]);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getProperty(BillingOnRaService.LOAD_FAILURE_MARKER))
+                .isEqualTo("true");
+    }
 }

@@ -91,23 +91,39 @@ class BillingOnDiskLoaderUnitTest {
     }
 
     @Test
-    void shouldReturnNull_whenGetMRIListThrows() {
-        // Phase 2 silent-failure-fix path: when the DAO throws, the loader
-        // logs and returns null. Callers map null to empty list at the UI;
-        // this test pins the null return so that mapping doesn't drift.
+    void shouldThrowTyped_whenGetMRIListThrows() {
+        // Updated contract: throw a typed BillingDataLoadException rather
+        // than return null so the action's exception mapping renders an
+        // explicit error instead of a silently empty MRI grid the operator
+        // would interpret as "clean books". The original cause is preserved
+        // for log inspection.
+        RuntimeException cause = new RuntimeException("DB outage simulation");
         when(diskNameDao.findByCreateDateRangeAndStatus(any(), any(), anyString()))
-                .thenThrow(new RuntimeException("DB outage simulation"));
+                .thenThrow(cause);
 
-        List<?> result = loader.getMRIList("2026-01-01", "2026-12-31", "0");
-
-        assertThat(result).isNull();
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                () -> loader.getMRIList("2026-01-01", "2026-12-31", "0"))
+                .isInstanceOf(BillingDataLoadException.class)
+                .hasMessageContaining("Failed to load MRI list")
+                .hasCause(cause)
+                .satisfies(t -> {
+                    BillingDataLoadException d = (BillingDataLoadException) t;
+                    org.assertj.core.api.Assertions.assertThat(d.phase())
+                            .isEqualTo(BillingDataLoadException.Phase.DAO_QUERY);
+                    org.assertj.core.api.Assertions.assertThat(d.context())
+                            .containsEntry("startDate", "2026-01-01")
+                            .containsEntry("endDate", "2026-12-31")
+                            .containsEntry("status", "0");
+                });
     }
 
     @Test
-    void shouldReturnNull_whenDateStringsAreUnparseable() {
-        // SimpleDateFormat.parse throws ParseException on bad input; the
-        // catch returns null per the same Phase 2 fix.
-        List<?> result = loader.getMRIList("not-a-date", "also-bad", "0");
-        assertThat(result).isNull();
+    void shouldThrowTyped_whenDateStringsAreUnparseable() {
+        // SimpleDateFormat.parse throws ParseException; the catch wraps it
+        // in BillingDataLoadException so callers see a real failure rather
+        // than a phantom-empty list.
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                () -> loader.getMRIList("not-a-date", "also-bad", "0"))
+                .isInstanceOf(BillingDataLoadException.class);
     }
 }

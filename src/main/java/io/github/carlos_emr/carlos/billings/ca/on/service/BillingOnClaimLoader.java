@@ -185,11 +185,9 @@ public class BillingOnClaimLoader {
 		 */
         List<String[]> bills = dao.findBillingData(temp);
         if (bills != null) {
-            // Hoisted out of the loop so dedup is live across iterations.
-            // Pre-fix this was declared per-iteration and reset to null every
-            // pass, making the dedup arm unreachable and double-counting
-            // ch1.paid for every item row in a multi-item claim (the bi×ch1
-            // join repeats ch1.paid per item).
+            // Hoisted out of the loop so dedup spans iterations — the bi×ch1
+            // join repeats ch1.paid per item, and a per-iteration null reset
+            // would let the dedup arm double-count every multi-item claim.
             String prevId = null;
             for (String[] b : bills) {
                 ch1Obj = new BillingClaimHeaderDto();
@@ -280,7 +278,7 @@ public class BillingOnClaimLoader {
             // transient DB outage is indistinguishable from "no bills" in
             // the UI and the operator may re-bill the patient.
             //
-            // FOLLOW-UP (round-6 P1-9 carryover): change the return type to
+            // FOLLOW-UP: change the return type to
             // a wrapper that carries a `partial` flag so consumers can
             // surface a "data may be incomplete" banner instead of relying
             // on operators reading server logs. Multi-consumer change —
@@ -317,32 +315,61 @@ public class BillingOnClaimLoader {
         }
     }
 
+    /** Sort sentinel for comparator parse failures — see {@link #parseDateOrSentinel}. */
+    private static final Date COMPARATOR_DATE_SENTINEL = new Date(0L);
+
+    /**
+     * Parse a yyyy-MM-dd billing_date or return {@link #COMPARATOR_DATE_SENTINEL}.
+     * Lifted to a static helper so {@link #SERVICE_DATE_COMPARATOR} and any
+     * future date-comparator share one parse + log path. Logs at DEBUG (not
+     * WARN) because comparators run O(n log n) and a single corrupt row can
+     * fire the log many times per sort — log flooding is worse than the
+     * already-visible "row sorted to the front" UX.
+     *
+     * <p>{@link SimpleDateFormat} is not thread-safe, so a fresh formatter
+     * is constructed per call.</p>
+     */
+    private static Date parseDateOrSentinel(String s) {
+        try {
+            return new SimpleDateFormat("yyyy-MM-dd").parse(s);
+        } catch (ParseException | NullPointerException e) {
+            _logger.debug("comparator: malformed billing_date {}; sorting to epoch sentinel",
+                    LogSanitizer.sanitize(s));
+            return COMPARATOR_DATE_SENTINEL;
+        }
+    }
+
+    /**
+     * Parse a demographic_no or return {@code Integer.MIN_VALUE}. Companion
+     * to {@link #parseDateOrSentinel} for the demographic comparator.
+     */
+    private static int parseIntOrSentinel(String s) {
+        try {
+            return Integer.parseInt(s);
+        } catch (NumberFormatException | NullPointerException e) {
+            _logger.debug("comparator: malformed demographic_no {}; sorting to MIN sentinel",
+                    LogSanitizer.sanitize(s));
+            return Integer.MIN_VALUE;
+        }
+    }
+
     public static final Comparator<BillingClaimHeaderDto> SERVICE_DATE_COMPARATOR = new Comparator<BillingClaimHeaderDto>() {
         public int compare(BillingClaimHeaderDto arg0, BillingClaimHeaderDto arg1) {
-            SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
-            Date date0 = null, date1 = null;
-            try {
-                date0 = formatter.parse(arg0.getBilling_date());
-                date1 = formatter.parse(arg1.getBilling_date());
-            } catch (ParseException e) {
-                return 0;
-            }
-            return (date0.compareTo(date1));
-
+            // Push parse failures to a sentinel epoch so corrupt rows sort
+            // to the same end consistently. Returning 0 broke TimSort's
+            // transitivity contract — corrupt rows compared-equal to every
+            // other row, blowing up Collections.sort with
+            // "Comparison method violates its general contract!".
+            return parseDateOrSentinel(arg0.getBilling_date())
+                    .compareTo(parseDateOrSentinel(arg1.getBilling_date()));
         }
     };
 
     public static final Comparator<BillingClaimHeaderDto> DEMOGRAPHIC_NO_COMPARATOR = new Comparator<BillingClaimHeaderDto>() {
         public int compare(BillingClaimHeaderDto arg0, BillingClaimHeaderDto arg1) {
-            Integer d0, d1;
-            try {
-                d0 = Integer.parseInt(arg0.getDemographic_no());
-                d1 = Integer.parseInt(arg1.getDemographic_no());
-            } catch (Exception e) {
-                return 0;
-            }
-            return (d0.compareTo(d1));
-
+            return Integer.compare(
+                    parseIntOrSentinel(arg0.getDemographic_no()),
+                    parseIntOrSentinel(arg1.getDemographic_no()));
         }
     };
 
@@ -471,7 +498,7 @@ public class BillingOnClaimLoader {
      * BillingClaimItemDto item)} and return {@code List<BillingHistoryEntry>}.
      * Migration is non-trivial (10+ caller files iterate by
      * {@code i = i + 2}) so it is tracked as a separate refactor and
-     * deliberately not tackled in this PR.</p>
+     * tracked as a follow-up refactor.</p>
      *
      * @param demoNo    String the demographic number
      * @param iPageSize int max page size
@@ -564,6 +591,12 @@ public class BillingOnClaimLoader {
                 retval.add(itObj);
             }
         } catch (Exception e) {
+            // FOLLOW-UP: change the return type to a wrapper that carries a
+            // `partial` flag so the patient billing-history popup can render
+            // a "data may be incomplete" banner — operator viewing the chart
+            // currently sees fewer historical bills than were issued and
+            // may re-bill the patient. Mirror the same wrapper that
+            // getBillingClaim is tracked for.
             _logger.error("Failed to load billing history for demo {}; returning partial/empty result",
                     LogSanitizer.sanitize(demoNo), e);
         }
@@ -666,7 +699,15 @@ public class BillingOnClaimLoader {
 
             }
         } catch (Exception e) {
-            _logger.error("Failed to load OHIP billing entries; returning partial/empty result", e);
+            // FOLLOW-UP: change the return type to a wrapper that carries a
+            // partial-load flag so the bill-edit-by-appointment page can
+            // banner "items list may be incomplete — see error log" rather
+            // than rendering as if every item was loaded. Same shape the
+            // FOLLOW-UP comments on getBillingClaim and getBillingHist (lines
+            // 281 / 594) are tracked for.
+            _logger.error(
+                    "BillingOnClaimLoader.getBillingByApptNo: load failed for apptNo={}; returning partial result — operator should re-run",
+                    LogSanitizer.sanitize(apptNo), e);
         }
 
         return retval;

@@ -246,6 +246,12 @@
     </head>
     <body>
     <jsp:include page="/images/spinner.jsp" flush="true"/>
+    <c:if test="${statusModel.partialTotal}">
+        <div style="background:#fff3cd;color:#7a5b00;border:1px solid #d4a700;padding:8px;margin:4px 0;">
+            <strong>Total may be incomplete.</strong>
+            ${statusModel.unreadableTotalRowCount} row(s) had unreadable amounts and were skipped — refresh, or contact admin if persistent.
+        </div>
+    </c:if>
     <h3>
         <fmt:message key="admin.admin.invoiceRpts"/>
     </h3>

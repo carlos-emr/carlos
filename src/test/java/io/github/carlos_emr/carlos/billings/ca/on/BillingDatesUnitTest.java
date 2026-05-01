@@ -48,8 +48,19 @@ class BillingDatesUnitTest {
 
     @Test
     void shouldParseIsoDate_whenInputIsValid() {
-        assertThat(BillingDates.parseIsoDate("2026-04-28"))
-                .hasToString("2026-04-28");
+        // Round-trip via formatIsoDate to assert the contract rather than
+        // the underlying Date subclass's toString format.
+        assertThat(BillingDates.formatIsoDate(BillingDates.parseIsoDate("2026-04-28")))
+                .isEqualTo("2026-04-28");
+    }
+
+    @Test
+    void shouldReturnUtilDateThatSupportsToInstant_fromParseIsoDate() {
+        // Liskov: parseIsoDate returns Date, callers expect .toInstant() to work.
+        // java.sql.Date overrides toInstant() to throw — this test catches a
+        // regression that swaps back to sql.Date.
+        java.util.Date d = BillingDates.parseIsoDate("2026-04-28");
+        assertThat(d.toInstant()).isNotNull();
     }
 
     @Test
@@ -96,8 +107,9 @@ class BillingDatesUnitTest {
 
     @Test
     void shouldParse_whenOptionalIsoDateIsValid() {
-        assertThat(BillingDates.parseOptionalIsoDate("2026-04-28", "service_date"))
-                .hasToString("2026-04-28");
+        assertThat(BillingDates.formatIsoDate(
+                BillingDates.parseOptionalIsoDate("2026-04-28", "service_date")))
+                .isEqualTo("2026-04-28");
     }
 
     @Test
@@ -138,5 +150,89 @@ class BillingDatesUnitTest {
         assertThatThrownBy(() -> BillingDates.parseOptionalIsoTime("12-34-56", "billing_time"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("billing_time");
+    }
+
+    // ---- parseIsoTime (strict variant — used by BillingOnCorrectionPersister
+    //      where silently substituting a default time would record audit-
+    //      incorrect timestamps on OHIP claims) -------------------------------
+
+    @Test
+    void shouldParseIsoTime_whenInputIsValid() {
+        java.util.Date d = BillingDates.parseIsoTime("12:34:56");
+        assertThat(d).isNotNull();
+    }
+
+    @Test
+    void shouldThrow_whenIsoTimeIsNull() {
+        assertThatThrownBy(() -> BillingDates.parseIsoTime(null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("null or blank");
+    }
+
+    @Test
+    void shouldThrow_whenIsoTimeIsBlank() {
+        assertThatThrownBy(() -> BillingDates.parseIsoTime("   "))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("null or blank");
+    }
+
+    @Test
+    void shouldThrow_whenIsoTimeIsMalformed() {
+        assertThatThrownBy(() -> BillingDates.parseIsoTime("99:99:99"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("99:99:99");
+    }
+
+    // ---- formatIso* (null-safe-empty contract) ------------------------------
+
+    @Test
+    void shouldReturnEmpty_whenFormatIsoDateGivenNull() {
+        assertThat(BillingDates.formatIsoDate(null)).isEmpty();
+    }
+
+    @Test
+    void shouldReturnEmpty_whenFormatIsoTimeGivenNull() {
+        assertThat(BillingDates.formatIsoTime(null)).isEmpty();
+    }
+
+    @Test
+    void shouldReturnEmpty_whenFormatIsoTimestampGivenNull() {
+        assertThat(BillingDates.formatIsoTimestamp(null)).isEmpty();
+    }
+
+    @Test
+    void shouldRoundTrip_parseIsoDate_andFormatIsoDate() {
+        java.util.Date d = BillingDates.parseIsoDate("2026-04-30");
+        assertThat(BillingDates.formatIsoDate(d)).isEqualTo("2026-04-30");
+    }
+
+    @Test
+    void shouldRoundTrip_parseIsoTime_andFormatIsoTime() {
+        java.util.Date d = BillingDates.parseIsoTime("12:34:56");
+        assertThat(BillingDates.formatIsoTime(d)).isEqualTo("12:34:56");
+    }
+
+    // ---- BillingONItem.serviceDate is @Temporal(TemporalType.DATE);
+    //      Hibernate hydrates it as java.sql.Date, whose toInstant()
+    //      throws UnsupportedOperationException. These tests pin the
+    //      contract by constructing sql.Date / sql.Time / sql.Timestamp
+    //      explicitly.
+
+    @Test
+    void shouldFormatSqlDate_withoutThrowing() {
+        java.sql.Date sqlDate = java.sql.Date.valueOf("2026-04-30");
+        assertThat(BillingDates.formatIsoDate(sqlDate)).isEqualTo("2026-04-30");
+    }
+
+    @Test
+    void shouldFormatSqlTime_withoutThrowing() {
+        java.sql.Time sqlTime = java.sql.Time.valueOf("12:34:56");
+        assertThat(BillingDates.formatIsoTime(sqlTime)).isEqualTo("12:34:56");
+    }
+
+    @Test
+    void shouldFormatSqlTimestamp_withoutThrowing() {
+        java.sql.Timestamp sqlTs = java.sql.Timestamp.valueOf("2026-04-30 12:34:56");
+        assertThat(BillingDates.formatIsoTimestamp(sqlTs)).isEqualTo("2026-04-30 12:34:56");
     }
 }

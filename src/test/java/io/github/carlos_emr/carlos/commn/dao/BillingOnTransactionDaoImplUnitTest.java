@@ -54,9 +54,18 @@ class BillingOnTransactionDaoImplUnitTest {
     void shouldReturnTransactionTemplate_whenAllFieldsWellFormed() {
         BillingClaimHeaderDto dto = wellFormedDto();
 
-        // No throw expected; happy path proves the negative tests below
-        // really do isolate the strict-parse branches.
-        assertThat(dao.getUpdateCheader1TransTemplate(dto, "999")).isNotNull();
+        // Pin field-mapping invariants: a future refactor that silently
+        // swaps two assignments would still pass the throw-site tests
+        // below, so the happy-path test has to verify the actual write
+        // shape rather than just non-null.
+        var template = dao.getUpdateCheader1TransTemplate(dto, "999");
+        assertThat(template).isNotNull();
+        assertThat(template.getCh1Id()).isEqualTo(42);
+        assertThat(template.getDemographicNo()).isEqualTo(1234);
+        assertThat(template.getActionType()).isEqualTo("UH");
+        assertThat(template.getBillingDate()).isNotNull();
+        assertThat(template.getAdmissionDate()).isNotNull();
+        assertThat(template.getUpdateProviderNo()).isEqualTo("999");
     }
 
     @Test
@@ -115,5 +124,23 @@ class BillingOnTransactionDaoImplUnitTest {
 
         var template = dao.getUpdateCheader1TransTemplate(dto, "999");
         assertThat(template.getAdmissionDate()).isNull();
+    }
+
+    @Test
+    void shouldThrowBillingValidationException_whenEntityHeaderIdIsNull() {
+        // S7: the entity-variant getTransTemplate must reject a transient
+        // BillingONCHeader1 (id == null) so it can't NPE on the unboxing
+        // assignment to a primitive int and persist a meaningless audit row.
+        io.github.carlos_emr.carlos.commn.model.BillingONCHeader1 cheader1 =
+                new io.github.carlos_emr.carlos.commn.model.BillingONCHeader1();
+        // No id set — entity is transient.
+        io.github.carlos_emr.carlos.commn.model.BillingONItem billItem =
+                new io.github.carlos_emr.carlos.commn.model.BillingONItem();
+        io.github.carlos_emr.carlos.commn.model.BillingONPayment billPayment =
+                new io.github.carlos_emr.carlos.commn.model.BillingONPayment();
+
+        assertThatThrownBy(() -> dao.getTransTemplate(cheader1, billItem, billPayment, "999", 1))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("transient header");
     }
 }

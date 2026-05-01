@@ -23,11 +23,9 @@ import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.commn.model.CssStyle;
 
 /**
- * Atomically soft-deletes a CSS style and clears every BillingService that
- * referenced it. Pre-fix the cascade ran inline in
- * {@code ManageCss2Action.delete()} with no @Transactional boundary — a
- * mid-cascade DAO failure left the css_styles row marked DELETED while the
- * billing_service.display_style column was only partially nulled.
+ * Atomically soft-deletes a CSS style and nulls
+ * {@code billing_service.display_style} on every referencing code under a
+ * single transaction so a mid-cascade failure leaves both tables consistent.
  *
  * @since 2026-04-30
  */

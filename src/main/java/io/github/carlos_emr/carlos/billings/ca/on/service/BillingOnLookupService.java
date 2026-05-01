@@ -171,11 +171,15 @@ public class BillingOnLookupService {
                 retval.add(proid + "|" + proLast + "|" + proFirst + "|" + proOHIP + "|" + billinggroup_no + "|"
                         + specialty_code);
             }
-        } catch (Exception e) {
-            // Without context, an outage here renders as an empty provider
-            // dropdown and the user is blocked from selecting; ops contacted
-            // for a "missing data" issue with no log evidence.
-            _logger.error("Failed to load provider dropdown list; returning partial/empty result", e);
+        } catch (RuntimeException e) {
+            // Rethrow so the JSP gets a real error rather than a silently-
+            // truncated dropdown the user picks from. A blank or partial
+            // dropdown blocks selection AND yields wrong-subset picks; both
+            // are worse than the global Struts exception mapping rendering
+            // an explicit "lookup failed" page.
+            _logger.error("Failed to load provider dropdown list (returning {} entries before failure); rethrowing",
+                    retval.size(), e);
+            throw e;
         }
 
         return retval;
@@ -471,7 +475,12 @@ public class BillingOnLookupService {
 
      */
 
+    @org.springframework.transaction.annotation.Transactional
     public boolean updateApptStatus(String apptNo, String status, String userNo) {
+        // Method-level @Transactional overrides the class-level
+        // readOnly=true. Without this override the merge below silently
+        // does not flush at commit (Hibernate sets flush mode MANUAL on
+        // readOnly transactions), losing the update.
         Appointment appt = appointmentDao.find(Integer.valueOf(apptNo));
         if (appt != null) {
             appt.setStatus(status);
@@ -649,7 +658,11 @@ public class BillingOnLookupService {
 
      */
 
+    @org.springframework.transaction.annotation.Transactional
     public int addBillingFavouriteList(String name, String list, String providerNo) {
+        // Method-level @Transactional overrides the class-level readOnly=true
+        // — without it the persist below silently no-ops (Hibernate flush
+        // mode MANUAL on read-only transactions drops the insert).
         BillingONFavourite b = new BillingONFavourite();
         b.setName(name);
         b.setServiceDx(list);
@@ -669,7 +682,11 @@ public class BillingOnLookupService {
      * @param providerNo String
      * @return boolean
      */
+    @org.springframework.transaction.annotation.Transactional
     public boolean delBillingFavouriteList(String name, String providerNo) {
+        // Method-level @Transactional overrides the class-level readOnly=true
+        // — without it the merge below silently no-ops (Hibernate flush
+        // mode MANUAL on read-only transactions drops the soft-delete).
         List<BillingONFavourite> bs = billingONFavouriteDao.findByNameAndProviderNo(name, providerNo);
         for (BillingONFavourite b : bs) {
             b.setDeleted(1);
@@ -695,7 +712,9 @@ public class BillingOnLookupService {
 
      */
 
+    @org.springframework.transaction.annotation.Transactional
     public boolean updateBillingFavouriteList(String name, String list, String providerNo) {
+        // Method-level @Transactional overrides the class-level readOnly=true.
         List<BillingONFavourite> bs = billingONFavouriteDao.findByName(name);
         for (BillingONFavourite b : bs) {
             b.setServiceDx(list);

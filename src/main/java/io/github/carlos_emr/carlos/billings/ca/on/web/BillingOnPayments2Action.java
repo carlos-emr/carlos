@@ -115,7 +115,7 @@ public class BillingOnPayments2Action extends ActionSupport {
         return listPayments();
     }
 
-    public String listPayments() {
+    public String listPayments() throws java.io.IOException {
         // billingNo is required for the legitimate flow (caller passes it from
         // the parent invoice). A direct GET without the param previously NPE'd
         // here with NumberFormatException("Cannot parse null string"); 400 with
@@ -141,9 +141,15 @@ public class BillingOnPayments2Action extends ActionSupport {
 
         BillingONCHeader1Dao ch1Dao = SpringUtils.getBean(BillingONCHeader1Dao.class);
         BillingONCHeader1 cheader = ch1Dao.find(billingNo);
-        BigDecimal total = cheader.getTotal();
-
-        request.setAttribute("totalInvoiced", cheader.getTotal());
+        if (cheader == null) {
+            // Concurrent delete or otherwise-missing claim — surface a 404
+            // so the popup can close cleanly. Letting cheader.getTotal()
+            // NPE here would render a generic 500 instead.
+            response.sendError(jakarta.servlet.http.HttpServletResponse.SC_NOT_FOUND,
+                    "Billing record not found: " + billingNo);
+            return NONE;
+        }
+        BigDecimal total = cheader.getTotal() == null ? BigDecimal.ZERO : cheader.getTotal();
 
         BigDecimal payments = BigDecimal.ZERO;
         BigDecimal refunds = BigDecimal.ZERO;
@@ -159,9 +165,6 @@ public class BillingOnPayments2Action extends ActionSupport {
 
         BigDecimal balance = total.subtract(payments).subtract(discounts).add(credits);
         request.setAttribute("balance", balance);
-
-
-        request.setAttribute("paymentsList", paymentLists);
 
         List<BillingONItem> items = billingONItemDao.getActiveBillingItemByCh1Id(billingNo);
         List<BillingClaimItemDto> itemDataList = new ArrayList<BillingClaimItemDto>();
@@ -314,6 +317,14 @@ public class BillingOnPayments2Action extends ActionSupport {
         try {
             return new BigDecimal(s);
         } catch (NumberFormatException e) {
+            // Stored fee/paid/discount values that don't parse silently
+            // render as $0.00 indistinguishable from a real zero. Log so
+            // ops can see corrupt rows in the payment view; mirror the
+            // amountUnreadable signal pattern used elsewhere if a UI
+            // banner is added later.
+            MiscUtils.getLogger().warn(
+                    "BillingOnPayments view: rendering 0.00 for unparseable amount [{}] (length={})",
+                    LogSanitizer.sanitize(s), s.length());
             return BigDecimal.ZERO;
         }
     }
@@ -331,11 +342,16 @@ public class BillingOnPayments2Action extends ActionSupport {
 
         String paymentdate1 = request.getParameter("paymentDate");
         SimpleDateFormat sim = new SimpleDateFormat("yyyy-MM-dd");
-        Date paymentdate = sim.parse(paymentdate1);
+        Date paymentdate;
+        try {
+            paymentdate = sim.parse(paymentdate1);
+        } catch (java.text.ParseException | NullPointerException e) {
+            return writeRejectionJson("Missing or unparseable 'paymentDate' parameter; payment not saved");
+        }
 
-        // Required-numeric inputs from the JSP form. listPayments was hardened
-        // earlier; the same defensive parse belongs here so a malformed/forged
-        // request rejects cleanly with the same JSON contract instead of 500.
+        // Required-numeric form inputs — return a structured JSON rejection on
+        // malformed/forged requests instead of letting Integer.parseInt throw
+        // and producing a generic 500.
         int itemSize;
         int billNo;
         try {
@@ -352,6 +368,15 @@ public class BillingOnPayments2Action extends ActionSupport {
         String paymentTypeId = request.getParameter("paymentType");
         if (paymentTypeId == null || paymentTypeId.isEmpty()) {
             paymentTypeId = "0";
+        } else {
+            // Guard against forged/typo'd non-numeric paymentType — the
+            // form's hidden input is "0" or a positive integer, never
+            // alphanumeric.
+            try {
+                Integer.parseInt(paymentTypeId);
+            } catch (NumberFormatException e) {
+                return writeRejectionJson("Non-numeric 'paymentType' parameter; payment not saved");
+            }
         }
 
         // Validate every amount upfront AND collect into a Line list. If
@@ -374,12 +399,18 @@ public class BillingOnPayments2Action extends ActionSupport {
                 return writeRejectionJson("Invalid itemId on row " + i + ": " + itemId
                         + "; payment not saved");
             }
-            // The pre-fix code only summed when the item already existed in
-            // the DB. Preserve that — looking up by id here is read-only.
+            // Skip rows whose item id no longer exists — concurrent delete
+            // or stale form submit. Read-only lookup; safe to early-continue.
             if (billingONItemDao.find(itemIdInt) == null) {
                 continue;
             }
             String sel = request.getParameter("sel" + i);
+            if (sel == null) {
+                // Java's switch over a null String NPEs before reaching default —
+                // mirror the other defensive parses and reject cleanly via JSON
+                // instead of letting the NPE bubble into a generic 500.
+                return writeRejectionJson("Missing 'sel" + i + "' parameter; payment not saved");
+            }
             try {
                 BigDecimal amount;
                 BigDecimal disc = BigDecimal.ZERO;
@@ -410,10 +441,10 @@ public class BillingOnPayments2Action extends ActionSupport {
             }
         }
 
-        // Pre-flight: confirm the bill row still exists. The transactional
-        // service re-fetches inside the tx and would throw BVE on a concurrent
-        // delete, but checking here lets us return the same "failure" forward
-        // we used pre-fix instead of falling through to a generic error page.
+        // Pre-flight existence check. The transactional service would throw
+        // BillingValidationException on a concurrent delete, but catching
+        // it here returns "failure" so callers stay on the payment page
+        // instead of routing to the generic error mapping.
         BillingONCHeader1 cheader1 = billingClaimDAO.find(billNo);
         if (cheader1 == null) {
             return "failure";
@@ -473,7 +504,7 @@ public class BillingOnPayments2Action extends ActionSupport {
         return null;
     }
 
-    public String deletePayment() {
+    public String deletePayment() throws java.io.IOException {
         // POST gate: destructive write — HttpMethodGuardFilter's MUTATOR_METHOD_PARAMS
         // matches the bare token "delete" but not "deletePayment", so a forged
         // GET could otherwise wipe a payment + rebalance the header. CSRFGuard's
@@ -483,9 +514,9 @@ public class BillingOnPayments2Action extends ActionSupport {
         }
 
         // The four writes (payment.remove + header.merge + 2× ext.setExtItem)
-        // are now bundled under @Transactional inside BillingPaymentDeletionService.
-        // Pre-fix any mid-sequence failure left the header `paid` total stale
-        // and the ext keys out of sync with the underlying payment table.
+        // are bundled under @Transactional inside BillingPaymentDeletionService —
+        // a mid-sequence failure rolls back, keeping the header `paid` total
+        // and ext keys in sync with the underlying payment table.
         try {
             int paymentId = Integer.parseInt(request.getParameter("id"));
             io.github.carlos_emr.carlos.utility.SpringUtils
@@ -579,9 +610,9 @@ public class BillingOnPayments2Action extends ActionSupport {
         try {
             billPaymentId = Integer.parseInt(billPaymentIdRaw);
         } catch (NumberFormatException e) {
-            // Pre-fix this returned null + logged at INFO, producing a blank
-            // page with no operator feedback. Forward to the failure result so
-            // the user sees an error instead of a silent empty render.
+            // Forward to the failure result so the user sees an error
+            // instead of a silent empty render. Returning null here would
+            // produce a blank page with no operator feedback.
             logger.error("Invalid billPaymentId parameter {}", LogSanitizer.sanitize(billPaymentIdRaw), e);
             return "failure";
         }

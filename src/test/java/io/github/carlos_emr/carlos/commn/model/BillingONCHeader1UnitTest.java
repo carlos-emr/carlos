@@ -356,6 +356,9 @@ class BillingONCHeader1UnitTest {
         void shouldReturnZero_whenItemsCollectionIsNull() {
             BillingONCHeader1 header = new BillingONCHeader1();
             header.setBillingItems(null);
+            // setBillingItems(null) is a documented test-setup affordance on
+            // a transient header; the C16 guard only rejects calls when an id
+            // has been assigned.
 
             Optional<BigDecimal> result = header.recomputeTotalFromItems();
 
@@ -375,6 +378,54 @@ class BillingONCHeader1UnitTest {
             item.setStatus(BillingONItem.DELETED);
             item.setFee(fee);
             return item;
+        }
+    }
+
+    @Nested
+    @DisplayName("setBillingItems managed/transient guard (C16)")
+    class SetBillingItemsGuard {
+
+        @Test
+        void shouldThrowIllegalStateException_whenCalledOnManagedHeader() throws Exception {
+            // Simulate a managed entity by setting `id` reflectively (no public
+            // setter exists). Hibernate would normally assign this on persist;
+            // the C16 guard fires for any caller that touches setBillingItems
+            // after an id is in scope, so dirty-tracking can't silently break.
+            BillingONCHeader1 header = new BillingONCHeader1();
+            java.lang.reflect.Field idField = BillingONCHeader1.class.getDeclaredField("id");
+            idField.setAccessible(true);
+            idField.set(header, 42);
+
+            assertThatThrownBy(() -> header.setBillingItems(new java.util.ArrayList<>()))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("managed-or-detached");
+        }
+
+        @Test
+        void shouldAcceptCall_whenHeaderIsTransient() {
+            // Transient entity (id == null) is the documented use case.
+            BillingONCHeader1 header = new BillingONCHeader1();
+            header.setBillingItems(new java.util.ArrayList<>());
+            // Must not throw — guard is gated on id != null.
+        }
+    }
+
+    @Nested
+    @DisplayName("getBillingItems never returns null")
+    class GetBillingItemsNullFloor {
+
+        @Test
+        void shouldReturnEmptyList_whenBackingCollectionIsNull() throws Exception {
+            BillingONCHeader1 header = new BillingONCHeader1();
+            // Bypass the public setter (which the C16 guard would still allow
+            // here for a transient header) by clearing the field directly,
+            // mirroring a corner case where Hibernate field-access populates
+            // a null collection.
+            java.lang.reflect.Field f = BillingONCHeader1.class.getDeclaredField("billingItems");
+            f.setAccessible(true);
+            f.set(header, null);
+
+            assertThat(header.getBillingItems()).isEmpty();
         }
     }
 }

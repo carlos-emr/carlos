@@ -45,19 +45,6 @@ import static org.mockito.Mockito.when;
 class BillingOnFormSiteContextComposerUnitTest {
 
     @Test
-    void shouldInstantiate_withAllRequiredDaoDependencies() {
-        SiteDao siteDao = mock(SiteDao.class);
-        OscarAppointmentDao oscarAppointmentDao = mock(OscarAppointmentDao.class);
-        ClinicNbrDao clinicNbrDao = mock(ClinicNbrDao.class);
-        ProviderDao providerDao = mock(ProviderDao.class);
-
-        BillingOnFormSiteContextComposer composer = new BillingOnFormSiteContextComposer(
-                siteDao, oscarAppointmentDao, clinicNbrDao, providerDao);
-
-        assertThat(composer).isNotNull();
-    }
-
-    @Test
     void shouldNotThrow_whenPopulateCalledWithMockedDependencies() {
         // populate() reads multisite + rma_enabled flags from CarlosProperties
         // (static, hard to mock in pure unit context). Pin only that calling

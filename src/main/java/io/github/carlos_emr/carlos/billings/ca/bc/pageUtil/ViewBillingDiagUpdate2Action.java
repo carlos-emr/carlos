@@ -28,7 +28,7 @@ import org.apache.struts2.ServletActionContext;
  * POST-only before forwarding to the JSP. GET requests return 405.
  * <p>
  * Class name retains the {@code View...} prefix for consistency with
- * sibling gate actions in this migration; behavior is mutation-gate.
+ * sibling gate actions in the BC billing module; behavior is mutation-gate.
  *
  * @since 2026-04-13
  */

@@ -101,25 +101,25 @@ public class BillingOnEditPrivateCodeViewModelAssembler {
         List sL = codeLoader.getPrivateBillingCodeDesc();
         for (int i = 0; i + 1 < sL.size(); i = i + 2) {
             String strCode;
-            try {
-                String raw = (String) sL.get(i);
-                strCode = raw == null ? "" : raw.substring(1);
-            } catch (NullPointerException e) {
+            String raw = (String) sL.get(i);
+            if (raw == null) {
                 strCode = "";
                 MiscUtils.getLogger().warn("NULL value set for a private billing code");
-            } catch (StringIndexOutOfBoundsException e) {
+            } else if (raw.isEmpty()) {
                 strCode = "";
+                MiscUtils.getLogger().warn(
+                        "Empty raw value at index {} in private-billing-code list", i);
+            } else {
+                strCode = raw.substring(1);
             }
-            String strDesc;
-            try {
-                strDesc = (String) sL.get(i + 1);
-                if (strDesc == null) strDesc = "";
-                strDesc = strDesc.length() > 30 ? strDesc.substring(0, 30) : strDesc;
-            } catch (NullPointerException e) {
+            String strDesc = (String) sL.get(i + 1);
+            if (strDesc == null) {
                 strDesc = "";
                 MiscUtils.getLogger().warn(
                         "NULL value set for a private billing code description (code is {})",
                         strCode);
+            } else if (strDesc.length() > 30) {
+                strDesc = strDesc.substring(0, 30);
             }
             options.add(new BillingOnEditPrivateCodeViewModel.PrivateCodeOption(
                     strCode, strCode + "| " + strDesc));

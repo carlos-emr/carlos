@@ -92,9 +92,8 @@ class OhipClaimExtractServiceUnitTest {
      * Pins the {@code BillingFileWriteException} contract on the write-path:
      * {@code writeFile} and {@code writeHtml} both go through
      * {@code PathValidationUtils.validatePath}, then write via
-     * {@code FileOutputStream}. Both reach a swallow-and-log site historically,
-     * which the recent fix wave turned into {@code BillingFileWriteException}
-     * throws. Without these tests, a future refactor reverting either path to
+     * {@code FileOutputStream}. Both used to reach a swallow-and-log site; they now throw
+     * {@code BillingFileWriteException} on every IO failure. Without these tests, a future refactor reverting either path to
      * a {@code catch (Exception) { logger.error(...); }} would pass CI.
      */
     @Nested
@@ -182,6 +181,45 @@ class OhipClaimExtractServiceUnitTest {
             assertThatThrownBy(() -> extract.writeHtml("<html/>"))
                     .isInstanceOf(BillingFileWriteException.class)
                     .hasMessageContaining("HTML companion file");
+        }
+
+        @Test
+        void shouldPropagateBillingFileWriteException_whenWriterCloseFails() {
+            // Pin the close-time IOException contract: the round 7 swap from
+            // PrintStream → BufferedWriter is meaningful only because close()
+            // can throw on flush. Mock FileOutputStream construction so close()
+            // throws a fresh IOException (try-with-resources rejects same-
+            // instance suppression).
+            extract.setOhipFilename("claim.close.txt");
+
+            try (org.mockito.MockedConstruction<java.io.FileOutputStream> ignored =
+                         org.mockito.Mockito.mockConstruction(java.io.FileOutputStream.class,
+                                 (mockFos, ctx) -> org.mockito.Mockito.doAnswer(inv -> {
+                                     throw new java.io.IOException("simulated close-time flush failure");
+                                 }).when(mockFos).close())) {
+
+                assertThatThrownBy(() -> extract.writeFile("HE B0001234V03 ..."))
+                        .isInstanceOf(BillingFileWriteException.class)
+                        .hasCauseInstanceOf(java.io.IOException.class)
+                        .hasRootCauseMessage("simulated close-time flush failure");
+            }
+        }
+
+        @Test
+        void shouldPropagateBillingFileWriteException_whenHtmlWriterCloseFails() {
+            extract.setHtmlFilename("report.close.html");
+
+            try (org.mockito.MockedConstruction<java.io.FileOutputStream> ignored =
+                         org.mockito.Mockito.mockConstruction(java.io.FileOutputStream.class,
+                                 (mockFos, ctx) -> org.mockito.Mockito.doAnswer(inv -> {
+                                     throw new java.io.IOException("simulated close-time flush failure");
+                                 }).when(mockFos).close())) {
+
+                assertThatThrownBy(() -> extract.writeHtml("<html/>"))
+                        .isInstanceOf(BillingFileWriteException.class)
+                        .hasCauseInstanceOf(java.io.IOException.class)
+                        .hasRootCauseMessage("simulated close-time flush failure");
+            }
         }
     }
 }

@@ -49,12 +49,27 @@
               users saw the generic 500 page. Route it here.
             -->
             <result name="billingFileWriteError">/WEB-INF/jsp/billing/CA/ON/billingFileWriteError.jsp</result>
+            <!--
+              Operator-facing landing page for billing-side read-path
+              failures (DAO outage, malformed date input, MRI list load
+              failure). Without this mapping, BillingDataLoadException
+              fell through to the generic CARLOS Error 500 page and the
+              operator could not distinguish a transient DB outage from
+              a "no records exist" empty grid — the canonical "clean
+              books" misread that the typed-exception conversion was
+              supposed to close. The JSP is shared with the file-write
+              banner because the operator-facing message is the same:
+              "operation failed; do not trust the displayed list".
+            -->
+            <result name="billingDataLoadError">/WEB-INF/jsp/billing/CA/ON/billingFileWriteError.jsp</result>
         </global-results>
         <global-exception-mappings>
             <exception-mapping result="billingValidationError"
                 exception="io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException"/>
             <exception-mapping result="billingFileWriteError"
                 exception="io.github.carlos_emr.carlos.billings.ca.on.service.BillingFileWriteException"/>
+            <exception-mapping result="billingDataLoadError"
+                exception="io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadException"/>
         </global-exception-mappings>
 
         <action name="quickBillingBC" class="io.github.carlos_emr.carlos.billings.ca.bc.quickbilling.QuickBillingBC2Action">

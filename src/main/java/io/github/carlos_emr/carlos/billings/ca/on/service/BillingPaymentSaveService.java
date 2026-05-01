@@ -33,24 +33,19 @@ import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingOnItemPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingOnTransaction;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * Atomic save of a third-party payment row + cascading header / ext / per-item
  * writes. Mirrors {@link BillingPaymentDeletionService} for the inverse path.
  *
- * <p>Pre-fix the writes lived inline in
- * {@code BillingOnPayments2Action.savePayment} — ~10 DAO writes (header
- * {@code paid} merge, 5 ext-key upserts, payment row, per-item ItemPayment +
- * Transaction rows) without a tx boundary. A mid-loop {@link
- * java.text.ParseException} on the per-row date or any DAO failure left the
- * header total already merged, the ext keys partially written, and the
- * per-item rows in inconsistent state. The action returned 500 but the DB
- * was the operator's problem.</p>
- *
- * <p>Lifting them into one {@code @Transactional} method gives us rollback
- * semantics: any throw aborts the entire save, leaving the DB exactly as it
- * was before the call. The action is now a thin gate: parse + validate
- * upfront, build a {@link Command}, hand it off, render the JSON response.</p>
+ * <p>The full ~10-write sequence (header {@code paid} merge, 5 ext-key
+ * upserts, payment row, per-item ItemPayment + Transaction rows) runs under
+ * one {@code @Transactional} boundary, so any throw aborts the entire save
+ * and leaves the DB exactly as it was before the call. The action is a thin
+ * gate: parse + validate upfront, build a {@link Command}, hand it off,
+ * render the JSON response.</p>
  *
  * @since 2026-04-30
  */
@@ -197,7 +192,14 @@ public class BillingPaymentSaveService {
                     bTransactionDao.persist(t);
                 }
                 default -> {
-                    // unknown selection — skip rather than fail the whole batch
+                    // Unknown selection — skip rather than fail the whole
+                    // batch, but log so a typo in the form (or a future
+                    // selection value the switch hasn't caught up with)
+                    // doesn't silently drop a payment row out of balance.
+                    MiscUtils.getLogger().warn(
+                            "Skipping payment-save row for itemId={} with unknown selection [{}]",
+                            line.itemId,
+                            LogSanitizer.sanitize(line.selection));
                 }
             }
         }

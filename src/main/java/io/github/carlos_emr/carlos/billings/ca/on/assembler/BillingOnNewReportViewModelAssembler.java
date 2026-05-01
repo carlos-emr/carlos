@@ -38,6 +38,8 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnNewReportViewModel;
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import io.github.carlos_emr.carlos.commn.dao.ReportProviderDao;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Site;
@@ -181,6 +183,12 @@ public class BillingOnNewReportViewModelAssembler {
                     runUnpaid(providerView, xmlVdate, xmlAppointmentDate, contextPath, out);
                     break;
                 default:
+                    // Unrecognized report action — render empty rows but log
+                    // so a typo or future report-type the switch hasn't
+                    // caught up with is distinguishable from "no matches".
+                    MiscUtils.getLogger().warn(
+                            "BillingOnNewReportViewModelAssembler: unknown action [{}]; rendering empty result",
+                            LogSanitizer.sanitize(action));
                     break;
             }
         } catch (Exception e) {

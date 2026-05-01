@@ -76,11 +76,21 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
  * of a single business op is a {@code *Service}). A future split into
  * read-only assembler + write-only persister is tracked separately.</p>
  *
+ * <p>All write paths run under a single {@code @Transactional} boundary
+ * declared on the class — persistence + validation rollback together if
+ * any step throws after the {@code Confirm} branch is entered.</p>
+ *
  * @since 2026-04-26
  */
 @org.springframework.stereotype.Service
 @org.springframework.transaction.annotation.Transactional
 public class BillingShortcutPg2Service {
+    // The whole class runs read-write because the persist branch needs it.
+    // The read-only no-save / calculate-only exits in {@link #assemble} get
+    // the tx wrapper too, which is harmless but misses Hibernate's
+    // read-only optimisations. A future refactor should extract
+    // {@code persistBills(...)} into a sibling {@code *Persister} bean and
+    // mark this class {@code @Transactional(readOnly = true)}.
 
     private final BillingDao billingDao;
     private final BillingDetailDao billingDetailDao;
@@ -546,16 +556,21 @@ public class BillingShortcutPg2Service {
 
         int nBillNo = b.getId();
 
-        // Append percentage rows into the per-line vectors (legacy did this
-        // once, in the inner loop — preserved as-is to stay byte-identical
-        // with what the legacy JSP would have written).
+        // Append the percentage row into the per-line vectors (legacy did this
+        // once per date, accumulating one extra row per call — bill #2 saw
+        // one duplicated percentage, bill #3 two, …). Track whether we
+        // appended so the symmetric pop after the loop keeps the vectors
+        // stable for the next date in the outer persistBills() loop.
+        boolean appendedPercentageRow = false;
         if (calc.vecServiceCodePerc.size() > 1) {
             calc.vecServiceCodePrice.add("" + calc.bdPercs[0]);
             calc.vecServiceCodeUnit.add(calc.vecServiceCodePerc.get(2));
             calc.vecServiceCode.add(calc.vecServiceCodePerc.get(0));
             calc.vecServiceCodeDesc.add(calc.vecServiceCodePerc.get(3));
+            appendedPercentageRow = true;
         }
 
+        try {
         for (int i = 0; i < calc.vecServiceCode.size(); i++) {
             BigDecimal bdEachPrice = BillingMoney.amount(calc.vecServiceCodePrice.get(i));
             BigDecimal bdEachUnit = BillingMoney.amount(calc.vecServiceCodeUnit.get(i));
@@ -573,15 +588,25 @@ public class BillingShortcutPg2Service {
             billingDetailDao.persist(bd);
 
             if (bd.getId() == 0) {
-                // Pre-fix this branch set the parent's status to "D" and
-                // break, leaving any earlier-persisted detail rows pointing
-                // at a now-deleted bill — partial write that the action
-                // never saw. With the class @Transactional, throwing here
-                // rolls back BOTH the parent Billing AND every successfully-
-                // persisted detail in this loop.
+                // Throw under the class @Transactional so rollback covers
+                // BOTH the parent Billing AND every successfully-persisted
+                // detail in this loop. Marking the parent "D" + break would
+                // leave earlier detail rows pointing at a now-deleted bill.
                 throw new BillingValidationException(
                         "Bill save rolled back: detail persist failed at row " + i
                                 + " for bill " + nBillNo);
+            }
+        }
+        } finally {
+            // Pop the percentage row we appended so the next date in the
+            // outer persistBills() loop sees the original vector size and
+            // doesn't double-bill the percentage.
+            if (appendedPercentageRow) {
+                int last = calc.vecServiceCode.size() - 1;
+                calc.vecServiceCode.remove(last);
+                calc.vecServiceCodePrice.remove(last);
+                calc.vecServiceCodeUnit.remove(last);
+                calc.vecServiceCodeDesc.remove(last);
             }
         }
     }
@@ -660,6 +685,15 @@ public class BillingShortcutPg2Service {
     private static String trim(String s) { return s == null ? "" : s.trim(); }
     private static String nullToEmpty(String s) { return s == null ? "" : s; }
 
+    /**
+     * Mutable scratch context populated by the demographic-resolution
+     * stage and read by every subsequent stage of {@link #assemble}. Kept
+     * as a class with package-private fields rather than a record because
+     * the staged pipeline mutates fields incrementally — the alternative
+     * (a builder per stage) would require seven copies of nearly the same
+     * shape. The class is private static so the mutable contract can't
+     * leak past this file.
+     */
     private static class DemoContext {
         @SuppressWarnings("unused")
         Demographic demo;
@@ -679,25 +713,23 @@ public class BillingShortcutPg2Service {
         boolean errorFlagged;
     }
 
+    /**
+     * Mutable scratch result for the per-bill calculation stage. The list
+     * fields are written by the calc stage and read by every subsequent
+     * stage; they are reassigned (not appended to) when the calc stage
+     * builds and hands off its locally-owned lists, so they can't be
+     * final. Same encapsulation rationale as {@link DemoContext}.
+     */
     private static class CalcResult {
         String html;
         String total;
-        ArrayList<String> vecServiceCode;
-        ArrayList<String> vecServiceCodeDesc;
-        ArrayList<String> vecServiceCodePrice;
-        ArrayList<String> vecServiceCodeUnit;
-        ArrayList<String> vecServiceCodePerc;
-        BigDecimal[] bdPercs;
+        ArrayList<String> vecServiceCode = new ArrayList<>();
+        ArrayList<String> vecServiceCodeDesc = new ArrayList<>();
+        ArrayList<String> vecServiceCodePrice = new ArrayList<>();
+        ArrayList<String> vecServiceCodeUnit = new ArrayList<>();
+        ArrayList<String> vecServiceCodePerc = new ArrayList<>();
+        BigDecimal[] bdPercs = new BigDecimal[0];
         int size;
-
-        CalcResult() {
-            this.vecServiceCode = new ArrayList<>();
-            this.vecServiceCodeDesc = new ArrayList<>();
-            this.vecServiceCodePrice = new ArrayList<>();
-            this.vecServiceCodeUnit = new ArrayList<>();
-            this.vecServiceCodePerc = new ArrayList<>();
-            this.bdPercs = new BigDecimal[0];
-        }
     }
 
 }

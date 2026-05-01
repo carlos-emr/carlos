@@ -32,8 +32,7 @@ import io.github.carlos_emr.carlos.commn.model.CtlDiagCode;
  * Atomic boundary for the seven {@code Manage Billing Form / Location}
  * configuration mutations. Each method bundles the multi-row write under a
  * single {@code @Transactional} boundary so a mid-loop failure rolls every
- * write back. Pre-fix the actions ran these loops inline with no tx
- * boundary; the catch blocks themselves logged "data may be inconsistent."
+ * write back rather than leaving the table inconsistent.
  *
  * <p>The actions still parse the request and build entity objects; this
  * service receives pre-built lists and delegates to the DAOs. Keeps web-

@@ -62,8 +62,24 @@ public interface BillingONExtDao extends AbstractDao<BillingONExt> {
 
     public String getPayMethodDesc(BillingONExt bExt);
 
+    /**
+     * @param paymentRecord the payment record whose associated ext "payment"
+     *                      row carries the persisted currency value
+     * @return the parsed payment amount, or {@code 0.00} when no ext row exists
+     * @throws io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException
+     *         when the persisted value is not a valid {@link BigDecimal} —
+     *         the caller's transaction must roll back rather than render an
+     *         understated total. See logs for the offending paymentId/billingNo.
+     */
     public BigDecimal getPayment(BillingONPayment paymentRecord);
 
+    /**
+     * @param paymentRecord the payment record whose associated ext "refund"
+     *                      row carries the persisted currency value
+     * @return the parsed refund amount, or {@code 0.00} when no ext row exists
+     * @throws io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException
+     *         when the persisted value is not a valid {@link BigDecimal}.
+     */
     public BigDecimal getRefund(BillingONPayment paymentRecord);
 
     public BillingONExt getRemitTo(BillingONCHeader1 bCh1);

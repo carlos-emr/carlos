@@ -145,4 +145,25 @@ class BillingShortcutPg2Save2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
     }
+
+    @Test
+    void shouldPropagateBVE_whenServiceThrowsValidationException() {
+        // BillingValidationException MUST propagate uncaught so the
+        // package-level <global-exception-mapping> in struts-billing.xml
+        // routes to billingValidationError.jsp. A local catch returning
+        // ERROR would hit a non-existent result mapping (Struts has no
+        // `error` result on this action) and produce a 500 page.
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        org.mockito.Mockito.when(mockService.assemble(any(HttpServletRequest.class), any(LoggedInInfo.class)))
+                .thenThrow(new io.github.carlos_emr.carlos.billings.ca.on.validator
+                        .BillingValidationException("missing demographic_no"));
+
+        BillingShortcutPg2Save2Action action = newAction();
+
+        assertThatThrownBy(action::execute)
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator
+                        .BillingValidationException.class)
+                .hasMessageContaining("missing demographic_no");
+    }
 }

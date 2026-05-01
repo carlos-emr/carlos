@@ -43,6 +43,9 @@
 <c:choose>
     <c:when test="${billingFailed}">
         <h1>Sorry, billing has failed. Please do it again!</h1>
+        <c:if test="${not empty billingFailureReason}">
+            <p><strong>Reason:</strong> <carlos:encode value="${billingFailureReason}"/></p>
+        </c:if>
     </c:when>
     <c:when test="${addAnotherBill}">
         <script type="text/javascript">

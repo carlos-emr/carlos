@@ -79,7 +79,7 @@ public class AddEditServiceCode2Action extends ActionSupport {
         if (mutationAction != null && !mutationAction.isBlank()
                 && !"POST".equalsIgnoreCase(request.getMethod())) {
             // RFC 7231 §6.5.5 — 405 responses MUST include Allow. Matches the
-            // sibling 2Actions' 405 paths in this PR.
+            // sibling 2Actions' 405 paths in this module.
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;

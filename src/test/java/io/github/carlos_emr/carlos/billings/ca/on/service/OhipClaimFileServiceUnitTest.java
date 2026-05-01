@@ -44,7 +44,7 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
  * Pins the {@code BillingFileWriteException} contract on the
  * {@link OhipClaimFileService} write-path: {@code writeFile} and
  * {@code writeHtml} must surface I/O failures rather than swallow them. The
- * 590-line service had no test partner before this PR, so any regression
+ * 590-line service had no test partner before this refactor, so any regression
  * that demoted these throws to a swallow would otherwise pass CI silently.
  *
  * <p>Note that {@code OhipClaimFileService.writeFile} concatenates the
@@ -62,13 +62,14 @@ class OhipClaimFileServiceUnitTest {
     Path tempDir;
 
     private OhipClaimFileService service;
+    private BillingONHeaderDao headerDao;
     private Object homeDirBefore;
 
     @BeforeEach
     void setUp() {
         DemographicManager demographicManager = mock(DemographicManager.class);
         BillingONCHeader1Dao cheaderDao = mock(BillingONCHeader1Dao.class);
-        BillingONHeaderDao headerDao = mock(BillingONHeaderDao.class);
+        headerDao = mock(BillingONHeaderDao.class);
         BillingONFilenameDao filenameDao = mock(BillingONFilenameDao.class);
         SiteDao siteDao = mock(SiteDao.class);
         BillingONItemDao itemDao = mock(BillingONItemDao.class);
@@ -158,5 +159,80 @@ class OhipClaimFileServiceUnitTest {
                 .isInstanceOf(BillingFileWriteException.class)
                 .hasMessageContaining("HTML companion file")
                 .hasMessageContaining("report.html");
+    }
+
+    @Test
+    void shouldPropagateBillingFileWriteException_whenWriterCloseFails() throws Exception {
+        // Pin the close-time IOException contract: round 6/7 swapped
+        // PrintStream → BufferedWriter precisely so a failure during the
+        // final flush at close() surfaces. Without this test, a regression
+        // that re-introduced PrintStream (which swallows close-time
+        // IOException silently) would still pass the open-time tests.
+        //
+        // Force a close-time IOException by writing to a path on a
+        // filesystem we then make read-only after the FileOutputStream
+        // is opened — buffered data sits in memory until close() flushes.
+        // On Linux, removing write permission on the parent directory
+        // does NOT affect already-open FDs, so we instead pre-fill the
+        // disk... too brittle. Instead, mock the construction of
+        // FileOutputStream so its close() throws.
+        service.setOhipFilename("claim.close.txt");
+
+        try (org.mockito.MockedConstruction<java.io.FileOutputStream> ignored =
+                     org.mockito.Mockito.mockConstruction(java.io.FileOutputStream.class,
+                             (mockFos, ctx) -> {
+                                 // Allow writes; throw FRESH IOException on each close
+                                 // (try-with-resources suppression rejects same-instance throws).
+                                 org.mockito.Mockito.doAnswer(inv -> {
+                                     throw new java.io.IOException("simulated close-time flush failure");
+                                 }).when(mockFos).close();
+                             })) {
+
+            assertThatThrownBy(() -> service.writeFile("HE B0001234V03 ..."))
+                    .isInstanceOf(BillingFileWriteException.class)
+                    .hasCauseInstanceOf(java.io.IOException.class)
+                    .hasRootCauseMessage("simulated close-time flush failure");
+        }
+    }
+
+    @Test
+    void shouldPropagateBillingFileWriteException_whenHtmlWriterCloseFails() throws Exception {
+        // Same close-time IOException contract for the HTML companion file.
+        service.setHtmlFilename("report.close.html");
+
+        try (org.mockito.MockedConstruction<java.io.FileOutputStream> ignored =
+                     org.mockito.Mockito.mockConstruction(java.io.FileOutputStream.class,
+                             (mockFos, ctx) -> {
+                                 org.mockito.Mockito.doAnswer(inv -> {
+                                     throw new java.io.IOException("simulated close-time flush failure");
+                                 }).when(mockFos).close();
+                             })) {
+
+            assertThatThrownBy(() -> service.writeHtml("<html/>"))
+                    .isInstanceOf(BillingFileWriteException.class)
+                    .hasCauseInstanceOf(java.io.IOException.class)
+                    .hasRootCauseMessage("simulated close-time flush failure");
+        }
+    }
+
+    @Test
+    void shouldThrowBillingDataLoadException_whenBatchHeaderRowMissing() {
+        // Pin the typed throw on getBatchHeaderObj so a future regression
+        // that demotes it to NPE (or to BillingFileWriteException) is caught.
+        // BillingDataLoadException routes to billingDataLoadError.jsp via the
+        // global Struts mapping; BillingFileWriteException would misdirect
+        // the operator to "check disk space" when the actual problem is a
+        // missing DB row.
+        when(headerDao.find(org.mockito.ArgumentMatchers.anyInt())).thenReturn(null);
+
+        assertThatThrownBy(() -> service.getBatchHeaderObj("12345"))
+                .isInstanceOf(BillingDataLoadException.class)
+                .hasMessageContaining("batch_header bid=12345 not found")
+                .satisfies(t -> {
+                    BillingDataLoadException d = (BillingDataLoadException) t;
+                    assertThat(d.phase())
+                            .isEqualTo(BillingDataLoadException.Phase.BATCH_HEADER_LOOKUP);
+                    assertThat(d.context()).containsEntry("bid", "12345");
+                });
     }
 }

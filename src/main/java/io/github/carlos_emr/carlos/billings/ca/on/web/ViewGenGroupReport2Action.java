@@ -90,7 +90,11 @@ public class ViewGenGroupReport2Action extends ActionSupport {
             return NONE;
         }
 
-        ohipReportGenerationService.generateReport(request, OhipReportGenerationService.Mode.GROUP_REPORT);
+        java.util.List<OhipReportGenerationService.FailedProvider> skipped =
+                ohipReportGenerationService.generateReport(request, OhipReportGenerationService.Mode.GROUP_REPORT);
+        // Surface per-provider rollbacks to the success page so the
+        // operator can re-run for the named providers.
+        request.setAttribute("skippedProviders", skipped);
 
         return SUCCESS;
     }

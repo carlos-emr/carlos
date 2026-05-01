@@ -24,7 +24,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.PrintStream;
+import java.io.IOException;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.utility.DateRange;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -53,6 +54,8 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  * request or rendering behavior back into JSP scriptlets.</p>
  */
 
+@org.springframework.stereotype.Service
+@org.springframework.context.annotation.Scope("prototype")
 public class OhipClaimExtractService implements Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -216,10 +219,13 @@ public class OhipClaimExtractService implements Serializable {
     }
 
     private String buildHTMLContentHeader() {
+        // Patient/provider data flows into HTML body content; encode each
+        // interpolation with SafeEncode.forHtmlContent so a malformed name
+        // or HIN cannot inject markup or script into genSimulation.jsp.
         String ret = null;
         ret = "\n<table width='100%' border='0' cellspacing='0' cellpadding='0'>\n"
-                + "<tr><td colspan='4' class='bodytext'>OHIP Invoice for OHIP No." + providerNo
-                + "</td><td colspan='4' class='bodytext'>Payment date of " + output + "\n</td></tr>";
+                + "<tr><td colspan='4' class='bodytext'>OHIP Invoice for OHIP No." + SafeEncode.forHtmlContent(providerNo)
+                + "</td><td colspan='4' class='bodytext'>Payment date of " + SafeEncode.forHtmlContent(output) + "\n</td></tr>";
         ret += "\n<tr><td class='bodytext'>ACCT NO</td>"
                 + "<td class='bodytext'>NAME</td><td class='bodytext'>HEALTH #</td>"
                 + "<td class='bodytext'>BILLDATE</td><td class='bodytext'>CODE</td>"
@@ -231,16 +237,23 @@ public class OhipClaimExtractService implements Serializable {
     private String buildHTMLContentRecord(int invCount) {
         String ret = null;
         if (invCount == 0) {
-            ret = "\n<tr><td class='bodytext'>" + invNo + "</td><td class='bodytext'>" + demoName
-                    + "</td><td class='bodytext'>" + hcHin + "</td><td class='bodytext'>" + apptDate
-                    + "</td><td class='bodytext'>" + serviceCode + "</td><td align='right' class='bodytext'>" + fee
-                    + "</td><td align='right' class='bodytext'>" + diagcode
-                    + "</td><td class='bodytext'> &nbsp; &nbsp;" + referral + hcFlag + m_Flag + " </td></tr>";
+            ret = "\n<tr><td class='bodytext'>" + SafeEncode.forHtmlContent(invNo)
+                    + "</td><td class='bodytext'>" + SafeEncode.forHtmlContent(demoName)
+                    + "</td><td class='bodytext'>" + SafeEncode.forHtmlContent(hcHin)
+                    + "</td><td class='bodytext'>" + SafeEncode.forHtmlContent(apptDate)
+                    + "</td><td class='bodytext'>" + SafeEncode.forHtmlContent(serviceCode)
+                    + "</td><td align='right' class='bodytext'>" + SafeEncode.forHtmlContent(fee)
+                    + "</td><td align='right' class='bodytext'>" + SafeEncode.forHtmlContent(diagcode)
+                    + "</td><td class='bodytext'> &nbsp; &nbsp;"
+                    + SafeEncode.forHtmlContent(referral)
+                    + SafeEncode.forHtmlContent(hcFlag)
+                    + SafeEncode.forHtmlContent(m_Flag) + " </td></tr>";
         } else {
             ret = "\n<tr><td class='bodytext'>&nbsp;</td> <td class='bodytext'>&nbsp;</td>"
                     + "<td class='bodytext'>&nbsp;</td> <td class='bodytext'>&nbsp;</td>" + "<td class='bodytext'>"
-                    + serviceCode + "</td><td align='right' class='bodytext'>" + fee
-                    + "</td><td align='right' class='bodytext'>" + diagcode
+                    + SafeEncode.forHtmlContent(serviceCode)
+                    + "</td><td align='right' class='bodytext'>" + SafeEncode.forHtmlContent(fee)
+                    + "</td><td align='right' class='bodytext'>" + SafeEncode.forHtmlContent(diagcode)
                     + "</td><td class='bodytext'>&nbsp;</td></tr>";
         }
         return ret;
@@ -248,7 +261,7 @@ public class OhipClaimExtractService implements Serializable {
 
     private String buildHTMLContentTrailer() {
         htmlContent += "\n<tr><td colspan='8' class='bodytext'>&nbsp;</td></tr><tr><td colspan='4' class='bodytext'>OHIP No: "
-                + providerNo
+                + SafeEncode.forHtmlContent(providerNo)
                 + ": "
                 + pCount
                 + " RECORDS PROCESSED</td><td colspan='4' class='bodytext'>TOTAL: "
@@ -416,13 +429,19 @@ public class OhipClaimExtractService implements Serializable {
             //}
             //dbExt.closeConnection();
         } catch (Exception e) {
-            // The body wraps a setAsBilled DAO write inside the per-claim
-            // loop. Swallowing here masked partial-billed state from the
-            // operator while reporting "success". Propagate so the caller
-            // / 2Action exception-mapping surfaces the failure.
+            // dbQuery does DB reads + setAsBilled DAO writes — no file I/O
+            // happens here. Throw the typed BillingDataLoadException so the
+            // operator-facing banner reads "data load failed" instead of
+            // misdirecting to "disk full / file write" via the file-write
+            // type. The per-provider tx in OhipReportGenerationService
+            // catches RuntimeException and rolls back this provider only.
             logger.error("OHIP claim extraction failed", e);
-            throw new BillingFileWriteException(
-                    "OHIP claim extraction failed", e);
+            throw new BillingDataLoadException(
+                    "OHIP claim extraction failed", e,
+                    BillingDataLoadException.Phase.CLAIM_EXTRACT,
+                    java.util.Map.of(
+                            "providerNo", providerNo == null ? "" : providerNo,
+                            "groupNo", groupNo == null ? "" : groupNo));
         }
     }
 
@@ -531,20 +550,25 @@ public class OhipClaimExtractService implements Serializable {
 
     // write OHIP file to it
     public void writeFile(String value1) {
+        String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
+        File safeFile;
         try {
-            String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
-            File safeFile = PathValidationUtils.validatePath(ohipFilename, new File(home_dir));
-            FileOutputStream out = new FileOutputStream(safeFile);
-            PrintStream p = new PrintStream(out);
-            p.println(value1);
-
-            p.close();
-            out.close();
+            safeFile = PathValidationUtils.validatePath(ohipFilename, new File(home_dir));
         } catch (SecurityException e) {
             logger.error("Path traversal attempt detected for OHIP file: {}", ohipFilename, e);
             throw new BillingFileWriteException(
                     "Refused to write OHIP claim file due to path-traversal: " + ohipFilename, e);
-        } catch (Exception e) {
+        }
+        // BufferedWriter (not PrintStream) — PrintStream's close() calls
+        // flush() and swallows the resulting IOException, missing the
+        // canonical disk-full-on-close failure mode. BufferedWriter close()
+        // throws IOException so try-with-resources surfaces it.
+        try (FileOutputStream out = new FileOutputStream(safeFile);
+             java.io.OutputStreamWriter osw = new java.io.OutputStreamWriter(out, java.nio.charset.StandardCharsets.US_ASCII);
+             java.io.BufferedWriter bw = new java.io.BufferedWriter(osw)) {
+            bw.write(value1);
+            bw.newLine();
+        } catch (IOException e) {
             logger.error("Write OHIP File Error: filename={}", ohipFilename, e);
             throw new BillingFileWriteException(
                     "Failed to write OHIP claim file: " + ohipFilename, e);
@@ -554,20 +578,21 @@ public class OhipClaimExtractService implements Serializable {
     // get path from the property file, e.g.
     // OscarDocument/.../billing/download/, and then write to it
     public void writeHtml(String htmlvalue1) {
+        String home_dir1 = CarlosProperties.getInstance().getProperty("HOME_DIR");
+        File safeFile;
         try {
-            String home_dir1 = CarlosProperties.getInstance().getProperty("HOME_DIR");
-            File safeFile = PathValidationUtils.validatePath(htmlFilename, new File(home_dir1));
-            FileOutputStream out1 = new FileOutputStream(safeFile);
-            PrintStream p1 = new PrintStream(out1);
-            p1.println(htmlvalue1);
-
-            p1.close();
-            out1.close();
+            safeFile = PathValidationUtils.validatePath(htmlFilename, new File(home_dir1));
         } catch (SecurityException e) {
             logger.error("Path traversal attempt detected for HTML file: {}", htmlFilename, e);
             throw new BillingFileWriteException(
                     "Refused to write OHIP HTML companion file due to path-traversal: " + htmlFilename, e);
-        } catch (Exception e) {
+        }
+        try (FileOutputStream out1 = new FileOutputStream(safeFile);
+             java.io.OutputStreamWriter osw = new java.io.OutputStreamWriter(out1, java.nio.charset.StandardCharsets.UTF_8);
+             java.io.BufferedWriter bw = new java.io.BufferedWriter(osw)) {
+            bw.write(htmlvalue1);
+            bw.newLine();
+        } catch (IOException e) {
             logger.error("Write HTML File Error: filename={}", htmlFilename, e);
             throw new BillingFileWriteException(
                     "Failed to write OHIP HTML companion file: " + htmlFilename, e);

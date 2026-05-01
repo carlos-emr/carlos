@@ -97,6 +97,7 @@ public class BillingOnHistorySpecialistViewModelAssembler {
 
         List<BillingOnHistorySpecialistViewModel.HistoryRow> rows = new ArrayList<>();
         int nItems = 0;
+        boolean partial = false;
         try {
             @SuppressWarnings("rawtypes")
             List aL = dbObj.getBillingHist(safeDemoNo, 10000000, 0, pDateRange);
@@ -119,9 +120,16 @@ public class BillingOnHistorySpecialistViewModelAssembler {
                         nullToEmpty(obj.getTotal())));
                 nItems++;
             }
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
+            // Mid-iteration failure leaves rows incomplete; raise the partial
+            // flag so the JSP can render a "data may be incomplete" banner
+            // instead of presenting a normal-looking row count that operators
+            // would interpret as the full history. Narrowed to RuntimeException
+            // because nothing in the loop body throws checked exceptions.
+            partial = true;
             MiscUtils.getLogger().error(
-                    "Error loading billing history (spec) for demographic_no=" + safeDemoNo, e);
+                    "Error loading billing history (spec) for demographic_no={}",
+                    io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(safeDemoNo), e);
         }
 
         return BillingOnHistorySpecialistViewModel.builder()
@@ -133,6 +141,7 @@ public class BillingOnHistorySpecialistViewModelAssembler {
                 .startDayStr(strStartDay)
                 .rows(rows)
                 .itemCount(nItems)
+                .partial(partial)
                 .build();
     }
 

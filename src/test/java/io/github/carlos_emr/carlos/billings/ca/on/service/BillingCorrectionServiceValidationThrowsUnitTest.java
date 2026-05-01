@@ -77,7 +77,7 @@ import static org.mockito.Mockito.when;
  *   <li>{@code updateInvoice} throws when {@code updateBillingONCHeader1}
  *       returns false — currently unreachable (the helper only returns
  *       true), the throw is forward-looking guard code preserved by the
- *       round-5 fix in case future changes introduce a false return.</li>
+ *       validation-throws fix in case future changes introduce a false return.</li>
  * </ul>
  *
  * @since 2026-04-25

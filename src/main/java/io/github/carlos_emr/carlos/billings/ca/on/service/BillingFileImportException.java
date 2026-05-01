@@ -17,8 +17,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
  * Wraps the underlying {@link java.io.IOException} or
  * {@link StringIndexOutOfBoundsException} so the surrounding
  * {@code @Transactional} boundary rolls back any rows persisted earlier in
- * the file. Pre-fix the import would set a {@code verdict=false} flag and
- * keep going, leaving partial commits behind.
+ * the file rather than leaving partial commits behind.
  *
  * @since 2026-04-30
  */

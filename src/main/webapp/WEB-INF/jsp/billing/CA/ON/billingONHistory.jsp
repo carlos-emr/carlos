@@ -97,6 +97,14 @@
 </head>
 <body>
 
+<c:if test="${historyModel.partial}">
+    <div style="background:#fff3cd;color:#7a5b00;border:1px solid #d4a700;padding:8px;margin:4px 0;">
+        <strong>Billing history may be incomplete.</strong>
+        A loader error truncated this list — please refresh or contact admin before
+        re-billing this patient.
+    </div>
+</c:if>
+
 <nav class="navbar navbar-dark bg-dark">
     <div class="container-fluid">
         <span class="navbar-brand"><fmt:message key="billing.billingONHistory.title"/></span>

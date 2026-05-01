@@ -43,12 +43,18 @@ public final class BillingItemsNotLoadedException extends IllegalStateException 
      * @param message human-readable explanation; goes to operator logs
      * @param headerId the failing header's id, used by callers to recover
      *                 via {@code BillingONCHeader1Dao.findWithItems(headerId())}.
-     *                 Pass {@code -1} only if the throw site truly cannot
-     *                 supply the id (rare — both internal throw sites have
-     *                 the id in scope).
+     *                 Must be non-null AND positive — a LAZY proxy implies a
+     *                 managed-or-detached entity, both of which have a real id.
+     * @throws IllegalArgumentException if {@code headerId} is null or non-positive
      */
-    public BillingItemsNotLoadedException(String message, int headerId) {
+    public BillingItemsNotLoadedException(String message, Integer headerId) {
         super(message);
+        // Guard runs before auto-unbox: an Integer parameter avoids the
+        // implicit NPE that an `int` parameter would emit on null inputs.
+        if (headerId == null || headerId <= 0) {
+            throw new IllegalArgumentException(
+                    "BillingItemsNotLoadedException requires a positive header id; got " + headerId);
+        }
         this.headerId = headerId;
     }
 

@@ -70,7 +70,7 @@ class BillingClaimsErrorReportImportServiceUnitTest {
 
         BillingClaimsErrorReportParser parser = svc.importStream(input, "test.err");
 
-        assertThat(parser.verdict).isTrue();
+        assertThat(parser.isVerdict()).isTrue();
         // Per H line, the parser deletes any prior error report row.
         verify(erRepObj, atLeastOnce()).deleteErrorReport(org.mockito.ArgumentMatchers.any(BillingErrorReportDto.class));
         // Per T line, the parser persists the new error report row.
@@ -107,7 +107,7 @@ class BillingClaimsErrorReportImportServiceUnitTest {
 
         BillingClaimsErrorReportParser parser = svc.importStream(input, "mixed.err");
 
-        assertThat(parser.verdict).isTrue();
+        assertThat(parser.isVerdict()).isTrue();
         verify(erRepObj, atLeastOnce()).addErrorReportRecord(org.mockito.ArgumentMatchers.any(BillingErrorReportDto.class));
     }
 
@@ -117,7 +117,7 @@ class BillingClaimsErrorReportImportServiceUnitTest {
 
         BillingClaimsErrorReportParser parser = svc.importStream(input, "empty.err");
 
-        assertThat(parser.verdict).isTrue();
+        assertThat(parser.isVerdict()).isTrue();
         verify(erRepObj, never()).addErrorReportRecord(org.mockito.ArgumentMatchers.any(BillingErrorReportDto.class));
         verify(erRepObj, never()).deleteErrorReport(org.mockito.ArgumentMatchers.any(BillingErrorReportDto.class));
     }

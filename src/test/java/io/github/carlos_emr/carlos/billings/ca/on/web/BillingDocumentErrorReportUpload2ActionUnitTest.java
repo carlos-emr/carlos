@@ -40,7 +40,7 @@ import static org.mockito.Mockito.when;
  * Pins the security-critical surface of {@link BillingDocumentErrorReportUpload2Action}.
  * The silent-failure-hunter agent flagged that this action mutates patient
  * demographic records via the {@code R*} branch with no POST gate; that
- * remains an open finding (out of this PR's scope to fix), but the privilege
+ * remains an open finding (out of scope here), but the privilege
  * check itself is the primary line of defence and must not regress.
  */
 @DisplayName("BillingDocumentErrorReportUpload2Action")

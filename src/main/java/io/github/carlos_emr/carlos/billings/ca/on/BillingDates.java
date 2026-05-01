@@ -13,6 +13,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -25,6 +26,7 @@ public final class BillingDates {
     private static final DateTimeFormatter SERVICE_DATE = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final DateTimeFormatter OHIP_DATE = DateTimeFormatter.BASIC_ISO_DATE;
     private static final DateTimeFormatter ISO_TIME = DateTimeFormatter.ofPattern("HH:mm:ss");
+    private static final DateTimeFormatter ISO_TIMESTAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private BillingDates() {
     }
@@ -44,7 +46,9 @@ public final class BillingDates {
     }
 
     public static Date serviceDate(String serviceDate) {
-        return java.sql.Date.valueOf(LocalDate.parse(serviceDate, SERVICE_DATE));
+        // util.Date (not sql.Date) — see parseIsoDate for rationale.
+        return Date.from(LocalDate.parse(serviceDate, SERVICE_DATE)
+                .atStartOfDay(ZoneId.systemDefault()).toInstant());
     }
 
     /**
@@ -62,7 +66,13 @@ public final class BillingDates {
             throw new IllegalArgumentException("BillingDates.parseIsoDate: date is null or blank");
         }
         try {
-            return java.sql.Date.valueOf(LocalDate.parse(raw.trim(), SERVICE_DATE));
+            // Return util.Date (not sql.Date) so the result honours the
+            // declared Date contract including .toInstant(). java.sql.Date
+            // overrides toInstant() to throw, breaking Liskov on the
+            // declared return type and forcing every consumer to know
+            // which factory produced the value.
+            return Date.from(LocalDate.parse(raw.trim(), SERVICE_DATE)
+                    .atStartOfDay(ZoneId.systemDefault()).toInstant());
         } catch (java.time.format.DateTimeParseException e) {
             throw new IllegalArgumentException(
                     "BillingDates.parseIsoDate: malformed yyyy-MM-dd date [" + raw + "]");
@@ -86,7 +96,9 @@ public final class BillingDates {
             return null;
         }
         try {
-            return java.sql.Date.valueOf(LocalDate.parse(raw.trim(), SERVICE_DATE));
+            // util.Date (not sql.Date) — see parseIsoDate for rationale.
+            return Date.from(LocalDate.parse(raw.trim(), SERVICE_DATE)
+                    .atStartOfDay(ZoneId.systemDefault()).toInstant());
         } catch (java.time.format.DateTimeParseException e) {
             throw new IllegalArgumentException(
                     "BillingDates.parseOptionalIsoDate: malformed " + fieldName + " [" + raw + "]");
@@ -126,6 +138,59 @@ public final class BillingDates {
             return "";
         }
         return date.toInstant().atZone(ZoneId.systemDefault()).toLocalDate().format(OHIP_DATE);
+    }
+
+    /**
+     * Parse an {@code HH:mm:ss} ISO time strictly. Mirrors the contract of
+     * {@link #parseIsoDate(String)}: throws on null, blank, or unparseable
+     * input. Use this on billing-mutating paths where silently substituting
+     * a default time would record audit-incorrect timestamps.
+     */
+    public static Date parseIsoTime(String raw) {
+        if (raw == null || raw.trim().isEmpty()) {
+            throw new IllegalArgumentException("BillingDates.parseIsoTime: time is null or blank");
+        }
+        try {
+            LocalTime t = LocalTime.parse(raw.trim(), ISO_TIME);
+            return Date.from(t.atDate(LocalDate.ofEpochDay(0))
+                    .atZone(ZoneId.systemDefault()).toInstant());
+        } catch (java.time.format.DateTimeParseException e) {
+            throw new IllegalArgumentException(
+                    "BillingDates.parseIsoTime: malformed HH:mm:ss time [" + raw + "]");
+        }
+    }
+
+    /** Format a {@link Date} as {@code yyyy-MM-dd}. Null-safe — returns empty. */
+    public static String formatIsoDate(Date date) {
+        if (date == null) {
+            return "";
+        }
+        // java.sql.Date.toInstant() throws UnsupportedOperationException;
+        // route through getTime() to support both sql.Date (returned by
+        // parseIsoDate) and util.Date.
+        return java.time.Instant.ofEpochMilli(date.getTime())
+                .atZone(ZoneId.systemDefault()).toLocalDate().format(SERVICE_DATE);
+    }
+
+    /** Format a {@link Date} as {@code HH:mm:ss}. Null-safe — returns empty. */
+    public static String formatIsoTime(Date date) {
+        if (date == null) {
+            return "";
+        }
+        // Route through getTime() — java.sql.Date / java.sql.Time both throw
+        // UnsupportedOperationException on toInstant().
+        return java.time.Instant.ofEpochMilli(date.getTime())
+                .atZone(ZoneId.systemDefault()).toLocalTime().format(ISO_TIME);
+    }
+
+    /** Format a {@link Date} as {@code yyyy-MM-dd HH:mm:ss}. Null-safe — returns empty. */
+    public static String formatIsoTimestamp(Date date) {
+        if (date == null) {
+            return "";
+        }
+        LocalDateTime ldt = java.time.Instant.ofEpochMilli(date.getTime())
+                .atZone(ZoneId.systemDefault()).toLocalDateTime();
+        return ldt.format(ISO_TIMESTAMP);
     }
 
     private static LocalDate parseOhipDate(String raw, boolean normalizeZeroDay) {

@@ -38,19 +38,21 @@ import io.github.carlos_emr.carlos.billing.CA.model.BillActivity;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.DateRange;
 /**
- * Shared mutation service for the three forward-shim OHIP-extract JSPs:
- * {@code genreport.jsp}, {@code genGroupReport.jsp}, and
- * {@code genSimulation.jsp}.
+ * Shared mutation service for the three OHIP-extract action entry points:
+ * {@code ViewGenReport2Action} (SOLO_REPORT), {@code ViewGenGroupReport2Action}
+ * (GROUP_REPORT), and {@code ViewGenSimulation2Action} (SIMULATION).
  *
- * <p>All three pages did the same broad work: iterate billable providers,
- * run {@link OhipClaimExtractService} per provider to generate the OHIP claim
- * file/HTML preview, optionally persist a {@link BillActivity} row, then
- * {@code <jsp:forward>} to a downstream display page. This service owns
- * the {@code BillActivityDao} + {@code ProviderDao} lookups the JSPs
- * performed inline.</p>
+ * <p>Iterates billable providers, runs {@link OhipClaimExtractService} per
+ * provider to generate the OHIP claim file / HTML preview, and (in report
+ * modes) persists a {@link BillActivity} row. Per-provider work runs inside
+ * a {@code REQUIRES_NEW} transaction (see {@code perProviderTx}) so a single
+ * provider's failure rolls back only that provider's writes — earlier
+ * providers' commits stay durable.</p>
  *
  * <p>Three modes:
  * <ul>
@@ -60,13 +62,12 @@ import io.github.carlos_emr.carlos.utility.DateRange;
  *       writes provider-keyed files; skips group-billing providers.</li>
  *   <li>{@link Mode#SIMULATION}: dry run with {@code eFlag="0"} — no
  *       BillActivity persist, no file write; just builds an HTML preview
- *       which the action stashes on the request for the simulation page.</li>
+ *       returned via {@link SimulationResult}.</li>
  * </ul>
  *
  * @since 2026-04-26
  */
 @org.springframework.stereotype.Service
-@org.springframework.transaction.annotation.Transactional
 public class OhipReportGenerationService {
 
     public enum Mode { GROUP_REPORT, SOLO_REPORT, SIMULATION }
@@ -79,15 +80,40 @@ public class OhipReportGenerationService {
     private final ProviderDao providerDao;
     private final BillingDao billingDao;
     private final BillingDetailDao billingDetailDao;
+    /**
+     * ObjectFactory yields a fresh prototype-scoped {@link OhipClaimExtractService}
+     * per invocation — needed because OhipClaimExtractService carries per-claim
+     * mutating state across its dbQuery / writeFile / writeHtml methods. The
+     * factory ensures Spring assembles each instance through DI rather than
+     * via {@code new}, so the @Service / @Scope("prototype") wiring on
+     * OhipClaimExtractService is honoured.
+     */
+    private final org.springframework.beans.factory.ObjectFactory<OhipClaimExtractService> ohipClaimExtractFactory;
+    /**
+     * Per-provider transactional boundary. Wraps {@code dbQuery} (which
+     * sets bills as billed) and {@code persistBillActivity} so a failure
+     * inside one provider's iteration rolls back only that provider's
+     * DB writes — earlier providers' files + BillActivity rows stay
+     * committed. AOP self-invocation cannot achieve this on a class-level
+     * {@code @Transactional} method, so we drive the boundary
+     * programmatically.
+     */
+    private final org.springframework.transaction.support.TransactionTemplate perProviderTx;
 
     OhipReportGenerationService(BillActivityDao billActivityDao,
                                 ProviderDao providerDao,
                                 BillingDao billingDao,
-                                BillingDetailDao billingDetailDao) {
+                                BillingDetailDao billingDetailDao,
+                                org.springframework.beans.factory.ObjectFactory<OhipClaimExtractService> ohipClaimExtractFactory,
+                                org.springframework.transaction.PlatformTransactionManager txManager) {
         this.billActivityDao = billActivityDao;
         this.providerDao = providerDao;
         this.billingDao = billingDao;
         this.billingDetailDao = billingDetailDao;
+        this.ohipClaimExtractFactory = ohipClaimExtractFactory;
+        this.perProviderTx = new org.springframework.transaction.support.TransactionTemplate(txManager);
+        this.perProviderTx.setPropagationBehavior(
+                org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     /**
@@ -97,23 +123,50 @@ public class OhipReportGenerationService {
     public record SimulationResult(String htmlPreview, String errorMsg, String dateBeginStr, String dateEndStr) {}
 
     /**
+     * One row per provider whose per-provider transaction rolled back.
+     * The action layer surfaces these via {@code skippedProviders} on the
+     * request so the operator's success page can banner "N providers were
+     * skipped — see error log" rather than rendering as if every selected
+     * provider's report was generated.
+     *
+     * <p>{@code causeClass} is the simple class name of the throwable so
+     * the JSP can render a coarse category (file vs data vs unknown) without
+     * leaking stack-trace detail; the full cause is in the server log.</p>
+     */
+    public record FailedProvider(String providerNo, String ohipNo,
+                                 String causeClass, String causeMessage) {}
+
+    /**
      * Run the OHIP extract for a group/solo submission. Persists
      * BillActivity rows and writes the OHIP+HTML files for each
      * eligible provider.
+     *
+     * @return list of providers whose per-provider tx rolled back; empty
+     *         when all selected providers were processed cleanly. Caller
+     *         should stash this on the request for the JSP banner.
      */
-    public void generateReport(HttpServletRequest request, Mode mode) {
+    public java.util.List<FailedProvider> generateReport(HttpServletRequest request, Mode mode) {
         if (mode == Mode.SIMULATION) {
             throw new IllegalArgumentException("Use generateSimulation for SIMULATION mode");
         }
 
+        java.util.List<FailedProvider> skipped = new ArrayList<>();
+
         String monthCode = request.getParameter("monthCode");
         if (monthCode == null || monthCode.isEmpty()) {
-            return;
+            // Empty skipped list otherwise reads as "everything ran clean"
+            // on the success page; log so the operator/oncall can tell why
+            // the page rendered with no banner.
+            MiscUtils.getLogger().warn(
+                    "OhipReportGeneration.generateReport: missing monthCode parameter; nothing processed");
+            return skipped;
         }
 
         String providerParam = request.getParameter("providers");
         if (providerParam == null || providerParam.trim().isEmpty()) {
-            return;
+            MiscUtils.getLogger().warn(
+                    "OhipReportGeneration.generateReport: missing providers parameter; nothing processed");
+            return skipped;
         }
         providerParam = providerParam.trim();
 
@@ -142,7 +195,7 @@ public class OhipReportGenerationService {
             String groupKey = mode == Mode.GROUP_REPORT ? groupNo : proOHIP;
             String batchCount = nextBatchCount(monthCode, groupKey, curYear);
 
-            OhipClaimExtractService extract = new OhipClaimExtractService(billingDao, billingDetailDao);
+            OhipClaimExtractService extract = ohipClaimExtractFactory.getObject();
             extract.seteFlag("1");
             extract.setOhipVer(request.getParameter("verCode"));
             extract.setProviderNo(proOHIP);
@@ -150,19 +203,62 @@ public class OhipReportGenerationService {
             extract.setGroupNo(groupNo);
             extract.setSpecialty(specialty);
             extract.setBatchCount(String.valueOf(batchOrdinal));
-            extract.dbQuery();
 
             String[] filenames = buildFilenames(monthCode, groupKey, proOHIP, batchCount,
                     mode == Mode.GROUP_REPORT);
-            persistBillActivity(monthCode, batchCount, filenames[0], filenames[1],
-                    proOHIP, groupNo, request.getParameter("curUser"), extract);
             extract.setHtmlFilename(filenames[1]);
             extract.setOhipFilename(filenames[0]);
-            extract.writeFile(extract.getValue());
-            extract.writeHtml(extract.getHtmlCode());
+
+            // Per-provider tx boundary: dbQuery (setAsBilled), file writes,
+            // and persistBillActivity all live in one REQUIRES_NEW
+            // transaction. A throw rolls back THIS provider's DB writes
+            // (no setAsBilled remains, no BillActivity row); earlier
+            // providers' commits stay durable. File writes happen INSIDE
+            // the tx so a thrown BillingFileWriteException after writeFile
+            // succeeds correctly tears down setAsBilled but leaves the
+            // file on disk — the operator finds the orphan via the
+            // missing BillActivity row and re-runs for that provider.
+            String curUser = request.getParameter("curUser");
+            try {
+                perProviderTx.executeWithoutResult(status -> {
+                    // Throwing a RuntimeException out of the lambda is the
+                    // load-bearing rollback trigger; TransactionTemplate calls
+                    // rollback automatically on RuntimeException propagation.
+                    extract.dbQuery();
+                    extract.writeFile(extract.getValue());
+                    extract.writeHtml(extract.getHtmlCode());
+                    persistBillActivity(monthCode, batchCount, filenames[0], filenames[1],
+                            proOHIP, groupNo, curUser, extract);
+                });
+            } catch (RuntimeException ex) {
+                // BillingFileWriteException, BillingDataLoadException, and
+                // every other unchecked failure all roll back the
+                // per-provider tx and surface the same shape of FailedProvider
+                // record; multi-catching them adds no information at this
+                // point. The cause class is captured so the JSP can branch
+                // file-vs-data-vs-other if it needs to.
+                String causeClass = ex.getClass().getSimpleName();
+                // Default null exception messages (e.g. NPE with no message)
+                // to a placeholder so the JSP banner doesn't render the
+                // literal word "null" — operators need to know the message
+                // is absent and to look at the server log.
+                String causeMessage = ex.getMessage() == null
+                        ? "<no message; check server log>"
+                        : ex.getMessage();
+                MiscUtils.getLogger().error(
+                        "OhipReportGeneration: per-provider failure for provider {} (ohip={}, cause={}); tx rolled back, prior providers stay committed",
+                        LogSanitizer.sanitize(p.getProviderNo()),
+                        LogSanitizer.sanitize(proOHIP),
+                        causeClass,
+                        ex);
+                skipped.add(new FailedProvider(
+                        p.getProviderNo(), proOHIP, causeClass, causeMessage));
+                continue;
+            }
 
             batchOrdinal++;
         }
+        return skipped;
     }
 
     /**
@@ -204,7 +300,7 @@ public class OhipReportGenerationService {
                 groupNo = "0000";
             }
 
-            OhipClaimExtractService extract = new OhipClaimExtractService(billingDao, billingDetailDao);
+            OhipClaimExtractService extract = ohipClaimExtractFactory.getObject();
             extract.seteFlag("0");
             extract.setDateRange(dateRange);
             extract.setOhipVer(request.getParameter("verCode"));
@@ -257,16 +353,14 @@ public class OhipReportGenerationService {
     }
 
     private String nextBatchCount(String monthCode, String key, int curYear) {
+        // JPA Query.getResultList() does not produce null elements (per the
+        // EntityManager contract), so the previous null-row guard was an
+        // unreachable defence. BillActivity.getBatchCount() returns int.
         int max = 0;
         for (BillActivity ba : billActivityDao.findCurrentByMonthCodeAndGroupNo(
                 monthCode, key, ConversionUtils.fromDateString(curYear + "-01-01"))) {
-            try {
-                int bc = ba.getBatchCount();
-                if (bc > max) max = bc;
-            } catch (NullPointerException ignore) {
-                // BillActivity.batchCount returns int via Hibernate — null guard
-                // for defensive parity.
-            }
+            int bc = ba.getBatchCount();
+            if (bc > max) max = bc;
         }
         return String.valueOf(max + 1);
     }
@@ -320,8 +414,9 @@ public class OhipReportGenerationService {
      * batchCount feeds {@code nextBatchCount} (max+1) and the OHIP-filename
      * counter ({@code H{monthCode}.{batchCount}}); a silent zero on a malformed
      * value would risk colliding filenames and duplicate-claim submission. Throw
-     * a typed exception so the caller (the surrounding {@code @Transactional}
-     * report generation) rolls back and surfaces the bad input.
+     * a typed exception so the caller's per-provider {@link
+     * org.springframework.transaction.support.TransactionTemplate} rolls back
+     * this provider's writes and surfaces the bad input.
      */
     private static int parseStrictBatchCount(String s) {
         if (s == null) {

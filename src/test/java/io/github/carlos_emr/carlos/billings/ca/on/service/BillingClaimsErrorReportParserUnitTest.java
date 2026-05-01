@@ -84,7 +84,7 @@ class BillingClaimsErrorReportParserUnitTest {
         assertThat(rec.getMOHoffice()).isEqualTo("0");
         assertThat(rec.getProviderNumber()).isEqualTo("999998");
         assertThat(rec.getClaimProcessDate()).isEqualTo("20260428");
-        assertThat(parser.verdict).isTrue();
+        assertThat(parser.isVerdict()).isTrue();
     }
 
     @Test
@@ -103,7 +103,7 @@ class BillingClaimsErrorReportParserUnitTest {
         // a paired H+T.
         // For now, header2 alone produces no records (parser style) —
         // verify by parsing a fixed pair below.
-        assertThat(parser.verdict).isTrue();
+        assertThat(parser.isVerdict()).isTrue();
     }
 
     @Test
@@ -119,7 +119,7 @@ class BillingClaimsErrorReportParserUnitTest {
         BillingClaimsErrorReportRecordDto rec = (BillingClaimsErrorReportRecordDto) records.get(0);
         assertThat(rec.getHeader1Count()).isEqualTo("0000001");
         assertThat(rec.getItemCount()).isEqualTo("0000003");
-        assertThat(parser.verdict).isTrue();
+        assertThat(parser.isVerdict()).isTrue();
     }
 
     @Test
@@ -148,7 +148,7 @@ class BillingClaimsErrorReportParserUnitTest {
 
         BillingClaimsErrorReportParser parser = new BillingClaimsErrorReportParser(fileWith(shortLine + "\n"));
 
-        assertThat(parser.verdict)
+        assertThat(parser.isVerdict())
                 .as("Truncated H-record must flip verdict to false so the importer can surface the failure")
                 .isFalse();
     }
@@ -166,14 +166,14 @@ class BillingClaimsErrorReportParserUnitTest {
         // Short line is skipped; the trailer "9" record after still parses.
         List<?> records = parser.getClaimsErrorReportRecords();
         assertThat(records).hasSize(1);
-        assertThat(parser.verdict).isTrue();
+        assertThat(parser.isVerdict()).isTrue();
     }
 
     @Test
     void shouldStartWithVerdictTrue_onEmptyFile() throws Exception {
         BillingClaimsErrorReportParser parser = new BillingClaimsErrorReportParser(
                 new FileInputStream(Files.createTempFile(tempDir, "empty", ".txt").toFile()));
-        assertThat(parser.verdict).isTrue();
+        assertThat(parser.isVerdict()).isTrue();
         assertThat(parser.getClaimsErrorReportRecords()).isEmpty();
     }
 
@@ -194,7 +194,7 @@ class BillingClaimsErrorReportParserUnitTest {
         // The parser's constructor reads the stream — close before passing.
 
         BillingClaimsErrorReportParser parser = new BillingClaimsErrorReportParser(fis);
-        assertThat(parser.verdict).as("IOException must flip verdict to false").isFalse();
+        assertThat(parser.isVerdict()).as("IOException must flip verdict to false").isFalse();
     }
 
     @Test
@@ -207,6 +207,6 @@ class BillingClaimsErrorReportParserUnitTest {
         } catch (Exception e) {
             throw new AssertionError(e);
         }
-        assertThat(parser.verdict).isTrue();
+        assertThat(parser.isVerdict()).isTrue();
     }
 }

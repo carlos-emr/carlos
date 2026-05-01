@@ -21,8 +21,11 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.EditBillingPaymentTy
 import io.github.carlos_emr.carlos.billings.ca.on.assembler.GstReportViewModelAssembler;
 import io.github.carlos_emr.carlos.billings.ca.on.assembler.InrBillingUpdateViewModelAssembler;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionSubmissionService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFormConfigurationService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingThirdPartyService;
 import io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao;
+import io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao;
+import io.github.carlos_emr.carlos.commn.dao.CtlBillingTypeDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -87,6 +90,12 @@ class UntestedBillingActionPrivilegeUnitTest extends CarlosUnitTestBase {
         when(mockSecurity.hasPrivilege(any(), any(), any(), any())).thenReturn(false);
 
         registerMock(SecurityInfoManager.class, mockSecurity);
+        // Admin Manage* actions use SpringUtils field-injection; register
+        // their collaborators so field-init doesn't NPE before the gate
+        // throws SecurityException.
+        registerMock(BillingFormConfigurationService.class, mock(BillingFormConfigurationService.class));
+        registerMock(CtlBillingServiceDao.class, mock(CtlBillingServiceDao.class));
+        registerMock(CtlBillingTypeDao.class, mock(CtlBillingTypeDao.class));
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
@@ -152,7 +161,34 @@ class UntestedBillingActionPrivilegeUnitTest extends CarlosUnitTestBase {
                 org.junit.jupiter.params.provider.Arguments.of(
                         "BillingOnPayment2Action",
                         (Callable<String>) () -> new BillingOnPayment2Action(
-                                mockSecurity, mock(BillingOnPaymentViewModelAssembler.class)).execute())
+                                mockSecurity, mock(BillingOnPaymentViewModelAssembler.class)).execute()),
+                // Admin Manage* actions — all _admin.billing/w gated, all
+                // SpringUtils field-injected. The collaborators are registered
+                // in setUp() so field-init won't NPE before the gate fires.
+                org.junit.jupiter.params.provider.Arguments.of(
+                        "ManageBillingFormDelete2Action",
+                        (Callable<String>) () -> new ManageBillingFormDelete2Action().execute()),
+                org.junit.jupiter.params.provider.Arguments.of(
+                        "ManageBillingFormPremiumDelete2Action",
+                        (Callable<String>) () -> new ManageBillingFormPremiumDelete2Action().execute()),
+                org.junit.jupiter.params.provider.Arguments.of(
+                        "ManageBillingFormPremium2Action",
+                        (Callable<String>) () -> new ManageBillingFormPremium2Action().execute()),
+                org.junit.jupiter.params.provider.Arguments.of(
+                        "ManageBillingLocationSave2Action",
+                        (Callable<String>) () -> new ManageBillingLocationSave2Action().execute()),
+                org.junit.jupiter.params.provider.Arguments.of(
+                        "ManageBillingFormAdd2Action",
+                        (Callable<String>) () -> new ManageBillingFormAdd2Action().execute()),
+                org.junit.jupiter.params.provider.Arguments.of(
+                        "ManageBillingFormBillTypeSave2Action",
+                        (Callable<String>) () -> new ManageBillingFormBillTypeSave2Action().execute()),
+                org.junit.jupiter.params.provider.Arguments.of(
+                        "ManageBillingFormDiag2Action",
+                        (Callable<String>) () -> new ManageBillingFormDiag2Action().execute()),
+                org.junit.jupiter.params.provider.Arguments.of(
+                        "ManageBillingFormService2Action",
+                        (Callable<String>) () -> new ManageBillingFormService2Action().execute())
         );
     }
 

@@ -145,7 +145,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
             // Use PathValidationUtils to validate and get safe destination path
             File placeDir = new File(place).getCanonicalFile();
             if (!placeDir.exists() || !placeDir.isDirectory()) {
-                MiscUtils.getLogger().error("DOCUMENT_DIR does not exist or is not a directory: " + place);
+                MiscUtils.getLogger().error("DOCUMENT_DIR does not exist or is not a directory: {}", LogSanitizer.sanitize(place));
                 return false;
             }
 
@@ -153,7 +153,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
             try {
                 destFile = PathValidationUtils.validatePath(fileName, placeDir);
             } catch (SecurityException e) {
-                MiscUtils.getLogger().error("Invalid filename provided: " + fileName);
+                MiscUtils.getLogger().error("Invalid filename provided: {}", LogSanitizer.sanitize(fileName));
                 return false;
             }
 
@@ -177,7 +177,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
             // Use PathValidationUtils to validate and get safe inbox path
             File inboxDirFile = new File(inboxDir).getCanonicalFile();
             if (!inboxDirFile.exists() || !inboxDirFile.isDirectory()) {
-                MiscUtils.getLogger().error("ONEDT_INBOX does not exist or is not a directory: " + inboxDir);
+                MiscUtils.getLogger().error("ONEDT_INBOX does not exist or is not a directory: {}", LogSanitizer.sanitize(String.valueOf(inboxDir)));
                 return false;
             }
 
@@ -185,7 +185,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
             try {
                 inboxFile = PathValidationUtils.validatePath(destFile.getName(), inboxDirFile);
             } catch (SecurityException e) {
-                MiscUtils.getLogger().error("Invalid filename for inbox: " + destFile.getName());
+                MiscUtils.getLogger().error("Invalid filename for inbox: {}", LogSanitizer.sanitize(destFile == null ? "null" : destFile.getName()));
                 return false;
             }
 
@@ -242,47 +242,65 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
 
             // Get the sanitized filename from the validated path
             String sanitizedFileName = inputFile.getName();
+            if (sanitizedFileName.isEmpty()) {
+                MiscUtils.getLogger().warn("Upload filename empty after sanitization; rejecting");
+                return false;
+            }
 
-            FileInputStream file = new FileInputStream(inputFile);
-            MiscUtils.getLogger().debug("File path: " + inputFile.getAbsolutePath());
-            // Assign associated report Name
+            String prefix = sanitizedFileName.substring(0, 1);
             ArrayList<String> messages = new ArrayList<String>();
             String ReportName = "";
 
-            if (sanitizedFileName.substring(0, 1).compareTo("E") == 0 || sanitizedFileName.substring(0, 1).compareTo("F") == 0) {
-                ReportName = "Claims Error Report";
-                BillingClaimsErrorReportParser hd = generateReportE(file, bNewBilling, sanitizedFileName);
-                request.setAttribute("claimsErrors", hd);
-                isGot = hd.verdict;
-            } else if (sanitizedFileName.substring(0, 1).compareTo("B") == 0) {
-                ReportName = "Claim Batch Acknowledgement Report";
-                BillingClaimBatchAcknowledgementReportParser hd = generateReportB(file);
-                request.setAttribute("batchAcks", hd);
-                isGot = hd.verdict;
-            } else if (sanitizedFileName.substring(0, 1).compareTo("X") == 0) {
-                ReportName = "Claim File Rejection Report";
-                messages = generateReportX(file);
-                request.setAttribute("messages", messages);
-                isGot = reportXIsGenerated;
-            } else if (sanitizedFileName.substring(0, 1).compareTo("R") == 0) {
-                ReportName = "EDT OBEC Output Specification";
-                BillingEdtObecOutputSpecificationParser hd = generateReportR(loggedInInfo, file);
-                request.setAttribute("outputSpecs", hd);
-                isGot = hd.verdict;
-            } else if (sanitizedFileName.substring(0, 1).compareTo("L") == 0) {
-                ReportName = "OUTSIDE USE REPORT";
-                request.setAttribute("backupfilepath", filepath);
-                request.setAttribute("filename", sanitizedFileName);
-                isGot = true;
+            // try-with-resources to close the FileInputStream on every exit path.
+            try (FileInputStream file = new FileInputStream(inputFile)) {
+                MiscUtils.getLogger().debug("File path: {}",
+                        LogSanitizer.sanitize(inputFile.getAbsolutePath()));
+
+                if (prefix.compareTo("E") == 0 || prefix.compareTo("F") == 0) {
+                    ReportName = "Claims Error Report";
+                    BillingClaimsErrorReportParser hd = generateReportE(file, bNewBilling, sanitizedFileName);
+                    request.setAttribute("claimsErrors", hd);
+                    isGot = hd.isVerdict();
+                } else if (prefix.compareTo("B") == 0) {
+                    ReportName = "Claim Batch Acknowledgement Report";
+                    BillingClaimBatchAcknowledgementReportParser hd = generateReportB(file);
+                    request.setAttribute("batchAcks", hd);
+                    isGot = hd.verdict;
+                } else if (prefix.compareTo("X") == 0) {
+                    ReportName = "Claim File Rejection Report";
+                    messages = generateReportX(file);
+                    request.setAttribute("messages", messages);
+                    isGot = reportXIsGenerated;
+                } else if (prefix.compareTo("R") == 0) {
+                    ReportName = "EDT OBEC Output Specification";
+                    BillingEdtObecOutputSpecificationParser hd = generateReportR(loggedInInfo, file);
+                    request.setAttribute("outputSpecs", hd);
+                    isGot = hd.verdict;
+                } else if (prefix.compareTo("L") == 0) {
+                    ReportName = "OUTSIDE USE REPORT";
+                    request.setAttribute("backupfilepath", filepath);
+                    request.setAttribute("filename", sanitizedFileName);
+                    isGot = true;
+                } else {
+                    // Unrecognized prefix — supported set is E/F/B/X/R/L. The
+                    // caller renders errors.incorrectFileFormat; without this
+                    // log the operator can't see what prefix actually arrived.
+                    MiscUtils.getLogger().warn(
+                            "Unrecognized MOH report prefix [{}] for file {} — supported prefixes are E/F/B/X/R/L",
+                            LogSanitizer.sanitize(prefix),
+                            LogSanitizer.sanitize(sanitizedFileName));
+                }
             }
 
             request.setAttribute("ReportName", ReportName);
         } catch (FileNotFoundException fnfe) {
-
-            MiscUtils.getLogger().debug("File not found");
-            MiscUtils.getLogger().error("Error", fnfe);
-            return isGot = false;
-
+            MiscUtils.getLogger().error("MOH report upload — file not found at validated path: {}",
+                    LogSanitizer.sanitize(fileName), fnfe);
+            return false;
+        } catch (IOException ioe) {
+            MiscUtils.getLogger().error("MOH report upload — IO error reading {}",
+                    LogSanitizer.sanitize(fileName), ioe);
+            return false;
         }
 
         return isGot;
@@ -313,7 +331,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
             } catch (BillingFileImportException e) {
                 MiscUtils.getLogger().error("Claims-error report import failed; transaction rolled back", e);
                 hd = new BillingClaimsErrorReportParser(file);
-                hd.verdict = false;
+                hd.setVerdict(false);
             }
         } else {
             hd = new BillingClaimsErrorReportParser(file);
@@ -406,10 +424,10 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
                 new BillingEdtObecOutputSpecificationParser(loggedInInfo, file,
                         batchEligibilityDao, demographicManager, providerDao);
 
-        // Atomic apply via @Transactional service. Pre-fix the per-row loop
-        // ran inline here with no tx — a mid-loop failure left half the
-        // patients in the file with ver="##" (HIN flagged invalid) and the
-        // other half untouched. Fetch via SpringUtils so the proxy applies.
+        // Atomic apply: any per-row failure rolls back every prior
+        // ver="##" (HIN-flagged-invalid) mark in this file. Fetch via
+        // SpringUtils so the @Transactional proxy applies (direct
+        // construction would bypass it).
         try {
             io.github.carlos_emr.carlos.utility.SpringUtils
                     .getBean(io.github.carlos_emr.carlos.billings.ca.on.service.BillingObecOutputApplyService.class)

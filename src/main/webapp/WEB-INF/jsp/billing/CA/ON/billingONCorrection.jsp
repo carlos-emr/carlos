@@ -330,6 +330,14 @@
             notified via the server log.
         </div>
         </c:if>
+        <c:if test="${correctionModel.visitDateInvalid}">
+        <div class="alert alert-warning" role="alert">
+            <strong>Warning:</strong> The stored admission date for this bill
+            could not be parsed; the visit-date field has been left empty.
+            Re-enter the correct value before submitting to avoid persisting
+            a blank admission_date.
+        </div>
+        </c:if>
 
         <div class="row card card-body bg-body-tertiary">
             <c:if test="${not empty correctionModel.createTimestamp}">

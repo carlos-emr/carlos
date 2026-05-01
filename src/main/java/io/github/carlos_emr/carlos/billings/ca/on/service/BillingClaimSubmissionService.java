@@ -179,13 +179,9 @@ public class BillingClaimSubmissionService {
 
     /**
      * Atomic save of header + items + 3rd-party-or-OHIP-trans + payee ext.
-     *
-     * <p>Pre-fix the action invoked four service methods sequentially; the
-     * class is {@code @Transactional} but each external call ran in its
-     * own transaction. A payee-write failure after the header tx committed
-     * left an orphan billing_on_cheader1 row with no payee key. Wrapping
-     * everything in a single service method ensures one transaction across
-     * all four writes — Spring rolls back the entire save on any throw.</p>
+     * All four writes run inside one Spring transaction; any throw rolls
+     * the entire save back, preventing orphan {@code billing_on_cheader1}
+     * rows with missing payee keys.
      *
      * @param vecObj      header + items pre-built via {@link #getBillingClaimObj}
      * @param requestData live request — needed by the third-party-ext path

@@ -22,11 +22,10 @@ import io.github.carlos_emr.carlos.commn.model.BatchBilling;
 
 /**
  * Atomic per-row removal of {@code batch_billing} rows for a list of
- * (demographic, service-code) pairs. Pre-fix this loop ran inline in
- * {@code BatchBill2Action} with no {@code @Transactional} boundary —
+ * (demographic, service-code) pairs. {@code @Transactional} so a
  * mid-loop {@link RuntimeException} (stale row, FK constraint, concurrent
- * edit) committed every prior remove and left the rest unprocessed,
- * silently desyncing the queue from the operator's UI.
+ * edit) rolls back every prior remove rather than silently desyncing
+ * the queue from the operator's UI.
  *
  * @since 2026-04-30
  */
@@ -40,13 +39,15 @@ public class BatchBillingRemovalService {
         this.batchBillingDAO = batchBillingDAO;
     }
 
-    /**
-     * One row per (demographicNo, serviceCode). Throws
-     * {@link RemovalRowMissingException} when a lookup returns an empty
-     * list — pre-fix this NPE'd inside {@code .get(0)}.
-     */
+    /** One row per (demographicNo, serviceCode). */
     public record Row(int demographicNo, String serviceCode) { }
 
+    /**
+     * Thrown by {@link #removeAll(List)} when a {@code (demographicNo,
+     * serviceCode)} lookup returns an empty list. Carries the offending
+     * {@link Row} so the action layer can surface it to the operator
+     * instead of NPEing on {@code .get(0)}.
+     */
     public static class RemovalRowMissingException extends RuntimeException {
         private static final long serialVersionUID = 1L;
         private final Row row;

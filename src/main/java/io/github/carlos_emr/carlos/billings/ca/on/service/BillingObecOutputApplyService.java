@@ -34,16 +34,11 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * to {@code "##"} (HIN-flagged-invalid) and appends a reason note to
  * the patient's {@code DemographicCust.alert} string.
  *
- * <p>Pre-fix this loop ran inline in
- * {@link io.github.carlos_emr.carlos.billings.ca.on.web.BillingDocumentErrorReportUpload2Action#generateReportR}
- * with no transactional boundary. A mid-loop failure (DAO timeout,
- * concurrent edit, NPE on a malformed row) left half the patients in the
- * file with HIN flagged invalid (ver={@code "##"}) and the other half
- * untouched — corrupting eligibility data with no operator signal. The
- * action saw {@code verdict=true} from the parser regardless.</p>
- *
- * <p>Lifted into a {@code @Transactional} service so a mid-loop throw
- * rolls back every prior {@code setVer("##")} + alert append.</p>
+ * <p>{@code @Transactional} so a mid-loop failure (DAO timeout,
+ * concurrent edit, NPE on a malformed row) rolls back every prior
+ * {@code setVer("##")} + alert append rather than leaving half the
+ * patients in the file with HIN flagged invalid and the other half
+ * untouched.</p>
  *
  * @since 2026-04-30
  */
@@ -95,7 +90,21 @@ public class BillingObecOutputApplyService {
 
                 if (!ds.isEmpty()) {
                     Demographic d = ds.get(0);
-                    if (d.getVer().trim().compareTo(bean.getVersion().trim()) == 0) {
+                    // Guard null ver / null bean version — a legacy seed row
+                    // with a null demographic.ver would NPE here, and (because
+                    // this method runs inside @Transactional) abort the whole
+                    // batch. Skip the row with a log so other rows in the
+                    // file still apply.
+                    String dVer = d.getVer();
+                    String beanVer = bean.getVersion();
+                    if (dVer == null || beanVer == null) {
+                        MiscUtils.getLogger().warn(
+                                "BillingObecOutputApplyService: skipping row with null ver (hin={}, demographicNo={})",
+                                LogSanitizer.sanitize(hin),
+                                d.getDemographicNo());
+                        continue;
+                    }
+                    if (dVer.trim().compareTo(beanVer.trim()) == 0) {
                         for (Demographic demographic : ds) {
                             demographic.setVer("##");
                             demographicManager.updateDemographic(loggedInInfo, demographic);

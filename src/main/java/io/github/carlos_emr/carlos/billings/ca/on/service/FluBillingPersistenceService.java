@@ -23,9 +23,7 @@ import io.github.carlos_emr.carlos.commn.model.Billing;
 /**
  * Wraps the {@link Billing} + {@link BillingDetail} persist pair under a
  * single {@code @Transactional} boundary so detail-persist failure rolls back
- * the parent {@code Billing} insert. Pre-fix the two persists ran inline in
- * {@code FluBillingAdd2Action.execute()} with no tx boundary — a detail
- * insert failure left an orphan parented-only Billing row.
+ * the parent {@code Billing} insert (preventing orphan parent-only rows).
  *
  * @since 2026-04-30
  */

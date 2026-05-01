@@ -206,13 +206,18 @@ public class BillingOnClaimPersister {
         }
 
 
-        b.setTotal(new BigDecimal(val.getTotal() == null ? "0.00" : val.getTotal()));
+        // Treat null OR blank as "0.00" for both total and paid — money form
+        // inputs may legitimately arrive as empty strings (browser auto-fill,
+        // hidden field reset). Asymmetric handling would let an empty total
+        // hit the validation page while an empty paid silently defaulted to
+        // zero for the same input class.
+        String totalRaw = (val.getTotal() == null || val.getTotal().isEmpty()) ? "0.00" : val.getTotal();
+        b.setTotal(io.github.carlos_emr.carlos.billings.ca.on.BillingMoney
+                .parseNonNegativeAmount(totalRaw, "total"));
 
-        if (val.getPaid() == null || val.getPaid().isEmpty()) {
-            b.setPaid(new BigDecimal("0.00"));
-        } else {
-            b.setPaid(new BigDecimal(val.getPaid()));
-        }
+        String paidRaw = (val.getPaid() == null || val.getPaid().isEmpty()) ? "0.00" : val.getPaid();
+        b.setPaid(io.github.carlos_emr.carlos.billings.ca.on.BillingMoney
+                .parseNonNegativeAmount(paidRaw, "paid"));
 
         b.setStatus(val.getStatus());
         b.setComment(val.getComment());
@@ -502,10 +507,10 @@ public class BillingOnClaimPersister {
      *
      * @param val BillingClaimItemDto the item fields
      * @return int the generated {@code billing_on_item.id}
-     * @throws ParseException retained for API compatibility; the strict-parse
-     *         actually throws {@link IllegalArgumentException} on bad date
+     * @throws IllegalArgumentException on null / blank / malformed
+     *         {@code service_date} (delegated by {@link BillingDates#parseIsoDate(String)})
      */
-    public int addOneItemRecord(BillingClaimItemDto val) throws ParseException {
+    public int addOneItemRecord(BillingClaimItemDto val) {
         BillingONItem item = new BillingONItem();
         item.setCh1Id(Integer.parseInt(val.getCh1_id()));
         item.setTranscId(val.getTransc_id());
@@ -565,9 +570,8 @@ public class BillingOnClaimPersister {
     /**
      * Persist a {@code payee} key on {@code billing_on_ext} for the given
      * billing header. Used by {@code BillingClaimSubmissionService} to keep
-     * the payee write inside the same transaction as the header + items;
-     * pre-fix this ran in the action layer after the submission tx had
-     * already committed, so a payee-write failure orphaned the header.
+     * the payee write inside the same transaction as the header + items —
+     * splitting them lets a payee-write failure orphan the header.
      *
      * @param billingNo  generated billing_on_cheader1 id
      * @param payeeValue user-supplied payee name (already validated)

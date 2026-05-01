@@ -95,10 +95,6 @@ class BillingOnCorrectionRenderComposerUnitTest {
                 clinicLocationDao, clinicNbrDao, thirdPartyRecordService);
     }
 
-    @Test
-    void shouldInstantiate_withAllRequiredDependencies() {
-        assertThat(composer).isNotNull();
-    }
 
     @Test
     void shouldRenderFirstPartyDefaults_whenBCh1IsNull() {

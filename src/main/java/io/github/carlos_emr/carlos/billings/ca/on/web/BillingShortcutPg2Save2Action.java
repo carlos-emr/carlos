@@ -83,8 +83,14 @@ public class BillingShortcutPg2Save2Action extends ActionSupport {
             return "backToEdit";
         }
 
-        BillingShortcutPg2ViewModel model = billingShortcutPg2Service
-                .assemble(request, loggedInInfo);
+        // BillingValidationException propagates to the package-level mapping
+        // in struts-billing.xml (line 53-55) which renders
+        // billingValidationError.jsp. The action mapping has no `error`
+        // result, so a local catch returning ERROR would produce a
+        // "no result defined" 500 page; the global mapping is the right
+        // landing point for validation failures here.
+        BillingShortcutPg2ViewModel model =
+                billingShortcutPg2Service.assemble(request, loggedInInfo);
         request.setAttribute("shortcutPg2Model", model);
 
         return SUCCESS;

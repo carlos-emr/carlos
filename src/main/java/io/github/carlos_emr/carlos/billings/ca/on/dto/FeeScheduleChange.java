@@ -46,7 +46,7 @@ public record FeeScheduleChange(
         warning.put("feeCode", feeCode);
         warning.put("prices", prices);
         warning.put("effectiveDate", effectiveDate);
-        warning.put("terminactionDate", terminationDate);
+        warning.put("terminationDate", terminationDate);
         warning.put("description", description);
         warning.put("oldprice", newCode ? "--" : oldPrice);
         warning.put("diff", newCode ? "" : diff);
@@ -69,7 +69,7 @@ public record FeeScheduleChange(
                 diff,
                 String.valueOf(warning.get("prices")),
                 String.valueOf(warning.get("effectiveDate")),
-                String.valueOf(warning.get("terminactionDate")),
+                String.valueOf(warning.get("terminationDate")),
                 String.valueOf(warning.get("description")),
                 0,
                 newCode);

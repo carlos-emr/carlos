@@ -97,6 +97,15 @@ class BatchBill2ActionUnitTest extends CarlosUnitTestBase {
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
         servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
 
+        // ActionContext binding lets ActionSupport.addActionError /
+        // getText work in this unit test — without it the round-7
+        // RemovalRowMissingException catch path NPEs at the addActionError
+        // call.
+        org.apache.struts2.ActionContext.of()
+                .withServletRequest(request)
+                .withServletResponse(response)
+                .bind();
+
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(loggedInInfo);
@@ -156,5 +165,70 @@ class BatchBill2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo(ActionSupport.ERROR);
         verify(headerCreationService, never())
                 .createBill(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldSurfaceMissingRow_whenRemovalRowMissingExceptionThrows() throws Exception {
+        // Round-7 contract: when BatchBillingRemovalService throws
+        // RemovalRowMissingException, the action must (1) NOT fall through
+        // to the generic RuntimeException catch (which rethrows as 500),
+        // (2) addActionError, (3) set "removeRowMissing" request attr with
+        // the offending Row, and (4) return ERROR. Without these the
+        // operator sees the same opaque 500 the typed exception was
+        // designed to replace.
+        io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingRemovalService removalService =
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingRemovalService.class);
+        registerMock(io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingRemovalService.class,
+                removalService);
+
+        io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingRemovalService.Row missing =
+                new io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingRemovalService.Row(
+                        9999, "Z999Z");
+        org.mockito.Mockito.doThrow(
+                new io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingRemovalService.RemovalRowMissingException(missing))
+                .when(removalService).removeAll(org.mockito.ArgumentMatchers.anyList());
+
+        request.setMethod("POST");
+        request.setParameter("method", "remove");
+        request.setParameter("bill", "Z999Z;100;9999;999998");
+
+        // Spy + stub getText: ActionSupport.getText needs a Struts
+        // Container that isn't wired in unit context.
+        BatchBill2Action action = org.mockito.Mockito.spy(
+                new BatchBill2Action(headerCreationService, securityInfoManager, batchBillingAssembler));
+        org.mockito.Mockito.doReturn("Row not found: 9999/Z999Z")
+                .when(action).getText(org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.any(String[].class));
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.ERROR);
+        assertThat(action.getActionErrors()).isNotEmpty();
+        assertThat(request.getAttribute("removeRowMissing")).isEqualTo(missing);
+    }
+
+    @Test
+    void shouldRethrowGenericRuntimeException_whenRemovalServiceFailsForAnyOtherReason() throws Exception {
+        // Sibling contract: any other RuntimeException (DB outage, FK
+        // constraint, etc.) is rethrown so it surfaces as the existing
+        // 500-with-stack-trace path. The separate RemovalRowMissingException
+        // catch must NOT swallow these.
+        io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingRemovalService removalService =
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingRemovalService.class);
+        registerMock(io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingRemovalService.class,
+                removalService);
+
+        org.mockito.Mockito.doThrow(new RuntimeException("DB outage simulation"))
+                .when(removalService).removeAll(org.mockito.ArgumentMatchers.anyList());
+
+        request.setMethod("POST");
+        request.setParameter("method", "remove");
+        request.setParameter("bill", "A007A;250;42;999998");
+
+        BatchBill2Action action =
+                new BatchBill2Action(headerCreationService, securityInfoManager, batchBillingAssembler);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(action::execute)
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("DB outage simulation");
     }
 }

@@ -381,38 +381,43 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
     @Override
     public BillingONExt getClaimExtItem(Integer billingNo, Integer demographicNo, String keyVal)
             throws NonUniqueResultException {
-        // Three optional named-parameter clauses. The legacy version stored
-        // ternary "" / "ext.x=?n" strings and tested them with `!= null`,
-        // which always passed (the empty branch was unreachable); it also
-        // gated the second setParameter on filter1 instead of filter2 so
-        // demographicNo was bound whenever billingNo was bound. The eight
-        // case combinations below are an exhaustive whitelist of fully
-        // literal HQL — no concatenation, no user input in the query text.
+        // Three optional clauses bound by NAMED parameters. JPA §4.6.4.2
+        // requires positional parameters to be contiguous from 1, so the
+        // earlier `?1, ?3` whitelist would fail Hibernate strict mode.
+        // Named params are unconstrained on order and only-bind-what-you-use.
         boolean hb = (billingNo != null);
         boolean hd = (demographicNo != null);
         boolean hk = (keyVal != null);
+        // Defensive: every prod caller passes at least billingNo, but the
+        // pre-fix code's `else { select ext from BillingONExt ext }` would
+        // scan the whole ext table on misuse and either NonUniqueResultException
+        // (>1 row) or return a single arbitrary row. Fail fast so the bug
+        // is caught at the call site rather than at SELECT-time on a busy
+        // production schema.
+        if (!hb && !hd && !hk) {
+            throw new IllegalArgumentException(
+                    "BillingONExtDao.getClaimExtItem requires at least one filter (billingNo, demographicNo, or keyVal)");
+        }
         String hql;
         if (hb && hd && hk) {
-            hql = "select ext from BillingONExt ext where ext.billingNo = ?1 and ext.demographicNo = ?2 and ext.keyVal = ?3";
+            hql = "select ext from BillingONExt ext where ext.billingNo = :billingNo and ext.demographicNo = :demographicNo and ext.keyVal = :keyVal";
         } else if (hb && hd) {
-            hql = "select ext from BillingONExt ext where ext.billingNo = ?1 and ext.demographicNo = ?2";
+            hql = "select ext from BillingONExt ext where ext.billingNo = :billingNo and ext.demographicNo = :demographicNo";
         } else if (hb && hk) {
-            hql = "select ext from BillingONExt ext where ext.billingNo = ?1 and ext.keyVal = ?3";
+            hql = "select ext from BillingONExt ext where ext.billingNo = :billingNo and ext.keyVal = :keyVal";
         } else if (hd && hk) {
-            hql = "select ext from BillingONExt ext where ext.demographicNo = ?2 and ext.keyVal = ?3";
+            hql = "select ext from BillingONExt ext where ext.demographicNo = :demographicNo and ext.keyVal = :keyVal";
         } else if (hb) {
-            hql = "select ext from BillingONExt ext where ext.billingNo = ?1";
+            hql = "select ext from BillingONExt ext where ext.billingNo = :billingNo";
         } else if (hd) {
-            hql = "select ext from BillingONExt ext where ext.demographicNo = ?2";
-        } else if (hk) {
-            hql = "select ext from BillingONExt ext where ext.keyVal = ?3";
-        } else {
-            hql = "select ext from BillingONExt ext";
+            hql = "select ext from BillingONExt ext where ext.demographicNo = :demographicNo";
+        } else { // hk only — already gated above for the all-null case
+            hql = "select ext from BillingONExt ext where ext.keyVal = :keyVal";
         }
         Query query = entityManager.createQuery(hql);
-        if (hb) query.setParameter(1, billingNo);
-        if (hd) query.setParameter(2, demographicNo);
-        if (hk) query.setParameter(3, keyVal);
+        if (hb) query.setParameter("billingNo", billingNo);
+        if (hd) query.setParameter("demographicNo", demographicNo);
+        if (hk) query.setParameter("keyVal", keyVal);
         BillingONExt res = null;
         try {
             res = (BillingONExt) query.getSingleResult();

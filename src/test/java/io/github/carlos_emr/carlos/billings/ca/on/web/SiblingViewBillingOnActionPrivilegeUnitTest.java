@@ -57,7 +57,7 @@ import static org.mockito.Mockito.when;
  * Privilege-parity tests for the five sibling Ontario billing view actions
  * whose access privilege flipped from {@code _team_billing_only} to
  * {@code _billing} (and which gained a {@code loggedInInfo == null} guard)
- * during this PR. Without these tests, a regression flipping the privilege
+ * during the *2Action migration. Without these tests, a regression flipping the privilege
  * string back — or removing the null guard — would not fail any existing
  * test.
  *

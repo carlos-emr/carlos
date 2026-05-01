@@ -25,7 +25,6 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.io.RandomAccessFile;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -56,6 +55,7 @@ import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
+import io.github.carlos_emr.carlos.commn.model.BillingStatus;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Site;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
@@ -262,23 +262,21 @@ public class OhipClaimFileService {
 
     /**
      * Build a {@link BillingClaimHeaderDto} from a {@link BillingONCHeader1}
-     * entity for the OHIP claim-file write path. Pre-fix the same ~30-line
-     * setter sequence was duplicated between {@code createBillingFileStr}
-     * (per-provider) and {@code createSiteBillingFileStr} (per-site); the
-     * only difference between those paths is whether {@code billing_time}
-     * is formatted as a date or a time.
+     * entity for the OHIP claim-file write path. Shared between the
+     * per-provider and per-site flows; the only difference is whether
+     * {@code billing_time} is formatted as a date or a time.
      *
      * @param h                          source header row
      * @param bNo                        bill-no string the caller already resolved
      * @param billingTimeAsTimeString    true: use {@code toTimeString} (per-site path);
      *                                   false: use {@code toDateString} (per-provider path)
-     * @throws BillingFileWriteException on a corrupt admission_date — the throw
-     *         aborts the surrounding batch instead of writing a claim with the
-     *         field silently stripped.
+     * @throws BillingDataLoadException on a corrupt admission_date — the throw
+     *         aborts the surrounding batch and routes to the data-load
+     *         operator banner instead of writing a claim with the field
+     *         silently stripped.
      */
     private BillingClaimHeaderDto buildClaimHeaderDto(BillingONCHeader1 h, String bNo,
-                                                      boolean billingTimeAsTimeString)
-            throws ParseException {
+                                                      boolean billingTimeAsTimeString) {
         BillingClaimHeaderDto dto = new BillingClaimHeaderDto();
         dto.setId(bNo);
         dto.setTransc_id(h.getTranscId());
@@ -298,11 +296,16 @@ public class OhipClaimFileService {
             // whole batch — the alternative (warn + continue) writes a
             // claim with admission_date stripped to the MOH submission
             // file, and the operator sees "file generated" with no
-            // signal that one row inside is malformed.
-            throw new BillingFileWriteException(
+            // signal that one row inside is malformed. Throw the typed
+            // BillingDataLoadException (data integrity, not file write)
+            // so the operator-facing banner names the right cause.
+            throw new BillingDataLoadException(
                     "OHIP claim file aborted: bill " + h.getId()
-                            + " has unparseable admission_date ["
-                            + h.getAdmissionDate() + "]", e);
+                            + " has unparseable admission_date", e,
+                    BillingDataLoadException.Phase.DATE_PARSE,
+                    java.util.Map.of(
+                            "billId", String.valueOf(h.getId()),
+                            "field", "admission_date"));
         }
         dto.setRef_lab_num(h.getRefLabNum());
         dto.setMan_review(h.getManReview());
@@ -336,11 +339,7 @@ public class OhipClaimFileService {
         return dto;
     }
 
-    /**
-     * Build a {@link BillingClaimItemDto} from a {@link BillingONItem}.
-     * Pre-fix the same 12-setter sequence was duplicated between
-     * {@code createBillingFileStr} and {@code createSiteBillingFileStr}.
-     */
+    /** Build a {@link BillingClaimItemDto} from a {@link BillingONItem}. */
     private BillingClaimItemDto buildClaimItemDto(BillingONItem item) {
         BillingClaimItemDto dto = new BillingClaimItemDto();
         dto.setTransc_id(item.getTranscId());
@@ -731,6 +730,17 @@ public class OhipClaimFileService {
             if (eFlag.compareTo("1") == 0) {
                 updateBatchHeaderSum(bhObj.getId(), "" + healthcardCount, "" + patientCount, "" + recordCount);
             }
+        } catch (BillingFileWriteException | BillingDataLoadException domain) {
+            // Already a typed domain exception — let it through so the
+            // global Struts mapping routes to the right operator page
+            // (file-write banner vs data-load banner). Wrapping these
+            // would re-introduce the misdirection the typed hierarchy exists
+            // to prevent. Log at ERROR before rethrow so the cause chain
+            // (with the raw malformed value from the entity getter) lands
+            // in the application log alongside the operator-facing banner.
+            _logger.error("OHIP claim file aborted ({}): {}",
+                    domain.getClass().getSimpleName(), domain.getMessage(), domain);
+            throw domain;
         } catch (Exception e) {
             // Propagate partial-write failures so Struts renders the file-write error page.
             _logger.error("OHIP claim file generation failed", e);
@@ -811,6 +821,8 @@ public class OhipClaimFileService {
             if (eFlag.compareTo("1") == 0) {
                 updateBatchHeaderSum(bhObj.getId(), "" + healthcardCount, "" + patientCount, "" + recordCount);
             }
+        } catch (BillingFileWriteException | BillingDataLoadException domain) {
+            throw domain;
         } catch (Exception e) {
             // Propagate partial-write failures so Struts renders the file-write error page.
             _logger.error("OHIP site claim file generation failed", e);
@@ -854,7 +866,7 @@ public class OhipClaimFileService {
     public void updateHeader1BilledBatchId(String newInvNo, String batchId) {
         BillingONCHeader1 header = cheaderDao.find(Integer.parseInt(newInvNo));
         if (header != null) {
-            header.setStatus("B");
+            header.setStatus(BillingStatus.BILLED);
             header.setHeaderId(Integer.parseInt(batchId));
             cheaderDao.merge(header);
         }
@@ -905,25 +917,35 @@ public class OhipClaimFileService {
 
     public void getBatchHeaderObj(String bid) {
         BillingONHeader h = headerDao.find(ConversionUtils.fromIntString(bid));
-        if (h != null) {
-            bhObj = new BillingBatchHeaderDto();
-            bhObj.setId(bid);
-            bhObj.setDisk_id("" + h.getDiskId());
-            bhObj.setTransc_id(h.getTransactionId());
-            bhObj.setRec_id(h.getRecordId());
-            bhObj.setSpec_id(h.getSpecId());
-            bhObj.setMoh_office(h.getMohOffice());
-
-            bhObj.setBatch_id(h.getBatchId());
-            bhObj.setOperator(h.getOperator());
-            bhObj.setGroup_num(h.getGroupNum());
-            bhObj.setProvider_reg_num(h.getProviderRegNum());
-            bhObj.setSpecialty(h.getSpecialty());
-            bhObj.setH_count(h.gethCount());
-            bhObj.setR_count(h.getrCount());
-            bhObj.setT_count(h.gettCount());
-            bhObj.setBatch_date(ConversionUtils.toDateString(h.getBatchDate()));
+        if (h == null) {
+            // Distinguish missing-header from file-write failure: a missing
+            // batch_header row is a data-integrity error, not a disk error.
+            // Throw the typed BillingDataLoadException so the surrounding
+            // catch in createBillingFileStr lets it through to the
+            // billingDataLoadError struts mapping, instead of collapsing
+            // it to "disk full" misdirection.
+            throw new BillingDataLoadException(
+                    "OHIP claim file aborted: batch_header bid=" + bid + " not found",
+                    BillingDataLoadException.Phase.BATCH_HEADER_LOOKUP,
+                    java.util.Map.of("bid", bid == null ? "" : bid));
         }
+        bhObj = new BillingBatchHeaderDto();
+        bhObj.setId(bid);
+        bhObj.setDisk_id("" + h.getDiskId());
+        bhObj.setTransc_id(h.getTransactionId());
+        bhObj.setRec_id(h.getRecordId());
+        bhObj.setSpec_id(h.getSpecId());
+        bhObj.setMoh_office(h.getMohOffice());
+
+        bhObj.setBatch_id(h.getBatchId());
+        bhObj.setOperator(h.getOperator());
+        bhObj.setGroup_num(h.getGroupNum());
+        bhObj.setProvider_reg_num(h.getProviderRegNum());
+        bhObj.setSpecialty(h.getSpecialty());
+        bhObj.setH_count(h.gethCount());
+        bhObj.setR_count(h.getrCount());
+        bhObj.setT_count(h.gettCount());
+        bhObj.setBatch_date(ConversionUtils.toDateString(h.getBatchDate()));
 
         setOhipFilename(getOhipFilename(bhObj.getDisk_id()));
     }
@@ -977,12 +999,16 @@ public class OhipClaimFileService {
 
     // readin billingNo
     public void readInBillingNo() {
-        String home_dir;
-        home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
+        String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
         propBillingNo = new Properties();
-        RandomAccessFile raf = null;
-        try {
-            raf = new RandomAccessFile(home_dir + ohipFilename, "r");
+        // Path-validate the filename before opening — companion writeFile/
+        // writeHtml already do this; defense-in-depth so a future caller
+        // that sets ohipFilename from user input can't traverse out of
+        // home_dir.
+        java.io.File safeOhipFile = io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath(
+                ohipFilename, new java.io.File(home_dir));
+        // try-with-resources: a mid-read throw must close the file handle.
+        try (RandomAccessFile raf = new RandomAccessFile(safeOhipFile, "r")) {
             do {
                 String lineValue = raf.readLine();
                 if (lineValue == null) {
@@ -1007,22 +1033,17 @@ public class OhipClaimFileService {
                 }
             } while (true);
 
-        } catch (Exception e) {
+        } catch (IOException | RuntimeException e) {
             // Aborting here is critical: this method populates the dedup-set
             // (propBillingNo) used during regeneration to skip already-billed
             // records. A partial read would leave the set incomplete and the
             // subsequent createBillingFileStr() would re-emit those records to
-            // OHIP — duplicate claim submission.
+            // OHIP — duplicate claim submission. RuntimeException covers the
+            // String#substring/Integer.parseInt paths above on a malformed line.
             _logger.error("Failed to read OHIP file {} (record dedup will be incomplete; aborting to prevent duplicate-claim submission)",
                     LogSanitizer.sanitize(ohipFilename), e);
             throw new IllegalStateException(
                     "Failed to read OHIP file for billing-no dedup; aborting regeneration", e);
-        } finally {
-            try {
-                if (raf != null) raf.close();
-            } catch (IOException e) {
-                _logger.error("Unexpected error", e);
-            }
         }
     }
 
@@ -1044,11 +1065,10 @@ public class OhipClaimFileService {
 
         File file2 = io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath(newName, homeDirFile);
 
-        // Pre-fix: file.renameTo returned false → only logged "Rename OHIP
-        // File Error" with no filename, no cause; caller continued. Next
-        // batch run re-picked the un-renamed file, producing a duplicate
-        // MOH submission. Use Files.move so we surface the actual IOException
-        // and throw cleanly so the action's exception mapping fires.
+        // Files.move (not renameTo) so an IOException surfaces with a real
+        // cause and the action's exception mapping fires. A silent rename
+        // failure here would re-pick the un-renamed file on the next batch
+        // run, producing a duplicate MOH submission.
         try {
             java.nio.file.Files.move(file.toPath(), file2.toPath(),
                     java.nio.file.StandardCopyOption.ATOMIC_MOVE);
@@ -1074,14 +1094,21 @@ public class OhipClaimFileService {
         String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
         File safeOut = io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath(
                 ohipFilename, new File(home_dir));
-        try {
-            FileOutputStream out = new FileOutputStream(safeOut);
-            PrintStream p = new PrintStream(out);
-            p.println(value1);
-
-            p.close();
-            out.close();
-        } catch (Exception e) {
+        // try-with-resources: close both streams on every exit path so a
+        // mid-write throw (PrintStream.println, FileOutputStream constructor)
+        // doesn't leak file handles.
+        // Wrap in BufferedWriter rather than PrintStream — PrintStream's
+        // close() calls flush() internally and swallows the resulting
+        // IOException, so checkError() inside try-with-resources misses
+        // the canonical disk-full-on-final-flush failure mode. BufferedWriter
+        // close() actually throws IOException, so try-with-resources surfaces
+        // close-time IO failures.
+        try (FileOutputStream out = new FileOutputStream(safeOut);
+             java.io.OutputStreamWriter osw = new java.io.OutputStreamWriter(out, java.nio.charset.StandardCharsets.US_ASCII);
+             java.io.BufferedWriter bw = new java.io.BufferedWriter(osw)) {
+            bw.write(value1);
+            bw.newLine();
+        } catch (IOException e) {
             _logger.error("Write OHIP File Error: filename={}", ohipFilename, e);
             throw new BillingFileWriteException(
                     "Failed to write OHIP claim file: " + ohipFilename, e);
@@ -1094,14 +1121,13 @@ public class OhipClaimFileService {
         String home_dir1 = CarlosProperties.getInstance().getProperty("HOME_DIR");
         File safeHtml = io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath(
                 htmlFilename, new File(home_dir1));
-        try {
-            FileOutputStream out1 = new FileOutputStream(safeHtml);
-            PrintStream p1 = new PrintStream(out1);
-            p1.println(htmlvalue1);
-
-            p1.close();
-            out1.close();
-        } catch (Exception e) {
+        // Same BufferedWriter shape as writeFile — see writeFile rationale.
+        try (FileOutputStream out1 = new FileOutputStream(safeHtml);
+             java.io.OutputStreamWriter osw = new java.io.OutputStreamWriter(out1, java.nio.charset.StandardCharsets.UTF_8);
+             java.io.BufferedWriter bw = new java.io.BufferedWriter(osw)) {
+            bw.write(htmlvalue1);
+            bw.newLine();
+        } catch (IOException e) {
             _logger.error("Write HTML File Error: filename={}", htmlFilename, e);
             throw new BillingFileWriteException(
                     "Failed to write OHIP HTML companion file: " + htmlFilename, e);

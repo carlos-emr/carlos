@@ -59,6 +59,7 @@ public final class BillingOnHistorySpecialistViewModel {
     private final String startDayStr;
     private final List<HistoryRow> rows;
     private final int itemCount;
+    private final boolean partial;
 
     private BillingOnHistorySpecialistViewModel(Builder b) {
         this.demographicNo = nullToEmpty(b.demographicNo);
@@ -69,6 +70,7 @@ public final class BillingOnHistorySpecialistViewModel {
         this.startDayStr = nullToEmpty(b.startDayStr);
         this.rows = b.rows == null ? Collections.emptyList() : List.copyOf(b.rows);
         this.itemCount = b.itemCount;
+        this.partial = b.partial;
     }
 
     private static String nullToEmpty(String s) { return s == null ? "" : s; }
@@ -83,6 +85,13 @@ public final class BillingOnHistorySpecialistViewModel {
     public String getStartDayStr() { return startDayStr; }
     public List<HistoryRow> getRows() { return rows; }
     public int getItemCount() { return itemCount; }
+    /**
+     * @return {@code true} when the loader caught an exception mid-iteration
+     *         and returned a partial list. The JSP renders a "data may be
+     *         incomplete" banner so the operator doesn't conclude the patient
+     *         has fewer historical bills than were issued.
+     */
+    public boolean isPartial() { return partial; }
 
     public static final class Builder {
         private String demographicNo;
@@ -93,6 +102,7 @@ public final class BillingOnHistorySpecialistViewModel {
         private String startDayStr;
         private List<HistoryRow> rows;
         private int itemCount;
+        private boolean partial;
 
         public Builder demographicNo(String v) { this.demographicNo = v; return this; }
         public Builder demoName(String v) { this.demoName = v; return this; }
@@ -102,6 +112,7 @@ public final class BillingOnHistorySpecialistViewModel {
         public Builder startDayStr(String v) { this.startDayStr = v; return this; }
         public Builder rows(List<HistoryRow> v) { this.rows = v; return this; }
         public Builder itemCount(int v) { this.itemCount = v; return this; }
+        public Builder partial(boolean v) { this.partial = v; return this; }
 
         public BillingOnHistorySpecialistViewModel build() { return new BillingOnHistorySpecialistViewModel(this); }
     }

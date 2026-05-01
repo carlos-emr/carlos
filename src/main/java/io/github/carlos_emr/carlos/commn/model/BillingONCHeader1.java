@@ -381,7 +381,19 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
         return this.paid;
     }
 
+    /**
+     * Set the running paid total. Negative values are not legal because
+     * refunds are tracked on the payments table, not by negating the
+     * running total. Mirrors the {@link #setTotal} invariant.
+     *
+     * @param paid BigDecimal the paid amount; null is allowed (legacy contract)
+     * @throws IllegalArgumentException when {@code paid} is negative
+     */
     public void setPaid(BigDecimal paid) {
+        if (paid != null && paid.signum() < 0) {
+            throw new IllegalArgumentException(
+                    "BillingONCHeader1 paid cannot be negative");
+        }
         this.paid = paid;
     }
 
@@ -494,11 +506,15 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
             return java.util.Optional.of(BigDecimal.ZERO);
         }
         if (!Hibernate.isInitialized(this.billingItems)) {
+            // A LAZY proxy only exists on a managed-or-detached entity, both
+            // of which have a non-null id by definition. Transient entities
+            // hold a plain ArrayList that Hibernate.isInitialized treats as
+            // initialised, so the throw path is unreachable for id == null.
             throw new BillingItemsNotLoadedException(
                     "BillingONCHeader1.billingItems is a LAZY proxy that is not initialized; "
                             + "load via BillingONCHeader1Dao.findWithItems before calling "
                             + "recomputeTotalFromItems outside a session.",
-                    this.id == null ? -1 : this.id);
+                    this.id);
         }
         BigDecimal sum = BigDecimal.ZERO;
         for (BillingONItem item : this.billingItems) {
@@ -588,12 +604,15 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
     }
 
     /**
-     * @return an unmodifiable view of the line items. Production callers must
-     *         mutate via {@link #addBillingItem(BillingONItem)} or
+     * @return an unmodifiable view of the line items. Never returns
+     *         {@code null}: when the underlying collection is null (e.g.,
+     *         a transient header that never had {@code setBillingItems}
+     *         called), this returns {@link Collections#emptyList()} so
+     *         every caller can iterate without a null-check.
+     *         Production callers must mutate via
+     *         {@link #addBillingItem(BillingONItem)} or
      *         {@link #removeBillingItem(BillingONItem)} so JPA collection
-     *         identity is preserved. Returns {@code null} only when the
-     *         underlying field has been explicitly set to null (no longer
-     *         a routine state).
+     *         identity is preserved.
      * @throws BillingItemsNotLoadedException when the {@code billingItems}
      *         collection is a LAZY Hibernate proxy that has not been
      *         initialized — caller fetched the header outside a session,
@@ -607,25 +626,37 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
      */
     public List<BillingONItem> getBillingItems() {
         if (billingItems == null) {
-            return null;
+            // Defensive floor: a transient header that never had setBillingItems
+            // called would otherwise return null and force every caller to
+            // null-check. The empty list is safe under the unmodifiable-view
+            // contract because there's nothing to mutate.
+            return Collections.emptyList();
         }
         if (!Hibernate.isInitialized(billingItems)) {
+            // Same reasoning as recomputeTotalFromItems: LAZY proxy implies
+            // a managed-or-detached entity whose id is non-null.
             throw new BillingItemsNotLoadedException(
                     "BillingONCHeader1.billingItems is a LAZY proxy that is not initialized; "
                             + "fetch via findWithItems(...) / findByDemoNoWithItems(...) "
                             + "or access only inside an open Hibernate session.",
-                    this.id == null ? -1 : this.id);
+                    this.id);
         }
         return Collections.unmodifiableList(billingItems);
     }
 
     /**
      * Wholesale-replaces the line-items collection with a defensive copy.
-     * Hibernate's dirty-check tracks the JPA-managed PersistentBag identity
-     * so this should only be called on transient (non-managed) headers —
-     * typically test setup. Production code should use
+     * Should only be called on transient (not yet persisted) entities —
+     * production code that mutates a managed header must use
      * {@link #addBillingItem(BillingONItem)} and
      * {@link #removeBillingItem(BillingONItem)} instead.
+     *
+     * <p>The runtime guard below covers both managed and detached entities
+     * (anything with an assigned id). Hibernate's dirty-check tracks the
+     * PersistentBag identity, so replacing it with a fresh ArrayList fires
+     * the orphan-removal cascade — every existing child is deleted and the
+     * new contents are re-inserted. That is almost never the caller's
+     * intent and silently breaks dirty tracking on managed entities.</p>
      *
      * <p>The defensive copy is essential for the {@link #getBillingItems()}
      * unmodifiable-view contract: without it, a caller could pass in a
@@ -633,18 +664,21 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
      * by mutating the live backing collection.</p>
      *
      * @param billingItems the new collection; {@code null} clears it.
+     * @throws IllegalStateException if called on a managed-or-detached
+     *         header (id has been assigned).
      */
+    @Deprecated(since = "2026-04-30", forRemoval = false)
     public void setBillingItems(List<BillingONItem> billingItems) {
         // Hibernate uses field access on this entity, so flush sees the field
         // directly rather than going through getBillingItems(). Replacing the
-        // PersistentBag with an ArrayList on a managed (already-persisted)
-        // header silently breaks dirty tracking — the orphan-removal cascade
+        // PersistentBag with an ArrayList on a managed-or-detached header
+        // silently breaks dirty tracking — the orphan-removal cascade
         // re-deletes the existing children and re-inserts the new list, which
         // is almost never the caller's intent. Guard at runtime so the misuse
         // surfaces immediately rather than as a downstream Hibernate quirk.
         if (this.id != null) {
             throw new IllegalStateException(
-                    "setBillingItems must not be called on a managed (persisted) header — "
+                    "setBillingItems must not be called on a managed-or-detached header — "
                             + "use addBillingItem/removeBillingItem instead. ch1.id=" + this.id);
         }
         this.billingItems = billingItems == null ? null : new ArrayList<>(billingItems);

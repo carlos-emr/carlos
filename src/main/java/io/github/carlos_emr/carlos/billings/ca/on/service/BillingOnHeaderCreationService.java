@@ -169,7 +169,8 @@ public class BillingOnHeaderCreationService {
         header1.setApptProviderNo("");
         header1.setAsstProviderNo("");
         header1.setCreator(curUser);
-        header1.setTotal(new BigDecimal(total));
+        header1.setTotal(io.github.carlos_emr.carlos.billings.ca.on.BillingMoney
+                .parseNonNegativeAmount(total, "total"));
         return header1;
     }
 

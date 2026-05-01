@@ -43,6 +43,8 @@ import io.github.carlos_emr.carlos.commn.model.BillingONExt;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.commn.model.BillingOnItemPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingOnTransaction;
+import io.github.carlos_emr.carlos.commn.model.BillingStatus;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.billings.ca.on.BillingDates;
@@ -159,7 +161,7 @@ public class BillingCorrectionRecordService {
      * @return boolean
      */
     public boolean updateBillingClaimHeader(BillingClaimHeaderDto ch1Obj,
-                                            HttpServletRequest requestData) throws ParseException {
+                                            HttpServletRequest requestData) {
         BillingClaimHeaderDto ch1DataBackup = new BillingClaimHeaderDto();
         ch1DataBackup.clone(ch1Obj);
 
@@ -234,11 +236,9 @@ public class BillingCorrectionRecordService {
         // 3rd party elements
         if (payProgram.matches(BillingOnConstants.BILLINGMATCHSTRING_3RDPARTY)) {
             if (requestData.getParameter("payment") != null) {
-                // Pre-fix six consecutive `ret = update3rdPartyItem(...)` calls
-                // overwrote each other, so the boolean return reflected only
-                // the last call's outcome — partial write failures upstream
-                // were silently dropped. Accumulate via `&=` so any single
-                // failure flips ret to false.
+                // Accumulate via `&=` so any single update3rdPartyItem failure
+                // flips ret to false. Plain `=` would overwrite each prior
+                // result and silently drop partial-write failures upstream.
                 ret &= update3rdPartyItem(BillingONExtDao.KEY_DISCOUNT, requestData);
                 ret &= update3rdPartyItem(BillingONExtDao.KEY_TOTAL, requestData);
                 ret &= update3rdPartyItem(BillingONExtDao.KEY_PAYMENT, requestData);
@@ -648,7 +648,7 @@ public class BillingCorrectionRecordService {
                 }
             }
         } else {
-            oldObj.setStatus("D");
+            oldObj.setStatus(BillingStatus.DELETED);
             ret = correctionPersister.updateBillingOneItem(oldObj);
             // add one transaction: delete a service code
             BillingONCHeader1 billCheader1 = cheader1Dao.find(Integer.parseInt(oldObj.getCh1_id()));
@@ -699,9 +699,7 @@ public class BillingCorrectionRecordService {
      * Builds a {@link BillingOnTransaction} pre-populated with the 18 fields
      * that come straight from the header — the caller fills in the four
      * service-code-specific fields (serviceCode, serviceCodeNum,
-     * serviceCodeInvoiced, and any per-call overrides) and persists. Pre-fix
-     * the D-action and C-action branches in {@code changeItem} each duplicated
-     * this 18-line setter sequence inline.
+     * serviceCodeInvoiced, and any per-call overrides) and persists.
      */
     private BillingOnTransaction newTransactionFromHeader(BillingONCHeader1 billCheader1,
                                                           String actionType,
@@ -759,7 +757,7 @@ public class BillingCorrectionRecordService {
 
     private boolean addItem(BillingClaimHeaderDto ch1Obj, List lItemObj,
                             String updateProviderNo, String sDx, String serviceDate,
-                            String sName, String sUnit, String sFee, String sStatus) throws ParseException {
+                            String sName, String sUnit, String sFee, String sStatus) {
         boolean ret = true;
         BillingClaimItemDto oldObj = null;
         BillingClaimItemDto newObj = null;
@@ -780,11 +778,11 @@ public class BillingCorrectionRecordService {
             newObj.setStatus(sStatus);
             int i = claimPersister.addOneItemRecord(newObj);
             if (0 == i) {
-                // Pre-fix: returned false silently; the surrounding caller
-                // logged at INFO and continued to writeAmount + ext-row
-                // writes for an item that was never persisted, leaving
-                // amount/ext keys dangling against a non-existent line.
                 // Throw so the surrounding @Transactional rolls back.
+                // Returning false silently would let the caller continue
+                // to writeAmount + ext-row writes for an item that was
+                // never persisted, dangling amount/ext keys against a
+                // non-existent line.
                 throw new IllegalStateException(
                         "addItem: claimPersister.addOneItemRecord returned 0 for service code "
                                 + io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(sName));
@@ -842,7 +840,7 @@ public class BillingCorrectionRecordService {
 
             List<BillingONItem> billOnItems = billOnItemDao.getBillingItemByCh1Id(Integer.parseInt(id));
             for (BillingONItem billOnItem : billOnItems) {
-                billOnItem.setStatus("D");
+                billOnItem.setStatus(BillingStatus.DELETED);
                 billOnItemDao.merge(billOnItem); // this statement can update billing_on_item table
             }
         }
@@ -899,12 +897,22 @@ public class BillingCorrectionRecordService {
         String ret = fee;
         if (fee.length() == 0 || fee.equals(" ")) {
             fee = claimQueryService.getCodeFee(codeName, billReferenceDate);
-            // calculate fee
+            // claimQueryService.getCodeFee swallows DAO/parse failures and
+            // returns null in two cases: service code unknown, or lookup
+            // threw. Either way, new BigDecimal(null) buries the real cause
+            // in an opaque NPE. Surface a typed exception so the action layer
+            // routes to the billingValidationError result instead of a
+            // generic 500 with no operator-actionable detail.
+            if (fee == null) {
+                throw new BillingValidationException(
+                        String.format("Fee lookup returned no value for service code %s on %s"
+                                + " — code may be unknown or fee table read failed; check log",
+                                codeName, billReferenceDate));
+            }
             BigDecimal bigCodeFee = new BigDecimal(fee);
             BigDecimal bigCodeUnit = new BigDecimal(unit);
             BigDecimal bigFee = bigCodeFee.multiply(bigCodeUnit);
             bigFee = bigFee.setScale(2, RoundingMode.HALF_UP);
-            // bigFee = bigFee.round(new MathContext(2));
             ret = bigFee.toString();
         }
         return ret;

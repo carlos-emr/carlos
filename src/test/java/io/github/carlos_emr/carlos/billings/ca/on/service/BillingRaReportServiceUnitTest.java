@@ -40,7 +40,7 @@ class BillingRaReportServiceUnitTest {
         when(remittanceAdviceService.getRASummary("1", "123456")).thenReturn(List.of(row));
 
         BillingRaReportService service = new BillingRaReportService(remittanceAdviceService);
-        Map<String, BigDecimal> totals = new HashMap<>();
+        Map<String, Object> totals = new HashMap<>();
 
         List result = service.getRASummary("1", "123456", Collections.emptyList(), Collections.emptyList(), totals);
 
@@ -49,5 +49,81 @@ class BillingRaReportServiceUnitTest {
         assertThat(totalRow.getProperty("amountpay")).isEqualTo("1.01");
         assertThat(totalRow.getProperty("clinicPay")).isEqualTo("1.01");
         assertThat(totals).containsEntry("xml_total", new BigDecimal("1.01"));
+    }
+
+    @Test
+    void shouldBumpPartialCountAndSkipMarker_whenLoadFailureMarkerAppears() {
+        // Round-6 contract: BillingOnRaService appends a marker Properties
+        // row when its outer catch fires mid-iteration (DAO outage, parse
+        // throw). The consumer must (a) skip the marker so it doesn't
+        // render as a real row, and (b) bump xml_partial_count so the
+        // persister/view-model can refuse to overwrite the snapshot.
+        BillingOnRaService remittanceAdviceService = mock(BillingOnRaService.class);
+
+        Properties realRow = new Properties();
+        realRow.setProperty("servicedate", "20260428");
+        realRow.setProperty("explain", "");
+        realRow.setProperty("amountsubmit", "10.00");
+        realRow.setProperty("amountpay", "10.00");
+        realRow.setProperty("location", "00");
+        realRow.setProperty("localServiceDate", "2026-04-28");
+        realRow.setProperty("demo_hin", "1234567890");
+        realRow.setProperty("account", "42");
+
+        Properties marker = new Properties();
+        marker.setProperty(BillingOnRaService.LOAD_FAILURE_MARKER, "true");
+
+        when(remittanceAdviceService.getRASummary("1", "123456"))
+                .thenReturn(List.of(realRow, marker));
+
+        BillingRaReportService service = new BillingRaReportService(remittanceAdviceService);
+        Map<String, Object> totals = new HashMap<>();
+
+        List result = service.getRASummary("1", "123456",
+                Collections.emptyList(), Collections.emptyList(), totals);
+
+        // result is [realRow, totalsRow] — the marker must NOT appear as
+        // a rendered row.
+        assertThat(result).hasSize(2);
+        Properties firstRendered = (Properties) result.get(0);
+        assertThat(firstRendered.getProperty(BillingOnRaService.LOAD_FAILURE_MARKER))
+                .as("marker row must be filtered out, not rendered")
+                .isNull();
+
+        // Partial count exposed for the persister/view-model gate.
+        assertThat(totals).containsEntry("xml_partial_count", 1);
+    }
+
+    @Test
+    void shouldBumpPartialCount_whenRowFlagsAmountUnreadable() {
+        // Sibling contract: per-row amountUnreadable flag (set by the
+        // upstream parser when a money string couldn't be coerced) also
+        // bumps xml_partial_count and zero-coalesces the row out of the
+        // running totals so the totals don't silently understate.
+        BillingOnRaService remittanceAdviceService = mock(BillingOnRaService.class);
+
+        Properties unreadable = new Properties();
+        unreadable.setProperty("servicedate", "20260428");
+        unreadable.setProperty("explain", "");
+        unreadable.setProperty("amountsubmit", "0.00");
+        unreadable.setProperty("amountpay", "0.00");
+        unreadable.setProperty("amountUnreadable", "true");
+        unreadable.setProperty("location", "00");
+        unreadable.setProperty("localServiceDate", "2026-04-28");
+        unreadable.setProperty("demo_hin", "1234567890");
+        unreadable.setProperty("account", "42");
+
+        when(remittanceAdviceService.getRASummary("1", "123456"))
+                .thenReturn(List.of(unreadable));
+
+        BillingRaReportService service = new BillingRaReportService(remittanceAdviceService);
+        Map<String, Object> totals = new HashMap<>();
+
+        service.getRASummary("1", "123456",
+                Collections.emptyList(), Collections.emptyList(), totals);
+
+        assertThat(totals).containsEntry("xml_partial_count", 1);
+        // amountpay zero-coalesced, so xml_total stays at 0.
+        assertThat(totals).containsEntry("xml_total", new BigDecimal("0.00"));
     }
 }

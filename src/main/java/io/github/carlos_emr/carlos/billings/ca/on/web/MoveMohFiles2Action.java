@@ -152,7 +152,9 @@ public class MoveMohFiles2Action extends ActionSupport {
             // return "Unable to get folderParam";
         }
 
-        String[] fileNames = request.getParameterValues("mohFile");
+        // Reuse the array fetched above for the mutation-intent gate so the
+        // request parameter is read once instead of twice.
+        String[] fileNames = mutationFiles;
         if (fileNames == null) {
             errors.append("Please select file(s) to archive.<br/>");
             isValid = false;
@@ -341,7 +343,18 @@ public class MoveMohFiles2Action extends ActionSupport {
                     result = true;
                     break;
                 } catch (SecurityException e) {
-                    // File not in this folder, try next
+                    // SecurityException covers two distinct cases — "not in
+                    // this folder" (expected, try next) and "path-traversal
+                    // attempt" (attack). Both look the same to the caller,
+                    // so log at DEBUG with sanitized path. A traversal probe
+                    // produces N consecutive DEBUG entries (one per folder)
+                    // and surfaces as a pattern in audit triage; legitimate
+                    // calls that hit the right folder break out before more
+                    // than one DEBUG fires.
+                    logger.debug("EDT folder {} rejected file path during validation: {}",
+                            io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(folder.name()),
+                            io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(
+                                    file == null ? "null" : file.getPath()));
                 }
             }
         } catch (Exception e) {

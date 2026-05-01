@@ -72,7 +72,12 @@ public class ViewGenReport2Action extends ActionSupport {
             return NONE;
         }
 
-        service.generateReport(request, OhipReportGenerationService.Mode.SOLO_REPORT);
+        java.util.List<OhipReportGenerationService.FailedProvider> skipped =
+                service.generateReport(request, OhipReportGenerationService.Mode.SOLO_REPORT);
+        // Surface per-provider rollbacks to the success page so the
+        // operator can re-run for the named providers; without this the
+        // page renders as if every selected provider's report shipped.
+        request.setAttribute("skippedProviders", skipped);
 
         // Hybrid clinics need a follow-up GROUP_REPORT pass for the group
         // providers; non-hybrid skips straight to the display page.

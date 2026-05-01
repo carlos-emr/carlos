@@ -187,6 +187,13 @@ class BillingOnSave2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo("failure");
         assertThat(mockRequest.getAttribute("billingNo")).isNull();
         assertThat(mockRequest.getAttribute("billingFailed")).isEqualTo(Boolean.TRUE);
+        // Pin the cause message round-trips to the request so billingONSave.jsp
+        // can render it inside the failure banner. Without this assertion a
+        // future refactor that drops the setAttribute call would silently
+        // turn the failure page back into a generic "billing has failed".
+        assertThat(mockRequest.getAttribute("billingFailureReason"))
+                .asString()
+                .contains("third-party ext write failed");
     }
 
     // -- Security & validation -----------------------------------------

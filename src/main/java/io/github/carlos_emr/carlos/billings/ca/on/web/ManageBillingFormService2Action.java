@@ -91,6 +91,11 @@ public class ManageBillingFormService2Action extends ActionSupport {
         }
 
         List<CtlBillingService> replacement = new ArrayList<>();
+        // Collect parse failures so a fat-fingered order field aborts the
+        // whole save instead of silently persisting serviceOrder=0 across
+        // every code in the affected group (which leaves the codes
+        // visually unordered with no operator banner).
+        List<String> orderParseFailures = new ArrayList<>();
         for (int j = 1; j < 4; j++) {
             String groupName = Objects.toString(request.getParameter("group" + j), "");
             for (int i = 0; i < 20; i++) {
@@ -104,8 +109,11 @@ public class ManageBillingFormService2Action extends ActionSupport {
                     try {
                         serviceOrder = Integer.parseInt(orderStr);
                     } catch (NumberFormatException e) {
-                        MiscUtils.getLogger().warn("Invalid serviceOrder value '{}' for group{}_service{} — defaulting to 0", LogSanitizer.sanitize(orderStr), j, i);
-                        serviceOrder = 0;
+                        MiscUtils.getLogger().warn(
+                                "Invalid serviceOrder value [{}] for group{}_service{} — aborting save",
+                                LogSanitizer.sanitize(orderStr), j, i);
+                        orderParseFailures.add("group" + j + "_service" + i + "=" + orderStr);
+                        continue;
                     }
                 }
 
@@ -119,6 +127,15 @@ public class ManageBillingFormService2Action extends ActionSupport {
                 cbs.setServiceOrder(serviceOrder);
                 replacement.add(cbs);
             }
+        }
+
+        if (!orderParseFailures.isEmpty()) {
+            // Fail before replaceServiceCodes is called: persisting half
+            // the form (the parseable rows) would corrupt the group's
+            // ordering as silently as the prior zero-default did.
+            addActionError(getText("manageBillingForm.orderParseFailures",
+                    new String[] {String.join(", ", orderParseFailures)}));
+            return ERROR;
         }
 
         try {

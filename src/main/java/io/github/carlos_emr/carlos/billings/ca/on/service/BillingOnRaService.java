@@ -68,7 +68,13 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 // 96, 184, 275, 335, 579). The class-level annotation MUST NOT be
 // readOnly=true; Hibernate would silently skip the flush on those writes
 // (or throw on commit, depending on the dialect).
-@org.springframework.transaction.annotation.Transactional
+//
+// rollbackFor = Exception.class is required because importRAFile() declares
+// `throws Exception` and the loop chain throws checked IOException on
+// readLine failures. Spring's default rollback rule does NOT roll back
+// checked exceptions, so without this attribute a mid-file IOException
+// would COMMIT the partial RaHeader insert at line ~189.
+@org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
 public class BillingOnRaService {
     private static final Logger _logger = MiscUtils.getLogger();
 
@@ -133,9 +139,14 @@ public class BillingOnRaService {
             filename = filePathName.substring(filePathName.lastIndexOf("\\") + 1);
         }
 
-        FileInputStream file = new FileInputStream(filePathName);
-        InputStreamReader reader = new InputStreamReader(file);
-        BufferedReader input = new BufferedReader(reader);
+        // try-with-resources: any throw in the parse loop below must close
+        // the file handle. Without this, an IOException from readLine
+        // (or any RuntimeException downstream) leaks the FD AND with the
+        // class-level rollbackFor=Exception.class above, the transaction
+        // rolls back so partial RaHeader/RaDetail rows are not committed.
+        try (FileInputStream file = new FileInputStream(filePathName);
+             InputStreamReader reader = new InputStreamReader(file);
+             BufferedReader input = new BufferedReader(reader)) {
         String nextline;
 
         while ((nextline = input.readLine()) != null) {
@@ -320,9 +331,7 @@ public class BillingOnRaService {
 
             } // ends with header "H"
         }
-        file.close();
-        reader.close();
-        input.close();
+        } // try-with-resources closes file/reader/input
 
         if (transaction.compareTo("") != 0) {
             transaction = "<xml_transaction><table width='100%' border='0' cellspacing='0' cellpadding='0'><tr><td colspan='5'>Accounting Transaction Record</td></tr><tr><td width='14%'>Transaction</td><td width='12%'>Transaction Date</td><td width='17%'>Cheque Issued</td><td width='13%'>Amount</td><td width='44%'>Message</td></tr>" + transaction + "</table></xml_transaction>";
@@ -466,6 +475,12 @@ public class BillingOnRaService {
             _logger.error("Failed to load RA error report (raNo={}, providerOhipNo={}); reconciliation grid may silently drop entries",
                     LogSanitizer.sanitize(raNo),
                     LogSanitizer.sanitize(providerOhipNo), e);
+            // Append a sentinel row so downstream consumers can detect the
+            // partial load and refuse to persist a $-balance computed from
+            // an incomplete grid. Mirrors the marker pattern in getRASummary.
+            Properties marker = new Properties();
+            marker.setProperty(LOAD_FAILURE_MARKER, "true");
+            ret.add(marker);
         }
         return ret;
     }
@@ -535,11 +550,10 @@ public class BillingOnRaService {
                 String amountsubmit = r.getAmountClaim();
                 String amountpay = r.getAmountPay();
                 // unparseable flag — exposed to the JSP so the row renders
-                // with a "contact MOH" badge instead of a fake $0.00. Pre-fix
-                // this method silently coalesced bad values to "0.00" with a
-                // weak log; the operator's reconciliation grid then could not
-                // distinguish a malformed amount from a legitimate $0
-                // payment.
+                // with a "contact MOH" badge instead of a fake $0.00. Silent
+                // coalesce to "0.00" would prevent the operator's
+                // reconciliation grid from distinguishing a malformed amount
+                // from a legitimate $0 payment.
                 boolean amountUnreadable = false;
                 try {
                     BillingMoney.amount(amountpay);
@@ -547,7 +561,7 @@ public class BillingOnRaService {
                     amountUnreadable = true;
                     MiscUtils.getLogger().error(
                             "RA reconciliation: header {} row had unreadable amountPay [{}]; flagged for operator follow-up",
-                            id, amountpay);
+                            LogSanitizer.sanitize(id), LogSanitizer.sanitize(amountpay));
                     amountpay = "0.00";
                 }
 
@@ -580,8 +594,7 @@ public class BillingOnRaService {
             // (BillingRaReportService.getRASummary) can detect the partial
             // load and bump xml_partial_count, which propagates into the
             // OnRaSummaryViewModel.partial flag and ultimately blocks the
-            // OnRaSummaryTotalsService.mergeTotals persist (round-5 contract).
-            // Pre-fix this catch silently truncated the list.
+            // OnRaSummary partial-totals persist-block contract.
             Properties marker = new Properties();
             marker.setProperty(LOAD_FAILURE_MARKER, "true");
             ret.add(marker);
@@ -592,7 +605,7 @@ public class BillingOnRaService {
     /**
      * Sentinel property key used by {@link #getRASummary} to flag a
      * partial result from a mid-iteration DAO failure. Consumers detect
-     * the marker and bump their unreadable-row count so the round-5
+     * the marker and bump their unreadable-row count so the OnRaSummary
      * partial-totals persist-block contract still applies.
      */
     public static final String LOAD_FAILURE_MARKER = "_raSummaryLoadFailed";

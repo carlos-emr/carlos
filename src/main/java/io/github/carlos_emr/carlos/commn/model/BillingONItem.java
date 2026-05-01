@@ -62,11 +62,14 @@ public class BillingONItem extends AbstractModel<Integer> implements Serializabl
     private static final Set<String> KNOWN_STATUSES = BillingStatus.KNOWN;
 
     /**
-     * Sentinel fee value written by {@code BillingCorrectionService} when an
-     * item references a service code whose termination date precedes the
-     * service date. Persisted as-is so the correction UI can render
-     * "(defunct)" inline; downstream consumers detect it via
-     * {@code DEFUNCT_FEE.equals(item.getFee())}. Excluded from the
+     * Sentinel fee value written by
+     * {@code BillingCorrectionService.updateInvoice},
+     * {@code BillingOnClaimLoader.getCodeFee}, and
+     * {@code BillingServiceDaoImpl.getCodeFee} when an item references a
+     * service code whose termination date precedes the service date.
+     * Persisted as-is so the correction UI can render "(defunct)" inline;
+     * downstream consumers detect it via {@link #isDefunct()} (or
+     * {@code DEFUNCT_FEE.equals(item.getFee())}). Excluded from the
      * BigDecimal-parseability check in {@link #setFee} so a corrected
      * bill with a terminated-code line can still be saved.
      */
@@ -208,6 +211,17 @@ public class BillingONItem extends AbstractModel<Integer> implements Serializabl
         }
     }
 
+    /**
+     * Whether this item carries the {@link #DEFUNCT_FEE} sentinel. Lets
+     * UI/render paths show "(defunct)" inline and admin reports surface a
+     * cleanup alert without needing to compare against the magic string.
+     *
+     * @return {@code true} iff the fee is exactly {@link #DEFUNCT_FEE}
+     */
+    public boolean isDefunct() {
+        return DEFUNCT_FEE.equals(fee);
+    }
+
     public String getServiceCount() {
         return serviceCount;
     }
@@ -314,9 +328,10 @@ public class BillingONItem extends AbstractModel<Integer> implements Serializabl
      * this field implicitly so the parent-child relationship can't drift.
      * Direct invocation is supported for the persister/correction services
      * that build {@code BillingONItem} from a DTO before the parent header
-     * is in scope (see {@code BillingOnClaimPersister.parseItem}); those
-     * callers are responsible for matching the assigned id to a real
-     * persisted header on the same transaction.
+     * is in scope (e.g. {@code BillingOnClaimPersister.addOneItemRecord},
+     * {@code BillingCorrectionRecordService}); those callers are responsible
+     * for matching the assigned id to a real persisted header on the same
+     * transaction.
      *
      * @param ch1Id FK to {@link BillingONCHeader1#getId()}
      */
@@ -335,9 +350,9 @@ public class BillingONItem extends AbstractModel<Integer> implements Serializabl
             return id.equals(item.getId());
         // Null-safe natural-key fallback. Two transient items with all-null
         // (ch1Id, serviceCode) are equal; one with a partial key set is not
-        // equal to one with a different partial key. Pre-fix this branch
-        // NPE'd on any transient item with one of the two fields unset
-        // (e.g., bItem.setCh1Id(parent.getId()) where parent is unsaved).
+        // equal to one with a different partial key. Direct .equals on the
+        // fields would NPE on any transient item with one of the two fields
+        // unset (e.g., bItem.setCh1Id(parent.getId()) where parent is unsaved).
         return java.util.Objects.equals(ch1Id, item.getCh1Id())
                 && java.util.Objects.equals(serviceCode, item.getServiceCode());
     }

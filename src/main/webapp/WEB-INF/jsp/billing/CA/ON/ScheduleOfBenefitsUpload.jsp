@@ -187,7 +187,7 @@
                             <c:forEach var="h" items="${warnings}">
                                 <tr>
                                     <td><input type="checkbox" name="change"
-                                               value="<carlos:encode value='${h.feeCode}|${h.newprice}|${h.effectiveDate}|${h.terminactionDate}|${h.description}' context='htmlAttribute'/>"/>
+                                               value="<carlos:encode value='${h.feeCode}|${h.newprice}|${h.effectiveDate}|${h.terminationDate}|${h.description}' context='htmlAttribute'/>"/>
                                     </td>
                                     <td><carlos:encode value='${h.feeCode}' context='html'/></td>
                                     <td><carlos:encode value='${h.oldprice}' context='html'/></td>
@@ -195,7 +195,7 @@
                                     <td><carlos:encode value='${h.diff}' context='html'/></td>
                                     <td title="<carlos:encode value='${h.prices}' context='htmlAttribute'/>"><carlos:encode value='${h.description}' context='html'/></td>
                                     <td><carlos:encode value='${h.effectiveDate}' context='html'/></td>
-                                    <td><carlos:encode value='${h.terminactionDate}' context='html'/></td>
+                                    <td><carlos:encode value='${h.terminationDate}' context='html'/></td>
                                 </tr>
                             </c:forEach>
                         </table>

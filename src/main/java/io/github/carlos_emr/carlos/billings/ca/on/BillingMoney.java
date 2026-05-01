@@ -15,6 +15,7 @@ package io.github.carlos_emr.carlos.billings.ca.on;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
@@ -142,5 +143,37 @@ public final class BillingMoney {
 
     private static BigDecimal decimal(String raw) {
         return new BigDecimal(raw.trim());
+    }
+
+    /**
+     * Parse a money amount that must be non-negative. Throws
+     * {@link BillingValidationException} (which Struts maps to
+     * {@code billingValidationError.jsp}) on null/blank/unparseable/negative
+     * input, so the operator sees a form-validation banner rather than the
+     * generic 500 page that {@code BillingONCHeader1.setTotal}'s raw
+     * {@link IllegalArgumentException} would otherwise produce.
+     *
+     * @param raw       String the user/DB-supplied numeric token
+     * @param fieldName String diagnostic name embedded in the throw message
+     * @return BigDecimal parsed amount at {@link #MONEY_SCALE}
+     * @throws BillingValidationException on invalid input
+     */
+    public static BigDecimal parseNonNegativeAmount(String raw, String fieldName) {
+        if (raw == null || raw.trim().isEmpty()) {
+            throw new BillingValidationException(
+                    "BillingMoney: " + fieldName + " is null or blank");
+        }
+        BigDecimal value;
+        try {
+            value = amount(raw, MONEY_SCALE);
+        } catch (NumberFormatException e) {
+            throw new BillingValidationException(
+                    "BillingMoney: malformed " + fieldName + " [" + raw + "]", e);
+        }
+        if (value.signum() < 0) {
+            throw new BillingValidationException(
+                    "BillingMoney: " + fieldName + " cannot be negative [" + raw + "]");
+        }
+        return value;
     }
 }

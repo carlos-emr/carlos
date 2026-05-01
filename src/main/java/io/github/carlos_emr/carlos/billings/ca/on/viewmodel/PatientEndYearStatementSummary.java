@@ -29,11 +29,6 @@ import java.util.Date;
  * per-invoice grid in {@code endYearStatement.jsp}. Immutable so the
  * persisted aggregation can't be mutated by the JSP.
  *
- * <p>Pre-fix this was a mutable JavaBean built empty + 9 setter calls one
- * by one in {@code PatientEndYearStatementService.aggregateInvoices} —
- * proving the type couldn't be fully constructed in a single valid step.
- * The {@link Builder} now lets the service collect values then create a
- * single immutable instance.</p>
  */
 public final class PatientEndYearStatementSummary {
 

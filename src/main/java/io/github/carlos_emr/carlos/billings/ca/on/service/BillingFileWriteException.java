@@ -32,6 +32,11 @@ public class BillingFileWriteException extends RuntimeException {
 
     private final String filename;
 
+    public BillingFileWriteException(String message) {
+        super(message);
+        this.filename = null;
+    }
+
     public BillingFileWriteException(String message, Throwable cause) {
         super(message, cause);
         this.filename = null;

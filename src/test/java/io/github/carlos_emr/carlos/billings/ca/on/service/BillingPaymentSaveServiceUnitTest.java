@@ -52,7 +52,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link BillingPaymentSaveService} — the round-5 atomic
+ * Unit tests for {@link BillingPaymentSaveService} — the atomic
  * 10-write payment save service. Pins:
  * <ul>
  *   <li>BillingValidationException when bill row missing (concurrent delete)</li>

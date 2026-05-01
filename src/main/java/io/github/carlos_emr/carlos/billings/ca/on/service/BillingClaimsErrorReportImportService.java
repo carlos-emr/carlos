@@ -39,24 +39,11 @@ import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimsErrorReportRecordDto;
 
 /**
- * Imports MOH claims-error-report files into typed report rows.
- *
- * <p>Pre-fix this class was constructed via {@code new} and ran the parse +
- * persist loop in its constructor. {@code BillingOnErrorReportService} is
- * {@code @Transactional}, but each per-line {@code deleteErrorReport} +
- * {@code addErrorReportRecord} call therefore opened its own transaction
- * (REQUIRED-creates-new because there was no enclosing tx). On a mid-stream
- * {@link IOException} or {@link StringIndexOutOfBoundsException} the parser
- * set a {@code verdict=false} flag and stopped — but every per-line write
- * committed before the failure was permanent. The action displayed "import
- * failed" while the DB held half the file's deletes + inserts.</p>
- *
- * <p>Now a Spring-managed {@code @Service @Transactional} bean: the entire
- * read loop runs inside one transaction, and the IOException/SIOOBE catch
- * arms throw {@link BillingFileImportException} so Spring rolls back every
- * write atomically. The action fetches via {@link
- * io.github.carlos_emr.carlos.utility.SpringUtils#getBean} and calls
- * {@link #importStream(FileInputStream, String)}.</p>
+ * Imports MOH claims-error-report files into typed report rows. Spring-
+ * managed {@code @Service @Transactional} bean — the entire read loop runs
+ * inside one transaction, and the IOException/SIOOBE catch arms throw
+ * {@link BillingFileImportException} so a mid-stream failure rolls back
+ * every per-line delete/insert atomically.
  *
  * @since 2026-04-30
  */
@@ -92,8 +79,8 @@ public class BillingClaimsErrorReportImportService {
         parseAndPersist(file, filename, records);
 
         BillingClaimsErrorReportParser parser = new BillingClaimsErrorReportParser(file);
-        parser.verdict = true;
-        parser.setClaimsErrorReportRecords(new ArrayList<>(records));
+        parser.setVerdict(true);
+        parser.setClaimsErrorReportRecords(records);
         return parser;
     }
 
@@ -258,8 +245,8 @@ public class BillingClaimsErrorReportImportService {
             }
         } catch (IOException ioe) {
             // Throw so the surrounding @Transactional rolls back every per-line
-            // delete/insert performed before this point. Pre-fix this catch
-            // set verdict=false and silently kept those writes committed.
+            // delete/insert performed before this point — leaving partial
+            // commits behind would silently desync the report against MOH.
             throw new BillingFileImportException(
                     IMPORT_FAILURE_MSG_PREFIX + filename + " (I/O error)", ioe);
         } catch (StringIndexOutOfBoundsException sioobe) {

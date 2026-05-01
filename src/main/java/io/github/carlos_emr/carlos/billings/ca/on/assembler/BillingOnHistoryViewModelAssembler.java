@@ -94,15 +94,19 @@ public class BillingOnHistoryViewModelAssembler {
         boolean warnOnDelete = CarlosProperties.getInstance()
                 .getBooleanProperty("warnOnDeleteBill", "true");
 
-        List<BillingOnHistoryViewModel.HistoryRow> rows = loadRows(safeDemoNo, canEdit);
+        LoadResult loaded = loadRows(safeDemoNo, canEdit);
 
         return BillingOnHistoryViewModel.builder()
                 .demographicNo(safeDemoNo)
                 .patientDisplayName(patientDisplayName)
                 .warnOnDeleteBill(warnOnDelete)
-                .rows(rows)
+                .rows(loaded.rows)
+                .partial(loaded.partial)
                 .build();
     }
+
+    /** Inner result so loadRows can communicate partial-load state alongside the rows. */
+    private record LoadResult(List<BillingOnHistoryViewModel.HistoryRow> rows, boolean partial) {}
 
     private String resolvePatientName(LoggedInInfo loggedInInfo, String demographicNo) {
         if (demographicNo.isEmpty() || loggedInInfo == null) return "";
@@ -114,6 +118,12 @@ public class BillingOnHistoryViewModelAssembler {
                         + nullToEmpty(demo.getFirstName());
             }
         } catch (NumberFormatException e) {
+            // Non-numeric demographicNo is a programming-side invariant
+            // violation (caller should have validated); log at DEBUG so
+            // ops can grep for it without spamming production.
+            MiscUtils.getLogger().debug(
+                    "Non-numeric demographicNo [{}] in resolvePatientName; rendering blank",
+                    io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(demographicNo));
             return "";
         } catch (RuntimeException ex) {
             MiscUtils.getLogger().warn(
@@ -122,8 +132,9 @@ public class BillingOnHistoryViewModelAssembler {
         return "";
     }
 
-    private List<BillingOnHistoryViewModel.HistoryRow> loadRows(String demographicNo, boolean canEdit) {
+    private LoadResult loadRows(String demographicNo, boolean canEdit) {
         List<BillingOnHistoryViewModel.HistoryRow> rows = new ArrayList<>();
+        boolean partial = false;
         try {
             @SuppressWarnings("rawtypes")
             List aL = claimQueryService.getBillingHist(demographicNo, 10000, 0, null);
@@ -166,7 +177,15 @@ public class BillingOnHistoryViewModelAssembler {
                             balance = total.subtract(sumOfPay).subtract(sumOfDiscount).add(sumOfCredit);
                         }
                     } catch (NumberFormatException e) {
-                        // billing id wasn't an int — leave balance at zero.
+                        // Bill id wasn't numeric — leave balance at zero AND
+                        // raise the partial flag so the JSP banners "data may
+                        // be incomplete". Without this, a corrupt bill id
+                        // would silently render $0 outstanding and the
+                        // operator would never collect.
+                        partial = true;
+                        MiscUtils.getLogger().warn(
+                                "BillingOnHistory: bill id [{}] is not numeric; rendering balance=0.00",
+                                io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(obj.getId()), e);
                         balance = BigDecimal.ZERO;
                     }
                 }
@@ -190,9 +209,14 @@ public class BillingOnHistoryViewModelAssembler {
                         canEdit));
             }
         } catch (RuntimeException e) {
+            // Mid-iteration failure leaves rows incomplete; raise the partial
+            // flag so the JSP can render a "data may be incomplete" banner.
+            // Operator must not interpret a silently-truncated history as the
+            // full record (the duplicate-bill risk is the canonical hazard).
+            partial = true;
             MiscUtils.getLogger().error("Error loading billing history", e);
         }
-        return rows;
+        return new LoadResult(rows, partial);
     }
 
     private static String nullToEmpty(String s) { return s == null ? "" : s; }

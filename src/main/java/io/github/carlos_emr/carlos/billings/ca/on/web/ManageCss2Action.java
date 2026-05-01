@@ -98,9 +98,8 @@ public class ManageCss2Action extends ActionSupport {
                     break;
                 }
             }
-            // Pre-fix: if the lookup found no match, cssStyle stayed null and
-            // line 105 NPE'd with no operator-visible signal. Surface a clean
-            // validation message instead.
+            // No-match guard: surface a clean validation message instead
+            // of letting the next field-set NPE without an operator signal.
             if (cssStyle == null) {
                 MiscUtils.getLogger().warn("ManageCss2Action.save: CSS style not found for editStyle={}",
                         io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(this.getEditStyle()));
@@ -139,10 +138,9 @@ public class ManageCss2Action extends ActionSupport {
         }
 
         // The cascade (css_styles soft-delete + billing_service.display_style
-        // null on every referencing code) is now bundled under @Transactional
-        // inside CssStyleDeletionService. Pre-fix a mid-cascade DAO failure
-        // left the style row marked DELETED while only some referencing codes
-        // had been nulled.
+        // null on every referencing code) is bundled under @Transactional
+        // inside CssStyleDeletionService — a mid-cascade DAO failure rolls
+        // back, leaving both tables consistent.
         boolean deleted = SpringUtils.getBean(io.github.carlos_emr.carlos.billings.ca.on.service.CssStyleDeletionService.class)
                 .deleteByStyleId(this.getEditStyle());
         if (!deleted) {

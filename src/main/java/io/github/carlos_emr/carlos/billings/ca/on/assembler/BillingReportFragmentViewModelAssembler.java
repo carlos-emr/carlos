@@ -257,10 +257,10 @@ public class BillingReportFragmentViewModelAssembler {
                     BigDecimal fee = new BigDecimal(formattedTotal).setScale(2, RoundingMode.HALF_UP);
                     total = total.add(fee);
                 } catch (NumberFormatException e) {
-                    // Pre-fix swallowed silently per "preserve legacy" comment —
-                    // a malformed Settled row was excluded from the running
-                    // total with no operator-visible signal. Log so drift in
-                    // the "Total Paid" footer is at least diagnosable.
+                    // Log so drift in the "Total Paid" footer is at least
+                    // diagnosable — a silently-excluded malformed Settled
+                    // row would understate the running total with no
+                    // operator-visible signal.
                     MiscUtils.getLogger().warn(
                             "BillingReportFragment: bill {} has unparseable total [{}]; excluded from Total Paid",
                             bId, formattedTotal);

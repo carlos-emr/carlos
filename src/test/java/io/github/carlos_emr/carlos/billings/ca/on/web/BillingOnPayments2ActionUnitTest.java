@@ -138,6 +138,25 @@ class BillingOnPayments2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldReturn404_whenBillingNoIsValidButCheaderNotFound() throws Exception {
+        // Round-6 M7 fix: a concurrent delete or otherwise-missing claim
+        // would NPE on cheader.getTotal() and produce a 500. The action
+        // now null-checks cheader and returns 404 with a clear message.
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("billingNo", "999999");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+        // Default mocks return null for ch1Dao.find — exactly the scenario.
+        String result = new BillingOnPayments2Action().listPayments();
+
+        assertThat(result).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(404);
+        assertThat(response.getErrorMessage()).contains("Billing record not found");
+    }
+
+    @Test
     void shouldNotDoublePrefixNegativeItemCurrencyValues() {
         BillingClaimItemDto item = new BillingClaimItemDto();
         item.setId("1");
@@ -161,8 +180,8 @@ class BillingOnPayments2ActionUnitTest extends CarlosUnitTestBase {
     //
     // The legacy shape silently zeroed malformed amounts inside per-item
     // catch blocks and persisted $0 rows for every malformed cell — turning
-    // a typo into a duplicate-/zero-payment ledger row. The fix in commit
-    // c79814781b validates every amount UPFRONT and aborts the entire
+    // a typo into a duplicate-/zero-payment ledger row. The current
+    // implementation validates every amount UPFRONT and aborts the entire
     // request before any persist if any single cell fails. The tests below
     // pin that contract end-to-end so a regression that re-introduces an
     // empty per-item catch is caught.

@@ -240,9 +240,9 @@ public class BillingCorrectionService {
                     + LogSanitizer.sanitizeForDisplay(rawBillingNo) + ")", e);
         }
         // findWithItems eagerly fetches the items collection — applyCorrection
-        // walks them below to apply edits and recompute the total. The service
-        // is not (yet) @Transactional, so the lazy collection wouldn't
-        // initialise on access outside a session.
+        // walks them below to apply edits and recompute the total. The class
+        // is @Transactional, so the items are also reachable lazily; the
+        // eager fetch keeps this read path independent of fetch-mode drift.
         BillingONCHeader1 bCh1 = bCh1Dao.findWithItems(billingNo);
         if (bCh1 == null) {
             MiscUtils.getLogger().error("updateInvoice: bill {} not found",
@@ -639,7 +639,10 @@ public class BillingCorrectionService {
             }
         }
 
-        // Soft-delete existing items now removed.
+        // Soft-delete every existing item that the operator's edited list
+        // no longer contains — these are the rows the user removed in the
+        // form. markDeleted() flips status, leaving the row in place for
+        // audit so a recovery rerun can resurrect it.
         for (BillingONItem bItemExisting : bItemsExisting) {
             if (!bItemsCurrent.contains(bItemExisting)) {
                 bItemExisting.markDeleted();

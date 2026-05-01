@@ -64,10 +64,9 @@ import io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingOnStatus2Action
  *
  * <p>Extracted from {@link ViewBillingOnStatus2Action} so the action stays a
  * thin gate (security check + assembler invocation) and the parameter-echo +
- * default-resolution + DB-fan-out logic is testable in isolation. Mirrors the
- * {@link BillingOnReviewViewModelAssembler} / {@link BillingShortcutPg1ViewModelAssembler}
- * shape: production no-arg ctor + package-private mock-injection ctor +
- * {@link #assemble(HttpServletRequest, LoggedInInfo)}.</p>
+ * default-resolution + DB-fan-out logic is testable in isolation. Spring-wired
+ * via single-constructor injection of all collaborators, so the assembler is
+ * driveable from a unit test by passing mocks directly.</p>
  *
  * @since 2026-04-25
  */
@@ -495,14 +494,10 @@ public class BillingOnStatusViewModelAssembler {
             try {
                 valueToAdd = new BigDecimal(ch1Obj.getTotal()).setScale(2, RoundingMode.HALF_UP);
             } catch (NumberFormatException | NullPointerException e) {
-                // Pre-fix this caught Exception with `ignored` and zeroed
-                // silently — the running grand-total understated by every
-                // malformed bill row. Continue with zero so the page still
-                // renders, but log so ops can spot drift, narrow to the
-                // two parse-failure modes (NFE on bad numeric, NPE on null
-                // total), AND track a count surfaced via
-                // {@link BillingOnStatusViewModel#getUnreadableTotalRowCount()}
-                // so the JSP can render a "N rows excluded" banner.
+                // Zero malformed totals so the page renders, but track the
+                // count via getUnreadableTotalRowCount() so the JSP can
+                // banner "N rows excluded" rather than silently understating
+                // the grand total.
                 unreadableTotalRowCount++;
                 MiscUtils.getLogger().warn(
                         "BillingOnStatus: bill {} has unparseable total [{}]; excluded from grand total",
@@ -527,10 +522,10 @@ public class BillingOnStatusViewModelAssembler {
                 errorCode = raLookupService.getErrorCodes(raList);
             }
             // 3rd-party billing pulls paid amount from the row directly.
-            // Use the shared constant so this and the second matcher below
-            // (around line 561) can't drift apart silently — pre-fix the
-            // ||-chain matcher omitted IFH, so an IFH bill skipped the
-            // 3rd-party formatting path while this one applied it.
+            // Both this matcher and the BILLINGMATCHSTRING_3RDPARTY matcher
+            // below must reference the same constant; an ||-chain that omits
+            // any third-party code (e.g. IFH) silently skips 3rd-party
+            // formatting on that pay program.
             if (ch1Obj.getPay_program() != null
                     && ch1Obj.getPay_program().matches(
                             io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants.BILLINGMATCHSTRING_3RDPARTY)) {
@@ -544,10 +539,12 @@ public class BillingOnStatusViewModelAssembler {
             try {
                 bTemp = new BigDecimal(amountPaid.trim()).setScale(2, RoundingMode.HALF_UP);
             } catch (NumberFormatException nfe) {
-                // amountPaid comes from raLookupService.getAmountPaid which
-                // formats to "$X.XX" — a parse failure here means the lookup
-                // returned malformed data. Surface as an unreadable-row so
-                // the operator sees the same banner as malformed totals.
+                // amountPaid comes from raLookupService.getAmountPaidWithCount,
+                // which delegates to BillingMoney.format → toPlainString (no
+                // currency symbol; e.g. "100.00"). A parse failure here means
+                // the lookup returned malformed data. Surface as an
+                // unreadable-row so the operator sees the same banner as
+                // malformed totals.
                 MiscUtils.getLogger().error(
                         "Could not parse amount paid for invoice {}; excluded from grand total",
                         ch1Obj.getId(), nfe);
@@ -555,22 +552,20 @@ public class BillingOnStatusViewModelAssembler {
                 bTemp = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
             }
             // Reuse the already-parsed `valueToAdd` (which is zeroed for
-            // unreadable rows above). Pre-fix this re-parsed ch1Obj.getTotal()
-            // here and rethrew on NFE, defeating the unreadableTotalRowCount
-            // mechanism — every malformed-total row would 500 the status page
-            // even though it was already "excluded from grand total" upstream.
+            // unreadable rows above). Re-parsing ch1Obj.getTotal() here
+            // would defeat the unreadableTotalRowCount exclusion and 500
+            // the page on a malformed total.
             BigDecimal adj = valueToAdd.subtract(bTemp);
             paidTotal = paidTotal.add(bTemp);
             adjTotal = adjTotal.add(adj);
 
             int qty = ch1Obj.getNumItems();
 
-            if (invoiceNo.equals(ch1Obj.getId())) {
-                newInvoice = false;
-            } else {
-                newInvoice = true;
-            }
-            if (!invoiceNo.equals(ch1Obj.getId())) {
+            // Cache the equality once — the loop runs once per ch1 row and
+            // we both branch on it AND advance invoiceNo when it flips.
+            boolean sameInvoice = invoiceNo.equals(ch1Obj.getId());
+            newInvoice = !sameInvoice;
+            if (!sameInvoice) {
                 invoiceNo = ch1Obj.getId();
                 nC = !nC;
             }
@@ -584,11 +579,10 @@ public class BillingOnStatusViewModelAssembler {
             }
 
             String payProgram = ch1Obj.getPay_program();
-            // Same membership predicate as the matcher above — use the shared
-            // constant so the two checks can't diverge. Pre-fix this chain
-            // omitted IFH that the regex above includes; an IFH bill silently
-            // skipped the third-party formatting path here while still being
-            // treated as third-party for amountPaid sourcing.
+            // Same membership predicate as the matcher above — must use
+            // the shared constant; an ||-chain that omits any third-party
+            // code silently skips the formatting here while still sourcing
+            // amountPaid from the third-party row above (asymmetric drift).
             boolean thirdParty = payProgram != null
                     && payProgram.matches(
                             io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants.BILLINGMATCHSTRING_3RDPARTY);

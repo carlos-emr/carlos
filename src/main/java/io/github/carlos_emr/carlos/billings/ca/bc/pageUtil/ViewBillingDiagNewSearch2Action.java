@@ -24,8 +24,8 @@ import org.apache.struts2.ServletActionContext;
 /**
  * View gate for {@code billing/CA/BC/billingDigNewSearch.jsp}. Enforces
  * {@code _billing} {@code w} privilege before forwarding to the
- * JSP at its {@code /WEB-INF/jsp/} location. Created as part of the BC
- * billing migration to gate direct-access paths behind Struts2 actions.
+ * JSP at its {@code /WEB-INF/jsp/} location. Privilege + Struts gate
+ * fronting the direct-access JSP.
  *
  * @since 2026-04-13
  */

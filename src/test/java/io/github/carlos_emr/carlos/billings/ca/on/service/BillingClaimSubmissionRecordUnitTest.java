@@ -32,8 +32,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  *   <li>null items → empty immutable list</li>
  *   <li>caller-supplied items list is defensively copied (mutation
  *       post-construction does not affect the record)</li>
- *   <li>{@code toLegacyArrayList} / {@code fromLegacy} round-trip
- *       preserves header + items references</li>
+ *   <li>{@code toLegacyArrayList} / {@code fromLegacy} round-trips the
+ *       record: the resulting submission carries the same header
+ *       reference and an items list with the same contents (in the same
+ *       order)</li>
  * </ul>
  */
 @DisplayName("BillingClaimSubmission record")

@@ -182,4 +182,56 @@ class BillingONItemUnitTest {
             assertThat(item.getFee()).isEqualTo("100.00");
         }
     }
+
+    @Nested
+    @DisplayName("getFeeAsBigDecimal / isDefunct companions")
+    class FeeReadCompanions {
+
+        @Test
+        void shouldReturnEmpty_whenFeeIsNull() {
+            assertThat(new BillingONItem().getFeeAsBigDecimal()).isEmpty();
+        }
+
+        @Test
+        void shouldReturnEmpty_whenFeeIsDefunctSentinel() {
+            BillingONItem item = new BillingONItem();
+            item.setFee(BillingONItem.DEFUNCT_FEE);
+            // The sentinel is a render marker, not a number — math/UI paths
+            // collapse it to empty so they don't accidentally tally garbage.
+            assertThat(item.getFeeAsBigDecimal()).isEmpty();
+        }
+
+        @Test
+        void shouldReturnParsedAmount_whenFeeIsValidBigDecimal() {
+            BillingONItem item = new BillingONItem();
+            item.setFee("123.45");
+            assertThat(item.getFeeAsBigDecimal())
+                    .isPresent()
+                    .get()
+                    .isEqualTo(new java.math.BigDecimal("123.45"));
+        }
+
+        @Test
+        void shouldReturnEmpty_whenLegacyMalformedRowBypassesSetter() throws Exception {
+            // setFee rejects unparseable values, but legacy DB rows can bypass
+            // the setter via Hibernate's field access. Mirror the
+            // recomputeTotalFromItems defence by returning empty rather than
+            // NPEing on a stored garbage value.
+            BillingONItem item = new BillingONItem();
+            java.lang.reflect.Field f = BillingONItem.class.getDeclaredField("fee");
+            f.setAccessible(true);
+            f.set(item, "not-a-number");
+            assertThat(item.getFeeAsBigDecimal()).isEmpty();
+        }
+
+        @Test
+        void shouldReportDefunct_onlyForExactSentinel() {
+            BillingONItem item = new BillingONItem();
+            assertThat(item.isDefunct()).isFalse();
+            item.setFee("123.45");
+            assertThat(item.isDefunct()).isFalse();
+            item.setFee(BillingONItem.DEFUNCT_FEE);
+            assertThat(item.isDefunct()).isTrue();
+        }
+    }
 }

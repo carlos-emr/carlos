@@ -96,7 +96,12 @@ class ManageBillingLocation2ActionUnitTest {
                 mockSecurityInfoManager, mockClinicLocationDao);
 
         assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
-        assertThat(mockRequest.getAttribute("manageLocationModel")).isNotNull();
+        // isInstanceOf catches a future refactor that stashes the wrong-shape
+        // viewmodel (e.g., the BillType model instead of Location); a bare
+        // isNotNull would let that regression slip through.
+        assertThat(mockRequest.getAttribute("manageLocationModel"))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.viewmodel
+                        .ManageBillingLocationViewModel.class);
         verify(mockClinicLocationDao, never()).removeByClinicLocationNo(any());
     }
 

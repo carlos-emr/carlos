@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnHeaderCreatio
 import io.github.carlos_emr.carlos.commn.dao.BatchBillingDAO;
 import io.github.carlos_emr.carlos.commn.model.BatchBilling;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -103,8 +104,7 @@ public class BatchBill2Action extends ActionSupport {
             } catch (ParseException e) {
                 // Send an explicit 400 with a body and return NONE so Struts
                 // doesn't try to resolve a result string. Returning null after
-                // setStatus produces an empty/ambiguous response — the same
-                // shape this PR fixed elsewhere.
+                // setStatus produces an empty/ambiguous response.
                 MiscUtils.getLogger().error("BatchBill execute: invalid BillDate", e);
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid BillDate");
                 return NONE;
@@ -248,10 +248,9 @@ public class BatchBill2Action extends ActionSupport {
 
         String[] billingInfo = request.getParameterValues("bill");
 
-        // Atomic remove via @Transactional service. Pre-fix the per-row
-        // loop ran inline with no tx — a mid-loop failure (stale row,
-        // FK constraint, concurrent edit) committed prior removes and
-        // left the rest unprocessed, silently desyncing the queue.
+        // Atomic remove via @Transactional service — a mid-loop failure
+        // (stale row, FK constraint, concurrent edit) rolls back every
+        // prior remove rather than silently desyncing the queue.
         if (billingInfo != null) {
             java.util.List<io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingRemovalService.Row> rows =
                     new java.util.ArrayList<>();
@@ -263,6 +262,22 @@ public class BatchBill2Action extends ActionSupport {
             try {
                 SpringUtils.getBean(io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingRemovalService.class)
                         .removeAll(rows);
+            } catch (io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingRemovalService.RemovalRowMissingException missing) {
+                // The typed exception's whole point is its .row() field —
+                // without surfacing it the operator gets the same opaque
+                // 500 page they'd have got from the pre-fix .get(0) NPE.
+                // Render the row id on the action result so the JSP can
+                // banner "Row not found: demographicNo=N serviceCode=C".
+                MiscUtils.getLogger().error(
+                        "BatchBilling remove rolled back; row not found: demographicNo={} serviceCode={}",
+                        LogSanitizer.sanitize(String.valueOf(missing.row().demographicNo())),
+                        LogSanitizer.sanitize(missing.row().serviceCode()),
+                        missing);
+                addActionError(getText("batchbill.removeRowMissing",
+                        new String[] {String.valueOf(missing.row().demographicNo()),
+                                missing.row().serviceCode()}));
+                request.setAttribute("removeRowMissing", missing.row());
+                return ERROR;
             } catch (RuntimeException e) {
                 MiscUtils.getLogger().error("BatchBilling remove rolled back; queue unchanged", e);
                 throw e;

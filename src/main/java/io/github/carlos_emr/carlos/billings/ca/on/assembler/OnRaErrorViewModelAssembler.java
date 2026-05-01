@@ -92,8 +92,19 @@ public class OnRaErrorViewModelAssembler {
             List<Properties> errorList = prep.getRAErrorReport(raNoParam, selectedProvider, NOT_ERROR_CODES);
             List<OnRaErrorViewModel.ErrorRow> rows = new ArrayList<>(
                     errorList == null ? 0 : errorList.size());
+            boolean partial = false;
             if (errorList != null) {
                 for (Properties prop : errorList) {
+                    // Skip the LOAD_FAILURE_MARKER sentinel emitted by
+                    // BillingOnRaService.getRAErrorReport on mid-iteration
+                    // failure, and raise the partial flag so the JSP renders
+                    // a "data may be incomplete" banner. Mirrors the
+                    // BillingRaReportService.getRASummary handling.
+                    if ("true".equals(prop.getProperty(
+                            io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnRaService.LOAD_FAILURE_MARKER))) {
+                        partial = true;
+                        continue;
+                    }
                     rows.add(new OnRaErrorViewModel.ErrorRow(
                             prop.getProperty("account", ""),
                             prop.getProperty("demoLast", ""),
@@ -106,6 +117,7 @@ public class OnRaErrorViewModelAssembler {
                 }
             }
             b.errorRows(rows);
+            b.partial(partial);
         }
 
         return b.build();

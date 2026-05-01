@@ -63,12 +63,10 @@ public class OnRaSummaryTotalsService {
     @Transactional
     public void mergeTotals(String raNoStr, BigDecimal localTotal, BigDecimal payTotal,
                             BigDecimal otherTotal, BigDecimal obTotal, BigDecimal coTotal) {
-        // Pre-fix this method silently returned on parse failure or null
-        // input, leaving the RA header content untouched while the caller
-        // (ViewOnGenRaSummary2Action) believed the merge succeeded — the
-        // operator's grand-total grid would silently drift out of sync with
-        // the underlying records. Surface the failure so the action's
-        // exception mapping renders the validation page.
+        // Surface a parse / null-input failure so the action's exception
+        // mapping renders the validation page. Silently returning would
+        // leave the RA header content untouched while the caller believed
+        // the merge succeeded, drifting the grand-total grid out of sync.
         if (raNoStr == null || raNoStr.isEmpty()) {
             throw new BillingValidationException(
                     "RA summary merge rejected: raNo is missing");

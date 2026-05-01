@@ -199,17 +199,22 @@ public class BillingOnDiskLoader {
                 retval.add(obj);
             }
         } catch (Exception e) {
-            // Distinguish DB-outage / parse failure from clean books: the
-            // caller maps null to an empty list, so without context the UI
-            // would render "no MRI records" indistinguishably from a real
-            // failure.
+            // Rethrow as a typed BillingDataLoadException so the action's
+            // exception mapping renders an explicit failure page rather
+            // than a silently-empty MRI grid the operator would interpret
+            // as "clean books".
             MiscUtils.getLogger().error(
-                    "Failed to load MRI list for date range {}..{} status={}: returning null",
+                    "Failed to load MRI list for date range {}..{} status={}; rethrowing",
                     LogSanitizer.sanitize(sDate),
                     LogSanitizer.sanitize(eDate),
                     LogSanitizer.sanitize(status),
                     e);
-            return null;
+            throw new BillingDataLoadException("Failed to load MRI list", e,
+                    BillingDataLoadException.Phase.DAO_QUERY,
+                    java.util.Map.of(
+                            "startDate", sDate == null ? "" : sDate,
+                            "endDate", eDate == null ? "" : eDate,
+                            "status", status == null ? "" : status));
         }
         return retval;
     }

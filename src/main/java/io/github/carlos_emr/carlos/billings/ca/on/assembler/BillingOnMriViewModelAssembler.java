@@ -65,8 +65,8 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewQueryServ
  * and one for the older-records OHIP-number→name lookup (using
  * {@code getActiveProviders}). Both are consolidated here.</p>
  *
- * <p>The {@code BillingReviewQueryService} and {@code BillingOnLookupService} helpers
- * remain plain {@code new} instantiations — they aren't Spring beans.</p>
+ * <p>The {@code BillingReviewQueryService} and {@code BillingOnLookupService}
+ * helpers are constructor-injected like the rest of the dependency graph.</p>
  *
  * @since 2026-04-26
  */

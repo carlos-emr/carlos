@@ -54,6 +54,13 @@ public final class OnRaErrorViewModel {
     private final List<ProviderOption> providerOptions;
     /** Empty when "all" / "" is the selected provider — top section is rendered instead. */
     private final List<ErrorRow> errorRows;
+    /**
+     * Set by the assembler when the underlying loader emitted a
+     * {@code LOAD_FAILURE_MARKER} sentinel (mid-iteration DAO failure).
+     * Callers must not flip this true for any other reason. The JSP
+     * renders a "data may be incomplete" banner.
+     */
+    private final boolean partial;
 
     private OnRaErrorViewModel(Builder b) {
         this.valid = b.valid;
@@ -65,6 +72,7 @@ public final class OnRaErrorViewModel {
         this.errorRows = b.errorRows == null
                 ? Collections.emptyList()
                 : List.copyOf(b.errorRows);
+        this.partial = b.partial;
     }
 
     public boolean isValid() { return valid; }
@@ -72,6 +80,7 @@ public final class OnRaErrorViewModel {
     public String getSelectedProviderOhip() { return selectedProviderOhip; }
     public List<ProviderOption> getProviderOptions() { return providerOptions; }
     public List<ErrorRow> getErrorRows() { return errorRows; }
+    public boolean isPartial() { return partial; }
     /** True when the legacy JSP would render the per-provider error rows table. */
     public boolean isShowProviderRows() {
         return !selectedProviderOhip.isEmpty() && !"all".equals(selectedProviderOhip);
@@ -85,12 +94,14 @@ public final class OnRaErrorViewModel {
         private String selectedProviderOhip;
         private List<ProviderOption> providerOptions;
         private List<ErrorRow> errorRows;
+        private boolean partial;
 
         public Builder valid(boolean v) { this.valid = v; return this; }
         public Builder raNo(String v) { this.raNo = v; return this; }
         public Builder selectedProviderOhip(String v) { this.selectedProviderOhip = v; return this; }
         public Builder providerOptions(List<ProviderOption> v) { this.providerOptions = v; return this; }
         public Builder errorRows(List<ErrorRow> v) { this.errorRows = v; return this; }
+        public Builder partial(boolean v) { this.partial = v; return this; }
 
         public OnRaErrorViewModel build() { return new OnRaErrorViewModel(this); }
     }

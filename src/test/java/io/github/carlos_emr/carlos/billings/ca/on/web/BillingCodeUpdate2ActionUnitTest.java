@@ -44,7 +44,7 @@ import static org.mockito.Mockito.when;
 /**
  * Unit tests for {@link BillingCodeUpdate2Action}.
  *
- * <p>Pins the persister-before-assembler ordering. Commit {@code c79814781b}
+ * <p>Pins the persister-before-assembler ordering. The commit
  * removed the DAO write from {@link BillingCodeUpdateViewModelAssembler}
  * and moved it to {@link ServiceCodePersister#updateDescriptionByServiceCode};
  * the action must invoke the persister BEFORE the assembler so that an

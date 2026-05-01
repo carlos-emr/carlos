@@ -108,11 +108,4 @@ class BillingShortcutPg2ValidationUnitTest {
                 .hasMessageContaining("valid integer");
     }
 
-    @Test
-    void shouldNotInstantiate_butVerifyFactoryReachable() {
-        // Smoke test that the service is constructible with the mocks above —
-        // catches a future ctor-signature drift that would silently break the
-        // test class wiring.
-        assertThat(newSvc()).isNotNull();
-    }
 }

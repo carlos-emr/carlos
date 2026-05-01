@@ -354,11 +354,10 @@ public class BillingOnThirdPartyInvoiceViewModelAssembler {
     }
 
     /**
-     * Variant that records a malformed-amount via the supplied tracker.
-     * Pre-fix the silent zero-coalesce caused the printed invoice to show a
-     * computed balance line below malformed amounts that the operator could
-     * not see — passing this method an {@link UnreadableTracker} now flips
-     * a flag the JSP renders as "AMOUNT UNREADABLE — DO NOT REMIT".
+     * Variant that records a malformed-amount via the supplied tracker so
+     * the caller can render an "AMOUNT UNREADABLE — DO NOT REMIT" banner.
+     * A silent zero-coalesce would print a balance line below the malformed
+     * amount, hiding the corruption from the operator.
      */
     private static BigDecimal parseScale(String s, UnreadableTracker tracker) {
         if (s == null || s.isEmpty()) return ZERO;

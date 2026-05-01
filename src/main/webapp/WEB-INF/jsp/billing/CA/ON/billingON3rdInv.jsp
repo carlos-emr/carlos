@@ -67,6 +67,12 @@
     <oscar:customInterface section="invoice"/>
 </head>
 <body>
+<c:if test="${invoiceModel.amountsUnreadable}">
+    <div style="background:#f8d7da;color:#721c24;border:2px solid #c82333;padding:10px;margin:6px 0;font-size:1.1em;font-weight:bold;">
+        AMOUNT UNREADABLE — DO NOT REMIT.
+        One or more billed amounts on this invoice could not be parsed and were rendered as zero. Re-export the invoice after correcting the underlying billing rows.
+    </div>
+</c:if>
 <form action="${pageContext.request.contextPath}/BillingInvoice" method="post">
     <input type="hidden" name="method" value=""/>
     <input type="hidden" name="invoiceNo" id="invoiceNo" value="<carlos:encode value="${invoiceModel.invoiceNoStr}" context="htmlAttribute"/>"/>

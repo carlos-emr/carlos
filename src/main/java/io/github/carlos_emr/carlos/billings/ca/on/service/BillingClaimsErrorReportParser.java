@@ -27,6 +27,9 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimsErrorReportRecordDto;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -36,18 +39,32 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * <p>The handler models fixed-format Ontario billing report data so callers can
  * parse, inspect, and render records without duplicating report conventions in
  * JSPs.</p>
+ *
+ * <p>State exposure is via accessors, not public fields, so callers can't
+ * silently undo the parse-time invariant {@code verdict==true initially}
+ * by direct field write. The records list returned by
+ * {@link #getClaimsErrorReportRecords()} is an unmodifiable view over the
+ * internal buffer; mutations must go through {@link #setClaimsErrorReportRecords}
+ * which defensively copies.</p>
  */
 
 public class BillingClaimsErrorReportParser {
 
-    ArrayList claimsErrorReportRecords = new ArrayList();
-    public boolean verdict = true;
+    private List<BillingClaimsErrorReportRecordDto> claimsErrorReportRecords = new ArrayList<>();
+    private boolean verdict = true;
 
     public BillingClaimsErrorReportParser(FileInputStream file) {
         init(file);
     }
 
-    public boolean init(FileInputStream file) {
+    /**
+     * Parse the supplied stream into the records buffer. Private + invoked
+     * exactly once from the constructor — calling this twice would
+     * double-populate the records buffer (and on a fresh stream re-read,
+     * silently leave a stale verdict from the first pass). The constructor
+     * is the single entry point.
+     */
+    private boolean init(FileInputStream file) {
         InputStreamReader reader = new InputStreamReader(file);
         BufferedReader input = new BufferedReader(reader);
         String nextline;
@@ -150,8 +167,8 @@ public class BillingClaimsErrorReportParser {
 
             }
         } catch (IOException ioe) {
-            // Pre-fix verdict was left true on IOException — caller saw
-            // "import succeeded" when the file was unreadable mid-parse.
+            // Flip verdict false so an unreadable-mid-parse file doesn't
+            // surface to the caller as "import succeeded".
             verdict = false;
             MiscUtils.getLogger().error("Claims-error parse failed (IOException), verdict=false", ioe);
         } catch (StringIndexOutOfBoundsException ioe) {
@@ -163,12 +180,28 @@ public class BillingClaimsErrorReportParser {
     }
 
 
-    public ArrayList getClaimsErrorReportRecords() {
-        return claimsErrorReportRecords;
+    public List<BillingClaimsErrorReportRecordDto> getClaimsErrorReportRecords() {
+        return Collections.unmodifiableList(claimsErrorReportRecords);
     }
 
-    public void setClaimsErrorReportRecords(ArrayList claimsErrorReportRecords) {
-        this.claimsErrorReportRecords = claimsErrorReportRecords;
+    public void setClaimsErrorReportRecords(List<BillingClaimsErrorReportRecordDto> records) {
+        // Defensive copy so a caller can't mutate the internal buffer
+        // through their list reference after handing it off (e.g., the
+        // import service builds a transient ArrayList, hands it in, then
+        // continues to add rows during a retry).
+        // Reject null loudly — silently coalescing to an empty list would
+        // contradict the fail-loudly stance everywhere else in this class
+        // and let a caller bug ship a "successful" empty parser.
+        Objects.requireNonNull(records, "records must not be null");
+        this.claimsErrorReportRecords = new ArrayList<>(records);
+    }
+
+    public boolean isVerdict() {
+        return verdict;
+    }
+
+    public void setVerdict(boolean verdict) {
+        this.verdict = verdict;
     }
 
 }

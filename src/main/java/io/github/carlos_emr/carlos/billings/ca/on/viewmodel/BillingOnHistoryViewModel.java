@@ -65,12 +65,20 @@ public final class BillingOnHistoryViewModel {
     private final String patientDisplayName;
     private final boolean warnOnDeleteBill;
     private final List<HistoryRow> rows;
+    /**
+     * Set by the assembler when {@code loadRows} caught a RuntimeException
+     * mid-iteration. The JSP renders a "data may be incomplete" banner so
+     * operators don't conclude the patient has fewer historical bills than
+     * were issued (which would invite re-billing).
+     */
+    private final boolean partial;
 
     private BillingOnHistoryViewModel(Builder b) {
         this.demographicNo = nullToEmpty(b.demographicNo);
         this.patientDisplayName = nullToEmpty(b.patientDisplayName);
         this.warnOnDeleteBill = b.warnOnDeleteBill;
         this.rows = b.rows == null ? Collections.emptyList() : List.copyOf(b.rows);
+        this.partial = b.partial;
     }
 
     private static String nullToEmpty(String s) { return s == null ? "" : s; }
@@ -81,17 +89,20 @@ public final class BillingOnHistoryViewModel {
     public String getPatientDisplayName() { return patientDisplayName; }
     public boolean isWarnOnDeleteBill() { return warnOnDeleteBill; }
     public List<HistoryRow> getRows() { return rows; }
+    public boolean isPartial() { return partial; }
 
     public static final class Builder {
         private String demographicNo;
         private String patientDisplayName;
         private boolean warnOnDeleteBill;
         private List<HistoryRow> rows;
+        private boolean partial;
 
         public Builder demographicNo(String v) { this.demographicNo = v; return this; }
         public Builder patientDisplayName(String v) { this.patientDisplayName = v; return this; }
         public Builder warnOnDeleteBill(boolean v) { this.warnOnDeleteBill = v; return this; }
         public Builder rows(List<HistoryRow> v) { this.rows = v; return this; }
+        public Builder partial(boolean v) { this.partial = v; return this; }
 
         public BillingOnHistoryViewModel build() { return new BillingOnHistoryViewModel(this); }
     }

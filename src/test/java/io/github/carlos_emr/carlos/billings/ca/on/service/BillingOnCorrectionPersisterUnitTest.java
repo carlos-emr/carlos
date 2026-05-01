@@ -310,7 +310,132 @@ class BillingOnCorrectionPersisterUnitTest {
         assertThat(t.getServiceCodeRefund()).isEqualTo(BigDecimal.ZERO);
     }
 
+    // ---- updateBillingClaimHeader (round-10 dropped throws ParseException;
+    //      now throws IAE via BillingDates.parseIso* on malformed dates) -----
+
+    @Test
+    void shouldMergeHeader_whenUpdateBillingClaimHeaderDatesValid() {
+        BillingONCHeader1 existing = new BillingONCHeader1();
+        when(headerDao.find("100")).thenReturn(existing);
+        BillingClaimHeaderDto h = fullHeaderDto("2026-01-15", "2026-01-20", "12:34:56");
+
+        boolean ret = persister.updateBillingClaimHeader(h);
+
+        assertThat(ret).isTrue();
+        verify(headerDao).merge(existing);
+    }
+
+    @Test
+    void shouldThrowAndNotMerge_whenUpdateBillingClaimHeaderBillingTimeMalformed() {
+        BillingONCHeader1 existing = new BillingONCHeader1();
+        when(headerDao.find("100")).thenReturn(existing);
+        BillingClaimHeaderDto h = fullHeaderDto("2026-01-15", "2026-01-20", "not-a-time");
+
+        assertThatThrownBy(() -> persister.updateBillingClaimHeader(h))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("not-a-time");
+
+        verify(headerDao, never()).merge(any(BillingONCHeader1.class));
+    }
+
+    @Test
+    void shouldThrowAndNotMerge_whenUpdateBillingClaimHeaderAdmissionDateMalformed() {
+        BillingONCHeader1 existing = new BillingONCHeader1();
+        when(headerDao.find("100")).thenReturn(existing);
+        BillingClaimHeaderDto h = fullHeaderDto("not-a-date", "2026-01-20", "12:34:56");
+
+        assertThatThrownBy(() -> persister.updateBillingClaimHeader(h))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("not-a-date");
+
+        verify(headerDao, never()).merge(any(BillingONCHeader1.class));
+    }
+
+    @Test
+    void shouldThrowValidation_whenUpdateBillingClaimHeaderTotalIsNegative() {
+        BillingONCHeader1 existing = new BillingONCHeader1();
+        when(headerDao.find("100")).thenReturn(existing);
+        BillingClaimHeaderDto h = fullHeaderDto("2026-01-15", "2026-01-20", "12:34:56");
+        h.setTotal("-50.00");
+
+        assertThatThrownBy(() -> persister.updateBillingClaimHeader(h))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("total")
+                .hasMessageContaining("cannot be negative");
+
+        verify(headerDao, never()).merge(any(BillingONCHeader1.class));
+    }
+
+    @Test
+    void shouldThrowValidation_whenUpdateBillingPaidIsNegative() {
+        BillingONCHeader1 existing = new BillingONCHeader1();
+        when(headerDao.find("100")).thenReturn(existing);
+
+        assertThatThrownBy(() -> persister.updateBillingPaid("-25.00", "100"))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("paid")
+                .hasMessageContaining("cannot be negative");
+
+        verify(headerDao, never()).merge(any(BillingONCHeader1.class));
+    }
+
+    // ---- updateBillingOneItem (round-10 dropped throws ParseException) ----
+
+    @Test
+    void shouldMergeItem_whenUpdateBillingOneItemServiceDateValid() {
+        BillingONItem existing = new BillingONItem();
+        when(itemDao.find("1")).thenReturn(existing);
+        BillingClaimItemDto i = itemDto();
+        i.setService_date("2026-01-15");
+
+        boolean ret = persister.updateBillingOneItem(i);
+
+        assertThat(ret).isTrue();
+        verify(itemDao).merge(existing);
+    }
+
+    @Test
+    void shouldThrowAndNotMerge_whenUpdateBillingOneItemServiceDateMalformed() {
+        BillingONItem existing = new BillingONItem();
+        when(itemDao.find("1")).thenReturn(existing);
+        BillingClaimItemDto i = itemDto();
+        i.setService_date("not-a-date");
+
+        assertThatThrownBy(() -> persister.updateBillingOneItem(i))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("not-a-date");
+
+        verify(itemDao, never()).merge(any(BillingONItem.class));
+    }
+
     // ---- helpers ---------------------------------------------------------
+
+    private static BillingClaimHeaderDto fullHeaderDto(String admissionDate,
+                                                       String billingDate,
+                                                       String billingTime) {
+        BillingClaimHeaderDto h = headerDto(admissionDate, billingDate);
+        h.setBilling_time(billingTime);
+        h.setDemographic_no("7");
+        h.setAppointment_no("0");
+        h.setTotal("33.70");
+        h.setPaid("0");
+        h.setStatus("O");
+        h.setSex("M");
+        h.setHin("");
+        h.setVer("");
+        h.setDob("");
+        h.setPayee("");
+        h.setRef_lab_num("");
+        h.setDemographic_name("");
+        h.setProvider_no("999998");
+        h.setProvider_ohip_no("");
+        h.setProvider_rma_no("");
+        h.setApptProvider_no("");
+        h.setAsstProvider_no("");
+        h.setTransc_id("");
+        h.setRec_id("");
+        return h;
+    }
 
     private static BillingClaimHeaderDto headerDto(String admissionDate, String billingDate) {
         BillingClaimHeaderDto h = new BillingClaimHeaderDto();

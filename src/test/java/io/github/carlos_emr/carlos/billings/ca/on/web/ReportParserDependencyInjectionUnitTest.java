@@ -50,7 +50,7 @@ class ReportParserDependencyInjectionUnitTest {
                             mock(BillingOnErrorReportService.class));
             // Empty file → import succeeds with verdict=true; pinning the
             // happy-path contract that no rows persist on an empty stream.
-            assertThat(importService.importStream(input, "E-empty.txt").verdict).isTrue();
+            assertThat(importService.importStream(input, "E-empty.txt").isVerdict()).isTrue();
         }
     }
 
@@ -67,6 +67,9 @@ class ReportParserDependencyInjectionUnitTest {
                             mock(DemographicManager.class),
                             mock(ProviderDao.class));
 
+            // BillingEdtObecOutputSpecificationParser still exposes verdict
+            // as a public field — the round-7 encapsulation only applied to
+            // the sibling BillingClaimsErrorReportParser.
             assertThat(parser.verdict).isTrue();
             assertThat(parser.getEdtObecOutputSpecificationRecords()).isEmpty();
         }

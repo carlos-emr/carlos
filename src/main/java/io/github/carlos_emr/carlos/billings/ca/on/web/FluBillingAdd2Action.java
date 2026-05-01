@@ -104,7 +104,7 @@ public class FluBillingAdd2Action extends ActionSupport {
         }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        // Explicit null-session guard matches the sibling 2Actions in this PR.
+        // Explicit null-session guard matches the sibling 2Actions in this module.
         // hasPrivilege(null, ...) reaches SecurityInfoManagerImpl and emits a
         // noisy internal ERROR before returning false; fail fast with a clean
         // signal instead.
@@ -132,14 +132,23 @@ public class FluBillingAdd2Action extends ActionSupport {
                 + "<demosex>" + escapeXml(demoSex) + "</demosex>"
                 + "<specialty>flu</specialty>";
 
-        // Resolve service code description and price
-        String svcDesc = null;
-        String svcPrice = null;
+        // Resolve service code description and price. Legacy semantics
+        // took the last element of the list; the practical input is
+        // expected to have at most one row. Enforce that here rather than
+        // silently picking first/last on a multi-row result — getting the
+        // wrong fee would silently misprice the bill.
         List<BillingService> bsList = billingServiceDao.findByServiceCode(request.getParameter("svcCode"));
-        for (BillingService bs : bsList) {
-            svcDesc = bs.getDescription();
-            svcPrice = bs.getValue();
+        if (bsList != null && bsList.size() > 1) {
+            MiscUtils.getLogger().error(
+                    "FluBillingAdd2Action: ambiguous fee — {} BillingService rows for svcCode={}",
+                    bsList.size(),
+                    LogSanitizer.sanitize(request.getParameter("svcCode")));
+            addActionError("Service code is ambiguous — multiple fee rows match. Resolve the duplicate before billing.");
+            return ERROR;
         }
+        BillingService bs = (bsList == null || bsList.isEmpty()) ? null : bsList.get(0);
+        String svcDesc = bs == null ? null : bs.getDescription();
+        String svcPrice = bs == null ? null : bs.getValue();
 
         if (svcPrice == null || !svcPrice.contains(".")) {
             MiscUtils.getLogger().error("FluBillingAdd2Action: svcPrice is null or has no decimal for svcCode={}", LogSanitizer.sanitize(request.getParameter("svcCode"))); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
@@ -215,10 +224,9 @@ public class FluBillingAdd2Action extends ActionSupport {
         bd.setStatus(request.getParameter("xml_billtype"));
         bd.setBillingUnit("1");
 
-        // Atomic persist via @Transactional service. Pre-fix the two
-        // billingDao.persist + billingDetailDao.persist calls ran inline with
-        // no tx boundary — a detail-insert failure left an orphan parented-
-        // only Billing row.
+        // Atomic persist via @Transactional service — a detail-insert
+        // failure rolls back the parent insert, preventing orphan
+        // parent-only Billing rows.
         fluBillingPersistenceService.persistFluBilling(b, bd);
 
         boolean billSaved = b.getId() != null && b.getId() > 0;

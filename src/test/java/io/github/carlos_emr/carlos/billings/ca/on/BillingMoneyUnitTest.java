@@ -90,4 +90,45 @@ class BillingMoneyUnitTest {
                 .isInstanceOf(NumberFormatException.class)
                 .hasMessageContaining("1OO");
     }
+
+    // ---- parseNonNegativeAmount: routes operator-input errors to the
+    //      validation-error JSP instead of the raw IAE that
+    //      BillingONCHeader1.setTotal would produce on negative input ------
+
+    @Test
+    void shouldParse_whenNonNegativeAmountIsValid() {
+        assertThat(BillingMoney.parseNonNegativeAmount("33.70", "total"))
+                .isEqualByComparingTo(new java.math.BigDecimal("33.70"));
+    }
+
+    @Test
+    void shouldParse_whenNonNegativeAmountIsZero() {
+        assertThat(BillingMoney.parseNonNegativeAmount("0", "total"))
+                .isEqualByComparingTo(java.math.BigDecimal.ZERO);
+    }
+
+    @Test
+    void shouldThrowValidation_whenNonNegativeAmountIsNegative() {
+        assertThatThrownBy(() -> BillingMoney.parseNonNegativeAmount("-50.00", "total"))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("total")
+                .hasMessageContaining("cannot be negative");
+    }
+
+    @Test
+    void shouldThrowValidation_whenNonNegativeAmountIsMalformed() {
+        assertThatThrownBy(() -> BillingMoney.parseNonNegativeAmount("not-a-number", "fee"))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("fee")
+                .hasMessageContaining("not-a-number")
+                .hasMessageContaining("malformed")
+                .hasCauseInstanceOf(NumberFormatException.class);
+    }
+
+    @Test
+    void shouldThrowValidation_whenNonNegativeAmountIsNull() {
+        assertThatThrownBy(() -> BillingMoney.parseNonNegativeAmount(null, "paid"))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("paid");
+    }
 }

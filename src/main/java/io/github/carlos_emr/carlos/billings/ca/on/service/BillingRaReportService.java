@@ -156,12 +156,12 @@ public class BillingRaReportService {
         BigDecimal BigOTotal = BillingMoney.zero();
         BigDecimal BigLTotal = BillingMoney.zero();
         // Count of rows whose amountPay was flagged amountUnreadable upstream
-        // (BillingOnRaService.getRASummary). Pre-fix this method blindly added
-        // their zero-coalesced amountPay to the running totals — the persisted
-        // RaHeader.content snapshot then silently understated the operator's
-        // reconciliation. Now we exclude those rows AND surface the count via
-        // map["xml_partial_count"] so OnRaSummaryTotalsService.mergeTotals
-        // can refuse to overwrite the persisted content when partial.
+        // (BillingOnRaService.getRASummary). Excluded from running totals AND
+        // surfaced via map["xml_partial_count"] so
+        // OnRaSummaryTotalsService.mergeTotals refuses to overwrite the
+        // persisted RaHeader.content snapshot when partial — adding their
+        // zero-coalesced amountPay would silently understate the
+        // operator's reconciliation.
         int unreadableRowCount = 0;
         // Billing No Provider Patient HIN Service Date Service Code Invoiced :
         // new BigDecimal(0)

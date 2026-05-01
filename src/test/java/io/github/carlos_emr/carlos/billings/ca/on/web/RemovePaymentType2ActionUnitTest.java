@@ -171,4 +171,23 @@ class RemovePaymentType2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
         verifyNoInteractions(mockTypeDao, mockPaymentDao);
     }
+
+    @Test
+    void shouldRejectAndReturnReason_whenPaymentTypeIdIsZero() throws Exception {
+        // C18: paymentTypeId=0 used to silently fall through the if-body and
+        // write an empty {} JSON body. The explicit reject branch returns
+        // ret=1 + a reason so the operator's popup actually shows the failure.
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        mockRequest.setParameter("paymentTypeId", "0");
+
+        RemovePaymentType2Action action =
+                new RemovePaymentType2Action(mockSecurityInfoManager, mockTypeDao, mockPaymentDao);
+        action.execute();
+
+        String body = mockResponse.getContentAsString();
+        assertThat(body).contains("\"ret\":1");
+        assertThat(body).contains("Invalid paymentTypeId");
+        verify(mockTypeDao, never()).remove(org.mockito.ArgumentMatchers.anyInt());
+    }
 }

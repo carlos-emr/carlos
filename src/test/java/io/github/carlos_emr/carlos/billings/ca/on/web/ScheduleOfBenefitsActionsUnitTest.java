@@ -121,7 +121,16 @@ class ScheduleOfBenefitsActionsUnitTest {
         assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
         assertThat(request.getAttribute("outcome")).isEqualTo("success");
         assertThat((List) request.getAttribute("warnings")).singleElement()
-                .satisfies(warning -> assertThat((java.util.Map) warning).containsEntry("feeCode", "A001A"));
+                .satisfies(warning -> {
+                    @SuppressWarnings("unchecked")
+                    java.util.Map<String, Object> w = (java.util.Map<String, Object>) warning;
+                    assertThat(w).containsEntry("feeCode", "A001A");
+                    // Round-7 C3: pin the corrected map key 'terminationDate'
+                    // (was the typo 'terminactionDate'). The JSP renders
+                    // ${warning.terminationDate}; a regression of the
+                    // record→map symmetry would silently render empty.
+                    assertThat(w).containsKey("terminationDate");
+                });
         verify(feeScheduleImportService).preview(any(), any());
     }
 

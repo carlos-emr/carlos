@@ -91,7 +91,16 @@ public final class BillingShortcutPg2ViewModel {
 
     private final String totalAmount;
 
+    /** Decision the JSP makes after the bill is saved: stay on the form,
+     *  close the popup, or redirect to billingShortcutPg1View. Builder
+     *  enforces the {@link PostSaveAction#REDIRECT_TO_PG1} ↔ non-empty
+     *  {@link #redirectUrl} invariant so the JSP can rely on the URL
+     *  whenever it sees the redirect action. */
     private final PostSaveAction postSaveAction;
+    /** Target URL paired with {@link PostSaveAction#REDIRECT_TO_PG1}.
+     *  Built and URL-encoded by
+     *  {@code BillingShortcutPg2Service.buildPg1RedirectUrl}; empty for
+     *  every other {@code postSaveAction} value. */
     private final String redirectUrl;
     private final String displaySex;
 
@@ -158,6 +167,7 @@ public final class BillingShortcutPg2ViewModel {
         this.totalAmount = nullToEmpty(b.totalAmount);
         this.postSaveAction = b.postSaveAction == null ? PostSaveAction.NONE : b.postSaveAction;
         this.redirectUrl = nullToEmpty(b.redirectUrl);
+        requirePairCoherence(this.postSaveAction, this.redirectUrl);
         this.displaySex = nullToEmpty(b.displaySex);
         this.requestParamEchoes = b.requestParamEchoes == null
                 ? Collections.emptyMap() : Map.copyOf(b.requestParamEchoes);
@@ -178,6 +188,33 @@ public final class BillingShortcutPg2ViewModel {
     }
 
     private static String nullToEmpty(String s) { return s == null ? "" : s; }
+
+    /**
+     * Pair invariant: REDIRECT_TO_PG1 requires a non-empty URL, every
+     * other action requires an empty URL. Failing fast at build-time
+     * forces the assembler to keep the two fields coherent — without it,
+     * the JSP would have to invent fallback logic for incoherent pairs
+     * (e.g., "redirect with no URL" = "fall through to close window?").
+     *
+     * <p>An IllegalStateException here is a programmer error: the only
+     * caller is {@code BillingShortcutPg2Service.assemble}, which sets
+     * the redirectUrl iff it sets postSaveAction=REDIRECT_TO_PG1. We
+     * deliberately do NOT add a Struts {@code <global-exception-mapping>}
+     * for this path — a user-friendly banner would mask the assembler bug.
+     * The default 500 + server log is the correct surface.</p>
+     */
+    private static void requirePairCoherence(PostSaveAction action, String url) {
+        boolean isRedirect = action == PostSaveAction.REDIRECT_TO_PG1;
+        boolean hasUrl = !url.isEmpty();
+        if (isRedirect && !hasUrl) {
+            throw new IllegalStateException(
+                    "BillingShortcutPg2ViewModel: REDIRECT_TO_PG1 requires a non-empty redirectUrl");
+        }
+        if (!isRedirect && hasUrl) {
+            throw new IllegalStateException(
+                    "BillingShortcutPg2ViewModel: redirectUrl must be empty unless postSaveAction is REDIRECT_TO_PG1");
+        }
+    }
 
     public static Builder builder() { return new Builder(); }
 

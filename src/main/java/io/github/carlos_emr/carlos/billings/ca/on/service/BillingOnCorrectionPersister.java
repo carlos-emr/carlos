@@ -26,11 +26,11 @@ import java.text.ParseException;
 import java.math.BigDecimal;
 import java.util.Date;
 import java.sql.Timestamp;
-import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.ArrayList;
 import io.github.carlos_emr.carlos.billings.ca.on.BillingDates;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
@@ -96,9 +96,8 @@ public class BillingOnCorrectionPersister {
         this.auditLog = auditLog;
     }
 
-    private SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd");
-    private SimpleDateFormat timeFormatter = new SimpleDateFormat("HH:mm:ss");
-    private SimpleDateFormat tsFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+    // Formatting and parsing delegate to BillingDates' DateTimeFormatter
+    // value-typed singletons — immutable and thread-safe by design.
 
     /**
      * Apply the DTO's correction-form fields to an existing
@@ -106,9 +105,13 @@ public class BillingOnCorrectionPersister {
      *
      * @param ch1Obj BillingClaimHeaderDto the correction-form snapshot
      * @return boolean {@code true} on success
-     * @throws ParseException when an ISO date field is malformed
+     * @throws IllegalArgumentException when a date / time field is malformed
+     *         (delegated by {@link BillingDates#parseIsoDate(String)} and
+     *         {@link BillingDates#parseIsoTime(String)} — unchecked, so a
+     *         {@code @Transactional} caller rolls back rather than committing
+     *         partial setter state).
      */
-    public boolean updateBillingClaimHeader(BillingClaimHeaderDto ch1Obj) throws ParseException {
+    public boolean updateBillingClaimHeader(BillingClaimHeaderDto ch1Obj) {
         BillingONCHeader1 c = billingHeaderDao.find(ch1Obj.getId());
         c.setTranscId(ch1Obj.getTransc_id());
         c.setRecId(ch1Obj.getRec_id());
@@ -119,7 +122,7 @@ public class BillingOnCorrectionPersister {
         c.setPayee(ch1Obj.getPayee());
         c.setRefNum(ch1Obj.getRef_num());
         c.setFaciltyNum(ch1Obj.getFacilty_num());
-        c.setAdmissionDate(dateFormatter.parse(ch1Obj.getAdmission_date()));
+        c.setAdmissionDate(BillingDates.parseIsoDate(ch1Obj.getAdmission_date()));
         c.setRefLabNum(ch1Obj.getRef_lab_num());
         c.setManReview(ch1Obj.getMan_review());
         c.setLocation(ch1Obj.getLocation());
@@ -129,10 +132,12 @@ public class BillingOnCorrectionPersister {
         c.setDemographicName(ch1Obj.getDemographic_name());
         c.setSex(ch1Obj.getSex());
         c.setProvince(ch1Obj.getProvince());
-        c.setBillingDate(dateFormatter.parse(ch1Obj.getBilling_date()));
-        c.setBillingTime(dateFormatter.parse(ch1Obj.getBilling_time()));
-        c.setTotal(new BigDecimal(ch1Obj.getTotal()));
-        c.setPaid(new BigDecimal(ch1Obj.getPaid()));
+        c.setBillingDate(BillingDates.parseIsoDate(ch1Obj.getBilling_date()));
+        c.setBillingTime(BillingDates.parseIsoTime(ch1Obj.getBilling_time()));
+        c.setTotal(io.github.carlos_emr.carlos.billings.ca.on.BillingMoney
+                .parseNonNegativeAmount(ch1Obj.getTotal(), "total"));
+        c.setPaid(io.github.carlos_emr.carlos.billings.ca.on.BillingMoney
+                .parseNonNegativeAmount(ch1Obj.getPaid(), "paid"));
         c.setStatus(ch1Obj.getStatus());
         c.setComment(ch1Obj.getComment());
         c.setVisitType(ch1Obj.getVisittype());
@@ -179,9 +184,10 @@ public class BillingOnCorrectionPersister {
      *
      * @param val BillingClaimItemDto the correction-form snapshot
      * @return boolean {@code true} on success
-     * @throws ParseException when an ISO date field is malformed
+     * @throws IllegalArgumentException when a date field is malformed
+     *         (delegated by {@link BillingDates#parseIsoDate(String)}).
      */
-    public boolean updateBillingOneItem(BillingClaimItemDto val) throws ParseException {
+    public boolean updateBillingOneItem(BillingClaimItemDto val) {
         BillingONItem b = billingItemDao.find(val.getId());
         if (b != null) {
             b.setTranscId(val.getTransc_id());
@@ -189,7 +195,7 @@ public class BillingOnCorrectionPersister {
             b.setServiceCode(val.getService_code());
             b.setFee(val.getFee());
             b.setServiceCount(val.getSer_num());
-            b.setServiceDate(dateFormatter.parse(val.getService_date()));
+            b.setServiceDate(BillingDates.parseIsoDate(val.getService_date()));
             b.setDx(val.getDx());
             b.setDx1(val.getDx1());
             b.setDx2(val.getDx2());
@@ -293,10 +299,19 @@ public class BillingOnCorrectionPersister {
             ch1Obj.setFacilty_num(h.getFaciltyNum());
             try {
                 if (h.getAdmissionDate() != null)
-                    ch1Obj.setAdmission_date(dateFormatter.format(h.getAdmissionDate()));
+                    ch1Obj.setAdmission_date(BillingDates.formatIsoDate(h.getAdmissionDate()));
                 else
                     ch1Obj.setAdmission_date("");
             } catch (ParseException e) {
+                // BillingONCHeader1.getAdmissionDate() parses the persisted
+                // string column and throws ParseException on malformed
+                // legacy data — the entity getter is the actual throw site,
+                // not the BillingDates.formatIsoDate(Date) call. Log with bill id
+                // so the operator can distinguish "missing" from "corrupt"
+                // admission_date in the audit trail.
+                MiscUtils.getLogger().warn(
+                        "BillingOnCorrectionPersister: unparseable admission_date on ch1.id={}; rendering empty",
+                        h.getId(), e);
                 ch1Obj.setAdmission_date("");
             }
             ch1Obj.setRef_lab_num(h.getRefLabNum());
@@ -318,12 +333,12 @@ public class BillingOnCorrectionPersister {
             ch1Obj.setProvince(h.getProvince());
 
             if (h.getBillingDate() != null)
-                ch1Obj.setBilling_date(dateFormatter.format(h.getBillingDate()));
+                ch1Obj.setBilling_date(BillingDates.formatIsoDate(h.getBillingDate()));
             else
                 ch1Obj.setBilling_date("");
 
             if (h.getBillingTime() != null)
-                ch1Obj.setBilling_time(timeFormatter.format(h.getBillingTime()));
+                ch1Obj.setBilling_time(BillingDates.formatIsoTime(h.getBillingTime()));
             else
                 ch1Obj.setBilling_time("");
 
@@ -337,7 +352,7 @@ public class BillingOnCorrectionPersister {
             ch1Obj.setAsstProvider_no(h.getAsstProviderNo());
             ch1Obj.setCreator(h.getCreator());
             if (h.getTimestamp() != null)
-                ch1Obj.setUpdate_datetime(tsFormatter.format(h.getTimestamp()));
+                ch1Obj.setUpdate_datetime(BillingDates.formatIsoTimestamp(h.getTimestamp()));
             else
                 ch1Obj.setUpdate_datetime("");
 
@@ -363,7 +378,7 @@ public class BillingOnCorrectionPersister {
             itemObj.setFee(i.getFee());
             itemObj.setSer_num(i.getServiceCount());
             if (i.getServiceDate() != null)
-                itemObj.setService_date(dateFormatter.format(i.getServiceDate()));
+                itemObj.setService_date(BillingDates.formatIsoDate(i.getServiceDate()));
             else
                 itemObj.setService_date("");
 
@@ -374,7 +389,7 @@ public class BillingOnCorrectionPersister {
             itemObj.setDx2(i.getDx2());
             itemObj.setStatus(i.getStatus());
             if (i.getLastEditDT() != null)
-                itemObj.setTimestamp(tsFormatter.format(i.getLastEditDT()));
+                itemObj.setTimestamp(BillingDates.formatIsoTimestamp(i.getLastEditDT()));
             else
                 itemObj.setTimestamp("");
 
@@ -477,7 +492,8 @@ public class BillingOnCorrectionPersister {
     public boolean updateBillingTotal(String fee, String id) {
         BillingONCHeader1 b = billingHeaderDao.find(id);
         if (b != null) {
-            b.setTotal(new BigDecimal(fee));
+            b.setTotal(io.github.carlos_emr.carlos.billings.ca.on.BillingMoney
+                    .parseNonNegativeAmount(fee, "total"));
             billingHeaderDao.merge(b);
             return true;
         }
@@ -493,7 +509,8 @@ public class BillingOnCorrectionPersister {
     public boolean updateBillingPaid(String fee, String id) {
         BillingONCHeader1 b = billingHeaderDao.find(id);
         if (b != null) {
-            b.setPaid(new BigDecimal(fee));
+            b.setPaid(io.github.carlos_emr.carlos.billings.ca.on.BillingMoney
+                    .parseNonNegativeAmount(fee, "paid"));
             billingHeaderDao.merge(b);
             return true;
         }

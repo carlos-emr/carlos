@@ -64,6 +64,20 @@
     String __bfweMessage = __bfwe == null ? ""
             : (__bfwe.getMessage() == null ? "" : __bfwe.getMessage());
     request.setAttribute("__bfweMessage", __bfweMessage);
+
+    // BillingDataLoadException carries structured Phase + context for
+    // operator-facing rendering. Pull them out via reflection-free
+    // type check so the same JSP serves BillingFileWriteException too.
+    String __phase = "";
+    java.util.Map<String, String> __ctx = java.util.Collections.emptyMap();
+    if (__bfwe instanceof io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadException) {
+        io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadException __dle =
+                (io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadException) __bfwe;
+        __phase = __dle.phase().name();
+        __ctx = __dle.context();
+    }
+    request.setAttribute("__phase", __phase);
+    request.setAttribute("__ctx", __ctx);
 %>
 <!DOCTYPE html>
 <html lang="en">
@@ -90,6 +104,19 @@
             <p class="mt-3"><strong>Details:</strong>
                 <span><carlos:encode value="${__bfweMessage}" context="html"/></span>
             </p>
+        </c:if>
+        <c:if test="${not empty __phase}">
+            <p class="mb-1"><strong>Phase:</strong>
+                <span><carlos:encode value="${__phase}" context="html"/></span>
+            </p>
+        </c:if>
+        <c:if test="${not empty __ctx}">
+            <dl class="row mb-0">
+                <c:forEach var="entry" items="${__ctx}">
+                    <dt class="col-sm-3 text-end"><carlos:encode value="${entry.key}" context="html"/>:</dt>
+                    <dd class="col-sm-9"><carlos:encode value="${entry.value}" context="html"/></dd>
+                </c:forEach>
+            </dl>
         </c:if>
         <p class="mb-0">Check the application log for the full stack trace, then
            contact your billing administrator. The claim batch was <strong>not</strong>

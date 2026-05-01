@@ -340,4 +340,91 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
         assertThat(result).isNotNull();
         assertThat(result).isEmpty();
     }
+
+    // --- getClaimExtItem 8-branch named-param whitelist tests (S6 + R6 M-2) ---
+
+    @Test
+    @Tag("read")
+    @DisplayName("getClaimExtItem should match by billingNo + demographicNo + keyVal")
+    void shouldFindClaimExtItem_byAllThreeFilters() throws Exception {
+        BillingONExt ext = new BillingONExt();
+        ext.setBillingNo(parentHeader.getId());
+        ext.setDemographicNo(7777);
+        ext.setKeyVal("classify-key");
+        ext.setValue("alpha");
+        dao.persist(ext);
+        hibernateTemplate.flush();
+
+        BillingONExt found = dao.getClaimExtItem(parentHeader.getId(), 7777, "classify-key");
+        assertThat(found).isNotNull();
+        assertThat(found.getValue()).isEqualTo("alpha");
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("getClaimExtItem should match by demographicNo only")
+    void shouldFindClaimExtItem_byDemographicNoOnly() throws Exception {
+        BillingONExt ext = new BillingONExt();
+        ext.setBillingNo(parentHeader.getId());
+        ext.setDemographicNo(8888);
+        ext.setKeyVal("demo-only-key");
+        ext.setValue("beta");
+        dao.persist(ext);
+        hibernateTemplate.flush();
+
+        // R6 M-2: this branch (demographicNo only) was previously unreachable
+        // because the legacy code never evaluated null filters; under the new
+        // named-parameter whitelist a null billingNo is bound out of the query.
+        BillingONExt found = dao.getClaimExtItem(null, 8888, null);
+        assertThat(found).isNotNull();
+        assertThat(found.getValue()).isEqualTo("beta");
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("getClaimExtItem should match by keyVal only")
+    void shouldFindClaimExtItem_byKeyValOnly() throws Exception {
+        BillingONExt ext = new BillingONExt();
+        ext.setBillingNo(parentHeader.getId());
+        ext.setDemographicNo(9999);
+        ext.setKeyVal("unique-keyval-only");
+        ext.setValue("gamma");
+        dao.persist(ext);
+        hibernateTemplate.flush();
+
+        BillingONExt found = dao.getClaimExtItem(null, null, "unique-keyval-only");
+        assertThat(found).isNotNull();
+        assertThat(found.getValue()).isEqualTo("gamma");
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("getClaimExtItem should match by billingNo + keyVal (the gap-bug branch)")
+    void shouldFindClaimExtItem_byBillingNoAndKeyVal() throws Exception {
+        // The pre-S6 wrong-guard bug bound demographicNo whenever billingNo
+        // was bound; this test pins that the (billingNo, keyVal, no demoNo)
+        // branch now correctly omits the demoNo filter from the query.
+        BillingONExt ext = new BillingONExt();
+        ext.setBillingNo(parentHeader.getId());
+        ext.setKeyVal("bn-and-keyval");
+        ext.setValue("delta");
+        dao.persist(ext);
+        hibernateTemplate.flush();
+
+        BillingONExt found = dao.getClaimExtItem(parentHeader.getId(), null, "bn-and-keyval");
+        assertThat(found).isNotNull();
+        assertThat(found.getValue()).isEqualTo("delta");
+    }
+
+    @Test
+    @DisplayName("getClaimExtItem should reject all-null filters (round-7 C2 fail-fast)")
+    void shouldThrowIllegalArgumentException_whenAllFiltersAreNull() {
+        // Round-7 C2: the pre-fix `else { select ext from BillingONExt ext }`
+        // branch would scan the whole table and return either NonUnique on
+        // multi-row or an arbitrary row on misuse. Fail-fast is the right
+        // surface for "caller forgot to pass any filter".
+        assertThatThrownBy(() -> dao.getClaimExtItem(null, null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("at least one filter");
+    }
 }
