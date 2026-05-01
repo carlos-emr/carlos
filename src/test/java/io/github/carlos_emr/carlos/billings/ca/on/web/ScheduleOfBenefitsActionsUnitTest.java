@@ -33,6 +33,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.dispatcher.multipart.StrutsUploadedFile;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -116,7 +117,7 @@ class ScheduleOfBenefitsActionsUnitTest {
 
         ScheduleOfBenefitsUpload2Action action =
                 new ScheduleOfBenefitsUpload2Action(securityInfoManager, feeScheduleImportService);
-        action.setImportFile(uploadFile.toFile());
+        attachUpload(action);
 
         assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
         assertThat(request.getAttribute("outcome")).isEqualTo("success");
@@ -192,7 +193,7 @@ class ScheduleOfBenefitsActionsUnitTest {
 
         ScheduleOfBenefitsUpload2Action action =
                 new ScheduleOfBenefitsUpload2Action(securityInfoManager, feeScheduleImportService);
-        action.setImportFile(uploadFile.toFile());
+        attachUpload(action);
 
         action.execute();
 
@@ -214,5 +215,12 @@ class ScheduleOfBenefitsActionsUnitTest {
         assertThat(response.getStatus()).isEqualTo(jakarta.servlet.http.HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(response.getHeader("Allow")).isEqualTo("POST");
         verify(feeScheduleImportService, org.mockito.Mockito.never()).preview(any(), any());
+    }
+
+    private void attachUpload(ScheduleOfBenefitsUpload2Action action) {
+        action.withUploadedFiles(List.of(StrutsUploadedFile.Builder.create(uploadFile.toFile())
+                .withOriginalName(uploadFile.getFileName().toString())
+                .withInputName("importFile")
+                .build()));
     }
 }

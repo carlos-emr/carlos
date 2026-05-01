@@ -164,18 +164,8 @@ public class ScheduleOfBenefitsUpload2Action extends ActionSupport implements Up
         return importFile;
     }
 
-    @StrutsParameter
-    public void setImportFile(File importFile) {
-        this.importFile = importFile;
-    }
-
     public String getImportFileFileName() {
         return importFileFileName;
-    }
-
-    @StrutsParameter
-    public void setImportFileFileName(String importFileFileName) {
-        this.importFileFileName = importFileFileName;
     }
 
     public boolean isUpdateAssistantFees() {
