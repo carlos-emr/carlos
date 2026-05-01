@@ -397,9 +397,8 @@ class HttpMethodGuardFilterUnitTest {
             verify(chain, never()).doFilter(request, response);
         }
 
-        // Note: the former test that targeted /appointment/appointmentcontrol.jsp
-        // has been removed. That JSP is now at /WEB-INF/jsp/appointment/appointmentcontrol.jsp
-        // and is reachable only via /appointment/appointmentcontrol
+        // Note: the former appointmentcontrol dispatcher route has been removed.
+        // Edit/add appointment flows now target their final action endpoints directly.
         // (ViewAppointment2Action gate). The public JSP path returns 404 at the
         // servlet layer before this filter ever sees it, so the prior test was
         // exercising a dead URL. End-to-end coverage of the gated action path lives in
@@ -697,6 +696,46 @@ class HttpMethodGuardFilterUnitTest {
 
             verify(chain).doFilter(request, response);
             verify(response, never()).sendError(anyInt(), anyString());
+        }
+    }
+
+    @Nested
+    @DisplayName("Prevention form view gate")
+    class PreventionFormViewGate {
+
+        @Test
+        @DisplayName("should pass through GET to prevention/ViewAddPreventionData")
+        void shouldPassThrough_forGetToViewAddPreventionData() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/prevention/ViewAddPreventionData");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+            verify(response, never()).sendError(anyInt());
+        }
+
+        @Test
+        @DisplayName("should pass through GET to prevention/ViewAddPreventionData with the exact failing URL parameters")
+        void shouldPassThrough_forGetToViewAddPreventionDataWithParams() throws Exception {
+            // Reproduces the original failing popup URL, now routed through the
+            // dedicated view gate instead of the POST-only AddPrevention action:
+            // /carlos/prevention/ViewAddPreventionData?4=4&prevention=Tuberculosis&demographic_no=1&prevResultDesc=
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/prevention/ViewAddPreventionData");
+            when(request.getParameter("method")).thenReturn(null);
+            when(request.getParameter("4")).thenReturn("4");
+            when(request.getParameter("prevention")).thenReturn("Tuberculosis");
+            when(request.getParameter("demographic_no")).thenReturn("1");
+            when(request.getParameter("prevResultDesc")).thenReturn("");
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+            verify(response, never()).sendError(anyInt());
         }
     }
 

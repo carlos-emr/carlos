@@ -33,6 +33,7 @@
 <%-- Updated by Eugene Petruhin on 15 jan 2009 while fixing #2510692 --%>
 <%-- Updated by Eugene Petruhin on 27 jan 2009 while fixing #2510693 --%>
 
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.*" %>
@@ -48,7 +49,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
-<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     Logger logger = MiscUtils.getLogger();
 
@@ -330,6 +330,7 @@
                         <img id="ci"
                             src="${pageContext.request.contextPath}/imageRenderingServlet?source=local_client&amp;clientId=${demographicNo}" alt="id_photo"
                             height="100" title="Click to upload a new photo."
+                            onerror="this.onerror=null;this.src='${carlos:forJavaScriptAttribute(pageContext.request.contextPath)}/images/defaultG_img.jpg';"
                         onClick="popupUploadPage('${pageContext.request.contextPath}/casemgmt/ViewUploadimage', ${demographicNo}); return false;" />
                     </c:when>
                     <c:otherwise>

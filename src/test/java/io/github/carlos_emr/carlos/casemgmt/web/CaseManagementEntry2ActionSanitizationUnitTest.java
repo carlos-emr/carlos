@@ -21,16 +21,20 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.web;
 
+import io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager;
+import io.github.carlos_emr.carlos.commn.model.Admission;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for the trust-boundary sanitization helpers added to
- * {@link CaseManagementEntry2Action} to address CWE-501 (Trust Boundary Violation).
+ * Unit tests for the package-private sanitization helpers and reporter team fallback helper on
+ * {@link CaseManagementEntry2Action}.
  *
  * <p>These helpers are package-private static methods and do not require a Spring context.
  *
@@ -38,7 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @Tag("unit")
 @Tag("security")
-@DisplayName("CaseManagementEntry2Action sanitization helpers")
+@DisplayName("CaseManagementEntry2Action sanitization and reporter team helpers")
 class CaseManagementEntry2ActionSanitizationUnitTest {
 
     // ------------------------------------------------------------------
@@ -200,6 +204,52 @@ class CaseManagementEntry2ActionSanitizationUnitTest {
         void shouldDrop_alphanumericMixed() {
             assertThat(CaseManagementEntry2Action.sanitizeIdFilterArray(new String[]{"1abc", "abc1"}))
                     .isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("resolveReporterProgramTeamId")
+    class ResolveReporterProgramTeamId {
+
+        @Test
+        @DisplayName("should return team ID when admission exists")
+        void shouldReturnTeamId_whenAdmissionExists() {
+            AdmissionManager admissionManager = mock(AdmissionManager.class);
+            Admission admission = mock(Admission.class);
+            when(admissionManager.getAdmission("7", 42)).thenReturn(admission);
+            when(admission.getTeamId()).thenReturn(15);
+
+            assertThat(CaseManagementEntry2Action.resolveReporterProgramTeamId(admissionManager, "7", "42"))
+                    .isEqualTo("15");
+        }
+
+        @Test
+        @DisplayName("should return zero when admission is missing")
+        void shouldReturnZero_whenAdmissionIsMissing() {
+            AdmissionManager admissionManager = mock(AdmissionManager.class);
+            when(admissionManager.getAdmission("7", 42)).thenReturn(null);
+
+            assertThat(CaseManagementEntry2Action.resolveReporterProgramTeamId(admissionManager, "7", "42"))
+                    .isEqualTo("0");
+        }
+
+        @Test
+        @DisplayName("should return zero when admission lookup throws")
+        void shouldReturnZero_whenAdmissionLookupThrows() {
+            AdmissionManager admissionManager = mock(AdmissionManager.class);
+            when(admissionManager.getAdmission("7", 42)).thenThrow(new RuntimeException("boom"));
+
+            assertThat(CaseManagementEntry2Action.resolveReporterProgramTeamId(admissionManager, "7", "42"))
+                    .isEqualTo("0");
+        }
+
+        @Test
+        @DisplayName("should return zero when demographic number is malformed")
+        void shouldReturnZero_whenDemographicNumberIsMalformed() {
+            AdmissionManager admissionManager = mock(AdmissionManager.class);
+
+            assertThat(CaseManagementEntry2Action.resolveReporterProgramTeamId(admissionManager, "7", "abc"))
+                    .isEqualTo("0");
         }
     }
 }

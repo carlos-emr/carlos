@@ -1356,6 +1356,12 @@
                 <configuration>
                     <source>21</source>
                     <target>21</target>
+                    <!-- Emit MethodParameters attribute into .class files so Spring SpEL can
+                         resolve method-argument names like #providerNo in @Cacheable conditions.
+                         Without this, Spring 6+ silently fails parameter-name discovery (legacy
+                         LocalVariableTableParameterNameDiscoverer was removed), the condition
+                         evaluates to false, and no caching occurs. -->
+                    <parameters>true</parameters>
                     <!-- Suppress framework deprecation warnings during incremental migration.
                          Override via: mvn ... -Dmaven.compiler.showDeprecation=true -->
                     <showDeprecation>${maven.compiler.showDeprecation}</showDeprecation>

@@ -88,8 +88,8 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
 
     private ExposedByteArrayOutputStream cachedBytes;
 
-    /** Maximum request body size (500 MB) to prevent memory exhaustion. Matches struts.multipart.maxSize. */
-    static final long MAX_BODY_SIZE = 500L * 1024 * 1024;
+    /** Maximum request body size (50 MB) to match servlet multipart and Struts upload limits. */
+    static final long MAX_BODY_SIZE = 50L * 1024 * 1024;
 
     /** Lazily parsed multipart text form field parameters. {@code null} means not yet parsed. */
     private Map<String, List<String>> multipartParams;
@@ -246,9 +246,8 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
 
             FileUpload upload = new FileUpload();
             upload.setFileItemFactory(factory);
-            // Uses MAX_BODY_SIZE (500 MB, matching struts.multipart.maxSize) rather than
-            // web.xml's 50 MB, since this wrapper serves all multipart requests including
-            // Struts-routed uploads with higher limits.
+            // Enforce the same 50 MB ceiling used by servlet multipart-config and
+            // struts.multipart.maxSize so multipart uploads fail consistently.
             upload.setFileSizeMax(MAX_BODY_SIZE);
             upload.setSizeMax(MAX_BODY_SIZE);
 

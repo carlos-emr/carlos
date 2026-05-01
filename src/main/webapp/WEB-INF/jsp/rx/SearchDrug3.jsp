@@ -1374,10 +1374,9 @@ function renderRxStage() {
     }
 
     function displayInstructions(randomId){
-    	var data="randomId="+randomId;
-            mb.show(randomId, '<%= request.getContextPath() %>/rx/displayInstructions', '600px');
-
-	}
+        // Reuse the existing previous-instructions modal because the old displayInstructions endpoint no longer exists.
+        displayMedHistory(randomId);
+    }
 
     function updateProperty(elementId){
          var randomId=elementId.split("_")[1];
@@ -1722,25 +1721,6 @@ function renderRxStage() {
 
     }
 
-	/*
-			 * @Deprecated avoid future use of prototype.
-	 */
-    function updateCurrentInteractions(){
-        CarlosAjax.request(ctx + "/rx/GetmyDrugrefInfo", {method:'post',parameters:"method=findInteractingDrugList&rand="+ Math.floor(Math.random()*10001),onSuccess:function(transport){
-                            CarlosAjax.request(ctx + "/rx/ViewUpdateInteractingDrugs", {method:'post',parameters:"rand="+ Math.floor(Math.random()*10001),onSuccess:function(transport){
-                                            var str=transport.responseText;
-                                            str=str.replace('<script type="text/javascript">','');
-                                            str=str.replace(/<\/script>/,'');
-                                            eval(str);
-<%--                                            <oscar:oscarPropertiesCheck property="MYDRUGREF_DS" value="yes">--%>
-<%--                                              callReplacementWebService("GetmyDrugrefInfo?method=view&rand="+  Math.floor(Math.random()*10001),'interactionsRxMyD');--%>
-<%--                                             </oscar:oscarPropertiesCheck>--%>
-							}
-						});
-    }
-				});
-			}
-
 //represcribe long term meds
     function RePrescribeLongTerm(){
        var demoNo='<%=patient.getDemographicNo()%>';
@@ -1839,15 +1819,6 @@ function popForm2(scriptId){
             oscarLog(er);
         }
     }
-
-     function callTreatments(textId,id){
-         var ele = document.getElementById(textId);
-         var url = ctx + "/rx/TreatmentMyD.jsp"
-         var ran_number=Math.round(Math.random()*1000000);
-         var params = "demographicNo=<%=demoNo%>&cond="+encodeURIComponent(ele.value)+"&rand="+ran_number;  //hack to get around ie caching the page
-         CarlosAjax.updater(id,url, {method:'get',parameters:params});
-         var tmEl=document.getElementById('treatmentsMyD'); tmEl.style.display=(tmEl.style.display==='none')?'':'none';
-     }
 
      function callAdditionWebService(url,id){
          var contextPath = '${carlos:forJavaScript(ctx)}';
@@ -2107,42 +2078,6 @@ function addFav(randomId,brandName){
             document.getElementById(addTextWordId).textContent="more"
         }
     }
-
-    function ShowW(id,resourceId,updated){
-
-				var params = "method=setWarningToShow&resId=" + resourceId + "&updatedat=" + updated;
-				var url = ctx + '/rx/GetmyDrugrefInfo';
-				CarlosAjax.updater('showHideTotal', url, {
-					method: 'post',
-					parameters: params,
-					evalScripts: true,
-					onSuccess: function (transport) {
-
-                document.getElementById(id).style.display="";
-                document.getElementById('show_'+id).style.display="none";
-
-					}
-				});
-			}
-
-			function HideW(id, resourceId, updated) {
-				var url = ctx + '/rx/GetmyDrugrefInfo';
-				var ran_number = Math.round(Math.random() * 1000000);
-				var params = "method=setWarningToHide&resId=" + resourceId + "&updatedat=" + updated;
-				//totalHiddenResources++;
-				CarlosAjax.updater('showHideTotal', url, {
-					method: 'post',
-					parameters: params,
-					evalScripts: true,
-					onSuccess: function (transport) {
-
-                document.getElementById(id).style.display="none";
-                document.getElementById("show_"+id).style.display="";
-
-					}
-				});
-			}
-
 
 			function setSearchedDrug(drugId, name) {
 

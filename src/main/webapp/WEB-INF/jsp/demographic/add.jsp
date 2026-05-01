@@ -130,6 +130,7 @@
             }
 
         </script>
+        <%@ include file="/WEB-INF/jspf/demographic-field-length-limits.jspf" %>
 
         <title><fmt:message key="demographic.demographicaddrecordhtm.title"/></title>
 

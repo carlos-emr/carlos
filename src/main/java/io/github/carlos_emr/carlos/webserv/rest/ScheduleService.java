@@ -50,6 +50,9 @@ import jakarta.ws.rs.core.Response.Status;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.tools.ant.util.DateUtils;
+import io.github.carlos_emr.carlos.appointment.search.FilterDefinition;
+import io.github.carlos_emr.carlos.appointment.search.FilterRegistry;
+import io.github.carlos_emr.carlos.appointment.search.Provider;
 import io.github.carlos_emr.carlos.appointment.search.SearchConfig;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentSearchDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
@@ -65,6 +68,7 @@ import io.github.carlos_emr.carlos.managers.AppointmentManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.ScheduleManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
@@ -100,6 +104,10 @@ import org.w3c.dom.Document;
 @Component("scheduleService")
 @Consumes(MediaType.APPLICATION_JSON)
 public class ScheduleService extends AbstractServiceImpl {
+
+    private static final String MISSING_FILTER_DEFINITION_SENTINEL = "<missing filterDefinition>";
+    private static final String MISSING_FILTER_KEY_SENTINEL = "<missing filterClassName>";
+    private static final String MISSING_PROVIDER_SENTINEL = "<missing provider>";
 
     Logger logger = MiscUtils.getLogger();
 
@@ -592,8 +600,15 @@ public class ScheduleService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public Response saveSearchConfig(@PathParam("id") Integer id, SearchConfigTo1 searchConfigTo) {
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "w", null)) {
+            return Response.status(Response.Status.FORBIDDEN).build();
+        }
+
         if (id == null || id.intValue() == 0) {
-            return null;
+            return Response.status(Status.BAD_REQUEST)
+                    .entity("Invalid search configuration id")
+                    .build();
         }
 
 
@@ -612,6 +627,20 @@ public class ScheduleService extends AbstractServiceImpl {
             }
 
             SearchConfig searchConfig = SearchConfig.fromTransfer(searchConfigTo, oldConfig);
+
+            // Fail fast at the REST boundary on unknown filter references, rather than
+            // later with an opaque ClassNotFoundException during findAppointment. Do not
+            // echo the user-supplied value in the response body; the sanitized key is
+            // logged for operator diagnosis.
+            String unknownFilter = findUnknownFilter(searchConfig);
+            if (unknownFilter != null) {
+                logger.warn("Rejecting saveSearchConfig with unknown filter key: {}",
+                        LogSanitizer.sanitize(unknownFilter));
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity("Unknown appointment filter")
+                        .build();
+            }
+
             Document d = SearchConfig.toDocument(searchConfig);
 
 
@@ -640,10 +669,58 @@ public class ScheduleService extends AbstractServiceImpl {
             logger.info("searchConfig\n" + XmlUtils.toString(d, true));
         } catch (Exception e) {
             logger.error("save Search Config Error ", e);
+            return Response.status(Status.INTERNAL_SERVER_ERROR)
+                    .entity("Failed to save search configuration")
+                    .build();
         }
 
-
         return Response.ok(forNewId).build();
+    }
+
+    /**
+     * Walk the top-level and per-provider filter lists on {@code searchConfig} and return
+     * the first {@code filterClassName} that is not accepted by {@link FilterRegistry},
+     * or {@code null} if every filter reference is known.
+     */
+    private String findUnknownFilter(SearchConfig searchConfig) {
+        if (searchConfig == null) {
+            return null;
+        }
+        String unknownFilter = findUnknownFilter(searchConfig.getFilters());
+        if (unknownFilter != null) {
+            return unknownFilter;
+        }
+        Map<String, Provider> providers = searchConfig.getProviders();
+        if (providers != null) {
+            for (Provider provider : providers.values()) {
+                if (provider == null) {
+                    return MISSING_PROVIDER_SENTINEL;
+                }
+                unknownFilter = findUnknownFilter(provider.getFilter());
+                if (unknownFilter != null) {
+                    return unknownFilter;
+                }
+            }
+        }
+        return null;
+    }
+
+    String findUnknownFilter(List<FilterDefinition> filters) {
+        if (filters == null) {
+            return null;
+        }
+        for (FilterDefinition fd : filters) {
+            if (fd == null) {
+                return MISSING_FILTER_DEFINITION_SENTINEL;
+            }
+            if (fd.getFilterClassName() == null) {
+                return MISSING_FILTER_KEY_SENTINEL;
+            }
+            if (!FilterRegistry.isKnown(fd.getFilterClassName())) {
+                return fd.getFilterClassName();
+            }
+        }
+        return null;
     }
 
     @GET

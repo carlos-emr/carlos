@@ -70,6 +70,8 @@
 
     <%-- Read request attributes set by DemographicAddRecord2Action --%>
     <%
+        java.util.List<String> fieldLengthValidationErrors =
+            (java.util.List<String>) request.getAttribute("fieldLengthValidationErrors");
         String dem = (String) request.getAttribute("demographicNo");
         String fromAppt = (String) request.getAttribute("fromAppt");
         String start_time2 = (String) request.getAttribute("startTime");
@@ -102,7 +104,16 @@
     %>
 
     <%-- HIN duplicate result --%>
-    <% if (hinDuplicateDemo != null) { %>
+    <% if (fieldLengthValidationErrors != null && !fieldLengthValidationErrors.isEmpty()) { %>
+    <span style="color:red;">One or more demographic fields exceed the maximum allowed length.</span><br><br>
+    <ul>
+        <% for (String validationError : fieldLengthValidationErrors) { %>
+        <li><carlos:encode value='<%= validationError %>'/></li>
+        <% } %>
+    </ul>
+    <a href="#" onClick="history.go(-1);return false;"><b>&lt;-
+        <fmt:message key="global.btnBack"/></b></a>
+    <% } else if (hinDuplicateDemo != null) { %>
     <span style="color:red;">
         <fmt:message key="demographic.demographicaddarecord.msgDuplicatedHINError"/></span><br>
     <fmt:message key="demographic.msgDuplicatedHINDetail"/>

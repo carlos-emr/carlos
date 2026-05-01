@@ -640,8 +640,8 @@
             var d = elementName;
             t0 = escape("document.forms[0].elements[\'" + d + "\'].value");
             //t1 = escape("");
-            //alert(('/billing/CA/ON/ViewSearchRefDoc?param='+t0));
-            awnd = rs('att', ('/billing/CA/ON/ViewSearchRefDoc?param=' + t0), 600, 600, 1);
+            //alert(('<%= request.getContextPath() %>/billing/CA/ON/ViewSearchRefDoc?param='+t0));
+            awnd = rs('att', ('<%= request.getContextPath() %>/billing/CA/ON/ViewSearchRefDoc?param=' + t0), 600, 600, 1);
             awnd.focus();
         }
 
@@ -649,14 +649,14 @@
             var d = elementName;
             t0 = escape("document.forms[0].elements[\'" + d + "\'].value");
             t1 = escape("document.forms[0].elements[\'" + name2 + "\'].value");
-            awnd = rs('att', ('/billing/CA/ON/ViewSearchRefDoc?param=' + t0 + '&param2=' + t1), 600, 600, 1);
+            awnd = rs('att', ('<%= request.getContextPath() %>/billing/CA/ON/ViewSearchRefDoc?param=' + t0 + '&param2=' + t1), 600, 600, 1);
             awnd.focus();
         }
 
         function dxScriptAttach(name2) {
             f0 = escape(document.forms[0].dxCode.value);
             f1 = escape("document.forms[0].elements[\'" + name2 + "\'].value");
-            awnd = rs('att', '/billing/CA/ON/ViewBillingDigSearch?name=' + f0 + '&search=&name2=' + f1, 600, 600, 1);
+            awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingDigSearch?name=' + f0 + '&search=&name2=' + f1, 600, 600, 1);
             awnd.focus();
         }
 

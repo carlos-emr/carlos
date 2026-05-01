@@ -62,6 +62,42 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     private static final String DEFAULT_FUTURE_DATE = "2100-01-01";
     public static final String ANONYMOUS = "ANONYMOUS";
     public static final String UNIQUE_ANONYMOUS = "UNIQUE_ANONYMOUS";
+    public static final int LAST_NAME_MAX_LENGTH = 30;
+    public static final int FIRST_NAME_MAX_LENGTH = 30;
+    public static final int MIDDLE_NAMES_MAX_LENGTH = 100;
+    public static final int ALIAS_MAX_LENGTH = 70;
+    public static final int ADDRESS_MAX_LENGTH = 60;
+    public static final int CITY_MAX_LENGTH = 50;
+    public static final int PROVINCE_MAX_LENGTH = 20;
+    public static final int POSTAL_MAX_LENGTH = 9;
+    public static final int RESIDENTIAL_ADDRESS_MAX_LENGTH = 60;
+    public static final int RESIDENTIAL_CITY_MAX_LENGTH = 50;
+    public static final int RESIDENTIAL_PROVINCE_MAX_LENGTH = 20;
+    public static final int RESIDENTIAL_POSTAL_MAX_LENGTH = 9;
+    public static final int EMAIL_MAX_LENGTH = 100;
+    public static final int PHONE_MAX_LENGTH = 20;
+    public static final int HIN_MAX_LENGTH = 20;
+    public static final int VER_MAX_LENGTH = 3;
+    public static final int SEX_MAX_LENGTH = 1;
+    public static final int MONTH_OF_BIRTH_MAX_LENGTH = 2;
+    public static final int DATE_OF_BIRTH_MAX_LENGTH = 2;
+    public static final int YEAR_OF_BIRTH_MAX_LENGTH = 4;
+    public static final int ROSTER_STATUS_MAX_LENGTH = 20;
+    public static final int ROSTER_ENROLLED_TO_MAX_LENGTH = 20;
+    public static final int PATIENT_STATUS_MAX_LENGTH = 20;
+    public static final int CHART_NO_MAX_LENGTH = 10;
+    public static final int PROVIDER_NO_MAX_LENGTH = 250;
+    public static final int PCN_INDICATOR_MAX_LENGTH = 20;
+    public static final int HC_TYPE_MAX_LENGTH = 20;
+    public static final int FAMILY_DOCTOR_MAX_LENGTH = 80;
+    public static final int PREVIOUS_ADDRESS_MAX_LENGTH = 255;
+    public static final int CHILDREN_MAX_LENGTH = 255;
+    public static final int SOURCE_OF_INCOME_MAX_LENGTH = 255;
+    public static final int CITIZENSHIP_MAX_LENGTH = 40;
+    public static final int SIN_MAX_LENGTH = 15;
+    public static final int ROSTER_TERMINATION_REASON_MAX_LENGTH = 2;
+    public static final int REFERRING_DOCTOR_INPUT_MAX_LENGTH = 40;
+    public static final int REFERRING_DOCTOR_OHIP_INPUT_MAX_LENGTH = 6;
 
     private final static Pattern FD_LAST_NAME = Pattern.compile(".*<([fr])d>([^, ]*), .*</([fr])d>.*");
     private final static Pattern FD_FIRST_NAME = Pattern.compile(".*<([fr])d>[^, ]*, (.*)</([fr])d>.*");
@@ -227,6 +263,62 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         this.setFirstName(firstName);
         this.setLastName(lastName);
         initialize();
+    }
+
+    /**
+     * Validates string field lengths against the configured demographic database
+     * column sizes.
+     *
+     * @return List<String> validation errors for fields that exceed the maximum
+     *         allowed length
+     */
+    public List<String> validateFieldLengths() {
+        List<String> errors = new ArrayList<>();
+
+        addFieldLengthError(errors, "Last name", lastName, LAST_NAME_MAX_LENGTH);
+        addFieldLengthError(errors, "First name", firstName, FIRST_NAME_MAX_LENGTH);
+        addFieldLengthError(errors, "Middle names", middleNames, MIDDLE_NAMES_MAX_LENGTH);
+        addFieldLengthError(errors, "Preferred name", alias, ALIAS_MAX_LENGTH);
+        addFieldLengthError(errors, "Address", address, ADDRESS_MAX_LENGTH);
+        addFieldLengthError(errors, "City", city, CITY_MAX_LENGTH);
+        addFieldLengthError(errors, "Province", province, PROVINCE_MAX_LENGTH);
+        addFieldLengthError(errors, "Postal code", postal, POSTAL_MAX_LENGTH);
+        addFieldLengthError(errors, "Residential address", residentialAddress, RESIDENTIAL_ADDRESS_MAX_LENGTH);
+        addFieldLengthError(errors, "Residential city", residentialCity, RESIDENTIAL_CITY_MAX_LENGTH);
+        addFieldLengthError(errors, "Residential province", residentialProvince, RESIDENTIAL_PROVINCE_MAX_LENGTH);
+        addFieldLengthError(errors, "Residential postal code", residentialPostal, RESIDENTIAL_POSTAL_MAX_LENGTH);
+        addFieldLengthError(errors, "Phone", phone, PHONE_MAX_LENGTH);
+        addFieldLengthError(errors, "Alternate phone", phone2, PHONE_MAX_LENGTH);
+        addFieldLengthError(errors, "Email", email, EMAIL_MAX_LENGTH);
+        addFieldLengthError(errors, "Sex", sex, SEX_MAX_LENGTH);
+        addFieldLengthError(errors, "Month of birth", monthOfBirth, MONTH_OF_BIRTH_MAX_LENGTH);
+        addFieldLengthError(errors, "Date of birth", dateOfBirth, DATE_OF_BIRTH_MAX_LENGTH);
+        addFieldLengthError(errors, "Year of birth", yearOfBirth, YEAR_OF_BIRTH_MAX_LENGTH);
+        addFieldLengthError(errors, "Health card number", hin, HIN_MAX_LENGTH);
+        addFieldLengthError(errors, "Version code", ver, VER_MAX_LENGTH);
+        addFieldLengthError(errors, "Roster status", rosterStatus, ROSTER_STATUS_MAX_LENGTH);
+        addFieldLengthError(errors, "Roster enrolled to", rosterEnrolledTo, ROSTER_ENROLLED_TO_MAX_LENGTH);
+        addFieldLengthError(errors, "Patient status", patientStatus, PATIENT_STATUS_MAX_LENGTH);
+        addFieldLengthError(errors, "Chart number", chartNo, CHART_NO_MAX_LENGTH);
+        addFieldLengthError(errors, "Provider number", providerNo, PROVIDER_NO_MAX_LENGTH);
+        addFieldLengthError(errors, "PCN indicator", pcnIndicator, PCN_INDICATOR_MAX_LENGTH);
+        addFieldLengthError(errors, "Health card type", hcType, HC_TYPE_MAX_LENGTH);
+        addFieldLengthError(errors, "Referring doctor", familyDoctor, FAMILY_DOCTOR_MAX_LENGTH);
+        addFieldLengthError(errors, "Previous address", previousAddress, PREVIOUS_ADDRESS_MAX_LENGTH);
+        addFieldLengthError(errors, "Children", children, CHILDREN_MAX_LENGTH);
+        addFieldLengthError(errors, "Source of income", sourceOfIncome, SOURCE_OF_INCOME_MAX_LENGTH);
+        addFieldLengthError(errors, "Citizenship", citizenship, CITIZENSHIP_MAX_LENGTH);
+        addFieldLengthError(errors, "SIN", sin, SIN_MAX_LENGTH);
+        addFieldLengthError(errors, "Roster termination reason", rosterTerminationReason, ROSTER_TERMINATION_REASON_MAX_LENGTH);
+
+        return errors;
+    }
+
+    private static void addFieldLengthError(List<String> errors, String fieldName, String value, int maxLength) {
+        if (StringUtils.length(value) > maxLength) {
+            String unit = maxLength == 1 ? "character" : "characters";
+            errors.add(fieldName + " exceeds maximum length of " + maxLength + " " + unit + ".");
+        }
     }
 
     public String getDisplayName() {

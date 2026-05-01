@@ -37,9 +37,16 @@
     <constant name="struts.actionConfig.fallbackToEmptyNamespace" value="true" />
     <constant name="struts.serve.static" value="true" />
     <constant name="struts.serve.static.browserCache" value="true" />
-    <constant name="struts.action.excludePattern" value=".*\.(css|js|png|jpg|gif|svg|ico|map|woff|woff2|ttf|eot|html|htm|jsp|jspf)$|^(/[^/]+)?/WEB-INF/.*|^/ws/.*|^/servlet/.*|^/csrfguard$" />
+    <!-- Exclude pattern structure:
+         1. Exclude extension-based static/direct view requests, except the one legacy
+            Rich Text Letter template endpoint that still needs to reach Struts.
+            Examples: /styles/app.css => excluded, /eform/other.jsp => excluded,
+            /eform/efmformrtl_templates.jsp => allowed through to Struts.
+         2. Exclude internal WEB-INF resources.
+         3. Exclude non-Struts servlet and CSRFGuard endpoints handled elsewhere. -->
+    <constant name="struts.action.excludePattern" value="^(?!(/[^/]+)?/eform/efmformrtl_templates\.jsp$).*\.(css|js|png|jpg|gif|svg|ico|map|woff|woff2|ttf|eot|html|htm|jsp|jspf)$|^(/[^/]+)?/WEB-INF/.*|^/ws/.*|^/servlet/.*|^/csrfguard$" />
     <constant name="struts.custom.i18n.resources" value="oscarResources,MessageResources_mcedt"/>
-    <constant name="struts.multipart.maxSize" value="524288000" />
+    <constant name="struts.multipart.maxSize" value="52428800" />
     <!-- Use stream-based multipart parser (reads from getInputStream()) instead of the default
          jakarta parser (reads from getParts()). Required because CarlosCsrfGuardFilter wraps
          multipart requests with MultiReadHttpServletRequest for CSRF token extraction, and

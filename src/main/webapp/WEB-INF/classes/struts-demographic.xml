@@ -99,6 +99,7 @@
                 class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicUpdate2Action">
             <result name="success">/WEB-INF/jsp/demographic/demographicupdatearecord.jsp</result>
             <result name="duplicate">/WEB-INF/jsp/demographic/demographicupdatearecord.jsp</result>
+            <result name="validationError">/WEB-INF/jsp/demographic/demographicupdatearecord.jsp</result>
             <result name="methodNotAllowed" type="httpheader">
                 <param name="status">405</param>
             </result>
@@ -108,6 +109,7 @@
                 class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicAddRecord2Action">
             <result name="success">/WEB-INF/jsp/demographic/demographicaddarecord.jsp</result>
             <result name="duplicate">/WEB-INF/jsp/demographic/demographicaddarecord.jsp</result>
+            <result name="validationError">/WEB-INF/jsp/demographic/demographicaddarecord.jsp</result>
             <result name="methodNotAllowed" type="httpheader">
                 <param name="status">405</param>
             </result>

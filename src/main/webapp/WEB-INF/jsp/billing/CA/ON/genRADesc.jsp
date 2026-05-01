@@ -203,7 +203,7 @@
             Reconcillation Report </font></th>
         <th align="right">
             <form><input type="button"
-                         onClick="popupPage(700,600,'/billing/CA/ON/ViewBillingClipboard')" value="Clipboard"></form>
+                         onClick="popupPage(700,600,'<%= request.getContextPath() %>/billing/CA/ON/ViewBillingClipboard')" value="Clipboard"></form>
         </th>
     </tr>
 </table>

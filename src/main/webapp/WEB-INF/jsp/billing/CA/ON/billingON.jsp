@@ -42,8 +42,8 @@
 <%@page import="io.github.carlos_emr.*" %>
 <%@page import="io.github.carlos_emr.carlos.util.*" %>
 <%@page import="io.github.carlos_emr.carlos.appt.*" %>
-<%@page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
-<%@page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.*" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.*" %>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.bc.decisionSupport.BillingGuidelines" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.CSSStylesDAO" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
@@ -726,7 +726,7 @@
             if (codeToAdd.indexOf(dxCode) >= 0 || codeMatch != null) {
                 var dxCodeMatch = codeMatch == null ? dxCode : codeMatch;
                 <%for (String pcode : patientDx) {%>
-                if (dxCodeMatch ==<%=pcode%>) dxCode = -1;
+                if (dxCodeMatch === "<carlos:encode value='<%= pcode %>' context="javaScriptBlock"/>") dxCode = -1;
                 <%}%>
                 if (dxCode != -1 && codeMatch != null) {
                     document.titlesearch.codeMatchToPatientDx.value = codeMatch;
@@ -910,7 +910,7 @@
             var d = elementName;
             t0 = escape("document.forms[0].elements[\'" + d + "\'].value");
             //t1 = escape("");
-            //alert(('/billing/CA/ON/ViewSearchRefDoc?param='+t0));
+            //alert(('<%= request.getContextPath() %>/billing/CA/ON/ViewSearchRefDoc?param='+t0));
             awnd = rs('att', (billingContextPath + '/billing/CA/ON/ViewSearchRefDoc?param=' + t0), 1000, 800, 1);
             //awnd.focus();
         }

@@ -30,6 +30,7 @@
 
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
@@ -55,6 +56,7 @@
                 <img style="cursor: pointer;" id="ci"
                     src="${pageContext.request.contextPath}/imageRenderingServlet?source=local_client&amp;clientId=${demographicNo}" alt="id_photo" height="100"
                     title="Click to upload a new photo."
+                    onerror="this.onerror=null;this.src='${carlos:forJavaScriptAttribute(pageContext.request.contextPath)}/images/defaultR_img.jpg';"
                 onClick="popupUploadPage('${pageContext.request.contextPath}/casemgmt/ViewUploadimage', ${demographicNo}); return false;"/>
             </c:when>
             <c:otherwise>

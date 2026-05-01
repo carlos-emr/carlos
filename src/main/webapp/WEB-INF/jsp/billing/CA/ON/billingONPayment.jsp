@@ -214,7 +214,7 @@
     <div class="row card card-body bg-body-tertiary">
         <carlos:encode value='<%= errorMsg %>' context="html"/>
 
-        <form name="billingPaymentForm" method="get" action="/billing/CA/ON/BillingONPayment">
+        <form name="billingPaymentForm" method="get" action="<%= request.getContextPath() %>/billing/CA/ON/BillingONPayment">
 
             <h4><fmt:message key="oscar.billing.on.paymentReceived.freezePeriod"/></h4>
 
@@ -385,7 +385,7 @@
             <tr class="<carlos:encode value='<%= rowColor %>' context="htmlAttribute"/>">
                 <% if (!isSameBill) {%>
                 <td style="text-align:center"><a href="#"
-                                                 onclick="popupPage(700,700,'/billing/CA/ON/BillingONCorrection?billing_no=<carlos:encode value='<%= curBillingNoStr %>' context="javaScript"/>');return false;"><carlos:encode value='<%= curBillingNoStr %>' context="html"/>
+                                                 onclick="popupPage(700,700,'<%= request.getContextPath() %>/billing/CA/ON/BillingONCorrection?billing_no=<carlos:encode value='<%= curBillingNoStr %>' context="javaScript"/>');return false;"><carlos:encode value='<%= curBillingNoStr %>' context="html"/>
                 </a></td>
                 <%} else {%>
                 <td></td>
@@ -573,7 +573,7 @@
                     String billingNo = String.valueOf(bCh1.getId());
                     if (!isThisProviderOnly) { %>
                 <td style="text-align:center"><a href="#"
-                                                 onclick="popupPage(700,700,'/billing/CA/ON/BillingONCorrection?billing_no=<carlos:encode value='<%= billingNo %>' context="javaScript"/>');return false;"><carlos:encode value='<%= billingNo %>' context="html"/>
+                                                 onclick="popupPage(700,700,'<%= request.getContextPath() %>/billing/CA/ON/BillingONCorrection?billing_no=<carlos:encode value='<%= billingNo %>' context="javaScript"/>');return false;"><carlos:encode value='<%= billingNo %>' context="html"/>
                 </a></td>
                 <% } else { %>
                 <td style="text-align:center"><carlos:encode value='<%= billingNo %>' context="html"/>
