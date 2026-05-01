@@ -212,19 +212,28 @@ public class SubmitLabByForm2Action extends ActionSupport {
             logger.info("filePath {}", LogSanitizer.sanitize(filePath)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             logger.info("Type :{}", LogSanitizer.sanitize(labName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             MessageHandler msgHandler = HandlerClassFactory.getHandler(labName);
-            if (msgHandler != null) {
+            if (msgHandler == null) {
+                 logger.warn("outcome=error — no message handler found for lab type {}", LogSanitizer.sanitize(labName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                 addActionError(getText("oscarMDS.createLab.submitError"));
+             } else {
                 logger.info("MESSAGE HANDLER {}", msgHandler.getClass().getName());
             }
             String parseResult = msgHandler.parse(loggedInInfo, getClass().getSimpleName(), filePath, checkFileUploadedSuccessfully, ipAddr);
             if (parseResult != null) {
                 logger.info("outcome=success");
-                // Ensure the creating provider can see the lab in their inbox regardless of
-                // whether the billing number matched a provider via OHIP lookup.
-                Integer labNo = msgHandler.getLastLabNo();
-                if (labNo != null) {
-                    new ProviderLabRouting().routeMagic(labNo, providerNo, "HL7");
+                if (labNo == null) {
+                    logger.error("Parsed lab is missing a lab number; skipping provider routing");
+                    addActionError(getText("oscarMDS.createLab.submitError"));
+                    return manage();
                 }
-                addActionMessage(getText("oscarMDS.createLab.submitSuccess"));
+
+                try {
+                    new ProviderLabRouting().routeMagic(labNo, providerNo, "HL7");
+                    addActionMessage(getText("oscarMDS.createLab.submitSuccess"));
+                } catch (RuntimeException e) {
+                    logger.error("Provider routing failed for lab {}", labNo, e);
+                    addActionError(getText("oscarMDS.createLab.submitError"));
+                }
             } else {
                 logger.warn("outcome=null — lab handler returned null; lab may not have been saved");
                 addActionError(getText("oscarMDS.createLab.submitError"));
