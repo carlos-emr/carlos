@@ -21,11 +21,14 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on;
 
+import io.github.carlos_emr.CarlosProperties;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
+import java.time.Instant;
+import java.util.TimeZone;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -243,5 +246,31 @@ class BillingDatesUnitTest {
     void shouldFormatSqlTimestamp_withoutThrowing() {
         java.sql.Timestamp sqlTs = java.sql.Timestamp.valueOf("2026-04-30 12:34:56");
         assertThat(BillingDates.formatIsoTimestamp(sqlTs)).isEqualTo("2026-04-30 12:34:56");
+    }
+
+    @Test
+    void shouldUseConfiguredBillingZone_andDefaultToServerTimezoneWhenUnset() {
+        TimeZone original = TimeZone.getDefault();
+        Object originalBillingZone = CarlosProperties.getInstance().get("billing_on_timezone");
+        try {
+            TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+            CarlosProperties.getInstance().remove("billing_on_timezone");
+            java.util.Date lateTorontoDate = java.util.Date.from(Instant.parse("2026-05-01T03:30:00Z"));
+
+            assertThat(BillingDates.formatIsoDate(lateTorontoDate)).isEqualTo("2026-05-01");
+
+            CarlosProperties.getInstance().setProperty("billing_on_timezone", "America/Toronto");
+            assertThat(BillingDates.formatIsoDate(lateTorontoDate)).isEqualTo("2026-04-30");
+            assertThat(BillingDates.toOhipDate(lateTorontoDate)).isEqualTo("20260430");
+            assertThat(BillingDates.parseIsoDate("2026-04-30").toInstant())
+                    .isEqualTo(Instant.parse("2026-04-30T04:00:00Z"));
+        } finally {
+            TimeZone.setDefault(original);
+            if (originalBillingZone == null) {
+                CarlosProperties.getInstance().remove("billing_on_timezone");
+            } else {
+                CarlosProperties.getInstance().put("billing_on_timezone", originalBillingZone);
+            }
+        }
     }
 }

@@ -46,21 +46,21 @@ import java.util.List;
 public class BillingSpecialistClaimService {
     private static final Logger _logger = MiscUtils.getLogger();
 
-    private final BillingOnClaimPersister dbObj;
+    private final BillingOnClaimPersister claimPersister;
     private final ServiceCodeLoader serviceCodeLoader;
 
-    public BillingSpecialistClaimService(BillingOnClaimPersister dbObj, ServiceCodeLoader serviceCodeLoader) {
-        this.dbObj = dbObj;
+    public BillingSpecialistClaimService(BillingOnClaimPersister claimPersister, ServiceCodeLoader serviceCodeLoader) {
+        this.claimPersister = claimPersister;
         this.serviceCodeLoader = serviceCodeLoader;
     }
 
     public boolean addBillingRecord(BillingSpecialistClaim claim) {
-        int billingNo = dbObj.addOneClaimHeaderRecord(claim.header());
+        int billingNo = claimPersister.addOneClaimHeaderRecord(claim.header());
         if (billingNo == 0) {
             return false;
         }
         if (!claim.items().isEmpty()) {
-            dbObj.addItemRecord(claim.items(), billingNo);
+            claimPersister.addItemRecord(claim.items(), billingNo);
             return true;
         }
         _logger.error("No billing item for billing # " + billingNo);

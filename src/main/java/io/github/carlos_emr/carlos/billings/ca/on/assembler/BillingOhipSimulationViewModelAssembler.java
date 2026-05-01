@@ -42,7 +42,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.DateRange;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewQueryService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewLoader;
 
 import org.springframework.beans.factory.ObjectFactory;
 /**
@@ -71,12 +71,12 @@ public class BillingOhipSimulationViewModelAssembler {
     private static final int PROVIDER_SPECIALTYCODE_LENGTH = 2;
     private static final int PROVIDER_GROUPNO_LENGTH = 4;
 
-    private final BillingReviewQueryService reviewPrep;
+    private final BillingReviewLoader reviewPrep;
     private final BillingOnLookupService lookupService;
     private final ObjectFactory<OhipClaimFileService> ohipClaimFileFactory;
 
     /** Production constructor — Struts no-arg shape. */
-    public BillingOhipSimulationViewModelAssembler(BillingReviewQueryService reviewPrep,
+    public BillingOhipSimulationViewModelAssembler(BillingReviewLoader reviewPrep,
                                        BillingOnLookupService lookupService,
                                        ObjectFactory<OhipClaimFileService> ohipClaimFileFactory) {
         this.reviewPrep = reviewPrep;
@@ -267,21 +267,21 @@ public class BillingOhipSimulationViewModelAssembler {
             bhObj.setProvider_reg_num(proOHIP);
             bhObj.setSpecialty(specialty);
             dbObj.setBatchHeaderObj(bhObj);
-            dbObj.errorMsg += errorMsg.toString();
+            dbObj.appendErrorMsg(errorMsg.toString());
 
             dbObj.createBillingFileStr(loggedInInfo, "0",
                     new String[]{"O", "W", "I"}, true, null, summaryView);
             if (dbObj.getRecordCount() > 0
-                    || !"".equals(dbObj.errorMsg)
-                    || !"".equals(dbObj.errorFatalMsg)) {
+                    || !"".equals(dbObj.getErrorMsg())
+                    || !"".equals(dbObj.getErrorFatalMsg())) {
                 recordCount += dbObj.getRecordCount();
                 bigTotal = bigTotal.add(dbObj.getBigTotal());
                 htmlValue.append(dbObj.getHtmlValue());
             }
-            errorCount += "".equals(dbObj.errorMsg) ? 0 : dbObj.errorMsg.split("<br>").length;
-            errorCount += "".equals(dbObj.errorFatalMsg)
-                    ? 0 : dbObj.errorFatalMsg.split("<br>").length;
-            dbObj.errorMsg = "";
+            errorCount += "".equals(dbObj.getErrorMsg()) ? 0 : dbObj.getErrorMsg().split("<br>").length;
+            errorCount += "".equals(dbObj.getErrorFatalMsg())
+                    ? 0 : dbObj.getErrorFatalMsg().split("<br>").length;
+            dbObj.setErrorMsg("");
         }
 
         // Wrap into the legacy results table.

@@ -21,6 +21,9 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on;
 
+import io.github.carlos_emr.CarlosProperties;
+
+import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -32,6 +35,7 @@ import java.util.Date;
  * Central date parsing for Ontario billing.
  */
 public final class BillingDates {
+    private static final String BILLING_TIMEZONE_PROPERTY = "billing_on_timezone";
     private static final DateTimeFormatter SERVICE_DATE = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final DateTimeFormatter OHIP_DATE = DateTimeFormatter.BASIC_ISO_DATE;
     private static final DateTimeFormatter ISO_TIME = DateTimeFormatter.ofPattern("HH:mm:ss");
@@ -57,7 +61,7 @@ public final class BillingDates {
     public static Date serviceDate(String serviceDate) {
         // util.Date (not sql.Date) — see parseIsoDate for rationale.
         return Date.from(LocalDate.parse(serviceDate, SERVICE_DATE)
-                .atStartOfDay(ZoneId.systemDefault()).toInstant());
+                .atStartOfDay(billingZone()).toInstant());
     }
 
     /**
@@ -81,7 +85,7 @@ public final class BillingDates {
             // declared return type and forcing every consumer to know
             // which factory produced the value.
             return Date.from(LocalDate.parse(raw.trim(), SERVICE_DATE)
-                    .atStartOfDay(ZoneId.systemDefault()).toInstant());
+                    .atStartOfDay(billingZone()).toInstant());
         } catch (java.time.format.DateTimeParseException e) {
             throw new IllegalArgumentException(
                     "BillingDates.parseIsoDate: malformed yyyy-MM-dd date [" + raw + "]");
@@ -107,7 +111,7 @@ public final class BillingDates {
         try {
             // util.Date (not sql.Date) — see parseIsoDate for rationale.
             return Date.from(LocalDate.parse(raw.trim(), SERVICE_DATE)
-                    .atStartOfDay(ZoneId.systemDefault()).toInstant());
+                    .atStartOfDay(billingZone()).toInstant());
         } catch (java.time.format.DateTimeParseException e) {
             throw new IllegalArgumentException(
                     "BillingDates.parseOptionalIsoDate: malformed " + fieldName + " [" + raw + "]");
@@ -135,7 +139,7 @@ public final class BillingDates {
         try {
             LocalTime t = LocalTime.parse(raw.trim(), ISO_TIME);
             return Date.from(t.atDate(LocalDate.ofEpochDay(0))
-                    .atZone(ZoneId.systemDefault()).toInstant());
+                    .atZone(billingZone()).toInstant());
         } catch (java.time.format.DateTimeParseException e) {
             throw new IllegalArgumentException(
                     "BillingDates.parseOptionalIsoTime: malformed " + fieldName + " [" + raw + "]");
@@ -146,7 +150,7 @@ public final class BillingDates {
         if (date == null) {
             return "";
         }
-        return date.toInstant().atZone(ZoneId.systemDefault()).toLocalDate().format(OHIP_DATE);
+        return date.toInstant().atZone(billingZone()).toLocalDate().format(OHIP_DATE);
     }
 
     /**
@@ -162,7 +166,7 @@ public final class BillingDates {
         try {
             LocalTime t = LocalTime.parse(raw.trim(), ISO_TIME);
             return Date.from(t.atDate(LocalDate.ofEpochDay(0))
-                    .atZone(ZoneId.systemDefault()).toInstant());
+                    .atZone(billingZone()).toInstant());
         } catch (java.time.format.DateTimeParseException e) {
             throw new IllegalArgumentException(
                     "BillingDates.parseIsoTime: malformed HH:mm:ss time [" + raw + "]");
@@ -178,7 +182,7 @@ public final class BillingDates {
         // route through getTime() to support both sql.Date (returned by
         // parseIsoDate) and util.Date.
         return java.time.Instant.ofEpochMilli(date.getTime())
-                .atZone(ZoneId.systemDefault()).toLocalDate().format(SERVICE_DATE);
+                .atZone(billingZone()).toLocalDate().format(SERVICE_DATE);
     }
 
     /** Format a {@link Date} as {@code HH:mm:ss}. Null-safe — returns empty. */
@@ -189,7 +193,7 @@ public final class BillingDates {
         // Route through getTime() — java.sql.Date / java.sql.Time both throw
         // UnsupportedOperationException on toInstant().
         return java.time.Instant.ofEpochMilli(date.getTime())
-                .atZone(ZoneId.systemDefault()).toLocalTime().format(ISO_TIME);
+                .atZone(billingZone()).toLocalTime().format(ISO_TIME);
     }
 
     /** Format a {@link Date} as {@code yyyy-MM-dd HH:mm:ss}. Null-safe — returns empty. */
@@ -198,8 +202,21 @@ public final class BillingDates {
             return "";
         }
         LocalDateTime ldt = java.time.Instant.ofEpochMilli(date.getTime())
-                .atZone(ZoneId.systemDefault()).toLocalDateTime();
+                .atZone(billingZone()).toLocalDateTime();
         return ldt.format(ISO_TIMESTAMP);
+    }
+
+    private static ZoneId billingZone() {
+        Object configuredZone = CarlosProperties.getInstance().get(BILLING_TIMEZONE_PROPERTY);
+        String zoneId = configuredZone == null ? "" : configuredZone.toString().trim();
+        if (zoneId.isEmpty()) {
+            return ZoneId.systemDefault();
+        }
+        try {
+            return ZoneId.of(zoneId);
+        } catch (DateTimeException e) {
+            throw new IllegalArgumentException("Invalid " + BILLING_TIMEZONE_PROPERTY + " value: " + zoneId, e);
+        }
     }
 
     private static LocalDate parseOhipDate(String raw, boolean normalizeZeroDay) {

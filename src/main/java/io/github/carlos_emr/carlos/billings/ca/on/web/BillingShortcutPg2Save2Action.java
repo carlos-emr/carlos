@@ -45,7 +45,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingShortcutPg2Serv
  * (BillingDao, BillingDetailDao, ProviderDao, DemographicDao,
  * BillingServiceDao, BillingPercLimitDao) are now owned by the service.</p>
  *
- * @since 2026
+ * @since 2003-07-22
  */
 public class BillingShortcutPg2Save2Action extends ActionSupport {
 

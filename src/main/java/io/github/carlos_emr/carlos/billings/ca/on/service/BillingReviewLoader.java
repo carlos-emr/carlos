@@ -52,19 +52,19 @@ import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
  */
 @org.springframework.stereotype.Service
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
-public class BillingReviewQueryService {
+public class BillingReviewLoader {
     private static final Logger _logger = MiscUtils.getLogger();
 
-    private final BillingOnClaimLoader dbObj;
+    private final BillingOnClaimLoader claimLoader;
     private final BillingOnDiskLoader diskQueryService;
     private final BillingOnLookupService lookupService;
     private final DiagnosticCodeDao diagnosticCodeDao;
 
-    BillingReviewQueryService(BillingOnClaimLoader dbObj,
+    BillingReviewLoader(BillingOnClaimLoader claimLoader,
                       BillingOnDiskLoader diskQueryService,
                       BillingOnLookupService lookupService,
                       DiagnosticCodeDao diagnosticCodeDao) {
-        this.dbObj = dbObj;
+        this.claimLoader = claimLoader;
         this.diskQueryService = diskQueryService;
         this.lookupService = lookupService;
         this.diagnosticCodeDao = diagnosticCodeDao;
@@ -79,11 +79,11 @@ public class BillingReviewQueryService {
 
             // get fee
             BillingOnClaimLoader.FeeLookupResult feeResult =
-                    dbObj.getCodeFeeResult(row.code(), billReferalDate);
+                    claimLoader.getCodeFeeResult(row.code(), billReferalDate);
             String fee = feeResult.value();
 
             // get code description
-            String codeDescription = dbObj.getCodeDescription(row.code(), billReferalDate);
+            String codeDescription = claimLoader.getCodeDescription(row.code(), billReferalDate);
 
             // judge fee
             if (feeResult.partial()) {
@@ -179,7 +179,7 @@ public class BillingReviewQueryService {
             // take perc. code
             // get fee
             BillingOnClaimLoader.FeeLookupResult feeResult =
-                    dbObj.getPercFeeResult(row.code(), billReferalDate);
+                    claimLoader.getPercFeeResult(row.code(), billReferalDate);
             String fee = feeResult.value();
 
             if (feeResult.partial()) {
@@ -226,7 +226,7 @@ public class BillingReviewQueryService {
             }
             // get min/max fee
             BillingOnClaimLoader.FeeRangeLookupResult mFee =
-                    dbObj.getPercMinMaxFeeResult(row.code(), billReferalDate);
+                    claimLoader.getPercMinMaxFeeResult(row.code(), billReferalDate);
             ret.add(new BillingReviewPercentageItem(
                     row.code(),
                     row.unit(),

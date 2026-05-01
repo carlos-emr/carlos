@@ -342,6 +342,21 @@ class BillingOnFormViewModelUnitTest {
         assertThat(flagged.isDemoDobInvalid()).isTrue();
     }
 
+    @Test
+    void shouldRoundTripDegradationFlags_throughBuilder() {
+        BillingOnFormViewModel defaultModel = BillingOnFormViewModel.builder().build();
+        assertThat(defaultModel.isRecommendationsUnavailable()).isFalse();
+        assertThat(defaultModel.isSiteContextDegraded()).isFalse();
+
+        BillingOnFormViewModel flagged = BillingOnFormViewModel.builder()
+                .recommendationsUnavailable(true)
+                .siteContextDegraded(true)
+                .build();
+
+        assertThat(flagged.isRecommendationsUnavailable()).isTrue();
+        assertThat(flagged.isSiteContextDegraded()).isTrue();
+    }
+
     /**
      * The structured-record accessors mirror the corresponding flat getters.
      * Adding regression armor so a future refactor that drops a flat getter

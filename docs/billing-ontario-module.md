@@ -155,9 +155,9 @@ Forbidden in new code (and currently absent from this module): `*Prep`,
   stripped in 2026-04-27. If you reintroduce a real cycle, Spring will fail
   at boot — fix the cycle, don't paper over it with `@Lazy`.
 - `@Transactional` (or `@Transactional(readOnly = true)`) is applied at the
-  service layer, not on assemblers or actions. Some legacy services
-  (e.g. `BillingCorrectionService`) currently lack it — this is documented
-  as a known follow-up in §11.
+  service layer, not on assemblers or actions. Assemblers and actions stay
+  outside the transaction boundary and delegate to services for read/write
+  units of work.
 
 ### 3.3 Design rationale
 
@@ -379,7 +379,7 @@ known operation.
 | `BillingOnDiskLoader` | Loader | Disk record queries, batch header reads, MRI list |
 | `BillingOnDiskService` | Service | Disk operations facade |
 | `BillingOnErrorReportService` | Service | RA error-report generation |
-| `BillingOnInvoiceTotalsService` | Service | `calculateBalanceOwing` — reads `BillingONCHeader1Dao` + `BillingONExtDao` + `BillingONPaymentDao` (cross-DAO ⇒ `*Service` per layer-names rule 4) |
+| `BillingOnInvoiceTotalsService` | Service | `calculateBalanceOwing` — reads `BillingONCHeader1Dao` + `BillingONPaymentDao` (cross-DAO ⇒ `*Service` per layer-names rule 4) |
 | `BillingOnHeaderCreationService` | Service | Header creation orchestration (`@Transactional`) |
 | `BillingOnLookupService` | Service | Provider/team/site lookups + a few status writes (mixed) |
 | `BillingOnRaService` | Service | RA import + status updates |
@@ -388,11 +388,11 @@ known operation.
 | `BillingPaymentSaveService` | Service | Transactional third-party payment save and balance refresh |
 | `BillingRaLookupService` | Service | RA detail lookup, error-code checks, and typed amount-paid totals |
 | `BillingRaReportService` | Service | RA summary/desc report data prep |
-| `BillingReviewQueryService` | Loader | Review-page service-code + percentage/dx queries |
+| `BillingReviewLoader` | Loader | Review-page service-code + percentage/dx queries |
 | `BillingShortcutPg2Service` | Service | Shortcut page 2 assembly, validation, and persistence workflow |
 | `BillingSiteIdService` | Service | Site-list and suggested-site lookup helpers |
 | `BillingSpecialistClaimService` | Service | Specialist-billing workflow |
-| `BillingStatusQueryService` | Loader | Param-normalising facade over `BillingOnClaimLoader` for the status page |
+| `BillingStatusLoader` | Loader | Param-normalising facade over `BillingOnClaimLoader` for the status page |
 | `BillingThirdPartyService` | Service | Third-party billing workflow |
 | `BillingThirdPartyRecordService` | Service | Third-party record lifecycle |
 | `CssStyleDeletionService` | Service | Transactional CSS style deletion with billing-service cleanup |
@@ -408,7 +408,7 @@ known operation.
 | `OnRaSettlementService` | Service | RA settlement workflow |
 | `OnRaSummaryTotalsService` | Service | RA summary local/pay total merge workflow |
 | `PatientEndYearStatementService` | Service | Year-end statement generation |
-| `RaDescriptionFileParser` | Service | Fixed-width OHIP RA description file parsing and RA content XML fragment generation |
+| `RaDescriptionFileParser` | Parser | Fixed-width OHIP RA description file parsing and RA content XML fragment generation |
 | `RaHeaderTotalsPersister` | Persister | RA header totals/content writes and lazy RA premium population for RA description/summary pages |
 | `ServiceCodeLoader` | Loader | `billing_service` table reads (code attrs, dropdown desc) |
 | `ServiceCodePersister` | Persister | `billing_service` writes (admin add/update/delete of private codes) |
@@ -744,10 +744,6 @@ JPA `EntityManager` and the legacy Hibernate `Session`. Common pitfalls
 
 Things this module would benefit from but which are not yet done:
 
-- **`@Transactional` on `BillingCorrectionService`.** The class TODO comment
-  in source notes the gap; the `BillingValidationException` fast-fail
-  closes the most acute exposure but a real merge mid-sequence is still
-  a risk.
 - **`billingON.jsp` JSP refactor (Phase 2A in `/root/.claude/plans/`).**
   The largest remaining ON JSP is being decomposed into Assembler +
   ViewModel + JSP includes — same recipe as the four other ON billing

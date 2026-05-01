@@ -46,12 +46,12 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 public class OnRaViewModelAssembler {
 
     private final SecurityInfoManager securityInfoManager;
-    private final BillingOnRaService dbObj;
+    private final BillingOnRaService raService;
 
     public OnRaViewModelAssembler(SecurityInfoManager securityInfoManager,
-                                BillingOnRaService dbObj) {
+                                BillingOnRaService raService) {
         this.securityInfoManager = securityInfoManager;
-        this.dbObj = dbObj;
+        this.raService = raService;
     }
 
     /**
@@ -72,11 +72,11 @@ public class OnRaViewModelAssembler {
 
         List<Properties> raList;
         if (isTeamBillingOnly || isTeamAccessPrivacy) {
-            raList = dbObj.getTeamRahd("D", user);
+            raList = raService.getTeamRahd("D", user);
         } else if (isSiteAccessPrivacy) {
-            raList = dbObj.getSiteRahd("D", user);
+            raList = raService.getSiteRahd("D", user);
         } else {
-            raList = dbObj.getAllRahd("D");
+            raList = raService.getAllRahd("D");
         }
 
         List<OnRaViewModel.Row> rows = new ArrayList<>(raList == null ? 0 : raList.size());

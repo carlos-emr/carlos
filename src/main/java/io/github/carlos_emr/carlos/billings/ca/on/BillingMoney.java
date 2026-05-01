@@ -23,6 +23,8 @@ package io.github.carlos_emr.carlos.billings.ca.on;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Currency;
+import java.util.Objects;
 
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -32,12 +34,88 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  *
  * @since 2026-04-28
  */
-public final class BillingMoney {
+public record BillingMoney(BigDecimal amount, Currency currency) implements Comparable<BillingMoney> {
     public static final int MONEY_SCALE = 2;
+    public static final Currency CAD = Currency.getInstance("CAD");
     private static final int OHIP_FEE_SCALE = 4;
     private static final BigDecimal ZERO = BigDecimal.ZERO.setScale(MONEY_SCALE);
 
-    private BillingMoney() {
+    public BillingMoney {
+        amount = Objects.requireNonNull(amount, "amount").setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+        if (amount.signum() < 0) {
+            throw new BillingValidationException("BillingMoney: amount cannot be negative [" + amount + "]");
+        }
+        currency = Objects.requireNonNull(currency, "currency");
+    }
+
+    public static BillingMoney cad(BigDecimal amount) {
+        return new BillingMoney(amount, CAD);
+    }
+
+    public static BillingMoney cad(String raw) {
+        return parseNonNegative(raw, "amount");
+    }
+
+    public static BillingMoney parseNonNegative(String raw, String fieldName) {
+        return cad(parseNonNegativeAmount(raw, fieldName));
+    }
+
+    public static BillingMoney storedCents(String raw, String fieldName) {
+        if (raw == null || raw.trim().isEmpty()) {
+            throw new BillingValidationException(
+                    "BillingMoney: " + fieldName + " is null or blank");
+        }
+        BigDecimal cents;
+        try {
+            cents = new BigDecimal(raw.trim());
+        } catch (NumberFormatException e) {
+            throw new BillingValidationException(
+                    "BillingMoney: malformed " + fieldName + " [" + raw + "]", e);
+        }
+        if (cents.signum() < 0) {
+            throw new BillingValidationException(
+                    "BillingMoney: " + fieldName + " cannot be negative [" + raw + "]");
+        }
+        return cad(cents.movePointLeft(MONEY_SCALE));
+    }
+
+    public String toStoredCents() {
+        return amount.movePointRight(MONEY_SCALE)
+                .setScale(0, RoundingMode.HALF_UP)
+                .toPlainString();
+    }
+
+    public BillingMoney plus(BillingMoney other) {
+        requireSameCurrency(other);
+        return new BillingMoney(amount.add(other.amount), currency);
+    }
+
+    public BillingMoney minus(BillingMoney other) {
+        requireSameCurrency(other);
+        return new BillingMoney(amount.subtract(other.amount), currency);
+    }
+
+    public String format() {
+        return format(amount);
+    }
+
+    @Override
+    public int compareTo(BillingMoney other) {
+        requireSameCurrency(other);
+        return amount.compareTo(other.amount);
+    }
+
+    @Override
+    public String toString() {
+        return currency.getCurrencyCode() + " " + format();
+    }
+
+    private void requireSameCurrency(BillingMoney other) {
+        Objects.requireNonNull(other, "other");
+        if (!currency.equals(other.currency)) {
+            throw new IllegalArgumentException(
+                    "Currency mismatch: " + currency.getCurrencyCode() + " vs " + other.currency.getCurrencyCode());
+        }
     }
 
     public static BigDecimal zero() {

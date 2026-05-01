@@ -192,5 +192,5 @@ varies:
   `src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/OnRaSettlementService.java`
   (per-bill settlement + RA-header status flip)
 - Correction workflow: `src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingCorrectionRecordService.java`
-- Bill review query layer: `src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingReviewQueryService.java`
+- Bill review query layer: `src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingReviewLoader.java`
 - Struts gates (`*2Action`): `src/main/java/io/github/carlos_emr/carlos/billings/ca/on/web/`

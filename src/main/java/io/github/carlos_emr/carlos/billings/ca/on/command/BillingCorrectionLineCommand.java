@@ -21,19 +21,32 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.command;
 
+import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
+
+import java.math.BigDecimal;
+
 /**
  * One submitted service-code row from the ON billing correction validation form.
  */
 public record BillingCorrectionLineCommand(String serviceCode,
-                                           String billingUnit,
-                                           String billingAmount) {
-    public BillingCorrectionLineCommand {
-        serviceCode = nullToEmpty(serviceCode);
-        billingUnit = nullToEmpty(billingUnit);
-        billingAmount = nullToEmpty(billingAmount);
+                                           BigDecimal billingUnit,
+                                           BillingMoney billingAmount) {
+    public BillingCorrectionLineCommand(String serviceCode, String billingUnit, String billingAmount) {
+        this(serviceCode,
+                Commands.quantity(billingUnit, "billingUnit"),
+                Commands.optionalMoney(billingAmount, "billingAmount"));
     }
 
-    private static String nullToEmpty(String value) {
-        return value == null ? "" : value;
+    public BillingCorrectionLineCommand {
+        serviceCode = Commands.nullToEmpty(serviceCode);
+        billingUnit = billingUnit == null ? BigDecimal.ZERO : billingUnit;
+    }
+
+    public String billingUnitText() {
+        return Commands.quantityText(billingUnit);
+    }
+
+    public String billingAmountText() {
+        return billingAmount == null ? "" : billingAmount.format();
     }
 }

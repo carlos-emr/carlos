@@ -62,7 +62,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnRequestParameters;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingOnReviewValidator;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewQueryService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewLoader;
 
 /**
  * Assembles {@link BillingOnReviewViewModel} for {@code billingONReview.jsp}.
@@ -70,15 +70,17 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewQueryServ
  * <p>Pure read of request state into a view model. Encapsulates all the data
  * preparation that previously lived in the JSP's body scriptlets.</p>
  *
+ * <p>Expanded on 2026-04-25 to drain the remaining body scriptlet prep into
+ * the assembler.</p>
+ *
  * @since 2026-04-24
- *        2026-04-25 (full body-scriptlet drain expansion)
  */
 @org.springframework.stereotype.Service
 public class BillingOnReviewViewModelAssembler {
 
     private final DemographicDao demographicDao;
     private final ProviderDao providerDao;
-    private final BillingReviewQueryService reviewPrep;
+    private final BillingReviewLoader reviewPrep;
     private final BillingOnReviewValidator validator;
     private final ServiceCodeLoader serviceCodeLoader;
     private final BillingOnLookupService lookupService;
@@ -89,7 +91,7 @@ public class BillingOnReviewViewModelAssembler {
 
     public BillingOnReviewViewModelAssembler(DemographicDao demographicDao,
                                  ProviderDao providerDao,
-                                 BillingReviewQueryService reviewPrep,
+                                 BillingReviewLoader reviewPrep,
                                  BillingOnReviewValidator validator,
                                  ServiceCodeLoader serviceCodeLoader,
                                  BillingOnLookupService lookupService,

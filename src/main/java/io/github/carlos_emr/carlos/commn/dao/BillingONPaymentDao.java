@@ -32,14 +32,6 @@ import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
 
 public interface BillingONPaymentDao extends AbstractDao<BillingONPayment> {
-    void setBillingONExtDao(BillingONExtDao billingONExtDao);
-
-    void setBillingONCHeader1Dao(BillingONCHeader1Dao billingONCHeader1Dao);
-
-    BillingONExtDao getBillingONExtDao();
-
-    BillingONCHeader1Dao getBillingONCHeader1Dao();
-
     /**
      * Loads a {@link BillingONPayment} together with its
      * {@code billingONExtItems} collection in a single {@code LEFT JOIN FETCH}

@@ -58,14 +58,14 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 @org.springframework.transaction.annotation.Transactional
 public class BillingDiskCreationService {
     private static final Logger _logger = MiscUtils.getLogger();
-    private final BillingOnClaimPersister dbObj;
+    private final BillingOnClaimPersister claimPersister;
     private final BillingOnDiskLoader diskQuery;
     private final BillingOnLookupService lookupService;
 
-    BillingDiskCreationService(BillingOnClaimPersister dbObj,
+    BillingDiskCreationService(BillingOnClaimPersister claimPersister,
                           BillingOnDiskLoader diskQuery,
                           BillingOnLookupService lookupService) {
-        this.dbObj = dbObj;
+        this.claimPersister = claimPersister;
         this.diskQuery = diskQuery;
         this.lookupService = lookupService;
     }
@@ -133,7 +133,7 @@ public class BillingDiskCreationService {
                 BillingOnConstants.BILLINGFILE_STATUS_UNCERT,
                 "")));
 
-        ret = dbObj.addBillingDiskName(diskName);
+        ret = claimPersister.addBillingDiskName(diskName);
         return ret;
     }
 
@@ -171,7 +171,7 @@ public class BillingDiskCreationService {
         }
         diskName.setFilenames(rows);
 
-        ret = dbObj.addBillingDiskName(diskName);
+        ret = claimPersister.addBillingDiskName(diskName);
         return ret;
     }
 
@@ -182,7 +182,7 @@ public class BillingDiskCreationService {
 
         // get diskName obj
         BillingDiskNameDto diskName = diskQuery.getDisknameObj(diskId);
-        dbObj.addRepoDiskName(diskName);
+        claimPersister.addRepoDiskName(diskName);
 
         // diskName.setGroupno(groupNo);
         diskName.setCreator(creator);
@@ -192,7 +192,7 @@ public class BillingDiskCreationService {
         diskName.setStatus(BillingOnConstants.BILLINGFILE_STATUS_UNCERT);
         diskName.setTotal("");
 
-        ret = dbObj.updateDiskName(diskName);
+        ret = claimPersister.updateDiskName(diskName);
         return ret;
     }
 
@@ -223,7 +223,7 @@ public class BillingDiskCreationService {
         obj.setCreator(creator);
         obj.setAction(BillingOnConstants.BILLINGACTION_CREATE);
         obj.setComment("");
-        ret = dbObj.addOneBatchHeaderRecord(obj);
+        ret = claimPersister.addOneBatchHeaderRecord(obj);
         return ret;
     }
 
@@ -231,7 +231,7 @@ public class BillingDiskCreationService {
                                  String creator) {
         boolean ret = false;
         BillingBatchHeaderDto obj = diskQuery.getBatchHeaderObj(providerData, disk_id);
-        dbObj.addRepoBatchHeader(obj);
+        claimPersister.addRepoBatchHeader(obj);
         obj.setDisk_id(disk_id);
         obj.setTransc_id(BillingOnConstants.BATCHHEADER_TRANSACTIONIDENTIFIER);
         obj.setRec_id(BillingOnConstants.BATCHHEADER_REORDIDENTIFICATION);
@@ -255,7 +255,7 @@ public class BillingDiskCreationService {
         obj.setCreator(creator);
         obj.setAction(BillingOnConstants.BILLINGACTION_UPDATE);
         obj.setComment("");
-        ret = dbObj.updateBatchHeaderRecord(obj);
+        ret = claimPersister.updateBatchHeaderRecord(obj);
         int retval = ret ? Integer.parseInt(obj.getId()) : 0;
         return retval;
     }

@@ -32,7 +32,7 @@ import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
 
 public interface BillingDetailDao extends AbstractDao<BillingDetail> {
 
-    public List<BillingDetail> findByBillingNo(int billingNo);
+    public List<BillingDetail> findAllIncludingDeletedByBillingNo(int billingNo);
 
     public List<BillingDetail> findByBillingNoAndStatus(Integer billingNo, String status);
 

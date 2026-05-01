@@ -43,10 +43,10 @@ import org.apache.logging.log4j.Logger;
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
 public class BillingRaReportService {
     private static final Logger _logger = MiscUtils.getLogger();
-    private final BillingOnRaService dbObj;
+    private final BillingOnRaService raService;
 
-    BillingRaReportService(BillingOnRaService dbObj) {
-        this.dbObj = dbObj;
+    BillingRaReportService(BillingOnRaService raService) {
+        this.raService = raService;
     }
 
     // ret - ArrayList = || ||
@@ -57,7 +57,7 @@ public class BillingRaReportService {
      * @return List
      */
     public List getProviderListFromRAReport(String raNo) {
-        List ret = dbObj.getProviderListFromRAReport(raNo);
+        List ret = raService.getProviderListFromRAReport(raNo);
         return ret;
     }
 
@@ -78,7 +78,7 @@ public class BillingRaReportService {
      */
 
     public List<Properties> getRAErrorReport(String raNo, String providerOhipNo, String[] notErrorCode) {
-        List<Properties> ret = dbObj.getRAErrorReport(raNo, providerOhipNo, notErrorCode);
+        List<Properties> ret = raService.getRAErrorReport(raNo, providerOhipNo, notErrorCode);
         return ret;
     }
 
@@ -97,7 +97,7 @@ public class BillingRaReportService {
      */
 
     public List<String> getRABillingNo4Code(String raNo, String codes) {
-        List<String> ret = dbObj.getRABillingNo4Code(raNo, codes);
+        List<String> ret = raService.getRABillingNo4Code(raNo, codes);
         return ret;
     }
 
@@ -145,7 +145,7 @@ public class BillingRaReportService {
 
     public List getRASummary(String raNo, String providerOhipNo, List OBbilling_no, List CObilling_no, Map map) {
         List rett = new ArrayList();
-        List ret = dbObj.getRASummary(raNo, providerOhipNo);
+        List ret = raService.getRASummary(raNo, providerOhipNo);
         BigDecimal BigCTotal = BillingMoney.zero();
         BigDecimal BigPTotal = BillingMoney.zero();
         BigDecimal BigOBTotal = BillingMoney.zero();
@@ -326,8 +326,8 @@ public class BillingRaReportService {
 
     public List getRANoErrorBill(String raNo, String providerOhipNo, String noErrorCodes, String errorCodes) {
         List ret = new ArrayList();
-        List errorBill = dbObj.getRAError35(raNo, providerOhipNo, errorCodes);
-        List noErrorBill = dbObj.getRAError35(raNo, providerOhipNo, noErrorCodes);
+        List errorBill = raService.getRAError35(raNo, providerOhipNo, errorCodes);
+        List noErrorBill = raService.getRAError35(raNo, providerOhipNo, noErrorCodes);
         for (int i = 0; i < noErrorBill.size(); i++) {
             String errorAccount = (String) noErrorBill.get(i);
             if (!errorBill.contains(errorAccount)) {
@@ -352,7 +352,7 @@ public class BillingRaReportService {
      */
 
     public boolean updateBillingStatus(String id, String status) {
-        boolean ret = dbObj.updateBillingStatus(id, status);
+        boolean ret = raService.updateBillingStatus(id, status);
         return ret;
     }
 }

@@ -21,23 +21,45 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.command;
 
+import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
+
+import java.math.BigDecimal;
+
 /**
  * One reviewed line item posted into the ON billing correction submit action.
  */
 public record BillingCorrectionSubmitItemCommand(String serviceCode,
                                                  String description,
-                                                 String serviceValue,
+                                                 BillingMoney serviceValue,
                                                  String diagCode,
-                                                 String quantity) {
-    public BillingCorrectionSubmitItemCommand {
-        serviceCode = nullToEmpty(serviceCode);
-        description = nullToEmpty(description);
-        serviceValue = nullToEmpty(serviceValue);
-        diagCode = nullToEmpty(diagCode);
-        quantity = nullToEmpty(quantity);
+                                                 BigDecimal quantity) {
+    public BillingCorrectionSubmitItemCommand(String serviceCode,
+                                              String description,
+                                              String serviceValue,
+                                              String diagCode,
+                                              String quantity) {
+        this(serviceCode,
+                description,
+                Commands.requiredStoredCents(serviceValue, "serviceValue"),
+                diagCode,
+                Commands.quantity(quantity, "quantity"));
     }
 
-    private static String nullToEmpty(String value) {
-        return value == null ? "" : value;
+    public BillingCorrectionSubmitItemCommand {
+        serviceCode = Commands.nullToEmpty(serviceCode);
+        description = Commands.nullToEmpty(description);
+        if (serviceValue == null) {
+            throw new IllegalArgumentException("serviceValue is required");
+        }
+        diagCode = Commands.nullToEmpty(diagCode);
+        quantity = quantity == null ? BigDecimal.ZERO : quantity;
+    }
+
+    public String serviceValueStored() {
+        return serviceValue.toStoredCents();
+    }
+
+    public String quantityText() {
+        return Commands.quantityText(quantity);
     }
 }

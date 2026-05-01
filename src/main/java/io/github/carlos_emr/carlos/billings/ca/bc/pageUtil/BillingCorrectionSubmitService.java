@@ -77,7 +77,7 @@ public class BillingCorrectionSubmitService {
         recycleBin.setUpdateDateTime(new java.util.Date());
         recycleBinDao.persist(recycleBin);
 
-        for (BillingDetail bd : billingDetailDao.findByBillingNo(billingNo)) {
+        for (BillingDetail bd : billingDetailDao.findAllIncludingDeletedByBillingNo(billingNo)) {
             bd.setStatus("D");
             billingDetailDao.merge(bd);
         }

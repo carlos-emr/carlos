@@ -124,8 +124,12 @@ public final class BillingOnFormViewModel {
     private final BillingOnLookupPresentation lookupData;
     private final BillingOnDisplayPresentation display;
     private final BillingOnReferralDefaults referralDefaults;
+    private final boolean recommendationsUnavailable;
+    private final boolean siteContextDegraded;
 
     private BillingOnFormViewModel(Builder b) {
+        this.recommendationsUnavailable = b.recommendationsUnavailable;
+        this.siteContextDegraded = b.siteContextDegraded;
         // Resolve composed records first — either the composed-setter wins or
         // we synthesize from the legacy flat-field accumulators.
         this.demographic = (b.demographic != null)
@@ -389,6 +393,8 @@ public final class BillingOnFormViewModel {
     public String getDefaultView() { return display.defaultView(); }
     public String getDemoNameUrlEncoded() { return requestContext.demoNameUrlEncoded(); }
     public Map<String, String> getRequestParamEchoes() { return requestContext.requestParamEchoes(); }
+    public boolean isRecommendationsUnavailable() { return recommendationsUnavailable; }
+    public boolean isSiteContextDegraded() { return siteContextDegraded; }
 
     public static final class Builder {
         // ---- Composed-record setters (preferred) ----
@@ -405,6 +411,8 @@ public final class BillingOnFormViewModel {
         private BillingOnLookupPresentation lookupData;
         private BillingOnDisplayPresentation display;
         private BillingOnReferralDefaults referralDefaults;
+        private boolean recommendationsUnavailable;
+        private boolean siteContextDegraded;
 
         // ---- Legacy flat-field accumulators ----
         private String userNo;
@@ -511,6 +519,8 @@ public final class BillingOnFormViewModel {
         public Builder lookupData(BillingOnLookupPresentation v) { this.lookupData = v; return this; }
         public Builder display(BillingOnDisplayPresentation v) { this.display = v; return this; }
         public Builder referralDefaults(BillingOnReferralDefaults v) { this.referralDefaults = v; return this; }
+        public Builder recommendationsUnavailable(boolean v) { this.recommendationsUnavailable = v; return this; }
+        public Builder siteContextDegraded(boolean v) { this.siteContextDegraded = v; return this; }
 
         // ---- Legacy flat setters (back-compat — accumulate for build()) ----
 

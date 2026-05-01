@@ -44,7 +44,7 @@ import org.apache.struts2.ServletActionContext;
  * each URL has a single responsibility — replacing the legacy
  * {@code method=...} dispatcher.</p>
  *
- * @since 2026
+ * @since 2024-12-06
  */
 public class PaymentType2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;

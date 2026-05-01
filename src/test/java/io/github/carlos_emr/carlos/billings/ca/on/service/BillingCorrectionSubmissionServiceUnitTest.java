@@ -74,7 +74,7 @@ class BillingCorrectionSubmissionServiceUnitTest extends CarlosUnitTestBase {
         Billing existing = new Billing();
         BillingDetail oldDetail = new BillingDetail();
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
-        when(billingDetailDao.findByBillingNo(42)).thenReturn(List.of(oldDetail));
+        when(billingDetailDao.findAllIncludingDeletedByBillingNo(42)).thenReturn(List.of(oldDetail));
         when(billingDao.find(42)).thenReturn(existing);
 
         BillingCorrectionSubmitCommand command = new BillingCorrectionSubmitCommand(

@@ -42,7 +42,7 @@ Do not revive legacy compressed names such as `3rd`, `Dig`, `Db`, `Obj`,
 | `*Loader` | `@Service` | Loads **one slice** of state onto a builder passed in. Used inside assemblers. | `BillingOnFormDemographicLoader` |
 | `*Resolver` | `@Service` | Picks **one value** through a priority chain or rule. | `BillingOnFormBillFormResolver` |
 | `*Composer` | `@Service` | Assembles a **complex sub-structure** onto a builder. Bigger than a Loader. | `BillingOnFormServiceGridComposer` |
-| `*Validator` | `@Service` / `@Component` | Pure validation → typed `Result(messages, valid)`. No side effects. | `BillingOnReviewValidator` |
+| `*Validator` | `@Service` / `@Component` | Pure validation → typed `Result(messages, codeValid)`. No side effects. | `BillingOnReviewValidator` |
 | `*Parser` | plain class or `@Service` | Parses fixed-format/file input into DTO records. No Struts request handling. | `BillingClaimsErrorReportParser` |
 | `*Persister` | `@Service @Transactional` | **Side-effect-only writer** split out from a sibling reader. | `BillingOnReviewDiagPersister` |
 | `*Calculator` | `@Service` or static | Pure math/derivation. Typed in, typed out. | (`BillingTotalCalculator`) |

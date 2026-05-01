@@ -681,6 +681,7 @@ public class BillingOnFormViewModelAssembler {
             MiscUtils.getLogger().error(
                     "Drools billing-guidelines evaluation failed; rendering without recommendations",
                     e);
+            b.recommendationsUnavailable(true);
         }
         b.billingRecommendations(recommendations.toString());
     }

@@ -34,6 +34,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -159,6 +162,9 @@ public class SecobjprivilegeDaoIntegrationTest extends CarlosTestBase {
     private static final String NATIVE_INSERT_SECOBJECTNAME =
             "INSERT INTO secObjectName (objectName, description, orgapplicable) VALUES (?1, ?2, 1)";
 
+    private static final Path ADMIN_BILLING_PRIVILEGE_MIGRATION =
+            Path.of("database/mysql/updates/update-2026-04-26-admin-billing-privilege.sql");
+
     /**
      * Creates and persists a {@link Secobjprivilege} with the given composite key
      * and privilege details.
@@ -204,6 +210,68 @@ public class SecobjprivilegeDaoIntegrationTest extends CarlosTestBase {
                 .setParameter(2, description)
                 .executeUpdate();
         entityManager.flush();
+    }
+
+    private void applyAdminBillingPrivilegeMigration() throws IOException {
+        String sql = Files.readString(ADMIN_BILLING_PRIVILEGE_MIGRATION);
+        for (String statement : sql.replaceAll("(?m)^\\s*--.*$", "").split(";")) {
+            String trimmed = statement.trim();
+            if (!trimmed.isEmpty()) {
+                entityManager.createNativeQuery(toH2CompatibleSql(trimmed)).executeUpdate();
+            }
+        }
+        entityManager.flush();
+    }
+
+    private static String toH2CompatibleSql(String statement) {
+        String normalized = statement.replace("`", "");
+        return normalized.replaceFirst("(?is)^INSERT\\s+IGNORE\\s+INTO\\s+secObjPrivilege\\s*\\(([^)]*)\\)\\s*VALUES",
+                "MERGE INTO secObjPrivilege ($1) KEY(roleUserGroup, objectName) VALUES");
+    }
+
+    private List<Object[]> selectAdminBillingPrivileges() {
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = entityManager.createNativeQuery(
+                "SELECT roleUserGroup, objectName, privilege, priority, provider_no FROM secObjPrivilege "
+                        + "WHERE roleUserGroup = 'admin' AND objectName = '_admin.billing'")
+                .getResultList();
+        return rows;
+    }
+
+    @Test
+    @Tag("migration")
+    @DisplayName("admin billing privilege migration should grant _admin.billing")
+    void shouldGrantAdminBillingPrivilege_whenMigrationApplied() throws Exception {
+        entityManager.createNativeQuery(
+                "DELETE FROM secObjPrivilege WHERE roleUserGroup = 'admin' AND objectName = '_admin.billing'")
+                .executeUpdate();
+        entityManager.flush();
+
+        applyAdminBillingPrivilegeMigration();
+
+        List<Object[]> rows = selectAdminBillingPrivileges();
+        assertThat(rows).hasSize(1);
+        Object[] row = rows.get(0);
+        assertThat(row[0]).isEqualTo("admin");
+        assertThat(row[1]).isEqualTo("_admin.billing");
+        assertThat(row[2]).isEqualTo("w");
+        assertThat(((Number) row[3]).intValue()).isZero();
+        assertThat(row[4]).isEqualTo("999998");
+    }
+
+    @Test
+    @Tag("migration")
+    @DisplayName("admin billing privilege migration should be idempotent")
+    void shouldBeIdempotent_whenMigrationAppliedTwice() throws Exception {
+        entityManager.createNativeQuery(
+                "DELETE FROM secObjPrivilege WHERE roleUserGroup = 'admin' AND objectName = '_admin.billing'")
+                .executeUpdate();
+        entityManager.flush();
+
+        applyAdminBillingPrivilegeMigration();
+        applyAdminBillingPrivilegeMigration();
+
+        assertThat(selectAdminBillingPrivileges()).hasSize(1);
     }
 
     /**

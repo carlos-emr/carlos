@@ -21,6 +21,9 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.command;
 
+import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
+
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -28,32 +31,69 @@ import java.util.List;
  */
 public record BillingCorrectionSubmitCommand(String billingNo,
                                              String content,
-                                             String total,
+                                             BillingMoney total,
                                              String hin,
-                                             String dob,
+                                             LocalDate dob,
                                              String visitType,
-                                             String visitDate,
+                                             LocalDate visitDate,
                                              String status,
                                              String clinicRefCode,
                                              String providerNo,
-                                             String billingDate,
+                                             LocalDate billingDate,
                                              List<BillingCorrectionSubmitItemCommand> items) {
+    public BillingCorrectionSubmitCommand(String billingNo,
+                                          String content,
+                                          String total,
+                                          String hin,
+                                          String dob,
+                                          String visitType,
+                                          String visitDate,
+                                          String status,
+                                          String clinicRefCode,
+                                          String providerNo,
+                                          String billingDate,
+                                          List<BillingCorrectionSubmitItemCommand> items) {
+        this(billingNo,
+                content,
+                Commands.requiredStoredCents(total == null || total.isEmpty() ? "0" : total, "total"),
+                hin,
+                Commands.isoDate(dob, "dob"),
+                visitType,
+                Commands.isoDate(visitDate, "visitDate"),
+                status,
+                clinicRefCode,
+                providerNo,
+                Commands.isoDate(billingDate, "billingDate"),
+                items);
+    }
+
     public BillingCorrectionSubmitCommand {
-        billingNo = nullToEmpty(billingNo);
-        content = nullToEmpty(content);
-        total = nullToEmpty(total);
-        hin = nullToEmpty(hin);
-        dob = nullToEmpty(dob);
-        visitType = nullToEmpty(visitType);
-        visitDate = nullToEmpty(visitDate);
-        status = nullToEmpty(status);
-        clinicRefCode = nullToEmpty(clinicRefCode);
-        providerNo = nullToEmpty(providerNo);
-        billingDate = nullToEmpty(billingDate);
+        billingNo = Commands.nullToEmpty(billingNo);
+        content = Commands.nullToEmpty(content);
+        if (total == null) {
+            throw new IllegalArgumentException("total is required");
+        }
+        hin = Commands.nullToEmpty(hin);
+        visitType = Commands.nullToEmpty(visitType);
+        status = Commands.nullToEmpty(status);
+        clinicRefCode = Commands.nullToEmpty(clinicRefCode);
+        providerNo = Commands.nullToEmpty(providerNo);
         items = items == null ? List.of() : List.copyOf(items);
     }
 
-    private static String nullToEmpty(String value) {
-        return value == null ? "" : value;
+    public String totalStored() {
+        return total.toStoredCents();
+    }
+
+    public String dobText() {
+        return Commands.isoText(dob);
+    }
+
+    public String visitDateText() {
+        return Commands.isoText(visitDate);
+    }
+
+    public String billingDateText() {
+        return Commands.isoText(billingDate);
     }
 }

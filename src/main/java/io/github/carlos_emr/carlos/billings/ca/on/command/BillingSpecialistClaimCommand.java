@@ -43,27 +43,23 @@ public record BillingSpecialistClaimCommand(String demoHin,
                                       String apptProvider,
                                       String creator) {
     public BillingSpecialistClaimCommand {
-        demoHin = nullToEmpty(demoHin);
-        demoDob = nullToEmpty(demoDob);
-        demoHctype = nullToEmpty(demoHctype);
-        xmlBilltype = nullToEmpty(xmlBilltype);
-        payMethod = nullToEmpty(payMethod);
-        clinicRefCode = nullToEmpty(clinicRefCode);
-        clinicNo = nullToEmpty(clinicNo);
-        functionId = nullToEmpty(functionId);
-        providers = nullToEmpty(providers);
-        appointmentNo = nullToEmpty(appointmentNo);
-        demoName = nullToEmpty(demoName);
-        demoSex = nullToEmpty(demoSex);
-        apptDate = nullToEmpty(apptDate);
-        svcCode = nullToEmpty(svcCode);
-        xmlVisittype = nullToEmpty(xmlVisittype);
-        dxCode = nullToEmpty(dxCode);
-        apptProvider = nullToEmpty(apptProvider);
-        creator = nullToEmpty(creator);
-    }
-
-    private static String nullToEmpty(String value) {
-        return value == null ? "" : value;
+        demoHin = Commands.nullToEmpty(demoHin);
+        demoDob = Commands.nullToEmpty(demoDob);
+        demoHctype = Commands.nullToEmpty(demoHctype);
+        xmlBilltype = Commands.nullToEmpty(xmlBilltype);
+        payMethod = Commands.nullToEmpty(payMethod);
+        clinicRefCode = Commands.nullToEmpty(clinicRefCode);
+        clinicNo = Commands.nullToEmpty(clinicNo);
+        functionId = Commands.nullToEmpty(functionId);
+        providers = Commands.nullToEmpty(providers);
+        appointmentNo = Commands.nullToEmpty(appointmentNo);
+        demoName = Commands.nullToEmpty(demoName);
+        demoSex = Commands.nullToEmpty(demoSex);
+        apptDate = Commands.nullToEmpty(apptDate);
+        svcCode = Commands.nullToEmpty(svcCode);
+        xmlVisittype = Commands.nullToEmpty(xmlVisittype);
+        dxCode = Commands.nullToEmpty(dxCode);
+        apptProvider = Commands.nullToEmpty(apptProvider);
+        creator = Commands.nullToEmpty(creator);
     }
 }

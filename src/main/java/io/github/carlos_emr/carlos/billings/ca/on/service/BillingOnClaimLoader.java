@@ -300,22 +300,12 @@ public class BillingOnClaimLoader {
                 retval.add(ch1Obj);
             }
         } catch (Exception e) {
-            // Partial result is returned to caller; without this log, a
-            // transient DB outage is indistinguishable from "no bills" in
-            // the UI and the operator may re-bill the patient.
-            //
-            // FOLLOW-UP: change the return type to
-            // a wrapper that carries a `partial` flag so consumers can
-            // surface a "data may be incomplete" banner instead of relying
-            // on operators reading server logs. Multi-consumer change —
-            // tracked separately because the JSP-side rendering and the
-            // ~6 action-layer call sites all need to thread the flag.
-            _logger.error("Failed to load billing list (provider={}, demo={}, dates {}..{}); returning partial/empty result",
-                    LogSanitizer.sanitize(providerNo),
-                    LogSanitizer.sanitize(demoNo),
-                    LogSanitizer.sanitize(startDate),
-                    LogSanitizer.sanitize(endDate),
-                    e);
+            throw billingLoadFailure("Failed to load billing list", e,
+                    "providerNo", providerNo,
+                    "demoNo", demoNo,
+                    "startDate", startDate,
+                    "endDate", endDate,
+                    "visitLocation", visitLocation);
         }
 
         applySort(retval, sortName, sortOrder);
@@ -462,8 +452,8 @@ public class BillingOnClaimLoader {
 
                 ch1Obj.setFacilty_num(clinicLocationDao.searchVisitLocation(ch1.getFaciltyNum()));
 
-                double cashTotal = 0.00;
-                double debitTotal = 0.00;
+                BigDecimal cashTotal = BigDecimal.ZERO;
+                BigDecimal debitTotal = BigDecimal.ZERO;
 
                 ch1Obj.setNumItems(Integer.parseInt(bi.getServiceCount()));
 
@@ -479,9 +469,9 @@ public class BillingOnClaimLoader {
                     }
 
                     if (paymentObj.getPaymentTypeId() == CASH_PAYMENT_ID) {
-                        cashTotal += boip.getPaid().intValue();
+                        cashTotal = cashTotal.add(boip.getPaid());
                     } else if (paymentObj.getPaymentTypeId() == DEBIT_PAYMENT_ID) {
-                        debitTotal += boip.getPaid().intValue();
+                        debitTotal = debitTotal.add(boip.getPaid());
                     }
 
                 }
@@ -497,13 +487,16 @@ public class BillingOnClaimLoader {
 
             }
         } catch (Exception e) {
-            _logger.error("Failed to load billing list (provider={}, demo={}, claim={}, dates {}..{}); returning partial/empty result",
-                    LogSanitizer.sanitize(providerNo),
-                    LogSanitizer.sanitize(demoNo),
-                    LogSanitizer.sanitize(claimNo),
-                    LogSanitizer.sanitize(startDate),
-                    LogSanitizer.sanitize(endDate),
-                    e);
+            throw billingLoadFailure("Failed to load billing list with service filters", e,
+                    "providerNo", providerNo,
+                    "demoNo", demoNo,
+                    "claimNo", claimNo,
+                    "startDate", startDate,
+                    "endDate", endDate,
+                    "serviceCodes", serviceCodes == null ? "" : String.join(",", serviceCodes),
+                    "dx", dx,
+                    "visitType", visitType,
+                    "visitLocation", visitLocation);
         }
 
         applySort(retval, sortName, sortOrder);
@@ -538,14 +531,13 @@ public class BillingOnClaimLoader {
 
         BillingClaimHeaderDto ch1Obj = null;
 
-        List<BillingONCHeader1> hs = null;
-        if (dateRange == null) {
-            hs = dao.findByDemoNo(ConversionUtils.fromIntString(demoNo), iOffSet, iPageSize);
-        } else {
-            hs = dao.findByDemoNoAndDates(ConversionUtils.fromIntString(demoNo), dateRange, iOffSet, iPageSize);
-        }
-
         try {
+            List<BillingONCHeader1> hs;
+            if (dateRange == null) {
+                hs = dao.findByDemoNo(ConversionUtils.fromIntString(demoNo), iOffSet, iPageSize);
+            } else {
+                hs = dao.findByDemoNoAndDates(ConversionUtils.fromIntString(demoNo), dateRange, iOffSet, iPageSize);
+            }
             for (BillingONCHeader1 h : hs) {
                 iRow++;
                 if (iRow > iPageSize) {
@@ -617,14 +609,11 @@ public class BillingOnClaimLoader {
                 retval.add(itObj);
             }
         } catch (Exception e) {
-            // FOLLOW-UP: change the return type to a wrapper that carries a
-            // `partial` flag so the patient billing-history popup can render
-            // a "data may be incomplete" banner — operator viewing the chart
-            // currently sees fewer historical bills than were issued and
-            // may re-bill the patient. Mirror the same wrapper that
-            // getBillingClaim is tracked for.
-            _logger.error("Failed to load billing history for demo {}; returning partial/empty result",
-                    LogSanitizer.sanitize(demoNo), e);
+            throw billingLoadFailure("Failed to load billing history", e,
+                    "demoNo", demoNo,
+                    "pageSize", iPageSize,
+                    "offset", iOffSet,
+                    "dateRange", dateRange == null ? "" : dateRange.toString());
         }
 
         return retval;
@@ -724,18 +713,24 @@ public class BillingOnClaimLoader {
 
             }
         } catch (Exception e) {
-            // FOLLOW-UP: change the return type to a wrapper that carries a
-            // partial-load flag so the bill-edit-by-appointment page can
-            // banner "items list may be incomplete — see error log" rather
-            // than rendering as if every item was loaded. Same shape the
-            // FOLLOW-UP comments on getBillingClaim and getBillingHist (lines
-            // 281 / 594) are tracked for.
-            _logger.error(
-                    "BillingOnClaimLoader.getBillingByApptNo: load failed for apptNo={}; returning partial result — operator should re-run",
-                    LogSanitizer.sanitize(apptNo), e);
+            throw billingLoadFailure("Failed to load billing by appointment", e,
+                    "apptNo", apptNo);
         }
 
         return retval;
+    }
+
+    private static BillingDataLoadException billingLoadFailure(String message, Throwable cause, Object... contextPairs) {
+        return new BillingDataLoadException(message, cause, BillingDataLoadException.Phase.DAO_QUERY,
+                context(contextPairs));
+    }
+
+    private static Map<String, String> context(Object... pairs) {
+        Map<String, String> result = new LinkedHashMap<>();
+        for (int i = 0; i + 1 < pairs.length; i += 2) {
+            result.put(String.valueOf(pairs[i]), String.valueOf(pairs[i + 1]));
+        }
+        return result;
     }
 
 

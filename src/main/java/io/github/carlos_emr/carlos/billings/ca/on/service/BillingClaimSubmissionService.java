@@ -56,11 +56,11 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 @org.springframework.transaction.annotation.Transactional
 public class BillingClaimSubmissionService {
     private static final Logger _logger = MiscUtils.getLogger();
-    private final BillingOnClaimPersister dbObj;
+    private final BillingOnClaimPersister claimPersister;
     private final BillingOnLookupService lookupService;
 
-    BillingClaimSubmissionService(BillingOnClaimPersister dbObj, BillingOnLookupService lookupService) {
-        this.dbObj = dbObj;
+    BillingClaimSubmissionService(BillingOnClaimPersister claimPersister, BillingOnLookupService lookupService) {
+        this.claimPersister = claimPersister;
         this.lookupService = lookupService;
     }
 
@@ -111,12 +111,12 @@ public class BillingClaimSubmissionService {
     @SuppressWarnings("rawtypes")
     public SaveResult addABillingRecord(ArrayList val) {
         BillingClaimHeaderDto claim1Obj = (BillingClaimHeaderDto) val.get(0);
-        int billingNo = dbObj.addOneClaimHeaderRecord(claim1Obj);
+        int billingNo = claimPersister.addOneClaimHeaderRecord(claim1Obj);
         if (billingNo == 0)
             return new SaveResult(false, 0);
         claim1Obj.setId(Integer.toString(billingNo));
         if (val.size() > 1) {
-            dbObj.addItemRecord((List) val.get(1), billingNo);
+            claimPersister.addItemRecord((List) val.get(1), billingNo);
             return new SaveResult(true, billingNo);
         } else {
             _logger.error("No billing item for billing # " + billingNo);
@@ -128,7 +128,7 @@ public class BillingClaimSubmissionService {
     public boolean addPrivateBillExtRecord(HttpServletRequest requestData, int billingId) {
         boolean ret = false;
         Map<String, String> val = getPrivateBillExtObj(requestData);
-        ret = dbObj.add3rdBillExt(val, billingId);
+        ret = claimPersister.add3rdBillExt(val, billingId);
         if (!ret)
             _logger.error("addPrivateBillExtRecord " + billingId);
 
@@ -140,7 +140,7 @@ public class BillingClaimSubmissionService {
         boolean ret = false;
 
         Map<String, String> val = getPrivateBillExtObj(requestData);
-        ret = dbObj.add3rdBillExt(val, billingId, claimEnvelope);
+        ret = claimPersister.add3rdBillExt(val, billingId, claimEnvelope);
         if (!ret)
             _logger.error("addPrivateBillExtRecord " + billingId);
 
@@ -150,7 +150,7 @@ public class BillingClaimSubmissionService {
 
     @SuppressWarnings("unchecked")
     public void addOhipInvoiceTrans(ArrayList claimEnvelope) {
-        dbObj.addCreateOhipInvoiceTrans((BillingClaimHeaderDto) claimEnvelope.get(0), (List<BillingClaimItemDto>) claimEnvelope.get(1));
+        claimPersister.addCreateOhipInvoiceTrans((BillingClaimHeaderDto) claimEnvelope.get(0), (List<BillingClaimItemDto>) claimEnvelope.get(1));
     }
 
     /**
@@ -200,7 +200,7 @@ public class BillingClaimSubmissionService {
         }
 
         if (payeeValue != null) {
-            boolean payeeOk = dbObj.persistPayeeExt(billingNo, payeeValue);
+            boolean payeeOk = claimPersister.persistPayeeExt(billingNo, payeeValue);
             if (!payeeOk) {
                 throw new io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException(
                         "Save rejected: payee ext write failed; transaction rolled back");

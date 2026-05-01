@@ -26,6 +26,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingServiceLine;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
@@ -116,6 +117,167 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldBuildHospitalItemTotalsWithoutBinaryFloatingPointRounding() {
+        MockHttpServletRequest request = hospitalBillingRequest();
+
+        List<BillingServiceLine> lines = List.of(
+                new BillingServiceLine("A001", "Office visit", "1", "1.005"));
+
+        ArrayList claim = service.getBillingClaimHospObj(request, "2026-04-28", "1.01", lines);
+        List<BillingClaimItemDto> items = (List<BillingClaimItemDto>) claim.get(1);
+
+        assertThat(items).singleElement()
+                .satisfies(item -> assertThat(item.getFee()).isEqualTo("1.01"));
+    }
+
+    @Test
+    void shouldBuildStandardOhipClaimHeaderAndItemsFromRequest() {
+        MockHttpServletRequest request = standardBillingRequest("HCP", "Save");
+        request.setParameter("totalItem", "2");
+        request.setParameter("xserviceCode_0", "A001A");
+        request.setParameter("xsliCode_0", "OFF");
+        request.setParameter("percCodeSubtotal_0", "33.70");
+        request.setParameter("xserviceUnit_0", "");
+        request.setParameter("paid_0", "1.00");
+        request.setParameter("discount_0", "2.00");
+        request.setParameter("xserviceCode_1", "K005A");
+        request.setParameter("percCodeSubtotal_1", "62.75");
+        request.setParameter("xserviceUnit_1", "3");
+
+        ArrayList claim = service.getBillingClaimObj(request);
+
+        BillingClaimHeaderDto header = (BillingClaimHeaderDto) claim.get(0);
+        assertThat(header.getHin()).isEqualTo("1234567890");
+        assertThat(header.getVer()).isEqualTo("AB");
+        assertThat(header.getDemographic_name()).isEqualTo("Doe,Jane");
+        assertThat(header.getLast_name()).isEqualTo("Doe");
+        assertThat(header.getFirst_name()).isEqualTo("Jane");
+        assertThat(header.getProviderNo()).isEqualTo("999998");
+        assertThat(header.getProvider_ohip_no()).isEqualTo("123456");
+        assertThat(header.getFacilty_num()).isEqualTo("0000");
+        assertThat(header.getVisittype()).isEqualTo("00");
+        assertThat(header.getPaid()).isEqualTo("5.00");
+        assertThat(header.getStatus()).isEqualTo("O");
+        assertThat(header.getCreator()).isEqualTo("999998");
+
+        List<BillingClaimItemDto> items = (List<BillingClaimItemDto>) claim.get(1);
+        assertThat(items).hasSize(2);
+        assertThat(items.get(0).getService_code()).isEqualTo("A001A");
+        assertThat(items.get(0).getSer_num()).isEqualTo("1");
+        assertThat(items.get(0).getLocation()).isEqualTo("OFF");
+        assertThat(items.get(0).getPaid()).isEqualTo("1.00");
+        assertThat(items.get(0).getDiscount()).isEqualTo("2.00");
+        assertThat(items.get(0).getStatus()).isEqualTo("O");
+        assertThat(items.get(1).getSer_num()).isEqualTo("3");
+        assertThat(items.get(1).getPaid()).isEqualTo("0.00");
+        assertThat(items.get(1).getDiscount()).isEqualTo("0.00");
+    }
+
+    @Test
+    void shouldBuildPrivateClaimItemsAsPaidStatus() {
+        MockHttpServletRequest request = standardBillingRequest("PAT", "Settle");
+        request.setParameter("totalItem", "1");
+        request.setParameter("xserviceCode_0", "P001");
+        request.setParameter("percCodeSubtotal_0", "100.00");
+        request.setParameter("xserviceUnit_0", "1");
+
+        ArrayList claim = service.getBillingClaimObj(request);
+
+        BillingClaimHeaderDto header = (BillingClaimHeaderDto) claim.get(0);
+        List<BillingClaimItemDto> items = (List<BillingClaimItemDto>) claim.get(1);
+        assertThat(header.getPay_program()).isEqualTo("PAT");
+        assertThat(header.getPaid()).isEqualTo("100.00");
+        assertThat(header.getStatus()).isEqualTo("S");
+        assertThat(items).singleElement()
+                .satisfies(item -> assertThat(item.getStatus()).isEqualTo("P"));
+    }
+
+    @Test
+    void shouldBuildBonClaimWithoutPatientIdentityFields() {
+        MockHttpServletRequest request = standardBillingRequest("BON", "Save");
+        request.setParameter("totalItem", "1");
+        request.setParameter("xserviceCode_0", "B001");
+        request.setParameter("percCodeSubtotal_0", "10.00");
+        request.setParameter("xserviceUnit_0", "1");
+
+        ArrayList claim = service.getBillingClaimObj(request);
+
+        BillingClaimHeaderDto header = (BillingClaimHeaderDto) claim.get(0);
+        assertThat(header.getHin()).isEmpty();
+        assertThat(header.getVer()).isEmpty();
+        assertThat(header.getDemographic_name()).isEmpty();
+        assertThat(header.getProvince()).isEqualTo("ON");
+        assertThat(header.getStatus()).isEqualTo("I");
+    }
+
+    @Test
+    void shouldBuildHospitalClaimHeaderAndItemsFromLines() {
+        MockHttpServletRequest request = hospitalBillingRequest();
+        List<BillingServiceLine> lines = List.of(
+                new BillingServiceLine("A001", "Visit", "2", "10.00"),
+                new BillingServiceLine("K005", "Consult", "1", "5.25"));
+
+        ArrayList claim = service.getBillingClaimHospObj(request, "2026-04-28", "25.25", lines);
+
+        BillingClaimHeaderDto header = (BillingClaimHeaderDto) claim.get(0);
+        assertThat(header.getHin()).isEqualTo("1234567890");
+        assertThat(header.getVer()).isEqualTo("AB");
+        assertThat(header.getBilling_date()).isEqualTo("2026-04-28");
+        assertThat(header.getTotal()).isEqualTo("25.25");
+        assertThat(header.getProviderNo()).isEqualTo("999998|123456");
+        assertThat(header.getProvider_ohip_no()).isEqualTo("123456");
+        assertThat(header.getStatus()).isEqualTo("O");
+
+        List<BillingClaimItemDto> items = (List<BillingClaimItemDto>) claim.get(1);
+        assertThat(items).hasSize(2);
+        assertThat(items.get(0).getService_code()).isEqualTo("A001");
+        assertThat(items.get(0).getFee()).isEqualTo("20.00");
+        assertThat(items.get(0).getSer_num()).isEqualTo("2");
+        assertThat(items.get(1).getSer_num()).isEqualTo("1");
+    }
+
+    @Test
+    void shouldDelegateAppointmentStatusUpdateToLookupService() {
+        when(mockLookupService.updateApptStatus("456", "B", "999998")).thenReturn(true);
+
+        boolean updated = service.updateApptStatus("456", "B", "999998");
+
+        assertThat(updated).isTrue();
+        verify(mockLookupService).updateApptStatus("456", "B", "999998");
+    }
+
+    private MockHttpServletRequest standardBillingRequest(String billType, String submit) {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.getSession().setAttribute("user", "999998");
+        request.setParameter("xml_billtype", billType);
+        request.setParameter("hin", "1234567890");
+        request.setParameter("ver", "AB");
+        request.setParameter("demographic_dob", "1980-01-01");
+        request.setParameter("appointment_no", "456");
+        request.setParameter("demographic_name", "Doe,Jane");
+        request.setParameter("sex", "F");
+        request.setParameter("hc_type", "ON");
+        request.setParameter("referralCode", "REF123");
+        request.setParameter("xml_location", "0000 Clinic");
+        request.setParameter("xml_vdate", "2026-04-28");
+        request.setParameter("xml_slicode", "SLI");
+        request.setParameter("demographic_no", "123");
+        request.setParameter("xml_provider", "999998|123456");
+        request.setParameter("service_date", "2026-04-28");
+        request.setParameter("start_time", "09:00");
+        request.setParameter("total", "100.00");
+        request.setParameter("total_payment", "5.00");
+        request.setParameter("submit", submit);
+        request.setParameter("comment", "comment");
+        request.setParameter("xml_visittype", "00");
+        request.setParameter("apptProvider_no", "999998");
+        request.setParameter("site", "site");
+        request.setParameter("dxCode", "250");
+        request.setParameter("dxCode1", "401");
+        request.setParameter("dxCode2", "272");
+        return request;
+    }
+
+    private MockHttpServletRequest hospitalBillingRequest() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.getSession().setAttribute("user", "999998");
         request.setParameter("hin", "1234567890AB");
@@ -143,15 +305,6 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
         request.setParameter("payment", "");
         request.setParameter("refund", "");
         request.setParameter("discount", "");
-
-        List<io.github.carlos_emr.carlos.billings.ca.on.support.BillingServiceLine> lines = List.of(
-                new io.github.carlos_emr.carlos.billings.ca.on.support.BillingServiceLine(
-                        "A001", "Office visit", "1", "1.005"));
-
-        ArrayList claim = service.getBillingClaimHospObj(request, "2026-04-28", "1.01", lines);
-        List<BillingClaimItemDto> items = (List<BillingClaimItemDto>) claim.get(1);
-
-        assertThat(items).singleElement()
-                .satisfies(item -> assertThat(item.getFee()).isEqualTo("1.01"));
+        return request;
     }
 }

@@ -21,12 +21,12 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.assembler;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnFormViewModel;
 import io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
-import io.github.carlos_emr.carlos.commn.model.ClinicNbr;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -76,5 +76,42 @@ class BillingOnFormSiteContextComposerUnitTest {
         BillingOnFormViewModel vm = b.build();
         assertThat(vm).isNotNull();
         assertThat(vm.getClinicNbrs()).isNotNull();
+    }
+
+    @Test
+    void shouldFlagSiteContextDegraded_whenAppointmentDefaultLookupFails() {
+        Object originalMultisites = CarlosProperties.getInstance().get("multisites");
+        Object originalRmaEnabled = CarlosProperties.getInstance().get("rma_enabled");
+        try {
+            CarlosProperties.getInstance().setProperty("multisites", "true");
+            CarlosProperties.getInstance().setProperty("rma_enabled", "false");
+
+            SiteDao siteDao = mock(SiteDao.class);
+            OscarAppointmentDao oscarAppointmentDao = mock(OscarAppointmentDao.class);
+            ClinicNbrDao clinicNbrDao = mock(ClinicNbrDao.class);
+            ProviderDao providerDao = mock(ProviderDao.class);
+            when(siteDao.getActiveSitesByProviderNo("999998")).thenReturn(List.of());
+            when(oscarAppointmentDao.findAppointmentAndProviderByAppointmentNo(123))
+                    .thenThrow(new RuntimeException("appointment lookup unavailable"));
+
+            BillingOnFormSiteContextComposer composer = new BillingOnFormSiteContextComposer(
+                    siteDao, oscarAppointmentDao, clinicNbrDao, providerDao);
+
+            BillingOnFormViewModel.Builder b = BillingOnFormViewModel.builder();
+            composer.populate(b, new MockHttpServletRequest(), "999998", null, "123");
+
+            assertThat(b.build().isSiteContextDegraded()).isTrue();
+        } finally {
+            restoreProperty("multisites", originalMultisites);
+            restoreProperty("rma_enabled", originalRmaEnabled);
+        }
+    }
+
+    private static void restoreProperty(String key, Object value) {
+        if (value == null) {
+            CarlosProperties.getInstance().remove(key);
+        } else {
+            CarlosProperties.getInstance().put(key, value);
+        }
     }
 }

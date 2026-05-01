@@ -44,16 +44,16 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * the {@link BillingOnClaimLoader#getBillingHist} call. Mirrors the
  * service-code substring filter the legacy JSP applied client-side.</p>
  *
- * @since 2026-04-25
+ * @since 2026-04-26
  */
 @org.springframework.stereotype.Service
 public class BillingOnHistorySpecialistViewModelAssembler {
 
-    private final BillingOnClaimLoader dbObj;
+    private final BillingOnClaimLoader claimLoader;
 
     /** Production constructor — Struts no-arg shape. */
-    public BillingOnHistorySpecialistViewModelAssembler(BillingOnClaimLoader dbObj) {
-        this.dbObj = dbObj;
+    public BillingOnHistorySpecialistViewModelAssembler(BillingOnClaimLoader claimLoader) {
+        this.claimLoader = claimLoader;
     }
 
     /**
@@ -103,7 +103,7 @@ public class BillingOnHistorySpecialistViewModelAssembler {
         boolean partial = false;
         try {
             @SuppressWarnings("rawtypes")
-            List aL = dbObj.getBillingHist(safeDemoNo, 10000000, 0, pDateRange);
+            List aL = claimLoader.getBillingHist(safeDemoNo, 10000000, 0, pDateRange);
             for (int i = 0; i + 1 < aL.size(); i = i + 2) {
                 BillingClaimHeaderDto obj = (BillingClaimHeaderDto) aL.get(i);
                 BillingClaimItemDto itObj = (BillingClaimItemDto) aL.get(i + 1);

@@ -46,7 +46,7 @@ import io.github.carlos_emr.carlos.utility.DateRange;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingStatusQueryService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingStatusLoader;
 import io.github.carlos_emr.carlos.util.ParamAppender;
 
 /**
@@ -611,7 +611,7 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
             app.and("bp.paymentdate < :paymentEndDate", "paymentEndDate", cal.getTime());
         }
 
-        if (visitLocation != null && !BillingStatusQueryService.ANY_VISIT_LOCATION.equals(visitLocation)) {
+        if (visitLocation != null && !BillingStatusLoader.ANY_VISIT_LOCATION.equals(visitLocation)) {
             app.and("ch1.faciltyNum = :facilityNum", "facilityNum", visitLocation);
         }
         if (demoNo != null && demoNo > 0) {

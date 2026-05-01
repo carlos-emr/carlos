@@ -232,7 +232,7 @@ public class BillingShortcutPg1ViewModelAssembler {
                     java.util.LinkedHashSet<String> dxSeen = new java.util.LinkedHashSet<>();
                     java.util.LinkedHashSet<String> serSeen = new java.util.LinkedHashSet<>();
                     try {
-                        for (BillingDetail bd : billingDetailDao.findByBillingNo(ConversionUtils.fromIntString(billingNo))) {
+                        for (BillingDetail bd : billingDetailDao.findByBillingNo(Integer.valueOf(ConversionUtils.fromIntString(billingNo)))) {
                             if (bd.getDiagnosticCode() != null && !bd.getDiagnosticCode().isEmpty()) {
                                 dxSeen.add(bd.getDiagnosticCode());
                             }

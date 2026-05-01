@@ -184,6 +184,7 @@ public class BillingOnFormSiteContextComposer {
                         "BillingOnFormSiteContextComposer: appointment lookup failed; "
                         + "rendering with empty default-site context",
                         rtEx);
+                b.siteContextDegraded(true);
             }
         }
         b.defaultSelectedSite(selectedSite);

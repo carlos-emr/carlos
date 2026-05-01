@@ -37,8 +37,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import org.mockito.Mockito;
 import org.springframework.mock.web.MockHttpServletRequest;
+
+import java.math.BigDecimal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -288,5 +291,30 @@ class BillingCorrectionServiceValidationThrowsUnitTest {
 
         verify(bPaymentDao, never()).createPayment(
                 Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+    }
+
+    @Test
+    void shouldMergeHeaderAfterCreatingThirdPartyPayment() {
+        BillingCorrectionService service = newService();
+        mockRequest.setParameter("billing_no", "12345");
+        mockRequest.setParameter("amtPaid", "100.00");
+        mockRequest.setParameter("payMethod", "CASH");
+        mockRequest.setParameter("payType", "P");
+        BillingONCHeader1 bCh1 = new BillingONCHeader1();
+        when(bCh1Dao.find(Integer.valueOf(12345))).thenReturn(bCh1);
+        when(billingPaymentTypeDao.find("CASH")).thenReturn(Mockito.mock(BillingPaymentType.class));
+
+        String result = service.addThirdPartyPayment(loggedInInfo, mockRequest);
+
+        assertThat(result).isEqualTo("success");
+        InOrder inOrder = Mockito.inOrder(bPaymentDao, bCh1Dao);
+        inOrder.verify(bPaymentDao).createPayment(
+                Mockito.same(bCh1),
+                Mockito.eq(mockRequest.getLocale()),
+                Mockito.eq("P"),
+                Mockito.eq(new BigDecimal("100.00")),
+                Mockito.eq("CASH"),
+                Mockito.eq("999998"));
+        inOrder.verify(bCh1Dao).merge(Mockito.same(bCh1));
     }
 }

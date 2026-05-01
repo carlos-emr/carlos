@@ -106,6 +106,7 @@ class BillingCorrectionSubmit2ActionUnitTest {
     void shouldDelegateAndReturnSuccess_whenPrivilegeGrantedAndPost() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(true);
+        setValidCorrectionSubmitParameters();
 
         BillingCorrectionSubmit2Action action = new BillingCorrectionSubmit2Action(
                 mockSecurityInfoManager, mockSubmissionService);
@@ -132,6 +133,7 @@ class BillingCorrectionSubmit2ActionUnitTest {
     void shouldReturnError_whenServiceThrowsValidationException() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(true);
+        setValidCorrectionSubmitParameters();
         doThrow(new BillingValidationException("billing_date is missing or not yyyy-MM-dd"))
                 .when(mockSubmissionService).submit(any(LoggedInInfo.class), any(BillingCorrectionSubmitCommand.class));
 
@@ -158,5 +160,25 @@ class BillingCorrectionSubmit2ActionUnitTest {
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         verify(mockSubmissionService, never()).submit(any(LoggedInInfo.class), any(BillingCorrectionSubmitCommand.class));
+    }
+
+    private void setValidCorrectionSubmitParameters() {
+        mockRequest.setParameter("billingNo", "42");
+        mockRequest.setParameter("content", "<rd>Ref Doctor</rd>");
+        mockRequest.setParameter("total", "3000");
+        mockRequest.setParameter("hin", "1234567890");
+        mockRequest.setParameter("dob", "1980-01-01");
+        mockRequest.setParameter("visitType", "00");
+        mockRequest.setParameter("visitDate", "2026-04-28");
+        mockRequest.setParameter("status", "O");
+        mockRequest.setParameter("clinicRefCode", "0000");
+        mockRequest.setParameter("providerNo", "999998");
+        mockRequest.setParameter("billingDate", "2026-04-28");
+        mockRequest.setParameter("itemCount", "1");
+        mockRequest.setParameter("serviceCode_0", "A001A");
+        mockRequest.setParameter("description_0", "Minor assessment");
+        mockRequest.setParameter("serviceValue_0", "2000");
+        mockRequest.setParameter("diagCode_0", "250");
+        mockRequest.setParameter("quantity_0", "2");
     }
 }

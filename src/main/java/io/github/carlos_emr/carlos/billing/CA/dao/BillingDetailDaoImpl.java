@@ -42,7 +42,7 @@ public class BillingDetailDaoImpl extends AbstractDaoImpl<BillingDetail> impleme
     }
 
     @Override
-    public List<BillingDetail> findByBillingNo(int billingNo) {
+    public List<BillingDetail> findAllIncludingDeletedByBillingNo(int billingNo) {
         Query q = entityManager.createQuery("select x from BillingDetail x where x.billingNo=?1");
         q.setParameter(1, billingNo);
         List<BillingDetail> results = q.getResultList();

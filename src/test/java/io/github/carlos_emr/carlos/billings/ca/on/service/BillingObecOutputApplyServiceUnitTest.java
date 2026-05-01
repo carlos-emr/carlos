@@ -114,9 +114,14 @@ class BillingObecOutputApplyServiceUnitTest {
         cust.setAlert("");
         when(demographicCustDao.find((Object) Integer.valueOf(42))).thenReturn(cust);
 
-        service.applyOutputSpec(loggedInInfo, List.of(bad, good));
+        BillingObecOutputApplyService.ApplyResult result =
+                service.applyOutputSpec(loggedInInfo, List.of(bad, good));
 
         // Bad row never resolved past parseInt; good row reached merge.
+        assertThat(result.appliedCount()).isEqualTo(1);
+        assertThat(result.skippedCount()).isEqualTo(1);
+        assertThat(result.reasons()).anySatisfy(reason ->
+                assertThat(reason).contains("unparseable response code"));
         verify(demographicManager, never())
                 .searchByHealthCard(eq(loggedInInfo), eq("1234567890"));
         verify(demographicManager, times(1))
@@ -233,8 +238,12 @@ class BillingObecOutputApplyServiceUnitTest {
                 .thenReturn(List.of(demographic(50, "AB")));
         when(demographicCustDao.find((Object) Integer.valueOf(50))).thenReturn(new DemographicCust());
 
-        service.applyOutputSpec(loggedInInfo, List.of(bad1, bad2, good));
+        BillingObecOutputApplyService.ApplyResult result =
+                service.applyOutputSpec(loggedInInfo, List.of(bad1, bad2, good));
 
+        assertThat(result.appliedCount()).isEqualTo(1);
+        assertThat(result.skippedCount()).isEqualTo(2);
+        assertThat(result.reasons()).hasSize(2);
         verify(demographicManager, times(1))
                 .updateDemographic(any(LoggedInInfo.class), any(Demographic.class));
         verify(demographicCustDao, times(1)).merge(any(DemographicCust.class));

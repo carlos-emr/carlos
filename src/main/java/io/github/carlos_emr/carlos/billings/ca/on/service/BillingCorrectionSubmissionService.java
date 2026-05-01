@@ -36,7 +36,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
 
@@ -61,7 +60,6 @@ public class BillingCorrectionSubmissionService {
 
     public void submit(LoggedInInfo loggedInInfo, BillingCorrectionSubmitCommand command) {
         int billingNo = parseBillingNo(command.billingNo());
-        String total = command.total().isEmpty() ? "000" : command.total();
 
         GregorianCalendar now = new GregorianCalendar();
 
@@ -72,7 +70,7 @@ public class BillingCorrectionSubmissionService {
         recycleBin.setUpdateDateTime(new java.util.Date());
         recycleBinDao.persist(recycleBin);
 
-        for (BillingDetail bd : billingDetailDao.findByBillingNo(billingNo)) {
+        for (BillingDetail bd : billingDetailDao.findAllIncludingDeletedByBillingNo(billingNo)) {
             bd.setStatus("D");
             billingDetailDao.merge(bd);
         }
@@ -80,15 +78,15 @@ public class BillingCorrectionSubmissionService {
         Billing billing = billingDao.find(billingNo);
         if (billing != null) {
             billing.setHin(command.hin());
-            billing.setDob(command.dob());
+            billing.setDob(command.dobText());
             billing.setVisitType(command.visitType());
-            billing.setVisitDate(ConversionUtils.fromDateString(command.visitDate()));
+            billing.setVisitDate(ConversionUtils.fromDateString(command.visitDateText()));
             billing.setClinicRefCode(command.clinicRefCode());
             billing.setProviderNo(command.providerNo());
             billing.setStatus(command.status());
             billing.setUpdateDate(ConversionUtils.fromDateString(
                     now.get(Calendar.YEAR) + "-" + (now.get(Calendar.MONTH) + 1) + "-" + now.get(Calendar.DAY_OF_MONTH)));
-            billing.setTotal(parseStoredTotal(total).movePointLeft(2).toString());
+            billing.setTotal(command.total().amount().toString());
             billing.setContent(command.content());
             billingDao.merge(billing);
         }
@@ -98,11 +96,11 @@ public class BillingCorrectionSubmissionService {
             bd.setBillingNo(billingNo);
             bd.setServiceCode(item.serviceCode());
             bd.setServiceDesc(item.description());
-            bd.setBillingAmount(item.serviceValue());
+            bd.setBillingAmount(item.serviceValueStored());
             bd.setDiagnosticCode(item.diagCode());
-            bd.setAppointmentDate(MyDateFormat.getSysDate(command.billingDate()));
+            bd.setAppointmentDate(MyDateFormat.getSysDate(command.billingDateText()));
             bd.setStatus(command.status());
-            bd.setBillingUnit(item.quantity());
+            bd.setBillingUnit(item.quantityText());
             billingDetailDao.persist(bd);
         }
     }
@@ -115,11 +113,4 @@ public class BillingCorrectionSubmissionService {
         }
     }
 
-    private static BigDecimal parseStoredTotal(String total) {
-        try {
-            return new BigDecimal(total);
-        } catch (NumberFormatException e) {
-            throw new BillingValidationException("Billing correction rejected: invalid total [" + total + "]", e);
-        }
-    }
 }

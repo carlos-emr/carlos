@@ -25,7 +25,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnErrorReportService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnLookupService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingRaLookupService;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingStatusQueryService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingStatusLoader;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnStatusViewModel;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -64,7 +64,7 @@ class BillingOnStatusViewModelAssemblerUnreadableCountUnitTest {
 
     private SecurityInfoManager securityInfoManager;
     private BillingOnLookupService lookupService;
-    private BillingStatusQueryService statusPrep;
+    private BillingStatusLoader statusPrep;
     private BillingOnErrorReportService errorRepImpl;
     private SiteDao siteDao;
     private BillingRaLookupService raLookupService;
@@ -75,7 +75,7 @@ class BillingOnStatusViewModelAssemblerUnreadableCountUnitTest {
     void setUp() {
         securityInfoManager = mock(SecurityInfoManager.class);
         lookupService = mock(BillingOnLookupService.class);
-        statusPrep = mock(BillingStatusQueryService.class);
+        statusPrep = mock(BillingStatusLoader.class);
         errorRepImpl = mock(BillingOnErrorReportService.class);
         siteDao = mock(SiteDao.class);
         raLookupService = mock(BillingRaLookupService.class);

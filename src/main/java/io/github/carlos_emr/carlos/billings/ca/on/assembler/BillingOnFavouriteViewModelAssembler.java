@@ -59,12 +59,12 @@ public class BillingOnFavouriteViewModelAssembler {
     private static final String VERB_DELETED = "d" + "eleted";
     private static final String VERB_ADDED = "added";
 
-    private final BillingOnLookupService dbObj;
+    private final BillingOnLookupService lookupService;
 
     /** Production constructor (Struts no-arg shape). */
     /** Test-friendly constructor — takes the lookup service mock directly. */
-    public BillingOnFavouriteViewModelAssembler(BillingOnLookupService dbObj) {
-        this.dbObj = dbObj;
+    public BillingOnFavouriteViewModelAssembler(BillingOnLookupService lookupService) {
+        this.lookupService = lookupService;
     }
 
     /** Build the view model for both GET (no submit) and POST (form-mutating) paths. */
@@ -77,11 +77,11 @@ public class BillingOnFavouriteViewModelAssembler {
 
         String submit = request.getParameter("submit");
         if ("Save".equals(submit)) {
-            FormResult r = handleSave(request, dbObj, userNo, formFields);
+            FormResult r = handleSave(request, lookupService, userNo, formFields);
             msg = r.msg;
             action = r.action;
         } else if ("Search".equals(submit)) {
-            FormResult r = handleSearchOrDelete(request, dbObj, userNo, formFields);
+            FormResult r = handleSearchOrDelete(request, lookupService, userNo, formFields);
             msg = r.msg;
             action = r.action;
         }
@@ -89,7 +89,7 @@ public class BillingOnFavouriteViewModelAssembler {
         // Dropdown of all existing favourite names.
         List<BillingOnFavouriteViewModel.FavouriteName> nameList = new ArrayList<>();
         @SuppressWarnings("rawtypes")
-        List sL = dbObj.getBillingFavouriteList();
+        List sL = lookupService.getBillingFavouriteList();
         // Legacy JSP iterated i=i+2 — every other entry is the display name.
         for (int i = 0; i < sL.size(); i = i + 2) {
             Object v = sL.get(i);
@@ -105,14 +105,14 @@ public class BillingOnFavouriteViewModelAssembler {
                 .build();
     }
 
-    private FormResult handleSave(HttpServletRequest request, BillingOnLookupService dbObj,
+    private FormResult handleSave(HttpServletRequest request, BillingOnLookupService lookupService,
                                   String userNo, Map<String, String> formFields) {
         String actionParam = nullToEmpty(request.getParameter("action"));
         if (actionParam.startsWith("edit")) {
-            return processEdit(request, dbObj, userNo, formFields, actionParam);
+            return processEdit(request, lookupService, userNo, formFields, actionParam);
         }
         if (actionParam.startsWith("add")) {
-            return processAdd(request, dbObj, userNo, formFields, actionParam);
+            return processAdd(request, lookupService, userNo, formFields, actionParam);
         }
         StringBuilder mismatchMsg = new StringBuilder();
         mismatchMsg.append("You can ").append(FONT_RED_NOT)
@@ -120,7 +120,7 @@ public class BillingOnFavouriteViewModelAssembler {
         return new FormResult(mismatchMsg.toString(), "search");
     }
 
-    private FormResult processEdit(HttpServletRequest request, BillingOnLookupService dbObj,
+    private FormResult processEdit(HttpServletRequest request, BillingOnLookupService lookupService,
                                    String userNo, Map<String, String> formFields, String actionParam) {
         String name = nullToEmpty(request.getParameter("name"));
         String safeName = SafeEncode.forHtml(name);
@@ -133,7 +133,7 @@ public class BillingOnFavouriteViewModelAssembler {
                     "search");
         }
         String list = buildServiceList(request, false);
-        boolean ok = dbObj.updateBillingFavouriteList(name, list, userNo);
+        boolean ok = lookupService.updateBillingFavouriteList(name, list, userNo);
         formFields.put("name", name);
         if (ok) {
             return new FormResult(
@@ -150,7 +150,7 @@ public class BillingOnFavouriteViewModelAssembler {
                 "edit" + name);
     }
 
-    private FormResult processAdd(HttpServletRequest request, BillingOnLookupService dbObj,
+    private FormResult processAdd(HttpServletRequest request, BillingOnLookupService lookupService,
                                   String userNo, Map<String, String> formFields, String actionParam) {
         String name = nullToEmpty(request.getParameter("name"));
         String safeName = SafeEncode.forHtml(name);
@@ -163,7 +163,7 @@ public class BillingOnFavouriteViewModelAssembler {
                     "search");
         }
         String list = buildServiceList(request, true);
-        int rc = dbObj.addBillingFavouriteList(name, list, userNo);
+        int rc = lookupService.addBillingFavouriteList(name, list, userNo);
         formFields.put("name", name);
         if (rc > 0) {
             return new FormResult(
@@ -179,7 +179,7 @@ public class BillingOnFavouriteViewModelAssembler {
                 "add" + name);
     }
 
-    private FormResult handleSearchOrDelete(HttpServletRequest request, BillingOnLookupService dbObj,
+    private FormResult handleSearchOrDelete(HttpServletRequest request, BillingOnLookupService lookupService,
                                             String userNo, Map<String, String> formFields) {
         String actionParam = nullToEmpty(request.getParameter("action"));
         if ("Delete".equals(actionParam)) {
@@ -188,7 +188,7 @@ public class BillingOnFavouriteViewModelAssembler {
                 return new FormResult("nothing to delete, please choose a name.", "search");
             }
             String safeName = SafeEncode.forHtml(name);
-            boolean ok = dbObj.delBillingFavouriteList(name, userNo);
+            boolean ok = lookupService.delBillingFavouriteList(name, userNo);
             formFields.put("name", name);
             if (ok) {
                 return new FormResult(
@@ -208,7 +208,7 @@ public class BillingOnFavouriteViewModelAssembler {
         }
         String name = request.getParameter("name");
         @SuppressWarnings("rawtypes")
-        List ni = dbObj.getBillingFavouriteOne(name);
+        List ni = lookupService.getBillingFavouriteOne(name);
         if (ni != null && ni.size() > 0) {
             formFields.put("name", (String) ni.get(0));
             String list1 = (String) ni.get(1);

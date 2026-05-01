@@ -52,6 +52,9 @@ public class BatchBillingSubmissionService {
     }
 
     public void submitAll(List<Row> rows, String clinicView, Date billingDate, String currentUser) {
+        if (currentUser == null || currentUser.isBlank()) {
+            throw new SecurityException("missing current user for batch billing submission");
+        }
         for (Row row : rows) {
             String total = headerCreationService.createBill(row.providerNo(), row.demographicNo(),
                     row.serviceCode(), row.dxCode(), clinicView, billingDate, currentUser);

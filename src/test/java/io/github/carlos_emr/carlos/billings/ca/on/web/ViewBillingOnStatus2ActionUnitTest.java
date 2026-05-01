@@ -27,7 +27,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnStatusViewM
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingRaLookupService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnErrorReportService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnLookupService;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingStatusQueryService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingStatusLoader;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -89,7 +89,7 @@ class ViewBillingOnStatus2ActionUnitTest extends CarlosUnitTestBase {
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         registerMock(BillingOnLookupService.class, org.mockito.Mockito.mock(BillingOnLookupService.class));
-        registerMock(BillingStatusQueryService.class, org.mockito.Mockito.mock(BillingStatusQueryService.class));
+        registerMock(BillingStatusLoader.class, org.mockito.Mockito.mock(BillingStatusLoader.class));
         registerMock(BillingOnErrorReportService.class, org.mockito.Mockito.mock(BillingOnErrorReportService.class));
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
@@ -115,7 +115,7 @@ class ViewBillingOnStatus2ActionUnitTest extends CarlosUnitTestBase {
         return new BillingOnStatusViewModelAssembler(
                 mockSecurityInfoManager,
                 org.mockito.Mockito.mock(BillingOnLookupService.class),
-                org.mockito.Mockito.mock(BillingStatusQueryService.class),
+                org.mockito.Mockito.mock(BillingStatusLoader.class),
                 org.mockito.Mockito.mock(BillingOnErrorReportService.class),
                 org.mockito.Mockito.mock(SiteDao.class),
                 org.mockito.Mockito.mock(BillingRaLookupService.class));

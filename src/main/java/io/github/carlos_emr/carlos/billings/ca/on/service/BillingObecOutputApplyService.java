@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -67,13 +68,34 @@ public class BillingObecOutputApplyService {
         this.demographicManager = demographicManager;
     }
 
+    public record ApplyResult(int appliedCount, int skippedCount, List<String> reasons) {
+        public ApplyResult {
+            reasons = reasons == null ? List.of() : List.copyOf(reasons);
+        }
+
+        public int getAppliedCount() {
+            return appliedCount;
+        }
+
+        public int getSkippedCount() {
+            return skippedCount;
+        }
+
+        public List<String> getReasons() {
+            return reasons;
+        }
+    }
+
     /**
      * Atomically apply the parsed OBEC output-spec records. Any throw
      * (DAO failure, concurrent edit, malformed row that isn't otherwise
      * skip-able) rolls back the entire batch.
      */
-    public void applyOutputSpec(LoggedInInfo loggedInInfo,
-                                List<BillingEdtObecOutputSpecificationRecordDto> outputSpecVector) {
+    public ApplyResult applyOutputSpec(LoggedInInfo loggedInInfo,
+                                       List<BillingEdtObecOutputSpecificationRecordDto> outputSpecVector) {
+        int appliedCount = 0;
+        int skippedCount = 0;
+        List<String> reasons = new ArrayList<>();
         for (BillingEdtObecOutputSpecificationRecordDto bean : outputSpecVector) {
             String hin = bean.getHealthNo();
             String responseCode = bean.getResponseCode();
@@ -90,6 +112,8 @@ public class BillingObecOutputApplyService {
                         "Skipping OBEC output-spec row with unparseable response code {} for hin {}",
                         LogSanitizer.sanitize(responseCode),
                         LogSanitizer.sanitize(hin), e);
+                skippedCount++;
+                reasons.add("Skipped HIN " + safeValue(hin) + ": unparseable response code " + safeValue(responseCode));
                 continue;
             }
 
@@ -111,12 +135,15 @@ public class BillingObecOutputApplyService {
                                 "BillingObecOutputApplyService: skipping row with null ver (hin={}, demographicNo={})",
                                 LogSanitizer.sanitize(hin),
                                 d.getDemographicNo());
+                        skippedCount++;
+                        reasons.add("Skipped HIN " + safeValue(hin) + ": missing version");
                         continue;
                     }
                     if (dVer.trim().compareTo(beanVer.trim()) == 0) {
                         for (Demographic demographic : ds) {
                             demographic.setVer("##");
                             demographicManager.updateDemographic(loggedInInfo, demographic);
+                            appliedCount++;
                         }
                         DemographicCust demographicCust = demographicCustDao.find(d.getDemographicNo());
                         if (demographicCust != null && batchEligibility != null) {
@@ -126,9 +153,24 @@ public class BillingObecOutputApplyService {
                             demographicCust.setAlert(newAlert);
                             demographicCustDao.merge(demographicCust);
                         }
+                    } else {
+                        skippedCount++;
+                        reasons.add("Skipped HIN " + safeValue(hin) + ": version mismatch");
                     }
+                } else {
+                    skippedCount++;
+                    reasons.add("Skipped HIN " + safeValue(hin) + ": no demographic match");
                 }
+            } else {
+                skippedCount++;
+                reasons.add("Skipped HIN " + safeValue(hin) + ": response code " + responseCodeNum
+                        + " does not require an update");
             }
         }
+        return new ApplyResult(appliedCount, skippedCount, reasons);
+    }
+
+    private static String safeValue(String value) {
+        return value == null || value.isBlank() ? "(blank)" : value.trim();
     }
 }

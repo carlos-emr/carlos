@@ -52,26 +52,26 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingClaimSubmission
  *
  * <p>Migrated from {@code billing/CA/ON/billingONSave.jsp}.
  *
- * @since 2026
+ * @since 2026-04-08
  */
 public class BillingOnSave2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
     private final UserPropertyDAO userPropertyDAO;
     private final BillingDao billingDao;
-    private final BillingClaimSubmissionService bObj;
+    private final BillingClaimSubmissionService claimSubmissionService;
     private final io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionRecordService correctionPrep;
 
     @org.springframework.beans.factory.annotation.Autowired
     public BillingOnSave2Action(SecurityInfoManager securityInfoManager,
                                 UserPropertyDAO userPropertyDAO,
                                 BillingDao billingDao,
-                                BillingClaimSubmissionService bObj,
+                                BillingClaimSubmissionService claimSubmissionService,
                                 io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionRecordService correctionPrep) {
         this.securityInfoManager = securityInfoManager;
         this.userPropertyDAO = userPropertyDAO;
         this.billingDao = billingDao;
-        this.bObj = bObj;
+        this.claimSubmissionService = claimSubmissionService;
         this.correctionPrep = correctionPrep;
     }
     @Override
@@ -117,7 +117,7 @@ public class BillingOnSave2Action extends ActionSupport {
             return SUCCESS;
         }
 
-        BillingClaimSubmissionService.BillingClaimSubmission submission = bObj.getSubmission(request);
+        BillingClaimSubmissionService.BillingClaimSubmission submission = claimSubmissionService.getSubmission(request);
         String xmlBillType = request.getParameter("xml_billtype");
 
         String payeeValue = request.getParameter("payeename");
@@ -132,7 +132,7 @@ public class BillingOnSave2Action extends ActionSupport {
         int billingNo;
         try {
             BillingClaimSubmissionService.SaveResult saveResult =
-                    bObj.saveBillingWithExtAndPayee(submission, request, xmlBillType, payeeValue);
+                    claimSubmissionService.saveBillingWithExtAndPayee(submission, request, xmlBillType, payeeValue);
             ret = saveResult.saved();
             billingNo = saveResult.billingId();
         } catch (io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException e) {
@@ -148,10 +148,10 @@ public class BillingOnSave2Action extends ActionSupport {
 
         if (ret) {
             if (apptNo != null && apptNo.length() > 0 && !apptNo.equals("0")) {
-                String apptCurStatus = bObj.getApptStatus(apptNo);
+                String apptCurStatus = claimSubmissionService.getApptStatus(apptNo);
                 ApptStatusData as = new ApptStatusData();
                 String billStatus = as.billStatus(apptCurStatus);
-                bObj.updateApptStatus(apptNo, billStatus, loggedInInfo.getLoggedInProviderNo());
+                claimSubmissionService.updateApptStatus(apptNo, billStatus, loggedInInfo.getLoggedInProviderNo());
             }
 
             // Replace the old <jsp:include page="billingDeleteWithBillNo.jsp"/> with a direct call

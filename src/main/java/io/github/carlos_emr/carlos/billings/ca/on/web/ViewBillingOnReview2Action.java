@@ -48,8 +48,10 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnReviewDiagPer
  * retains the {@code View...} prefix for consistency with sibling gate actions
  * in this migration, even though the behavior is mutation-gate.</p>
  *
+ * <p>Expanded on 2026-04-24 to add view-model assembly and diagnostic-code
+ * side-effect delegation.</p>
+ *
  * @since 2026-04-13
- *        2026-04-24 (view-model assembly + dx side-effect migration)
  */
 public class ViewBillingOnReview2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;

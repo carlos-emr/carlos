@@ -204,7 +204,7 @@ public class BillingCorrectionService {
                     + LogSanitizer.sanitizeForDisplay(payType) + "] must be P (payment) or R (refund)");
         }
 
-        bPaymentDao.createPayment(bCh1, request.getLocale(), payType, paidAmt, payMethod, providerNo);
+        createPaymentAndMergeHeader(bCh1, request.getLocale(), payType, paidAmt, payMethod, providerNo);
         return "success";
     }
 
@@ -486,7 +486,7 @@ public class BillingCorrectionService {
             }
 
             if (doReverse > 0) {
-                bPaymentDao.createPayment(bCh1, locale, BillingONPayment.REFUND, reversedFunds, "", providerNo);
+                createPaymentAndMergeHeader(bCh1, locale, BillingONPayment.REFUND, reversedFunds, "", providerNo);
             }
         } else if (statusChangedToSettled && !nowMohPayProgram) {
             // Invoice just settled for a 3rd-party invoice → any outstanding
@@ -509,11 +509,17 @@ public class BillingCorrectionService {
             }
 
             if (doSettlePayment > 0) {
-                bPaymentDao.createPayment(bCh1, locale, BillingONPayment.PAYMENT, amtOutstanding, "", providerNo);
+                createPaymentAndMergeHeader(bCh1, locale, BillingONPayment.PAYMENT, amtOutstanding, "", providerNo);
             }
         }
 
         return true;
+    }
+
+    private void createPaymentAndMergeHeader(BillingONCHeader1 bCh1, Locale locale, String payType,
+            BigDecimal paidAmt, String payMethod, String providerNo) {
+        bPaymentDao.createPayment(bCh1, locale, payType, paidAmt, payMethod, providerNo);
+        bCh1Dao.merge(bCh1);
     }
 
     /**

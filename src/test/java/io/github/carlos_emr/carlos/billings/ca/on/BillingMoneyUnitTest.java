@@ -140,4 +140,48 @@ class BillingMoneyUnitTest {
                 .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
                 .hasMessageContaining("paid");
     }
+
+    @Test
+    void shouldCreateCadValueType_withScaleAndEquality() {
+        BillingMoney oneDollar = BillingMoney.cad(new java.math.BigDecimal("1"));
+        BillingMoney sameDollar = BillingMoney.cad(new java.math.BigDecimal("1.00"));
+
+        assertThat(oneDollar).isEqualTo(sameDollar);
+        assertThat(oneDollar.amount()).isEqualByComparingTo("1.00");
+        assertThat(oneDollar.currency()).isEqualTo(BillingMoney.CAD);
+        assertThat(oneDollar.format()).isEqualTo("1.00");
+    }
+
+    @Test
+    void shouldAddSubtractAndCompareCadValues() {
+        BillingMoney subtotal = BillingMoney.cad("10.00");
+        BillingMoney adjustment = BillingMoney.cad("2.50");
+
+        assertThat(subtotal.plus(adjustment).format()).isEqualTo("12.50");
+        assertThat(subtotal.minus(adjustment).format()).isEqualTo("7.50");
+        assertThat(subtotal.compareTo(adjustment)).isPositive();
+    }
+
+    @Test
+    void shouldRoundTripStoredCentStringsThroughValueType() {
+        BillingMoney amount = BillingMoney.storedCents("3000", "total");
+
+        assertThat(amount.amount()).isEqualByComparingTo("30.00");
+        assertThat(amount.toStoredCents()).isEqualTo("3000");
+    }
+
+    @Test
+    void shouldRejectNegativeValueTypeAmounts() {
+        assertThatThrownBy(() -> BillingMoney.cad(new java.math.BigDecimal("-0.01")))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("cannot be negative");
+    }
+
+    @Test
+    void shouldRejectNegativeStoredCentStrings() {
+        assertThatThrownBy(() -> BillingMoney.storedCents("-1", "total"))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("total")
+                .hasMessageContaining("cannot be negative");
+    }
 }

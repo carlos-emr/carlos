@@ -28,6 +28,7 @@ import static org.mockito.Mockito.when;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Modifier;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
@@ -243,5 +244,19 @@ class OhipClaimFileServiceUnitTest {
                             .isEqualTo(BillingDataLoadException.Phase.BATCH_HEADER_LOOKUP);
                     assertThat(d.context()).containsEntry("bid", "12345");
                 });
+    }
+
+    @Test
+    void shouldKeepMutableErrorStatePrivate() throws Exception {
+        assertThat(Modifier.isPrivate(
+                OhipClaimFileService.class.getDeclaredField("errorFatalMsg").getModifiers()))
+                .isTrue();
+        assertThat(Modifier.isPrivate(
+                OhipClaimFileService.class.getDeclaredField("errorMsg").getModifiers()))
+                .isTrue();
+        assertThat(Modifier.isPrivate(
+                OhipClaimFileService.class.getDeclaredField("errorPartMsg").getModifiers()))
+                .isTrue();
+        assertThat(OhipClaimFileService.class.getDeclaredField("errorParams")).isNotNull();
     }
 }

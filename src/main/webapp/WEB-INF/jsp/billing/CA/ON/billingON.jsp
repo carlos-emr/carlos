@@ -883,6 +883,12 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                             </c:choose></td>
                         <td style="text-align: center;"
                             class="${not empty formModel.patient.billingRecommendations ? 'alert' : ''}">${formModel.patient.billingRecommendations}
+                            <c:if test="${formModel.recommendationsUnavailable}">
+                                <div class="alert">Billing recommendations are temporarily unavailable.</div>
+                            </c:if>
+                            <c:if test="${formModel.siteContextDegraded}">
+                                <div class="alert">Appointment site defaults are temporarily unavailable.</div>
+                            </c:if>
                         </td>
                         <td style="text-align: center;">${formModel.display.displayMessage}
                         </td>

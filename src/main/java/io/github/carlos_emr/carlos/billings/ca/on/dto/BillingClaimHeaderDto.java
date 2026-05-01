@@ -23,6 +23,10 @@
 
 package io.github.carlos_emr.carlos.billings.ca.on.dto;
 
+import java.math.BigDecimal;
+
+import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
+
 
 public class BillingClaimHeaderDto {
     String id;
@@ -70,8 +74,8 @@ public class BillingClaimHeaderDto {
     String billing_on_item_id; // just used for 3rd party bill invoice report
     String ser_num;
 
-    double cashTotal;
-    double debitTotal;
+    BigDecimal cashTotal = BillingMoney.zero();
+    BigDecimal debitTotal = BillingMoney.zero();
     String providerName;
     int numItems;
 
@@ -469,20 +473,20 @@ public class BillingClaimHeaderDto {
     }
 
 
-    public double getCashTotal() {
+    public BigDecimal getCashTotal() {
         return cashTotal;
     }
 
-    public void setCashTotal(double cashTotal) {
-        this.cashTotal = cashTotal;
+    public void setCashTotal(BigDecimal cashTotal) {
+        this.cashTotal = cashTotal == null ? BillingMoney.zero() : cashTotal;
     }
 
-    public double getDebitTotal() {
+    public BigDecimal getDebitTotal() {
         return debitTotal;
     }
 
-    public void setDebitTotal(double debitTotal) {
-        this.debitTotal = debitTotal;
+    public void setDebitTotal(BigDecimal debitTotal) {
+        this.debitTotal = debitTotal == null ? BillingMoney.zero() : debitTotal;
     }
 
     public String getProviderName() {

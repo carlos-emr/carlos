@@ -222,6 +222,15 @@
         </c:if>
 
 
+        <c:if test="${not empty obecApplyResult and obecApplyResult.skippedCount gt 0}">
+            <tr>
+                <td colspan="11" class="alert">
+                    OBEC output apply skipped ${carlos:forHtml(obecApplyResult.skippedCount)} row(s);
+                    ${carlos:forHtml(obecApplyResult.appliedCount)} demographic record(s) were updated.
+                </td>
+            </tr>
+        </c:if>
+
         <c:if test="${not empty outputSpecs}">
             <tr>
                 <td class="fieldName" width="8%">Health #</td>

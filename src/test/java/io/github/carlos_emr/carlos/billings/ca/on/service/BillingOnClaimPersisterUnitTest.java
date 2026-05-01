@@ -357,8 +357,9 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
             // The legacy code path silently zeroed malformed money fields and
             // persisted the row anyway — that masked typos and could record
             // a $0 payment on a non-zero billing event. The current contract
-            // surfaces the parse failure so the surrounding @Transactional
-            // unit-of-work rolls back.
+            // surfaces a typed validation failure so the Struts exception
+            // mapping can render the billing validation page and the
+            // surrounding @Transactional unit-of-work rolls back.
             BillingClaimItemDto a = itemDto("A001A", "2026-04-28");
             a.setId("11");
             a.setDiscount("not-a-number");
@@ -367,8 +368,10 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
 
             org.assertj.core.api.Assertions.assertThatThrownBy(() ->
                     persister.addItemPaymentRecord(new ArrayList<>(List.of(a)), 4242, 7, 1))
-                    .isInstanceOf(NumberFormatException.class)
-                    .hasMessageContaining("not-a-number");
+                    .isInstanceOf(BillingValidationException.class)
+                    .hasMessageContaining("malformed discount amount")
+                    .hasMessageContaining("billingNo=4242")
+                    .hasRootCauseInstanceOf(NumberFormatException.class);
 
             verify(billOnItemPaymentDao, never()).persist(any(BillingOnItemPayment.class));
         }

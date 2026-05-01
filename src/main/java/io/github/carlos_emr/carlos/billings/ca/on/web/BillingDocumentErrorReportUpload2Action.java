@@ -277,7 +277,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
                     isGot = reportXIsGenerated;
                 } else if (prefix.compareTo("R") == 0) {
                     ReportName = "EDT OBEC Output Specification";
-                    BillingEdtObecOutputSpecificationParser hd = generateReportR(loggedInInfo, file);
+                    BillingEdtObecOutputSpecificationParser hd = generateReportR(loggedInInfo, file, request);
                     request.setAttribute("outputSpecs", hd);
                     isGot = hd.verdict;
                 } else if (prefix.compareTo("L") == 0) {
@@ -423,7 +423,9 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
      * @return populated parser carrying the spec records and a {@code verdict}
      *         flag indicating whether the read completed cleanly
      */
-    private BillingEdtObecOutputSpecificationParser generateReportR(LoggedInInfo loggedInInfo, FileInputStream file) {
+    private BillingEdtObecOutputSpecificationParser generateReportR(LoggedInInfo loggedInInfo,
+                                                                    FileInputStream file,
+                                                                    HttpServletRequest request) {
         BillingEdtObecOutputSpecificationParser hd =
                 new BillingEdtObecOutputSpecificationParser(loggedInInfo, file,
                         batchEligibilityDao, demographicManager, providerDao);
@@ -433,9 +435,11 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
         // SpringUtils so the @Transactional proxy applies (direct
         // construction would bypass it).
         try {
-            io.github.carlos_emr.carlos.utility.SpringUtils
+            io.github.carlos_emr.carlos.billings.ca.on.service.BillingObecOutputApplyService.ApplyResult applyResult =
+                    io.github.carlos_emr.carlos.utility.SpringUtils
                     .getBean(io.github.carlos_emr.carlos.billings.ca.on.service.BillingObecOutputApplyService.class)
                     .applyOutputSpec(loggedInInfo, hd.getEdtObecOutputSpecificationRecords());
+            request.setAttribute("obecApplyResult", applyResult);
         } catch (RuntimeException e) {
             MiscUtils.getLogger().error("OBEC output-spec apply rolled back; demographic graph unchanged", e);
             hd.verdict = false;

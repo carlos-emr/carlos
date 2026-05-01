@@ -56,7 +56,7 @@ import io.github.carlos_emr.carlos.util.LabelValueBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingStatusQueryService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingStatusLoader;
 import io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingOnStatus2Action;
 
 /**
@@ -75,14 +75,14 @@ public class BillingOnStatusViewModelAssembler {
 
     private final SecurityInfoManager securityInfoManager;
     private final BillingOnLookupService lookupService;
-    private final BillingStatusQueryService statusPrep;
+    private final BillingStatusLoader statusPrep;
     private final BillingOnErrorReportService errorRepImpl;
     private final SiteDao siteDao;
     private final BillingRaLookupService raLookupService;
 
     public BillingOnStatusViewModelAssembler(SecurityInfoManager securityInfoManager,
                                  BillingOnLookupService lookupService,
-                                 BillingStatusQueryService statusPrep,
+                                 BillingStatusLoader statusPrep,
                                  BillingOnErrorReportService errorRepImpl,
                                  SiteDao siteDao,
                                  BillingRaLookupService raLookupService) {
@@ -271,7 +271,7 @@ public class BillingOnStatusViewModelAssembler {
         List<BillingClaimHeaderDto> bList;
         if ((serviceCodeFilterAbsent || billingFormFilterAbsent)
                 && dx.length() < 2 && visitType.length() < 2) {
-            // deepcode ignore SqlInjection: BillingStatusQueryService delegates to
+            // deepcode ignore SqlInjection: BillingStatusLoader delegates to
             // BillingOnClaimLoader which uses JPA criteria queries (parameterized)
             bList = search
                     ? statusPrep.getBills(billTypes, statusType, providerNo, startDate, endDate,
@@ -442,8 +442,8 @@ public class BillingOnStatusViewModelAssembler {
         BigDecimal total = new BigDecimal("0").setScale(2, RoundingMode.HALF_UP);
         BigDecimal paidTotal = new BigDecimal("0").setScale(2, RoundingMode.HALF_UP);
         BigDecimal adjTotal = new BigDecimal("0").setScale(2, RoundingMode.HALF_UP);
-        double totalCash = 0d;
-        double totalDebit = 0d;
+        BigDecimal totalCash = BigDecimal.ZERO;
+        BigDecimal totalDebit = BigDecimal.ZERO;
 
         if (bList == null || bList.isEmpty()) {
             return new BillRowAggregate(rows, 0,
@@ -594,8 +594,8 @@ public class BillingOnStatusViewModelAssembler {
 
             String cash = formatter.format(ch1Obj.getCashTotal());
             String debit = formatter.format(ch1Obj.getDebitTotal());
-            totalCash += ch1Obj.getCashTotal();
-            totalDebit += ch1Obj.getDebitTotal();
+            totalCash = totalCash.add(ch1Obj.getCashTotal());
+            totalDebit = totalDebit.add(ch1Obj.getDebitTotal());
 
             String clinic = ch1Obj.getClinic();
             String clinicBgColor = "";

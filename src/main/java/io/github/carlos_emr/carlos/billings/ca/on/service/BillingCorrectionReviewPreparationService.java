@@ -113,12 +113,12 @@ public class BillingCorrectionReviewPreparationService {
             String desc = details.description();
             String value = details.value();
             String percentage = details.percentage();
-            if (!line.billingAmount().isEmpty()) {
-                value = line.billingAmount();
+            if (line.billingAmount() != null) {
+                value = line.billingAmount().format();
             }
 
             BigDecimal otherunit2 = BillingMoney.amount(value);
-            billingunit = BillingMoney.amount(line.billingUnit());
+            billingunit = line.billingUnit();
             otherunit2 = billingunit.multiply(otherunit2).setScale(2, RoundingMode.HALF_UP);
 
             if (isPremiumServiceCode(scode)) {
@@ -134,13 +134,13 @@ public class BillingCorrectionReviewPreparationService {
                     eCode = scode;
                     eDesc = desc;
                     ePerc = percentage;
-                    eUnit = line.billingUnit();
+                    eUnit = line.billingUnitText();
                     eFlag = true;
                 } else {
                     xCode = scode;
                     xDesc = desc;
                     xPerc = percentage;
-                    xUnit = line.billingUnit();
+                    xUnit = line.billingUnitText();
                     xFlag = true;
                 }
             } else {
@@ -148,7 +148,7 @@ public class BillingCorrectionReviewPreparationService {
                 items.add(new BillingCorrectionReviewItemDraft(
                         scode,
                         desc,
-                        line.billingUnit(),
+                        line.billingUnitText(),
                         stripDecimalPoint(otherunit2.toString()),
                         percentage,
                         diagcode));
@@ -191,14 +191,14 @@ public class BillingCorrectionReviewPreparationService {
                 content,
                 command.billingNo(),
                 command.hin(),
-                command.dob(),
+                command.dobText(),
                 command.visitType(),
-                command.visitDate(),
+                command.visitDateText(),
                 command.status(),
                 command.clinicRefCode(),
                 command.providerNo(),
-                command.billingDate(),
-                command.updateDate(),
+                command.billingDateText(),
+                command.updateDateText(),
                 stripDecimalPoint(bigTotal.toString()),
                 command.demoName(),
                 command.demoAddress(),

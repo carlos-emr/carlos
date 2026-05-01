@@ -41,17 +41,17 @@ import java.util.List;
  */
 @org.springframework.stereotype.Service
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
-public class BillingStatusQueryService {
+public class BillingStatusLoader {
     private static final String ANY_PROVIDER = "all";
     private static final String ANY_STATUS_TYPE = "%";
     private static final String ANY_SERVICE_CODE = "%";
     private static final String ANY_BILLING_FORM = "---";
     public static final String ANY_VISIT_LOCATION = "0000";
 
-    private final BillingOnClaimLoader bObj;
+    private final BillingOnClaimLoader claimLoader;
 
-    BillingStatusQueryService(BillingOnClaimLoader bObj) {
-        this.bObj = bObj;
+    BillingStatusLoader(BillingOnClaimLoader claimLoader) {
+        this.claimLoader = claimLoader;
     }
 
     public List<BillingClaimHeaderDto> getBills(String[] billTypes, String statusType, String providerNo, String startDate, String endDate,
@@ -66,7 +66,7 @@ public class BillingStatusQueryService {
         paymentStartDate = paymentStartDate == null || paymentStartDate.length() == 0 ? null : paymentStartDate;
         paymentEndDate = paymentEndDate == null || paymentEndDate.length() == 0 ? null : paymentEndDate;
 
-        return bObj.getBill(billTypes, statusType, providerNo, startDate, endDate, demoNo, visitLocation, paymentStartDate, paymentEndDate);
+        return claimLoader.getBill(billTypes, statusType, providerNo, startDate, endDate, demoNo, visitLocation, paymentStartDate, paymentEndDate);
     }
 
 
@@ -96,14 +96,14 @@ public class BillingStatusQueryService {
 
         claimNo = claimNo == null || claimNo.length() == 0 ? null : claimNo;
 
-        List<String> serviceCodeList = bObj.mergeServiceCodes(serviceCodeParams, billingForm);
-        List<BillingClaimHeaderDto> retval = bObj.getBillWithSorting(billType, statusType, providerNo, startDate, endDate, demoNo, serviceCodeList, dx, visitType, visitLocation, sortName, sortOrder, paymentStartDate, paymentEndDate, claimNo);
+        List<String> serviceCodeList = claimLoader.mergeServiceCodes(serviceCodeParams, billingForm);
+        List<BillingClaimHeaderDto> retval = claimLoader.getBillWithSorting(billType, statusType, providerNo, startDate, endDate, demoNo, serviceCodeList, dx, visitType, visitLocation, sortName, sortOrder, paymentStartDate, paymentEndDate, claimNo);
         return retval;
     }
 
 
     public List<LabelValueBean> listBillingForms() {
-        List<LabelValueBean> billingFormsList = bObj.listBillingForms();
+        List<LabelValueBean> billingFormsList = claimLoader.listBillingForms();
         if (billingFormsList == null) billingFormsList = new ArrayList<LabelValueBean>();
         return billingFormsList;
     }

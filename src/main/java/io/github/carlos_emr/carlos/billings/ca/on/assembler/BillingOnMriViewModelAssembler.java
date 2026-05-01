@@ -54,7 +54,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewQueryService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewLoader;
 
 /**
  * Assembles {@link BillingOnMriViewModel} for {@code billingONMRI.jsp}, the
@@ -68,7 +68,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewQueryServ
  * and one for the older-records OHIP-number→name lookup (using
  * {@code getActiveProviders}). Both are consolidated here.</p>
  *
- * <p>The {@code BillingReviewQueryService} and {@code BillingOnLookupService}
+ * <p>The {@code BillingReviewLoader} and {@code BillingOnLookupService}
  * helpers are constructor-injected like the rest of the dependency graph.</p>
  *
  * @since 2026-04-26
@@ -85,7 +85,7 @@ public class BillingOnMriViewModelAssembler {
     private final ProviderDataDao providerDataDao;
     private final ProviderBillCenterDao providerBillCenterDao;
     private final SecurityInfoManager securityInfoManager;
-    private final BillingReviewQueryService reviewPrep;
+    private final BillingReviewLoader reviewPrep;
     private final BillingOnLookupService lookupService;
 
     public BillingOnMriViewModelAssembler(ProviderDao providerDao,
@@ -93,7 +93,7 @@ public class BillingOnMriViewModelAssembler {
                               ProviderDataDao providerDataDao,
                               ProviderBillCenterDao providerBillCenterDao,
                               SecurityInfoManager securityInfoManager,
-                              BillingReviewQueryService reviewPrep,
+                              BillingReviewLoader reviewPrep,
                               BillingOnLookupService lookupService) {
         this.providerDao = providerDao;
         this.billActivityDao = billActivityDao;
@@ -189,7 +189,7 @@ public class BillingOnMriViewModelAssembler {
      * Load the provider dropdown options. Three modes mirror the legacy
      * scriptlet: team-billing-only / site-access-privacy each restrict
      * to the user's team or site; otherwise show all billable providers.
-     * The returned list is in {@code BillingReviewQueryService}'s pipe-delimited
+     * The returned list is in {@code BillingReviewLoader}'s pipe-delimited
      * "no|last|first" format — split here into structured records.
      */
     private List<BillingOnMriViewModel.ProviderEntry> loadProviderOptions(String userProviderNo,

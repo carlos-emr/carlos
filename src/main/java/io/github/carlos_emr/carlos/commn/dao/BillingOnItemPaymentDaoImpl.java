@@ -25,6 +25,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import java.math.BigDecimal;
 import java.util.List;
+import jakarta.persistence.NoResultException;
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.BillingOnItemPayment;
@@ -67,7 +68,7 @@ public class BillingOnItemPaymentDaoImpl extends AbstractDaoImpl<BillingOnItemPa
         BigDecimal paid = null;
         try {
             paid = (BigDecimal) query.getSingleResult();
-        } catch (Exception e) {
+        } catch (NoResultException e) {
         }
 
         if (paid == null) {

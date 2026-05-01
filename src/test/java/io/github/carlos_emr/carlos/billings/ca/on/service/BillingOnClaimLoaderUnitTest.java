@@ -46,7 +46,10 @@ import java.util.Date;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -263,5 +266,76 @@ class BillingOnClaimLoaderUnitTest {
         assertThat(filter.serviceCodes()).isEqualTo("A007");
         assertThat(filter.dx()).isEqualTo("V70");
         assertThat(filter.visitType()).isEqualTo("00");
+    }
+
+    @Test
+    void shouldThrowBillingDataLoadException_whenMagicBillingListQueryFails() {
+        when(dao.findByMagic(anyList(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenThrow(new RuntimeException("DB outage simulation"));
+
+        assertThatThrownBy(() -> loader.getBillWithSorting(
+                new String[]{"HCP"}, "O", "999", "2026-04-01", "2026-04-30",
+                "100", "clinic-a", "billing_date", "asc", "", ""))
+                .isInstanceOf(BillingDataLoadException.class)
+                .satisfies(ex -> {
+                    BillingDataLoadException e = (BillingDataLoadException) ex;
+                    assertThat(e.phase()).isEqualTo(BillingDataLoadException.Phase.DAO_QUERY);
+                    assertThat(e.context())
+                            .containsEntry("providerNo", "999")
+                            .containsEntry("startDate", "2026-04-01")
+                            .containsEntry("endDate", "2026-04-30");
+                });
+    }
+
+    @Test
+    void shouldThrowBillingDataLoadException_whenMagic2BillingListQueryFails() {
+        when(dao.findByMagic2(anyList(), any(), any(), any(), any(), any(), anyList(),
+                any(), any(), any(), any(), any(), any()))
+                .thenThrow(new RuntimeException("DB outage simulation"));
+
+        assertThatThrownBy(() -> loader.getBillWithSorting(
+                new String[]{"HCP"}, "O", "999", "2026-04-01", "2026-04-30",
+                "100", List.of("A007"), "V70", "00", "clinic-a",
+                "billing_date", "asc", "", "", "claim-42"))
+                .isInstanceOf(BillingDataLoadException.class)
+                .satisfies(ex -> {
+                    BillingDataLoadException e = (BillingDataLoadException) ex;
+                    assertThat(e.phase()).isEqualTo(BillingDataLoadException.Phase.DAO_QUERY);
+                    assertThat(e.context())
+                            .containsEntry("claimNo", "claim-42")
+                            .containsEntry("providerNo", "999")
+                            .containsEntry("startDate", "2026-04-01");
+                });
+    }
+
+    @Test
+    void shouldThrowBillingDataLoadException_whenBillingHistoryQueryFails() {
+        when(dao.findByDemoNo(any(), anyInt(), anyInt()))
+                .thenThrow(new RuntimeException("DB outage simulation"));
+
+        assertThatThrownBy(() -> loader.getBillingHist("100", 10, 0, null))
+                .isInstanceOf(BillingDataLoadException.class)
+                .satisfies(ex -> {
+                    BillingDataLoadException e = (BillingDataLoadException) ex;
+                    assertThat(e.phase()).isEqualTo(BillingDataLoadException.Phase.DAO_QUERY);
+                    assertThat(e.context())
+                            .containsEntry("demoNo", "100")
+                            .containsEntry("pageSize", "10")
+                            .containsEntry("offset", "0");
+                });
+    }
+
+    @Test
+    void shouldThrowBillingDataLoadException_whenBillingByAppointmentQueryFails() {
+        when(dao.findByAppointmentNo(any()))
+                .thenThrow(new RuntimeException("DB outage simulation"));
+
+        assertThatThrownBy(() -> loader.getBillingByApptNo("123"))
+                .isInstanceOf(BillingDataLoadException.class)
+                .satisfies(ex -> {
+                    BillingDataLoadException e = (BillingDataLoadException) ex;
+                    assertThat(e.phase()).isEqualTo(BillingDataLoadException.Phase.DAO_QUERY);
+                    assertThat(e.context()).containsEntry("apptNo", "123");
+                });
     }
 }

@@ -93,6 +93,10 @@ class BillingCorrectionValid2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldForwardReviewModelWithoutLegacySessionCarrierBeans() throws Exception {
         request.setParameter("xml_billing_no", "42");
+        request.setParameter("dob", "1980-01-01");
+        request.setParameter("xml_vdate", "2026-04-28");
+        request.setParameter("xml_appointment_date", "2026-04-28");
+        request.setParameter("update_date", "2026-04-29");
         request.setParameter("servicecode0", "A001A");
         request.setParameter("billingunit0", "1");
 

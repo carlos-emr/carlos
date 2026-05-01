@@ -37,7 +37,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCalendarPopup
  * {@link DateInMonthTable#getMonthDateGrid} lookup that produces the
  * row-of-weeks grid the JSP renders.
  *
- * @since 2026-04-25
+ * @since 2026-04-26
  */
 @org.springframework.stereotype.Service
 public class BillingCalendarPopupViewModelAssembler {

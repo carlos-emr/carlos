@@ -288,9 +288,9 @@ public class BillingOnClaimPersister {
             // Pre-parse before mutating the entity. Strict variants surface a
             // malformed amount BEFORE any billing_on_item_payment row is
             // persisted with a silently-zeroed value.
-            BigDecimal discount = BillingMoney.amountStrictOrZero(val.getDiscount());
-            BigDecimal paid = BillingMoney.amountStrictOrZero(val.getPaid());
-            BigDecimal refund = BillingMoney.amountStrictOrZero(val.getRefund());
+            BigDecimal discount = amountStrictOrZeroForItemPayment(val.getDiscount(), "discount", id, val);
+            BigDecimal paid = amountStrictOrZeroForItemPayment(val.getPaid(), "paid", id, val);
+            BigDecimal refund = amountStrictOrZeroForItemPayment(val.getRefund(), "refund", id, val);
             billOnItemPayment = new BillingOnItemPayment();
             billOnItemPayment.setBillingOnItemId(Integer.parseInt(val.getId()));
             billOnItemPayment.setBillingOnPaymentId(paymentId);
@@ -320,9 +320,12 @@ public class BillingOnClaimPersister {
             // Pre-parse the per-item amounts before mutating the entity, so a
             // mid-loop parse failure cannot leave a partially-populated
             // BillingOnTransaction in an inconsistent state.
-            BigDecimal discount = BillingMoney.amountStrictOrZero(billItem.getDiscount());
-            BigDecimal paid = BillingMoney.amountStrictOrZero(billItem.getPaid());
-            BigDecimal refund = BillingMoney.amountStrictOrZero(billItem.getRefund());
+            BigDecimal discount = amountStrictOrZeroForItemPayment(
+                    billItem.getDiscount(), "discount", Integer.parseInt(billHeader.getId()), billItem);
+            BigDecimal paid = amountStrictOrZeroForItemPayment(
+                    billItem.getPaid(), "paid", Integer.parseInt(billHeader.getId()), billItem);
+            BigDecimal refund = amountStrictOrZeroForItemPayment(
+                    billItem.getRefund(), "refund", Integer.parseInt(billHeader.getId()), billItem);
 
             billTrans = new BillingOnTransaction();
             billTrans.setActionType(BillingOnConstants.ACTION_TYPE.C.name());
@@ -357,6 +360,19 @@ public class BillingOnClaimPersister {
             billTrans.setUpdateProviderNo(billHeader.getCreator());
             billTrans.setVisittype(billHeader.getVisittype());
             billTransDao.persist(billTrans);
+        }
+    }
+
+    private BigDecimal amountStrictOrZeroForItemPayment(
+            String amount, String fieldName, int billingNo, BillingClaimItemDto item) {
+        try {
+            return BillingMoney.amountStrictOrZero(amount);
+        } catch (NumberFormatException ex) {
+            throw new BillingValidationException(
+                    "addItemPaymentRecord: malformed " + fieldName
+                            + " amount for billingNo=" + billingNo
+                            + ", itemId=" + item.getId(),
+                    ex);
         }
     }
 
