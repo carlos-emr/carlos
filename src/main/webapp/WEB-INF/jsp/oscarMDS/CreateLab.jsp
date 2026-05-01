@@ -192,7 +192,12 @@
         <button type="button" class="btn btn-secondary btn-sm" onclick="window.close();"><fmt:message key="oscarMDS.createLab.back"/></button>
     </div>
 
-    <%-- Display Struts action errors (e.g., failed HL7 generation) --%>
+    <%-- Display Struts action messages and errors from form submission --%>
+    <s:if test="hasActionMessages()">
+        <div class="alert alert-success" role="alert">
+            <s:actionmessage/>
+        </div>
+    </s:if>
     <s:if test="hasActionErrors()">
         <div class="alert alert-danger" role="alert">
             <s:actionerror/>

@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.HandlerClassFactory;
+import io.github.carlos_emr.carlos.lab.ca.all.upload.ProviderLabRouting;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.util.CMLLabHL7Generator;
 import io.github.carlos_emr.carlos.lab.ca.all.util.GDMLLabHL7Generator;
@@ -207,8 +208,6 @@ public class SubmitLabByForm2Action extends ActionSupport {
             checkFileUploadedSuccessfully = FileUploadCheck.addFile(file.getName(), fis, providerNo);
         }
 
-        String outcome = null;
-
         if (checkFileUploadedSuccessfully != FileUploadCheck.UNSUCCESSFUL_SAVE) {
             logger.info("filePath {}", LogSanitizer.sanitize(filePath)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             logger.info("Type :{}", LogSanitizer.sanitize(labName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
@@ -216,15 +215,24 @@ public class SubmitLabByForm2Action extends ActionSupport {
             if (msgHandler != null) {
                 logger.info("MESSAGE HANDLER {}", msgHandler.getClass().getName());
             }
-            if ((msgHandler.parse(loggedInInfo, getClass().getSimpleName(), filePath, checkFileUploadedSuccessfully, ipAddr)) != null)
-                outcome = "success";
-
+            String parseResult = msgHandler.parse(loggedInInfo, getClass().getSimpleName(), filePath, checkFileUploadedSuccessfully, ipAddr);
+            if (parseResult != null) {
+                logger.info("outcome=success");
+                // Ensure the creating provider can see the lab in their inbox regardless of
+                // whether the billing number matched a provider via OHIP lookup.
+                Integer labNo = msgHandler.getLastLabNo();
+                if (labNo != null) {
+                    new ProviderLabRouting().routeMagic(labNo, providerNo, "HL7");
+                }
+                addActionMessage(getText("oscarMDS.createLab.submitSuccess"));
+            } else {
+                logger.warn("outcome=null — lab handler returned null; lab may not have been saved");
+                addActionError(getText("oscarMDS.createLab.submitError"));
+            }
         } else {
-            outcome = "uploaded previously";
+            logger.info("outcome=uploaded previously");
+            addActionError(getText("oscarMDS.createLab.submitDuplicate"));
         }
-
-        logger.info("outcome={}", outcome);
-
 
         return manage();
     }
