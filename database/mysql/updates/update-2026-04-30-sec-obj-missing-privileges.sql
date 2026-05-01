@@ -24,7 +24,7 @@ INSERT IGNORE INTO `secObjPrivilege` (`roleUserGroup`, `objectName`, `privilege`
 -- _admin.auditLogPurge: secObjectName existed but no privilege row; broke AuditLogPurge2Action.
 INSERT IGNORE INTO `secObjectName` (`objectName`) VALUES ('_admin.auditLogPurge');
 INSERT IGNORE INTO `secObjPrivilege` (`roleUserGroup`, `objectName`, `privilege`, `priority`, `provider_no`)
-    VALUES ('admin', '_admin.auditLogPurge', 'x', 0, '999998')
+    VALUES ('admin', '_admin.auditLogPurge', 'x', 0, '999998');
 -- _hrm for doctor role: was 'o' (deny), should be 'x' to allow all doctors to view HRM records.
 -- HRM admin functions remain separately controlled by _hrm.administrator (HRMAdmin role).
 UPDATE `secObjPrivilege`
