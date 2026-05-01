@@ -28,6 +28,8 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+
+<%-- ========== PAGE IMPORTS ========== --%>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayLabAction2" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
@@ -41,17 +43,20 @@
 <%@ page import="io.github.carlos_emr.carlos.mds.data.ProviderData" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+
+<%-- ========== TAGLIB DECLARATIONS ========== --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<fmt:setBundle basename="oscarResources"/>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+
+<%-- ========== SECURITY CHECK ========== --%>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="r" reverse="<%=true%>">
-    <%authed = false; %>
+    <%authed = false;%>
     <%response.sendRedirect(request.getContextPath() + "/securityError?type=_lab");%>
 </security:oscarSec>
 <%
@@ -60,126 +65,88 @@
     }
 %>
 
+<%-- ========== BUSINESS LOGIC ========== --%>
 <%
-
-
-    //io.github.carlos_emr.carlos.mds.data.MDSResultsData mDSData = new io.github.carlos_emr.carlos.mds.data.MDSResultsData();
     CommonLabResultData comLab = new CommonLabResultData();
-    //String providerNo = request.getParameter("providerNo");
     String providerNo = (String) session.getAttribute("user");
     String searchProviderNo = request.getParameter("searchProviderNo");
     String ackStatus = request.getParameter("status");
-    String demographicNo = request.getParameter("demographicNo"); // used when searching for labs by patient instead of providers
+    String demographicNo = request.getParameter("demographicNo");
 
-    if (ackStatus == null) {
-        ackStatus = "N";
-    } // default to only new lab reports
-    if (providerNo == null) {
-        providerNo = "";
-    }
-    if (searchProviderNo == null) {
-        searchProviderNo = providerNo;
-    }
-
-    ArrayList<LabResultData> labs = comLab.populateLabResultsData(LoggedInInfo.getLoggedInInfoFromSession(request), "", demographicNo, "", "", "", "U");
+    if (ackStatus == null) ackStatus = "N";
+    if (providerNo == null) providerNo = "";
+    if (searchProviderNo == null) searchProviderNo = providerNo;
 
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-
-    int pageNum = 1;
-    if (request.getParameter("pageNum") != null) {
-        pageNum = Integer.parseInt(request.getParameter("pageNum"));
-    }
-
-    LabResultData result;
-
-    // Comment out this code and instead using the correct method to
-    // get latest lab versions, which is the below.
-    // LinkedHashMap<String,LabResultData> accessionMap = new LinkedHashMap<String,LabResultData>();
-    // for (int i = 0; i < labs.size(); i++) {
-    // 	result = labs.get(i);
-    // 	if (result.accessionNumber == null || result.accessionNumber.equals("")) {
-    // 		accessionMap.put("noAccessionNum" + i + result.labType, result);
-    // 	} else {
-    // 		if (!accessionMap.containsKey(result.accessionNumber + result.labType)) accessionMap.put(result.accessionNumber + result.labType, result);
-    // 	}
-    // }
-    // labs = new ArrayList<LabResultData>(accessionMap.values());
-
-    //First, getting the latest versions of the lab results and then sorting them ensures 
-    //that they will be displayed in the correct date order in the encounter window.
+    ArrayList<LabResultData> labs = comLab.populateLabResultsData(loggedInInfo, "", demographicNo, "", "", "", "U");
     labs = getLatestLabVersions(labs);
     Collections.sort(labs);
 
-
+    pageContext.setAttribute("ctx", request.getContextPath());
+    pageContext.setAttribute("labs", labs);
+    pageContext.setAttribute("ackStatus", ackStatus);
+    pageContext.setAttribute("providerNo", providerNo);
+    pageContext.setAttribute("searchProviderNo", searchProviderNo);
+    pageContext.setAttribute("demographicNo", demographicNo);
+    pageContext.setAttribute("hasDemographicNo", demographicNo != null);
+    pageContext.setAttribute("hasFname", request.getParameter("fname") != null);
+    pageContext.setAttribute("hasLabsAndNoDemographicNo", demographicNo == null && labs.size() > 0);
 %>
-<html>
+
+<fmt:setBundle basename="oscarResources"/>
+
+<!DOCTYPE html>
+<html lang="${pageContext.request.locale.language}">
 <head>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title><fmt:message key="oscarMDS.index.title"/> Page <%=pageNum%>
-    </title>
-    <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
+    <meta charset="UTF-8">
+    <title><fmt:message key="oscarMDS.index.title"/></title>
+    <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+    <link rel="stylesheet" type="text/css" href="${ctx}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css">
+    <script type="text/javascript" src="${ctx}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
+    <script type="text/javascript" src="${ctx}/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
 
-    <!-- link rel="stylesheet" type="text/css" href="encounterStyles.css" -->
-    <link rel="stylesheet" type="text/css"
-          href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
-    <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
-
-
-    <script type="text/javascript" language=javascript>
-
-        function popupStart(vheight, vwidth, varpage) {
-            popupStart(vheight, vwidth, varpage, "helpwindow");
-        }
-
+    <script type="text/javascript">
         function popupStart(vheight, vwidth, varpage, windowname) {
-            var page = varpage;
-            windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes";
-            var popup = window.open(varpage, windowname, windowprops);
+            var windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes";
+            window.open(varpage, windowname || "helpwindow", windowprops);
         }
 
         function reportWindow(page) {
-            windowprops = "height=660, width=960, location=no, scrollbars=yes, menubars=no, toolbars=no, resizable=yes, top=0, left=0";
+            var windowprops = "height=660, width=960, location=no, scrollbars=yes, menubars=no, toolbars=no, resizable=yes, top=0, left=0";
             var popup = window.open(page, "labreport", windowprops);
             popup.focus();
         }
 
         function checkSelected() {
-            aBoxIsChecked = false;
-            if (document.reassignForm.flaggedLabs.length == undefined) {
-                if (document.reassignForm.flaggedLabs.checked == true) {
-                    aBoxIsChecked = true;
-                }
+            var aBoxIsChecked = false;
+            var boxes = document.reassignForm.flaggedLabs;
+            if (boxes.length === undefined) {
+                if (boxes.checked) aBoxIsChecked = true;
             } else {
-                for (i = 0; i < document.reassignForm.flaggedLabs.length; i++) {
-                    if (document.reassignForm.flaggedLabs[i].checked == true) {
-                        aBoxIsChecked = true;
-                    }
+                for (var i = 0; i < boxes.length; i++) {
+                    if (boxes[i].checked) aBoxIsChecked = true;
                 }
             }
             if (aBoxIsChecked) {
-                popupStart(300, 400, '<%=request.getContextPath()%>/oscarMDS/ViewSelectProvider', 'providerselect');
+                popupStart(300, 400, '${ctx}/oscarMDS/ViewSelectProvider', 'providerselect');
             } else {
                 alert('<fmt:message key="oscarMDS.index.msgSelectOneLab"/>');
             }
         }
 
         function submitFile() {
-            console.log("File from: DemographicLab.jsp");
-            aBoxIsChecked = false;
-            if (document.reassignForm.flaggedLabs.length == undefined) {
-                if (document.reassignForm.flaggedLabs.checked == true) {
-                    aBoxIsChecked = true;
-                }
+            var aBoxIsChecked = false;
+            var boxes = document.reassignForm.flaggedLabs;
+            if (boxes.length === undefined) {
+                if (boxes.checked) aBoxIsChecked = true;
             } else {
-                for (i = 0; i < document.reassignForm.flaggedLabs.length; i++) {
-                    if (document.reassignForm.flaggedLabs[i].checked == true) {
-                        aBoxIsChecked = true;
-                    }
+                for (var i = 0; i < boxes.length; i++) {
+                    if (boxes[i].checked) aBoxIsChecked = true;
                 }
             }
             if (aBoxIsChecked) {
-                document.reassignForm.action = '<%=request.getContextPath()%>/oscarLab/FileLabs';
+                document.reassignForm.action = '${ctx}/oscarMDS/FileLabs';
                 document.reassignForm.submit();
             }
         }
@@ -187,235 +154,183 @@
         function checkAll(formId) {
             var f = document.getElementById(formId);
             var val = f.checkA.checked;
-            for (i = 0; i < f.flaggedLabs.length; i++) {
+            for (var i = 0; i < f.flaggedLabs.length; i++) {
                 f.flaggedLabs[i].checked = val;
             }
         }
-    </script>
 
-    <link rel="stylesheet" type="text/css"
-          href="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.css"/>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
-
-
-    <script>
-        $(function () {
+        jQuery(document).ready(function () {
+            jQuery('#labResultsTbl').DataTable({
+                searching: true,
+                pageLength: 25,
+                order: [[0, 'desc']],
+                language: {
+                    url: '${ctx}/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json'
+                }
+            });
         });
     </script>
-
-    <style>
-        .visLink {
-            color: white;
-        }
-    </style>
 </head>
 
-<body oldclass="BodyStyle" vlink="#0000FF">
-<form name="reassignForm" method="post" action="ReportReassign"
-      id="lab_form">
-    <table oldclass="MainTable" id="scrollNumber1" border="0"
-           name="encounterTable" cellspacing="0" cellpadding="3" width="100%">
-        <tr oldclass="MainTableTopRow">
-            <td class="MainTableTopRowRightColumn" colspan="9" align="left">
-                <table width="100%">
+<body>
+<div class="container-fluid mt-2">
+
+    <form name="reassignForm" method="post" action="${ctx}/oscarMDS/ReportReassign" id="lab_form">
+        <input type="hidden" name="providerNo" value="<carlos:encode value='<%= providerNo %>' context='htmlAttribute'/>">
+        <input type="hidden" name="searchProviderNo" value="<carlos:encode value='<%= searchProviderNo %>' context='htmlAttribute'/>">
+        <%= (request.getParameter("lname") == null ? "" : "<input type=\"hidden\" name=\"lname\" value=\"" + SafeEncode.forHtmlAttribute(request.getParameter("lname")) + "\">") %>
+        <%= (request.getParameter("fname") == null ? "" : "<input type=\"hidden\" name=\"fname\" value=\"" + SafeEncode.forHtmlAttribute(request.getParameter("fname")) + "\">") %>
+        <%= (request.getParameter("hnum") == null ? "" : "<input type=\"hidden\" name=\"hnum\" value=\"" + SafeEncode.forHtmlAttribute(request.getParameter("hnum")) + "\">") %>
+        <input type="hidden" name="status" value="<carlos:encode value='<%= ackStatus %>' context='htmlAttribute'/>">
+        <input type="hidden" name="selectedProviders">
+
+        <%-- Page header --%>
+        <div class="page-header-bar d-flex align-items-center justify-content-between py-2 mb-3 border-bottom" id="header">
+            <div class="d-flex align-items-center gap-2">
+                <i class="fa-solid fa-flask"></i>
+                <span class="fw-semibold">
+                    <c:choose>
+                        <c:when test="${not hasDemographicNo}">
+                            <c:choose>
+                                <c:when test="${ackStatus eq 'N'}"><fmt:message key="oscarMDS.index.msgNewLabReportsFor"/></c:when>
+                                <c:when test="${ackStatus eq 'A'}"><fmt:message key="oscarMDS.index.msgAcknowledgedLabReportsFor"/></c:when>
+                                <c:otherwise><fmt:message key="oscarMDS.index.msgAllLabReportsFor"/></c:otherwise>
+                            </c:choose>
+                            <c:choose>
+                                <c:when test="${empty searchProviderNo}"><fmt:message key="oscarMDS.index.msgAllPhysicians"/></c:when>
+                                <c:when test="${searchProviderNo eq '0'}"><fmt:message key="oscarMDS.index.msgUnclaimed"/></c:when>
+                                <c:otherwise><carlos:encode value='<%= ProviderData.getProviderName(searchProviderNo) %>' context="html"/></c:otherwise>
+                            </c:choose>
+                        </c:when>
+                        <c:otherwise><fmt:message key="oscarMDS.index.title"/></c:otherwise>
+                    </c:choose>
+                </span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <c:if test="${not hasDemographicNo}">
+                    <a class="btn btn-outline-secondary btn-sm" href="${ctx}/oscarMDS/ViewSearch?providerNo=<carlos:encode value='<%= providerNo %>' context='uriComponent'/>">
+                        <fmt:message key="oscarMDS.index.btnSearch"/>
+                    </a>
+                </c:if>
+                <c:if test="${hasFname}">
+                    <a class="btn btn-outline-secondary btn-sm" href="${ctx}/lab/ViewDemographicLab?providerNo=<carlos:encode value='<%= providerNo %>' context='uriComponent'/>">
+                        <fmt:message key="oscarMDS.index.btnDefaultView"/>
+                    </a>
+                </c:if>
+                <c:if test="${hasLabsAndNoDemographicNo}">
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="checkSelected()">
+                        <fmt:message key="oscarMDS.index.btnForward"/>
+                    </button>
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="submitFile()">
+                        <fmt:message key="oscarMDS.index.btnFile"/>
+                    </button>
+                    <span title="<fmt:message key="global.uploadWarningBody"/>" style="cursor:pointer">
+                        <img border="0" src="${ctx}/images/icon_alertsml.gif" alt="warning"/>
+                    </span>
+                </c:if>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="window.close()">
+                    <fmt:message key="oscarMDS.index.btnClose"/>
+                </button>
+            </div>
+        </div>
+
+        <div class="bg-light border rounded p-3">
+            <table id="labResultsTbl" class="table table-bordered table-hover table-sm">
+                <thead>
                     <tr>
-                        <td align="left" valign="center" width="30%"><input
-                                type="hidden" name="providerNo" value="<carlos:encode value='<%= providerNo %>' context="htmlAttribute"/>">
-                            <input type="hidden" name="searchProviderNo"
-                                   value="<carlos:encode value='<%= searchProviderNo %>' context="htmlAttribute"/>"> <%= (request.getParameter("lname") == null ? "" : "<input type=\"hidden\" name=\"lname\" value=\"" + SafeEncode.forHtmlAttribute(request.getParameter("lname")) + "\">") %>
-                            <%= (request.getParameter("fname") == null ? "" : "<input type=\"hidden\" name=\"fname\" value=\"" + SafeEncode.forHtmlAttribute(request.getParameter("fname")) + "\">") %>
-                            <%= (request.getParameter("hnum") == null ? "" : "<input type=\"hidden\" name=\"hnum\" value=\"" + SafeEncode.forHtmlAttribute(request.getParameter("hnum")) + "\">") %>
-                            <input type="hidden" name="status" value="<carlos:encode value='<%= ackStatus %>' context="htmlAttribute"/>">
-                            <input type="hidden" name="selectedProviders"> <% if (demographicNo == null) { %>
-                            <input type="button" class="smallButton"
-                                   value="<fmt:message key="oscarMDS.index.btnSearch"/>"
-                                   onClick="window.location='<%=request.getContextPath()%>/oscarMDS/ViewSearch?providerNo=<carlos:encode value='<%= providerNo %>' context="javaScriptAttribute"/>'">
-                            <% } %> <input type="button" class="smallButton"
-                                           value="<fmt:message key="oscarMDS.index.btnClose"/>"
-                                           onClick="window.close()">
+                        <c:if test="${hasLabsAndNoDemographicNo}">
+                            <th><input type="checkbox" id="checkA" name="checkA" onclick="checkAll('lab_form')"/></th>
+                        </c:if>
+                        <th><fmt:message key="oscarMDS.index.msgDateTest"/></th>
+                        <th><fmt:message key="oscarMDS.index.msgLabel"/></th>
+                        <th><fmt:message key="oscarMDS.index.msgRequestingClient"/></th>
+                        <th><fmt:message key="oscarMDS.index.msgResultStatus"/></th>
+                        <th><fmt:message key="oscarMDS.index.msgReportStatus"/></th>
+                        <th><fmt:message key="oscarMDS.index.msgDiscipline"/></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <%
+                        int colCount = (demographicNo == null) ? 7 : 6;
+                        if (labs.isEmpty()) {
+                    %>
+                    <tr>
+                        <td colspan="<%=colCount%>" class="text-center text-muted fst-italic">
+                            <fmt:message key="oscarMDS.index.msgNoReports"/>
+                        </td>
+                    </tr>
+                    <%
+                        } else {
+                            for (int i = 0; i < labs.size(); i++) {
+                                LabResultData result = (LabResultData) labs.get(i);
+                                String segmentID = (String) result.segmentID;
+                                String status = (String) result.acknowledgedStatus;
 
-                            <% if (demographicNo == null && request.getParameter("fname") != null) { %>
-                            <input type="button" class="smallButton"
-                                   value="<fmt:message key="oscarMDS.index.btnDefaultView"/>"
-                                   onClick="window.location='<%= request.getContextPath() %>/lab/ViewDemographicLab?providerNo=<carlos:encode value='<%= providerNo %>' context="javaScriptAttribute"/>'">
-                            <% } %> <% if (demographicNo == null && labs.size() > 0) { %>
-                            <!-- <input type="button" class="smallButton" value="Reassign" onClick="popupStart(300, 400, '/oscarMDS/ViewSelectProvider', 'providerselect')"> -->
-                            <input type="button" class="smallButton"
-                                   value="<fmt:message key="oscarMDS.index.btnForward"/>"
-                                   onClick="checkSelected()"> <input type="button"
-                                                                     class="smallButton" value="File"
-                                                                     onclick="submitFile()"/>
-                            <span title="<fmt:message key="global.uploadWarningBody"/>"
-                                  style="vertical-align:middle;font-family:arial;font-size:20px;font-weight:bold;color:#ABABAB;cursor:pointer"><img
-                                    border="0" src="<%= request.getContextPath() %>/images/icon_alertsml.gif"/></span></span>
+                                String rowClass = result.isMatchedToPatient() ? "" : "table-warning";
+                                if (result.isAbnormal()) rowClass = "table-danger";
 
+                                Date d1 = getServiceDate(loggedInInfo, result);
+                                String formattedDate = DateUtils.getDate(d1);
+                    %>
+                    <tr class="<%=rowClass%>">
+                        <%  if (demographicNo == null) { %>
+                        <td>
+                            <input type="checkbox" name="flaggedLabs" value="<carlos:encode value='<%= segmentID %>' context='htmlAttribute'/>"/>
+                        </td>
+                        <% } %>
+                        <td><%=SafeEncode.forHtmlContent(formattedDate)%></td>
+                        <td>
+                            <%
+                                String labUrl = null;
+                                String labLabel = null;
+                                if (result.isMDS()) {
+                                    labUrl = request.getContextPath() + "/oscarMDS/ViewSegmentDisplay?demographicId=" + SafeEncode.forUriComponent(demographicNo) + "&segmentID=" + SafeEncode.forUriComponent(segmentID) + "&providerNo=" + SafeEncode.forUriComponent(providerNo) + "&searchProviderNo=" + SafeEncode.forUriComponent(searchProviderNo) + "&status=" + SafeEncode.forUriComponent(status);
+                                    labLabel = StringUtils.trimToEmpty(result.getDiscipline());
+                                } else if (result.isCML()) {
+                                    labUrl = request.getContextPath() + "/lab/CA/ON/ViewCMLDisplay?demographicId=" + SafeEncode.forUriComponent(demographicNo) + "&segmentID=" + SafeEncode.forUriComponent(segmentID) + "&providerNo=" + SafeEncode.forUriComponent(providerNo) + "&searchProviderNo=" + SafeEncode.forUriComponent(searchProviderNo) + "&status=" + SafeEncode.forUriComponent(status);
+                                    labLabel = StringUtils.trimToEmpty(result.getDiscipline());
+                                } else if (result.isHL7TEXT()) {
+                                    labUrl = request.getContextPath() + "/lab/CA/ALL/ViewLabDisplay?demographicId=" + SafeEncode.forUriComponent(demographicNo) + "&segmentID=" + SafeEncode.forUriComponent(segmentID) + "&providerNo=" + SafeEncode.forUriComponent(providerNo) + "&searchProviderNo=" + SafeEncode.forUriComponent(searchProviderNo) + "&status=" + SafeEncode.forUriComponent(status);
+                                    labLabel = StringUtils.trimToEmpty(result.getLabel());
+                                } else {
+                                    labUrl = request.getContextPath() + "/lab/CA/BC/ViewLabDisplay?demographicId=" + SafeEncode.forUriComponent(demographicNo) + "&segmentID=" + SafeEncode.forUriComponent(segmentID) + "&providerNo=" + SafeEncode.forUriComponent(providerNo) + "&searchProviderNo=" + SafeEncode.forUriComponent(searchProviderNo) + "&status=" + SafeEncode.forUriComponent(status);
+                                    labLabel = StringUtils.trimToEmpty(result.getLabel());
+                                }
+                                if (labLabel == null || labLabel.isEmpty()) labLabel = StringUtils.trimToEmpty(result.getDiscipline());
+                            %>
+                            <a href="javascript:reportWindow('<%=SafeEncode.forJavaScript(labUrl)%>')">
+                                <%=SafeEncode.forHtmlContent(labLabel)%>
+                            </a>
+                        </td>
+                        <td><%=SafeEncode.forHtmlContent(StringUtils.trimToEmpty(result.getRequestingClient()))%></td>
+                        <td>
+                            <% if (result.isAbnormal()) { %>
+                            <span class="text-danger fw-semibold"><fmt:message key="oscarMDS.index.msgAbnormal"/></span>
                             <% } %>
                         </td>
-                        <td align="center" valign="center" width="40%" class="Nav">
-                            &nbsp;&nbsp;&nbsp; <% if (demographicNo == null) { %> <span
-                                class="white"> <% if (ackStatus.equals("N")) {%> <fmt:message key="oscarMDS.index.msgNewLabReportsFor"/> <%} else if (ackStatus.equals("A")) {%>
-				<fmt:message key="oscarMDS.index.msgAcknowledgedLabReportsFor"/> <%} else {%>
-				<fmt:message key="oscarMDS.index.msgAllLabReportsFor"/> <%}%>&nbsp;
-				<% if (searchProviderNo.equals("")) {%> <fmt:message key="oscarMDS.index.msgAllPhysicians"/> <%} else if (searchProviderNo.equals("0")) {%>
-				<fmt:message key="oscarMDS.index.msgUnclaimed"/> <%} else {%> <carlos:encode value='<%= ProviderData.getProviderName(searchProviderNo) %>' context="html"/>
-				<%}%> &nbsp;&nbsp;&nbsp; Page : <%=pageNum%> </span> <% } %>
+                        <td>
+                            <% if (result.isFinal()) { %>
+                            <fmt:message key="oscarMDS.index.msgFinal"/>
+                            <% } else { %>
+                            <fmt:message key="oscarMDS.index.msgPartial"/>
+                            <% } %>
                         </td>
-                        <td align="right" valign="center" width="30%"><a
-                                href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewAbout')"><fmt:message key="global.about"/></a></td>
+                        <td><%=SafeEncode.forHtmlContent(StringUtils.trimToEmpty(result.getDiscipline()))%></td>
                     </tr>
-                </table>
-            </td>
-        </tr>
-        <tr>
-            <th class="cell"><fmt:message key="oscarMDS.index.msgDateTest"/></th>
-            <th class="cell">
-                <fmt:message key="oscarMDS.index.msgLabel"/>
-            </th>
-            <th class="cell"><fmt:message key="oscarMDS.index.msgRequestingClient"/></th>
-            <th class="cell"><fmt:message key="oscarMDS.index.msgResultStatus"/></th>
+                    <%
+                            }
+                        }
+                    %>
+                </tbody>
+            </table>
+        </div><%-- end bg-light --%>
 
-            <th class="cell"><fmt:message key="oscarMDS.index.msgReportStatus"/></th>
-            <th class="cell">
-                <fmt:message key="oscarMDS.index.msgDiscipline"/>
-            </th>
-        </tr>
+    </form>
 
-        <%
-            int startIndex = 0;
-            if (request.getParameter("startIndex") != null) {
-                startIndex = Integer.parseInt(request.getParameter("startIndex"));
-            }
-            int endIndex = startIndex + 20;
-            if (labs.size() < endIndex) {
-                endIndex = labs.size();
-            }
-
-            for (int i = startIndex; i < endIndex; i++) {
-
-
-                result = (LabResultData) labs.get(i);
-
-                String segmentID = (String) result.segmentID;
-                String status = (String) result.acknowledgedStatus;
-
-                String resultStatus = (String) result.resultStatus;
-
-                String bgcolor = i % 2 == 0 ? "#e0e0ff" : "#ccccff";
-                if (!result.isMatchedToPatient()) {
-                    bgcolor = "#FFCC00";
-                }
-        %>
-
-        <tr bgcolor="<%=bgcolor%>" class="<%= (result.isAbnormal() ? "AbnormalRes" : "NormalRes" ) %>">
-            <td>
-                <%
-                    Date d1 = getServiceDate(loggedInInfo, result);
-                    String formattedDate = DateUtils.getDate(d1);
-
-                %>
-                <%=formattedDate %>
-            </td>
-            <td>
-                <%
-                    if (result.isMDS()) { %> <a
-                    href="javascript:reportWindow('<%= request.getContextPath() %>/oscarMDS/ViewSegmentDisplay?demographicId=<carlos:encode value='<%= demographicNo %>' context="javaScriptAttribute"/>&segmentID=<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>&providerNo=<carlos:encode value='<%= providerNo %>' context="javaScriptAttribute"/>&searchProviderNo=<carlos:encode value='<%= searchProviderNo %>' context="javaScriptAttribute"/>&status=<carlos:encode value='<%= status %>' context="javaScriptAttribute"/>')"><%= result.getDiscipline()%>
-            </a>
-                <% } else if (result.isCML()) { %> <a
-                    href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ON/ViewCMLDisplay?demographicId=<carlos:encode value='<%= demographicNo %>' context="javaScriptAttribute"/>&segmentID=<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>&providerNo=<carlos:encode value='<%= providerNo %>' context="javaScriptAttribute"/>&searchProviderNo=<carlos:encode value='<%= searchProviderNo %>' context="javaScriptAttribute"/>&status=<carlos:encode value='<%= status %>' context="javaScriptAttribute"/>')"><%=(String) result.getDiscipline()%>
-            </a>
-                <% } else if (result.isHL7TEXT()) {%>
-                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ALL/ViewLabDisplay?demographicId=<carlos:encode value='<%= demographicNo %>' context="javaScriptAttribute"/>&segmentID=<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>&providerNo=<carlos:encode value='<%= providerNo %>' context="javaScriptAttribute"/>&searchProviderNo=<carlos:encode value='<%= searchProviderNo %>' context="javaScriptAttribute"/>&status=<carlos:encode value='<%= status %>' context="javaScriptAttribute"/>')">
-                    <carlos:encode value='<%= StringUtils.trimToEmpty(result.getLabel()) %>' context="html"/>
-                </a>
-                <% } else {%>
-                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/BC/ViewLabDisplay?demographicId=<carlos:encode value='<%= demographicNo %>' context="javaScriptAttribute"/>&segmentID=<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>&providerNo=<carlos:encode value='<%= providerNo %>' context="javaScriptAttribute"/>&searchProviderNo=<carlos:encode value='<%= searchProviderNo %>' context="javaScriptAttribute"/>&status=<carlos:encode value='<%= status %>' context="javaScriptAttribute"/>')">
-                    <carlos:encode value='<%= StringUtils.trimToEmpty(result.getLabel()) %>' context="html"/>
-                </a>
-                <% }%>
-            </td>
-
-            <td><carlos:encode value='<%= StringUtils.trimToEmpty(result.getRequestingClient()) %>' context="html"/>
-            </td>
-            <td><%= (result.isAbnormal() ? "Abnormal" : "") %>
-            </td>
-
-            <!--td >
-                    <%= result.getPriority()%>
-                </td-->
-
-
-            <td><%= ((result.isFinal() ? "Final" : "Partial"))%>
-            </td>
-            <td><%=StringUtils.trimToEmpty(result.getDiscipline()) %>
-            </td>
-        </tr>
-        <% }
-
-            if (endIndex == 0) { %>
-        <tr>
-            <td colspan="9" align="center"><i><fmt:message key="oscarMDS.index.msgNoReports"/></i></td>
-        </tr>
-        <% } %>
-        <tr class="MainTableBottomRow">
-            <td class="MainTableBottomRowRightColumn" bgcolor="#003399"
-                colspan="9" align="left">
-                <table width="100%">
-                    <tr>
-                        <td align="left" valign="middle" width="30%">
-                            <% if (demographicNo == null) { %> <input type="button"
-                                                                      class="smallButton"
-                                                                      value="<fmt:message key="oscarMDS.index.btnSearch"/>"
-                                                                      onClick="window.location='<%=request.getContextPath()%>/oscarMDS/ViewSearch?providerNo=<carlos:encode value='<%= providerNo %>' context="javaScriptAttribute"/>'">
-                            <% } %> <input type="button" class="smallButton"
-                                           value="<fmt:message key="oscarMDS.index.btnClose"/>"
-                                           onClick="window.close()"> <% if (request.getParameter("fname") != null) { %>
-                            <input type="button" class="smallButton"
-                                   value="<fmt:message key="oscarMDS.index.btnDefaultView"/>"
-                                   onClick="window.location='<%= request.getContextPath() %>/lab/ViewDemographicLab?providerNo=<carlos:encode value='<%= providerNo %>' context="javaScriptAttribute"/>'">
-                            <% } %> <% if (demographicNo == null && labs.size() > 0) { %>
-                            <!-- <input type="button" class="smallButton" value="Reassign" onClick="popupStart(300, 400, '/oscarMDS/ViewSelectProvider', 'providerselect')"> -->
-                            <input type="button" class="smallButton"
-                                   value="<fmt:message key="oscarMDS.index.btnForward"/>"
-                                   onClick="checkSelected()"> <input type="button"
-                                                                     class="smallButton" value="File"
-                                                                     onclick="submitFile()"/> <% } %>
-                        </td>
-                        <td align="center" valign="middle" width="40%">
-                            <div class="Nav">
-                                <% if (pageNum > 1 || labs.size() > endIndex) {
-                                    if (pageNum > 1) { %> <a class="visLink"
-                                                             href="<%= request.getContextPath() %>/lab/ViewDemographicLab?providerNo=<carlos:encode value='<%= providerNo %>' context="uriComponent"/><%= (demographicNo == null ? "" : "&demographicNo="+SafeEncode.forUriComponent(demographicNo)) %>&searchProviderNo=<carlos:encode value='<%= searchProviderNo %>' context="uriComponent"/>&status=<carlos:encode value='<%= ackStatus %>' context="uriComponent"/><%= (request.getParameter("lname") == null ? "" : "&lname="+SafeEncode.forUriComponent(request.getParameter("lname"))) %><%= (request.getParameter("fname") == null ? "" : "&fname="+SafeEncode.forUriComponent(request.getParameter("fname"))) %><%= (request.getParameter("hnum") == null ? "" : "&hnum="+SafeEncode.forUriComponent(request.getParameter("hnum"))) %>&pageNum=<%=pageNum-1%>&startIndex=<%=startIndex-20%>"><
-                                <fmt:message key="oscarMDS.index.msgPrevious"/></a> <% } else { %>
-                                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                                <% } %> <%
-                                int count = 1;
-                                for (int i = 0; i < labs.size(); i = i + 20) {
-                            %>
-                                <a style="text-decoration: none;" class="visLink"
-                                   href="<%= request.getContextPath() %>/lab/ViewDemographicLab?providerNo=<carlos:encode value='<%= providerNo %>' context="uriComponent"/><%= (demographicNo == null ? "" : "&demographicNo="+SafeEncode.forUriComponent(demographicNo)) %>&searchProviderNo=<carlos:encode value='<%= searchProviderNo %>' context="uriComponent"/>&status=<carlos:encode value='<%= ackStatus %>' context="uriComponent"/><%= (request.getParameter("lname") == null ? "" : "&lname="+SafeEncode.forUriComponent(request.getParameter("lname"))) %><%= (request.getParameter("fname") == null ? "" : "&fname="+SafeEncode.forUriComponent(request.getParameter("fname"))) %><%= (request.getParameter("hnum") == null ? "" : "&hnum="+SafeEncode.forUriComponent(request.getParameter("hnum"))) %>&pageNum=<%=count%>&startIndex=<%=i%>">[<%=count%>
-                                    ]</a>
-                                <%
-                                        count++;
-                                    }
-                                %> <% if (labs.size() > endIndex) { %>
-                                <a
-                                        class="visLink"
-                                        href="<%= request.getContextPath() %>/lab/ViewDemographicLab?providerNo=<carlos:encode value='<%= providerNo %>' context="uriComponent"/><%= (demographicNo == null ? "" : "&demographicNo="+SafeEncode.forUriComponent(demographicNo)) %>&searchProviderNo=<carlos:encode value='<%= searchProviderNo %>' context="uriComponent"/>&status=<carlos:encode value='<%= ackStatus %>' context="uriComponent"/><%= (request.getParameter("lname") == null ? "" : "&lname="+SafeEncode.forUriComponent(request.getParameter("lname"))) %><%= (request.getParameter("fname") == null ? "" : "&fname="+SafeEncode.forUriComponent(request.getParameter("fname"))) %><%= (request.getParameter("hnum") == null ? "" : "&hnum="+SafeEncode.forUriComponent(request.getParameter("hnum"))) %>&pageNum=<%=pageNum+1%>&startIndex=<%=startIndex+20%>"><fmt:message key="oscarMDS.index.msgNext"/> ></a> <% } else { %>
-                                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                                <% }
-                                } %>
-                            </div>
-                        </td>
-                        <td align="right" width="30%">&nbsp;</td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
-</form>
+</div><%-- end container-fluid --%>
 </body>
 </html>
+
 <%!
     public Date getServiceDate(LoggedInInfo loggedInInfo, LabResultData labData) {
         EctDisplayLabAction2.ServiceDateLoader loader = new EctDisplayLabAction2.ServiceDateLoader(labData);
@@ -433,10 +348,8 @@
             if (allLabIds.contains(lab.getSegmentID())) {
                 continue;
             }
-
             String[] allLabVersionIdsOfLab = Hl7textResultsData.getMatchingLabs(lab.getSegmentID()).split(",");
             allLabIds.addAll(Arrays.asList(allLabVersionIdsOfLab));
-
             for (LabResultData labResultData : labs) {
                 if (allLabVersionIdsOfLab[allLabVersionIdsOfLab.length - 1].equals(labResultData.getSegmentID())) {
                     latestLabVersions.add(labResultData);
