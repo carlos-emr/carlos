@@ -42,7 +42,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * {@code billingDigUpdate.jsp}, {@code billingON_dx_desc.jsp}.
  * All four hit {@link DiagnosticCodeDao}; this assembler owns the four
  * inline {@code SpringUtils.getBean(DiagnosticCodeDao)} lookups the JSPs
- * used to perform.
+ * used to perform for reads.
  *
  * <p>Each page picks up its specific result via a dedicated assemble
  * method ({@link #assembleSearch}, {@link #assembleAjax},
@@ -193,26 +193,11 @@ public class BillingDiagCodeViewModelAssembler {
     }
 
     /**
-     * Description-edit mutation for {@code billingDigUpdate.jsp}.
-     * Cleaves the last 3 characters off the {@code update} submit-button
-     * value to derive the dx code (legacy JSP behavior — ICD-9 codes are
-     * 3-digit prefixes), then merges the new description.
+     * Description-edit result for {@code billingDigUpdate.jsp}. The action
+     * layer performs the mutation before handing this assembler the outcome.
      */
-    public BillingDiagCodeUpdateViewModel assembleUpdate(String submitValue, String newDescription) {
-        if (submitValue == null || submitValue.length() < 3) {
-            return BillingDiagCodeUpdateViewModel.builder().error(true).build();
-        }
-        String code = submitValue.substring(submitValue.length() - 3);
-        try {
-            for (DiagnosticCode dcode : diagnosticCodeDao.findByDiagnosticCode(code)) {
-                dcode.setDescription(newDescription);
-                diagnosticCodeDao.merge(dcode);
-            }
-            return BillingDiagCodeUpdateViewModel.builder().build();
-        } catch (RuntimeException ex) {
-            MiscUtils.getLogger().error("Diagnostic code update failed for {}", code, ex);
-            return BillingDiagCodeUpdateViewModel.builder().error(true).build();
-        }
+    public BillingDiagCodeUpdateViewModel assembleUpdate(boolean error) {
+        return BillingDiagCodeUpdateViewModel.builder().error(error).build();
     }
 
     /**

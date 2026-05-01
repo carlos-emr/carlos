@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.billings.ca.on.service.DiagCodeDescriptionPersister;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingDiagCodeUpdateViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -37,10 +38,9 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingDiagCodeViewM
  * diagnostic-code description-update popup.
  *
  * <p>Enforces {@code _billing w} privilege AND POST-only. The
- * {@link BillingDiagCodeViewModelAssembler#assembleUpdate} call performs the
- * {@code DiagnosticCodeDao.merge} mutation that the JSP scriptlet used
- * to run mid-render; the JSP just renders the resulting success/error
- * banner.</p>
+ * {@link DiagCodeDescriptionPersister} performs the
+ * {@code DiagnosticCodeDao.merge} mutation before the assembler builds the
+ * success/error banner model.</p>
  *
  * @since 2026-04-13
  */
@@ -49,11 +49,14 @@ public class BillingDiagUpdate2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
 
     private final BillingDiagCodeViewModelAssembler billingDxCodeAssembler;
+    private final DiagCodeDescriptionPersister diagCodeDescriptionPersister;
 
     public BillingDiagUpdate2Action(SecurityInfoManager securityInfoManager,
-                                    BillingDiagCodeViewModelAssembler billingDxCodeAssembler) {
+                                    BillingDiagCodeViewModelAssembler billingDxCodeAssembler,
+                                    DiagCodeDescriptionPersister diagCodeDescriptionPersister) {
         this.securityInfoManager = securityInfoManager;
         this.billingDxCodeAssembler = billingDxCodeAssembler;
+        this.diagCodeDescriptionPersister = diagCodeDescriptionPersister;
     }
     @Override
     public String execute() throws Exception {
@@ -78,8 +81,8 @@ public class BillingDiagUpdate2Action extends ActionSupport {
                 ? "" : submitValue.substring(submitValue.length() - 3);
         String newDescription = request.getParameter(code);
 
-        BillingDiagCodeUpdateViewModel model = billingDxCodeAssembler
-                .assembleUpdate(submitValue, newDescription);
+        boolean updated = diagCodeDescriptionPersister.updateDescription(submitValue, newDescription);
+        BillingDiagCodeUpdateViewModel model = billingDxCodeAssembler.assembleUpdate(!updated);
         request.setAttribute("digUpdateModel", model);
 
         return SUCCESS;

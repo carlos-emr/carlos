@@ -29,8 +29,8 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
-    // BillingDiagUpdate2Action enforces _billing w + POST. The assembler
-    // already ran the DiagnosticCodeDao.merge mutation; this JSP just
+    // BillingDiagUpdate2Action enforces _billing w + POST and runs the
+    // DiagnosticCodeDao.merge mutation through a persister; this JSP just
     // shows the success/error banner. Defensive fallback: if a caller forwards
     // here without going through the action, show the error banner — never
     // re-trigger the mutation.

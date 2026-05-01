@@ -22,6 +22,8 @@
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
+import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingPercLimitDao;
+import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingPercLimit;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -36,6 +38,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -55,12 +58,14 @@ import static org.mockito.Mockito.when;
 class ServiceCodePersisterUnitTest {
 
     private BillingServiceDao dao;
+    private BillingPercLimitDao percLimitDao;
     private ServiceCodePersister persister;
 
     @BeforeEach
     void setUp() {
         dao = mock(BillingServiceDao.class);
-        persister = new ServiceCodePersister(dao);
+        percLimitDao = mock(BillingPercLimitDao.class);
+        persister = new ServiceCodePersister(dao, percLimitDao);
     }
 
     @Test
@@ -176,5 +181,76 @@ class ServiceCodePersisterUnitTest {
 
         assertThat(updated).isZero();
         verify(dao, never()).merge(any(BillingService.class));
+    }
+
+    @Test
+    void shouldUpdateServiceCodeAndPercLimit_whenAddEditSaveEditsExistingCode() {
+        BillingService existing = new BillingService();
+        existing.setServiceCode("A001A");
+        existing.setDescription("Old");
+        when(dao.find(17)).thenReturn(existing);
+        BillingPercLimit limit = new BillingPercLimit();
+        when(percLimitDao.findByServiceCode("A001A")).thenReturn(List.of(limit));
+        when(percLimitDao.findByServiceCodeAndEffectiveDate(any(), any())).thenReturn(limit);
+
+        ServiceCodePersister.AddEditServiceCodeRequest request = new ServiceCodePersister.AddEditServiceCodeRequest(
+                "Save", "editA001A", "A001A", "17", "New description", "12.34", "10",
+                "2026-05-01", "9999-12-31", true, "-1", "01", "09");
+
+        ServiceCodePersister.AddEditServiceCodeResult result = persister.saveOrAdd(request);
+
+        assertThat(result.alert()).isEqualTo("success");
+        assertThat(result.action()).isEqualTo("search");
+        assertThat(result.prop().getProperty("service_code")).isEqualTo("A001A");
+        assertThat(existing.getDescription()).isEqualTo("New description");
+        assertThat(existing.getValue()).isEqualTo("12.34");
+        assertThat(existing.getPercentage()).isEqualTo("10");
+        assertThat(existing.getSliFlag()).isTrue();
+        assertThat(limit.getMin()).isEqualTo("01");
+        assertThat(limit.getMax()).isEqualTo("09");
+        verify(dao).merge(same(existing));
+        verify(percLimitDao).merge(same(limit));
+    }
+
+    @Test
+    void shouldPersistServiceCodeAndPercLimit_whenAddEditSaveAddsNewCode() {
+        when(dao.findByServiceCodeAndDate(any(), any())).thenReturn(Collections.emptyList());
+
+        ServiceCodePersister.AddEditServiceCodeRequest request = new ServiceCodePersister.AddEditServiceCodeRequest(
+                "Add Service Code", "addA002A", "A002A", null, "New code", "22.50", "12",
+                "2026-05-01", "9999-12-31", false, "-1", "02", "08");
+
+        ServiceCodePersister.AddEditServiceCodeResult result = persister.saveOrAdd(request);
+
+        assertThat(result.alert()).isEqualTo("success");
+        assertThat(result.message()).contains("A002A").contains("added");
+        ArgumentCaptor<BillingService> serviceCaptor = ArgumentCaptor.forClass(BillingService.class);
+        ArgumentCaptor<BillingPercLimit> limitCaptor = ArgumentCaptor.forClass(BillingPercLimit.class);
+        verify(dao).persist(serviceCaptor.capture());
+        verify(percLimitDao).persist(limitCaptor.capture());
+        assertThat(serviceCaptor.getValue().getServiceCode()).isEqualTo("A002A");
+        assertThat(serviceCaptor.getValue().getDescription()).isEqualTo("New code");
+        assertThat(serviceCaptor.getValue().getValue()).isEqualTo("22.50");
+        assertThat(limitCaptor.getValue().getService_code()).isEqualTo("A002A");
+        assertThat(limitCaptor.getValue().getMin()).isEqualTo("02");
+        assertThat(limitCaptor.getValue().getMax()).isEqualTo("08");
+    }
+
+    @Test
+    void shouldReturnDuplicateDateResultAndNotPersistService_whenAddEditAddFindsSameDate() {
+        BillingService duplicate = new BillingService();
+        when(dao.findByServiceCodeAndDate(any(), any())).thenReturn(List.of(duplicate));
+
+        ServiceCodePersister.AddEditServiceCodeRequest request = new ServiceCodePersister.AddEditServiceCodeRequest(
+                "Add Service Code", "addA003A", "A003A", null, "Duplicate", "33.00", "",
+                "2026-05-01", "9999-12-31", false, "-1", "", "");
+
+        ServiceCodePersister.AddEditServiceCodeResult result = persister.saveOrAdd(request);
+
+        assertThat(result.alert()).isEqualTo("error");
+        assertThat(result.action()).isEqualTo("editA003A");
+        assertThat(result.action2()).isEqualTo("addA003A");
+        assertThat(result.message()).contains("entry for this Issue Date");
+        verify(dao, never()).persist(any(BillingService.class));
     }
 }

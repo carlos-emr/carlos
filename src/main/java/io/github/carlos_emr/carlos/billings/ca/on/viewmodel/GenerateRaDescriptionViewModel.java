@@ -41,8 +41,8 @@ import java.util.List;
  *
  * <p>Eliminates the 3 inline {@code SpringUtils.getBean} lookups the JSP
  * used to perform across its scriptlet body (RaHeaderDao, BillingONPremiumDao,
- * ProviderDao) plus the RA-file parsing and the per-RA-header DB merge that
- * lived inline.</p>
+ * ProviderDao) plus the RA-file parsing projection that lived inline. Header
+ * writes are handled by {@code RaHeaderTotalsPersister} before rendering.</p>
  *
  * @since 2026-04-26
  */

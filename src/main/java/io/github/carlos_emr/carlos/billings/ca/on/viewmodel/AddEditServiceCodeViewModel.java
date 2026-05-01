@@ -35,8 +35,9 @@ import java.util.Properties;
  * paths (Search / Save / "Add Service Code") with two mutation DAOs
  * ({@link io.github.carlos_emr.carlos.commn.dao.BillingServiceDao}
  * and {@link io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingPercLimitDao})
- * plus a CSS-styles dropdown lookup. The action layer now performs all
- * of that and hands the JSP this read-only model.</p>
+ * plus a CSS-styles dropdown lookup. The action layer now performs mutations
+ * through {@code ServiceCodePersister}; the assembler hands the JSP this
+ * read-only model.</p>
  *
  * <p>Eliminates the 4 inline {@code SpringUtils.getBean} lookups
  * (BillingServiceDao, BillingPercLimitDao, plus CSSStylesDAO twice).</p>

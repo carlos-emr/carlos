@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.billings.ca.on.service.RaHeaderTotalsPersister;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.GenerateRaDescriptionViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -37,9 +38,9 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.GenerateRaDescriptio
  * (Remittance Advice) reconciliation report.
  *
  * <p>Enforces {@code _billing w} privilege AND POST-only (the JSP-era
- * scriptlet performed RA-header merge + premium parsing during render —
- * still mutation-on-render, just hoisted into
- * {@link GenerateRaDescriptionViewModelAssembler}).</p>
+ * scriptlet performed RA-header merge + premium parsing during render; those
+ * writes now run through {@link RaHeaderTotalsPersister} before the read-only
+ * assembler builds the JSP model).</p>
  *
  * <p>The assembler call replaces the 3 inline {@code SpringUtils.getBean}
  * lookups (RaHeaderDao, BillingONPremiumDao, ProviderDao) the JSP used to
@@ -52,11 +53,14 @@ public class ViewGenRaDesc2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
 
     private final GenerateRaDescriptionViewModelAssembler genRADescAssembler;
+    private final RaHeaderTotalsPersister raHeaderTotalsPersister;
 
     public ViewGenRaDesc2Action(SecurityInfoManager securityInfoManager,
-                                 GenerateRaDescriptionViewModelAssembler genRADescAssembler) {
+                                 GenerateRaDescriptionViewModelAssembler genRADescAssembler,
+                                 RaHeaderTotalsPersister raHeaderTotalsPersister) {
         this.securityInfoManager = securityInfoManager;
         this.genRADescAssembler = genRADescAssembler;
+        this.raHeaderTotalsPersister = raHeaderTotalsPersister;
     }
     @Override
     public String execute() throws Exception {
@@ -73,9 +77,20 @@ public class ViewGenRaDesc2Action extends ActionSupport {
             return NONE;
         }
 
+        raHeaderTotalsPersister.refreshDescriptionHeaderAndPremiums(
+                loggedInInfo, parseInt(request.getParameter("rano")), request.getLocale());
         GenerateRaDescriptionViewModel model = genRADescAssembler.assemble(request, loggedInInfo);
         request.setAttribute("raDescModel", model);
 
         return SUCCESS;
+    }
+
+    private static Integer parseInt(String s) {
+        if (s == null) return null;
+        try {
+            return Integer.valueOf(s);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 }

@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingDiagCodeViewModelAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.service.DiagCodeDescriptionPersister;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingDiagCodeUpdateViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -44,6 +45,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -72,6 +74,7 @@ class BillingDiagUpdate2ActionUnitTest extends CarlosUnitTestBase {
     @Mock private SecurityInfoManager mockSecurityInfoManager;
     @Mock private LoggedInInfo mockLoggedInInfo;
     @Mock private BillingDiagCodeViewModelAssembler mockAssembler;
+    @Mock private DiagCodeDescriptionPersister mockPersister;
 
     private MockHttpServletRequest mockRequest;
     private MockHttpServletResponse mockResponse;
@@ -104,16 +107,20 @@ class BillingDiagUpdate2ActionUnitTest extends CarlosUnitTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(true);
         BillingDiagCodeUpdateViewModel vm = mock(BillingDiagCodeUpdateViewModel.class);
-        when(mockAssembler.assembleUpdate(anyString(), any())).thenReturn(vm);
+        when(mockPersister.updateDescription(anyString(), any())).thenReturn(true);
+        when(mockAssembler.assembleUpdate(false)).thenReturn(vm);
 
         mockRequest.setParameter("update", "update001");
         mockRequest.setParameter("001", "Acute infection");
 
-        BillingDiagUpdate2Action action = new BillingDiagUpdate2Action(mockSecurityInfoManager, mockAssembler);
+        BillingDiagUpdate2Action action = new BillingDiagUpdate2Action(
+                mockSecurityInfoManager, mockAssembler, mockPersister);
 
         assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
         assertThat(mockRequest.getAttribute("digUpdateModel")).isSameAs(vm);
         verify(mockSecurityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull());
+        verify(mockPersister).updateDescription("update001", "Acute infection");
+        verify(mockAssembler).assembleUpdate(false);
     }
 
     @Test
@@ -121,7 +128,8 @@ class BillingDiagUpdate2ActionUnitTest extends CarlosUnitTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(false);
 
-        BillingDiagUpdate2Action action = new BillingDiagUpdate2Action(mockSecurityInfoManager, mockAssembler);
+        BillingDiagUpdate2Action action = new BillingDiagUpdate2Action(
+                mockSecurityInfoManager, mockAssembler, mockPersister);
 
         assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
@@ -133,10 +141,12 @@ class BillingDiagUpdate2ActionUnitTest extends CarlosUnitTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(false);
 
-        BillingDiagUpdate2Action action = new BillingDiagUpdate2Action(mockSecurityInfoManager, mockAssembler);
+        BillingDiagUpdate2Action action = new BillingDiagUpdate2Action(
+                mockSecurityInfoManager, mockAssembler, mockPersister);
 
         assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
-        verify(mockAssembler, never()).assembleUpdate(anyString(), any());
+        verify(mockPersister, never()).updateDescription(anyString(), any());
+        verify(mockAssembler, never()).assembleUpdate(anyBoolean());
     }
 
     @Test
@@ -145,10 +155,12 @@ class BillingDiagUpdate2ActionUnitTest extends CarlosUnitTestBase {
                 .thenReturn(true);
         mockRequest.setMethod("GET");
 
-        BillingDiagUpdate2Action action = new BillingDiagUpdate2Action(mockSecurityInfoManager, mockAssembler);
+        BillingDiagUpdate2Action action = new BillingDiagUpdate2Action(
+                mockSecurityInfoManager, mockAssembler, mockPersister);
 
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(405);
-        verify(mockAssembler, never()).assembleUpdate(anyString(), any());
+        verify(mockPersister, never()).updateDescription(anyString(), any());
+        verify(mockAssembler, never()).assembleUpdate(anyBoolean());
     }
 }

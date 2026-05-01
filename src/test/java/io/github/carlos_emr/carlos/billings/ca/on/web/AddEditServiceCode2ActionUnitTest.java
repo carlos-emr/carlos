@@ -22,6 +22,9 @@
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingPercLimitDao;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.AddEditServiceCodeViewModelAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.service.ServiceCodePersister;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.AddEditServiceCodeViewModel;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.CSSStylesDAO;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -49,7 +52,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -81,6 +87,12 @@ class AddEditServiceCode2ActionUnitTest extends CarlosUnitTestBase {
     @Mock
     private LoggedInInfo mockLoggedInInfo;
 
+    @Mock
+    private AddEditServiceCodeViewModelAssembler mockAssembler;
+
+    @Mock
+    private ServiceCodePersister mockServiceCodePersister;
+
     private MockHttpServletRequest mockRequest;
     private MockHttpServletResponse mockResponse;
 
@@ -109,6 +121,11 @@ class AddEditServiceCode2ActionUnitTest extends CarlosUnitTestBase {
 
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.billing"), eq("w"), isNull()))
                 .thenReturn(true);
+        when(mockAssembler.assemble(any(HttpServletRequest.class), any(LoggedInInfo.class),
+                any(ServiceCodePersister.AddEditServiceCodeResult.class)))
+                .thenReturn(AddEditServiceCodeViewModel.builder().build());
+        when(mockAssembler.assemble(any(HttpServletRequest.class), any(LoggedInInfo.class), isNull()))
+                .thenReturn(AddEditServiceCodeViewModel.builder().build());
     }
 
     @AfterEach
@@ -120,8 +137,11 @@ class AddEditServiceCode2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldReturnSuccess_whenAuthorizedGetWithoutMutationIntent() throws Exception {
-        AddEditServiceCode2Action action = new AddEditServiceCode2Action(mockSecurityInfoManager, org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.assembler.AddEditServiceCodeViewModelAssembler.class));
+        AddEditServiceCode2Action action = new AddEditServiceCode2Action(
+                mockSecurityInfoManager, mockAssembler, mockServiceCodePersister);
         assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(mockServiceCodePersister, never()).saveOrAdd(any());
+        verify(mockAssembler).assemble(any(HttpServletRequest.class), same(mockLoggedInInfo), isNull());
     }
 
     @Test
@@ -129,8 +149,30 @@ class AddEditServiceCode2ActionUnitTest extends CarlosUnitTestBase {
         mockRequest.setMethod("POST");
         mockRequest.setParameter("action", "delete");
 
-        AddEditServiceCode2Action action = new AddEditServiceCode2Action(mockSecurityInfoManager, org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.assembler.AddEditServiceCodeViewModelAssembler.class));
+        AddEditServiceCode2Action action = new AddEditServiceCode2Action(
+                mockSecurityInfoManager, mockAssembler, mockServiceCodePersister);
         assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(mockServiceCodePersister, never()).saveOrAdd(any());
+    }
+
+    @Test
+    void shouldCallPersisterBeforeAssembler_whenAuthorizedPostWithSaveIntent() throws Exception {
+        mockRequest.setMethod("POST");
+        mockRequest.setParameter("submitFrm", "Save");
+        mockRequest.setParameter("action", "editA001A");
+        mockRequest.setParameter("service_code", "A001A");
+
+        ServiceCodePersister.AddEditServiceCodeResult result =
+                new ServiceCodePersister.AddEditServiceCodeResult(
+                        "success", "updated", "search", "", new java.util.Properties(), java.util.Map.of());
+        when(mockServiceCodePersister.saveOrAdd(any())).thenReturn(result);
+
+        AddEditServiceCode2Action action = new AddEditServiceCode2Action(
+                mockSecurityInfoManager, mockAssembler, mockServiceCodePersister);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(mockServiceCodePersister).saveOrAdd(any(ServiceCodePersister.AddEditServiceCodeRequest.class));
+        verify(mockAssembler).assemble(any(HttpServletRequest.class), same(mockLoggedInInfo), same(result));
     }
 
     @Test
@@ -140,7 +182,8 @@ class AddEditServiceCode2ActionUnitTest extends CarlosUnitTestBase {
         // here so a future drop of the header surfaces as a test failure.
         mockRequest.setParameter("action", "delete");
 
-        AddEditServiceCode2Action action = new AddEditServiceCode2Action(mockSecurityInfoManager, org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.assembler.AddEditServiceCodeViewModelAssembler.class));
+        AddEditServiceCode2Action action = new AddEditServiceCode2Action(
+                mockSecurityInfoManager, mockAssembler, mockServiceCodePersister);
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
@@ -154,7 +197,8 @@ class AddEditServiceCode2ActionUnitTest extends CarlosUnitTestBase {
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(null);
 
-        AddEditServiceCode2Action action = new AddEditServiceCode2Action(mockSecurityInfoManager, org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.assembler.AddEditServiceCodeViewModelAssembler.class));
+        AddEditServiceCode2Action action = new AddEditServiceCode2Action(
+                mockSecurityInfoManager, mockAssembler, mockServiceCodePersister);
         assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("missing session");
@@ -165,7 +209,8 @@ class AddEditServiceCode2ActionUnitTest extends CarlosUnitTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.billing"), eq("w"), isNull()))
                 .thenReturn(false);
 
-        AddEditServiceCode2Action action = new AddEditServiceCode2Action(mockSecurityInfoManager, org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.assembler.AddEditServiceCodeViewModelAssembler.class));
+        AddEditServiceCode2Action action = new AddEditServiceCode2Action(
+                mockSecurityInfoManager, mockAssembler, mockServiceCodePersister);
         assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_admin.billing");

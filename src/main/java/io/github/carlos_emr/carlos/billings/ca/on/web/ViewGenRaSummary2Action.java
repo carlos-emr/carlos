@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.billings.ca.on.service.RaHeaderTotalsPersister;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.GenerateRaSummaryViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -37,8 +38,9 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.GenerateRaSummaryVie
  * payment-summary report.
  *
  * <p>Enforces {@code _billing w} privilege AND POST-only (the JSP-era
- * scriptlet performed RA-header merge during render — still mutation-on-render,
- * just hoisted into {@link GenerateRaSummaryViewModelAssembler}).</p>
+ * scriptlet performed RA-header merge during render; that write now runs
+ * through {@link RaHeaderTotalsPersister} after the read-only assembler builds
+ * the totals model).</p>
  *
  * <p>The assembler call replaces the 5 inline {@code SpringUtils.getBean}
  * lookups (RaHeaderDao, RaDetailDao, ProviderDao, BillingDao + duplicate)
@@ -51,11 +53,14 @@ public class ViewGenRaSummary2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
 
     private final GenerateRaSummaryViewModelAssembler genRASummaryAssembler;
+    private final RaHeaderTotalsPersister raHeaderTotalsPersister;
 
     public ViewGenRaSummary2Action(SecurityInfoManager securityInfoManager,
-                                    GenerateRaSummaryViewModelAssembler genRASummaryAssembler) {
+                                    GenerateRaSummaryViewModelAssembler genRASummaryAssembler,
+                                    RaHeaderTotalsPersister raHeaderTotalsPersister) {
         this.securityInfoManager = securityInfoManager;
         this.genRASummaryAssembler = genRASummaryAssembler;
+        this.raHeaderTotalsPersister = raHeaderTotalsPersister;
     }
     @Override
     public String execute() throws Exception {
@@ -73,6 +78,7 @@ public class ViewGenRaSummary2Action extends ActionSupport {
         }
 
         GenerateRaSummaryViewModel model = genRASummaryAssembler.assemble(request, loggedInInfo);
+        raHeaderTotalsPersister.mergeSummaryTotals(model);
         request.setAttribute("raSummaryModel", model);
 
         return SUCCESS;

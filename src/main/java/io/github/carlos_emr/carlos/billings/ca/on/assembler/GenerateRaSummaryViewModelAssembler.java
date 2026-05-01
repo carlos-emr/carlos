@@ -32,7 +32,6 @@ import java.util.Set;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.GenerateRaSummaryViewModel;
@@ -57,9 +56,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  * (RaHeaderDao, RaDetailDao, ProviderDao, BillingDao + a duplicate
  * BillingDao lookup inside a {@code <%! %>} declaration).
  *
- * <p>Like {@link GenerateRaDescriptionViewModelAssembler}, this is mutation-on-render —
- * the JSP-era scriptlet merged the computed totals back into the
- * {@code RaHeader.content} XML. Preserved here.</p>
+ * <p>The action layer persists computed totals after this assembler builds the
+ * read-only model.</p>
  *
  * @since 2026-04-26
  */
@@ -136,18 +134,16 @@ public class GenerateRaSummaryViewModelAssembler {
             rows.add(buildRow(rad, providerNames, obBillingNos, coBillingNos, totals));
         }
 
+        BigDecimal localTotal = totals.clinic.add(totals.localHospital);
         b.rows(rows)
                 .invoicedTotal(totals.invoiced.toPlainString())
                 .paidTotal(totals.paid.toPlainString())
                 .clinicPayTotal(totals.clinic.toPlainString())
                 .hospitalPayTotal(totals.hospital.toPlainString())
-                .obTotal(totals.ob.toPlainString());
-
-        // Mutation: persist the per-category totals back onto the RA
-        // header content blob, preserving the existing transaction +
-        // balance-forward XML chunks.
-        BigDecimal localTotal = totals.clinic.add(totals.localHospital);
-        persistTotals(raNo, totals, localTotal);
+                .obTotal(totals.ob.toPlainString())
+                .raHeaderLocalTotal(localTotal.toPlainString())
+                .otherPayTotal(totals.other.toPlainString())
+                .coTotal(totals.colposcopy.toPlainString());
 
         return b.build();
     }
@@ -213,12 +209,12 @@ public class GenerateRaSummaryViewModelAssembler {
         }
 
         BigDecimal invoiced = BillingMoney.amountOrZero(invoicedAmount);
-        // Strict on paid because totals.paid feeds persistTotals (writes
-        // <xml_total> into RaHeader.content). amountOrZero would silently
+        // Strict on paid because totals.paid feeds RA-header persistence
+        // (<xml_total> in RaHeader.content). amountOrZero would silently
         // zero-coalesce a malformed paid amount; the persisted reconciliation
         // would then drift below the source records. The strict variant
         // throws NumberFormatException on a malformed value so the action
-        // sees the failure and skips persistTotals.
+        // sees the failure and skips the persister call.
         BigDecimal paid = BillingMoney.amountStrictOrZero(paidAmount);
         totals.invoiced = totals.invoiced.add(invoiced);
         totals.paid = totals.paid.add(paid);
@@ -262,28 +258,6 @@ public class GenerateRaSummaryViewModelAssembler {
         }
         return billingDao.findBillingsByManyThings(
                 ConversionUtils.fromIntString(account), date, provider, code).size() >= 1;
-    }
-
-    private void persistTotals(Integer raNo, Totals totals, BigDecimal localTotal) {
-        RaHeader rh = raHeaderDao.find(raNo);
-        if (rh == null) {
-            return;
-        }
-        String existing = nullToEmpty(rh.getContent());
-        String transaction = nullToEmpty(SxmlMisc.getXmlContent(existing,
-                "<xml_transaction>", "</xml_transaction>"));
-        String balanceFwd = nullToEmpty(SxmlMisc.getXmlContent(existing,
-                "<xml_balancefwd>", "</xml_balancefwd>"));
-
-        String content = "<xml_transaction>" + transaction + "</xml_transaction>"
-                + "<xml_balancefwd>" + balanceFwd + "</xml_balancefwd>"
-                + "<xml_local>" + localTotal + "</xml_local>"
-                + "<xml_total>" + totals.paid + "</xml_total>"
-                + "<xml_other_total>" + totals.other + "</xml_other_total>"
-                + "<xml_ob_total>" + totals.ob + "</xml_ob_total>"
-                + "<xml_co_total>" + totals.colposcopy + "</xml_co_total>";
-        rh.setContent(content);
-        raHeaderDao.merge(rh);
     }
 
     private static Integer parseInt(String s) {

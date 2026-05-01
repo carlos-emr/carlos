@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.billings.ca.on.service.ServiceCodePersister;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.AddEditServiceCodeViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -38,7 +39,9 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.AddEditServiceCodeVi
  * submits to the same URL with an {@code action} parameter to add / edit /
  * delete). Enforces {@code _admin.billing} w. Requires POST only when the
  * mutation-intent {@code action} parameter is present; allows GET / POST
- * for plain form display.
+ * for plain form display. Add/edit mutations are executed here through
+ * {@link ServiceCodePersister}; the assembler only builds the read-only view
+ * model for the JSP.
  *
  * @since 2026-04-13
  *        2026-04-24 (relax strict POST-only - GET form display was 405'd
@@ -47,10 +50,14 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.AddEditServiceCodeVi
 public class AddEditServiceCode2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
     private final AddEditServiceCodeViewModelAssembler addEditServiceCodeAssembler;
+    private final ServiceCodePersister serviceCodePersister;
+
     public AddEditServiceCode2Action(SecurityInfoManager securityInfoManager,
-                                      AddEditServiceCodeViewModelAssembler addEditServiceCodeAssembler) {
+                                      AddEditServiceCodeViewModelAssembler addEditServiceCodeAssembler,
+                                      ServiceCodePersister serviceCodePersister) {
         this.securityInfoManager = securityInfoManager;
         this.addEditServiceCodeAssembler = addEditServiceCodeAssembler;
+        this.serviceCodePersister = serviceCodePersister;
     }
 
     @Override
@@ -85,9 +92,36 @@ public class AddEditServiceCode2Action extends ActionSupport {
             return NONE;
         }
 
-        AddEditServiceCodeViewModel model = addEditServiceCodeAssembler.assemble(request, loggedInInfo);
+        ServiceCodePersister.AddEditServiceCodeResult mutationResult = null;
+        if (isSaveOrAdd(request.getParameter("submitFrm"))) {
+            mutationResult = serviceCodePersister.saveOrAdd(addEditRequestFrom(request));
+        }
+
+        AddEditServiceCodeViewModel model = addEditServiceCodeAssembler.assemble(request, loggedInInfo, mutationResult);
         request.setAttribute("addEditModel", model);
 
         return SUCCESS;
+    }
+
+    private static boolean isSaveOrAdd(String submitFrm) {
+        return "Save".equals(submitFrm)
+                || (submitFrm != null && "Add Service Code".equalsIgnoreCase(submitFrm));
+    }
+
+    private static ServiceCodePersister.AddEditServiceCodeRequest addEditRequestFrom(HttpServletRequest request) {
+        return new ServiceCodePersister.AddEditServiceCodeRequest(
+                request.getParameter("submitFrm"),
+                request.getParameter("action"),
+                request.getParameter("service_code"),
+                request.getParameter("billingservice_no"),
+                request.getParameter("description"),
+                request.getParameter("value"),
+                request.getParameter("percentage"),
+                request.getParameter("billingservice_date"),
+                request.getParameter("termination_date"),
+                "true".equals(request.getParameter("sliFlag")),
+                request.getParameter("servicecode_style"),
+                request.getParameter("min"),
+                request.getParameter("max"));
     }
 }

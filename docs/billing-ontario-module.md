@@ -125,7 +125,7 @@ only when nothing more specific applies.
 | Persistence/query transfer DTO | `*Dto` | `BillingClaimHeaderDto`, `BillingClaimItemDto` |
 | Sub-assembler / partial composer | `*RenderComposer` | `BillingOnCorrectionRenderComposer` |
 | Pure-read query service | `*Loader` | `BillingOnClaimLoader`, `BillingOnDiskLoader`, `ServiceCodeLoader` |
-| Pure-write persistence service | `*Persister` | `BillingOnClaimPersister`, `BillingOnReviewDiagPersister`, `ServiceCodePersister` |
+| Pure-write persistence service | `*Persister` | `BillingOnClaimPersister`, `BillingOnReviewDiagPersister`, `DiagCodeDescriptionPersister`, `RaHeaderTotalsPersister`, `ServiceCodePersister` |
 | Pure calculation | `*Calculator` | _(none currently in the ON module — `BillingOnInvoiceTotalsService` reads multiple DAOs and is therefore a `*Service`.)_ |
 | Input validator | `*Validator` | `BillingOnReviewValidator` (with `BillingValidationException` for fail-fast paths) |
 | Mixed read/write orchestration | `*Service` | `BillingCorrectionService`, `BillingOnHeaderCreationService`, `BillingOnLookupService` |
@@ -398,6 +398,7 @@ known operation.
 | `BillingThirdPartyService` | Service | Third-party billing workflow |
 | `BillingThirdPartyRecordService` | Service | Third-party record lifecycle |
 | `CssStyleDeletionService` | Service | Transactional CSS style deletion with billing-service cleanup |
+| `DiagCodeDescriptionPersister` | Persister | Diagnostic-code description update writes for `billingDigUpdate.jsp` |
 | `FeeScheduleImportService` | Service | Schedule of Benefits preview/apply workflow |
 | `FluBillingPersistenceService` | Service | Transactional flu billing header/detail persistence |
 | `GstReportService` | Service | GST report query workflow |
@@ -409,6 +410,8 @@ known operation.
 | `OnRaSettlementService` | Service | RA settlement workflow |
 | `OnRaSummaryTotalsService` | Service | RA summary local/pay total merge workflow |
 | `PatientEndYearStatementService` | Service | Year-end statement generation |
+| `RaDescriptionFileParser` | Service | Fixed-width OHIP RA description file parsing and RA content XML fragment generation |
+| `RaHeaderTotalsPersister` | Persister | RA header totals/content writes and lazy RA premium population for RA description/summary pages |
 | `ServiceCodeLoader` | Loader | `billing_service` table reads (code attrs, dropdown desc) |
 | `ServiceCodePersister` | Persister | `billing_service` writes (admin add/update/delete of private codes) |
 

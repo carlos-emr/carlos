@@ -68,6 +68,9 @@ public final class GenerateRaSummaryViewModel {
     private final String clinicPayTotal;
     private final String hospitalPayTotal;
     private final String obTotal;
+    private final String raHeaderLocalTotal;
+    private final String otherPayTotal;
+    private final String coTotal;
 
     public record ProviderOption(String ohipNo, String displayName, boolean selected) {}
 
@@ -106,6 +109,9 @@ public final class GenerateRaSummaryViewModel {
         this.clinicPayTotal = nullToZero(b.clinicPayTotal);
         this.hospitalPayTotal = nullToZero(b.hospitalPayTotal);
         this.obTotal = nullToZero(b.obTotal);
+        this.raHeaderLocalTotal = nullToZero(b.raHeaderLocalTotal);
+        this.otherPayTotal = nullToZero(b.otherPayTotal);
+        this.coTotal = nullToZero(b.coTotal);
     }
 
     private static String nullToEmpty(String s) { return s == null ? "" : s; }
@@ -122,6 +128,9 @@ public final class GenerateRaSummaryViewModel {
     public String getClinicPayTotal() { return clinicPayTotal; }
     public String getHospitalPayTotal() { return hospitalPayTotal; }
     public String getObTotal() { return obTotal; }
+    public String getRaHeaderLocalTotal() { return raHeaderLocalTotal; }
+    public String getOtherPayTotal() { return otherPayTotal; }
+    public String getCoTotal() { return coTotal; }
 
     public static final class Builder {
         private String raNo;
@@ -133,6 +142,9 @@ public final class GenerateRaSummaryViewModel {
         private String clinicPayTotal;
         private String hospitalPayTotal;
         private String obTotal;
+        private String raHeaderLocalTotal;
+        private String otherPayTotal;
+        private String coTotal;
 
         public Builder raNo(String v) { this.raNo = v; return this; }
         public Builder selectedProviderOhipNo(String v) { this.selectedProviderOhipNo = v; return this; }
@@ -144,6 +156,9 @@ public final class GenerateRaSummaryViewModel {
         public Builder clinicPayTotal(String v) { this.clinicPayTotal = v; return this; }
         public Builder hospitalPayTotal(String v) { this.hospitalPayTotal = v; return this; }
         public Builder obTotal(String v) { this.obTotal = v; return this; }
+        public Builder raHeaderLocalTotal(String v) { this.raHeaderLocalTotal = v; return this; }
+        public Builder otherPayTotal(String v) { this.otherPayTotal = v; return this; }
+        public Builder coTotal(String v) { this.coTotal = v; return this; }
 
         public GenerateRaSummaryViewModel build() { return new GenerateRaSummaryViewModel(this); }
     }

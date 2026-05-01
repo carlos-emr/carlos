@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.billings.ca.on.service.RaHeaderTotalsPersister;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.GenerateRaSummaryViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -47,11 +48,14 @@ public class ViewGenRaSummaryDetail2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
 
     private final GenerateRaSummaryViewModelAssembler genRASummaryAssembler;
+    private final RaHeaderTotalsPersister raHeaderTotalsPersister;
 
     public ViewGenRaSummaryDetail2Action(SecurityInfoManager securityInfoManager,
-                                          GenerateRaSummaryViewModelAssembler genRASummaryAssembler) {
+                                          GenerateRaSummaryViewModelAssembler genRASummaryAssembler,
+                                          RaHeaderTotalsPersister raHeaderTotalsPersister) {
         this.securityInfoManager = securityInfoManager;
         this.genRASummaryAssembler = genRASummaryAssembler;
+        this.raHeaderTotalsPersister = raHeaderTotalsPersister;
     }
     @Override
     public String execute() throws Exception {
@@ -69,6 +73,7 @@ public class ViewGenRaSummaryDetail2Action extends ActionSupport {
         }
 
         GenerateRaSummaryViewModel model = genRASummaryAssembler.assemble(request, loggedInInfo);
+        raHeaderTotalsPersister.mergeSummaryTotals(model);
         request.setAttribute("raSummaryModel", model);
 
         return SUCCESS;

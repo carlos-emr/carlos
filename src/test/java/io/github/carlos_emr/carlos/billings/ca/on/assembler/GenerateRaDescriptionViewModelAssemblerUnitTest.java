@@ -29,6 +29,7 @@ import java.util.List;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.billings.ca.on.service.RaDescriptionFileParser;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.GenerateRaDescriptionViewModel;
 import io.github.carlos_emr.carlos.commn.dao.BillingONPremiumDao;
 import io.github.carlos_emr.carlos.commn.dao.RaHeaderDao;
@@ -65,12 +66,14 @@ class GenerateRaDescriptionViewModelAssemblerUnitTest extends CarlosUnitTestBase
 
     private AutoCloseable mockitoCloseable;
     private String previousDocumentDir;
+    private RaDescriptionFileParser raDescriptionFileParser;
 
     @BeforeEach
     void setUp() {
         mockitoCloseable = MockitoAnnotations.openMocks(this);
         previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", tempDir.toAbsolutePath() + File.separator);
+        raDescriptionFileParser = new RaDescriptionFileParser();
     }
 
     @AfterEach
@@ -106,7 +109,8 @@ class GenerateRaDescriptionViewModelAssemblerUnitTest extends CarlosUnitTestBase
         request.setParameter("rano", "7");
 
         GenerateRaDescriptionViewModel model = new GenerateRaDescriptionViewModelAssembler(
-                mockRaHeaderDao, mockBillingONPremiumDao, mockProviderDao).assemble(request, null);
+                mockRaHeaderDao, mockBillingONPremiumDao, mockProviderDao, raDescriptionFileParser)
+                .assemble(request, null);
 
         assertThat(model.getBalanceForwardRow().claimsAdjustment()).isEqualTo("0000001.111");
         assertThat(model.getBalanceForwardRow().advances()).isEqualTo("0000002.222");
@@ -122,10 +126,7 @@ class GenerateRaDescriptionViewModelAssemblerUnitTest extends CarlosUnitTestBase
             assertThat(row.message()).doesNotContain("<tr", "<td", "<table");
         });
 
-        assertThat(header.getContent())
-                .contains("<xml_transaction>")
-                .contains("&lt;script&gt;alert(1)&lt;/script&gt; &amp; text")
-                .doesNotContain("<table", "<tr>", "<tr ", "<td", "<script>");
+        verify(mockRaHeaderDao, never()).merge(any(RaHeader.class));
     }
 
     @Test
@@ -148,7 +149,8 @@ class GenerateRaDescriptionViewModelAssemblerUnitTest extends CarlosUnitTestBase
         request.setParameter("rano", "9");
 
         new GenerateRaDescriptionViewModelAssembler(
-                mockRaHeaderDao, mockBillingONPremiumDao, mockProviderDao).assemble(request, null);
+                mockRaHeaderDao, mockBillingONPremiumDao, mockProviderDao, raDescriptionFileParser)
+                .assemble(request, null);
 
         // CRITICAL: when H1 totals can't be parsed, the merge path that would
         // overwrite RaHeader.content with a fake "$0.00" cheque must be
@@ -177,7 +179,8 @@ class GenerateRaDescriptionViewModelAssemblerUnitTest extends CarlosUnitTestBase
         request.setParameter("rano", "11");
 
         new GenerateRaDescriptionViewModelAssembler(
-                mockRaHeaderDao, mockBillingONPremiumDao, mockProviderDao).assemble(request, null);
+                mockRaHeaderDao, mockBillingONPremiumDao, mockProviderDao, raDescriptionFileParser)
+                .assemble(request, null);
 
         verify(mockRaHeaderDao, never()).findByFilenamePaymentDate(anyString(), anyString());
         verify(mockRaHeaderDao, never()).merge(any(RaHeader.class));
