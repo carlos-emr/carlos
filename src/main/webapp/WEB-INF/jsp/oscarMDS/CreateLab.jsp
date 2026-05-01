@@ -150,11 +150,12 @@
         });
 
         function addTest() {
-            var total = jQuery("#test_num").val();
-            total++;
-            jQuery("#test_num").val(total);
+            var count = Number(jQuery("#test_num").val() || 0);
+            var nextId = Number(jQuery("#next_test_id").val() || 0) + 1;
+            jQuery("#next_test_id").val(nextId);
+            jQuery("#test_num").val(count + 1);
             jQuery.ajax({
-                url: '<%=request.getContextPath()%>/oscarMDS/ViewCreateLabTest?id=' + total,
+                url: '<%=request.getContextPath()%>/oscarMDS/ViewCreateLabTest?id=' + nextId,
                 async: true,
                 success: function (data) {
                     jQuery("#test_container").append(data);
@@ -172,10 +173,10 @@
             });
             jQuery("form[name='testForm']").append(hiddenInput);
             jQuery("#test_" + id).remove();
-            var total = jQuery("#test_num").val();
-            total--;
+            var count = Math.max(0, Number(jQuery("#test_num").val() || 0) - 1);
+            jQuery("#test_num").val(count);
             jQuery("#test_num").val(total);
-            if (total < 1) {
+            if (count < 1) {
                 jQuery('form[name="testForm"] :submit').prop('disabled', true);
             }
         }
@@ -318,6 +319,7 @@
             <div class="card-body">
                 <div id="test_container"></div>
                 <input type="hidden" id="test_num" name="test_num" value="0"/>
+                <input type="hidden" id="next_test_id" value="0"/>
                 <a href="#" onclick="addTest(); return false;" class="btn btn-success btn-sm mt-2">
                     <fmt:message key="oscarMDS.createLab.addTest"/>
                 </a>
