@@ -74,8 +74,14 @@
     // Read request parameters
     String demographicNo = request.getParameter("demographicNo");
 
-    // Load demographic
-    Demographic demographic = demographicDao.getClientByDemographicNo(NumberUtils.toInt((demographicNo)));
+    int demographicId = NumberUtils.toInt(demographicNo, -1);
+    Demographic demographic = demographicId > 0
+            ? demographicDao.getClientByDemographicNo(demographicId)
+            : null;
+    if (demographic == null) {
+        response.sendError(404);
+        return;
+    }
 
     // Build history rows — deduplicate consecutive identical entries
     List<Map<String, String>> historyRows = new ArrayList<>();
