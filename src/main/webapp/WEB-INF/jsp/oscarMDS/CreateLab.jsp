@@ -49,7 +49,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <fmt:message key="oscarMDS.createLab.confirmSave" var="confirmSaveMsg"/>
-<html lang="en">
+<html lang="<%= request.getLocale().toLanguageTag() %>">
 <head>
     <meta charset="UTF-8">
     <title><fmt:message key="global.createLab"/></title>
@@ -76,7 +76,7 @@
                 source: function (req, res) {
                     $.ajax({
                         url: searchDemoUrl,
-                        type: 'POST',
+                        type: 'GET',
                         data: {jqueryJSON: 'true', activeOnly: 'true', term: req.term},
                         success: function (data) { res(data); },
                         error: function () { res([]); }
@@ -155,7 +155,7 @@
             jQuery("#test_num").val(total);
             jQuery.ajax({
                 url: '<%=request.getContextPath()%>/oscarMDS/ViewCreateLabTest?id=' + total,
-                async: false,
+                async: true,
                 success: function (data) {
                     jQuery("#test_container").append(data);
                     jQuery('form[name="testForm"] :submit').prop('disabled', false);
@@ -325,7 +325,7 @@
         </div>
 
         <button type="submit" class="btn btn-primary" disabled>
-            <fmt:message key="oscarMDS.createLab.submitOscar"/>
+            <fmt:message key="oscarMDS.createLab.submitEMR"/>
         </button>
     </form>
 </div>
