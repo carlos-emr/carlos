@@ -112,7 +112,7 @@ public class ScheduleOfBenefitsUpload2Action extends ActionSupport implements Up
 
             FeeScheduleImportRequest importRequest = new FeeScheduleImportRequest(showNewCodes, showChangedCodes,
                     forceUpdate, updateAssistantFeesValue, updateAnaesthetistFeesValue);
-            try (InputStream is = new java.io.FileInputStream(importFile)) {
+            try (InputStream is = new java.io.FileInputStream(importFile)) { // codeql[java/path-injection] -- importFile is reassigned from PathValidationUtils.validateUpload(importFile) immediately before this open
                 FeeScheduleImportResult result = feeScheduleImportService.preview(is, importRequest);
                 warnings = result.warningMaps();
                 request.setAttribute("feeScheduleChanges", result.changes());

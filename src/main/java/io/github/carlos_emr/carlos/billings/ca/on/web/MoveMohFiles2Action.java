@@ -39,6 +39,7 @@ import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import org.apache.struts2.ServletActionContext;
 import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.Logger;
@@ -209,8 +210,13 @@ public class MoveMohFiles2Action extends ActionSupport {
 
     /** Builds the {@code roleName} string the {@code <security:oscarSec>} tag wants. */
     private String buildRoleName(HttpServletRequest req) {
-        Object userRole = req.getSession().getAttribute("userrole");
-        Object userId = req.getSession().getAttribute("user");
+        HttpSession session = req.getSession(false);
+        if (session == null) {
+            logger.warn("viewMOHFiles: missing session role context for security tag");
+            return ",";
+        }
+        Object userRole = session.getAttribute("userrole"); // nosemgrep: java.servlets.security.tainted-session-from-http-request.tainted-session-from-http-request -- read-only authenticated session role for security tag rendering; not request input and not written to session
+        Object userId = session.getAttribute("user"); // nosemgrep: java.servlets.security.tainted-session-from-http-request.tainted-session-from-http-request -- read-only authenticated session provider id for security tag rendering; not request input and not written to session
         if (userRole == null || userId == null) {
             logger.warn("viewMOHFiles: missing session role context for security tag");
             return ",";
@@ -260,7 +266,7 @@ public class MoveMohFiles2Action extends ActionSupport {
         // resolved via the EDTFolder enum (closed set of property-driven
         // server-side paths), so it is NOT tainted user input despite being
         // selected by a request parameter.
-        req.getSession().setAttribute("backupfilepath", folderPath); // nosemgrep: java.servlets.security.tainted-session-from-http-request, java.servlets.security.tainted-session-from-http-request-deepsemgrep, java.lang.security.audit.tainted-session-from-http-request -- folderPath comes from EDTFolder enum lookup, not user-controlled raw input
+        req.getSession().setAttribute("backupfilepath", folderPath); // nosemgrep: java.servlets.security.tainted-session-from-http-request.tainted-session-from-http-request, java.servlets.security.tainted-session-from-http-request-deepsemgrep.tainted-session-from-http-request-deepsemgrep, java.lang.security.audit.tainted-session-from-http-request.tainted-session-from-http-request -- folderPath comes from EDTFolder enum lookup, not user-controlled raw input
 
         // Optional unzip (was inline in the JSP). Errors are swallowed onto
         // unzipMSG so each file row can render the warning suffix; we keep
