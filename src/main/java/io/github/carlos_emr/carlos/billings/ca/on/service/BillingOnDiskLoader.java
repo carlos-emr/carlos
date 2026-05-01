@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONHeader;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingBatchHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingDiskNameDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.DiskFilenameRow;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -181,30 +182,18 @@ public class BillingOnDiskLoader {
                 obj.setTotal(b.getTotal());
 
                 List<BillingONFilename> ff = filenameDao.findByDiskIdAndStatus(b.getId(), status);
-                ArrayList vecHtmlfilename = new ArrayList();
-                ArrayList vecProviderohipno = new ArrayList();
-                ArrayList vecProviderno = new ArrayList();
-                ArrayList vecClaimrecord = new ArrayList();
-                ArrayList vecStatus = new ArrayList();
-                ArrayList vecTotal = new ArrayList();
-                ArrayList vecFilenameId = new ArrayList();
-
+                List<DiskFilenameRow> rows = new ArrayList<>();
                 for (BillingONFilename f : ff) {
-                    vecFilenameId.add("" + f.getId());
-                    vecHtmlfilename.add(f.getHtmlFilename());
-                    vecProviderohipno.add(f.getProviderOhipNo());
-                    vecProviderno.add(f.getProviderNo());
-                    vecClaimrecord.add(f.getClaimRecord());
-                    vecStatus.add(f.getStatus());
-                    vecTotal.add(f.getTotal());
+                    rows.add(new DiskFilenameRow(
+                            "" + f.getId(),
+                            f.getHtmlFilename(),
+                            f.getProviderOhipNo(),
+                            f.getProviderNo(),
+                            f.getClaimRecord(),
+                            f.getStatus(),
+                            f.getTotal()));
                 }
-                obj.setVecFilenameId(vecFilenameId);
-                obj.setHtmlfilename(vecHtmlfilename);
-                obj.setProviderohipno(vecProviderohipno);
-                obj.setProviderno(vecProviderno);
-                obj.setVecClaimrecord(vecClaimrecord);
-                obj.setVecStatus(vecStatus);
-                obj.setVecTotal(vecTotal);
+                obj.setFilenames(rows);
                 retval.add(obj);
             }
         } catch (Exception e) {
@@ -298,30 +287,18 @@ public class BillingOnDiskLoader {
             obj.setUpdatedatetime(tsFormatter.format(b.getTimestamp()));
 
             List<BillingONFilename> ff = filenameDao.findCurrentByDiskId(b.getId());
-            ArrayList vecHtmlfilename = new ArrayList();
-            ArrayList vecProviderohipno = new ArrayList();
-            ArrayList vecProviderno = new ArrayList();
-            ArrayList vecClaimrecord = new ArrayList();
-            ArrayList vecStatus = new ArrayList();
-            ArrayList vecTotal = new ArrayList();
-            ArrayList vecFilenameId = new ArrayList();
+            List<DiskFilenameRow> rows = new ArrayList<>();
             for (BillingONFilename f : ff) {
-                vecFilenameId.add("" + f.getId());
-                vecHtmlfilename.add(f.getHtmlFilename());
-                vecProviderohipno.add(f.getProviderOhipNo());
-                vecProviderno.add(f.getProviderNo());
-                vecClaimrecord.add(f.getClaimRecord());
-                vecStatus.add(f.getStatus());
-                vecTotal.add(f.getTotal());
+                rows.add(new DiskFilenameRow(
+                        "" + f.getId(),
+                        f.getHtmlFilename(),
+                        f.getProviderOhipNo(),
+                        f.getProviderNo(),
+                        f.getClaimRecord(),
+                        f.getStatus(),
+                        f.getTotal()));
             }
-
-            obj.setVecFilenameId(vecFilenameId);
-            obj.setHtmlfilename(vecHtmlfilename);
-            obj.setProviderohipno(vecProviderohipno);
-            obj.setProviderno(vecProviderno);
-            obj.setVecClaimrecord(vecClaimrecord);
-            obj.setVecStatus(vecStatus);
-            obj.setVecTotal(vecTotal);
+            obj.setFilenames(rows);
         }
 
         return obj;

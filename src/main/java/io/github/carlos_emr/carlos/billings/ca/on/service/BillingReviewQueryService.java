@@ -33,6 +33,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingReviewServiceParam;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingReviewCodeItem;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingReviewPercentageItem;
 import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
@@ -69,26 +70,26 @@ public class BillingReviewQueryService {
         this.diagnosticCodeDao = diagnosticCodeDao;
     }
 
-    public ArrayList getServiceCodeReviewVec(ArrayList vecCode, ArrayList vecUnit,
-                                          ArrayList vecAt, String billReferalDate) {
-        ArrayList ret = new ArrayList();
-        for (int i = 0; i < vecCode.size(); i++) {
-            if (((String) vecCode.get(i)).equals(""))
+    public List<BillingReviewCodeItem> getServiceCodeReviewItems(List<BillingReviewServiceParam> rows,
+                                                                  String billReferalDate) {
+        List<BillingReviewCodeItem> ret = new ArrayList<>();
+        for (BillingReviewServiceParam row : rows) {
+            if (row.code().isEmpty())
                 continue;
 
             // get fee
             BillingOnClaimLoader.FeeLookupResult feeResult =
-                    dbObj.getCodeFeeResult((String) vecCode.get(i), billReferalDate);
+                    dbObj.getCodeFeeResult(row.code(), billReferalDate);
             String fee = feeResult.value();
 
             // get code description
-            String codeDescription = dbObj.getCodeDescription((String) vecCode.get(i), billReferalDate);
+            String codeDescription = dbObj.getCodeDescription(row.code(), billReferalDate);
 
             // judge fee
             if (feeResult.partial()) {
                 ret.add(new BillingReviewCodeItem(
-                        (String) vecCode.get(i),
-                        (String) vecUnit.get(i),
+                        row.code(),
+                        row.unit(),
                         "0",
                         "0",
                         "",
@@ -98,40 +99,40 @@ public class BillingReviewQueryService {
             }
             if (fee == null) {
                 ret.add(new BillingReviewCodeItem(
-                        (String) vecCode.get(i),
-                        (String) vecUnit.get(i),
+                        row.code(),
+                        row.unit(),
                         "0",
                         "0",
                         "",
                         "<b>This code is NOT in the database!!!</b>",
                         ""));
                 _logger
-                        .error("getServiceCodeReviewVec: This code is NOT in the database! "
-                                + vecCode.get(i));
+                        .error("getServiceCodeReviewItems: This code is NOT in the database! "
+                                + row.code());
                 continue;
             }
             if (BillingONItem.DEFUNCT_FEE.equals(fee)) {
                 ret.add(new BillingReviewCodeItem(
-                        (String) vecCode.get(i),
-                        (String) vecUnit.get(i),
+                        row.code(),
+                        row.unit(),
                         "0",
                         "0",
                         "",
                         "<b>This code has expired!!!</b>",
                         ""));
                 _logger
-                        .error("getServiceCodeReviewVec: This code has expired! "
-                                + vecCode.get(i));
+                        .error("getServiceCodeReviewItems: This code has expired! "
+                                + row.code());
                 continue;
             }
-            // if perc. code ( This code is not added to the vector of billing codes)
+            // if perc. code (this code is not added to the list of billing codes)
             if (fee.equals(".00") || fee.equals(""))
                 continue;
 
             // calculate fee
             BigDecimal bigCodeFee = new BigDecimal(fee);
-            BigDecimal bigCodeUnit = new BigDecimal((String) vecUnit.get(i));
-            BigDecimal bigCodeAt = new BigDecimal((String) vecAt.get(i));
+            BigDecimal bigCodeUnit = new BigDecimal(row.unit());
+            BigDecimal bigCodeAt = new BigDecimal(row.servicedAt());
 
             BigDecimal bigFee = bigCodeFee.multiply(bigCodeUnit);
 
@@ -141,11 +142,11 @@ public class BillingReviewQueryService {
             MiscUtils.getLogger().debug("big end: " + bigFee.toString());
 
             ret.add(new BillingReviewCodeItem(
-                    (String) vecCode.get(i),
-                    (String) vecUnit.get(i),
+                    row.code(),
+                    row.unit(),
                     fee,
                     bigFee.toString(),
-                    (String) vecAt.get(i),
+                    row.servicedAt(),
                     "",
                     codeDescription));
         }
@@ -153,39 +154,38 @@ public class BillingReviewQueryService {
     }
 
     // get perc code item display
-    public ArrayList getPercCodeReviewVec(ArrayList vecCode, ArrayList vecUnit,
-                                       ArrayList vecReviewCodeItem, String billReferalDate) {
-        ArrayList ret = new ArrayList();
-        // no perc. code  ( perc codes are recognized in the database by having a value of .00, They are not in the vecReviewCodeItem)
-        if (vecCode.size() == vecReviewCodeItem.size())
+    public List<BillingReviewPercentageItem> getPercentageCodeReviewItems(List<BillingReviewServiceParam> rows,
+                                                                          List<BillingReviewCodeItem> codeItems,
+                                                                          String billReferalDate) {
+        List<BillingReviewPercentageItem> ret = new ArrayList<>();
+        // no perc. code (perc codes are recognized in the database by having a value of .00, they are not in the codeItems)
+        if (rows.size() == codeItems.size())
             return ret;
 
-        ArrayList<String> vecCodeFee = new ArrayList<String>();
-        for (int i = 0; i < vecReviewCodeItem.size(); i++) {
-            vecCodeFee.add(((BillingReviewCodeItem) vecReviewCodeItem.get(i))
-                    .getCodeFee());
+        List<String> codeFees = new ArrayList<>();
+        for (BillingReviewCodeItem item : codeItems) {
+            codeFees.add(item.getCodeFee());
         }
-        for (int i = 0; i < vecCode.size(); i++) {   //LOOP thru all the billing codes from for submission
-            if (((String) vecCode.get(i)).equals(""))
+        for (int i = 0; i < rows.size(); i++) {   //LOOP thru all the billing codes from for submission
+            BillingReviewServiceParam row = rows.get(i);
+            if (row.code().isEmpty())
                 continue;
 
             // not perc. code
-            if (i < vecReviewCodeItem.size()
-                    && ((String) vecCode.get(i))
-                    .equals(((BillingReviewCodeItem) vecReviewCodeItem
-                            .get(i)).getCodeName())) {
+            if (i < codeItems.size()
+                    && row.code().equals(codeItems.get(i).getCodeName())) {
                 continue;
             }
             // take perc. code
             // get fee
             BillingOnClaimLoader.FeeLookupResult feeResult =
-                    dbObj.getPercFeeResult((String) vecCode.get(i), billReferalDate);
+                    dbObj.getPercFeeResult(row.code(), billReferalDate);
             String fee = feeResult.value();
 
             if (feeResult.partial()) {
                 ret.add(new BillingReviewPercentageItem(
-                        (String) vecCode.get(i),
-                        (String) vecUnit.get(i),
+                        row.code(),
+                        row.unit(),
                         "0.00",
                         "",
                         "",
@@ -196,8 +196,8 @@ public class BillingReviewQueryService {
             }
             if (fee == null) {
                 ret.add(new BillingReviewPercentageItem(
-                        (String) vecCode.get(i),
-                        (String) vecUnit.get(i),
+                        row.code(),
+                        row.unit(),
                         "0.00",
                         "",
                         "",
@@ -205,20 +205,15 @@ public class BillingReviewQueryService {
                         java.util.List.of(),
                         "<b>No this perc. code in the database!!!</b>"));
                 _logger
-                        .error("getServiceCodeReviewVec: No this perc. code in the database! "
-                                + vecCode.get(i));
+                        .error("getPercentageCodeReviewItems: No this perc. code in the database! "
+                                + row.code());
                 continue;
             }
 
             // calculate fee
-            ArrayList<String> vecCodeTotal = new ArrayList<String>();
-            for (int j = 0; j < vecCodeFee.size(); j++) {
-                BigDecimal bigCodeFee = new BigDecimal((String) vecCodeFee
-                        .get(j));
-                // BigDecimal bigCodeUnit = new BigDecimal((String)
-                // vecUnit.get(i));
-                // BigDecimal bigCodeAt = new BigDecimal((String) vecAt.get(i));
-
+            List<String> codeTotals = new ArrayList<>();
+            for (String codeFee : codeFees) {
+                BigDecimal bigCodeFee = new BigDecimal(codeFee);
 
                 if (fee.equals(".00") || fee.equals("")) {
                     continue;
@@ -226,76 +221,58 @@ public class BillingReviewQueryService {
 
                 BigDecimal bigFee = bigCodeFee.multiply(new BigDecimal(fee));
 
-                // bigFee = bigFee.multiply(bigCodeAt);
-
                 bigFee = bigFee.setScale(4, RoundingMode.HALF_UP);
-                vecCodeTotal.add(bigFee.toString());
+                codeTotals.add(bigFee.toString());
             }
             // get min/max fee
             BillingOnClaimLoader.FeeRangeLookupResult mFee =
-                    dbObj.getPercMinMaxFeeResult((String) vecCode.get(i), billReferalDate);
+                    dbObj.getPercMinMaxFeeResult(row.code(), billReferalDate);
             ret.add(new BillingReviewPercentageItem(
-                    (String) vecCode.get(i),
-                    (String) vecUnit.get(i),
+                    row.code(),
+                    row.unit(),
                     fee,
                     mFee.min(),
                     mFee.max(),
-                    vecCodeFee,
-                    vecCodeTotal,
+                    codeFees,
+                    codeTotals,
                     mFee.partial() ? "<b>Percentage min/max lookup failed; limits may be incomplete.</b>" : ""));
         }
         return ret;
     }
 
-    // ret[0],[1],[2] - ArrayList vecCode, ArrayList vecUnit, ArrayList vecAt
-    public ArrayList<String>[] getRequestCodeVec(HttpServletRequest requestData,
-                                              String paramNameCode, String paramNameUnit, String paramNameAt,
-                                              int numItem) {
-        @SuppressWarnings("unchecked")
-        ArrayList<String>[] ret = new ArrayList[3];
-        ret[0] = new ArrayList<String>();
-        ret[1] = new ArrayList<String>();
-        ret[2] = new ArrayList<String>();
-
+    public List<BillingReviewServiceParam> getRequestCodes(HttpServletRequest requestData,
+                                                            String paramNameCode, String paramNameUnit, String paramNameAt,
+                                                            int numItem) {
+        List<BillingReviewServiceParam> ret = new ArrayList<>();
         for (int i = 0; i < numItem; i++) {
             // Skip both null (param absent from form) and "" (param sent
             // empty). The legacy code only checked "" via "".equals(...),
             // which returns false for null and let null leak into the
-            // returned ArrayList — TreeMap.put downstream then NPE'd.
+            // returned list — TreeMap.put downstream then NPE'd.
             String code = requestData.getParameter(paramNameCode + i);
             if (code == null || code.isEmpty()) continue;
-            ret[0].add(code);
-            ret[1].add(defaultParamValue(requestData.getParameter(paramNameUnit
-                    + i)));
-            ret[2].add(defaultParamValue(requestData.getParameter(paramNameAt
-                    + i)));
+            ret.add(new BillingReviewServiceParam(
+                    code,
+                    defaultParamValue(requestData.getParameter(paramNameUnit + i)),
+                    defaultParamValue(requestData.getParameter(paramNameAt + i))));
         }
         return ret;
     }
 
-    // ret[0],[1],[2] - ArrayList vecCode, ArrayList vecUnit, ArrayList vecAt - from form
-    // checkbox
-    // this way for no sequence order
-    // should change to col1, col2, col3 scan and get a sequence order
-    public ArrayList<String>[] getRequestFormCodeVec(HttpServletRequest requestData,
-                                                  String paramNameCode, String paramNameUnit, String paramNameAt) {
-        @SuppressWarnings("unchecked")
-        ArrayList<String>[] ret = new ArrayList[3];
-        ret[0] = new ArrayList<String>();
-        ret[1] = new ArrayList<String>();
-        ret[2] = new ArrayList<String>();
-
-        for (Enumeration e = requestData.getParameterNames(); e
-                .hasMoreElements(); ) {
+    // pulls codes from form checkbox params (no sequence order — should
+    // change to col1, col2, col3 scan to get a sequence order).
+    public List<BillingReviewServiceParam> getRequestFormCodes(HttpServletRequest requestData,
+                                                                String paramNameCode, String paramNameUnit, String paramNameAt) {
+        List<BillingReviewServiceParam> ret = new ArrayList<>();
+        for (Enumeration<?> e = requestData.getParameterNames(); e.hasMoreElements(); ) {
             String temp = e.nextElement().toString();
             if (temp.startsWith(paramNameCode)
-                    && (temp.length() == 9 || temp.startsWith(paramNameCode
-                    + "_")) && !temp.equals("xml_vdate")) {
-                // _logger.info(requestData.getParameter(temp) +
-                // "getRequestFormCodeVec:" + temp);
-                ret[0].add(temp.substring(4));
-                ret[1].add(defaultParamValue(paramNameUnit));
-                ret[2].add(defaultParamValue(paramNameAt));
+                    && (temp.length() == 9 || temp.startsWith(paramNameCode + "_"))
+                    && !temp.equals("xml_vdate")) {
+                ret.add(new BillingReviewServiceParam(
+                        temp.substring(4),
+                        defaultParamValue(paramNameUnit),
+                        defaultParamValue(paramNameAt)));
             }
         }
         return ret;
@@ -305,16 +282,15 @@ public class BillingReviewQueryService {
         return diskQueryService.getMRIList(sDate, eDate, status);
     }
 
-    // ret - ArrayList = || ||
-    public List getProviderBillingStr() {
+    public List<io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry> getProviderBillingStr() {
         return lookupService.getCurProviderStr();
     }
 
-    public List getTeamProviderBillingStr(String provider_no) {
+    public List<io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry> getTeamProviderBillingStr(String provider_no) {
         return lookupService.getCurTeamProviderStr(provider_no);
     }
 
-    public List getSiteProviderBillingStr(String provider_no) {
+    public List<io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry> getSiteProviderBillingStr(String provider_no) {
         return lookupService.getCurSiteProviderStr(provider_no);
     }
 

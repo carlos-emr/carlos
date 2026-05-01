@@ -28,6 +28,8 @@ import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingCodeAttribute;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.PrivateBillingCode;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnEditPrivateCodeViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.service.ServiceCodeLoader;
 import io.github.carlos_emr.carlos.billings.ca.on.service.ServiceCodePersister;
@@ -97,28 +99,17 @@ public class BillingOnEditPrivateCodeViewModelAssembler {
 
         // Dropdown of all existing private codes.
         List<BillingOnEditPrivateCodeViewModel.PrivateCodeOption> options = new ArrayList<>();
-        @SuppressWarnings("rawtypes")
-        List sL = codeLoader.getPrivateBillingCodeDesc();
-        for (int i = 0; i + 1 < sL.size(); i = i + 2) {
+        for (PrivateBillingCode pc : codeLoader.getPrivateBillingCodeDesc()) {
+            String raw = pc.serviceCode();
             String strCode;
-            String raw = (String) sL.get(i);
-            if (raw == null) {
+            if (raw.isEmpty()) {
                 strCode = "";
-                MiscUtils.getLogger().warn("NULL value set for a private billing code");
-            } else if (raw.isEmpty()) {
-                strCode = "";
-                MiscUtils.getLogger().warn(
-                        "Empty raw value at index {} in private-billing-code list", i);
+                MiscUtils.getLogger().warn("Empty serviceCode in private-billing-code list");
             } else {
                 strCode = raw.substring(1);
             }
-            String strDesc = (String) sL.get(i + 1);
-            if (strDesc == null) {
-                strDesc = "";
-                MiscUtils.getLogger().warn(
-                        "NULL value set for a private billing code description (code is {})",
-                        strCode);
-            } else if (strDesc.length() > 30) {
+            String strDesc = pc.description();
+            if (strDesc.length() > 30) {
                 strDesc = strDesc.substring(0, 30);
             }
             options.add(new BillingOnEditPrivateCodeViewModel.PrivateCodeOption(
@@ -211,17 +202,15 @@ public class BillingOnEditPrivateCodeViewModelAssembler {
             return new FormResult("Please type in a right service code.", "search", "info");
         }
         String serviceCode = "_" + nullToEmpty(request.getParameter("service_code"));
-        @SuppressWarnings("rawtypes")
-        List ls = codeLoader.getBillingCodeAttr(serviceCode);
-        if (ls != null && ls.size() > 0) {
+        List<BillingCodeAttribute> ls = codeLoader.getBillingCodeAttr(serviceCode);
+        if (ls != null && !ls.isEmpty()) {
+            BillingCodeAttribute attr = ls.get(0);
             formFields.put("service_code", serviceCode);
-            Object descObj = ls.size() > 1 ? ls.get(1) : null;
-            String description = descObj == null ? "" : descObj.toString();
-            formFields.put("description", description);
-            formFields.put("value", ls.size() > 2 ? String.valueOf(ls.get(2)) : "");
-            formFields.put("percentage", ls.size() > 3 ? String.valueOf(ls.get(3)) : "");
-            formFields.put("billingservice_date", ls.size() > 4 ? String.valueOf(ls.get(4)) : "");
-            formFields.put("gstFlag", ls.size() > 5 ? String.valueOf(ls.get(5)) : "");
+            formFields.put("description", attr.description());
+            formFields.put("value", attr.value());
+            formFields.put("percentage", attr.percentage());
+            formFields.put("billingservice_date", attr.billingServiceDate());
+            formFields.put("gstFlag", attr.gstFlag());
             return new FormResult("You can edit the service code.",
                     "edit" + serviceCode, "info");
         }

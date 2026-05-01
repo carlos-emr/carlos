@@ -35,6 +35,9 @@ public interface RaDetailDao extends AbstractDao<RaDetail> {
 
     List<RaDetail> findByBillingNos(List<Integer> billingNos);
 
+    List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportPaidRaDetailRow>
+    findBillingOnNewReportPaidRaDetails(List<Integer> billingNos);
+
     List<RaDetail> findByRaHeaderNo(Integer raHeaderNo);
 
     List<Integer> findUniqueBillingNoByRaHeaderNoAndProviderAndNotErrorCode(Integer raHeaderNo, String providerOhipNo, String codes);

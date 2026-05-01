@@ -88,12 +88,12 @@ public class ManageBillingFormViewModelAssembler {
 
         // Service-type drop-down options (rendered in every tab).
         List<ManageBillingFormViewModel.ServiceTypeOption> serviceTypes = new ArrayList<>();
-        List<Object[]> billingServices = ctlBillingServiceDao.findServiceTypes();
+        List<io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow> billingServices =
+                ctlBillingServiceDao.findServiceTypes();
         if (billingServices != null) {
-            for (Object[] row : billingServices) {
-                String code = row[0] == null ? "" : String.valueOf(row[0]);
-                String name = row[1] == null ? "" : String.valueOf(row[1]);
-                serviceTypes.add(new ManageBillingFormViewModel.ServiceTypeOption(code, name));
+            for (io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow row : billingServices) {
+                serviceTypes.add(new ManageBillingFormViewModel.ServiceTypeOption(
+                        row.serviceType(), row.serviceTypeName()));
             }
         }
         b.serviceTypes(serviceTypes);
@@ -119,14 +119,14 @@ public class ManageBillingFormViewModelAssembler {
         // Unique service-types table for the manageBillingform_add.jspf
         // right-hand panel. Mirrors the legacy
         // ctlBillingServiceDao.getUniqueServiceTypes() / "failed!!!" branch.
-        List<Object[]> uniqueRowsRaw = ctlBillingServiceDao.getUniqueServiceTypes();
+        List<io.github.carlos_emr.carlos.billings.ca.on.dto.UniqueServiceTypeRow> uniqueRowsRaw =
+                ctlBillingServiceDao.getUniqueServiceTypes();
         boolean uniqueLoaded = uniqueRowsRaw != null;
         List<ManageBillingFormViewModel.UniqueServiceTypeRow> uniqueRows = new ArrayList<>();
         if (uniqueLoaded) {
-            for (Object[] row : uniqueRowsRaw) {
-                String typeId = row[0] == null ? "" : String.valueOf(row[0]);
-                String typeName = row[1] == null ? "" : String.valueOf(row[1]);
-                uniqueRows.add(new ManageBillingFormViewModel.UniqueServiceTypeRow(typeId, typeName));
+            for (io.github.carlos_emr.carlos.billings.ca.on.dto.UniqueServiceTypeRow row : uniqueRowsRaw) {
+                uniqueRows.add(new ManageBillingFormViewModel.UniqueServiceTypeRow(
+                        row.serviceType(), row.serviceTypeName()));
             }
         }
         b.uniqueServiceTypes(uniqueRows).uniqueServiceTypesLoaded(uniqueLoaded);
@@ -174,13 +174,14 @@ public class ManageBillingFormViewModelAssembler {
             descs[j] = "";
         }
 
-        List<Object[]> results = ctlBillingServicePremiumDao.search_ctlpremium("A");
+        List<io.github.carlos_emr.carlos.billings.ca.on.dto.PremiumRow> results =
+                ctlBillingServicePremiumDao.search_ctlpremium("A");
         if (results != null) {
             int idx = 0;
-            for (Object[] r : results) {
+            for (io.github.carlos_emr.carlos.billings.ca.on.dto.PremiumRow r : results) {
                 if (idx >= rCount) break;
-                codes[idx] = r[0] == null ? "" : (String) r[0];
-                descs[idx] = r[1] == null ? "" : (String) r[1];
+                codes[idx] = r.serviceCode();
+                descs[idx] = r.description();
                 idx++;
             }
         }

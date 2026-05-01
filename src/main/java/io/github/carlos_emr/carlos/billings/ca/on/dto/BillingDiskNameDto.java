@@ -22,14 +22,18 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.dto;
 
-import java.util.ArrayList;
+import java.util.List;
 
 /**
- * Data carrier for {@code BillingDiskNameDto}.
+ * Data carrier for an OHIP "diskname" (claim batch) plus its filename rows.
  *
- * <p>These classes carry legacy billing state between services, actions, and
- * JSPs. Prefer explicit fields and accessors here over loosely typed request
- * attributes in the view layer.</p>
+ * <p>The disk-level scalars ({@code id}, {@code monthCode}, {@code batchcount},
+ * {@code ohipfilename}, {@code groupno}, {@code creator}, {@code claimrecord},
+ * {@code status}, {@code total}, plus the create / update timestamps) describe
+ * the disk header. The {@link #getFilenames() filenames} list carries one
+ * {@link DiskFilenameRow} per provider/filename associated with the disk —
+ * each row holds its own per-row claim record / status / total which
+ * {@code OhipClaimFileService} updates during OHIP file generation.</p>
  */
 public class BillingDiskNameDto {
     private String id;
@@ -43,13 +47,7 @@ public class BillingDiskNameDto {
     private String status;
     private String total;
     private String updatedatetime;
-    private ArrayList<String> vecFilenameId;
-    private ArrayList<String> htmlfilename;
-    private ArrayList<String> providerohipno;
-    private ArrayList<String> providerno;
-    private ArrayList<String> vecClaimrecord;
-    private ArrayList<String> vecStatus;
-    private ArrayList<String> vecTotal;
+    private List<DiskFilenameRow> filenames;
 
     public String getBatchcount() {
         return batchcount;
@@ -91,14 +89,6 @@ public class BillingDiskNameDto {
         this.groupno = groupno;
     }
 
-    public ArrayList<String> getHtmlfilename() {
-        return htmlfilename;
-    }
-
-    public void setHtmlfilename(ArrayList<String> htmlfilename) {
-        this.htmlfilename = htmlfilename;
-    }
-
     public String getId() {
         return id;
     }
@@ -123,14 +113,6 @@ public class BillingDiskNameDto {
         this.ohipfilename = ohipfilename;
     }
 
-    public ArrayList<String> getProviderohipno() {
-        return providerohipno;
-    }
-
-    public void setProviderohipno(ArrayList<String> providerohipno) {
-        this.providerohipno = providerohipno;
-    }
-
     public String getStatus() {
         return status;
     }
@@ -147,38 +129,6 @@ public class BillingDiskNameDto {
         this.total = total;
     }
 
-    public ArrayList<String> getVecClaimrecord() {
-        return vecClaimrecord;
-    }
-
-    public void setVecClaimrecord(ArrayList<String> vecClaimrecord) {
-        this.vecClaimrecord = vecClaimrecord;
-    }
-
-    public ArrayList<String> getVecStatus() {
-        return vecStatus;
-    }
-
-    public void setVecStatus(ArrayList<String> vecStatus) {
-        this.vecStatus = vecStatus;
-    }
-
-    public ArrayList<String> getVecTotal() {
-        return vecTotal;
-    }
-
-    public void setVecTotal(ArrayList<String> vecTotal) {
-        this.vecTotal = vecTotal;
-    }
-
-    public ArrayList<String> getProviderno() {
-        return providerno;
-    }
-
-    public void setProviderno(ArrayList<String> providerno) {
-        this.providerno = providerno;
-    }
-
     public String getUpdatedatetime() {
         return updatedatetime;
     }
@@ -187,12 +137,11 @@ public class BillingDiskNameDto {
         this.updatedatetime = updatedatetime;
     }
 
-    public ArrayList<String> getVecFilenameId() {
-        return vecFilenameId;
+    public List<DiskFilenameRow> getFilenames() {
+        return filenames;
     }
 
-    public void setVecFilenameId(ArrayList<String> vecFilenameId) {
-        this.vecFilenameId = vecFilenameId;
+    public void setFilenames(List<DiskFilenameRow> filenames) {
+        this.filenames = filenames;
     }
-
 }

@@ -151,9 +151,19 @@ class SiblingViewBillingOnActionPrivilegeUnitTest extends CarlosUnitTestBase {
                                 org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOhipSimulationViewModelAssembler.class)).execute()),
                 org.junit.jupiter.params.provider.Arguments.of(
                         "ViewOnGenRa2Action",
-                        (Callable<String>) () -> new ViewOnGenRa2Action(mockSecurityInfoManager,
-                                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.assembler.OnRaViewModelAssembler.class),
-                                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.OnRaImportService.class)).execute()));
+                        (Callable<String>) () -> {
+                            io.github.carlos_emr.carlos.billings.ca.on.service.OnRaImportService importService =
+                                    org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.OnRaImportService.class);
+                            // Stub the import call to return a valid no-op outcome so the
+                            // happy-path privilege test reaches the success return; without
+                            // this stub Mockito returns null and execute() NPEs at
+                            // importOutcome.ok().
+                            org.mockito.Mockito.when(importService.importDocumentBeanFileOutcome(any(HttpServletRequest.class)))
+                                    .thenReturn(io.github.carlos_emr.carlos.billings.ca.on.service.OnRaImportService.ImportOutcome.NOT_REQUESTED);
+                            return new ViewOnGenRa2Action(mockSecurityInfoManager,
+                                    org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.assembler.OnRaViewModelAssembler.class),
+                                    importService).execute();
+                        }));
     }
 
     @ParameterizedTest(name = "{0} — sessionless throws SecurityException")

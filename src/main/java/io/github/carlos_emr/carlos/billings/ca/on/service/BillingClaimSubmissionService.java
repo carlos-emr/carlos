@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingServiceLine;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 /**
@@ -94,10 +95,10 @@ public class BillingClaimSubmissionService {
 
         /** Lift the legacy ArrayList shape into the typed record. */
         @SuppressWarnings({"rawtypes", "unchecked"})
-        public static BillingClaimSubmission fromLegacy(ArrayList vecObj) {
+        public static BillingClaimSubmission fromLegacy(ArrayList claimEnvelope) {
             return new BillingClaimSubmission(
-                    (BillingClaimHeaderDto) vecObj.get(0),
-                    vecObj.size() > 1 ? (List<BillingClaimItemDto>) vecObj.get(1) : List.of());
+                    (BillingClaimHeaderDto) claimEnvelope.get(0),
+                    claimEnvelope.size() > 1 ? (List<BillingClaimItemDto>) claimEnvelope.get(1) : List.of());
         }
     }
 
@@ -135,11 +136,11 @@ public class BillingClaimSubmissionService {
     }
 
 
-    public boolean addPrivateBillExtRecord(HttpServletRequest requestData, ArrayList vecObj, int billingId) {
+    public boolean addPrivateBillExtRecord(HttpServletRequest requestData, ArrayList claimEnvelope, int billingId) {
         boolean ret = false;
 
         Map<String, String> val = getPrivateBillExtObj(requestData);
-        ret = dbObj.add3rdBillExt(val, billingId, vecObj);
+        ret = dbObj.add3rdBillExt(val, billingId, claimEnvelope);
         if (!ret)
             _logger.error("addPrivateBillExtRecord " + billingId);
 
@@ -148,8 +149,8 @@ public class BillingClaimSubmissionService {
 
 
     @SuppressWarnings("unchecked")
-    public void addOhipInvoiceTrans(ArrayList vecObj) {
-        dbObj.addCreateOhipInvoiceTrans((BillingClaimHeaderDto) vecObj.get(0), (List<BillingClaimItemDto>) vecObj.get(1));
+    public void addOhipInvoiceTrans(ArrayList claimEnvelope) {
+        dbObj.addCreateOhipInvoiceTrans((BillingClaimHeaderDto) claimEnvelope.get(0), (List<BillingClaimItemDto>) claimEnvelope.get(1));
     }
 
     /**
@@ -158,7 +159,7 @@ public class BillingClaimSubmissionService {
      * the entire save back, preventing orphan {@code billing_on_cheader1}
      * rows with missing payee keys.
      *
-     * @param vecObj      header + items pre-built via {@link #getBillingClaimObj}
+     * @param claimEnvelope      header + items pre-built via {@link #getBillingClaimObj}
      * @param requestData live request — needed by the third-party-ext path
      * @param xmlBillType raw {@code xml_billtype} param; selects 3rd-party vs OHIP path
      * @param payeeValue  user-entered payee name (may be empty)
@@ -176,11 +177,11 @@ public class BillingClaimSubmissionService {
     }
 
     @SuppressWarnings("rawtypes")
-    public SaveResult saveBillingWithExtAndPayee(ArrayList vecObj,
+    public SaveResult saveBillingWithExtAndPayee(ArrayList claimEnvelope,
                                                  HttpServletRequest requestData,
                                                  String xmlBillType,
                                                  String payeeValue) {
-        SaveResult headerResult = addABillingRecord(vecObj);
+        SaveResult headerResult = addABillingRecord(claimEnvelope);
         if (!headerResult.saved()) {
             return headerResult;
         }
@@ -189,13 +190,13 @@ public class BillingClaimSubmissionService {
         if (xmlBillType != null
                 && xmlBillType.length() >= 3
                 && xmlBillType.substring(0, 3).matches(BillingOnConstants.BILLINGMATCHSTRING_3RDPARTY)) {
-            boolean extOk = addPrivateBillExtRecord(requestData, vecObj, billingNo);
+            boolean extOk = addPrivateBillExtRecord(requestData, claimEnvelope, billingNo);
             if (!extOk) {
                 throw new io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException(
                         "Save rejected: third-party ext write failed; transaction rolled back");
             }
         } else {
-            addOhipInvoiceTrans(vecObj);
+            addOhipInvoiceTrans(claimEnvelope);
         }
 
         if (payeeValue != null) {
@@ -236,12 +237,11 @@ public class BillingClaimSubmissionService {
 
     // ret - ArrayList claimheader1data, itemdata
     public ArrayList getBillingClaimHospObj(HttpServletRequest requestData, String service_date, String total,
-                                         ArrayList vecServiceCode, ArrayList vecServiceCodeUnit, ArrayList vecServiceCodePrice) {
+                                         List<BillingServiceLine> lines) {
         ArrayList ret = new ArrayList();
         BillingClaimHeaderDto claim1Header = getClaimHeader1HospObj(requestData, service_date, total);
         ret.add(claim1Header);
-        BillingClaimItemDto[] itemData = getItemHospObj(requestData, vecServiceCode, vecServiceCodeUnit,
-                vecServiceCodePrice, service_date);
+        BillingClaimItemDto[] itemData = getItemHospObj(requestData, lines, service_date);
 
         List aL = new ArrayList();
         for (int i = 0; i < itemData.length; i++) {
@@ -430,24 +430,23 @@ public class BillingClaimSubmissionService {
         return claim1Header;
     }
 
-    private BillingClaimItemDto[] getItemHospObj(HttpServletRequest val, ArrayList vecServiceCode, ArrayList vecServiceCodeUnit,
-                                             ArrayList vecServiceCodePrice, String service_date) {
-        int itemNum = vecServiceCode.size();
-        BillingClaimItemDto[] claimItem = new BillingClaimItemDto[itemNum];
-        // _logger.info("No billing item for billing # " + itemNum);
+    private BillingClaimItemDto[] getItemHospObj(HttpServletRequest val, List<BillingServiceLine> lines,
+                                             String service_date) {
+        BillingClaimItemDto[] claimItem = new BillingClaimItemDto[lines.size()];
 
-        for (int i = 0; i < vecServiceCode.size(); i++) { // recordCount
-            BigDecimal bdEachPrice = BillingMoney.amount((String) vecServiceCodePrice.get(i));
-            BigDecimal bdEachUnit = BillingMoney.amount((String) vecServiceCodeUnit.get(i));
+        for (int i = 0; i < lines.size(); i++) { // recordCount
+            BillingServiceLine line = lines.get(i);
+            BigDecimal bdEachPrice = BillingMoney.amount(line.price());
+            BigDecimal bdEachUnit = BillingMoney.amount(line.unit());
             BigDecimal bdEachTotal = bdEachPrice.multiply(bdEachUnit).setScale(2, RoundingMode.HALF_UP);
 
             claimItem[i] = new BillingClaimItemDto();
             claimItem[i].setTransc_id(BillingOnConstants.ITEM_TRANSACTIONIDENTIFIER);
             claimItem[i].setRec_id(BillingOnConstants.ITEM_REORDIDENTIFICATION);
 
-            claimItem[i].setService_code((String) vecServiceCode.get(i));
+            claimItem[i].setService_code(line.code());
             claimItem[i].setFee("" + bdEachTotal);
-            claimItem[i].setSer_num(getDefaultUnit((String) vecServiceCodeUnit.get(i)));
+            claimItem[i].setSer_num(getDefaultUnit(line.unit()));
             claimItem[i].setService_date(service_date);
             claimItem[i].setDx(getDefaultSpace(val.getParameter("dxCode")));
             claimItem[i].setDx1(getDefaultSpace(val.getParameter("dxCode1")));

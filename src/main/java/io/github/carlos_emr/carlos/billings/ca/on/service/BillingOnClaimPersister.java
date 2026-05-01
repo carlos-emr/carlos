@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingBatchHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingDiskNameDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.DiskFilenameRow;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONDiskNameDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONFilenameDao;
@@ -427,14 +428,14 @@ public class BillingOnClaimPersister {
      *
      * @param mVal   Map form-field value lookup (keyed by field name)
      * @param id     int the parent claim header ID
-     * @param vecObj ArrayList positional bag: index 0 = {@link BillingClaimHeaderDto},
+     * @param claimEnvelope ArrayList positional bag: index 0 = {@link BillingClaimHeaderDto},
      *               index 1 = {@code List<BillingClaimItemDto>}
      * @return boolean {@code true} on success
      * @throws BillingValidationException when {@code payDate} is malformed
      */
     @SuppressWarnings("unchecked")
-    public boolean add3rdBillExt(Map<String, String> mVal, int id, ArrayList vecObj) {
-        BillingClaimHeaderDto claim1Obj = (BillingClaimHeaderDto) vecObj.get(0);
+    public boolean add3rdBillExt(Map<String, String> mVal, int id, ArrayList claimEnvelope) {
+        BillingClaimHeaderDto claim1Obj = (BillingClaimHeaderDto) claimEnvelope.get(0);
         String[] temp = {"billTo", "remitTo", "total", "payment", "discount", "provider_no", "gst", "payDate", "payMethod"};
         String demoNo = mVal.get("demographic_no");
         String dateTime = UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss");
@@ -499,8 +500,8 @@ public class BillingOnClaimPersister {
         }
 
         if (payment != null) {
-            addItemPaymentRecord((List) vecObj.get(1), id, payment.getId(), paymentType);
-            addCreate3rdInvoiceTrans((BillingClaimHeaderDto) vecObj.get(0), (List<BillingClaimItemDto>) vecObj.get(1), payment);
+            addItemPaymentRecord((List) claimEnvelope.get(1), id, payment.getId(), paymentType);
+            addCreate3rdInvoiceTrans((BillingClaimHeaderDto) claimEnvelope.get(0), (List<BillingClaimItemDto>) claimEnvelope.get(1), payment);
         }
         return true;
     }
@@ -622,18 +623,20 @@ public class BillingOnClaimPersister {
 
         if (b.getId() > 0) {
             // add filenames, if needed
-            for (int i = 0; i < val.getProviderohipno().size(); i++) {
-                BillingONFilename f = new BillingONFilename();
-                f.setDiskId(b.getId());
-                f.setHtmlFilename((String) val.getHtmlfilename().get(i));
-                f.setProviderOhipNo((String) val.getProviderohipno().get(i));
-                f.setProviderNo((String) val.getProviderno().get(i));
-                f.setClaimRecord((String) val.getVecClaimrecord().get(0));
-                f.setStatus((String) val.getVecStatus().get(0));
-                f.setTotal((String) val.getVecTotal().get(0));
-                filenameDao.persist(f);
+            List<DiskFilenameRow> rows = val.getFilenames();
+            if (rows != null) {
+                for (DiskFilenameRow row : rows) {
+                    BillingONFilename f = new BillingONFilename();
+                    f.setDiskId(b.getId());
+                    f.setHtmlFilename(row.htmlFilename());
+                    f.setProviderOhipNo(row.providerOhipNo());
+                    f.setProviderNo(row.providerNo());
+                    f.setClaimRecord(row.claimRecord());
+                    f.setStatus(row.status());
+                    f.setTotal(row.total());
+                    filenameDao.persist(f);
+                }
             }
-
         } else {
             retval = 0;
         }
@@ -663,17 +666,20 @@ public class BillingOnClaimPersister {
 
         if (b.getId() > 0) {
             // add filenames, if needed
-            for (int i = 0; i < val.getProviderohipno().size(); i++) {
-                BillingONRepo r = new BillingONRepo();
-                r.sethId(Integer.valueOf((String) val.getVecFilenameId().get(i)));
-                r.setCategory("billing_on_filename");
-                r.setContent(val.getId() + "|" + val.getHtmlfilename().get(i) + "|"
-                        + val.getProviderohipno().get(i) + "|" + val.getProviderno().get(i) + "|" + val.getVecClaimrecord().get(0)
-                        + "|" + val.getVecStatus().get(0) + "|" + val.getVecTotal().get(0) + "|" + val.getUpdatedatetime());
+            List<DiskFilenameRow> rows = val.getFilenames();
+            if (rows != null) {
+                for (DiskFilenameRow row : rows) {
+                    BillingONRepo r = new BillingONRepo();
+                    r.sethId(Integer.valueOf(row.filenameId()));
+                    r.setCategory("billing_on_filename");
+                    r.setContent(val.getId() + "|" + row.htmlFilename() + "|"
+                            + row.providerOhipNo() + "|" + row.providerNo() + "|" + row.claimRecord()
+                            + "|" + row.status() + "|" + row.total() + "|" + val.getUpdatedatetime());
 
-                r.setCreateDateTime(new Date());
+                    r.setCreateDateTime(new Date());
 
-                repoDao.persist(r);
+                    repoDao.persist(r);
+                }
             }
         } else {
             retval = 0;

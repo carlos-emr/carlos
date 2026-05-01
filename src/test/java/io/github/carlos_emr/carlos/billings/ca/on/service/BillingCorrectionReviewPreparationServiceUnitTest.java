@@ -49,9 +49,11 @@ class BillingCorrectionReviewPreparationServiceUnitTest extends CarlosUnitTestBa
                 new BillingCorrectionReviewPreparationService(serviceCodeLoader, new BillingCorrectionReviewViewModelAssembler());
 
         when(serviceCodeLoader.getBillingCodeAttr("A001A"))
-                .thenReturn(List.of("A001A", "Minor assessment", "10.00", "0.00"));
+                .thenReturn(List.of(new io.github.carlos_emr.carlos.billings.ca.on.dto.BillingCodeAttribute(
+                        "A001A", "Minor assessment", "10.00", "0.00", "", "false")));
         when(serviceCodeLoader.getBillingCodeAttr("E411A"))
-                .thenReturn(List.of("E411A", "Evening premium", ".00", "0.50"));
+                .thenReturn(List.of(new io.github.carlos_emr.carlos.billings.ca.on.dto.BillingCodeAttribute(
+                        "E411A", "Evening premium", ".00", "0.50", "", "false")));
 
         BillingCorrectionValidationCommand command = new BillingCorrectionValidationCommand(
                 "250|Diabetes",

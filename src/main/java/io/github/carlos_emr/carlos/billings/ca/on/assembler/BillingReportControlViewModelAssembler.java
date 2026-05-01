@@ -30,7 +30,6 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingReportControlViewModel;
 import io.github.carlos_emr.carlos.commn.dao.ReportProviderDao;
-import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 /**
@@ -83,23 +82,17 @@ public class BillingReportControlViewModelAssembler {
     }
 
     private List<BillingReportControlViewModel.ProviderOption> loadProviderOptions() {
-        List<Object[]> raw = reportProviderDao.search_reportprovider("billingreport");
+        List<io.github.carlos_emr.carlos.billings.ca.on.dto.ReporterRow> raw =
+                reportProviderDao.search_reportprovider("billingreport");
         if (raw == null) {
             return List.of();
         }
         List<BillingReportControlViewModel.ProviderOption> out = new ArrayList<>(raw.size());
-        for (Object[] res : raw) {
-            // res[0] is ReportProvider (unused — only the Provider at res[1]
-            // is rendered). The legacy scriptlet cast both halves; we drop
-            // the unused cast to keep the loop body minimal.
-            Provider p = (Provider) res[1];
+        for (io.github.carlos_emr.carlos.billings.ca.on.dto.ReporterRow row : raw) {
             out.add(new BillingReportControlViewModel.ProviderOption(
-                    nullToEmpty(p.getProviderNo()),
-                    nullToEmpty(p.getFirstName()),
-                    nullToEmpty(p.getLastName())));
+                    row.providerNo(), row.firstName(), row.lastName()));
         }
         return out;
     }
 
-    private static String nullToEmpty(String s) { return s == null ? "" : s; }
 }

@@ -40,6 +40,7 @@ import io.github.carlos_emr.carlos.billing.CA.dao.BillActivityDao;
 import io.github.carlos_emr.carlos.billing.CA.model.BillActivity;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingDiskNameDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.DiskFilenameRow;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnMriViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnLookupService;
 import io.github.carlos_emr.carlos.commn.dao.ProviderBillCenterDao;
@@ -191,12 +192,11 @@ public class BillingOnMriViewModelAssembler {
      * The returned list is in {@code BillingReviewQueryService}'s pipe-delimited
      * "no|last|first" format — split here into structured records.
      */
-    @SuppressWarnings("unchecked")
     private List<BillingOnMriViewModel.ProviderEntry> loadProviderOptions(String userProviderNo,
                                                                            boolean isTeamBillingOnly,
                                                                            boolean isSiteAccessPrivacy,
                                                                            boolean isTeamAccessPrivacy) {
-        List<String> providerStrs;
+        List<io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry> providerStrs;
         if (isTeamBillingOnly || isTeamAccessPrivacy) {
             providerStrs = reviewPrep.getTeamProviderBillingStr(userProviderNo);
         } else if (isSiteAccessPrivacy) {
@@ -208,12 +208,9 @@ public class BillingOnMriViewModelAssembler {
         if (providerStrs == null) {
             return options;
         }
-        for (String row : providerStrs) {
-            String[] parts = row.split("\\|");
-            String no = parts.length > 0 ? parts[0] : "";
-            String last = parts.length > 1 ? parts[1] : "";
-            String first = parts.length > 2 ? parts[2] : "";
-            options.add(new BillingOnMriViewModel.ProviderEntry(no, last, first));
+        for (io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry row : providerStrs) {
+            options.add(new BillingOnMriViewModel.ProviderEntry(
+                    row.providerNo(), row.lastName(), row.firstName()));
         }
         return options;
     }
@@ -267,21 +264,19 @@ public class BillingOnMriViewModelAssembler {
             String oFile = data.getOhipfilename();
             String updateDate = data.getUpdatedatetime();
             String createDate = data.getCreatedatetime();
-            ArrayList vecProviderNo = data.getProviderno();
-            ArrayList vecClaimRecord = data.getVecClaimrecord();
-            ArrayList vecHtmlFilename = data.getHtmlfilename();
-            ArrayList vecTotal = data.getVecTotal();
+            List<DiskFilenameRow> filenameRows = data.getFilenames();
 
-            int providerCount = vecProviderNo == null ? 0 : vecProviderNo.size();
+            int providerCount = filenameRows == null ? 0 : filenameRows.size();
             for (int j = 0; j < providerCount; j++) {
+                DiskFilenameRow row = filenameRows.get(j);
                 count++;
-                String proNo = (String) vecProviderNo.get(j);
+                String proNo = row.providerNo();
                 if (filterByVisibleProviders && !visibleProviderSet.contains(proNo)) {
                     continue;
                 }
-                String cr = (String) vecClaimRecord.get(j);
-                String hFile = (String) vecHtmlFilename.get(j);
-                String total = (String) vecTotal.get(j);
+                String cr = row.claimRecord();
+                String hFile = row.htmlFilename();
+                String total = row.total();
                 String name = proName.getProperty(proNo, "");
                 String bgColor = (count % 2 == 0) ? currentYearColor : "ivory";
                 if (updateDate != null && createDate != null && !updateDate.equals(createDate)) {

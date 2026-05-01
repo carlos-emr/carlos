@@ -80,7 +80,7 @@ public class GstReportViewModelAssembler {
         boolean isTeamPrivacy = loggedInInfo != null
                 && securityInfoManager.hasPrivilege(loggedInInfo, "_team_access_privacy", "r", null);
 
-        List<String> rawProviders;
+        List<io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry> rawProviders;
         if (isTeamPrivacy) {
             rawProviders = lookupService.getCurTeamProviderStr(curProvider);
         } else if (isSitePrivacy) {
@@ -93,11 +93,8 @@ public class GstReportViewModelAssembler {
         }
 
         List<GstReportViewModel.ProviderOption> providerOptions = new ArrayList<>(rawProviders.size());
-        for (String raw : rawProviders) {
-            String[] parts = raw.split("\\|");
-            if (parts.length >= 3) {
-                providerOptions.add(new GstReportViewModel.ProviderOption(parts[0], parts[1], parts[2]));
-            }
+        for (io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry p : rawProviders) {
+            providerOptions.add(new GstReportViewModel.ProviderOption(p.providerNo(), p.lastName(), p.firstName()));
         }
 
         // Aggregate the GST rows. Filter to rows where gst > 0 (matches the

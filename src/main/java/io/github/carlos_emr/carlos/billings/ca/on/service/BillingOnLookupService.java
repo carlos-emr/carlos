@@ -31,6 +31,7 @@ import java.util.Properties;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONFavouriteDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONFilenameDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONFavourite;
@@ -108,26 +109,18 @@ public class BillingOnLookupService {
 
      */
 
-    public List<String> getCurTeamProviderStr(String provider_no) {
-        List<String> retval = new ArrayList<String>();
-        String proid = "";
-        String proFirst = "";
-        String proLast = "";
-        String proOHIP = "";
-        String specialty_code;
-        String billinggroup_no;
-
+    public List<ProviderDropdownEntry> getCurTeamProviderStr(String provider_no) {
+        List<ProviderDropdownEntry> retval = new ArrayList<>();
         List<Provider> ps = providerDao.getCurrentTeamProviders(provider_no);
         for (Provider p : ps) {
-            proid = p.getProviderNo();
-            proLast = p.getLastName();
-            proFirst = p.getFirstName();
-            proOHIP = p.getOhipNo();
-            billinggroup_no = getXMLStringWithDefault(p.getComments(), "xml_p_billinggroup_no", "0000");
-            specialty_code = getXMLStringWithDefault(p.getComments(), "xml_p_specialty_code", "00");
-            retval.add(proid + "|" + proLast + "|" + proFirst + "|" + proOHIP + "|" + billinggroup_no + "|" + specialty_code);
+            retval.add(new ProviderDropdownEntry(
+                    p.getProviderNo(),
+                    p.getLastName(),
+                    p.getFirstName(),
+                    p.getOhipNo(),
+                    getXMLStringWithDefault(p.getComments(), "xml_p_billinggroup_no", "0000"),
+                    getXMLStringWithDefault(p.getComments(), "xml_p_specialty_code", "00")));
         }
-
         return retval;
     }
 
@@ -143,8 +136,8 @@ public class BillingOnLookupService {
 
      */
 
-    public List<String> getCurSiteProviderStr(String provider_no) {
-        List<String> retval = new ArrayList<String>();
+    public List<ProviderDropdownEntry> getCurSiteProviderStr(String provider_no) {
+        List<ProviderDropdownEntry> retval = new ArrayList<>();
 
         List<ProviderSite> sites = providerSiteDao.findByProviderNo(provider_no);
         List<Integer> siteIds = new ArrayList<Integer>();
@@ -152,24 +145,15 @@ public class BillingOnLookupService {
             siteIds.add(site.getId().getSiteId());
         }
 
-        String proid = "";
-        String proFirst = "";
-        String proLast = "";
-        String proOHIP = "";
-        String specialty_code;
-        String billinggroup_no;
-
         try {
             for (Provider p : providerSiteDao.findActiveProvidersWithSites(provider_no)) {
-                proid = p.getProviderNo();
-                proLast = p.getLastName();
-                proFirst = p.getFirstName();
-                proOHIP = p.getOhipNo();
-                billinggroup_no = getXMLStringWithDefault(p.getComments(), "xml_p_billinggroup_no", "0000");
-                specialty_code = getXMLStringWithDefault(p.getComments(), "xml_p_specialty_code", "00");
-
-                retval.add(proid + "|" + proLast + "|" + proFirst + "|" + proOHIP + "|" + billinggroup_no + "|"
-                        + specialty_code);
+                retval.add(new ProviderDropdownEntry(
+                        p.getProviderNo(),
+                        p.getLastName(),
+                        p.getFirstName(),
+                        p.getOhipNo(),
+                        getXMLStringWithDefault(p.getComments(), "xml_p_billinggroup_no", "0000"),
+                        getXMLStringWithDefault(p.getComments(), "xml_p_specialty_code", "00")));
             }
         } catch (RuntimeException e) {
             // Rethrow so the JSP gets a real error rather than a silently-
@@ -193,27 +177,18 @@ public class BillingOnLookupService {
 
      */
 
-    public List<String> getCurProviderStr() {
-        List<String> retval = new ArrayList<String>();
-
+    public List<ProviderDropdownEntry> getCurProviderStr() {
+        List<ProviderDropdownEntry> retval = new ArrayList<>();
         List<Provider> ps = providerDao.getBillableProviders();
-        String proid = "";
-        String proFirst = "";
-        String proLast = "";
-        String proOHIP = "";
-        String specialty_code;
-        String billinggroup_no;
-
         for (Provider p : ps) {
-            proid = p.getProviderNo();
-            proLast = p.getLastName();
-            proFirst = p.getFirstName();
-            proOHIP = p.getOhipNo();
-            billinggroup_no = getXMLStringWithDefault(p.getComments(), "xml_p_billinggroup_no", "0000");
-            specialty_code = getXMLStringWithDefault(p.getComments(), "xml_p_specialty_code", "00");
-            retval.add(proid + "|" + proLast + "|" + proFirst + "|" + proOHIP + "|" + billinggroup_no + "|" + specialty_code);
+            retval.add(new ProviderDropdownEntry(
+                    p.getProviderNo(),
+                    p.getLastName(),
+                    p.getFirstName(),
+                    p.getOhipNo(),
+                    getXMLStringWithDefault(p.getComments(), "xml_p_billinggroup_no", "0000"),
+                    getXMLStringWithDefault(p.getComments(), "xml_p_specialty_code", "00")));
         }
-
         return retval;
     }
 

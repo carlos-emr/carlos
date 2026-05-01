@@ -168,7 +168,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
         // Pin the prototype-per-claim contract on the OhipClaimExtractService
         // factory: a future "optimization" that caches the factory result and
         // reuses the same instance across providers would let mutated state
-        // (totalAmount, vecBilling) bleed between claims, mixing one doctor's
+        // (totalAmount, billings) bleed between claims, mixing one doctor's
         // totals into another's batch — a billing-data-integrity regression
         // that would not throw, only mis-bill.
         @SuppressWarnings("unchecked")

@@ -151,7 +151,11 @@ public interface BillingONCHeader1Dao extends AbstractDao<BillingONCHeader1> {
     public List<BillingONCHeader1> findBillingsByDemoNoCh1HeaderServiceCodeAndDate(Integer demoNo,
                                                                                    List<String> serviceCodes, Date from, Date to);
 
-    public List<String[]> findBillingData(String conditions);
+    public List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimReportRow>
+    findBillingData(io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimReportFilter filter);
+
+    public List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportBilledRow>
+    findBillingOnNewReportBilledRows(String providerNo, String startDate, String endDate);
 
     public List<BillingONCHeader1> findAllByPayProgram(String payProgram, int startIndex, int limit);
 

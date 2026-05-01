@@ -382,18 +382,15 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
     }
 
     /**
-     * Set the running paid total. Negative values are not legal because
-     * refunds are tracked on the payments table, not by negating the
-     * running total. Mirrors the {@link #setTotal} invariant.
+     * Set the running paid total. Negative values are permitted because
+     * refunds (R-type payments in {@code BillingONPaymentDaoImpl#createPayment})
+     * subtract from the running total — a refund issued before any
+     * matching P-type payment will produce a negative paid balance, which
+     * downstream reports treat as "patient/third-party owes money back".
      *
      * @param paid BigDecimal the paid amount; null is allowed (legacy contract)
-     * @throws IllegalArgumentException when {@code paid} is negative
      */
     public void setPaid(BigDecimal paid) {
-        if (paid != null && paid.signum() < 0) {
-            throw new IllegalArgumentException(
-                    "BillingONCHeader1 paid cannot be negative");
-        }
         this.paid = paid;
     }
 

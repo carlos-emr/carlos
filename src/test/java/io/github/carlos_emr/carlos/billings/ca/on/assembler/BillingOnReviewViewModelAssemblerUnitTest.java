@@ -82,13 +82,8 @@ class BillingOnReviewViewModelAssemblerUnitTest extends CarlosUnitTestBase {
         // The assembler unconditionally indexes into the result of these
         // two methods at lines 332-334; default null Mockito return NPEs.
         // Empty 3-slot arrays exercise the no-service-code path.
-        @SuppressWarnings("unchecked")
-        java.util.ArrayList<String>[] emptyVec = new java.util.ArrayList[]{
-                new java.util.ArrayList<String>(),
-                new java.util.ArrayList<String>(),
-                new java.util.ArrayList<String>()};
-        when(reviewPrep.getRequestFormCodeVec(any(), any(), any(), any())).thenReturn(emptyVec);
-        when(reviewPrep.getRequestCodeVec(any(), any(), any(), any(), anyInt())).thenReturn(emptyVec);
+        when(reviewPrep.getRequestFormCodes(any(), any(), any(), any())).thenReturn(java.util.List.of());
+        when(reviewPrep.getRequestCodes(any(), any(), any(), any(), anyInt())).thenReturn(java.util.List.of());
 
         ServiceCodeLoader serviceCodeLoader = Mockito.mock(ServiceCodeLoader.class);
         when(serviceCodeLoader.getCodeDescByNames(any())).thenReturn(new java.util.Properties());

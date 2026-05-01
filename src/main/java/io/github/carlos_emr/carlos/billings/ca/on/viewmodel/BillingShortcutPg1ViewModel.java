@@ -26,7 +26,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.ArrayList;
 /**
  * Immutable view model for {@code billingShortcutPg1.jsp} (the fast-track
  * hospital-billing entry, page 1).
@@ -36,15 +35,14 @@ import java.util.ArrayList;
  * via
  * {@link io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingShortcutPg1View2Action}
  * and exposed to the JSP as request attribute {@code shortcutPg1Model}. Captures
- * the demographic + provider lookups, the billing-history vectors, the
+ * the demographic + provider lookups, the billing-history rows, the
  * service-code grid, and the validation messages that previously lived in the
  * 350-line top scriptlet of the legacy JSP.</p>
  *
- * <p>ArrayList / Properties types are kept (rather than a more idiomatic record /
- * Map shape) because the existing JSP scriptlet body iterates them as
- * {@link ArrayList} and reads via {@code Properties.getProperty}; preserving the
- * shape lets the bridge keep the rendering-side scriptlets intact while still
- * pulling the data from a single tested source.</p>
+ * <p>{@link Properties} elements are kept inside the lists because the JSP iterates
+ * each row via {@code Properties.getProperty(key)}; converting to typed records
+ * would force a parallel JSP rewrite that is outside the scope of the de-scriptlet
+ * pass.</p>
  *
  * @since 2026-04-24
  */
@@ -302,30 +300,6 @@ public final class BillingShortcutPg1ViewModel {
     public boolean isHistoryPartial() { return historyPartialRowCount > 0; }
 
     public int getHistoryPartialRowCount() { return historyPartialRowCount; }
-
-    /**
-     * ArrayList view of {@link #getBillingHistory()} for legacy JSP scriptlets that
-     * iterate via {@link ArrayList}. Returns a defensive copy.
-     */
-    public ArrayList<Properties> getBillingHistoryVec() { return new ArrayList<>(billingHistory); }
-
-    /** ArrayList view of {@link #getBillingHistoryDetails()} for legacy JSP scriptlets. */
-    public ArrayList<Properties> getBillingHistoryDetailsVec() { return new ArrayList<>(billingHistoryDetails); }
-
-    /** ArrayList view of {@link #getProviders()} for legacy JSP scriptlets. */
-    public ArrayList<Properties> getProvidersVec() { return new ArrayList<>(providers); }
-
-    /** ArrayList view of {@link #getClinicLocations()} for legacy JSP scriptlets. */
-    public ArrayList<Properties> getClinicLocationsVec() { return new ArrayList<>(clinicLocations); }
-
-    /** ArrayList view of {@link #getServiceCodeCol1()} for legacy JSP scriptlets. */
-    public ArrayList<Properties> getServiceCodeCol1Vec() { return new ArrayList<>(serviceCodeCol1); }
-
-    /** ArrayList view of {@link #getServiceCodeCol2()} for legacy JSP scriptlets. */
-    public ArrayList<Properties> getServiceCodeCol2Vec() { return new ArrayList<>(serviceCodeCol2); }
-
-    /** ArrayList view of {@link #getServiceCodeCol3()} for legacy JSP scriptlets. */
-    public ArrayList<Properties> getServiceCodeCol3Vec() { return new ArrayList<>(serviceCodeCol3); }
 
     /**
      * Properties view of {@link #getPropPremium()} for legacy JSP scriptlets that

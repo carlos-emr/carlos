@@ -46,8 +46,8 @@ class BillingReviewPresentationItemUnitTest {
 
     @Test
     void shouldTypePercentageFeeListsAsStringLists() {
-        RecordComponent feeComponent = recordComponent(BillingReviewPercentageItem.class, "vecCodeFee");
-        RecordComponent totalComponent = recordComponent(BillingReviewPercentageItem.class, "vecCodeTotal");
+        RecordComponent feeComponent = recordComponent(BillingReviewPercentageItem.class, "codeFees");
+        RecordComponent totalComponent = recordComponent(BillingReviewPercentageItem.class, "codeTotals");
 
         assertThat(feeComponent.getGenericType().getTypeName()).isEqualTo("java.util.List<java.lang.String>");
         assertThat(totalComponent.getGenericType().getTypeName()).isEqualTo("java.util.List<java.lang.String>");

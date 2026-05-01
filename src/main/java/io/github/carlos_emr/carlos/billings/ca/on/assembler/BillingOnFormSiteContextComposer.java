@@ -36,7 +36,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnFormViewMod
 import io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
-import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.ClinicNbr;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Site;
@@ -175,11 +174,10 @@ public class BillingOnFormSiteContextComposer {
         if (selectedSite.isEmpty() && oscarAppointmentDao != null) {
             try {
                 int apptNoInt = ConversionUtils.fromIntString(nullToEmpty(apptNo));
-                for (Object[] obj : oscarAppointmentDao.findAppointmentAndProviderByAppointmentNo(apptNoInt)) {
-                    Appointment a = (Appointment) obj[0];
-                    Provider p = (Provider) obj[1];
-                    selectedSite = nullToEmpty(a.getLocation());
-                    defaultXmlp = nullToEmpty(a.getProviderNo()) + "|" + nullToEmpty(p.getOhipNo());
+                for (io.github.carlos_emr.carlos.billings.ca.on.dto.AppointmentProviderRow row :
+                        oscarAppointmentDao.findAppointmentAndProviderByAppointmentNo(apptNoInt)) {
+                    selectedSite = row.location();
+                    defaultXmlp = row.appointmentProviderNo() + "|" + row.providerOhipNo();
                 }
             } catch (RuntimeException rtEx) {
                 MiscUtils.getLogger().warn(

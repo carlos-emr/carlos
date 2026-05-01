@@ -28,6 +28,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Calendar;
 import java.util.Enumeration;
 import java.util.GregorianCalendar;
+import java.util.List;
 import java.util.ArrayList;
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -41,6 +42,7 @@ import io.github.carlos_emr.carlos.billing.CA.model.BillingDetail;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingPercLimitDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingPercLimit;
 import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingServiceLine;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingShortcutPg2ViewModel;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
@@ -340,11 +342,8 @@ public class BillingShortcutPg2Service {
         // `serviceUnit{i}` request params. Same loop unrolled the legacy JSP
         // ran. Layered on top: form-based codes from `code_xml_*` etc.
         int NUMTYPEINFIELD = 5;
-        ArrayList<String> vecServiceCode = new ArrayList<>();
-        ArrayList<String> vecServiceCodeDesc = new ArrayList<>();
-        ArrayList<String> vecServiceCodeUnit = new ArrayList<>();
-        ArrayList<String> vecServiceCodePrice = new ArrayList<>();
-        ArrayList<String> vecServiceCodePerc = new ArrayList<>();
+        List<BillingServiceLine> lines = new ArrayList<>();
+        List<PercentageCodeRow> percentageRows = new ArrayList<>();
 
         String rulePerc = request.getParameter("rulePerc");
         if (rulePerc == null) rulePerc = "allAboveCode";
@@ -369,18 +368,12 @@ public class BillingShortcutPg2Service {
                 String price = bs.getValue() == null ? "" : bs.getValue();
                 String perc = bs.getPercentage();
                 if ((!price.isEmpty() && BillingMoney.isPositive(price)) || perc == null || perc.isEmpty()) {
-                    vecServiceCode.add(billrec[i]);
-                    vecServiceCodeDesc.add(desc);
-                    vecServiceCodePrice.add(price);
-                    vecServiceCodeUnit.add(billrecunit[i]);
+                    lines.add(new BillingServiceLine(billrec[i], desc, billrecunit[i], price));
                 } else {
                     if (!"allAboveCode".equals(rulePerc) && rulePercLabelNum == -1) {
                         rulePercLabelNum = (i - 1 == -1) ? 0 : i - 1;
                     }
-                    vecServiceCodePerc.add(billrec[i]);
-                    vecServiceCodePerc.add(perc);
-                    vecServiceCodePerc.add(billrecunit[i]);
-                    vecServiceCodePerc.add(desc);
+                    percentageRows.add(new PercentageCodeRow(billrec[i], perc, billrecunit[i], desc));
                 }
             }
         }
@@ -402,44 +395,38 @@ public class BillingShortcutPg2Service {
             String code = temp.substring("xml_".length()).toUpperCase();
             if ((fee != null && !fee.isEmpty() && BillingMoney.isPositive(fee))
                     || perc == null || perc.isEmpty()) {
-                vecServiceCodePrice.add(fee == null ? "" : fee);
-                vecServiceCodeUnit.add(tempUnit);
-                vecServiceCode.add(code);
-                vecServiceCodeDesc.add(desc == null ? "" : desc);
+                lines.add(new BillingServiceLine(code, desc, tempUnit, fee == null ? "" : fee));
             } else {
-                vecServiceCodePerc.add(code);
-                vecServiceCodePerc.add(perc);
-                vecServiceCodePerc.add(tempUnit);
-                vecServiceCodePerc.add(desc == null ? "" : desc);
+                percentageRows.add(new PercentageCodeRow(code, perc, tempUnit, desc));
             }
         }
 
-        int size = vecServiceCodePerc.size() / 4;
+        int size = percentageRows.size();
         String[] aMinFee = new String[size];
         String[] aMaxFee = new String[size];
         boolean[] aLimits = new boolean[size];
-        int codeIdx = 0;
         for (int idx2 = 0; idx2 < size; idx2++) {
-            for (BillingPercLimit bpl : billingPercLimitDao.findByServiceCode("" + vecServiceCodePerc.get(codeIdx))) {
+            PercentageCodeRow row = percentageRows.get(idx2);
+            for (BillingPercLimit bpl : billingPercLimitDao.findByServiceCode(row.code())) {
                 aLimits[idx2] = true;
                 aMinFee[idx2] = bpl.getMin();
                 aMaxFee[idx2] = bpl.getMax();
             }
-            codeIdx += 4;
         }
 
         StringBuilder msg = new StringBuilder("<tr><td colspan='2'>Calculation</td></tr>");
         BigDecimal bdTotal = new BigDecimal("0").setScale(2, RoundingMode.HALF_UP);
         BigDecimal bdPercBase = new BigDecimal("0").setScale(2, RoundingMode.HALF_UP);
-        for (int i = 0; i < vecServiceCodePrice.size(); i++) {
-            BigDecimal price = BillingMoney.amount(vecServiceCodePrice.get(i));
-            BigDecimal unit = BillingMoney.amount(vecServiceCodeUnit.get(i));
+        for (int i = 0; i < lines.size(); i++) {
+            BillingServiceLine line = lines.get(i);
+            BigDecimal price = BillingMoney.amount(line.price());
+            BigDecimal unit = BillingMoney.amount(line.unit());
             bdTotal = bdTotal.add(price.multiply(unit).setScale(2, RoundingMode.HALF_UP));
             if (i == rulePercLabelNum) {
                 bdPercBase = bdTotal;
             }
             msg.append("<tr bgcolor='#EEEEFF'><td align='right' width='20%'>")
-                    .append(SafeEncode.forHtml(vecServiceCode.get(i)))
+                    .append(SafeEncode.forHtml(line.code()))
                     .append(" (").append(Math.round(unit.floatValue())).append(")</td>")
                     .append("<td align='right'>").append(i == 0 ? "" : " + ")
                     .append(price).append(" x ").append(unit).append(" = ")
@@ -449,13 +436,13 @@ public class BillingShortcutPg2Service {
         if ("allAboveCode".equals(rulePerc)) {
             bdPercBase = bdTotal;
         }
-        codeIdx = 1;
         BigDecimal[] bdPercs = new BigDecimal[size];
         for (int idx3 = 0; idx3 < size; idx3++) {
-            BigDecimal perc = BillingMoney.amount(vecServiceCodePerc.get(codeIdx));
+            PercentageCodeRow row = percentageRows.get(idx3);
+            BigDecimal perc = BillingMoney.amount(row.percentage());
             BigDecimal bdPerc = bdPercBase.multiply(perc).setScale(2, RoundingMode.HALF_UP);
             msg.append("<tr bgcolor='#EEEEFF'><td align='right'>")
-                    .append(SafeEncode.forHtml(String.valueOf(vecServiceCodePerc.get(codeIdx - 1))))
+                    .append(SafeEncode.forHtml(row.code()))
                     .append(" (1)</td><td align='right'>Percentage : ")
                     .append(bdPercBase).append(" x ").append(perc).append(" = ")
                     .append(bdPerc).append("</td></tr>");
@@ -468,7 +455,6 @@ public class BillingShortcutPg2Service {
             }
             bdTotal = bdTotal.add(bdPerc);
             bdPercs[idx3] = bdPerc;
-            codeIdx += 4;
         }
 
         msg.append("<tr><td align='right' colspan='2'>Total: ").append(bdTotal).append("</td></tr>");
@@ -476,11 +462,8 @@ public class BillingShortcutPg2Service {
         CalcResult result = new CalcResult();
         result.html = msg.toString();
         result.total = "" + bdTotal;
-        result.vecServiceCode = vecServiceCode;
-        result.vecServiceCodeDesc = vecServiceCodeDesc;
-        result.vecServiceCodePrice = vecServiceCodePrice;
-        result.vecServiceCodeUnit = vecServiceCodeUnit;
-        result.vecServiceCodePerc = vecServiceCodePerc;
+        result.lines = lines;
+        result.percentageRows = percentageRows;
         result.bdPercs = bdPercs;
         result.size = size;
         return result;
@@ -500,21 +483,18 @@ public class BillingShortcutPg2Service {
             if (dateStr == null || dateStr.trim().length() != 10) continue;
 
             if (isNewBilling) {
-                if (!bServicePerc && calc.vecServiceCodePerc.size() > 1) {
+                if (!bServicePerc && !calc.percentageRows.isEmpty()) {
                     bServicePerc = true;
-                    int codeIdx = 0;
                     for (int idx4 = 0; idx4 < calc.size; idx4++) {
-                        calc.vecServiceCodePrice.add("" + calc.bdPercs[idx4]);
-                        calc.vecServiceCodeUnit.add(calc.vecServiceCodePerc.get(codeIdx + 2));
-                        calc.vecServiceCode.add(calc.vecServiceCodePerc.get(codeIdx));
-                        calc.vecServiceCodeDesc.add(calc.vecServiceCodePerc.get(codeIdx + 3));
-                        codeIdx += 4;
+                        PercentageCodeRow row = calc.percentageRows.get(idx4);
+                        calc.lines.add(new BillingServiceLine(
+                                row.code(), row.description(), row.unit(), "" + calc.bdPercs[idx4]));
                     }
                 }
                 @SuppressWarnings("unchecked")
-                ArrayList<Object> vecT = saveObj.getBillingClaimHospObj(request, dateStr, calc.total,
-                        calc.vecServiceCode, calc.vecServiceCodeUnit, calc.vecServiceCodePrice);
-                saveObj.addABillingRecord(vecT);
+                ArrayList<Object> claimEnvelope = saveObj.getBillingClaimHospObj(
+                        request, dateStr, calc.total, calc.lines);
+                saveObj.addABillingRecord(claimEnvelope);
             } else {
                 persistLegacyBillingRecord(request, dateStr, calc, demo, provider, userNo);
             }
@@ -559,35 +539,35 @@ public class BillingShortcutPg2Service {
 
         int nBillNo = b.getId();
 
-        // Append the percentage row into the per-line vectors (legacy did this
+        // Append the percentage row into the per-line list (legacy did this
         // once per date, accumulating one extra row per call — bill #2 saw
         // one duplicated percentage, bill #3 two, …). Track whether we
-        // appended so the symmetric pop after the loop keeps the vectors
+        // appended so the symmetric pop after the loop keeps the list
         // stable for the next date in the outer persistBills() loop.
         boolean appendedPercentageRow = false;
-        if (calc.vecServiceCodePerc.size() > 1) {
-            calc.vecServiceCodePrice.add("" + calc.bdPercs[0]);
-            calc.vecServiceCodeUnit.add(calc.vecServiceCodePerc.get(2));
-            calc.vecServiceCode.add(calc.vecServiceCodePerc.get(0));
-            calc.vecServiceCodeDesc.add(calc.vecServiceCodePerc.get(3));
+        if (!calc.percentageRows.isEmpty()) {
+            PercentageCodeRow first = calc.percentageRows.get(0);
+            calc.lines.add(new BillingServiceLine(
+                    first.code(), first.description(), first.unit(), "" + calc.bdPercs[0]));
             appendedPercentageRow = true;
         }
 
         try {
-        for (int i = 0; i < calc.vecServiceCode.size(); i++) {
-            BigDecimal bdEachPrice = BillingMoney.amount(calc.vecServiceCodePrice.get(i));
-            BigDecimal bdEachUnit = BillingMoney.amount(calc.vecServiceCodeUnit.get(i));
+        for (int i = 0; i < calc.lines.size(); i++) {
+            BillingServiceLine line = calc.lines.get(i);
+            BigDecimal bdEachPrice = BillingMoney.amount(line.price());
+            BigDecimal bdEachUnit = BillingMoney.amount(line.unit());
             BigDecimal bdEachTotal = bdEachPrice.multiply(bdEachUnit).setScale(2, RoundingMode.HALF_UP);
 
             BillingDetail bd = new BillingDetail();
             bd.setBillingNo(nBillNo);
-            bd.setServiceCode(calc.vecServiceCode.get(i));
-            bd.setServiceDesc(calc.vecServiceCodeDesc.get(i));
+            bd.setServiceCode(line.code());
+            bd.setServiceDesc(line.description());
             bd.setBillingAmount(("" + bdEachTotal).replaceAll("\\.", ""));
             bd.setDiagnosticCode(request.getParameter("dxCode"));
             bd.setAppointmentDate(MyDateFormat.getSysDate(dateStr));
             bd.setStatus(billtype != null && billtype.length() >= 1 ? billtype.substring(0, 1) : "");
-            bd.setBillingUnit(calc.vecServiceCodeUnit.get(i));
+            bd.setBillingUnit(line.unit());
             billingDetailDao.persist(bd);
 
             if (bd.getId() == 0) {
@@ -602,14 +582,10 @@ public class BillingShortcutPg2Service {
         }
         } finally {
             // Pop the percentage row we appended so the next date in the
-            // outer persistBills() loop sees the original vector size and
+            // outer persistBills() loop sees the original list size and
             // doesn't double-bill the percentage.
             if (appendedPercentageRow) {
-                int last = calc.vecServiceCode.size() - 1;
-                calc.vecServiceCode.remove(last);
-                calc.vecServiceCodePrice.remove(last);
-                calc.vecServiceCodeUnit.remove(last);
-                calc.vecServiceCodeDesc.remove(last);
+                calc.lines.remove(calc.lines.size() - 1);
             }
         }
     }
@@ -726,13 +702,17 @@ public class BillingShortcutPg2Service {
     private static class CalcResult {
         String html;
         String total;
-        ArrayList<String> vecServiceCode = new ArrayList<>();
-        ArrayList<String> vecServiceCodeDesc = new ArrayList<>();
-        ArrayList<String> vecServiceCodePrice = new ArrayList<>();
-        ArrayList<String> vecServiceCodeUnit = new ArrayList<>();
-        ArrayList<String> vecServiceCodePerc = new ArrayList<>();
+        List<BillingServiceLine> lines = new ArrayList<>();
+        List<PercentageCodeRow> percentageRows = new ArrayList<>();
         BigDecimal[] bdPercs = new BigDecimal[0];
         int size;
     }
+
+    /**
+     * One percentage-code row: the OHIP code with its percentage rate plus
+     * the unit count and description carried alongside for the post-calc
+     * backfill into {@link BillingServiceLine}.
+     */
+    private record PercentageCodeRow(String code, String percentage, String unit, String description) { }
 
 }

@@ -144,12 +144,11 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
         request.setParameter("refund", "");
         request.setParameter("discount", "");
 
-        ArrayList<String> serviceCodes = new ArrayList<>(List.of("A001"));
-        ArrayList<String> units = new ArrayList<>(List.of("1"));
-        ArrayList<String> prices = new ArrayList<>(List.of("1.005"));
+        List<io.github.carlos_emr.carlos.billings.ca.on.support.BillingServiceLine> lines = List.of(
+                new io.github.carlos_emr.carlos.billings.ca.on.support.BillingServiceLine(
+                        "A001", "Office visit", "1", "1.005"));
 
-        ArrayList claim = service.getBillingClaimHospObj(request, "2026-04-28", "1.01",
-                serviceCodes, units, prices);
+        ArrayList claim = service.getBillingClaimHospObj(request, "2026-04-28", "1.01", lines);
         List<BillingClaimItemDto> items = (List<BillingClaimItemDto>) claim.get(1);
 
         assertThat(items).singleElement()

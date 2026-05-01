@@ -103,7 +103,8 @@ public class BillingCorrectionReviewPreparationService {
             if (line.serviceCode().isEmpty()) {
                 continue;
             }
-            ServiceCodeDetails details = loadServiceCode(line.serviceCode());
+            io.github.carlos_emr.carlos.billings.ca.on.dto.BillingCodeAttribute details =
+                    loadServiceCode(line.serviceCode());
             if (details == null) {
                 continue;
             }
@@ -234,21 +235,10 @@ public class BillingCorrectionReviewPreparationService {
         return content.toString();
     }
 
-    private ServiceCodeDetails loadServiceCode(String serviceCode) {
-        List<?> attrs = serviceCodeLoader.getBillingCodeAttr(serviceCode);
-        if (attrs == null || attrs.size() < 4) {
-            return null;
-        }
-        return new ServiceCodeDetails(
-                stringAt(attrs, 0),
-                stringAt(attrs, 1),
-                stringAt(attrs, 2),
-                stringAt(attrs, 3));
-    }
-
-    private static String stringAt(List<?> attrs, int index) {
-        Object value = attrs.get(index);
-        return value == null ? "" : value.toString();
+    private io.github.carlos_emr.carlos.billings.ca.on.dto.BillingCodeAttribute loadServiceCode(String serviceCode) {
+        List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingCodeAttribute> attrs =
+                serviceCodeLoader.getBillingCodeAttr(serviceCode);
+        return (attrs == null || attrs.isEmpty()) ? null : attrs.get(0);
     }
 
     /**
@@ -287,9 +277,4 @@ public class BillingCorrectionReviewPreparationService {
         return sb.toString();
     }
 
-    private record ServiceCodeDetails(String serviceCode,
-                                      String description,
-                                      String value,
-                                      String percentage) {
-    }
 }

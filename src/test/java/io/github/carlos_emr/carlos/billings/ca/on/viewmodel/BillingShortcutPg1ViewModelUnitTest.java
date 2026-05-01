@@ -149,15 +149,14 @@ class BillingShortcutPg1ViewModelUnitTest {
                 .serviceCodeCol3(hist)
                 .build();
 
-        // Vector views are defensive copies; not the same instance, but same contents.
-        assertThat(m.getBillingHistoryVec()).hasSize(1);
-        assertThat(m.getBillingHistoryDetailsVec()).hasSize(1);
-        assertThat(m.getProvidersVec()).hasSize(1);
-        assertThat(m.getClinicLocationsVec()).hasSize(1);
-        assertThat(m.getServiceCodeCol1Vec()).hasSize(1);
-        assertThat(m.getServiceCodeCol2Vec()).hasSize(1);
-        assertThat(m.getServiceCodeCol3Vec()).hasSize(1);
-        assertThat(m.getBillingHistoryVec().get(0).getProperty("billing_no")).isEqualTo("1");
+        assertThat(m.getBillingHistory()).hasSize(1);
+        assertThat(m.getBillingHistoryDetails()).hasSize(1);
+        assertThat(m.getProviders()).hasSize(1);
+        assertThat(m.getClinicLocations()).hasSize(1);
+        assertThat(m.getServiceCodeCol1()).hasSize(1);
+        assertThat(m.getServiceCodeCol2()).hasSize(1);
+        assertThat(m.getServiceCodeCol3()).hasSize(1);
+        assertThat(m.getBillingHistory().get(0).getProperty("billing_no")).isEqualTo("1");
     }
 
     @Test

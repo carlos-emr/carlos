@@ -25,6 +25,8 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimReportFilter;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimReportRow;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import org.apache.logging.log4j.Logger;
@@ -204,46 +206,35 @@ public class BillingOnClaimLoader {
         List<BillingClaimHeaderDto> retval = new ArrayList<BillingClaimHeaderDto>();
         BillingClaimHeaderDto ch1Obj = null;
 
-        // For filtering invoice report based on dx code
-        String temp = demoNo + " " + providerNo + " " + statusType + " "
-                + startDate + " " + endDate + " " + billType + " " + dx + " "
-                + visitType + " " + serviceCodes;
-        temp = temp.trim().startsWith("and") ? temp.trim().substring(3) : temp;
-		
-		/*String sql = "SELECT ch1.id,ch1.pay_program,ch1.demographic_no,ch1.demographic_name,ch1.billing_date,ch1.billing_time,"
-		+ "ch1.status,ch1.provider_no,ch1.provider_ohip_no,ch1.apptProvider_no,ch1.timestamp1,ch1.total,ch1.paid,ch1.clinic,"
-		+ "bi.fee, bi.service_code, bi.ser_num, bi.dx, bi.id as billing_on_item_id "
-		+ "FROM billing_on_item bi LEFT JOIN billing_on_cheader1 ch1 ON ch1.id=bi.ch1_id "
-		+ "WHERE "
-		+ temp				
-		+ " ORDER BY ch1.billing_date, ch1.billing_time";
-		 */
-        List<String[]> bills = dao.findBillingData(temp);
+        BillingClaimReportFilter filter = new BillingClaimReportFilter(
+                billType, statusType, providerNo, startDate, endDate, demoNo,
+                serviceCodes, dx, visitType);
+        List<BillingClaimReportRow> bills = dao.findBillingData(filter);
         if (bills != null) {
             // Hoisted out of the loop so dedup spans iterations — the bi×ch1
             // join repeats ch1.paid per item, and a per-iteration null reset
             // would let the dedup arm double-count every multi-item claim.
             String prevId = null;
-            for (String[] b : bills) {
+            for (BillingClaimReportRow b : bills) {
                 ch1Obj = new BillingClaimHeaderDto();
-                ch1Obj.setId(b[0]);
-                ch1Obj.setPay_program(b[1]);
-                ch1Obj.setDemographic_no(b[2]);
-                ch1Obj.setDemographic_name(b[3]);
-                ch1Obj.setBilling_date(b[4]);
-                ch1Obj.setBilling_time(b[5]);
-                ch1Obj.setStatus(b[6]);
-                ch1Obj.setProvider_no(b[7]);
-                ch1Obj.setProvider_ohip_no(b[8]);
-                ch1Obj.setUpdate_datetime(b[9]);
-                ch1Obj.setTotal(b[10]);
+                ch1Obj.setId(b.id());
+                ch1Obj.setPay_program(b.payProgram());
+                ch1Obj.setDemographic_no(b.demographicNo());
+                ch1Obj.setDemographic_name(b.demographicName());
+                ch1Obj.setBilling_date(b.billingDate());
+                ch1Obj.setBilling_time(b.billingTime());
+                ch1Obj.setStatus(b.status());
+                ch1Obj.setProvider_no(b.providerNo());
+                ch1Obj.setProvider_ohip_no(b.providerOhipNo());
+                ch1Obj.setUpdate_datetime(b.updateDatetime());
+                ch1Obj.setTotal(b.total());
                 //ch1Obj.setPaid(b[11]);
-                ch1Obj.setClinic(b[12]);
+                ch1Obj.setClinic(b.clinic());
                 //ch1Obj.setTotal(b[13]);//fee is not total?
-                ch1Obj.setSer_num(b[15]); //14 is service code
-                ch1Obj.setBilling_on_item_id(b[17]); //16 is dx
+                ch1Obj.setSer_num(b.serviceCount());
+                ch1Obj.setBilling_on_item_id(b.billingOnItemId());
 
-                List<BillingONExt> exts = extDao.findByBillingNoAndKey(Integer.parseInt(b[0]), "payDate");
+                List<BillingONExt> exts = extDao.findByBillingNoAndKey(Integer.parseInt(b.id()), "payDate");
                 for (BillingONExt e : exts) {
                     if (e.getStatus() == '1') {
                         ch1Obj.setSettle_date(e.getValue());
@@ -251,7 +242,7 @@ public class BillingOnClaimLoader {
                 }
 
                 if ("PAT".equals(ch1Obj.getPay_program())) {
-                    BigDecimal amountPaid = billOnItemPaymentDao.getAmountPaidByItemId(Integer.parseInt(b[17]));
+                    BigDecimal amountPaid = billOnItemPaymentDao.getAmountPaidByItemId(Integer.parseInt(b.billingOnItemId()));
                     ch1Obj.setPaid(amountPaid.toString());
                 } else {
                     // Dedup ch1.paid across the bi×ch1 join: a 3-item claim
@@ -260,7 +251,7 @@ public class BillingOnClaimLoader {
                     // rows of the same claim get "0.00" so report totals
                     // don't multiply paid by item count.
                     if (prevId == null || !ch1Obj.getId().equals(prevId)) {
-                        ch1Obj.setPaid(b[11]);
+                        ch1Obj.setPaid(b.paid());
                     } else {
                         ch1Obj.setPaid("0.00");
                     }
@@ -643,10 +634,9 @@ public class BillingOnClaimLoader {
         List<LabelValueBean> res = new ArrayList<LabelValueBean>();
 
         try {
-            for (Object[] o : ctlBillingServiceDao.findServiceTypes()) {
-                String servicetype = String.valueOf(o[0]);
-                String servicetypeName = String.valueOf(o[1]);
-                res.add(new LabelValueBean(servicetypeName, servicetype));
+            for (io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow row :
+                    ctlBillingServiceDao.findServiceTypes()) {
+                res.add(new LabelValueBean(row.serviceTypeName(), row.serviceType()));
             }
         } catch (Exception ex) {
             _logger.error("Error getting billing forms list", ex);

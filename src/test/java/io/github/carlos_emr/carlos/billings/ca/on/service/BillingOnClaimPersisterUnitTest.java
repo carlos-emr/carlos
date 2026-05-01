@@ -416,9 +416,9 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
         @Test
         void shouldThrow_andPersistNoRows_whenPayDateIsMalformed() {
             BillingClaimHeaderDto header = headerDto();
-            ArrayList<Object> vecObj = new ArrayList<>();
-            vecObj.add(header);
-            vecObj.add(new ArrayList<BillingClaimItemDto>());
+            ArrayList<Object> claimEnvelope = new ArrayList<>();
+            claimEnvelope.add(header);
+            claimEnvelope.add(new ArrayList<BillingClaimItemDto>());
 
             Map<String, String> mVal = new HashMap<>();
             mVal.put("demographic_no", "7");
@@ -430,7 +430,7 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
                 dates.when(() -> UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss"))
                         .thenReturn("not-a-timestamp");
 
-                assertThatThrownBy(() -> persister.add3rdBillExt(mVal, 4242, vecObj))
+                assertThatThrownBy(() -> persister.add3rdBillExt(mVal, 4242, claimEnvelope))
                         .isInstanceOf(BillingValidationException.class)
                         .hasMessageContaining("malformed payDate")
                         .hasMessageContaining("billingNo=4242");
@@ -450,9 +450,9 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
         @Test
         void shouldPersistAllNineExtRows_andOnePayment_whenInputsAreWellFormed() {
             BillingClaimHeaderDto header = headerDto();
-            ArrayList<Object> vecObj = new ArrayList<>();
-            vecObj.add(header);
-            vecObj.add(new ArrayList<BillingClaimItemDto>());
+            ArrayList<Object> claimEnvelope = new ArrayList<>();
+            claimEnvelope.add(header);
+            claimEnvelope.add(new ArrayList<BillingClaimItemDto>());
 
             Map<String, String> mVal = new HashMap<>();
             mVal.put("demographic_no", "7");
@@ -462,7 +462,7 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
 
             doAssignPaymentId(99);
 
-            persister.add3rdBillExt(mVal, 4242, vecObj);
+            persister.add3rdBillExt(mVal, 4242, claimEnvelope);
 
             ArgumentCaptor<BillingONExt> extCaptor = ArgumentCaptor.forClass(BillingONExt.class);
             verify(extDao, times(9)).persist(extCaptor.capture());
@@ -479,9 +479,9 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
         @Test
         void shouldSkipPaymentRow_whenTotalPaymentIsNull() {
             BillingClaimHeaderDto header = headerDto();
-            ArrayList<Object> vecObj = new ArrayList<>();
-            vecObj.add(header);
-            vecObj.add(new ArrayList<BillingClaimItemDto>());
+            ArrayList<Object> claimEnvelope = new ArrayList<>();
+            claimEnvelope.add(header);
+            claimEnvelope.add(new ArrayList<BillingClaimItemDto>());
 
             Map<String, String> mVal = new HashMap<>();
             mVal.put("demographic_no", "7");
@@ -489,7 +489,7 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
             mVal.put("payMethod", "1");
             // total_payment intentionally absent
 
-            persister.add3rdBillExt(mVal, 4242, vecObj);
+            persister.add3rdBillExt(mVal, 4242, claimEnvelope);
 
             verify(extDao, times(9)).persist(any(BillingONExt.class));
             verify(billingONPaymentDao, never()).persist(any(BillingONPayment.class));

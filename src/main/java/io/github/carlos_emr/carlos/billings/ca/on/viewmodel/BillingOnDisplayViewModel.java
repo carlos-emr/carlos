@@ -42,7 +42,7 @@ import java.util.Map;
  */
 public final class BillingOnDisplayViewModel {
 
-    /** A {@code (label, value)} pair from {@code BillingOnConstants.vecPaymentType}. */
+    /** A {@code (label, value)} pair from {@code BillingOnConstants.paymentTypeOptions}. */
     public record PaymentTypeOption(String value, String label) { }
 
     /** A provider dropdown option ({@code provider_no | last | first}). */

@@ -23,26 +23,27 @@
 package io.github.carlos_emr.carlos.billings.ca.on.support;
 
 import java.util.Comparator;
-import java.util.HashMap;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnClaimLoader;
+
 /**
- * Legacy comparator used to order review service-code rows by claim-loader fee.
+ * Orders review service-code rows by claim-loader fee. The legacy ladder
+ * (null-vs-null = 0, null-before-non-null, zero/blank fees pushed to the
+ * end) is preserved verbatim so the rendered review grid keeps the same
+ * row order operators are used to.
  */
-public class BillingReviewFeeComparator implements Comparator {
+public class BillingReviewFeeComparator implements Comparator<BillingReviewServiceParam> {
 
     private final BillingOnClaimLoader dbObj;
+    private final String billReferenceDate;
 
-    public BillingReviewFeeComparator(BillingOnClaimLoader dbObj) {
+    public BillingReviewFeeComparator(BillingOnClaimLoader dbObj, String billReferenceDate) {
         this.dbObj = dbObj;
+        this.billReferenceDate = billReferenceDate == null ? "" : billReferenceDate;
     }
 
-    public int compare(Object obj1, Object obj2) {
-        HashMap h1 = (HashMap) obj1;
-        HashMap h2 = (HashMap) obj2;
-        String billReferenceDate = (String) h1.get("billReferenceDate");
-
-        String fee1 = dbObj.getCodeFee((String) h1.get("serviceCode"), billReferenceDate);
-        String fee2 = dbObj.getCodeFee((String) h2.get("serviceCode"), billReferenceDate);
+    public int compare(BillingReviewServiceParam a, BillingReviewServiceParam b) {
+        String fee1 = dbObj.getCodeFee(a.code(), billReferenceDate);
+        String fee2 = dbObj.getCodeFee(b.code(), billReferenceDate);
 
         if (fee1 == null && fee2 == null) {
             return 0;
@@ -57,7 +58,6 @@ public class BillingReviewFeeComparator implements Comparator {
         } else if (fee2.equals(".00") || fee2.equals("")) {
             return -1;
         }
-
 
         return 0;
     }

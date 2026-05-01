@@ -87,6 +87,25 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
     }
 
     @Override
+    public List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportPaidRaDetailRow>
+    findBillingOnNewReportPaidRaDetails(List<Integer> billingNos) {
+        if (billingNos == null || billingNos.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        String sql = "select billing_no, amountclaim, amountpay, hin, service_date "
+                + "from radetail where billing_no in (?1) and raheader_no !=0 order by billing_no, radetail_no";
+        Query query = entityManager.createNativeQuery(sql);
+        query.setParameter(1, billingNos);
+        List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportPaidRaDetailRow> rows =
+                new ArrayList<>();
+        for (Object[] r : (List<Object[]>) query.getResultList()) {
+            rows.add(new io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportPaidRaDetailRow(
+                    value(r[0]), value(r[1]), value(r[2]), value(r[3]), value(r[4])));
+        }
+        return rows;
+    }
+
+    @Override
     public List<RaDetail> findByRaHeaderNo(Integer raHeaderNo) {
         Query query = entityManager.createQuery("SELECT rad from RaDetail rad WHERE rad.raHeaderNo = ?1");
 
@@ -340,5 +359,9 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
         query.setParameter(1, raHeaderNo);
         query.setParameter(2, providerOhipNo);
         return query.getResultList();
+    }
+
+    private static String value(Object value) {
+        return value == null ? "" : String.valueOf(value);
     }
 }

@@ -365,40 +365,27 @@ public class BillingCorrectionRecordService {
         String updateProviderNo = liUpdate != null ? liUpdate.getLoggedInProviderNo() : null;
         lItemObj.remove(0);
 
-        ArrayList<String> vecName = new ArrayList<String>();
-        ArrayList<String> vecUnit = new ArrayList<String>();
-        ArrayList<String> vecFee = new ArrayList<String>();
-        ArrayList<String> vecStatus = new ArrayList<String>();
+        List<CorrectionRow> lines = new ArrayList<>();
         String dx = request.getParameter("xml_diagnostic_detail");
         dx = dx.length() > 2 ? dx.substring(0, 3) : dx;
         String serviceDate = request.getParameter("xml_appointment_date");
 
         for (int i = 0; i < BillingOnConstants.FIELD_MAX_SERVICE_NUM; i++) {
             String code = request.getParameter("servicecode" + i);
-            vecName.add(code);
-            if (code == null || code.isEmpty()) {
-                vecUnit.add(null);
-                vecFee.add(null);
-            } else {
-                vecUnit.add(request.getParameter("billingunit" + i));
-                vecFee.add(request.getParameter("billingamount" + i));
-            }
-            String billStatus = request.getParameter("itemStatus" + i);
-            if (billStatus != null) {
-                vecStatus.add("S");
-            } else {
-                vecStatus.add(ch1Obj.getStatus());
-            }
-
+            String unit = (code == null || code.isEmpty())
+                    ? null : request.getParameter("billingunit" + i);
+            String fee = (code == null || code.isEmpty())
+                    ? null : request.getParameter("billingamount" + i);
+            String status = request.getParameter("itemStatus" + i) != null ? "S" : ch1Obj.getStatus();
+            lines.add(new CorrectionRow(code, unit, fee, status));
         }
 
         // update item first
-        String claimId = "0";
         for (int i = 0; i < lItemObj.size(); i++) {
             BillingClaimItemDto iObj = (BillingClaimItemDto) lItemObj.get(i);
+            CorrectionRow row = lines.get(i);
             BillingONItem billOnItem = changeItem(ch1Obj, iObj, updateProviderNo, dx, serviceDate,
-                    vecName.get(i), vecUnit.get(i), vecFee.get(i), vecStatus.get(i));
-            // claimId = iObj.getCh1_id();
+                    row.code(), row.unit(), row.fee(), row.status());
             if (billOnItem != null) {
                 // this condition indicates one service code item was changed
                 iObj.setService_code(billOnItem.getServiceCode());
@@ -409,29 +396,30 @@ public class BillingCorrectionRecordService {
         }
 
         // add item if possible
-        for (int i = 0; i < vecName.size(); i++) {
-            if (vecName.get(i) == null || (vecName.get(i)).isEmpty()) {
+        for (int i = 0; i < lines.size(); i++) {
+            CorrectionRow row = lines.get(i);
+            if (row.code() == null || row.code().isEmpty()) {
                 continue;
             }
-            String sName = vecName.get(i);
-            String sUnit = vecUnit.get(i);
+            String sUnit = row.unit();
             if (sUnit == null || sUnit.trim().isEmpty()) {
                 sUnit = "1";
             }
-            String sFee = vecFee.get(i);
+            String sFee = row.fee();
             if (sFee == null || sFee.trim().isEmpty()) {
-                // sFee = "0.00";
-                sFee = getFee(sFee, sUnit, sName, serviceDate);
-                vecFee.set(i, sFee);
+                sFee = getFee(sFee, sUnit, row.code(), serviceDate);
+                lines.set(i, row.withFee(sFee));
             }
-            String sStatus = vecStatus.get(i);
             ret = addItem(ch1Obj, lItemObj, updateProviderNo, dx, serviceDate,
-                    sName, sUnit, sFee, sStatus);
-            _logger.info("{} lItemObj(value = {})", LogSanitizer.sanitize(sName), LogSanitizer.sanitize(String.valueOf(ret)));
+                    row.code(), sUnit, sFee, row.status());
+            _logger.info("{} lItemObj(value = {})", LogSanitizer.sanitize(row.code()), LogSanitizer.sanitize(String.valueOf(ret)));
         }
 
         // recalculate amount
-        String newAmount = sumFee(vecFee);
+        String newAmount = sumFees(lines.stream()
+                .map(CorrectionRow::fee)
+                .filter(java.util.Objects::nonNull)
+                .toList());
         _logger.info(" lItemObj(newAmount = {})", LogSanitizer.sanitize(newAmount));
         updateAmount(newAmount, ch1Obj.getId(), updateProviderNo, dx);
 
@@ -465,10 +453,9 @@ public class BillingCorrectionRecordService {
      * @return String
      */
     public String getBillingCodeDesc(String codeName) {
-        String ret = null;
-        List descL = serviceCodeLoader.getBillingCodeAttr(codeName);
-        ret = descL.size() > 1 ? (String) descL.get(1) : "Unknown";
-        return ret;
+        java.util.List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingCodeAttribute> descL =
+                serviceCodeLoader.getBillingCodeAttr(codeName);
+        return descL.isEmpty() ? "Unknown" : descL.get(0).description();
     }
 
     // billing correction
@@ -481,8 +468,9 @@ public class BillingCorrectionRecordService {
     public Properties getBillingCodeDesc(List codeName) {
         Properties ret = new Properties();
         for (int i = 0; i < codeName.size(); i++) {
-            List descL = serviceCodeLoader.getBillingCodeAttr((String) codeName.get(i));
-            String desc = descL.size() > 1 ? (String) descL.get(1) : "Unknown";
+            java.util.List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingCodeAttribute> descL =
+                    serviceCodeLoader.getBillingCodeAttr((String) codeName.get(i));
+            String desc = descL.isEmpty() ? "Unknown" : descL.get(0).description();
             ret.setProperty((String) codeName.get(i), desc);
         }
         return ret;
@@ -859,11 +847,11 @@ public class BillingCorrectionRecordService {
         return lookupService.getFacilty_num();
     }
 
-    private String sumFee(ArrayList vecFee) {
+    private String sumFees(List<String> fees) {
         String ret = "";
         BigDecimal fee = BillingMoney.amount("0.00", 4);
-        for (int i = 0; i < vecFee.size(); i++) {
-            String temp = (String) vecFee.get(i);
+        for (int i = 0; i < fees.size(); i++) {
+            String temp = fees.get(i);
             if (temp == null || temp.isEmpty()) {
                 continue;
             }
@@ -916,6 +904,19 @@ public class BillingCorrectionRecordService {
             ret = bigFee.toString();
         }
         return ret;
+    }
+
+    /**
+     * One service-line row submitted on the correction form: the service
+     * code, its unit count, the fee string, and the per-row item status.
+     * Replaces the four parallel {@code ArrayList<String>} columns the
+     * legacy code maintained in lockstep across every populate / read /
+     * mutate site in {@link #updateBillingItem}.
+     */
+    private record CorrectionRow(String code, String unit, String fee, String status) {
+        public CorrectionRow withFee(String newFee) {
+            return new CorrectionRow(code, unit, newFee, status);
+        }
     }
 
 }

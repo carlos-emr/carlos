@@ -162,21 +162,16 @@ public class BillingOnStatusViewModelAssembler {
             Object u = request.getSession().getAttribute("user");
             if (u instanceof String) sessionUser = (String) u;
         }
-        List<String> pList = teamBillingOnly
+        List<io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry> pList = teamBillingOnly
                 ? lookupService.getCurTeamProviderStr(sessionUser)
                 : lookupService.getCurProviderStr();
         if (pList == null) {
             pList = Collections.emptyList();
         }
         List<BillingOnStatusViewModel.ProviderOption> providers = new ArrayList<>(pList.size());
-        for (String entry : pList) {
-            String[] parts = entry.split("\\|", -1);
-            String pNo = parts.length > 0 ? parts[0] : "";
-            String last = parts.length > 1 ? parts[1] : "";
-            String first = parts.length > 2 ? parts[2] : "";
-            String ohip = parts.length > 3 ? parts[3] : "";
+        for (io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry entry : pList) {
             providers.add(new BillingOnStatusViewModel.ProviderOption(
-                    pNo, last, first, ohip));
+                    entry.providerNo(), entry.lastName(), entry.firstName(), entry.ohipNo()));
         }
 
         // ---- multisite siteBgColor / siteShortName lookup maps + per-site
@@ -201,9 +196,8 @@ public class BillingOnStatusViewModelAssembler {
                     activeSites = Collections.emptyList();
                 }
                 Set<String> allowedProviders = new HashSet<>();
-                for (String entry : pList) {
-                    int sep = entry.indexOf('|');
-                    allowedProviders.add(sep >= 0 ? entry.substring(0, sep) : entry);
+                for (io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry entry : pList) {
+                    allowedProviders.add(entry.providerNo());
                 }
                 for (Site site : activeSites) {
                     Set<Provider> siteProviders = site.getProviders();
@@ -362,19 +356,20 @@ public class BillingOnStatusViewModelAssembler {
     }
 
     private List<BillingOnStatusViewModel.RejectedBillRow> buildRejectedRows(
-            List<String> pList, String providerNo, String startDate, String endDate,
+            List<io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry> pList,
+            String providerNo, String startDate, String endDate,
             String filename) {
-        List<String> aLProviders;
+        List<String> aLProviders = new ArrayList<>();
         if (providerNo == null || providerNo.isEmpty()) {
-            aLProviders = new ArrayList<>(pList);
+            for (io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry entry : pList) {
+                aLProviders.add(entry.providerNo());
+            }
         } else {
-            aLProviders = new ArrayList<>();
             aLProviders.add(providerNo);
         }
         List<BillingOnStatusViewModel.RejectedBillRow> rows = new ArrayList<>();
         for (String entry : aLProviders) {
-            String[] provInfo = entry.split("\\|", -1);
-            String currentProvider = provInfo.length > 0 ? provInfo[0].trim() : "";
+            String currentProvider = entry == null ? "" : entry.trim();
             @SuppressWarnings("rawtypes")
             List lPat;
             if ("all".equals(currentProvider)) {

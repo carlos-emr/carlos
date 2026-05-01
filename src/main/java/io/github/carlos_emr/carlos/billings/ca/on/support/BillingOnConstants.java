@@ -191,7 +191,7 @@ public final class BillingOnConstants {
     public static final Properties propMonthCode = new FrozenProperties();
     public static final Properties propBillingCenter = new FrozenProperties();
     public static final Properties propBillingType = new FrozenProperties();
-    public static final List<String> vecPaymentType = Collections.unmodifiableList(Arrays.asList(
+    public static final List<String> paymentTypeOptions = Collections.unmodifiableList(Arrays.asList(
             "HCP",
             "Bill OHIP",
             "RMB",

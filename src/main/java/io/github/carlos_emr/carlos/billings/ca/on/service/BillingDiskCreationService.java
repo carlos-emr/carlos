@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingBatchHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingDiskNameDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.DiskFilenameRow;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 /**
  * Builds the per-provider OHIP submission "disk" that backs an MOH file
@@ -118,21 +119,19 @@ public class BillingDiskCreationService {
         diskName.setCreatedatetime(UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss"));
         diskName.setStatus(BillingOnConstants.BILLINGFILE_STATUS_UNCERT);
         diskName.setTotal("");
-        diskName.setHtmlfilename(getSoloHtmlfilename(ohipNo, temp[0], temp[1]));
 
-        ArrayList vecTemp = new ArrayList();
-        vecTemp.add(ohipNo);
-        diskName.setProviderohipno(vecTemp);
-        vecTemp = new ArrayList();
-        vecTemp.add(providerNo);
-        diskName.setProviderno(vecTemp);
-        vecTemp = new ArrayList();
-        vecTemp.add(BillingOnConstants.BILLINGFILE_STATUS_UNCERT);
-        diskName.setVecStatus(vecTemp);
-        vecTemp = new ArrayList();
-        vecTemp.add("");
-        diskName.setVecClaimrecord(vecTemp);
-        diskName.setVecTotal(vecTemp);
+        // Solo disk: one filename row carrying the disk-header status across the
+        // per-row claimRecord/status/total slots, matching the legacy
+        // 1-element-list shape that consumers read at index 0.
+        String htmlFilename = (String) getSoloHtmlfilename(ohipNo, temp[0], temp[1]).get(0);
+        diskName.setFilenames(List.of(new DiskFilenameRow(
+                null,
+                htmlFilename,
+                ohipNo,
+                providerNo,
+                "",
+                BillingOnConstants.BILLINGFILE_STATUS_UNCERT,
+                "")));
 
         ret = dbObj.addBillingDiskName(diskName);
         return ret;
@@ -154,16 +153,23 @@ public class BillingDiskCreationService {
         diskName.setCreatedatetime(UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss"));
         diskName.setStatus(BillingOnConstants.BILLINGFILE_STATUS_UNCERT);
         diskName.setTotal("");
-        diskName.setHtmlfilename(getGrpHtmlfilename(ohipNo, groupno, temp[0], temp[1]));
-        diskName.setProviderohipno((ArrayList) ohipNo);
-        diskName.setProviderno((ArrayList) providerNo);
-        ArrayList vecTemp = new ArrayList();
-        vecTemp.add(BillingOnConstants.BILLINGFILE_STATUS_UNCERT);
-        diskName.setVecStatus(vecTemp);
-        vecTemp = new ArrayList();
-        vecTemp.add("");
-        diskName.setVecClaimrecord(vecTemp);
-        diskName.setVecTotal(vecTemp);
+        // Group disk: one filename row per (provider, ohipNo) pair, with the
+        // disk-header claimRecord/status/total duplicated across each row so
+        // the consumer's read-at-zero contract still produces the disk-header
+        // value while a future per-row consumer would also see consistent data.
+        ArrayList<String> htmlFilenames = getGrpHtmlfilename(ohipNo, groupno, temp[0], temp[1]);
+        List<DiskFilenameRow> rows = new ArrayList<>();
+        for (int i = 0; i < providerNo.size(); i++) {
+            rows.add(new DiskFilenameRow(
+                    null,
+                    (String) htmlFilenames.get(i),
+                    (String) ohipNo.get(i),
+                    (String) providerNo.get(i),
+                    "",
+                    BillingOnConstants.BILLINGFILE_STATUS_UNCERT,
+                    ""));
+        }
+        diskName.setFilenames(rows);
 
         ret = dbObj.addBillingDiskName(diskName);
         return ret;

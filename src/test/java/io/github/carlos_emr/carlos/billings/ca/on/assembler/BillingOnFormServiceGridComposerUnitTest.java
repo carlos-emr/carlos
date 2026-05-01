@@ -122,13 +122,14 @@ class BillingOnFormServiceGridComposerUnitTest {
     }
 
     @Test
-    void shouldSkipServiceTypeRow_whenCodeColumnIsNull() {
-        // Defensive guard: a ctl_billservice row with a null code column
-        // would render id="null" / billForm=null in the DOM. The composer
+    void shouldSkipServiceTypeRow_whenCodeColumnIsEmpty() {
+        // Defensive guard: a ctl_billservice row with an empty code column
+        // would render id="" / billForm= in the DOM. The composer
         // logs a warning and skips it.
-        Object[] rowWithNullCode = new Object[] { "Some Group", null };
+        io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow rowWithEmptyCode =
+                new io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow("", "Some Group");
         when(ctlBillingServiceDao.findServiceTypesByStatus("A"))
-                .thenReturn(Collections.singletonList(rowWithNullCode));
+                .thenReturn(Collections.singletonList(rowWithEmptyCode));
 
         BillingOnFormViewModel.Builder b = BillingOnFormViewModel.builder();
         composer.compose(b, "any-billform", new Date(), new Date(), new Demographic());
@@ -143,8 +144,10 @@ class BillingOnFormServiceGridComposerUnitTest {
         // Given two service-type rows with no service-code rows in any group,
         // the composer must still emit each service-type code into the grid
         // (used by the menu, even when groups are empty).
-        Object[] type1 = new Object[] { "Office", "OFC" };
-        Object[] type2 = new Object[] { "Inpatient", "HOS" };
+        io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow type1 =
+                new io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow("OFC", "Office");
+        io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow type2 =
+                new io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow("HOS", "Inpatient");
         when(ctlBillingServiceDao.findServiceTypesByStatus("A"))
                 .thenReturn(java.util.Arrays.asList(type1, type2));
         when(billingServiceDao.findBillingServiceAndCtlBillingServiceByMagic(

@@ -47,7 +47,8 @@ class BillingSpecialistClaimServiceTypedApiUnitTest extends CarlosUnitTestBase {
         ServiceCodeLoader serviceCodeLoader = Mockito.mock(ServiceCodeLoader.class);
         BillingSpecialistClaimService service = new BillingSpecialistClaimService(persister, serviceCodeLoader);
         when(serviceCodeLoader.getBillingCodeAttr("A001A"))
-                .thenReturn(List.of("A001A", "Minor assessment", "10.00", "0.00"));
+                .thenReturn(List.of(new io.github.carlos_emr.carlos.billings.ca.on.dto.BillingCodeAttribute(
+                        "A001A", "Minor assessment", "10.00", "0.00", "", "false")));
 
         BillingSpecialistClaimCommand request = new BillingSpecialistClaimCommand(
                 "1234567890AB",

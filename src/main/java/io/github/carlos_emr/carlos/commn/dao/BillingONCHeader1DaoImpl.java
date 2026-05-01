@@ -710,22 +710,63 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
     }
 
     @Override
-    public List<String[]> findBillingData(String conditions) {
-        if (conditions == null)
-            return null;
+    public List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimReportRow>
+    findBillingData(io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimReportFilter filter) {
+        if (filter == null) {
+            return java.util.Collections.emptyList();
+        }
 
-        String sql = "SELECT ch1.id,ch1.pay_program,ch1.demographic_no,ch1.demographic_name,ch1.billing_date,ch1.billing_time,"
-                + "ch1.status,ch1.provider_no,ch1.provider_ohip_no,ch1.apptProvider_no,ch1.timestamp1,ch1.total,ch1.paid,ch1.clinic,"
-                + "bi.fee, bi.service_code, bi.ser_num, bi.dx, bi.id as billing_on_item_id "
-                + "FROM billing_on_item bi LEFT JOIN billing_on_cheader1 ch1 ON ch1.id=bi.ch1_id "
-                + "WHERE "
-                + conditions
-                + " ORDER BY ch1.billing_date, ch1.billing_time";
-        Query query = entityManager.createQuery(sql);
+        StringBuilder sql = new StringBuilder("SELECT ch1.id,ch1.pay_program,ch1.demographic_no,ch1.demographic_name,ch1.billing_date,ch1.billing_time,")
+                .append("ch1.status,ch1.provider_no,ch1.provider_ohip_no,ch1.apptProvider_no,ch1.timestamp1,ch1.total,ch1.paid,ch1.clinic,")
+                .append("bi.fee, bi.service_code, bi.ser_num, bi.dx, bi.id as billing_on_item_id ")
+                .append("FROM billing_on_item bi LEFT JOIN billing_on_cheader1 ch1 ON ch1.id=bi.ch1_id WHERE 1=1");
+        Map<Integer, Object> params = new HashMap<>();
+        int p = 1;
+        p = appendEquals(sql, params, p, "ch1.demographic_no", filter.demoNo());
+        p = appendEquals(sql, params, p, "ch1.provider_no", filter.providerNo());
+        p = appendEquals(sql, params, p, "ch1.status", filter.statusType());
+        p = appendGreaterOrEqual(sql, params, p, "ch1.billing_date", filter.startDate());
+        p = appendLessOrEqual(sql, params, p, "ch1.billing_date", filter.endDate());
+        p = appendEquals(sql, params, p, "ch1.pay_program", filter.billType());
+        p = appendEquals(sql, params, p, "bi.dx", filter.dx());
+        p = appendEquals(sql, params, p, "ch1.visittype", filter.visitType());
+        p = appendEquals(sql, params, p, "bi.service_code", filter.serviceCodes());
+        sql.append(" ORDER BY ch1.billing_date, ch1.billing_time");
 
-        List<String[]> results = query.getResultList();
+        Query query = entityManager.createNativeQuery(sql.toString());
+        for (Entry<Integer, Object> e : params.entrySet()) {
+            query.setParameter(e.getKey(), e.getValue());
+        }
 
-        return results;
+        List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimReportRow> rows =
+                new ArrayList<>();
+        for (Object[] r : (List<Object[]>) query.getResultList()) {
+            rows.add(new io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimReportRow(
+                    value(r[0]), value(r[1]), value(r[2]), value(r[3]), value(r[4]),
+                    value(r[5]), value(r[6]), value(r[7]), value(r[8]), value(r[10]),
+                    value(r[11]), value(r[12]), value(r[13]), value(r[16]), value(r[18])));
+        }
+        return rows;
+    }
+
+    @Override
+    public List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportBilledRow>
+    findBillingOnNewReportBilledRows(String providerNo, String startDate, String endDate) {
+        String sql = "select id, billing_date, billing_time, demographic_name, status, apptProvider_no, provider_no, clinic "
+                + "from billing_on_cheader1 where provider_no=?1 and billing_date >=?2 and billing_date<=?3 "
+                + "and (status<>'D' and status<>'S' and status<>'B') order by billing_date, billing_time";
+        Query query = entityManager.createNativeQuery(sql);
+        query.setParameter(1, providerNo);
+        query.setParameter(2, startDate);
+        query.setParameter(3, endDate);
+        List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportBilledRow> rows =
+                new ArrayList<>();
+        for (Object[] r : (List<Object[]>) query.getResultList()) {
+            rows.add(new io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportBilledRow(
+                    value(r[0]), value(r[1]), value(r[2]), value(r[3]),
+                    value(r[4]), value(r[5]), value(r[6]), value(r[7])));
+        }
+        return rows;
     }
 
     @Override
@@ -763,6 +804,40 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
                 """);
         query.setParameter("demoNo", demographicNo);
         return query.getResultList();
+    }
+
+    private static int appendEquals(StringBuilder sql, Map<Integer, Object> params, int index,
+                                    String column, String value) {
+        if (StringUtils.isBlank(value)) {
+            return index;
+        }
+        sql.append(" AND ").append(column).append("=?").append(index);
+        params.put(index, value);
+        return index + 1;
+    }
+
+    private static int appendGreaterOrEqual(StringBuilder sql, Map<Integer, Object> params,
+                                            int index, String column, String value) {
+        if (StringUtils.isBlank(value)) {
+            return index;
+        }
+        sql.append(" AND ").append(column).append(">=?").append(index);
+        params.put(index, value);
+        return index + 1;
+    }
+
+    private static int appendLessOrEqual(StringBuilder sql, Map<Integer, Object> params,
+                                         int index, String column, String value) {
+        if (StringUtils.isBlank(value)) {
+            return index;
+        }
+        sql.append(" AND ").append(column).append("<=?").append(index);
+        params.put(index, value);
+        return index + 1;
+    }
+
+    private static String value(Object value) {
+        return value == null ? "" : String.valueOf(value);
     }
 
 }

@@ -28,6 +28,8 @@ import java.util.Properties;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingCodeAttribute;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.PrivateBillingCode;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -52,16 +54,17 @@ public class ServiceCodeLoader {
         this.dao = dao;
     }
 
-    public List getBillingCodeAttr(String serviceCode) {
-        List ret = new ArrayList();
+    public List<BillingCodeAttribute> getBillingCodeAttr(String serviceCode) {
+        List<BillingCodeAttribute> ret = new ArrayList<>();
         List<BillingService> bs = dao.getBillingCodeAttr(serviceCode);
         for (BillingService b : bs) {
-            ret.add(serviceCode);
-            ret.add(b.getDescription());
-            ret.add(b.getValue());
-            ret.add(b.getPercentage());
-            ret.add(ConversionUtils.toDateString(b.getBillingserviceDate()));
-            ret.add(b.getGstFlag());
+            ret.add(new BillingCodeAttribute(
+                    serviceCode,
+                    b.getDescription(),
+                    b.getValue(),
+                    b.getPercentage(),
+                    ConversionUtils.toDateString(b.getBillingserviceDate()),
+                    String.valueOf(b.getGstFlag())));
         }
         return ret;
     }
@@ -77,13 +80,15 @@ public class ServiceCodeLoader {
         return ret;
     }
 
-    public List<String> getPrivateBillingCodeDesc() {
-        List<String> ret = new ArrayList<String>();
-        List<BillingService> bs = dao.finAllPrivateCodes();
-        for (BillingService b : bs) {
-            ret.add(b.getServiceCode());
-            ret.add(b.getDescription());
-        }
-        return ret;
+    /**
+     * Passthrough to the DAO's projection-record return.
+     *
+     * <p>The {@link io.github.carlos_emr.carlos.commn.dao.BillingServiceDao#finAllPrivateCodes}
+     * method does the JPQL constructor projection itself; the loader stays
+     * present so the {@code @Transactional(readOnly=true)} boundary and the
+     * security-context entry point remain stable for callers.</p>
+     */
+    public List<PrivateBillingCode> getPrivateBillingCodeDesc() {
+        return dao.finAllPrivateCodes();
     }
 }

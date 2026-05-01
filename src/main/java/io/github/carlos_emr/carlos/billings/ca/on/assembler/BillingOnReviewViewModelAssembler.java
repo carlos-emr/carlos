@@ -40,6 +40,7 @@ import io.github.carlos_emr.carlos.appt.ApptUtil;
 import io.github.carlos_emr.carlos.billings.ca.on.service.GstSettingsService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.GstReportService;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingReviewServiceParam;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingDemographicSummary;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnReviewViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingReferralDoctor;
@@ -367,57 +368,31 @@ public class BillingOnReviewViewModelAssembler {
         b.gstPercent(percent);
         GstReportService gstRep = gstReport;
 
-        @SuppressWarnings("unchecked")
-        ArrayList<String>[] vecServiceParam = new ArrayList[3];
-        if ("yes".equals(oscarVariables.getProperty("onBillingSingleClick", ""))) {
-            vecServiceParam[0] = new ArrayList<>();
-            vecServiceParam[1] = new ArrayList<>();
-            vecServiceParam[2] = new ArrayList<>();
-        } else {
-            vecServiceParam = reviewPrep.getRequestFormCodeVec(request, "xml_", "1", "1");
+        List<BillingReviewServiceParam> serviceParams =
+                "yes".equals(oscarVariables.getProperty("onBillingSingleClick", ""))
+                        ? new ArrayList<>()
+                        : new ArrayList<>(reviewPrep.getRequestFormCodes(request, "xml_", "1", "1"));
+        serviceParams.addAll(reviewPrep.getRequestCodes(
+                request, "serviceCode", "serviceUnit", "serviceAt", BillingOnConstants.FIELD_SERVICE_NUM));
+
+        TreeMap<String, Integer> distinctCodeIndex = new TreeMap<>();
+        for (int i = 0; i < serviceParams.size(); i++) {
+            distinctCodeIndex.put(serviceParams.get(i).code(), i);
         }
+        b.dupServiceCode(distinctCodeIndex.size() != serviceParams.size());
 
-        ArrayList<String>[] vecServiceParam0 = reviewPrep.getRequestCodeVec(
-                request, "serviceCode", "serviceUnit", "serviceAt", BillingOnConstants.FIELD_SERVICE_NUM);
-        vecServiceParam[0].addAll(vecServiceParam0[0]);
-        vecServiceParam[1].addAll(vecServiceParam0[1]);
-        vecServiceParam[2].addAll(vecServiceParam0[2]);
+        serviceParams.sort(new BillingReviewFeeComparator(claimLoader, billReferalDate));
+        b.totalItem(serviceParams.size());
 
-        TreeMap<String, Integer> mapServiceParam = new TreeMap<>();
-        for (int i = 0; i < vecServiceParam[0].size(); i++) {
-            mapServiceParam.put(vecServiceParam[0].get(i), i);
-        }
-        boolean dupServiceCode = mapServiceParam.size() != vecServiceParam[0].size();
-        b.dupServiceCode(dupServiceCode);
+        List<BillingReviewCodeItem> codeItems =
+                reviewPrep.getServiceCodeReviewItems(serviceParams, billReferalDate);
+        List<BillingReviewPercentageItem> percentageCodeItems =
+                reviewPrep.getPercentageCodeReviewItems(serviceParams, codeItems, billReferalDate);
 
-        ArrayList<HashMap> v = new ArrayList<>();
-        for (int ii = 0; ii < vecServiceParam[0].size(); ii++) {
-            HashMap h = new HashMap();
-            h.put("serviceCode", vecServiceParam[0].get(ii));
-            h.put("serviceUnit", vecServiceParam[1].get(ii));
-            h.put("serviceAt", vecServiceParam[2].get(ii));
-            h.put("billReferenceDate", nullToEmpty(billReferalDate));
-            v.add(h);
-        }
-        Collections.sort(v, new BillingReviewFeeComparator(claimLoader));
-
-        vecServiceParam[0] = new ArrayList<>();
-        vecServiceParam[1] = new ArrayList<>();
-        vecServiceParam[2] = new ArrayList<>();
-        for (int ii = 0; ii < v.size(); ii++) {
-            HashMap h = v.get(ii);
-            vecServiceParam[0].add((String) h.get("serviceCode"));
-            vecServiceParam[1].add((String) h.get("serviceUnit"));
-            vecServiceParam[2].add((String) h.get("serviceAt"));
-        }
-        b.totalItem(vecServiceParam[0].size());
-
-        ArrayList vecCodeItem = reviewPrep.getServiceCodeReviewVec(
-                vecServiceParam[0], vecServiceParam[1], vecServiceParam[2], billReferalDate);
-        ArrayList vecPercCodeItem = reviewPrep.getPercCodeReviewVec(
-                vecServiceParam[0], vecServiceParam[1], vecCodeItem, billReferalDate);
-
-        Properties propCodeDesc = serviceCodeLoader.getCodeDescByNames(vecServiceParam[0]);
+        ArrayList<String> serviceCodeNames = serviceParams.stream()
+                .map(BillingReviewServiceParam::code)
+                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+        Properties propCodeDesc = serviceCodeLoader.getCodeDescByNames(serviceCodeNames);
         Map<String, String> codeDescMap = new HashMap<>();
         for (String key : propCodeDesc.stringPropertyNames()) {
             codeDescMap.put(key, propCodeDesc.getProperty(key, ""));
@@ -435,12 +410,12 @@ public class BillingOnReviewViewModelAssembler {
         int n = 0;
         int nCode = 0;
         int nPerc = 0;
-        for (int i = 0; i < vecServiceParam[0].size(); i++) {
-            String codeName = vecServiceParam[0].get(i);
-            if (nCode < vecCodeItem.size()
-                    && codeName.equals(((BillingReviewCodeItem) vecCodeItem.get(nCode)).getCodeName())) {
+        for (int i = 0; i < serviceParams.size(); i++) {
+            String codeName = serviceParams.get(i).code();
+            if (nCode < codeItems.size()
+                    && codeName.equals(codeItems.get(nCode).getCodeName())) {
                 n++;
-                BillingReviewCodeItem item = (BillingReviewCodeItem) vecCodeItem.get(nCode);
+                BillingReviewCodeItem item = codeItems.get(nCode);
                 String codeDescription = nullToEmpty(item.getCodeDescription());
                 String codeUnit = nullToEmpty(item.getCodeUnit());
                 String codeFee = nullToEmpty(item.getCodeFee());
@@ -466,20 +441,20 @@ public class BillingOnReviewViewModelAssembler {
                         i, n, codeName, codeUnit, codeFee, codeTotalStr, codeAt,
                         codeDescription, warning, gstApplied, codeValid));
                 nCode++;
-            } else if (nPerc < vecPercCodeItem.size()
-                    && codeName.equals(((BillingReviewPercentageItem) vecPercCodeItem.get(nPerc)).getCodeName())) {
+            } else if (nPerc < percentageCodeItems.size()
+                    && codeName.equals(percentageCodeItems.get(nPerc).getCodeName())) {
                 bPerc = true;
-                BillingReviewPercentageItem percItem = (BillingReviewPercentageItem) vecPercCodeItem.get(nPerc);
+                BillingReviewPercentageItem percItem = percentageCodeItems.get(nPerc);
                 String percFee = nullToEmpty(percItem.getCodeFee());
-                List<String> vecPercFee = percItem.getVecCodeFee() == null ? List.of() : percItem.getVecCodeFee();
-                List<String> vecPercTotal = percItem.getVecCodeTotal() == null ? List.of() : percItem.getVecCodeTotal();
+                List<String> percentageFees = percItem.getCodeFees() == null ? List.of() : percItem.getCodeFees();
+                List<String> percentageTotals = percItem.getCodeTotals() == null ? List.of() : percItem.getCodeTotals();
                 String codeUnit = nullToEmpty(percItem.getCodeUnit());
 
                 List<BillingOnReviewViewModel.PercSegment> segments = new ArrayList<>();
                 int unitInt = parseIntSafe(codeUnit, 0);
-                for (int j = 0; j < vecPercTotal.size(); j++) {
-                    String pt = String.valueOf((Float.parseFloat(vecPercTotal.get(j))) * unitInt);
-                    String factor = j < vecPercFee.size() ? String.valueOf(vecPercFee.get(j)) : "";
+                for (int j = 0; j < percentageTotals.size(); j++) {
+                    String pt = String.valueOf((Float.parseFloat(percentageTotals.get(j))) * unitInt);
+                    String factor = j < percentageFees.size() ? String.valueOf(percentageFees.get(j)) : "";
                     segments.add(new BillingOnReviewViewModel.PercSegment(pt, factor));
                 }
 

@@ -529,12 +529,11 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
     }
 
     @Override
-    @SuppressWarnings("unchecked")
-    public List<Object[]> search_billob(String providerNo, Date startDate, Date endDate) {
+    public List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillObRow> search_billob(String providerNo, Date startDate, Date endDate) {
         String[] serviceCodes = {"P006A", "P011A", "P009A", "P020A", "P022A", "P028A", "P023A", "P007A", "P008B", "P018B", "E502A", "C989A", "E409A", "E410A", "E411A", "H001A"};
-        Query q = entityManager.createQuery("select distinct b.id,b.total,b.status,b.billingDate, b.demographicName from Billing b, BillingDetail bd "
-                + "where bd.billingNo=b.id and b.status<>'D' and bd.serviceCode in (?1) and b.providerNo like ?2" +
-                "and b.billingDate>=?3 and b.billingDate<=?4");
+        String jpql = "select distinct new io.github.carlos_emr.carlos.billings.ca.on.dto.BillObRow(b.id, b.total, b.status, b.billingDate, b.demographicName) from Billing b, BillingDetail bd where bd.billingNo=b.id and b.status<>'D' and bd.serviceCode in (?1) and b.providerNo like ?2 and b.billingDate>=?3 and b.billingDate<=?4";
+        jakarta.persistence.TypedQuery<io.github.carlos_emr.carlos.billings.ca.on.dto.BillObRow> q =
+                entityManager.createQuery(jpql, io.github.carlos_emr.carlos.billings.ca.on.dto.BillObRow.class);
         q.setParameter(1, Arrays.asList(serviceCodes));
         q.setParameter(2, providerNo);
         q.setParameter(3, startDate);
@@ -543,16 +542,52 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
     }
 
     @Override
-    @SuppressWarnings("unchecked")
-    public List<Object[]> search_billflu(String creator, Date startDate, Date endDate) {
-        Query q = entityManager.createQuery("select distinct b.content, b.id,b.total,b.status,b.billingDate, b.demographicName From Billing b, BillingDetail bd " +
-                "where bd.billingNo=b.id and b.status<>'D' and( bd.serviceCode='G590A' or bd.serviceCode='G591A') and b.creator like ?1" +
-                "and b.billingDate>=?2 and b.billingDate<=?3 order by b.demographicName");
+    public List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillFluRow> search_billflu(String creator, Date startDate, Date endDate) {
+        String jpql = "select distinct new io.github.carlos_emr.carlos.billings.ca.on.dto.BillFluRow(b.content, b.id, b.total, b.status, b.billingDate, b.demographicName) From Billing b, BillingDetail bd where bd.billingNo=b.id and b.status<>'D' and (bd.serviceCode='G590A' or bd.serviceCode='G591A') and b.creator like ?1 and b.billingDate>=?2 and b.billingDate<=?3 order by b.demographicName";
+        jakarta.persistence.TypedQuery<io.github.carlos_emr.carlos.billings.ca.on.dto.BillFluRow> q =
+                entityManager.createQuery(jpql, io.github.carlos_emr.carlos.billings.ca.on.dto.BillFluRow.class);
         q.setParameter(1, creator);
         q.setParameter(2, startDate);
         q.setParameter(3, endDate);
-
         return q.getResultList();
+    }
+
+    @Override
+    public List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportPaidBillingRow>
+    findBillingOnNewReportPaidBillings(String providerNo, String startDate, String endDate) {
+        String sql = "select billing_no, total from billing where provider_no=?1 and billing_date>=?2 "
+                + "and billing_date<=?3 and status='S' order by billing_date, billing_time";
+        Query query = entityManager.createNativeQuery(sql);
+        query.setParameter(1, providerNo);
+        query.setParameter(2, startDate);
+        query.setParameter(3, endDate);
+        List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportPaidBillingRow> rows =
+                new ArrayList<>();
+        for (Object[] r : (List<Object[]>) query.getResultList()) {
+            rows.add(new io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportPaidBillingRow(
+                    value(r[0]), value(r[1])));
+        }
+        return rows;
+    }
+
+    @Override
+    public List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportUnpaidRow>
+    findBillingOnNewReportUnpaidRows(String providerNo, String startDate, String endDate) {
+        String sql = "select billing_no, billing_date, billing_time, demographic_name, status, apptProvider_no, provider_no, total "
+                + "from billing where provider_no=?1 and billing_date >=?2 and billing_date<=?3 "
+                + "and (status<>'D' and status<>'S') order by billing_date, billing_time";
+        Query query = entityManager.createNativeQuery(sql);
+        query.setParameter(1, providerNo);
+        query.setParameter(2, startDate);
+        query.setParameter(3, endDate);
+        List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportUnpaidRow> rows =
+                new ArrayList<>();
+        for (Object[] r : (List<Object[]>) query.getResultList()) {
+            rows.add(new io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportUnpaidRow(
+                    value(r[0]), value(r[1]), value(r[2]), value(r[3]),
+                    value(r[4]), value(r[5]), value(r[6]), value(r[7])));
+        }
+        return rows;
     }
 
     @Override
@@ -596,6 +631,10 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
         query.setParameter(3, demoNo);
         return query.getResultList();
 
+    }
+
+    private static String value(Object value) {
+        return value == null ? "" : String.valueOf(value);
     }
 
 }

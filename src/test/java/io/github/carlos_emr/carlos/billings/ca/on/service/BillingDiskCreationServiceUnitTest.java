@@ -177,7 +177,9 @@ class BillingDiskCreationServiceUnitTest {
         assertThat(diskId).isEqualTo(33);
         ArgumentCaptor<BillingDiskNameDto> captor = ArgumentCaptor.forClass(BillingDiskNameDto.class);
         verify(claimPersister).addBillingDiskName(captor.capture());
-        assertThat(captor.getValue().getProviderohipno()).containsExactly("054321");
+        assertThat(captor.getValue().getFilenames())
+                .extracting(io.github.carlos_emr.carlos.billings.ca.on.dto.DiskFilenameRow::providerOhipNo)
+                .containsExactly("054321");
         assertThat(captor.getValue().getOhipfilename()).contains("054321");
     }
 

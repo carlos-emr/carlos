@@ -49,9 +49,7 @@ import io.github.carlos_emr.carlos.commn.dao.CtlBillingServicePremiumDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
-import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.commn.model.ClinicLocation;
-import io.github.carlos_emr.carlos.commn.model.CtlBillingService;
 import io.github.carlos_emr.carlos.commn.model.CtlBillingServicePremium;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
@@ -404,25 +402,23 @@ public class BillingShortcutPg1ViewModelAssembler {
         // Service-type side panel (all active service types).
         java.util.List<BillingShortcutPg1ViewModel.ServiceTypeEntry> serviceTypeEntries = new ArrayList<>();
         if (ctlBillingServiceDao != null) {
-            @SuppressWarnings("unchecked")
-            java.util.List<Object[]> rows = (java.util.List<Object[]>) ctlBillingServiceDao.findServiceTypesByStatus("A");
-            for (Object[] o : rows) {
-                if (o == null || o[1] == null) continue;
-                String code = String.valueOf(o[1]).replaceAll("[^A-Za-z0-9_-]", "_");
-                String name = o[0] == null ? "" : String.valueOf(o[0]);
-                serviceTypeEntries.add(new BillingShortcutPg1ViewModel.ServiceTypeEntry(code, name));
+            for (io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow row :
+                    ctlBillingServiceDao.findServiceTypesByStatus("A")) {
+                if (row.serviceType().isEmpty()) continue;
+                String code = row.serviceType().replaceAll("[^A-Za-z0-9_-]", "_");
+                serviceTypeEntries.add(new BillingShortcutPg1ViewModel.ServiceTypeEntry(
+                        code, row.serviceTypeName()));
             }
         }
 
         // Dx code panel for the selected ctlBillForm.
         java.util.List<BillingShortcutPg1ViewModel.DxCodeEntry> dxCodeEntries = new ArrayList<>();
         if (diagnosticCodeDao != null) {
-            for (Object[] o : diagnosticCodeDao.findDiagnosictsAndCtlDiagCodesByServiceType(ctlBillForm)) {
-                io.github.carlos_emr.carlos.commn.model.DiagnosticCode dc =
-                        (io.github.carlos_emr.carlos.commn.model.DiagnosticCode) o[0];
+            for (io.github.carlos_emr.carlos.billings.ca.on.dto.DiagnosticCodeRow row :
+                    diagnosticCodeDao.findDiagnosictsAndCtlDiagCodesByServiceType(ctlBillForm)) {
                 dxCodeEntries.add(new BillingShortcutPg1ViewModel.DxCodeEntry(
-                        nullToEmpty(dc.getDiagnosticCode()),
-                        nullToEmpty(dc.getDescription())));
+                        row.diagnosticCode(),
+                        row.description()));
             }
         }
 
@@ -589,16 +585,15 @@ public class BillingShortcutPg1ViewModelAssembler {
                                                   Map<String, String> propPremium) {
         List<Properties> entries = new ArrayList<>();
         String headerTitle = "";
-        for (Object[] o : billingServiceDao.findBillingServiceAndCtlBillingServiceByMagic(ctlBillForm, serviceGroup, billReferenceDate)) {
-            BillingService b = (BillingService) o[0];
-            CtlBillingService c = (CtlBillingService) o[1];
+        for (io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceCodeMagicRow row :
+                billingServiceDao.findBillingServiceAndCtlBillingServiceByMagic(ctlBillForm, serviceGroup, billReferenceDate)) {
             Properties p = new Properties();
-            headerTitle = nullToEmpty(c.getServiceGroupName());
-            p.setProperty("serviceCode", nullToEmpty(b.getServiceCode()));
-            p.setProperty("serviceDesc", nullToEmpty(b.getDescription()));
-            p.setProperty("serviceDisp", nullToEmpty(b.getValue()));
-            p.setProperty("servicePercentage", Misc.getStr(b.getPercentage(), ""));
-            p.setProperty("serviceSLI", Misc.getStr("" + b.getSliFlag(), "false"));
+            headerTitle = row.serviceGroupName();
+            p.setProperty("serviceCode", row.serviceCode());
+            p.setProperty("serviceDesc", row.description());
+            p.setProperty("serviceDisp", row.value());
+            p.setProperty("servicePercentage", Misc.getStr(row.percentage(), ""));
+            p.setProperty("serviceSLI", Misc.getStr("" + row.sliFlag(), "false"));
             entries.add(p);
         }
         if (!entries.isEmpty()) {

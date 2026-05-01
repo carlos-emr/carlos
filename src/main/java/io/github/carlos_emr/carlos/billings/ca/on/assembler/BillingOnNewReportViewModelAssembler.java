@@ -23,7 +23,6 @@ package io.github.carlos_emr.carlos.billings.ca.on.assembler;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -35,15 +34,23 @@ import java.util.Set;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportBilledRow;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportPaidBillingRow;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportPaidRaDetailRow;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportUnbilledRow;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportUnpaidRow;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnNewReportViewModel;
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
+import io.github.carlos_emr.carlos.commn.dao.BillingDao;
+import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
+import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
+import io.github.carlos_emr.carlos.commn.dao.RaDetailDao;
 import io.github.carlos_emr.carlos.commn.dao.ReportProviderDao;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Site;
-import io.github.carlos_emr.carlos.login.DBHelp;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 
@@ -51,37 +58,32 @@ import org.apache.commons.lang3.StringUtils;
 
 /**
  * Builds the {@link BillingOnNewReportViewModel} for
- * {@code billingONNewReport.jsp}. Hoists the four inline JDBC queries the
- * legacy JSP body performed (unbilled / billed / paid / unpaid) plus the
- * provider-list and multisite dropdown lookups.
+ * {@code billingONNewReport.jsp}. Delegates report-row data access to DAOs
+ * and keeps this class focused on shaping the JSP view model.
  *
  * @since 2026-04-26
  */
 @org.springframework.stereotype.Service
 public class BillingOnNewReportViewModelAssembler {
 
-    /*
-     * SQL queries — all parameterized via JDBC '?' placeholders. The IN-clause
-     * for the radetail lookup is built from validated billing-no integers, not
-     * user input, so embedding them is safe.
-     */
-    private static final String SQL_UNBILLED =
-            "select * from appointment where provider_no=? and appointment_date >=? and appointment_date<=? and (BINARY status NOT LIKE 'B%' AND BINARY status NOT LIKE 'C%' AND BINARY status NOT LIKE 'N%') and demographic_no != 0 order by appointment_date , start_time";
-    private static final String SQL_BILLED =
-            "select * from billing_on_cheader1 where provider_no=? and billing_date >=? and billing_date<=? and (status<>'D' and status<>'S' and status<>'B') order by billing_date , billing_time";
-    private static final String SQL_PAID_BILLINGS =
-            "select billing_no,total from billing where provider_no=? and billing_date>=? and billing_date<=? and status ='S' order by billing_date, billing_time";
-    private static final String SQL_PAID_RADETAIL =
-            "select billing_no, amountclaim, amountpay, hin, service_date from radetail where billing_no in (%s) and raheader_no !=0 order by billing_no, radetail_no";
-    private static final String SQL_UNPAID =
-            "select * from billing where provider_no=? and billing_date >=? and billing_date<=? and (status<>'D' and status<>'S') order by billing_date , billing_time";
-
     private final ReportProviderDao reportProviderDao;
     private final SiteDao siteDao;
+    private final OscarAppointmentDao appointmentDao;
+    private final BillingONCHeader1Dao headerDao;
+    private final BillingDao billingDao;
+    private final RaDetailDao raDetailDao;
 
-    public BillingOnNewReportViewModelAssembler(ReportProviderDao reportProviderDao, SiteDao siteDao) {
+    public BillingOnNewReportViewModelAssembler(ReportProviderDao reportProviderDao, SiteDao siteDao,
+                                                OscarAppointmentDao appointmentDao,
+                                                BillingONCHeader1Dao headerDao,
+                                                BillingDao billingDao,
+                                                RaDetailDao raDetailDao) {
         this.reportProviderDao = reportProviderDao;
         this.siteDao = siteDao;
+        this.appointmentDao = appointmentDao;
+        this.headerDao = headerDao;
+        this.billingDao = billingDao;
+        this.raDetailDao = raDetailDao;
     }
 
     public BillingOnNewReportViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
@@ -122,9 +124,9 @@ public class BillingOnNewReportViewModelAssembler {
         if (currentUser == null) return Collections.emptyList();
         List<Site> sites = siteDao.getActiveSitesByProviderNo(currentUser);
         Set<String> reporters = new HashSet<>();
-        for (Object[] res : reportProviderDao.search_reportprovider("billingreport")) {
-            Provider p = (Provider) res[1];
-            reporters.add(p.getProviderNo());
+        for (io.github.carlos_emr.carlos.billings.ca.on.dto.ReporterRow row :
+                reportProviderDao.search_reportprovider("billingreport")) {
+            reporters.add(row.providerNo());
         }
         List<BillingOnNewReportViewModel.SiteOption> out = new ArrayList<>();
         for (Site site : sites) {
@@ -144,10 +146,10 @@ public class BillingOnNewReportViewModelAssembler {
 
     private List<BillingOnNewReportViewModel.ProviderOption> loadProviderOptions() {
         List<BillingOnNewReportViewModel.ProviderOption> out = new ArrayList<>();
-        for (Object[] res : reportProviderDao.search_reportprovider("billingreport")) {
-            Provider p = (Provider) res[1];
+        for (io.github.carlos_emr.carlos.billings.ca.on.dto.ReporterRow row :
+                reportProviderDao.search_reportprovider("billingreport")) {
             out.add(new BillingOnNewReportViewModel.ProviderOption(
-                    p.getProviderNo(), p.getLastName(), p.getFirstName()));
+                    row.providerNo(), row.lastName(), row.firstName()));
         }
         return out;
     }
@@ -197,68 +199,64 @@ public class BillingOnNewReportViewModelAssembler {
         return out;
     }
 
-    @SuppressWarnings("deprecation")
-    private static void runUnbilled(String providerView, String xmlVdate,
-                                     String xmlAppointmentDate, boolean multisites,
-                                     String selectedSite, String defaultBillForm,
-                                     ReportRows out) throws Exception {
+    private void runUnbilled(String providerView, String xmlVdate,
+                             String xmlAppointmentDate, boolean multisites,
+                             String selectedSite, String defaultBillForm,
+                             ReportRows out) {
         out.headers = Arrays.asList("SERVICE DATE", "TIME", "PATIENT", "DESCRIPTION", "COMMENTS");
-        ResultSet rs = DBHelp.searchDBRecord(SQL_UNBILLED, providerView, xmlVdate, xmlAppointmentDate);
-        while (rs.next()) {
+        for (BillingOnNewReportUnbilledRow row :
+                appointmentDao.findBillingOnNewReportUnbilledRows(providerView, xmlVdate, xmlAppointmentDate)) {
             if (multisites) {
-                String location = rs.getString("location");
+                String location = row.location();
                 if (StringUtils.isNotBlank(location) && !location.equals(selectedSite)) continue;
             }
             Properties prop = new Properties();
-            prop.setProperty("SERVICE DATE", rs.getString("appointment_date"));
-            prop.setProperty("TIME", rs.getString("start_time").substring(0, 5));
-            prop.setProperty("PATIENT", htmlCell(rs.getString("name")));
-            prop.setProperty("DESCRIPTION", htmlCell(rs.getString("reason")));
-            prop.setProperty("COMMENTS", buildBillLink(defaultBillForm, providerView, rs));
+            prop.setProperty("SERVICE DATE", row.appointmentDate());
+            prop.setProperty("TIME", firstFive(row.startTime()));
+            prop.setProperty("PATIENT", htmlCell(row.name()));
+            prop.setProperty("DESCRIPTION", htmlCell(row.reason()));
+            prop.setProperty("COMMENTS", buildBillLink(defaultBillForm, providerView, row));
             out.values.add(prop);
         }
-        rs.close();
     }
 
-    private static String buildBillLink(String defaultBillForm, String providerView, ResultSet rs) throws Exception {
-        String name = rs.getString("name");
+    private static String buildBillLink(String defaultBillForm, String providerView,
+                                        BillingOnNewReportUnbilledRow row) {
+        String name = row.name();
         return "<a href=# onClick='popupPage(700,1000, \"/billing?billForm="
                 + URLEncoder.encode(defaultBillForm, StandardCharsets.UTF_8)
-                + "&hotclick=&appointment_no=" + urlParam(rs.getString("appointment_no"))
+                + "&hotclick=&appointment_no=" + urlParam(row.appointmentNo())
                 + "&demographic_name=" + URLEncoder.encode(name, StandardCharsets.UTF_8)
-                + "&demographic_no=" + urlParam(rs.getString("demographic_no"))
-                + "&user_no=" + urlParam(rs.getString("provider_no"))
+                + "&demographic_no=" + urlParam(row.demographicNo())
+                + "&user_no=" + urlParam(row.providerNo())
                 + "&apptProvider_no=" + urlParam(providerView)
-                + "&appointment_date=" + urlParam(rs.getString("appointment_date"))
-                + "&start_time=" + urlParam(rs.getString("start_time"))
+                + "&appointment_date=" + urlParam(row.appointmentDate())
+                + "&start_time=" + urlParam(row.startTime())
                 + "&bNewForm=1\"); return false;'>Bill ";
     }
 
-    @SuppressWarnings("deprecation")
-    private static void runBilled(String providerView, String xmlVdate,
-                                   String xmlAppointmentDate, boolean multisites,
-                                   String selectedSite, String contextPath,
-                                   ReportRows out) throws Exception {
+    private void runBilled(String providerView, String xmlVdate,
+                           String xmlAppointmentDate, boolean multisites,
+                           String selectedSite, String contextPath,
+                           ReportRows out) {
         out.headers = Arrays.asList("SERVICE DATE", "TIME", "PATIENT", "DESCRIPTION", "ACCOUNT");
-        ResultSet rs = DBHelp.searchDBRecord(SQL_BILLED, providerView, xmlVdate, xmlAppointmentDate);
-        while (rs.next()) {
+        for (BillingOnNewReportBilledRow row :
+                headerDao.findBillingOnNewReportBilledRows(providerView, xmlVdate, xmlAppointmentDate)) {
             if (multisites) {
-                String clinic = rs.getString("clinic");
+                String clinic = row.clinic();
                 if (StringUtils.isNotBlank(clinic) && !clinic.equals(selectedSite)) continue;
             }
             Properties prop = new Properties();
-            prop.setProperty("SERVICE DATE", rs.getString("billing_date"));
-            prop.setProperty("TIME", rs.getString("billing_time").substring(0, 5));
-            prop.setProperty("PATIENT", htmlCell(rs.getString("demographic_name")));
+            prop.setProperty("SERVICE DATE", row.billingDate());
+            prop.setProperty("TIME", firstFive(row.billingTime()));
+            prop.setProperty("PATIENT", htmlCell(row.demographicName()));
 
-            String reason = describeStatus(rs.getString("status"));
-            String note = describeApptDoctor(rs.getString("apptProvider_no"),
-                    rs.getString("provider_no"));
+            String reason = describeStatus(row.status());
+            String note = describeApptDoctor(row.apptProviderNo(), row.providerNo());
             prop.setProperty("DESCRIPTION", htmlCell(reason + "(" + note + ")"));
-            prop.setProperty("ACCOUNT", buildCorrectionLink(contextPath, rs.getString("id"), reason));
+            prop.setProperty("ACCOUNT", buildCorrectionLink(contextPath, row.id(), reason));
             out.values.add(prop);
         }
-        rs.close();
     }
 
     private static String buildCorrectionLink(String contextPath, String id, String reason) {
@@ -268,70 +266,60 @@ public class BillingOnNewReportViewModelAssembler {
                 + SafeEncode.forHtmlAttribute(reason) + "'>" + htmlCell(id) + "</a>";
     }
 
-    @SuppressWarnings("deprecation")
-    private static void runPaid(String providerView, String xmlVdate,
-                                 String xmlAppointmentDate, String contextPath,
-                                 ReportRows out) throws Exception {
+    private void runPaid(String providerView, String xmlVdate,
+                         String xmlAppointmentDate, String contextPath,
+                         ReportRows out) {
         out.headers = Arrays.asList("No", "Billing No", "HIN", "Claim", "Paid", "Billing Date");
         float fTotalClaim = 0.00f;
         float fTotalPaid = 0.00f;
 
-        // Step 1: collect billing_no integers in the date range. Use Integer
-        // (parsed) so the IN-clause stays purely numeric — no user input is
-        // ever interpolated into the radetail query.
         List<Integer> billingNos = new ArrayList<>();
         Properties propTotal = new Properties();
-        ResultSet rs = DBHelp.searchDBRecord(SQL_PAID_BILLINGS, providerView, xmlVdate, xmlAppointmentDate);
-        while (rs.next()) {
-            int billingNo = rs.getInt("billing_no");
+        for (BillingOnNewReportPaidBillingRow row :
+                billingDao.findBillingOnNewReportPaidBillings(providerView, xmlVdate, xmlAppointmentDate)) {
+            int billingNo = Integer.parseInt(row.billingNo());
             billingNos.add(billingNo);
-            propTotal.setProperty(String.valueOf(billingNo), rs.getString("total"));
+            propTotal.setProperty(row.billingNo(), row.total());
         }
-        rs.close();
 
-        String billingNoIn = billingNos.isEmpty() ? "-1"
-                : billingNos.stream().map(String::valueOf).reduce((a, b) -> a + "," + b).orElse("-1");
-
-        // Step 2: pull ra-detail rows for the captured billing nos.
-        rs = DBHelp.searchDBRecord(String.format(SQL_PAID_RADETAIL, billingNoIn));
         String prevBillingNo = "";
         String sAmountclaim = "", sAmountpay = "";
         int nNo = 0;
-        while (rs.next()) {
-            String billingNo = String.valueOf(rs.getInt("billing_no"));
+        for (BillingOnNewReportPaidRaDetailRow row :
+                raDetailDao.findBillingOnNewReportPaidRaDetails(billingNos)) {
+            String billingNo = row.billingNo();
             if (!prevBillingNo.equals(billingNo)) {
                 prevBillingNo = billingNo;
                 nNo++;
-                sAmountclaim = rs.getString("amountclaim");
-                sAmountpay = rs.getString("amountpay");
+                sAmountclaim = row.amountClaim();
+                sAmountpay = row.amountPay();
                 Properties prop = new Properties();
                 prop.setProperty("No", String.valueOf(nNo));
                 prop.setProperty("Billing No", buildBillingNoLink(contextPath, billingNo));
-                prop.setProperty("HIN", htmlCell(rs.getString("hin")));
+                prop.setProperty("HIN", htmlCell(row.hin()));
                 prop.setProperty("Claim", sAmountclaim);
                 prop.setProperty("Paid", sAmountpay);
-                prop.setProperty("Billing Date", formatDateStr(rs.getString("service_date")));
+                prop.setProperty("Billing Date", formatDateStr(row.serviceDate()));
                 out.values.add(prop);
-                fTotalClaim += Float.parseFloat(rs.getString("amountclaim"));
-                fTotalPaid += Float.parseFloat(rs.getString("amountpay"));
+                fTotalClaim += Float.parseFloat(row.amountClaim());
+                fTotalPaid += Float.parseFloat(row.amountPay());
             } else {
                 float fAmountpay = Float.parseFloat(sAmountpay);
-                fAmountpay = fAmountpay + Float.parseFloat(rs.getString("amountpay"));
+                fAmountpay = fAmountpay + Float.parseFloat(row.amountPay());
                 sAmountpay = String.valueOf(Math.round(fAmountpay * 100) / 100.00);
                 Properties prop = new Properties();
                 prop.setProperty("No", String.valueOf(nNo));
                 prop.setProperty("Billing No", buildBillingNoLink(contextPath, billingNo));
-                prop.setProperty("HIN", htmlCell(rs.getString("hin")));
+                prop.setProperty("HIN", htmlCell(row.hin()));
                 prop.setProperty("Claim", propTotal.getProperty(prevBillingNo));
                 prop.setProperty("Paid", sAmountpay);
-                prop.setProperty("Billing Date", formatDateStr(rs.getString("service_date")));
+                prop.setProperty("Billing Date", formatDateStr(row.serviceDate()));
                 out.values.remove(out.values.size() - 1);
                 out.values.add(prop);
-                fTotalClaim += Float.parseFloat(rs.getString("amountclaim"));
-                fTotalPaid += Float.parseFloat(rs.getString("amountpay"));
+                fTotalClaim += Float.parseFloat(row.amountClaim());
+                fTotalPaid += Float.parseFloat(row.amountPay());
             }
         }
-        rs.close();
 
         out.totals = Arrays.asList("Total", "", "",
                 String.valueOf(Math.round(fTotalClaim * 100) / 100.00),
@@ -339,36 +327,33 @@ public class BillingOnNewReportViewModelAssembler {
                 "");
     }
 
-    @SuppressWarnings("deprecation")
-    private static void runUnpaid(String providerView, String xmlVdate,
-                                   String xmlAppointmentDate, String contextPath,
-                                   ReportRows out) throws Exception {
+    private void runUnpaid(String providerView, String xmlVdate,
+                           String xmlAppointmentDate, String contextPath,
+                           ReportRows out) {
         out.headers = Arrays.asList("No", "Billing No", "Patient", "Claim", "Description",
                 "Service Date", "Time");
         float fTotalClaim = 0.00f;
 
         int nNo = 0;
-        ResultSet rs = DBHelp.searchDBRecord(SQL_UNPAID, providerView, xmlVdate, xmlAppointmentDate);
-        while (rs.next()) {
+        for (BillingOnNewReportUnpaidRow row :
+                billingDao.findBillingOnNewReportUnpaidRows(providerView, xmlVdate, xmlAppointmentDate)) {
             Properties prop = new Properties();
             nNo++;
             prop.setProperty("No", String.valueOf(nNo));
-            prop.setProperty("Service Date", rs.getString("billing_date"));
-            prop.setProperty("Time", rs.getString("billing_time").substring(0, 5));
-            prop.setProperty("Patient", htmlCell(rs.getString("demographic_name")));
+            prop.setProperty("Service Date", row.billingDate());
+            prop.setProperty("Time", firstFive(row.billingTime()));
+            prop.setProperty("Patient", htmlCell(row.demographicName()));
 
-            String reason = describeStatus(rs.getString("status"));
-            String note = describeApptDoctor(rs.getString("apptProvider_no"),
-                    rs.getString("provider_no"));
+            String reason = describeStatus(row.status());
+            String note = describeApptDoctor(row.apptProviderNo(), row.providerNo());
             prop.setProperty("Description", htmlCell(reason + "(" + note + ")"));
             prop.setProperty("Billing No", buildBillingNoLinkWithTitle(contextPath,
-                    rs.getString("billing_no"), reason));
-            String sAmountclaim = rs.getString("total");
+                    row.billingNo(), reason));
+            String sAmountclaim = row.total();
             prop.setProperty("Claim", sAmountclaim);
-            fTotalClaim += Float.parseFloat(rs.getString("total"));
+            fTotalClaim += Float.parseFloat(row.total());
             out.values.add(prop);
         }
-        rs.close();
 
         out.totals = Arrays.asList("Total", "", "",
                 String.valueOf(Math.round(fTotalClaim * 100) / 100.00),
@@ -419,6 +404,10 @@ public class BillingOnNewReportViewModelAssembler {
 
     static String htmlCell(String value) { return SafeEncode.forHtml(value); }
     private static String urlParam(String value) { return URLEncoder.encode(nullToEmpty(value), StandardCharsets.UTF_8); }
+    private static String firstFive(String value) {
+        String v = nullToEmpty(value);
+        return v.length() <= 5 ? v : v.substring(0, 5);
+    }
     private static String nullToEmpty(String v) { return v == null ? "" : v; }
     private static String nullToDefault(String v, String d) { return v == null ? d : v; }
 }

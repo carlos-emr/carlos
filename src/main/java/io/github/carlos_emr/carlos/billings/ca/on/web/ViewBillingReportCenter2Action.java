@@ -28,7 +28,6 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingReportCenterViewModel;
 import io.github.carlos_emr.carlos.commn.dao.ReportProviderDao;
-import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -85,12 +84,12 @@ public class ViewBillingReportCenter2Action extends ActionSupport {
 
         // Provider rows from the legacy "billingreport" report scope.
         List<BillingReportCenterViewModel.ProviderRow> rows = new ArrayList<>();
-        List<Object[]> joined = reportProviderDao.search_reportprovider("billingreport");
+        List<io.github.carlos_emr.carlos.billings.ca.on.dto.ReporterRow> joined =
+                reportProviderDao.search_reportprovider("billingreport");
         if (joined != null) {
-            for (Object[] res : joined) {
-                Provider p = (Provider) res[1];
+            for (io.github.carlos_emr.carlos.billings.ca.on.dto.ReporterRow row : joined) {
                 rows.add(new BillingReportCenterViewModel.ProviderRow(
-                        p.getProviderNo(), p.getFirstName(), p.getLastName()));
+                        row.providerNo(), row.firstName(), row.lastName()));
             }
         }
 

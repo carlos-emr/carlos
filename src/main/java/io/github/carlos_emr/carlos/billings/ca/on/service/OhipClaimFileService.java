@@ -892,7 +892,7 @@ public class OhipClaimFileService {
 
     private void updateDemoData(LoggedInInfo loggedInInfo, BillingClaimHeaderDto chObj) {
         // last_name,first_name,dob,hin,ver,hc_type,sex
-        List<String> vecStr = lookupService
+        List<String> demoFields = lookupService
                 .getPatientCurBillingDemo(loggedInInfo, chObj.getDemographic_no());
 
         //Bonus Billing (Incentives)? Block out patient data : update with patient data
@@ -904,12 +904,12 @@ public class OhipClaimFileService {
             ch1Obj.setProvince("ON");
             ch1Obj.setSex("");
         } else {
-            ch1Obj.setDemographic_name(vecStr.get(0) + "," + vecStr.get(1));
-            ch1Obj.setDob(vecStr.get(2));
-            ch1Obj.setHin(vecStr.get(3));
-            ch1Obj.setVer(vecStr.get(4));
-            ch1Obj.setProvince(vecStr.get(5));
-            ch1Obj.setSex(vecStr.get(6));
+            ch1Obj.setDemographic_name(demoFields.get(0) + "," + demoFields.get(1));
+            ch1Obj.setDob(demoFields.get(2));
+            ch1Obj.setHin(demoFields.get(3));
+            ch1Obj.setVer(demoFields.get(4));
+            ch1Obj.setProvince(demoFields.get(5));
+            ch1Obj.setSex(demoFields.get(6));
         }
 
         if (!"ON".equals(ch1Obj.getProvince()) && !"".equals(ch1Obj.getProvince())) ch1Obj.setPay_program("RMB");

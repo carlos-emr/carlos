@@ -34,8 +34,8 @@ public record BillingReviewPercentageItem(
         String codeFee,
         String codeMinFee,
         String codeMaxFee,
-        List<String> vecCodeFee,
-        List<String> vecCodeTotal,
+        List<String> codeFees,
+        List<String> codeTotals,
         String msg) {
 
     public BillingReviewPercentageItem {
@@ -44,8 +44,8 @@ public record BillingReviewPercentageItem(
         codeFee = BillingViewStrings.nullToEmpty(codeFee);
         codeMinFee = BillingViewStrings.nullToEmpty(codeMinFee);
         codeMaxFee = BillingViewStrings.nullToEmpty(codeMaxFee);
-        vecCodeFee = vecCodeFee == null ? List.of() : List.copyOf(vecCodeFee);
-        vecCodeTotal = vecCodeTotal == null ? List.of() : List.copyOf(vecCodeTotal);
+        codeFees = codeFees == null ? List.of() : List.copyOf(codeFees);
+        codeTotals = codeTotals == null ? List.of() : List.copyOf(codeTotals);
         msg = BillingViewStrings.nullToEmpty(msg);
     }
 
@@ -54,7 +54,7 @@ public record BillingReviewPercentageItem(
     public String getCodeFee() { return codeFee; }
     public String getCodeMinFee() { return codeMinFee; }
     public String getCodeMaxFee() { return codeMaxFee; }
-    public List<String> getVecCodeFee() { return vecCodeFee; }
-    public List<String> getVecCodeTotal() { return vecCodeTotal; }
+    public List<String> getCodeFees() { return codeFees; }
+    public List<String> getCodeTotals() { return codeTotals; }
     public String getMsg() { return msg; }
 }

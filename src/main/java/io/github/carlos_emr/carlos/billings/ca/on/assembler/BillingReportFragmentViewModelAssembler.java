@@ -232,7 +232,8 @@ public class BillingReportFragmentViewModelAssembler {
 
     private void loadBillob(String providerView, Date dateBegin, Date dateEnd,
                             BillingReportFragmentViewModel.Builder b) {
-        List<Object[]> bs = billingDao.search_billob(providerView, dateBegin, dateEnd);
+        List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillObRow> bs =
+                billingDao.search_billob(providerView, dateBegin, dateEnd);
         List<BillingReportFragmentViewModel.BillobRow> rows = new ArrayList<>();
         BigDecimal total = new BigDecimal(0).setScale(2, RoundingMode.HALF_UP);
         if (bs == null) {
@@ -240,7 +241,7 @@ public class BillingReportFragmentViewModelAssembler {
             return;
         }
         List<Integer> billingNos = bs.stream()
-                .map(row -> (Integer) row[0])
+                .map(io.github.carlos_emr.carlos.billings.ca.on.dto.BillObRow::id)
                 .filter(id -> id != null)
                 .distinct()
                 .toList();
@@ -248,13 +249,13 @@ public class BillingReportFragmentViewModelAssembler {
                 billingDetailDao.findByBillingNos(billingNos).stream()
                         .collect(Collectors.groupingBy(BillingDetail::getBillingNo));
         boolean bodd = false;
-        for (Object[] row : bs) {
+        for (io.github.carlos_emr.carlos.billings.ca.on.dto.BillObRow row : bs) {
             bodd = !bodd;
-            Integer bId = (Integer) row[0];
-            String bTotal = (String) row[1];
-            String bStatus = (String) row[2];
-            Date bBillingDate = (Date) row[3];
-            String bDemographicName = (String) row[4];
+            Integer bId = row.id();
+            String bTotal = row.total();
+            String bStatus = row.status();
+            Date bBillingDate = row.billingDate();
+            String bDemographicName = row.demographicName();
             String demoName = nullToEmpty(bDemographicName);
             String apptDate = ConversionUtils.toDateString(bBillingDate);
             String reasonCode = nullToEmpty(bStatus);
@@ -302,7 +303,8 @@ public class BillingReportFragmentViewModelAssembler {
 
     private void loadFlu(String providerView, Date dateBegin, Date dateEnd,
                          BillingReportFragmentViewModel.Builder b) {
-        List<Object[]> bs = billingDao.search_billflu(providerView, dateBegin, dateEnd);
+        List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillFluRow> bs =
+                billingDao.search_billflu(providerView, dateBegin, dateEnd);
         List<BillingReportFragmentViewModel.FluClinicRow> clinicRows = new ArrayList<>();
         List<BillingReportFragmentViewModel.FluWalkinRow> walkinRows = new ArrayList<>();
         BigDecimal total1 = new BigDecimal(0).setScale(2, RoundingMode.HALF_UP); // walk-in (specialty == flu)
@@ -315,14 +317,14 @@ public class BillingReportFragmentViewModelAssembler {
         boolean bodd = false;
         int walkinCount = 0;
         int clinicCount = 0;
-        for (Object[] row : bs) {
+        for (io.github.carlos_emr.carlos.billings.ca.on.dto.BillFluRow row : bs) {
             bodd = !bodd;
-            String bContent = (String) row[0];
-            Integer bId = (Integer) row[1];
-            String bTotal = (String) row[2];
-            String bStatus = (String) row[3];
-            Date bBillingDate = (Date) row[4];
-            String bDemographicName = (String) row[5];
+            String bContent = row.content();
+            Integer bId = row.id();
+            String bTotal = row.total();
+            String bStatus = row.status();
+            Date bBillingDate = row.billingDate();
+            String bDemographicName = row.demographicName();
             String demoName = nullToEmpty(bDemographicName);
             String apptDate = ConversionUtils.toDateString(bBillingDate);
             String specialty = SxmlMisc.getXmlContent(bContent, "specialty");

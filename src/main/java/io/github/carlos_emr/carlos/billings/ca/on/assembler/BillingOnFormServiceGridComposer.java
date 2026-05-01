@@ -34,13 +34,10 @@ import io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.CtlBillingServicePremiumDao;
 import io.github.carlos_emr.carlos.commn.dao.CtlBillingTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
-import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.commn.model.CssStyle;
-import io.github.carlos_emr.carlos.commn.model.CtlBillingService;
 import io.github.carlos_emr.carlos.commn.model.CtlBillingServicePremium;
 import io.github.carlos_emr.carlos.commn.model.CtlBillingType;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
-import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import static io.github.carlos_emr.carlos.billings.ca.on.support.BillingDomIdTokens.sanitize;
@@ -178,22 +175,21 @@ public class BillingOnFormServiceGridComposer {
         // One DAO roundtrip for the service-type rows; reused below for the
         // billing-form menu so we don't issue an identical findServiceTypesByStatus
         // a second time during the same render.
-        @SuppressWarnings("unchecked")
-        List<Object[]> serviceTypeRows = (List<Object[]>) ctlBillingServiceDao.findServiceTypesByStatus("A");
-        for (Object[] typeRow : serviceTypeRows) {
-            // Skip rows where the code column is null — String.valueOf((Object)null)
-            // returns the literal 4-character string "null", which would render
-            // id="null" in the DOM and billForm=null in click-through URLs.
-            if (typeRow == null || typeRow[1] == null) {
+        List<io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow> serviceTypeRows =
+                ctlBillingServiceDao.findServiceTypesByStatus("A");
+        for (io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow typeRow : serviceTypeRows) {
+            // Skip rows where the code column is empty — would render id="" in
+            // the DOM and billForm= in click-through URLs.
+            if (typeRow.serviceType().isEmpty()) {
                 MiscUtils.getLogger().warn(
-                        "ctl_billservice service-type row has null code column; skipping");
+                        "ctl_billservice service-type row has empty code column; skipping");
                 continue;
             }
             // Sanitize the code at ingest so the same string flows through
             // every downstream surface (HTML element ids, EL ${st}, scriptlet
             // <%=st%>, JS args).
-            String ctlcode = sanitize(String.valueOf(typeRow[1]));
-            String ctlcodename = typeRow[0] == null ? "" : String.valueOf(typeRow[0]);
+            String ctlcode = sanitize(typeRow.serviceType());
+            String ctlcodename = typeRow.serviceTypeName();
 
             if (ctlcode.equals(ctlBillForm)) {
                 resolvedBillFormName = ctlcodename;
@@ -202,20 +198,19 @@ public class BillingOnFormServiceGridComposer {
 
             for (String groupName : new String[] { "Group1", "Group2", "Group3" }) {
                 List<BillingOnFormViewModel.ServiceCodeEntry> groupEntries = new ArrayList<>();
-                for (Object[] o : billingServiceDao.findBillingServiceAndCtlBillingServiceByMagic(ctlcode, groupName, billRefDate)) {
-                    BillingService svc = (BillingService) o[0];
-                    CtlBillingService ctl = (CtlBillingService) o[1];
-                    if (!codeFilterManager.isCodeValid(svc.getServiceCode(), null, false, filterDate, demo)) {
+                for (io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceCodeMagicRow row :
+                        billingServiceDao.findBillingServiceAndCtlBillingServiceByMagic(ctlcode, groupName, billRefDate)) {
+                    if (!codeFilterManager.isCodeValid(row.serviceCode(), null, false, filterDate, demo)) {
                         continue;
                     }
                     String displayStyle = "";
-                    if (svc.getDisplayStyle() != null) {
+                    if (row.displayStyle() != null) {
                         // TODO(perf): one DB roundtrip per service code (~240
                         // for an 8-service-type x 3-group install). Pre-existing
                         // scriptlet pattern; future refactor should batch via
                         // cssStylesDao.findAll() into a HashMap<String, CssStyle>
                         // outside the loop.
-                        CssStyle cssStyle = cssStylesDAO.find(svc.getDisplayStyle());
+                        CssStyle cssStyle = cssStylesDAO.find(row.displayStyle());
                         if (cssStyle != null && cssStyle.getStyle() != null) {
                             // Allow only the simple "property:value;property:value;"
                             // shape so a malformed DB row can't break out of the
@@ -225,22 +220,22 @@ public class BillingOnFormServiceGridComposer {
                             } else {
                                 MiscUtils.getLogger().warn(
                                         "Dropped malformed inline CSS for service code {}: {}",
-                                        svc.getServiceCode(), cssStyle.getStyle());
+                                        row.serviceCode(), cssStyle.getStyle());
                             }
                         }
                     }
                     groupEntries.add(new BillingOnFormViewModel.ServiceCodeEntry(
-                            nullToEmpty(svc.getServiceCode()),
-                            svc.getDescription() == null ? "N/A" : svc.getDescription(),
-                            nullToEmpty(svc.getValue()),
-                            nullToEmpty(svc.getPercentage()),
-                            nullToEmpty(ctl.getServiceType()),
-                            nullToEmpty(ctl.getServiceGroupName()),
+                            row.serviceCode(),
+                            row.description().isEmpty() ? "N/A" : row.description(),
+                            row.value(),
+                            row.percentage(),
+                            row.serviceType(),
+                            row.serviceGroupName(),
                             displayStyle,
-                            svc.getSliFlag()));
+                            row.sliFlag()));
                     serviceTitleMap.put(
                             groupName.toLowerCase() + "_" + ctlcode,
-                            ctl.getServiceGroupName());
+                            row.serviceGroupName());
                 }
                 if (!groupEntries.isEmpty()) {
                     List<String> codes = new ArrayList<>();
@@ -274,12 +269,12 @@ public class BillingOnFormServiceGridComposer {
         // serviceTypeRows captured above instead of re-querying the DAO.
         // TODO(perf): the inner ctlBillingTypeDao.findByServiceType call is N+1.
         List<BillingOnFormViewModel.BillingFormMenuEntry> billingForms = new ArrayList<>();
-        for (Object[] typeRow : serviceTypeRows) {
-            if (typeRow == null || typeRow[1] == null) {
+        for (io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow typeRow : serviceTypeRows) {
+            if (typeRow.serviceType().isEmpty()) {
                 continue; // already logged in the grid loop above
             }
-            String menuCode = sanitize(String.valueOf(typeRow[1]));
-            String menuName = typeRow[0] == null ? "" : String.valueOf(typeRow[0]);
+            String menuCode = sanitize(typeRow.serviceType());
+            String menuName = typeRow.serviceTypeName();
             String menuBillType = "";
             for (CtlBillingType t : ctlBillingTypeDao.findByServiceType(menuCode)) {
                 menuBillType = t.getBillType();
@@ -294,12 +289,12 @@ public class BillingOnFormServiceGridComposer {
                 new LinkedHashMap<>();
         for (String st : serviceTypeCodes) {
             List<BillingOnFormViewModel.DxCodeEntry> entries = new ArrayList<>();
-            for (Object[] o : diagnosticCodeDao.findDiagnosictsAndCtlDiagCodesByServiceType(st)) {
-                DiagnosticCode dx = (DiagnosticCode) o[0];
+            for (io.github.carlos_emr.carlos.billings.ca.on.dto.DiagnosticCodeRow row :
+                    diagnosticCodeDao.findDiagnosictsAndCtlDiagCodesByServiceType(st)) {
                 entries.add(new BillingOnFormViewModel.DxCodeEntry(
                         st,
-                        nullToEmpty(dx.getDiagnosticCode()),
-                        nullToEmpty(dx.getDescription())));
+                        row.diagnosticCode(),
+                        row.description()));
             }
             dxByType.put(st, entries);
         }

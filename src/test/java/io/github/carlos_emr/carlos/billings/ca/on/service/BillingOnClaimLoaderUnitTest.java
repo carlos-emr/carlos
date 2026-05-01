@@ -23,6 +23,8 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingPercLimitDao;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimReportFilter;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimReportRow;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONItemDao;
@@ -38,6 +40,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.util.Date;
 import java.util.List;
@@ -46,6 +49,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -162,29 +166,24 @@ class BillingOnClaimLoaderUnitTest {
 
     // ---- getBill(...) dedup contract ------------------------------------
 
-    /** Build the 18-element row[] shape that BillingDao.findBillingData returns. */
-    private static String[] billRow(String ch1Id, String payProgram, String paid, String itemId) {
-        String[] r = new String[18];
-        java.util.Arrays.fill(r, "");
-        r[0] = ch1Id;        // ch1.id
-        r[1] = payProgram;   // pay_program (HCP / PAT / ...)
-        r[2] = "100";        // demographic_no
-        r[3] = "Patient";    // demographic_name
-        r[4] = "2026-04-01"; // billing_date
-        r[5] = "10:00:00";   // billing_time
-        r[6] = "O";          // status
-        r[7] = "999";        // provider_no
-        r[8] = "PRV01";      // provider_ohip_no
-        r[9] = "20260401";   // timestamp1
-        r[10] = "100.00";    // total
-        r[11] = paid;        // ch1.paid (the field the dedup gates)
-        r[12] = "C001";      // clinic
-        r[13] = "100.00";    // bi.fee
-        r[14] = "A007A";     // bi.service_code
-        r[15] = "1";         // bi.ser_num
-        r[16] = "V70";       // bi.dx
-        r[17] = itemId;      // billing_on_item_id (also FK fed to getAmountPaidByItemId for PAT)
-        return r;
+    /** Build the typed row shape that BillingONCHeader1Dao.findBillingData returns. */
+    private static BillingClaimReportRow billRow(String ch1Id, String payProgram, String paid, String itemId) {
+        return new BillingClaimReportRow(
+                ch1Id,        // ch1.id
+                payProgram,   // pay_program (HCP / PAT / ...)
+                "100",        // demographic_no
+                "Patient",    // demographic_name
+                "2026-04-01", // billing_date
+                "10:00:00",   // billing_time
+                "O",          // status
+                "999",        // provider_no
+                "PRV01",      // provider_ohip_no
+                "20260401",   // timestamp1
+                "100.00",     // total
+                paid,          // ch1.paid (the field the dedup gates)
+                "C001",       // clinic
+                "1",          // bi.ser_num
+                itemId);       // billing_on_item_id (also FK fed to getAmountPaidByItemId for PAT)
     }
 
     @Test
@@ -194,7 +193,7 @@ class BillingOnClaimLoaderUnitTest {
         // inside the loop and reset every iteration, so all three rows
         // received ch1.paid; report totals tripled. Post-fix only the first
         // row gets b[11]; subsequent same-ch1 rows get "0.00".
-        when(dao.findBillingData(anyString())).thenReturn(java.util.Arrays.asList(
+        when(dao.findBillingData(any(BillingClaimReportFilter.class))).thenReturn(java.util.Arrays.asList(
                 billRow("42", "HCP", "50.00", "1001"),
                 billRow("42", "HCP", "50.00", "1002"),
                 billRow("42", "HCP", "50.00", "1003")));
@@ -212,7 +211,7 @@ class BillingOnClaimLoaderUnitTest {
     void shouldStampPaidOnFirstRowOfEachCh1_whenInterleavedCh1Ids() {
         // A, B, A interleaved: B's first occurrence keeps b[11], the second A
         // gets "0.00" because its ch1 matches the previous row's ch1.
-        when(dao.findBillingData(anyString())).thenReturn(java.util.Arrays.asList(
+        when(dao.findBillingData(any(BillingClaimReportFilter.class))).thenReturn(java.util.Arrays.asList(
                 billRow("42", "HCP", "50.00", "1001"),
                 billRow("99", "HCP", "30.00", "2001"),
                 billRow("42", "HCP", "50.00", "1002")));
@@ -230,7 +229,7 @@ class BillingOnClaimLoaderUnitTest {
         // For PAT (private/patient-pay) bills, ch1.paid is the wrong source —
         // the per-item payment table is authoritative. The dedup branch is
         // bypassed for PAT.
-        when(dao.findBillingData(anyString())).thenReturn(java.util.Collections.singletonList(
+        when(dao.findBillingData(any(BillingClaimReportFilter.class))).thenReturn(java.util.Collections.singletonList(
                 billRow("7", "PAT", "999.99", "555")));
         when(billOnItemPaymentDao.getAmountPaidByItemId(555))
                 .thenReturn(new java.math.BigDecimal("42.00"));
@@ -241,5 +240,28 @@ class BillingOnClaimLoaderUnitTest {
         assertThat(result).hasSize(1);
         // Comes from billOnItemPaymentDao, NOT from b[11]="999.99".
         assertThat(result.get(0).getPaid()).isEqualTo("42.00");
+    }
+
+    @Test
+    void shouldPassTypedBillingReportFilterToDaoInsteadOfSqlConditionString() {
+        when(dao.findBillingData(any(BillingClaimReportFilter.class)))
+                .thenReturn(java.util.Collections.emptyList());
+
+        loader.getBill("HCP", "O", "999", "2026-04-01", "2026-04-30", "100",
+                "A007", "V70", "00");
+
+        ArgumentCaptor<BillingClaimReportFilter> filterCaptor =
+                ArgumentCaptor.forClass(BillingClaimReportFilter.class);
+        verify(dao).findBillingData(filterCaptor.capture());
+        BillingClaimReportFilter filter = filterCaptor.getValue();
+        assertThat(filter.billType()).isEqualTo("HCP");
+        assertThat(filter.statusType()).isEqualTo("O");
+        assertThat(filter.providerNo()).isEqualTo("999");
+        assertThat(filter.startDate()).isEqualTo("2026-04-01");
+        assertThat(filter.endDate()).isEqualTo("2026-04-30");
+        assertThat(filter.demoNo()).isEqualTo("100");
+        assertThat(filter.serviceCodes()).isEqualTo("A007");
+        assertThat(filter.dx()).isEqualTo("V70");
+        assertThat(filter.visitType()).isEqualTo("00");
     }
 }

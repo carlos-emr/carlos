@@ -202,7 +202,7 @@ public class BillingOnCorrectionViewModelAssembler {
     /**
      * Populate the JSP render-helper fields that the legacy scriptlet block
      * computed inline (multisite per-site provider HTML, non-multisite
-     * provider option list, BillingOnConstants.vecPaymentType pairs, request-param
+     * provider option list, BillingOnConstants.paymentTypeOptions pairs, request-param
      * echoes for {@code admin}/{@code adminSubmit}, and the resolved current
      * site value for the multisite picker's {@code selected} attribute).
      */
@@ -256,7 +256,7 @@ public class BillingOnCorrectionViewModelAssembler {
 
         // ---- non-multisite provider list ----
         // Mirrors legacy scriptlet's tri-branch over BillingOnLookupService.
-        List<String> pList;
+        List<io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry> pList;
         if (teamBillingOnly || teamAccessPrivacy) {
             pList = lookupService.getCurTeamProviderStr(userProviderNo);
         } else if (siteAccessPrivacy) {
@@ -266,31 +266,23 @@ public class BillingOnCorrectionViewModelAssembler {
         }
         List<BillingOnCorrectionViewModel.ProviderOption> providerOptions = new ArrayList<>();
         if (pList != null) {
-            for (String entry : pList) {
+            for (io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry entry : pList) {
                 if (entry == null) {
                     continue;
                 }
-                String[] parts = entry.split("\\|");
-                if (parts.length >= 3) {
-                    providerOptions.add(new BillingOnCorrectionViewModel.ProviderOption(
-                            parts[0], parts[2], parts[1]));
-                } else if (parts.length == 2) {
-                    providerOptions.add(new BillingOnCorrectionViewModel.ProviderOption(
-                            parts[0], "", parts[1]));
-                } else if (parts.length == 1) {
-                    providerOptions.add(new BillingOnCorrectionViewModel.ProviderOption(
-                            parts[0], "", ""));
-                }
+                // Legacy ordering: ProviderOption(providerNo, firstName, lastName).
+                providerOptions.add(new BillingOnCorrectionViewModel.ProviderOption(
+                        entry.providerNo(), entry.firstName(), entry.lastName()));
             }
         }
         b.providerOptions(providerOptions);
 
         // ---- payment type code/label pairs ----
-        List<?> raw = BillingOnConstants.vecPaymentType;
+        List<?> rawPaymentTypeOptions = BillingOnConstants.paymentTypeOptions;
         List<BillingOnCorrectionViewModel.PaymentTypeEntry> paymentTypes = new ArrayList<>();
-        for (int i = 0; i + 1 < raw.size(); i += 2) {
+        for (int i = 0; i + 1 < rawPaymentTypeOptions.size(); i += 2) {
             paymentTypes.add(new BillingOnCorrectionViewModel.PaymentTypeEntry(
-                    String.valueOf(raw.get(i)), String.valueOf(raw.get(i + 1))));
+                    String.valueOf(rawPaymentTypeOptions.get(i)), String.valueOf(rawPaymentTypeOptions.get(i + 1))));
         }
         b.paymentTypes(paymentTypes);
 

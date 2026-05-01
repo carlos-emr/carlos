@@ -60,7 +60,7 @@ class ServiceCodeLoaderUnitTest {
     }
 
     @Test
-    void shouldFlattenBillingServiceFields_whenGetBillingCodeAttr() {
+    void shouldProjectBillingServiceFields_whenGetBillingCodeAttr() {
         BillingService bs = new BillingService();
         bs.setDescription("Office visit");
         bs.setValue("75.00");
@@ -69,27 +69,25 @@ class ServiceCodeLoaderUnitTest {
         bs.setGstFlag(Boolean.FALSE);
         when(dao.getBillingCodeAttr("A007")).thenReturn(List.of(bs));
 
-        @SuppressWarnings("unchecked")
-        List<Object> result = loader.getBillingCodeAttr("A007");
+        List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingCodeAttribute> result =
+                loader.getBillingCodeAttr("A007");
 
-        // Method appends 6 fields per matching service: code, desc, value,
-        // percentage, billing-date-string, gst-flag. Pin every position so a
-        // future regression that re-orders / drops a field surfaces here.
-        assertThat(result).hasSize(6);
-        assertThat(result.get(0)).isEqualTo("A007");
-        assertThat(result.get(1)).isEqualTo("Office visit");
-        assertThat(result.get(2)).isEqualTo("75.00");
-        assertThat(result.get(3)).isEqualTo("0");          // percentage
-        assertThat(result.get(4)).isNotNull();             // billing-date string
-        assertThat(result.get(5)).isEqualTo(Boolean.FALSE); // gst flag
+        assertThat(result).singleElement().satisfies(attr -> {
+            assertThat(attr.serviceCode()).isEqualTo("A007");
+            assertThat(attr.description()).isEqualTo("Office visit");
+            assertThat(attr.value()).isEqualTo("75.00");
+            assertThat(attr.percentage()).isEqualTo("0");
+            assertThat(attr.billingServiceDate()).isNotNull();
+            assertThat(attr.gstFlag()).isEqualTo("false");
+        });
     }
 
     @Test
     void shouldReturnEmpty_whenServiceCodeNotFound() {
         when(dao.getBillingCodeAttr(anyString())).thenReturn(List.of());
 
-        @SuppressWarnings("unchecked")
-        List<Object> result = loader.getBillingCodeAttr("ZZZZZ");
+        List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingCodeAttribute> result =
+                loader.getBillingCodeAttr("ZZZZZ");
 
         assertThat(result).isEmpty();
     }
@@ -112,12 +110,14 @@ class ServiceCodeLoaderUnitTest {
 
     @Test
     void shouldReturnAllPrivateCodes_whenGetPrivateBillingCodeDesc() {
-        BillingService a = new BillingService();
-        a.setServiceCode("PRIV1");
-        when(dao.finAllPrivateCodes()).thenReturn(List.of(a));
+        when(dao.finAllPrivateCodes()).thenReturn(List.of(
+                new io.github.carlos_emr.carlos.billings.ca.on.dto.PrivateBillingCode("PRIV1", "Priv code 1")));
 
-        List<String> result = loader.getPrivateBillingCodeDesc();
+        List<io.github.carlos_emr.carlos.billings.ca.on.dto.PrivateBillingCode> result =
+                loader.getPrivateBillingCodeDesc();
 
-        assertThat(result).contains("PRIV1");
+        assertThat(result)
+                .extracting(io.github.carlos_emr.carlos.billings.ca.on.dto.PrivateBillingCode::serviceCode)
+                .contains("PRIV1");
     }
 }

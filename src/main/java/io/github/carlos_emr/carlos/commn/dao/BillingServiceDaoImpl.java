@@ -112,12 +112,14 @@ public class BillingServiceDaoImpl extends AbstractDaoImpl<BillingService> imple
         return list;
     }
 
-    public List<BillingService> finAllPrivateCodes() {
+    public List<io.github.carlos_emr.carlos.billings.ca.on.dto.PrivateBillingCode> finAllPrivateCodes() {
         // Private codes are prefixed with a literal "_". JPQL LIKE without an
         // explicit ESCAPE clause is ambiguous across dialects (MySQL/MariaDB
         // default-escape "\", H2 has none), so we match the leading underscore
         // via SUBSTRING for portability.
-        Query query = entityManager.createQuery("select bs from BillingService bs where SUBSTRING(bs.serviceCode, 1, 1) = '_'");
+        String sql = "select new io.github.carlos_emr.carlos.billings.ca.on.dto.PrivateBillingCode(bs.serviceCode, bs.description) from BillingService bs where SUBSTRING(bs.serviceCode, 1, 1) = '_'";
+        jakarta.persistence.TypedQuery<io.github.carlos_emr.carlos.billings.ca.on.dto.PrivateBillingCode> query =
+                entityManager.createQuery(sql, io.github.carlos_emr.carlos.billings.ca.on.dto.PrivateBillingCode.class);
         return query.getResultList();
     }
 
@@ -364,10 +366,10 @@ public class BillingServiceDaoImpl extends AbstractDaoImpl<BillingService> imple
         return query.getResultList();
     }
 
-    public List<Object[]> findBillingServiceAndCtlBillingServiceByMagic(String serviceType, String serviceGroup, Date billReferenceDate) {
-        String sql = "SELECT b, c FROM BillingService b, CtlBillingService c WHERE c.serviceCode = b.serviceCode AND c.status='A' AND c.serviceType = ?1 AND c.serviceGroup = ?2 AND b.billingserviceDate in (SELECT MAX(b2.billingserviceDate) FROM BillingService b2 WHERE b2.billingserviceDate <= ?3 AND b2.serviceCode = b.serviceCode) AND b.billingserviceNo = (SELECT MAX(b3.billingserviceNo) FROM BillingService b3 WHERE b3.billingserviceDate = b.billingserviceDate AND b3.serviceCode = b.serviceCode) ORDER BY c.serviceOrder";
-
-        Query query = entityManager.createQuery(sql);
+    public List<io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceCodeMagicRow> findBillingServiceAndCtlBillingServiceByMagic(String serviceType, String serviceGroup, Date billReferenceDate) {
+        String sql = "SELECT new io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceCodeMagicRow(b.serviceCode, b.description, b.value, b.percentage, b.displayStyle, b.sliFlag, c.serviceType, c.serviceGroupName) FROM BillingService b, CtlBillingService c WHERE c.serviceCode = b.serviceCode AND c.status='A' AND c.serviceType = ?1 AND c.serviceGroup = ?2 AND b.billingserviceDate in (SELECT MAX(b2.billingserviceDate) FROM BillingService b2 WHERE b2.billingserviceDate <= ?3 AND b2.serviceCode = b.serviceCode) AND b.billingserviceNo = (SELECT MAX(b3.billingserviceNo) FROM BillingService b3 WHERE b3.billingserviceDate = b.billingserviceDate AND b3.serviceCode = b.serviceCode) ORDER BY c.serviceOrder";
+        jakarta.persistence.TypedQuery<io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceCodeMagicRow> query =
+                entityManager.createQuery(sql, io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceCodeMagicRow.class);
         query.setParameter(1, serviceType);
         query.setParameter(2, serviceGroup);
         query.setParameter(3, billReferenceDate);

@@ -159,14 +159,13 @@ public class BillingOnDisplayViewModelAssembler {
             }
         }
 
-        // Payment types (BillingOnConstants.vecPaymentType is value, label, value, label, ...)
+        // Payment types (BillingOnConstants.paymentTypeOptions is value, label, value, label, ...)
         List<BillingOnDisplayViewModel.PaymentTypeOption> paymentTypes = new ArrayList<>();
-        @SuppressWarnings("rawtypes")
-        List<?> vec = BillingOnConstants.vecPaymentType;
-        if (vec != null) {
-            for (int i = 0; i + 1 < vec.size(); i += 2) {
-                String value = stringValue(vec.get(i));
-                String label = stringValue(vec.get(i + 1));
+        List<?> rawPaymentTypeOptions = BillingOnConstants.paymentTypeOptions;
+        if (rawPaymentTypeOptions != null) {
+            for (int i = 0; i + 1 < rawPaymentTypeOptions.size(); i += 2) {
+                String value = stringValue(rawPaymentTypeOptions.get(i));
+                String label = stringValue(rawPaymentTypeOptions.get(i + 1));
                 paymentTypes.add(new BillingOnDisplayViewModel.PaymentTypeOption(value, label));
             }
         }
@@ -183,16 +182,14 @@ public class BillingOnDisplayViewModelAssembler {
             }
         }
 
-        // Provider list (pipe-delimited entries: provider_no | last | first | ohip_no)
+        // Provider list — typed entries (provider_no, last, first, ohip_no, billingGroupNo, specialtyCode)
         List<BillingOnDisplayViewModel.ProviderOption> providers = new ArrayList<>();
-        List<String> pList = lookupService.getCurProviderStr();
+        List<io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry> pList =
+                lookupService.getCurProviderStr();
         if (pList != null) {
-            for (String entry : pList) {
-                String[] parts = entry == null ? new String[0] : entry.split("\\|", -1);
-                String pNo = parts.length > 0 ? parts[0] : "";
-                String last = parts.length > 1 ? parts[1] : "";
-                String first = parts.length > 2 ? parts[2] : "";
-                providers.add(new BillingOnDisplayViewModel.ProviderOption(pNo, last, first));
+            for (io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry entry : pList) {
+                providers.add(new BillingOnDisplayViewModel.ProviderOption(
+                        entry.providerNo(), entry.lastName(), entry.firstName()));
             }
         }
 

@@ -133,7 +133,7 @@ public final class BillingOnCorrectionViewModel {
     // {providerNo, firstName, lastName} from BillingOnLookupService so the JSP
     // can render with c:forEach.
     private final List<ProviderOption> providerOptions;
-    // BillingOnConstants.vecPaymentType pairs (code + label) so the JSP renders
+    // BillingOnConstants.paymentTypeOptions pairs (code + label) so the JSP renders
     // <c:forEach var="pt" items="${correctionModel.paymentTypes}"> rather
     // than reading the static ArrayList via a scriptlet.
     private final List<PaymentTypeEntry> paymentTypes;
