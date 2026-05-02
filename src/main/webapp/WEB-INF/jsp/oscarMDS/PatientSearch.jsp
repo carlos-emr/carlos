@@ -34,11 +34,13 @@
 
 --%>
 <%@ page import="java.util.*, java.sql.*, java.net.URLEncoder" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.DbConnectionFilter, io.github.carlos_emr.MyDateFormat, io.github.carlos_emr.Misc" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.DbConnectionFilter" %>
+<%@ page import="io.github.carlos_emr.MyDateFormat, io.github.carlos_emr.Misc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler" %>
+<%@ page import="org.slf4j.Logger, org.slf4j.LoggerFactory" %>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -62,6 +64,10 @@
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 
 <%
+    Logger logger = LoggerFactory.getLogger("PatientSearch.jsp");
+%>
+
+<%
     // === Parameters ===
     String p_from      = StringUtils.noNull(request.getParameter("from"));
     String p_labNo     = StringUtils.noNull(request.getParameter("labNo"));
@@ -69,6 +75,16 @@
     String p_keyword   = StringUtils.noNull(request.getParameter("keyword")).trim();
     String p_searchMode = StringUtils.noNull(request.getParameter("search_mode"));
     String p_orderby   = StringUtils.noNull(request.getParameter("orderby"));
+
+    // === Server-side DOB validation ===
+    if ("search_dob".equals(p_searchMode) && !p_keyword.isEmpty()) {
+        // Validate YYYY-MM-DD format with strict range checks
+        if (!p_keyword.matches("^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$")) {
+            request.setAttribute("searchUnavailable", true);
+            request.setAttribute("searchErrorMessage", "Invalid date format. Please use YYYY-MM-DD (e.g., 1990-01-15).");
+            p_searchMode = ""; // Disable search to prevent query execution
+        }
+    }
 
     int parsedLimit1 = 0;
     int parsedLimit2 = 500;
@@ -258,25 +274,19 @@
                     patientRows.add(row);
                 }
             }
-        } catch (Exception e) { 
-          /* query failed — show empty results */ 
-           request.setAttribute("searchUnavailable", true);
+        } catch (SQLException e) {
+            logger.error("Database error during patient search", e);
+            request.setAttribute("searchUnavailable", true);
+            request.setAttribute("searchErrorMessage", "Search temporarily unavailable due to database error.");
+        } catch (NumberFormatException e) {
+            logger.error("Invalid numeric parameter during patient search", e);
+            request.setAttribute("searchUnavailable", true);
+            request.setAttribute("searchErrorMessage", "Search temporarily unavailable due to invalid parameters.");
         }
     }
 
     boolean isTruncated = (nItems == parsedLimit2 && parsedLimit2 == 500);
-
-    String loadMoreUrl = request.getContextPath() + "/oscarMDS/ViewPatientSearch?"
-        + "keyword="     + URLEncoder.encode(p_keyword, "UTF-8")
-        + "&search_mode=" + URLEncoder.encode(p_searchMode, "UTF-8")
-        + "&displaymode=Search"
-        + "&dboperation=search_titlename"
-        + "&orderby="    + URLEncoder.encode(p_orderby.isEmpty() ? "last_name" : p_orderby, "UTF-8")
-        + "&limit1="     + (parsedLimit1 + nItems)
-        + "&limit2=500"
-        + "&from="       + URLEncoder.encode(p_from, "UTF-8")
-        + "&labNo="      + URLEncoder.encode(p_labNo, "UTF-8")
-        + "&labType="    + URLEncoder.encode(p_labType, "UTF-8");
+    int nextLimit1 = parsedLimit1 + nItems;
 
     request.setAttribute("patientRows",   patientRows);
     request.setAttribute("nItems",        nItems);
@@ -286,8 +296,9 @@
     request.setAttribute("from",          p_from);
     request.setAttribute("keyword",       p_keyword);
     request.setAttribute("searchMode",    p_searchMode);
+    request.setAttribute("orderby",       p_orderby.isEmpty() ? "last_name" : p_orderby);
+    request.setAttribute("nextLimit1",    nextLimit1);
     request.setAttribute("addPatientUrl", addPatientUrl.toString());
-    request.setAttribute("loadMoreUrl",   loadMoreUrl);
     request.setAttribute("hasSearch",     hasSearch);
 %>
 <!DOCTYPE html>
@@ -397,13 +408,28 @@
             </div>
         </div>
 
+        <%-- Search error alert: shown when database or validation errors occur --%>
+        <c:if test="${searchUnavailable}">
+            <div class="alert alert-danger py-2" role="alert">
+                <strong>Search Error:</strong>
+                <c:choose>
+                    <c:when test="${not empty searchErrorMessage}">
+                        ${carlos:forHtmlContent(searchErrorMessage)}
+                    </c:when>
+                    <c:otherwise>
+                        Search temporarily unavailable. Please try again later.
+                    </c:otherwise>
+                </c:choose>
+            </div>
+        </c:if>
+
         <%-- Truncation alert: shown when 500 results were returned (limit reached) --%>
         <c:if test="${isTruncated}">
             <div class="alert alert-info d-flex justify-content-between align-items-center py-2" role="alert">
                 <span><fmt:message key="oscarMDS.patientSearch.msgTruncated"/></span>
-                <a href="${carlos:forHtmlAttribute(loadMoreUrl)}" class="btn btn-sm btn-outline-primary ms-3 text-nowrap">
+                <button type="button" class="btn btn-sm btn-outline-primary ms-3 text-nowrap" onclick="document.getElementById('loadMoreForm').submit()">
                     <fmt:message key="oscarMDS.patientSearch.btnLoadMore"/>
-                </a>
+                </button>
             </div>
         </c:if>
 
@@ -477,6 +503,21 @@
         <input type="hidden" name="demographicNo" id="addformDemoNo" value=""/>
     </form>
 
+    <%-- Hidden form for Load More pagination (POST to avoid PHI in URL) --%>
+    <form method="post" id="loadMoreForm" name="loadMoreForm"
+          action="${pageContext.request.contextPath}/oscarMDS/ViewPatientSearch">
+        <input type="hidden" name="keyword"       value="${carlos:forHtmlAttribute(keyword)}"/>
+        <input type="hidden" name="search_mode"   value="${carlos:forHtmlAttribute(searchMode)}"/>
+        <input type="hidden" name="displaymode"   value="Search"/>
+        <input type="hidden" name="dboperation"   value="search_titlename"/>
+        <input type="hidden" name="orderby"       value="${carlos:forHtmlAttribute(orderby)}"/>
+        <input type="hidden" name="limit1"        value="${nextLimit1}"/>
+        <input type="hidden" name="limit2"        value="500"/>
+        <input type="hidden" name="from"          value="${carlos:forHtmlAttribute(from)}"/>
+        <input type="hidden" name="labNo"         value="${carlos:forHtmlAttribute(labNo)}"/>
+        <input type="hidden" name="labType"       value="${carlos:forHtmlAttribute(labType)}"/>
+    </form>
+
     <fmt:message var="i18nDobFormat" key="oscarMDS.patientSearch.msgDobFormat"/>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
@@ -508,14 +549,42 @@
             for (var i = 0; i < radios.length; i++) {
                 if (radios[i].checked && radios[i].value === 'search_dob') {
                     var dob = document.getElementById('keyword').value;
-                    if (dob.length === 8) {
+                    // Auto-format 8-digit input to YYYY-MM-DD
+                    if (dob.length === 8 && /^\d{8}$/.test(dob)) {
                         dob = dob.substring(0, 4) + '-' + dob.substring(4, 6) + '-' + dob.substring(6, 8);
                         document.getElementById('keyword').value = dob;
                     }
-                    if (document.getElementById('keyword').value.length !== 10) {
+                    // Validate YYYY-MM-DD format with strict range checks
+                    var dobPattern = /^(\d{4})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+                    if (!dobPattern.test(document.getElementById('keyword').value)) {
                         alert('${carlos:forJavaScript(i18nDobFormat)}');
                         e.preventDefault();
                         return false;
+                    }
+                    // Additional validation: ensure date components are valid
+                    var parts = document.getElementById('keyword').value.match(dobPattern);
+                    if (parts) {
+                        var year = parseInt(parts[1], 10);
+                        var month = parseInt(parts[2], 10);
+                        var day = parseInt(parts[3], 10);
+                        // Basic sanity check: year between 1900 and current year + 1
+                        var currentYear = new Date().getFullYear();
+                        if (year < 1900 || year > currentYear + 1) {
+                            alert('${carlos:forJavaScript(i18nDobFormat)}');
+                            e.preventDefault();
+                            return false;
+                        }
+                        // Validate day is valid for the month (simplified check)
+                        if (month === 2 && day > 29) {
+                            alert('${carlos:forJavaScript(i18nDobFormat)}');
+                            e.preventDefault();
+                            return false;
+                        }
+                        if ([4, 6, 9, 11].indexOf(month) !== -1 && day > 30) {
+                            alert('${carlos:forJavaScript(i18nDobFormat)}');
+                            e.preventDefault();
+                            return false;
+                        }
                     }
                     break;
                 }
