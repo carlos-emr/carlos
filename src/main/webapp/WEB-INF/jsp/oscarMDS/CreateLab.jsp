@@ -190,6 +190,24 @@
             form.classList.add('was-validated');
             return confirm("${carlos:forJavaScript(confirmSaveMsg)}");
         }
+
+      	function setUpValidation() {
+            document.addEventListener('DOMContentLoaded', () => {
+              'use strict'
+              // Fetch all the forms we want to apply custom Bootstrap validation styles to
+              const forms = document.querySelectorAll('.needs-validation')
+              // Loop over them and prevent submission
+              Array.from(forms).forEach(form => {
+                form.addEventListener('submit', event => {
+                  if (!form.checkValidity()) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                  }
+                  form.classList.add('was-validated')
+                }, false)
+              })
+            })
+      	}
     </script>
 </head>
 <body>
@@ -212,7 +230,7 @@
     </s:if>
 
     <form name="testForm" method="post" action="<%=request.getContextPath()%>/oscarMDS/SubmitLab?method=saveManage"
-          onsubmit="return confirmSave();" novalidate>
+          onsubmit="return confirmSave();" novalidate class="needs-validation">
 
         <div class="row mb-3">
             <%-- Laboratory Information --%>
@@ -320,7 +338,7 @@
                 <div id="test_container"></div>
                 <input type="hidden" id="test_num" name="test_num" value="0"/>
                 <input type="hidden" id="next_test_id" value="0"/>
-                <a href="#" onclick="addTest(); return false;" class="btn btn-success btn-sm mt-2">
+                <a href="#" onclick="addTest(); setUpValidation(); return false;" class="btn btn-success btn-sm mt-2">
                     <fmt:message key="oscarMDS.createLab.addTest"/>
                 </a>
             </div>
