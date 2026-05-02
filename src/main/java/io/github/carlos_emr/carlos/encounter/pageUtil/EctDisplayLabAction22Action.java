@@ -81,7 +81,7 @@ public class EctDisplayLabAction22Action extends EctDisplayAction {
 
             winName = "AllLabs" + bean.demographicNo;
 
-            Dao.addPopUpMenu(700, 1000, winName, request.getContextPath() + "/lab/ViewCumulativeLabValues3?demographic_no=" + bean.demographicNo);
+            Dao.addPopUpMenu(950, 1000, winName, request.getContextPath() + "/lab/ViewCumulativeLabValues3?demographic_no=" + bean.demographicNo);
             Dao.addPopUpText(getText("encounter.LeftNavBar.LabMenuItem1"));
             Dao.addPopUpMenu(700, 1000, winName, request.getContextPath() + "/lab/ViewCumulativeLabValues?demographic_no=" + bean.demographicNo);
             Dao.addPopUpText(getText("encounter.LeftNavBar.LabMenuItem2"));

@@ -29,18 +29,40 @@
 
 --%>
 
-<%@page
-        import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,java.sql.Connection,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.lab.ca.on.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.lab.*,io.github.carlos_emr.carlos.lab.ca.all.util.CumulativeLabValuesComparator,org.jdom2.*,io.github.carlos_emr.carlos.db.*,org.jdom2.input.*,java.io.InputStream" %>
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%-- ========== PAGE IMPORTS ========== --%>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.*" %>
+<%@ page import="java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prevention.*" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.*" %>
+<%@ page import="io.github.carlos_emr.carlos.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.*" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.util.CumulativeLabValuesComparator" %>
+<%@ page import="org.jdom2.*" %>
+<%@ page import="io.github.carlos_emr.carlos.db.*" %>
+<%@ page import="org.jdom2.input.*" %>
+<%@ page import="java.io.InputStream" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+
+<%-- ========== TAGLIB DECLARATIONS ========== --%>
+<%@ taglib uri="jakarta.tags.core"      prefix="c"   %>
+<%@ taglib uri="jakarta.tags.fmt"       prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn"  %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="/WEB-INF/oscar-tag.tld"  prefix="oscar"    %>
+<%@ taglib uri="/WEB-INF/security.tld"   prefix="security" %>
+
+<%-- ========== SECURITY CHECK ========== --%>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="r" reverse="<%=true%>">
-    <%authed = false; %>
+    <%authed = false;%>
     <%response.sendRedirect(request.getContextPath() + "/securityError?type=_lab");%>
 </security:oscarSec>
 <%
@@ -49,347 +71,268 @@
     }
 %>
 
+<%-- ========== BUSINESS LOGIC ========== --%>
 <%
-
     String demographic_no = request.getParameter("demographic_no");
 
-    LinkedHashMap nameMap = new LinkedHashMap();
-    ArrayList idList = new ArrayList();
-    HashMap measIdMap = new HashMap();
-    ArrayList dateList = new ArrayList();
+    LinkedHashMap<String, String> nameMap = new LinkedHashMap<>();
+    List<String> idList = new ArrayList<>();
+    Map<String, LinkedHashMap<String, Hashtable>> measIdMap = new HashMap<>();
+    List<Hashtable<String, String>> dateList = new ArrayList<>();
 
     try {
         InputStream is = application.getResource("/WEB-INF/measurements.xml").openStream();
-        SAXBuilder parser = io.github.carlos_emr.carlos.utility.XmlUtils.createSecureSAXBuilder();
-        Document doc = parser.build(is);
+        SAXBuilder saxParser = io.github.carlos_emr.carlos.utility.XmlUtils.createSecureSAXBuilder();
+        Document doc = saxParser.build(is);
         is.close();
 
         Element root = doc.getRootElement();
         List items = root.getChildren();
 
-        /*  loop through the measurements specified in the measurements.xml file
-         *   nameMap: (loinc_code, name)
-         *   measIdMap: (loinc_code, IdMap)
-         *   IdMap: (idHash, h)
-         *   h: (lab_no, result, abn, date, type) -- retrieved in order of the date
-         *   dateList: (dateIdHash)
-         *   dateIdHash: (date, lab_no)
-         */
-
         for (int i = 0; i < items.size(); i++) {
-            Element e = (Element) items.get(i);
-            String loinc_code = e.getAttributeValue("loinc_code");
-            String name = e.getAttributeValue("name");
+            Element elem = (Element) items.get(i);
+            String loinc_code = elem.getAttributeValue("loinc_code");
+            String name       = elem.getAttributeValue("name");
+
             if (!loinc_code.equalsIgnoreCase("NULL")) {
-                LinkedHashMap IdMap = new LinkedHashMap();
+                LinkedHashMap<String, Hashtable> idMap = new LinkedHashMap<>();
                 ArrayList labList = CommonLabTestValues.findValuesByLoinc(demographic_no, loinc_code);
                 for (int j = 0; j < labList.size(); j++) {
-                    Hashtable h = (Hashtable) labList.get(j);
-                    String date = ((String) h.get("date"));
-                    String id = (String) h.get("lab_no");
-                    IdMap.put(id, h);
-
-                    // check if this lab has already been added
+                    Hashtable h  = (Hashtable) labList.get(j);
+                    String date  = (String) h.get("date");
+                    String id    = (String) h.get("lab_no");
+                    idMap.put(id, h);
                     if (!idList.contains(id)) {
                         idList.add(id);
-                        Hashtable dateIdHash = new Hashtable();
+                        Hashtable<String, String> dateIdHash = new Hashtable<>();
                         dateIdHash.put("date", date);
-                        dateIdHash.put("id", id);
+                        dateIdHash.put("id",   id);
                         dateList.add(dateIdHash);
                     }
                 }
-
-                // add the test only if there are results for it
-                if (labList.size() > 0) {
-                    measIdMap.put(loinc_code, IdMap);
+                if (!labList.isEmpty()) {
+                    measIdMap.put(loinc_code, idMap);
                     nameMap.put(loinc_code, name);
                 }
-
-                // If the first element to be displayed is a header
-            } else if (nameMap.size() == 0 && !name.equals("NULL")) {
+            } else if (nameMap.isEmpty() && !name.equals("NULL")) {
                 nameMap.put("NULL" + i, name);
-                // Do not allow the first element displayed to be a space
-            } else if (nameMap.size() != 0) {
-
-                String[] nameMapKeys = new String[nameMap.size()];
-                nameMap.keySet().toArray(nameMapKeys);
+            } else if (!nameMap.isEmpty()) {
+                String[] nameMapKeys = nameMap.keySet().toArray(new String[0]);
                 String lastKey = nameMapKeys[nameMapKeys.length - 1];
-
-                // Do not allow more than one space or more than one header in a row
-                // A space is allowed to be followed by a header
-                if (lastKey.startsWith("NULL") && (name.equalsIgnoreCase("NULL") || !((String) nameMap.get(lastKey)).equalsIgnoreCase("NULL"))) {
+                if (lastKey.startsWith("NULL") && (name.equalsIgnoreCase("NULL") || !nameMap.get(lastKey).equalsIgnoreCase("NULL"))) {
                     nameMap.remove(lastKey);
-
                     if (nameMapKeys.length > 1) {
                         lastKey = nameMapKeys[nameMapKeys.length - 2];
-                        // if a header has been removed by a space remove the space before the header too
-                        if (((String) nameMap.get(lastKey)).equalsIgnoreCase("NULL") && name.equalsIgnoreCase("NULL"))
+                        if (nameMap.get(lastKey) != null && nameMap.get(lastKey).equalsIgnoreCase("NULL") && name.equalsIgnoreCase("NULL")) {
                             nameMap.remove(lastKey);
+                        }
                     }
                 }
                 nameMap.put("NULL" + i, name);
             }
-
         }
 
-// if the last item in the name list is a space or header remove it
-        String[] nameMapKeys = new String[nameMap.size()];
-        nameMap.keySet().toArray(nameMapKeys);
-        if (nameMapKeys[nameMapKeys.length - 1].startsWith("NULL"))
-            nameMap.remove(nameMapKeys[nameMapKeys.length - 1]);
+        if (!nameMap.isEmpty()) {
+            String[] nameMapKeys = nameMap.keySet().toArray(new String[0]);
+            if (nameMapKeys[nameMapKeys.length - 1].startsWith("NULL")) {
+                nameMap.remove(nameMapKeys[nameMapKeys.length - 1]);
+            }
+        }
 
-    } catch (Exception e) {
-        MiscUtils.getLogger().error("Error", e);
-    }%>
+    } catch (Exception ex) {
+        MiscUtils.getLogger().error("Error loading cumulative lab values", ex);
+    }
 
+    CumulativeLabValuesComparator comp = new CumulativeLabValuesComparator();
+    Collections.sort(dateList, comp);
+
+    // Pre-format column header dates once so the view stays scriptlet-free
+    for (Hashtable<String, String> dateEntry : dateList) {
+        String rawDate   = dateEntry.get("date");
+        Date   labDate   = UtilDateUtilities.StringToDate(rawDate, "yyyy-MM-dd HH:mm:ss");
+        String formatted = (labDate != null) ? UtilDateUtilities.DateToString(labDate, "dd MMM yy") : rawDate;
+        dateEntry.put("formattedDate", formatted);
+    }
+
+    // Build a flat, view-friendly row list: one map per data or section-header row
+    List<Map<String, Object>> tableRows = new ArrayList<>();
+    for (Map.Entry<String, String> entry : nameMap.entrySet()) {
+        String loincCode = entry.getKey();
+        String testName  = entry.getValue();
+        Map<String, Object> row = new HashMap<>();
+        row.put("loincCode",  loincCode);
+        row.put("testName",   testName);
+        row.put("isSection",  loincCode.startsWith("NULL"));
+
+        if (!loincCode.startsWith("NULL")) {
+            LinkedHashMap<String, Hashtable> idMap = measIdMap.get(loincCode);
+            String latestVal  = "";
+            String latestDate = "";
+            String latestAbn  = "N";
+            if (idMap != null && !idMap.isEmpty()) {
+                Hashtable ht = idMap.get(idMap.keySet().iterator().next());
+                latestVal  = StringUtils.noNull((String) ht.get("result"));
+                latestDate = StringUtils.noNull((String) ht.get("date"));
+                latestAbn  = StringUtils.noNull((String) ht.get("abn"));
+                if (latestDate.length() >= 10) {
+                    latestDate = latestDate.substring(0, 10);
+                }
+            }
+            row.put("latestVal",  StringUtils.maxLenString(latestVal, 9, 8, "..."));
+            row.put("latestDate", latestDate);
+            row.put("latestAbn",  latestAbn);
+
+            // One cell map per dated column, in sorted date order
+            List<Map<String, String>> cells = new ArrayList<>();
+            for (Hashtable<String, String> dateEntry : dateList) {
+                String labNo   = dateEntry.get("id");
+                String cellVal = "";
+                String cellAbn = "N";
+                if (idMap != null) {
+                    Hashtable ht = idMap.get(labNo);
+                    if (ht != null) {
+                        cellVal = StringUtils.noNull((String) ht.get("result"));
+                        cellAbn = StringUtils.noNull((String) ht.get("abn"));
+                    }
+                }
+                Map<String, String> cell = new HashMap<>();
+                cell.put("val", StringUtils.maxLenString(cellVal, 9, 8, "..."));
+                cell.put("abn", cellAbn);
+                cells.add(cell);
+            }
+            row.put("cells", cells);
+        }
+        tableRows.add(row);
+    }
+
+    pageContext.setAttribute("demographicNo", demographic_no);
+    pageContext.setAttribute("dateList",      dateList);
+    pageContext.setAttribute("tableRows",     tableRows);
+    pageContext.setAttribute("ctx",           request.getContextPath());
+    pageContext.setAttribute("providerNo",    session.getAttribute("user"));
+%>
+
+<%-- ========== BUNDLE (single, pre-DOCTYPE) ========== --%>
+<fmt:setBundle basename="oscarResources"/>
 
 <!DOCTYPE html>
+<html lang="${pageContext.request.locale.language}">
+<head>
+    <meta charset="UTF-8">
+    <title><fmt:message key="lab.cumulativeLab3.pageTitle"/></title>
+    <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+    <link rel="stylesheet" type="text/css"
+          href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css">
+    <script type="text/javascript"
+            src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
+    <script type="text/javascript"
+            src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
+    <style>
+        body { padding: 0.75rem; }
+        /* Prevent column text from wrapping — lab values are compact */
+        #cumulativeLabTable th,
+        #cumulativeLabTable td { white-space: nowrap; font-size: 0.8rem; }
+        /* Section-header rows (e.g. "Hematology") */
+        .lab-section-header > td {
+            font-weight: 600;
+            background-color: #e8eaf6;
+            padding: 0.2rem 0.4rem;
+        }
+        /* Abnormal value highlighting */
+        td.abn-Y, td.abn-H { color: #d32f2f; font-weight: 600; }
+        td.abn-A, td.abn-L { color: #e65100; font-weight: 600; }
+        .dataTables_wrapper .dataTables_filter,
+        .dataTables_wrapper .dataTables_info,
+        .dataTables_wrapper .dataTables_paginate { font-size: 0.8rem; }
+    </style>
+</head>
+<body>
 
+<div class="d-flex align-items-center justify-content-between mb-2 pb-2 border-bottom">
+    <span class="fw-semibold small">
+        <oscar:nameage demographicNo="${e:forHtmlAttribute(demographicNo)}"/>
+    </span>
+    <span class="small text-muted">
+        <a href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a>
+        &nbsp;|&nbsp;
+        <a href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a>
+    </span>
+</div>
 
-<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues" %>
-<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData" %>
-<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
-<html>
-
-    <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Cumulative Lab 3</title>
-        <!--I18n-->
-        <link rel="stylesheet" type="text/css"
-              href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css"/>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
-
-
-        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
-
-        <link rel="stylesheet" type="text/css"
-              href="<%= request.getContextPath() %>/share/css/niftyCorners.css"/>
-        <link rel="stylesheet" type="text/css"
-              href="<%= request.getContextPath() %>/share/css/niftyPrint.css" media="print"/>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/nifty.js"></script>
-        <script type="text/javascript">
-            window.onload = function () {
-                if (!NiftyCheck())
-                    return;
-
-//Rounded("div.news","all","transparent","#FFF","small border #999");
-                Rounded("div.headPrevention", "all", "#CCF", "#efeadc", "small border blue");
-                Rounded("div.preventionProcedure", "all", "transparent", "#F0F0E7", "small border #999");
-
-                Rounded("div.leftBox", "top", "transparent", "#CCCCFF", "small border #ccccff");
-                Rounded("div.leftBox", "bottom", "transparent", "#EEEEFF", "small border #ccccff");
-
-            }
-
-        </script>
-
-
-        <script type="text/javascript">
-            //<!--
-            //if (document.all || document.layers)  window.resizeTo(790,580);
-            function newWindow(file, window) {
-                msgWindow = open(file, window, 'scrollbars=yes,width=760,height=520,screenX=0,screenY=0,top=0,left=10');
-                if (msgWindow.opener == null) msgWindow.opener = self;
-            }
-
-            //-->
-        </script>
-
-        <script language="JavaScript">
-
-
-            function addLabToProfile(labType, testName) {
-
-                alert("calling addLabToProfile");
-                var url = "<%= request.getContextPath() %>/lab/ViewDisplayLabValue";
-                var ran_number = Math.round(Math.random() * 1000000);
-                var params = "demographicNo=<%= SafeEncode.forJavaScript(StringUtils.noNull(demographic_no)) %>&rand=" + ran_number + "&labType=" + encodeURIComponent(labType) + "&testName=" + encodeURIComponent(testName);
-                alert(params);
-                CarlosAjax.updater('dd', url + '?' + params, {
-                    method: 'GET',
-                    evalScripts: true,
-                    onComplete: addLabToList
-                });
-            }
-
-
-            function addLabToProfile2(labType, testName) {
-
-                var newNode = document.createElement('div');
-                var img = document.createElement('img');
-                img.setAttribute('src', '<%= request.getContextPath() %>/images/osx-pinwheel.gif');
-
-                newNode.appendChild(img)
-                var ran_number = Math.round(Math.random() * 1000000);
-                newNode.setAttribute('id', 'd' + ran_number);
-                document.getElementById('cumulativeLab').appendChild(newNode);
-
-                var url = "<%= request.getContextPath() %>/lab/ViewDisplayLabValue";
-                var ran_number = Math.round(Math.random() * 1000000);
-                var params = "demographicNo=<%= SafeEncode.forJavaScript(StringUtils.noNull(demographic_no)) %>&rand=" + ran_number + "&labType=" + encodeURIComponent(labType) + "&testName=" + encodeURIComponent(testName);
-                CarlosAjax.updater(newNode, url + '?' + params, {
-                    method: 'GET',
-                    evalScripts: true
-                });
-            }
-
-            function reRound() {
-                Rounded("div.headPrevention", "all", "#CCF", "#efeadc", "small border blue");
-                Rounded("div.preventionProcedure", "all", "transparent", "#F0F0E7", "small border #999");
-            }
-
-
-            function addLabToList(req) {
-                var newText = document.createTextNode(req.responseText);
-                var newNode = document.createElement("div");
-                var ran_number = Math.round(Math.random() * 1000000);
-                newNode.setAttribute("id", "d" + ran_number);
-                document.getElementById('cumulativeLab').appendChild(newText);
-                alert(req.responseText);
-            }
-
-            function reportWindow(page) {
-                windowprops = "height=660, width=960, location=no, scrollbars=yes, menubars=no, toolbars=no, resizable=yes, top=0, left=0";
-                var popup = window.open(page, "labreport", windowprops);
-                popup.focus();
-            }
-        </script>
-
-
-    </head>
-
-    <body class="BodyStyle">
-
-    <table class="MainTable" id="scrollNumber1">
-        <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn">lab</td>
-            <td class="MainTableTopRowRightColumn">
-                <table class="TopStatusBar">
-                    <tr>
-                        <td><oscar:nameage demographicNo="<%=demographic_no%>"/></td>
-                        <td>&nbsp;</td>
-                        <td style="text-align: right"><a
-                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a></td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableLeftColumn" valign="top"></td>
-            <td valign="top" class="MainTableRightColumn">
-                <table class="cumlatable table table-sm">
-                    <tr>
-                        <th>&nbsp;</th>
-                        <th>Latest Value</th>
-                        <th>Last Done</th>
-                        <!-- Dates start here. Need to have all the dates of the different labs -->
-                        <%
-                            // use a custom comparator to compare the Hashtables in the array
-                            CumulativeLabValuesComparator comp = new CumulativeLabValuesComparator();
-                            Collections.sort(dateList, comp);
-                            for (int i = 0; i < dateList.size(); i++) {
-                                Hashtable dateIdHash = (Hashtable) dateList.get(i);
-                                String dateString = (String) dateIdHash.get("date");
-                                Date labDate = UtilDateUtilities.StringToDate(dateString, "yyyy-MM-dd HH:mm:ss");
-                                String lab_no = (String) dateIdHash.get("id");
-
-                                CommonLabResultData data = new CommonLabResultData();
-                                String multiId = data.getMatchingLabs(lab_no, "HL7");
-                        %>
-
-                        <th><a
-                                href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ALL/ViewLabDisplay?segmentID=<%=lab_no%>&providerNo=<%= session.getAttribute("user") %>')"><%=UtilDateUtilities.DateToString(labDate, "dd MMM yy")%>
+<div class="table-responsive">
+    <table id="cumulativeLabTable" class="table table-sm table-bordered table-hover">
+        <thead class="table-light">
+            <tr>
+                <th><fmt:message key="lab.cumulativeLab3.colTest"/></th>
+                <th><fmt:message key="lab.cumulativeLab3.colLatestValue"/></th>
+                <th><fmt:message key="lab.cumulativeLab3.colLastDone"/></th>
+                <c:forEach items="${dateList}" var="dateEntry">
+                    <th>
+                        <a href="#"
+                           data-seg-id="${e:forHtmlAttribute(dateEntry['id'])}"
+                           data-provider-no="${e:forHtmlAttribute(providerNo)}"
+                           onclick="reportWindow('${e:forJavaScriptAttribute(ctx)}/lab/CA/ALL/ViewLabDisplay?segmentID=' + this.dataset.segId + '&amp;providerNo=' + this.dataset.providerNo); return false;">
+                            ${e:forHtml(dateEntry['formattedDate'])}
                         </a>
-                        </th>
-                        <%}%>
-                    </tr>
-
-                    <%
-                        Iterator iter = nameMap.keySet().iterator();
-                        while (iter.hasNext()) {
-                            // Display the test name
-                            String loinc_code = (String) iter.next();
-                            String testName = (String) nameMap.get(loinc_code);
-                            LinkedHashMap IdMap = (LinkedHashMap) measIdMap.get(loinc_code);
-
-                            //preserve spaces in the test names
-                            testName = testName.replaceAll("\\s", "&#160;");
-
-                            // display the latest value for the test
-                            if (!loinc_code.startsWith("NULL")) {
-                                String latestDate = "";
-                                String latestVal = "";
-                                String abn = "N";
-                                if (IdMap.size() > 0) {
-                                    // the latest date will be the first one
-                                    Hashtable ht = (Hashtable) IdMap.get(IdMap.keySet().iterator().next());
-                                    latestVal = (String) ht.get("result");
-                                    latestDate = (String) ht.get("date");
-                                    abn = (String) ht.get("abn");
-                                    // trim the date
-                                    latestDate = latestDate.substring(0, 10);
-                                }
-                    %>
-                    <tr>
-                        <td><%=testName%>
-                        </td>
-                        <td class="<%= abn %>"><%=StringUtils.maxLenString(latestVal, 9, 8, "...")%>
-                        </td>
-                        <td><%=latestDate%>
-                        </td>
-                        <%
-                            // display all of values from all the labs for the given test
-                            for (int i = 0; i < dateList.size(); i++) {
-                                Hashtable dateIdHash = (Hashtable) dateList.get(i);
-                                String labVal = "";
-                                abn = "N";
-                                if (IdMap.size() > 0) {
-                                    Hashtable ht = (Hashtable) IdMap.get(dateIdHash.get("id"));
-                                    if (ht != null) {
-                                        labVal = (String) ht.get("result");
-                                        abn = (String) ht.get("abn");
-                                    }
-                                }
-                        %>
-                        <td class="<%= abn %>"><%=StringUtils.maxLenString(labVal, 9, 8, "...")%>
-                        </td>
-                        <%}%>
-                    </tr>
-                    <%
-                    } else {
-                        // if the loinc_code is null display the header name without any results or
-                        // a blank space if the name is null as well
-                    %>
-                    <tr>
-                        <td colspan="<%= 3+dateList.size() %>">
-                            <%
-                                if (testName.equals("NULL")) {
-                            %><%="<br />"%>
-                            <%
-                            } else {
-                            %><%= testName %>
-                            <%
-                                }
-                            %>
-                        </td>
-                    </tr>
-                    <%
-                            }
-                        }
-                    %>
-                </table>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableBottomRowLeftColumn">&nbsp;</td>
-            <td class="MainTableBottomRowRightColumn" valign="top">&nbsp;</td>
-        </tr>
+                    </th>
+                </c:forEach>
+            </tr>
+        </thead>
+        <tbody>
+            <c:forEach items="${tableRows}" var="row">
+                <c:choose>
+                    <c:when test="${row['isSection']}">
+                        <c:choose>
+                            <c:when test="${row['testName'] eq 'NULL'}">
+                                <tr class="lab-section-header">
+                                    <td colspan="${3 + fn:length(dateList)}">&nbsp;</td>
+                                </tr>
+                            </c:when>
+                            <c:otherwise>
+                                <tr class="lab-section-header">
+                                    <td colspan="${3 + fn:length(dateList)}">${e:forHtml(row['testName'])}</td>
+                                </tr>
+                            </c:otherwise>
+                        </c:choose>
+                    </c:when>
+                    <c:otherwise>
+                        <tr>
+                            <td>${e:forHtml(row['testName'])}</td>
+                            <td class="abn-${e:forHtmlAttribute(row['latestAbn'])}">${e:forHtml(row['latestVal'])}</td>
+                            <td>${e:forHtml(row['latestDate'])}</td>
+                            <c:forEach items="${row['cells']}" var="cell">
+                                <td class="abn-${e:forHtmlAttribute(cell['abn'])}">${e:forHtml(cell['val'])}</td>
+                            </c:forEach>
+                        </tr>
+                    </c:otherwise>
+                </c:choose>
+            </c:forEach>
+        </tbody>
     </table>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/boxover.js"></script>
-    </body>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        $('#cumulativeLabTable').DataTable({
+            language: {
+                url: '${e:forJavaScript(ctx)}/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json'
+            },
+            columnDefs: [
+                { orderable: false, targets: '_all' },
+                /* Sort allowed only on Test (0) and Last Done (2) */
+                { orderable: true,  targets: [0, 2]  }
+            ],
+            paging: false,
+            order: []
+        });
+    });
+
+    function reportWindow(page) {
+        var props = 'height=660,width=960,location=no,scrollbars=yes,menubar=no,toolbar=no,resizable=yes,top=0,left=0';
+        var popup = window.open(page, 'labreport', props);
+        if (popup) { popup.focus(); }
+    }
+</script>
+
+</body>
 </html>
