@@ -213,14 +213,15 @@ public class SubmitLabByForm2Action extends ActionSupport {
             logger.info("Type :{}", LogSanitizer.sanitize(labName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             MessageHandler msgHandler = HandlerClassFactory.getHandler(labName);
             if (msgHandler == null) {
-                 logger.warn("outcome=error — no message handler found for lab type {}", LogSanitizer.sanitize(labName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
-                 addActionError(getText("oscarMDS.createLab.submitError"));
-             } else {
-                logger.info("MESSAGE HANDLER {}", msgHandler.getClass().getName());
+                logger.warn("outcome=error — no message handler found for lab type {}", LogSanitizer.sanitize(labName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                addActionError(getText("oscarMDS.createLab.submitError"));
+                return manage();
             }
+            logger.info("MESSAGE HANDLER {}", msgHandler.getClass().getName());
             String parseResult = msgHandler.parse(loggedInInfo, getClass().getSimpleName(), filePath, checkFileUploadedSuccessfully, ipAddr);
             if (parseResult != null) {
                 logger.info("outcome=success");
+                Integer labNo = msgHandler.getLastLabNo();
                 if (labNo == null) {
                     logger.error("Parsed lab is missing a lab number; skipping provider routing");
                     addActionError(getText("oscarMDS.createLab.submitError"));
