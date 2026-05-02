@@ -344,14 +344,9 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
         try {
             return Integer.parseInt(billingNo);
         } catch (NumberFormatException e) {
-            // Caller (getBillingExtItems / getInactiveBillingExtItems)
-            // translates null to an empty list. Without a log the UI's
-            // "no items" rendering is indistinguishable from "billingNo
-            // was garbage from a broken caller" — emit a debug entry so
-            // ops can grep for it without spamming production logs.
-            MiscUtils.getLogger().debug("parseBillingNo: non-numeric billingNo {} — returning null",
-                    LogSanitizer.sanitize(billingNo));
-            return null;
+            throw new BillingValidationException(
+                    "BillingONExtDao: malformed billingNo [" + LogSanitizer.sanitize(billingNo) + "]",
+                    e);
         }
     }
 

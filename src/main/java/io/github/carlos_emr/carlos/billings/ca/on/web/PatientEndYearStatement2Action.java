@@ -66,7 +66,7 @@ public class PatientEndYearStatement2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        PatientEndYearStatementSupport.echoNames(request);
+        PatientEndYearStatements.echoNames(request);
         // Clear any stale summary so the JSP renders the empty form.
         request.getSession().setAttribute("summary", null); // nosemgrep: tainted-session-from-http-request -- clearing session attribute with null
         return SUCCESS;

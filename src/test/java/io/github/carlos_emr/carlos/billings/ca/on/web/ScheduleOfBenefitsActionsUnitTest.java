@@ -275,23 +275,19 @@ class ScheduleOfBenefitsActionsUnitTest {
     }
 
     @Test
-    void shouldIgnoreMalformedSelectedChange_andApplyOnlyValidSelections() throws Exception {
+    void shouldRejectMalformedSelectedChange_withoutApplyingAnySelections() throws Exception {
         request.setParameter("change",
                 "not-a-valid-submitted-value",
                 "A001A|33.70|20260428|99999999|Minor assessment");
-        when(feeScheduleImportService.applySelected(any()))
-                .thenReturn(new FeeScheduleApplyResult(Collections.emptyList(), Collections.emptyList()));
 
         ScheduleOfBenefitsUpdate2Action action =
                 new ScheduleOfBenefitsUpdate2Action(securityInfoManager, feeScheduleImportService);
 
         assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
-        @SuppressWarnings("unchecked")
-        org.mockito.ArgumentCaptor<List<io.github.carlos_emr.carlos.billings.ca.on.dto.FeeScheduleSelectedChange>>
-                captor = org.mockito.ArgumentCaptor.forClass(List.class);
-        verify(feeScheduleImportService).applySelected(captor.capture());
-        assertThat(captor.getValue()).hasSize(1);
-        assertThat(captor.getValue().get(0).feeCode()).isEqualTo("A001A");
+        assertThat(request.getAttribute("changes")).isEqualTo(List.of());
+        assertThat(request.getAttribute("validationErrors"))
+                .isEqualTo(List.of("Invalid selected fee schedule change at row 1"));
+        verify(feeScheduleImportService, org.mockito.Mockito.never()).applySelected(any());
     }
 
     @Test

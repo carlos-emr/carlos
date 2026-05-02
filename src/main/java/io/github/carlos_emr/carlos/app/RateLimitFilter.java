@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.app;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
@@ -241,6 +242,7 @@ public final class RateLimitFilter implements Filter {
         HttpServletResponse httpResponse = (HttpServletResponse) response;
 
         String clientIp = httpRequest.getRemoteAddr();
+        warnIfForwardedAddressWasNotApplied(httpRequest, clientIp);
 
         if (exemptIps.contains(clientIp)) {
             chain.doFilter(request, response);
@@ -302,6 +304,21 @@ public final class RateLimitFilter implements Filter {
         }
 
         chain.doFilter(request, response);
+    }
+
+    private static void warnIfForwardedAddressWasNotApplied(HttpServletRequest request, String clientIp) {
+        String forwardedFor = request.getHeader("X-Forwarded-For");
+        if (forwardedFor == null || forwardedFor.isBlank()) {
+            return;
+        }
+        String firstForwardedIp = forwardedFor.split(",", 2)[0].trim();
+        if (!firstForwardedIp.isEmpty() && !firstForwardedIp.equals(clientIp)) {
+            logger.warn(
+                    "RATE CONFIG: X-Forwarded-For present but rate limit is using remoteAddr; "
+                            + "verify XforwardHeaderFilter ordering/trusted proxy configuration. remoteAddr={} xForwardedForFirst={}",
+                    LogSanitizer.sanitize(clientIp),
+                    LogSanitizer.sanitize(firstForwardedIp));
+        }
     }
 
     /**

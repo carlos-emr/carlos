@@ -56,6 +56,11 @@
             return true;
         }
 
+        function csrfTokenValue() {
+            var tokenInput = document.querySelector("input[name='CSRF-TOKEN']");
+            return tokenInput ? tokenInput.value : "";
+        }
+
         function createType() {
             if (!check()) {
                 return;
@@ -63,6 +68,7 @@
             $.ajax({
                 type: "POST",
                 async: true,
+                headers: {"CSRF-TOKEN": csrfTokenValue()},
                 data: {paymentType: document.getElementById("paymentType").value},
                 url: "${pageContext.request.contextPath}/billing/CA/ON/createPaymentType",
                 dataType: "json",
@@ -95,6 +101,7 @@
             $.ajax({
                 type: "POST",
                 async: true,
+                headers: {"CSRF-TOKEN": csrfTokenValue()},
                 data: {
                     id: "<carlos:encode value='${paymentTypeModel.id}' context='javaScriptBlock'/>",
                     oldPaymentType: "<carlos:encode value='${paymentTypeModel.type}' context='javaScriptBlock'/>",
@@ -128,6 +135,7 @@
 </head>
 
 <body>
+<%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
 <table width="100%">
     <tbody>
     <tr bgcolor="#CCCCFF">

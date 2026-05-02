@@ -128,6 +128,8 @@ class BatchBill2ActionUnitTest extends CarlosUnitTestBase {
                 .thenReturn(true);
         when(headerCreationService.createBill(any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn("12.34");
+        when(batchBillingSubmissionService.submitAll(any(), any(), any(), any()))
+                .thenReturn(new BatchBillingSubmissionService.SubmitResult(1, List.of()));
 
         BatchBilling row = new BatchBilling();
         row.setId(77);

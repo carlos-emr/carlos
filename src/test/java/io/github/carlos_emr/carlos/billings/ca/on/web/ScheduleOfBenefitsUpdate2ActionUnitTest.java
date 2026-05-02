@@ -152,13 +152,32 @@ class ScheduleOfBenefitsUpdate2ActionUnitTest extends CarlosUnitTestBase {
 
         // forceUpdate is false (no attribute, no "true" param) and "change"
         // values are provided → apply-selected branch fires.
-        mockRequest.setParameter("change", "A007|true|10.00|11.00");
+        mockRequest.setParameter("change", "A007|10.00|20260428|99999999|Minor assessment");
 
         ScheduleOfBenefitsUpdate2Action action =
                 new ScheduleOfBenefitsUpdate2Action(mockSecurityInfoManager, mockImportService);
 
         assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
         verify(mockImportService).applySelected(anyList());
+        verify(mockImportService, never()).applyAll(anyList());
+    }
+
+    @Test
+    void shouldRejectMalformedSelectedChange_withoutApplyingSelectedRows() throws Exception {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        mockRequest.setParameter("change",
+                "A007|10.00|20260428|99999999|Minor assessment",
+                "not-a-valid-change");
+
+        ScheduleOfBenefitsUpdate2Action action =
+                new ScheduleOfBenefitsUpdate2Action(mockSecurityInfoManager, mockImportService);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(mockRequest.getAttribute("changes")).isEqualTo(List.of());
+        assertThat(mockRequest.getAttribute("validationErrors"))
+                .isEqualTo(List.of("Invalid selected fee schedule change at row 2"));
+        verify(mockImportService, never()).applySelected(anyList());
         verify(mockImportService, never()).applyAll(anyList());
     }
 

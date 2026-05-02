@@ -55,7 +55,7 @@ public record BillingCorrectionSubmitCommand(String billingNo,
                                           List<BillingCorrectionSubmitItemCommand> items) {
         this(billingNo,
                 content,
-                Commands.requiredStoredCents(total == null || total.isEmpty() ? "0" : total, "total"),
+                Commands.requiredStoredCents(total == null || total.isBlank() ? "0" : total, "total"),
                 hin,
                 Commands.optionalCorrectionDate(dob, "dob"),
                 visitType,

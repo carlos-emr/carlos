@@ -83,6 +83,9 @@ public class BatchBill2Action extends ActionSupport {
         if (requestWillMutate && rejectNonPostMutation()) {
             return NONE;
         }
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
         switch (command) {
             case DO_BATCH_BILL:
                 return doBatchBill();
@@ -95,11 +98,6 @@ public class BatchBill2Action extends ActionSupport {
             default:
                 break;
         }
-
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
-        }
-
 
         Date billingDate;
         SimpleDateFormat dateFmt = new SimpleDateFormat("yyyy-MM-dd");
@@ -243,8 +241,15 @@ public class BatchBill2Action extends ActionSupport {
                         row.serviceCode(), row.dxCode(), row.demographicNo(), row.providerNo()));
             }
             try {
-                SpringUtils.getBean(BatchBillingSubmissionService.class)
+                BatchBillingSubmissionService.SubmitResult result = SpringUtils.getBean(BatchBillingSubmissionService.class)
                         .submitAll(rows, clinic_view, billingDate, curUser);
+                if (!result.failures().isEmpty()) {
+                    MiscUtils.getLogger().warn("BatchBill doBatchBill: {} selected rows failed validation",
+                            result.failures().size());
+                    request.setAttribute("error", oscarResource.getString("billing.batchbilling.badRow"));
+                    request.setAttribute("batchBillingFailures", result.failures());
+                    return "error";
+                }
             } catch (RuntimeException e) {
                 MiscUtils.getLogger().error("BatchBill doBatchBill: batch creation rolled back", e);
                 request.setAttribute("error", oscarResource.getString("billing.batchbilling.badRow"));

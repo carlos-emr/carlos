@@ -266,4 +266,45 @@ class ServiceCodePersisterUnitTest {
         assertThat(result.message()).contains("entry for this Issue Date");
         verify(dao, never()).persist(any(BillingService.class));
     }
+
+    @Test
+    void shouldUpdatePrivateCodeAndReturnMutationState_whenSavingPrivateCodeEdit() {
+        BillingService existing = new BillingService();
+        when(dao.findByServiceCode("_A001A")).thenReturn(List.of(existing));
+
+        ServiceCodePersister.PrivateCodeMutationRequest request =
+                new ServiceCodePersister.PrivateCodeMutationRequest(
+                        "Save", "edit_A001A", "A001A", "Private consult",
+                        "45.00", "2026-05-01", "true");
+
+        ServiceCodePersister.PrivateCodeMutationResult result = persister.saveOrDeletePrivateCode(request);
+
+        assertThat(result.alert()).isEqualTo("info");
+        assertThat(result.action()).isEqualTo("search");
+        assertThat(result.message()).contains("_A001A").contains("updated");
+        assertThat(result.formFields()).containsEntry("service_code", "_A001A");
+        assertThat(existing.getDescription()).isEqualTo("Private consult");
+        assertThat(existing.getValue()).isEqualTo("45.00");
+        assertThat(existing.getPercentage()).isEqualTo("0.00");
+        assertThat(existing.getGstFlag()).isTrue();
+        verify(dao).merge(same(existing));
+    }
+
+    @Test
+    void shouldDeletePrivateCodeAndReturnMutationState_whenDeletingPrivateCode() {
+        BillingService existing = mock(BillingService.class);
+        when(existing.getId()).thenReturn(77);
+        when(dao.findByServiceCode("_A001A")).thenReturn(List.of(existing));
+
+        ServiceCodePersister.PrivateCodeMutationRequest request =
+                new ServiceCodePersister.PrivateCodeMutationRequest(
+                        "Delete", null, "A001A", null, null, null, null);
+
+        ServiceCodePersister.PrivateCodeMutationResult result = persister.saveOrDeletePrivateCode(request);
+
+        assertThat(result.alert()).isEqualTo("info");
+        assertThat(result.action()).isEqualTo("search");
+        assertThat(result.formFields()).containsEntry("service_code", "_");
+        verify(dao).remove(77);
+    }
 }

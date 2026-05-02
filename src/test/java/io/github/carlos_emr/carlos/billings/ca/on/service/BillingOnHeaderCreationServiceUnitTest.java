@@ -41,8 +41,10 @@ import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -82,16 +84,17 @@ class BillingOnHeaderCreationServiceUnitTest {
     }
 
     @Test
-    void shouldReturnNullAndNotPersist_whenDemographicNotFound() {
+    void shouldThrowValidationAndNotPersist_whenDemographicNotFound() {
         when(providerDao.getProvider("999998")).thenReturn(provider("999998"));
         // No demographic stub -> getDemographicById returns null.
         BillingService bs = stubServiceCode("A007A", "30.00", false, "");
         when(billingServiceDao.searchBillingCode(eq("A007A"), eq("ON"), any())).thenReturn(bs);
         when(gstControlDao.find(any(Integer.class))).thenReturn(gstControl("0"));
 
-        String total = service.createBill("999998", 1, "A007A", "00001", new Date(), "999998");
+        assertThatThrownBy(() -> service.createBill("999998", 1, "A007A", "00001", new Date(), "999998"))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("demographicNo=1");
 
-        assertThat(total).isNull();
         verify(headerDao, never()).persist(any());
     }
 
@@ -183,7 +186,7 @@ class BillingOnHeaderCreationServiceUnitTest {
     }
 
     @Test
-    void shouldSkipPersistForMissingDemographic_inBatchCreate() {
+    void shouldThrowValidationBeforePersistingAnyRows_whenBatchDemographicMissing() {
         when(providerDao.getProvider("999998")).thenReturn(provider("999998"));
         when(demographicDao.getDemographicById(1)).thenReturn(demographic(1, "ON"));
         when(demographicDao.getDemographicById(2)).thenReturn(null); // missing
@@ -192,14 +195,15 @@ class BillingOnHeaderCreationServiceUnitTest {
         when(billingServiceDao.searchBillingCode(eq("A007A"), eq("ON"), any())).thenReturn(bs);
         when(gstControlDao.find(any(Integer.class))).thenReturn(gstControl("0"));
 
-        service.createBills("999998",
+        assertThatThrownBy(() -> service.createBills("999998",
                 java.util.List.of("1", "2", "3"),
                 java.util.List.of("A007A"),
                 java.util.List.of("401"),
-                "00001", new Date(), "999998");
+                "00001", new Date(), "999998"))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("demographicNo=2");
 
-        // Demographic 2 missing -> only 2 persists.
-        verify(headerDao, times(2)).persist(any());
+        verify(headerDao, never()).persist(any());
     }
 
     private Provider provider(String providerNo) {

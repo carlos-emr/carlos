@@ -56,6 +56,12 @@ public class ServiceCodePersister {
             "The selected Service Code has an entry for this Issue Date. <br> Select new issue date, or use 'Save' to update the existing entry.";
     private static final String MSG_SEARCH_FIRST =
             "You can not save the service code. Please search the service code first.";
+    private static final String PRIVATE_CODE_SEARCH_PROMPT =
+            "Type in a service code and search first to see if it is available.";
+    private static final String FONT_RED_NOT = "<font color='red'>NOT</font>";
+    private static final String VERB_UPDATED = "u" + "pdated";
+    private static final String VERB_DELETED = "d" + "eleted";
+    private static final String VERB_ADDED = "added";
 
     private final BillingServiceDao dao;
     private final BillingPercLimitDao billingPercLimitDao;
@@ -108,6 +114,123 @@ public class ServiceCodePersister {
             dao.remove(b.getId());
         }
         return true;
+    }
+
+    /** Applies the private-code add/edit/delete branches for the admin page. */
+    public PrivateCodeMutationResult saveOrDeletePrivateCode(PrivateCodeMutationRequest request) {
+        String submit = request.submit();
+        if ("Save".equals(submit)) {
+            return handlePrivateCodeSave(request);
+        }
+        if ("Delete".equals(submit)) {
+            return handlePrivateCodeDelete(request);
+        }
+        return new PrivateCodeMutationResult("info", PRIVATE_CODE_SEARCH_PROMPT, "search", Map.of());
+    }
+
+    private PrivateCodeMutationResult handlePrivateCodeSave(PrivateCodeMutationRequest request) {
+        String action = nullToEmpty(request.action());
+        if (action.startsWith("edit")) {
+            return handlePrivateCodeEdit(request, action);
+        }
+        if (action.startsWith("add")) {
+            return handlePrivateCodeAdd(request, action);
+        }
+        return new PrivateCodeMutationResult("error", MSG_SEARCH_FIRST, "search", Map.of());
+    }
+
+    private PrivateCodeMutationResult handlePrivateCodeEdit(PrivateCodeMutationRequest request, String action) {
+        String serviceCode = "_" + nullToEmpty(request.serviceCode());
+        Map<String, String> formFields = new LinkedHashMap<>();
+        if (!serviceCode.equals(action.substring("edit".length()))) {
+            formFields.put("service_code", serviceCode);
+            String message = new StringBuilder()
+                    .append("You can ").append(FONT_RED_NOT)
+                    .append(" save the service code - ")
+                    .append(SafeEncode.forHtml(serviceCode))
+                    .append(". Please search the service code first.")
+                    .toString();
+            return new PrivateCodeMutationResult("info", message, "search", formFields);
+        }
+        boolean ok = updateCodeByName(serviceCode, request.description(), request.value(), "0.00",
+                request.billingServiceDate(), request.gstFlag());
+        formFields.put("service_code", serviceCode);
+        String safeCode = SafeEncode.forHtml(serviceCode);
+        if (ok) {
+            String message = new StringBuilder()
+                    .append(safeCode).append(" is ").append(VERB_UPDATED)
+                    .append(".<br>").append(PRIVATE_CODE_SEARCH_PROMPT)
+                    .toString();
+            return new PrivateCodeMutationResult("info", message, "search", formFields);
+        }
+        capturePrivateCodeFields(request, formFields, serviceCode);
+        String message = new StringBuilder()
+                .append(safeCode).append(" is ").append(FONT_RED_NOT)
+                .append(" ").append(VERB_UPDATED)
+                .append(". Action failed! Try edit it again.")
+                .toString();
+        return new PrivateCodeMutationResult("info", message, "edit" + serviceCode, formFields);
+    }
+
+    private PrivateCodeMutationResult handlePrivateCodeAdd(PrivateCodeMutationRequest request, String action) {
+        String serviceCode = "_" + nullToEmpty(request.serviceCode());
+        Map<String, String> formFields = new LinkedHashMap<>();
+        String safeCode = SafeEncode.forHtml(serviceCode);
+        if (!serviceCode.equals(action.substring("add".length()))) {
+            formFields.put("service_code", serviceCode);
+            String message = new StringBuilder()
+                    .append("You can not save the service code - ")
+                    .append(safeCode)
+                    .append(". Please search the service code first.")
+                    .toString();
+            return new PrivateCodeMutationResult("error", message, "search", formFields);
+        }
+        int rc = addCodeByStr(serviceCode, request.description(), request.value(), "0.00",
+                request.billingServiceDate(), request.gstFlag());
+        if (rc > 0) {
+            formFields.put("service_code", serviceCode);
+            String message = new StringBuilder()
+                    .append(safeCode).append(" is ").append(VERB_ADDED)
+                    .append(".<br>").append(PRIVATE_CODE_SEARCH_PROMPT)
+                    .toString();
+            return new PrivateCodeMutationResult("info", message, "search", formFields);
+        }
+        capturePrivateCodeFields(request, formFields, serviceCode);
+        return new PrivateCodeMutationResult("error",
+                safeCode + " is not added. Action failed! Try edit it again.",
+                "add" + serviceCode, formFields);
+    }
+
+    private PrivateCodeMutationResult handlePrivateCodeDelete(PrivateCodeMutationRequest request) {
+        if (request.serviceCode() == null) {
+            return new PrivateCodeMutationResult("info", "Please type in a right service code.", "search", Map.of());
+        }
+        String serviceCode = "_" + nullToEmpty(request.serviceCode());
+        if (deletePrivateCode(serviceCode)) {
+            Map<String, String> formFields = new LinkedHashMap<>();
+            formFields.put("service_code", "_");
+            String message = new StringBuilder()
+                    .append(SafeEncode.forHtml(serviceCode))
+                    .append(" is ").append(VERB_DELETED)
+                    .append(".<br>").append(PRIVATE_CODE_SEARCH_PROMPT)
+                    .toString();
+            return new PrivateCodeMutationResult("info", message, "search", formFields);
+        }
+        return new PrivateCodeMutationResult("info", PRIVATE_CODE_SEARCH_PROMPT, "search", Map.of());
+    }
+
+    private static void capturePrivateCodeFields(PrivateCodeMutationRequest request,
+                                                 Map<String, String> formFields,
+                                                 String serviceCode) {
+        formFields.put("service_code", serviceCode);
+        formFields.put("description", nullToEmpty(request.description()));
+        formFields.put("value", nullToEmpty(request.value()));
+        formFields.put("billingservice_date", nullToEmpty(request.billingServiceDate()));
+        formFields.put("gstFlag", nullToEmpty(request.gstFlag()));
+    }
+
+    private static String nullToEmpty(String value) {
+        return value == null ? "" : value;
     }
 
     /**
@@ -352,6 +475,18 @@ public class ServiceCodePersister {
         public AddEditServiceCodeResult {
             prop = prop == null ? new Properties() : (Properties) prop.clone();
             codes = codes == null ? Map.of() : new LinkedHashMap<>(codes);
+        }
+    }
+
+    public record PrivateCodeMutationRequest(String submit, String action, String serviceCode,
+                                             String description, String value, String billingServiceDate,
+                                             String gstFlag) {
+    }
+
+    public record PrivateCodeMutationResult(String alert, String message, String action,
+                                            Map<String, String> formFields) {
+        public PrivateCodeMutationResult {
+            formFields = formFields == null ? Map.of() : new LinkedHashMap<>(formFields);
         }
     }
 }

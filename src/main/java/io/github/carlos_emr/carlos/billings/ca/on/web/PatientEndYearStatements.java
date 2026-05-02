@@ -30,24 +30,21 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.apache.logging.log4j.Logger;
 
 import io.github.carlos_emr.carlos.billings.ca.on.service.PatientEndYearStatementService;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * Shared helpers for the four end-year-statement action splits
- * ({@link PatientEndYearStatement2Action} initial render,
- * {@link SearchEndYearStatement2Action},
- * {@link PrintEndYearStatementPdf2Action},
- * {@link DemoSearchEndYearStatement2Action}). Lives here rather than on
- * the abandoned dispatcher so each action class stays focused on its
- * single execute() path.
+ * Shared end-year-statement request helpers for echoing form state, parsing
+ * optional date filters, and logging typed service failures without patient
+ * names or other PHI.
  *
  * @since 2026-04-27
  */
-final class PatientEndYearStatementSupport {
+final class PatientEndYearStatements {
 
     private static final Logger LOG = MiscUtils.getLogger();
 
-    private PatientEndYearStatementSupport() {}
+    private PatientEndYearStatements() {}
 
     /**
      * Echoes first/last name request params back as request attributes the
@@ -76,32 +73,33 @@ final class PatientEndYearStatementSupport {
     }
 
     /**
-     * Logs a typed {@link PatientEndYearStatementService.Failure} with the
-     * failing first/last name context. PATIENT_NOT_FOUND / PATIENT_NOT_UNIQUE
-     * are user-input outcomes (empty form, ambiguous name) and log at INFO;
-     * DATABASE_ERROR / IO_ERROR are real failures and stay at ERROR.
+     * Logs a typed {@link PatientEndYearStatementService.Failure} with only
+     * the internal demographic identifier. PATIENT_NOT_FOUND /
+     * PATIENT_NOT_UNIQUE are user-input outcomes (empty form, ambiguous
+     * selection) and log at INFO; DATABASE_ERROR / IO_ERROR are real failures
+     * and stay at ERROR.
      * Caller is responsible for adding the i18n action error and returning
      * {@code "failure"} — this just centralises the branch logging.
      */
-    static void logFailure(PatientEndYearStatementService.Failure failure,
-                           String first, String last) {
+    static void logFailure(PatientEndYearStatementService.Failure failure, String demographicNo) {
+        String safeDemographicNo = LogSanitizer.sanitize(demographicNo);
         switch (failure.reason()) {
             case PATIENT_NOT_FOUND:
-                LOG.info("end-year-statement: lookup returned no candidates for first={}, last={}",
-                        first, last);
+                LOG.info("end-year-statement: lookup returned no candidates for demographicNo={}",
+                        safeDemographicNo);
                 break;
             case PATIENT_NOT_UNIQUE:
-                LOG.info("end-year-statement: lookup returned multiple candidates for first={}, last={}",
-                        first, last);
+                LOG.info("end-year-statement: lookup returned multiple candidates for demographicNo={}",
+                        safeDemographicNo);
                 break;
             case DATABASE_ERROR:
             case IO_ERROR:
-                LOG.error("end-year-statement failure: " + failure.reason(),
-                        failure.getCause());
+                LOG.error("end-year-statement failure: reason={}, demographicNo={}",
+                        failure.reason(), safeDemographicNo, failure.getCause());
                 break;
             default:
-                LOG.error("end-year-statement: unexpected reason " + failure.reason(),
-                        failure.getCause());
+                LOG.error("end-year-statement: unexpected reason={}, demographicNo={}",
+                        failure.reason(), safeDemographicNo, failure.getCause());
                 break;
         }
     }

@@ -27,6 +27,8 @@ import io.github.carlos_emr.carlos.commn.model.BillingService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
 import java.util.List;
@@ -42,6 +44,12 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("billing")
 class BillingCodeLookupServiceUnitTest {
+
+    @Test
+    void shouldBeSpringTransactionalService_forWriteMethods() {
+        assertThat(BillingCodeLookupService.class.getAnnotation(Service.class)).isNotNull();
+        assertThat(BillingCodeLookupService.class.getAnnotation(Transactional.class)).isNotNull();
+    }
 
     @Test
     void shouldUseInjectedDao_whenSearchingMostRecentBillingCode() {

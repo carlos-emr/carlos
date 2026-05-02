@@ -35,7 +35,7 @@ import java.math.BigDecimal;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import io.github.carlos_emr.carlos.billings.ca.on.service.GstSettingsService;
+import io.github.carlos_emr.carlos.billings.ca.service.GstSettingsService;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.GstControlViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;

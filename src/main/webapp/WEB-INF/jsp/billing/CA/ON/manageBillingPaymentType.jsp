@@ -54,6 +54,11 @@
     <script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
 
     <script>
+        function csrfTokenValue() {
+            var tokenInput = document.querySelector("input[name='CSRF-TOKEN']");
+            return tokenInput ? tokenInput.value : "";
+        }
+
         jQuery(document).ready(function () {
             jQuery('#tblBillType').DataTable({
                 "order": [],
@@ -65,6 +70,7 @@
     </script>
 </head>
 <body>
+<%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
 &nbsp;<h4>Manage Billing Payment Type</h4>
 
 <div class="card card-body bg-body-tertiary">
@@ -111,6 +117,7 @@
                 url: "${pageContext.request.contextPath}/billing/CA/ON/removePaymentType",
                 type: "post",
                 async: false,
+                headers: {"CSRF-TOKEN": csrfTokenValue()},
                 timeout: 30000,
                 dataType: "json",
                 data: {paymentTypeId: event.target.getAttribute("data-paymentTypeId")},

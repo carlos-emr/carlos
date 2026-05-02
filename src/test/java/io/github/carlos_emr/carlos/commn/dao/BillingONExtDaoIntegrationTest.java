@@ -330,6 +330,26 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
         assertThat(billingRecord).isNull();
     }
 
+    @Test
+    @Tag("read")
+    @DisplayName("should reject malformed billingNo when loading active ext items")
+    void shouldRejectMalformedBillingNo_whenLoadingActiveExtItems() {
+        assertThatThrownBy(() -> dao.getBillingExtItems("not-a-number"))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("billingNo")
+                .hasMessageContaining("not-a-number");
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should reject malformed billingNo when loading inactive ext items")
+    void shouldRejectMalformedBillingNo_whenLoadingInactiveExtItems() {
+        assertThatThrownBy(() -> dao.getInactiveBillingExtItems("not-a-number"))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("billingNo")
+                .hasMessageContaining("not-a-number");
+    }
+
     // --- find tests ---
 
     @Test

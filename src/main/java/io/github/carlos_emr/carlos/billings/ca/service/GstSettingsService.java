@@ -19,7 +19,7 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.billings.ca.on.service;
+package io.github.carlos_emr.carlos.billings.ca.service;
 
 import java.math.BigDecimal;
 
@@ -30,10 +30,8 @@ import io.github.carlos_emr.carlos.billing.CA.dao.GstControlDao;
 import io.github.carlos_emr.carlos.billing.CA.model.GstControl;
 
 /**
- * Typed read/write for the single-row GST control table. Extracted from
- * {@link GstControl2Action} so non-action callers (assemblers, managers)
- * can read the configured GST percent without instantiating a Struts
- * action class.
+ * Typed read/write for the single-row GST control table used by Canadian
+ * billing flows that need configured GST percent access.
  *
  * <p>The legacy {@code Properties}-bag surface ({@code readDatabase()} +
  * {@code writeDatabase(String)}) was retired on 2026-04-27 in favour of

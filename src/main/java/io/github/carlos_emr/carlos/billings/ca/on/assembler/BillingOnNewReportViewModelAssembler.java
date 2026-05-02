@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.assembler;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -284,8 +286,8 @@ public class BillingOnNewReportViewModelAssembler {
                          String xmlAppointmentDate, String contextPath,
                          ReportRows out) {
         out.headers = Arrays.asList("No", "Billing No", "HIN", "Claim", "Paid", "Billing Date");
-        float fTotalClaim = 0.00f;
-        float fTotalPaid = 0.00f;
+        BigDecimal totalClaim = BigDecimal.ZERO;
+        BigDecimal totalPaid = BigDecimal.ZERO;
 
         List<Integer> billingNos = new ArrayList<>();
         Properties propTotal = new Properties();
@@ -315,12 +317,11 @@ public class BillingOnNewReportViewModelAssembler {
                 prop.setProperty("Paid", sAmountpay);
                 prop.setProperty("Billing Date", formatDateStr(row.serviceDate()));
                 out.values.add(prop);
-                fTotalClaim += Float.parseFloat(row.amountClaim());
-                fTotalPaid += Float.parseFloat(row.amountPay());
+                totalClaim = totalClaim.add(parseMoney(row.amountClaim()));
+                totalPaid = totalPaid.add(parseMoney(row.amountPay()));
             } else {
-                float fAmountpay = Float.parseFloat(sAmountpay);
-                fAmountpay = fAmountpay + Float.parseFloat(row.amountPay());
-                sAmountpay = String.valueOf(Math.round(fAmountpay * 100) / 100.00);
+                BigDecimal amountPay = parseMoney(sAmountpay).add(parseMoney(row.amountPay()));
+                sAmountpay = formatMoney(amountPay);
                 Properties prop = new Properties();
                 prop.setProperty("No", String.valueOf(nNo));
                 prop.setProperty("Billing No", buildBillingNoLink(contextPath, billingNo));
@@ -330,14 +331,14 @@ public class BillingOnNewReportViewModelAssembler {
                 prop.setProperty("Billing Date", formatDateStr(row.serviceDate()));
                 out.values.remove(out.values.size() - 1);
                 out.values.add(prop);
-                fTotalClaim += Float.parseFloat(row.amountClaim());
-                fTotalPaid += Float.parseFloat(row.amountPay());
+                totalClaim = totalClaim.add(parseMoney(row.amountClaim()));
+                totalPaid = totalPaid.add(parseMoney(row.amountPay()));
             }
         }
 
         out.totals = Arrays.asList("Total", "", "",
-                String.valueOf(Math.round(fTotalClaim * 100) / 100.00),
-                String.valueOf(Math.round(fTotalPaid * 100) / 100.00),
+                formatMoney(totalClaim),
+                formatMoney(totalPaid),
                 "");
     }
 
@@ -346,7 +347,7 @@ public class BillingOnNewReportViewModelAssembler {
                            ReportRows out) {
         out.headers = Arrays.asList("No", "Billing No", "Patient", "Claim", "Description",
                 "Service Date", "Time");
-        float fTotalClaim = 0.00f;
+        BigDecimal totalClaim = BigDecimal.ZERO;
 
         int nNo = 0;
         for (BillingOnNewReportUnpaidRow row :
@@ -365,13 +366,21 @@ public class BillingOnNewReportViewModelAssembler {
                     row.billingNo(), reason));
             String sAmountclaim = row.total();
             prop.setProperty("Claim", sAmountclaim);
-            fTotalClaim += Float.parseFloat(row.total());
+            totalClaim = totalClaim.add(parseMoney(row.total()));
             out.values.add(prop);
         }
 
         out.totals = Arrays.asList("Total", "", "",
-                String.valueOf(Math.round(fTotalClaim * 100) / 100.00),
+                formatMoney(totalClaim),
                 "", "", "");
+    }
+
+    private static BigDecimal parseMoney(String value) {
+        return new BigDecimal(value == null ? "0" : value.trim());
+    }
+
+    private static String formatMoney(BigDecimal value) {
+        return value.setScale(2, RoundingMode.HALF_UP).toPlainString();
     }
 
     private static String buildBillingNoLink(String contextPath, String billingNo) {

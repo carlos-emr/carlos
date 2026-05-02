@@ -145,7 +145,7 @@ Forbidden in new code (and currently absent from this module): `*Prep`,
 
 - All non-DAO components are registered with `@org.springframework.stereotype.Service`.
 - Constructor injection is used in the `service/` and `assembler/` layers.
-  The `web/` (Struts2 action) layer still has ~28 `= SpringUtils.getBean(...)`
+  The `web/` (Struts2 action) layer still has ~52 `= SpringUtils.getBean(...)`
   field-init patterns because Struts2 instantiates actions per-request and
   the legacy actions wire dependencies via the service locator. New 2Actions
   should prefer constructor injection where the Struts2 wiring permits;
@@ -683,7 +683,7 @@ bag? A grab bag should be split.
 
 ## 11 — Testing patterns
 
-The module has 400+ tests across unit and integration tiers. Tagging:
+The module has 200+ tests across unit and integration tiers. Tagging:
 
 ```bash
 mvn test -Dgroups="billing"            # all billing tests

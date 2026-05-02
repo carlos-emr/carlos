@@ -155,7 +155,8 @@ public class BillingOnSave2Action extends ActionSupport {
             }
 
             // Replace the old <jsp:include page="billingDeleteWithBillNo.jsp"/> with a direct call
-            BillingDeleteWithBillNo2Action.deleteBillingByBillNo(request, loggedInInfo.getLoggedInProviderNo(), billingDao, correctionPrep);
+            BillingDeleteWithBillNo2Action.deleteBillingByBillNo(
+                    request, loggedInInfo, securityInfoManager, billingDao, correctionPrep);
 
             request.setAttribute("billingNo", billingNo);
 

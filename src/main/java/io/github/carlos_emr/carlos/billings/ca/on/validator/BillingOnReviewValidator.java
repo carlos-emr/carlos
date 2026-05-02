@@ -157,7 +157,15 @@ public class BillingOnReviewValidator {
     private boolean checkA003A(HttpServletRequest request, String demoNo, List<Message> messages) {
         Integer demoNoInt = parseDemoNo(demoNo);
         if (demoNoInt == null) {
-            return true; // bad demoNo is reported elsewhere — don't double-error
+            if (hasA003AAnnualGuardCandidate(request)) {
+                MiscUtils.getLogger().warn(
+                        "BillingOnReviewValidator: A003A guard failed — non-numeric demographic_no '{}'",
+                        LogSanitizer.sanitize(demoNo));
+                messages.add(new Message(Message.Severity.ERROR,
+                        "Invalid demographic number for A003A annual-billing check. Please go back to edit."));
+                return false;
+            }
+            return true;
         }
         for (int i = 0; i < BillingOnConstants.FIELD_SERVICE_NUM; i++) {
             String serviceCode = request.getParameter("serviceCode" + i);
@@ -199,6 +207,19 @@ public class BillingOnReviewValidator {
             }
         }
         return true;
+    }
+
+    private boolean hasA003AAnnualGuardCandidate(HttpServletRequest request) {
+        String billType = request.getParameter("xml_billtype");
+        if (billType == null || !billType.matches("ODP.*")) {
+            return false;
+        }
+        for (int i = 0; i < BillingOnConstants.FIELD_SERVICE_NUM; i++) {
+            if ("A003A".equals(request.getParameter("serviceCode" + i))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static Integer parseDemoNo(String demoNo) {

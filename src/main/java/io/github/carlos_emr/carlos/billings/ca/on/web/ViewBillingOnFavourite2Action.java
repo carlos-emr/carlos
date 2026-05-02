@@ -21,9 +21,13 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnLookupService;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnFavouriteViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -40,8 +44,8 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOnFavouriteVi
  *
  * <p>Assembles a {@link BillingOnFavouriteViewModel} via
  * {@link BillingOnFavouriteViewModelAssembler} so the JSP body is pure
- * presentation: the data assembler runs the Save/Search/Delete branches
- * and dropdown population that the legacy JSP did inline.</p>
+ * presentation. The action applies favourite-list writes before invoking the
+ * read-only assembler.</p>
  *
  * @since 2026-04-13
  */
@@ -50,12 +54,16 @@ public class ViewBillingOnFavourite2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
 
     private final BillingOnFavouriteViewModelAssembler billingONFavouriteAssembler;
+    private final BillingOnLookupService lookupService;
 
     public ViewBillingOnFavourite2Action(SecurityInfoManager securityInfoManager,
-                                          BillingOnFavouriteViewModelAssembler billingONFavouriteAssembler) {
+                                         BillingOnFavouriteViewModelAssembler billingONFavouriteAssembler,
+                                         BillingOnLookupService lookupService) {
         this.securityInfoManager = securityInfoManager;
         this.billingONFavouriteAssembler = billingONFavouriteAssembler;
+        this.lookupService = lookupService;
     }
+
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -67,19 +75,57 @@ public class ViewBillingOnFavourite2Action extends ActionSupport {
         }
 
         String action = request.getParameter("action");
+        boolean mutationIntent = isMutationSubmission(request);
+        if (mutationIntent && !"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         if (action != null) {
             String lower = action.toLowerCase();
             if ((lower.startsWith("add") || lower.startsWith("edit") || lower.startsWith("delete"))
                     && !"POST".equalsIgnoreCase(request.getMethod())) {
+                response.setHeader("Allow", "POST");
                 response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
                 return NONE;
             }
         }
+        if (mutationIntent && !securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
 
+        BillingOnLookupService.FavouriteMutationResult mutationResult = null;
+        if (mutationIntent) {
+            mutationResult = lookupService.saveOrDeleteFavourite(favouriteMutationRequestFrom(request, loggedInInfo));
+        }
         BillingOnFavouriteViewModel model = billingONFavouriteAssembler
-                .assemble(request, loggedInInfo);
+                .assemble(request, loggedInInfo, mutationResult);
         request.setAttribute("favouriteModel", model);
 
         return SUCCESS;
+    }
+
+    private static boolean isMutationSubmission(HttpServletRequest request) {
+        String submit = request.getParameter("submit");
+        String action = request.getParameter("action");
+        return "Save".equals(submit) || ("Search".equals(submit) && "Delete".equals(action));
+    }
+
+    private static BillingOnLookupService.FavouriteMutationRequest favouriteMutationRequestFrom(
+            HttpServletRequest request, LoggedInInfo loggedInInfo) {
+        Map<String, String> fields = new LinkedHashMap<>();
+        request.getParameterMap().forEach((key, value) -> {
+            if (value != null && value.length > 0) {
+                fields.put(key, value[0]);
+            }
+        });
+        String providerNo = loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null
+                ? "" : loggedInInfo.getLoggedInProviderNo();
+        return new BillingOnLookupService.FavouriteMutationRequest(
+                request.getParameter("submit"),
+                request.getParameter("action"),
+                request.getParameter("name"),
+                providerNo,
+                fields);
     }
 }

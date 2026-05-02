@@ -67,7 +67,7 @@ public class PrintEndYearStatementPdf2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        PatientEndYearStatementSupport.echoNames(request);
+        PatientEndYearStatements.echoNames(request);
 
         PatientEndYearStatementSummary summary =
                 (PatientEndYearStatementSummary) request.getSession().getAttribute("summary");
@@ -81,7 +81,7 @@ public class PrintEndYearStatementPdf2Action extends ActionSupport {
                     getFromDateParam(), getToDateParam());
         } catch (PatientEndYearStatementService.Failure ex) {
             addActionError(getText(ex.reason().i18nKey()));
-            PatientEndYearStatementSupport.logFailure(ex, getFirstNameParam(), getLastNameParam());
+            PatientEndYearStatements.logFailure(ex, request.getParameter("demographicNoParam"));
             return "failure";
         }
         // Bypass Struts result-rendering — the PDF body is already on the wire.

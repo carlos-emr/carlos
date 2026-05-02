@@ -51,6 +51,26 @@
     <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
 
     <script LANGUAGE="JavaScript">
+        function csrfTokenValue() {
+            var tokenInput = document.querySelector("input[name='CSRF-TOKEN']");
+            return tokenInput ? tokenInput.value : "";
+        }
+
+        function attachCsrfToken(form) {
+            var token = csrfTokenValue();
+            if (!form || token.length === 0) {
+                return;
+            }
+            var existing = form.querySelector("input[name='CSRF-TOKEN']");
+            if (!existing) {
+                existing = document.createElement("input");
+                existing.type = "hidden";
+                existing.name = "CSRF-TOKEN";
+                form.appendChild(existing);
+            }
+            existing.value = token;
+        }
+
         function viewMOHFile(anchor) {
             var filename = anchor.dataset.filename;
             var decodedFilename = decodeURIComponent(filename.replace(/\+/g, "%20"));
@@ -68,6 +88,7 @@
             } else {
                 form.action = "/<carlos:encode value='${mohModel.projectHome}' context='javaScriptAttribute'/>/oscarBilling/DocumentErrorReportUpload";
             }
+            attachCsrfToken(form);
             form.submit();
         }
 
@@ -87,6 +108,7 @@
 
         function checkForm() {
             if (document.querySelectorAll("input[name='mohFile']:checked").length > 0) {
+                attachCsrfToken(document.querySelector("form[action$='/billing/CA/ON/moveMOHFiles']"));
                 return true;
             }
             alert("Please select a file first.");
@@ -96,11 +118,12 @@
 </head>
 
 <body>
+<%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
 <h3><fmt:message key="admin.admin.viewMOHFiles"/></h3>
 
 <div class="container-fluid card card-body bg-body-tertiary">
 
-    <form id="form" method="POST">
+    <form id="form" method="POST" action="${pageContext.request.contextPath}/billing/CA/ON/moveMOHFiles">
         <input type="hidden" id="filename" name="filename" value="">
     </form>
 

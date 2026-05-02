@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.util.Date;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -29,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.commn.dao.BatchBillingDAO;
 import io.github.carlos_emr.carlos.commn.model.BatchBilling;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 
 /**
  * Transactional write side for expanding selected batch-billing rows into
@@ -41,6 +43,8 @@ import io.github.carlos_emr.carlos.commn.model.BatchBilling;
 public class BatchBillingSubmissionService {
 
     public record Row(String serviceCode, String dxCode, Integer demographicNo, String providerNo) { }
+    public record RowFailure(int rowIndex, Row row, String message) { }
+    public record SubmitResult(int submittedCount, List<RowFailure> failures) { }
 
     private final BillingOnHeaderCreationService headerCreationService;
     private final BatchBillingDAO batchBillingDAO;
@@ -51,10 +55,15 @@ public class BatchBillingSubmissionService {
         this.batchBillingDAO = batchBillingDAO;
     }
 
-    public void submitAll(List<Row> rows, String clinicView, Date billingDate, String currentUser) {
+    public SubmitResult submitAll(List<Row> rows, String clinicView, Date billingDate, String currentUser) {
         if (currentUser == null || currentUser.isBlank()) {
             throw new SecurityException("missing current user for batch billing submission");
         }
+        List<RowFailure> failures = validateRows(rows);
+        if (!failures.isEmpty()) {
+            return new SubmitResult(0, failures);
+        }
+        int submitted = 0;
         for (Row row : rows) {
             String total = headerCreationService.createBill(row.providerNo(), row.demographicNo(),
                     row.serviceCode(), row.dxCode(), clinicView, billingDate, currentUser);
@@ -64,6 +73,21 @@ public class BatchBillingSubmissionService {
             batchBilling.setBillingAmount(total);
             batchBilling.setLastBilledDate(billingDate);
             batchBillingDAO.merge(batchBilling);
+            submitted++;
         }
+        return new SubmitResult(submitted, List.of());
+    }
+
+    private List<RowFailure> validateRows(List<Row> rows) {
+        List<RowFailure> failures = new ArrayList<>();
+        for (int i = 0; i < rows.size(); i++) {
+            Row row = rows.get(i);
+            try {
+                headerCreationService.validateBillableDemographic(row.demographicNo());
+            } catch (BillingValidationException e) {
+                failures.add(new RowFailure(i, row, e.getMessage()));
+            }
+        }
+        return failures;
     }
 }

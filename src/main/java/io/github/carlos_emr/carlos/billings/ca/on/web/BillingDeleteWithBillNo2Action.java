@@ -65,15 +65,11 @@ public class BillingDeleteWithBillNo2Action extends ActionSupport {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
-        }
         if (!BillingRequestGuards.requirePost(request, response)) {
             return NONE;
         }
 
-        String curUserNo = loggedInInfo.getLoggedInProviderNo();
-        return deleteBillingByBillNo(request, curUserNo, billingDao, correctionPrep);
+        return deleteBillingByBillNo(request, loggedInInfo, securityInfoManager, billingDao, correctionPrep);
     }
 
     /**
@@ -81,13 +77,28 @@ public class BillingDeleteWithBillNo2Action extends ActionSupport {
      * and from {@link BillingOnSave2Action} to replace the old {@code <jsp:include>} pattern.
      *
      * @param request        the current HTTP request
-     * @param curUserNo      the logged-in provider number
-     * @param billingDao     the billing DAO
+     * @param loggedInInfo the authenticated user context
+     * @param securityInfoManager security gate used for defense-in-depth when
+     *        called outside {@link #execute()}
+     * @param billingDao the billing DAO
      * @param correctionPrep the billing-correction prep service
      * @return Struts result name: {@code "success"}, {@code "cannotDelete"}, or {@code "error"}
      */
-    public static String deleteBillingByBillNo(HttpServletRequest request, String curUserNo,
-                                                BillingDao billingDao, BillingCorrectionRecordService correctionPrep) {
+    public static String deleteBillingByBillNo(HttpServletRequest request,
+                                               LoggedInInfo loggedInInfo,
+                                               SecurityInfoManager securityInfoManager,
+                                               BillingDao billingDao,
+                                               BillingCorrectionRecordService correctionPrep) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+        return deleteBillingByBillNoAfterPrivilege(
+                request, loggedInInfo.getLoggedInProviderNo(), billingDao, correctionPrep);
+    }
+
+    private static String deleteBillingByBillNoAfterPrivilege(HttpServletRequest request, String curUserNo,
+                                                              BillingDao billingDao,
+                                                              BillingCorrectionRecordService correctionPrep) {
         String apptNoStr = request.getParameter("appointment_no");
         String billNoParam = request.getParameter("billNo_old");
         String billStatusParam = request.getParameter("billStatus_old");

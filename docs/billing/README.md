@@ -115,7 +115,7 @@ the upstream URLs may resolve directly; otherwise use Wayback
 | File | Codes / rows | Used by |
 |------|--------------|---------|
 | [`external/specialty_codes.md`](external/specialty_codes.md) | 65 specialty codes (4 GFM tables, by physician/dental/practitioner/other) | EI Claim Header-1 §4.7 "Specialty" field; §4.8 |
-| [`external/diagnostic_codes.md`](external/diagnostic_codes.md) | 749 diagnostic codes across 21 GFM tables (3- and 4-digit) | EI Item Record §4.7 "Diagnostic Code" field; §4.9 |
+| [`external/diagnostic_codes.md`](external/diagnostic_codes.md) | 728 diagnostic codes across 22 GFM tables (3- and 4-digit) | EI Item Record §4.7 "Diagnostic Code" field; §4.9 |
 | [`external/province_and_territory_codes.md`](external/province_and_territory_codes.md) | All Canadian province / territory codes (verbatim text — 3-column layout doesn't extract cleanly; refer to PDF for the canonical table) | EI Claim Header-2 §4.7 "Province Code" field; §4.15 |
 | [`external/remittance_advice_explanatory_codes.md`](external/remittance_advice_explanatory_codes.md) | 224 RA explanatory codes (single GFM table) | RA Claim Item Record §5.6 "Explanatory Code" field; §5.8 |
 | [`external/error_report_explanatory_codes.md`](external/error_report_explanatory_codes.md) | 31 error report explanatory codes | §6.3 |

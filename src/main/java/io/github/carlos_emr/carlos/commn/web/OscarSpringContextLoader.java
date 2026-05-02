@@ -38,12 +38,7 @@ import org.springframework.web.context.support.XmlWebApplicationContext;
 
 import io.github.carlos_emr.CarlosProperties;
 /**
- * Struts action for the {@code OscarSpringContextLoader} request flow.
- *
- * <p>The action owns web-layer orchestration: privilege checks, request
- * parameter normalization, delegation to services or assemblers, and the
- * Struts result used to render the next JSP. Keep billing rules and database
- * work outside the JSP when changing this flow.</p>
+ * Servlet context listener that creates the Spring web application context.
  */
 
 public final class OscarSpringContextLoader extends ContextLoaderListener {

@@ -145,7 +145,8 @@ public final class BillingDates {
         if (date == null) {
             return "";
         }
-        return date.toInstant().atZone(billingZone()).toLocalDate().format(OHIP_DATE);
+        return java.time.Instant.ofEpochMilli(date.getTime())
+                .atZone(billingZone()).toLocalDate().format(OHIP_DATE);
     }
 
     /**

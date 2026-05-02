@@ -31,7 +31,7 @@
  *   <li>Read/query loaders used by actions and assemblers</li>
  *   <li>Fixed-format report parsers and import workflows</li>
  *   <li>File I/O (OHIP claim file generation, MOH disk creation)</li>
- *   <li>Audit-trail emission ({@code BillActivity} rows)</li>
+ *   <li>Audit-trail emission ({@code BillingONProc} rows)</li>
  *   <li>External-system invocation (HRM, MCEDT, EDT)</li>
  * </ul>
  *

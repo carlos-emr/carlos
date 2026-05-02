@@ -231,6 +231,9 @@ public record BillingMoney(BigDecimal amount, Currency currency) implements Comp
     }
 
     private static BigDecimal decimal(String raw) {
+        if (raw == null || raw.trim().isEmpty()) {
+            throw new BillingValidationException("BillingMoney: amount is null or blank");
+        }
         return new BigDecimal(raw.trim());
     }
 

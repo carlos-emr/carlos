@@ -297,15 +297,25 @@ class BillingOnReviewValidatorUnitTest {
     }
 
     @Test
-    @DisplayName("does NOT run A003A guard when demoNo is non-numeric")
-    void shouldSkipA003AGuard_whenDemoNoIsNonNumeric() {
+    @DisplayName("emits ERROR when A003A guard demoNo is non-numeric")
+    void shouldEmitError_whenA003AGuardDemoNoIsNonNumeric() {
         request.setParameter("serviceCode0", "A003A");
         request.setParameter("xml_billtype", "ODP");
         when(billingServiceDao.findBillingCodesByCodeAndTerminationDate(anyString(), any(Date.class)))
                 .thenReturn(List.of(new Object()));
 
-        newValidator().validate(request, "not-a-number", "2026-04-26");
+        BillingOnReviewValidator.Result result =
+                newValidator().validate(request, "not-a-number", "2026-04-26");
 
+        assertThat(result.codeValid()).isFalse();
+        assertThat(result.messages())
+                .anySatisfy(m -> {
+                    assertThat(m.severity())
+                            .isEqualTo(BillingOnReviewValidator.Message.Severity.ERROR);
+                    assertThat(m.text())
+                            .contains("demographic number")
+                            .contains("A003A");
+                });
         Mockito.verify(bCh1Dao, Mockito.never())
                 .getLastOHIPBillingDateForServiceCode(anyInt(), anyString());
     }

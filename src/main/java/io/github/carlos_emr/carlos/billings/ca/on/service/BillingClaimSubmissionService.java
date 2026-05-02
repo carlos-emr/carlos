@@ -577,7 +577,6 @@ public class BillingClaimSubmissionService {
     // 1-hin 2-ver
     private String[] getHinVer(String val) {
         String[] ret = {"", ""};
-        MiscUtils.getLogger().debug("Hinver: " + val);
         if (val != null) {
             for (int i = 0; i < val.length(); i++) {
                 if (("" + val.charAt(i)).matches("\\d")) {

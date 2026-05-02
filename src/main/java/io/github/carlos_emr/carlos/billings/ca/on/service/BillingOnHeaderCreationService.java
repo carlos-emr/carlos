@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 
 /**
  * Builds and persists Ontario billing claim headers ({@link BillingONCHeader1})
@@ -104,17 +105,30 @@ public class BillingOnHeaderCreationService {
                               String clinicRefCode, Date serviceDate, String curUser) {
         Provider prov = providerDao.getProvider(provider);
         CarlosProperties properties = CarlosProperties.getInstance();
+        List<Integer> parsedDemographicNos = demographicNos.stream()
+                .map(Integer::parseInt)
+                .toList();
+        for (Integer demographicNo : parsedDemographicNos) {
+            validateBillableDemographic(demographicNo);
+        }
         String total = calcTotal(codes, serviceDate);
 
-        for (String demographic : demographicNos) {
+        for (Integer demographic : parsedDemographicNos) {
             BillingONCHeader1 header1 = assembleHeader1(
-                    prov, Integer.parseInt(demographic), clinicRefCode, serviceDate,
+                    prov, demographic, clinicRefCode, serviceDate,
                     total, curUser, properties);
-            if (header1 == null) continue;
             addItems(header1, codes, dxcodes, serviceDate);
             headerDao.persist(header1);
         }
         return total;
+    }
+
+    /**
+     * Validate that a demographic can be billed before a batch starts writing
+     * any claim headers.
+     */
+    public void validateBillableDemographic(Integer demographicNo) {
+        requireBillableDemographic(demographicNo);
     }
 
     private String createBillInternal(String provider, Integer demographic,
@@ -126,7 +140,6 @@ public class BillingOnHeaderCreationService {
 
         BillingONCHeader1 header1 = assembleHeader1(
                 prov, demographic, clinicRefCode, serviceDate, total, curUser, properties);
-        if (header1 == null) return null;
         addItems(header1, codes, dxCodes, serviceDate);
         headerDao.persist(header1);
         return total;
@@ -135,8 +148,7 @@ public class BillingOnHeaderCreationService {
     private BillingONCHeader1 assembleHeader1(Provider prov, Integer demographic, String clinicRefCode,
                                               Date serviceDate, String total, String curUser,
                                               CarlosProperties properties) {
-        Demographic demo = demographicDao.getDemographicById(demographic);
-        if (demo == null) return null;
+        Demographic demo = requireBillableDemographic(demographic);
 
         BillingONCHeader1 header1 = new BillingONCHeader1();
         header1.setTranscId(BillingOnConstants.CLAIMHEADER1_TRANSACTIONIDENTIFIER);
@@ -172,6 +184,18 @@ public class BillingOnHeaderCreationService {
         header1.setTotal(io.github.carlos_emr.carlos.billings.ca.on.BillingMoney
                 .parseNonNegativeAmount(total, "total"));
         return header1;
+    }
+
+    private Demographic requireBillableDemographic(Integer demographicNo) {
+        if (demographicNo == null) {
+            throw new BillingValidationException("Cannot create batch bill: demographicNo is missing");
+        }
+        Demographic demo = demographicDao.getDemographicById(demographicNo);
+        if (demo == null) {
+            throw new BillingValidationException(
+                    "Cannot create batch bill: demographic not found for demographicNo=" + demographicNo);
+        }
+        return demo;
     }
 
     private void addItems(BillingONCHeader1 h1, List<String> codes, List<String> dxcodes, Date serviceDate) {

@@ -32,13 +32,13 @@ import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnFavouriteViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnLookupService;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SafeEncode;
+
 /**
  * Assembles {@link BillingOnFavouriteViewModel} for
  * {@code billingONfavourite.jsp}, the Add/Edit favourite-service-code admin
- * form. Owns the form-processing branches (Save/Search/Delete with
- * Add/Edit sub-modes) the legacy JSP performed inline in a 200-line
- * top-of-page scriptlet, plus the dropdown population.
+ * form. Owns the read-side Search branch and dropdown population the legacy
+ * JSP performed inline. Add/Edit/Delete writes are handled by the action and
+ * passed in as a typed mutation result before rendering.
  *
  * <p>HTML fragments emitted in the legacy {@code msg} contained {@code
  * <font color='red'>...</font>} markup; those have been preserved as-is
@@ -52,16 +52,9 @@ public class BillingOnFavouriteViewModelAssembler {
 
     private static final String SUFFIX_TYPE_TO_SEARCH =
             "Type in a name and search first to see if it is available.";
-    private static final String FONT_RED_NOT = "<font color='red'>NOT</font>";
-    // Verb words kept as constants so the hook's UPDATE/DELETE regex doesn't
-    // false-match the user-facing display strings.
-    private static final String VERB_UPDATED = "u" + "pdated";
-    private static final String VERB_DELETED = "d" + "eleted";
-    private static final String VERB_ADDED = "added";
 
     private final BillingOnLookupService lookupService;
 
-    /** Production constructor (Struts no-arg shape). */
     /** Test-friendly constructor — takes the lookup service mock directly. */
     public BillingOnFavouriteViewModelAssembler(BillingOnLookupService lookupService) {
         this.lookupService = lookupService;
@@ -69,19 +62,23 @@ public class BillingOnFavouriteViewModelAssembler {
 
     /** Build the view model for both GET (no submit) and POST (form-mutating) paths. */
     public BillingOnFavouriteViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
-        String userNo = loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null
-                ? "" : loggedInInfo.getLoggedInProviderNo();
+        return assemble(request, loggedInInfo, null);
+    }
+
+    /** Build the view model after an optional favourite-list mutation. */
+    public BillingOnFavouriteViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo,
+                                                BillingOnLookupService.FavouriteMutationResult mutationResult) {
         Map<String, String> formFields = new HashMap<>();
         String msg = SUFFIX_TYPE_TO_SEARCH;
         String action = "search";
 
         String submit = request.getParameter("submit");
-        if ("Save".equals(submit)) {
-            FormResult r = handleSave(request, lookupService, userNo, formFields);
-            msg = r.msg;
-            action = r.action;
+        if (mutationResult != null) {
+            msg = mutationResult.message();
+            action = mutationResult.action();
+            formFields.putAll(mutationResult.formFields());
         } else if ("Search".equals(submit)) {
-            FormResult r = handleSearchOrDelete(request, lookupService, userNo, formFields);
+            FormResult r = handleSearch(request, lookupService, formFields);
             msg = r.msg;
             action = r.action;
         }
@@ -105,104 +102,8 @@ public class BillingOnFavouriteViewModelAssembler {
                 .build();
     }
 
-    private FormResult handleSave(HttpServletRequest request, BillingOnLookupService lookupService,
-                                  String userNo, Map<String, String> formFields) {
-        String actionParam = nullToEmpty(request.getParameter("action"));
-        if (actionParam.startsWith("edit")) {
-            return processEdit(request, lookupService, userNo, formFields, actionParam);
-        }
-        if (actionParam.startsWith("add")) {
-            return processAdd(request, lookupService, userNo, formFields, actionParam);
-        }
-        StringBuilder mismatchMsg = new StringBuilder();
-        mismatchMsg.append("You can ").append(FONT_RED_NOT)
-                .append(" save the name. Please search the name first.");
-        return new FormResult(mismatchMsg.toString(), "search");
-    }
-
-    private FormResult processEdit(HttpServletRequest request, BillingOnLookupService lookupService,
-                                   String userNo, Map<String, String> formFields, String actionParam) {
-        String name = nullToEmpty(request.getParameter("name"));
-        String safeName = SafeEncode.forHtml(name);
-        if (!name.equals(actionParam.substring("edit".length()))) {
-            formFields.put("name", name);
-            return new FormResult(
-                    new StringBuilder().append("You can ").append(FONT_RED_NOT)
-                            .append(" save the name - ").append(safeName)
-                            .append(". Please search the name first.").toString(),
-                    "search");
-        }
-        String list = buildServiceList(request, false);
-        boolean ok = lookupService.updateBillingFavouriteList(name, list, userNo);
-        formFields.put("name", name);
-        if (ok) {
-            return new FormResult(
-                    new StringBuilder().append(safeName).append(" is ").append(VERB_UPDATED)
-                            .append(".<br>").append(SUFFIX_TYPE_TO_SEARCH).toString(),
-                    "search");
-        }
-        // Persist failed — preserve the user's edits in formFields.
-        capturePersistFields(request, formFields);
-        return new FormResult(
-                new StringBuilder().append(safeName).append(" is ").append(FONT_RED_NOT)
-                        .append(" ").append(VERB_UPDATED)
-                        .append(". Action failed! Try edit it again.").toString(),
-                "edit" + name);
-    }
-
-    private FormResult processAdd(HttpServletRequest request, BillingOnLookupService lookupService,
-                                  String userNo, Map<String, String> formFields, String actionParam) {
-        String name = nullToEmpty(request.getParameter("name"));
-        String safeName = SafeEncode.forHtml(name);
-        if (!name.equals(actionParam.substring("add".length()))) {
-            formFields.put("name", name);
-            return new FormResult(
-                    new StringBuilder().append("You can ").append(FONT_RED_NOT)
-                            .append(" save the name - ").append(safeName)
-                            .append(". Please search the name first.").toString(),
-                    "search");
-        }
-        String list = buildServiceList(request, true);
-        int rc = lookupService.addBillingFavouriteList(name, list, userNo);
-        formFields.put("name", name);
-        if (rc > 0) {
-            return new FormResult(
-                    new StringBuilder().append(safeName).append(" is ").append(VERB_ADDED)
-                            .append(".<br>").append(SUFFIX_TYPE_TO_SEARCH).toString(),
-                    "search");
-        }
-        capturePersistFields(request, formFields);
-        return new FormResult(
-                new StringBuilder().append(safeName).append(" is ").append(FONT_RED_NOT)
-                        .append(" ").append(VERB_ADDED)
-                        .append(". Action failed! Try edit it again.").toString(),
-                "add" + name);
-    }
-
-    private FormResult handleSearchOrDelete(HttpServletRequest request, BillingOnLookupService lookupService,
-                                            String userNo, Map<String, String> formFields) {
-        String actionParam = nullToEmpty(request.getParameter("action"));
-        if ("Delete".equals(actionParam)) {
-            String name = nullToEmpty(request.getParameter("name"));
-            if (name.isEmpty()) {
-                return new FormResult("nothing to delete, please choose a name.", "search");
-            }
-            String safeName = SafeEncode.forHtml(name);
-            boolean ok = lookupService.delBillingFavouriteList(name, userNo);
-            formFields.put("name", name);
-            if (ok) {
-                return new FormResult(
-                        new StringBuilder().append(safeName).append(" is ").append(VERB_DELETED)
-                                .append(".<br>").append(SUFFIX_TYPE_TO_SEARCH).toString(),
-                        "search");
-            }
-            return new FormResult(
-                    new StringBuilder().append(safeName).append(" is ").append(FONT_RED_NOT)
-                            .append(" ").append(VERB_DELETED)
-                            .append(". Action failed! Try edit it again.").toString(),
-                    "edit" + name);
-        }
-        // Search path
+    private FormResult handleSearch(HttpServletRequest request, BillingOnLookupService lookupService,
+                                    Map<String, String> formFields) {
         if (request.getParameter("name") == null) {
             return new FormResult("Please type in a right name.", "search");
         }
@@ -236,69 +137,6 @@ public class BillingOnFavouriteViewModelAssembler {
         formFields.put("name", name);
         return new FormResult("It is a NEW name. You can add it.", "add" + name);
     }
-
-    /**
-     * Build the {@code |}-separated service-code list the legacy JSP
-     * persisted to the favourite row.
-     *
-     * @param padAtPrefix when true (add path), 3-char {@code at} values
-     *                    starting with "." get a leading "0" and others
-     *                    get a trailing "0". Edit path doesn't pad.
-     */
-    private String buildServiceList(HttpServletRequest request, boolean padAtPrefix) {
-        StringBuilder list = new StringBuilder();
-        for (int i = 0; i < BillingOnConstants.FIELD_SERVICE_NUM; i++) {
-            String code = nullToEmpty(request.getParameter("serviceCode" + i));
-            if (code.length() == 5) {
-                String unitParam = nullToEmpty(request.getParameter("serviceUnit" + i));
-                String unit = unitParam.isEmpty() ? "1" : unitParam;
-                String atParam = nullToEmpty(request.getParameter("serviceAt" + i));
-                String at = atParam.isEmpty() ? "1" : atParam;
-                if (padAtPrefix && at.length() == 3) {
-                    if (at.startsWith(".")) {
-                        at = "0" + at;
-                    } else {
-                        at = at + "0";
-                    }
-                }
-                list.append(code).append('|').append(unit).append('|').append(at).append('|');
-            }
-        }
-        String dx = nullToEmpty(request.getParameter("dx"));
-        if (dx.length() == 3) {
-            list.append(dx).append('|');
-            String dx1 = nullToEmpty(request.getParameter("dx1"));
-            if (dx1.length() == 3) {
-                list.append(dx1).append('|');
-                String dx2 = nullToEmpty(request.getParameter("dx2"));
-                if (dx2.length() == 3) {
-                    list.append(dx2).append('|');
-                }
-            }
-        }
-        return list.toString();
-    }
-
-    /**
-     * Mirror legacy fail-path: copy the user's submitted serviceCode/Unit/At
-     * + dx/dx1/dx2 fields into the formFields echo map so the JSP repopulates
-     * them on the failure render.
-     */
-    private void capturePersistFields(HttpServletRequest request, Map<String, String> formFields) {
-        for (int i = 0; i < BillingOnConstants.FIELD_SERVICE_NUM; i++) {
-            String c = "serviceCode" + i;
-            String u = "serviceUnit" + i;
-            String a = "serviceAt" + i;
-            if (request.getParameter(c) != null) formFields.put(c, request.getParameter(c));
-            if (request.getParameter(u) != null) formFields.put(u, request.getParameter(u));
-            if (request.getParameter(a) != null) formFields.put(a, request.getParameter(a));
-        }
-        if (request.getParameter("dx") != null) formFields.put("dx", request.getParameter("dx"));
-        if (request.getParameter("dx1") != null) formFields.put("dx1", request.getParameter("dx1"));
-        if (request.getParameter("dx2") != null) formFields.put("dx2", request.getParameter("dx2"));
-    }
-
-    private static String nullToEmpty(String s) { return s == null ? "" : s; }
 
     private record FormResult(String msg, String action) { }
 }

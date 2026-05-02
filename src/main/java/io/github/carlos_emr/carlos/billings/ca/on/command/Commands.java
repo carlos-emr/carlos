@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.command;
 
 import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -68,12 +69,14 @@ final class Commands {
             BigDecimal parsed = new BigDecimal(value.trim());
             if (parsed.signum() < 0) {
                 throw new BillingValidationException(
-                        "Billing command: " + fieldName + " cannot be negative [" + value + "]");
+                        "Billing command: " + fieldName + " cannot be negative ["
+                                + LogSanitizer.sanitize(value) + "]");
             }
             return parsed.stripTrailingZeros();
         } catch (NumberFormatException e) {
             throw new BillingValidationException(
-                    "Billing command: malformed " + fieldName + " [" + value + "]", e);
+                    "Billing command: malformed " + fieldName + " ["
+                            + LogSanitizer.sanitize(value) + "]", e);
         }
     }
 
@@ -92,7 +95,8 @@ final class Commands {
             return LocalDate.parse(value.trim());
         } catch (DateTimeParseException e) {
             throw new BillingValidationException(
-                    "Billing command: malformed " + fieldName + " [" + value + "]", e);
+                    "Billing command: malformed " + fieldName + " ["
+                            + LogSanitizer.sanitize(value) + "]", e);
         }
     }
 
@@ -120,7 +124,8 @@ final class Commands {
             return LocalDate.parse(trimmed);
         } catch (DateTimeParseException e) {
             throw new BillingValidationException(
-                    "Billing command: malformed " + fieldName + " [" + value + "]", e);
+                    "Billing command: malformed " + fieldName + " ["
+                            + LogSanitizer.sanitize(value) + "]", e);
         }
     }
 

@@ -44,10 +44,9 @@
  *       supplied {@code Builder}, returns a partial result, or resolves one
  *       value. Owned by the assemblers that consume it; never instantiated
  *       from {@code web/}. Example:
- *       {@link BillingOnFormSiteContextComposer} is currently a single-caller
- *       composer used by {@link BillingOnFormViewModelAssembler}; it remains
- *       separate because site/multisite/RMA/clinic-number context is a
- *       complex sub-structure with dedicated tests.</dd>
+ *       {@link BillingOnFormSiteContextComposer} remains separate because
+ *       site/multisite/RMA/clinic-number context is a complex sub-structure
+ *       with dedicated tests.</dd>
  * </dl>
  *
  * <p>For side effects (DAO writes, file I/O, audit, mutation), see the

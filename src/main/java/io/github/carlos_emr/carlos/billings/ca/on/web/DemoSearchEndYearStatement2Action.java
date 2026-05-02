@@ -64,7 +64,7 @@ public class DemoSearchEndYearStatement2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        PatientEndYearStatementSupport.echoNames(request);
+        PatientEndYearStatements.echoNames(request);
         request.getSession().setAttribute("summary", null); // nosemgrep: tainted-session-from-http-request -- clearing session attribute with null
 
         Demographic demographic;
@@ -74,7 +74,7 @@ public class DemoSearchEndYearStatement2Action extends ActionSupport {
                     getFirstNameParam(), getLastNameParam());
         } catch (PatientEndYearStatementService.Failure ex) {
             addActionError(getText(ex.reason().i18nKey()));
-            PatientEndYearStatementSupport.logFailure(ex, getFirstNameParam(), getLastNameParam());
+            PatientEndYearStatements.logFailure(ex, request.getParameter("demographic_no"));
             return "failure";
         }
 

@@ -85,15 +85,22 @@ public class ScheduleOfBenefitsUpdate2Action extends ActionSupport {
             String[] changes = request.getParameterValues("change");
             if (changes != null) {
                 List<FeeScheduleSelectedChange> selectedChanges = new ArrayList<>();
+                List<String> parseErrors = new ArrayList<>();
                 MiscUtils.getLogger().debug("changes #" + changes.length);
 
                 for (int i = 0; i < changes.length; i++) {
-                    MiscUtils.getLogger().debug(changes[i]);
                     try {
                         selectedChanges.add(FeeScheduleSelectedChange.fromSubmittedValue(changes[i]));
                     } catch (IllegalArgumentException e) {
-                        MiscUtils.getLogger().error("Invalid fee schedule change selection", e);
+                        String error = "Invalid selected fee schedule change at row " + (i + 1);
+                        parseErrors.add(error);
+                        MiscUtils.getLogger().warn(error, e);
                     }
+                }
+                if (!parseErrors.isEmpty()) {
+                    request.setAttribute("changes", List.of());
+                    request.setAttribute("validationErrors", parseErrors);
+                    return SUCCESS;
                 }
                 FeeScheduleApplyResult result = feeScheduleImportService.applySelected(selectedChanges);
                 request.setAttribute("changes", result.viewMaps());

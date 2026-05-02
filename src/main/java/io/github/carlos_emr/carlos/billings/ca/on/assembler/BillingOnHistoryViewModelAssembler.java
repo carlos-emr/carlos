@@ -45,9 +45,9 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * Assembles {@link BillingOnHistoryViewModel} for {@code billingONHistory.jsp},
  * the patient billing-history popup.
  *
- * <p>Owns the inline {@code SpringUtils.getBean} lookups the legacy JSP
- * performed: {@link BillingONPaymentDao}, {@link BillingONCHeader1Dao},
- * {@link DemographicManager} (for patient name display) and
+ * <p>Uses constructor-injected collaborators for the lookups the legacy JSP
+ * performed inline: {@link BillingONPaymentDao}, {@link BillingONCHeader1Dao},
+ * {@link DemographicManager} (for patient name display), and
  * {@link SecurityInfoManager} (for the per-row {@code _billing w} edit-link
  * gate). Also computes the balance column for {@code PAT}-status bills,
  * the bill-type label, and the per-row "unbill" link visibility.</p>

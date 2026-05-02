@@ -46,13 +46,13 @@ public class DiagCodeDescriptionPersister {
 
     public boolean updateDescription(String submitValue, String newDescription) {
         if (submitValue == null || submitValue.length() < 3) {
-            return false;
+            throw new DiagDescriptionUpdateException("", "missing diagnostic code");
         }
         String code = submitValue.substring(submitValue.length() - 3);
         try {
             List<DiagnosticCode> matches = diagnosticCodeDao.findByDiagnosticCode(code);
             if (matches == null || matches.isEmpty()) {
-                return false;
+                throw new DiagDescriptionUpdateException(code, "diagnostic code not found");
             }
             for (DiagnosticCode dcode : matches) {
                 dcode.setDescription(newDescription);
@@ -60,6 +60,9 @@ public class DiagCodeDescriptionPersister {
             }
             return true;
         } catch (RuntimeException ex) {
+            if (ex instanceof DiagDescriptionUpdateException) {
+                throw ex;
+            }
             MiscUtils.getLogger().error("Diagnostic code update failed for {}", code, ex);
             throw new DiagDescriptionUpdateException(code, ex);
         }

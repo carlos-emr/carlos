@@ -25,6 +25,7 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -170,6 +171,20 @@ class BillingClaimsErrorReportParserUnitTest {
     }
 
     @Test
+    void shouldClearPartialRecords_whenMalformedLineFollowsParsedRecord() throws Exception {
+        String validTrailer = "  9" + "0000001" + "0000002" + "0000003" + "0000004";
+        String truncatedHeader = "  H1234567890AB19800115PARTIAL";
+
+        BillingClaimsErrorReportParser parser = new BillingClaimsErrorReportParser(
+                fileWith(validTrailer + "\n" + truncatedHeader + "\n"));
+
+        assertThat(parser.isVerdict()).isFalse();
+        assertThat(parser.getClaimsErrorReportRecords())
+                .as("partial records are unsafe after a malformed report")
+                .isEmpty();
+    }
+
+    @Test
     void shouldSkipShortLineAtHeaderCheck_andContinue_whenSubThreeChars() throws Exception {
         // Lines under 3 chars are too short even to peek the headerCount;
         // the parser logs a warning and falls through every record-type
@@ -214,6 +229,21 @@ class BillingClaimsErrorReportParserUnitTest {
     }
 
     @Test
+    void shouldClearPartialRecords_whenIOExceptionFollowsParsedRecord() throws Exception {
+        String validTrailer = "  9" + "0000001" + "0000002" + "0000003" + "0000004";
+        File marker = Files.createTempFile(tempDir, "io-after-record", ".txt").toFile();
+        FailingAfterFirstLineInputStream input = new FailingAfterFirstLineInputStream(
+                marker, validTrailer + "\n  8AB" + "broken".repeat(10));
+
+        BillingClaimsErrorReportParser parser = new BillingClaimsErrorReportParser(input);
+
+        assertThat(parser.isVerdict()).isFalse();
+        assertThat(parser.getClaimsErrorReportRecords())
+                .as("partial records are unsafe after an unreadable report")
+                .isEmpty();
+    }
+
+    @Test
     void shouldStartWithVerdictTrue_onValidEmptyStream() {
         // Sanity: a clean read with no records leaves verdict=true.
         BillingClaimsErrorReportParser parser;
@@ -249,6 +279,53 @@ class BillingClaimsErrorReportParserUnitTest {
         public void close() throws IOException {
             closed = true;
             super.close();
+        }
+    }
+
+    private static final class FailingAfterFirstLineInputStream extends FileInputStream {
+        private final byte[] bytes;
+        private int position;
+        private boolean failNextRead;
+
+        private FailingAfterFirstLineInputStream(File marker, String content) throws IOException {
+            super(marker);
+            this.bytes = content.getBytes(StandardCharsets.UTF_8);
+        }
+
+        @Override
+        public int read() throws IOException {
+            if (failNextRead) {
+                throw new IOException("simulated read failure");
+            }
+            if (position >= bytes.length) {
+                return -1;
+            }
+            int value = bytes[position++] & 0xff;
+            if (value == '\n') {
+                failNextRead = true;
+            }
+            return value;
+        }
+
+        @Override
+        public int read(byte[] buffer, int offset, int length) throws IOException {
+            if (failNextRead) {
+                throw new IOException("simulated read failure");
+            }
+            if (position >= bytes.length) {
+                return -1;
+            }
+            int count = 0;
+            while (count < length && position < bytes.length) {
+                int value = bytes[position++] & 0xff;
+                buffer[offset + count] = (byte) value;
+                count++;
+                if (value == '\n') {
+                    failNextRead = true;
+                    break;
+                }
+            }
+            return count;
         }
     }
 }

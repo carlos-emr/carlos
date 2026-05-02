@@ -75,6 +75,30 @@ class BillingMoneyUnitTest {
     }
 
     @Test
+    void shouldThrowValidation_whenAmountReceivesNull() {
+        assertThatThrownBy(() -> BillingMoney.amount(null))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("amount")
+                .hasMessageContaining("null or blank");
+    }
+
+    @Test
+    void shouldThrowValidation_whenOhipFeeAmountReceivesNull() {
+        assertThatThrownBy(() -> BillingMoney.ohipFeeAmount(null))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("amount")
+                .hasMessageContaining("null or blank");
+    }
+
+    @Test
+    void shouldThrowValidation_whenIsPositiveReceivesNull() {
+        assertThatThrownBy(() -> BillingMoney.isPositive(null))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("amount")
+                .hasMessageContaining("null or blank");
+    }
+
+    @Test
     void shouldReturnAmount_whenAmountOrThrowReceivesValid() {
         assertThat(BillingMoney.amountOrThrow("12.34")).isEqualByComparingTo("12.34");
         assertThat(BillingMoney.amountOrThrow("0.005")).isEqualByComparingTo("0.01");

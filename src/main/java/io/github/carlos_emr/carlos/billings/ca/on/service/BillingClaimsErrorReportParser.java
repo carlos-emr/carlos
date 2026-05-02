@@ -171,9 +171,11 @@ public class BillingClaimsErrorReportParser {
             // Flip verdict false so an unreadable-mid-parse file doesn't
             // surface to the caller as "import succeeded".
             verdict = false;
+            claimsErrorReportRecords.clear();
             MiscUtils.getLogger().error("Claims-error parse failed (IOException), verdict=false", ioe);
         } catch (StringIndexOutOfBoundsException ioe) {
             verdict = false;
+            claimsErrorReportRecords.clear();
             MiscUtils.getLogger().error("Claims-error parse failed (malformed record layout), verdict=false", ioe);
         }
 

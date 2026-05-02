@@ -42,6 +42,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao;
@@ -54,6 +55,13 @@ import io.github.carlos_emr.carlos.commn.model.Billing;
 @Tag("unit")
 @Tag("billing")
 class OhipClaimExtractServiceUnitTest {
+
+    @Test
+    void shouldMarkSetAsBilledTransactional() throws Exception {
+        assertThat(OhipClaimExtractService.class
+                .getMethod("setAsBilled", String.class)
+                .getAnnotation(Transactional.class)).isNotNull();
+    }
 
     @Test
     void shouldCalculateTotalsWithoutBinaryFloatingPointRounding() {

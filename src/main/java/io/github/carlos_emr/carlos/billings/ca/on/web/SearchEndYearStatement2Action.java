@@ -63,7 +63,7 @@ public class SearchEndYearStatement2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        PatientEndYearStatementSupport.echoNames(request);
+        PatientEndYearStatements.echoNames(request);
         request.setAttribute("fromDateParam", getFromDateParam());
         request.setAttribute("toDateParam", getToDateParam());
 
@@ -80,8 +80,8 @@ public class SearchEndYearStatement2Action extends ActionSupport {
         try {
             result = statementService.aggregateInvoices(
                     demographic,
-                    PatientEndYearStatementSupport.parseIso(getFromDateParam()),
-                    PatientEndYearStatementSupport.parseIso(getToDateParam()));
+                    PatientEndYearStatements.parseIso(getFromDateParam()),
+                    PatientEndYearStatements.parseIso(getToDateParam()));
         } catch (PatientEndYearStatementService.Failure ex) {
             return failWithI18n(ex);
         }
@@ -94,7 +94,7 @@ public class SearchEndYearStatement2Action extends ActionSupport {
 
     private String failWithI18n(PatientEndYearStatementService.Failure failure) {
         addActionError(getText(failure.reason().i18nKey()));
-        PatientEndYearStatementSupport.logFailure(failure, getFirstNameParam(), getLastNameParam());
+        PatientEndYearStatements.logFailure(failure, getDemographicNoParam());
         return "failure";
     }
 

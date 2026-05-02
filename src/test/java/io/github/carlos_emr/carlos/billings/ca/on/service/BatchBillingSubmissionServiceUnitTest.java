@@ -7,6 +7,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import io.github.carlos_emr.carlos.commn.dao.BatchBillingDAO;
 import io.github.carlos_emr.carlos.commn.model.BatchBilling;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -57,11 +58,13 @@ class BatchBillingSubmissionServiceUnitTest {
         when(batchBillingDAO.find(42, "A007A")).thenReturn(List.of(first));
         when(batchBillingDAO.find(43, "K005A")).thenReturn(List.of(second));
 
-        service.submitAll(List.of(
+        BatchBillingSubmissionService.SubmitResult result = service.submitAll(List.of(
                 new BatchBillingSubmissionService.Row("A007A", "250", 42, "999998"),
                 new BatchBillingSubmissionService.Row("K005A", "401", 43, "999999")),
                 "clinic-a", billingDate, "999998");
 
+        assertThat(result.submittedCount()).isEqualTo(2);
+        assertThat(result.failures()).isEmpty();
         assertThat(first.getBillingAmount()).isEqualTo("12.34");
         assertThat(first.getLastBilledDate()).isEqualTo(billingDate);
         assertThat(second.getBillingAmount()).isEqualTo("56.78");
@@ -103,5 +106,29 @@ class BatchBillingSubmissionServiceUnitTest {
                 .hasMessageContaining("current user");
 
         verifyNoInteractions(headerCreationService, batchBillingDAO);
+    }
+
+    @Test
+    void shouldReturnRowFailureAndNotMarkAnyRowsBilled_whenDemographicIsUnbillable() {
+        BatchBilling first = new BatchBilling();
+        first.setId(1);
+        when(batchBillingDAO.find(42, "A007A")).thenReturn(List.of(first));
+        org.mockito.Mockito.doNothing()
+                .when(headerCreationService).validateBillableDemographic(42);
+        org.mockito.Mockito.doThrow(new BillingValidationException("Missing demographic for demographicNo=43"))
+                .when(headerCreationService).validateBillableDemographic(43);
+
+        BatchBillingSubmissionService.SubmitResult result = service.submitAll(List.of(
+                new BatchBillingSubmissionService.Row("A007A", "250", 42, "999998"),
+                new BatchBillingSubmissionService.Row("K005A", "401", 43, "999999")),
+                "clinic-a", billingDate, "999998");
+
+        assertThat(result.submittedCount()).isZero();
+        assertThat(result.failures()).hasSize(1);
+        assertThat(result.failures().get(0).rowIndex()).isEqualTo(1);
+        assertThat(result.failures().get(0).message()).contains("demographicNo=43");
+        verify(headerCreationService, never()).createBill(any(), any(), any(), any(), any(), any(), any());
+        verify(batchBillingDAO, never()).merge(any());
+        assertThat(first.getLastBilledDate()).isNull();
     }
 }

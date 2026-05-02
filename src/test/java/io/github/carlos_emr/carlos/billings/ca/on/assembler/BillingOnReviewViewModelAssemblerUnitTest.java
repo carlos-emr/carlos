@@ -98,8 +98,8 @@ class BillingOnReviewViewModelAssemblerUnitTest extends CarlosUnitTestBase {
         BillingOnReviewValidator stubValidator = Mockito.mock(BillingOnReviewValidator.class);
         when(stubValidator.validate(any(), any(), any())).thenReturn(
                 new BillingOnReviewValidator.Result(java.util.Collections.emptyList(), true));
-        io.github.carlos_emr.carlos.billings.ca.on.service.GstSettingsService gstSettingsService =
-                Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.GstSettingsService.class);
+        io.github.carlos_emr.carlos.billings.ca.service.GstSettingsService gstSettingsService =
+                Mockito.mock(io.github.carlos_emr.carlos.billings.ca.service.GstSettingsService.class);
         when(gstSettingsService.getCurrentPercent()).thenReturn(null);
         io.github.carlos_emr.carlos.billings.ca.on.service.GstReportService gstReport =
                 Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.GstReportService.class);
@@ -120,6 +120,16 @@ class BillingOnReviewViewModelAssemblerUnitTest extends CarlosUnitTestBase {
         BillingOnReviewViewModel m = assembler.assemble(request, null);
         assertThat(m.getDxCode()).isEqualTo("401");
         assertThat(m.getDxDesc()).isEqualTo("Essential, benign hypertension");
+    }
+
+    @Test
+    void shouldGatePrivatePayReview_whenGstSettingsUnavailable() {
+        request.setParameter("xml_billtype", "PAT");
+
+        BillingOnReviewViewModel m = assembler.assemble(request, null);
+
+        assertThat(m.isPrivatePayer()).isTrue();
+        assertThat(m.isTotalsParseFailed()).isTrue();
     }
 
     @Test

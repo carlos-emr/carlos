@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import org.springframework.transaction.annotation.Transactional;
 /**
  * Builds fixed-width OHIP claim extracts and companion HTML previews from
  * Ontario billing rows. The prototype instance holds the current provider,
@@ -495,6 +496,7 @@ public class OhipClaimExtractService implements Serializable {
      * @param newInvNo billing invoice number that resolves to a {@link Billing} row.
      * @throws NumberFormatException when {@code newInvNo} is not numeric.
      */
+    @Transactional
     public void setAsBilled(String newInvNo) {
         Billing b = billingDao.find(Integer.parseInt(newInvNo));
         if (b != null) {

@@ -19,7 +19,7 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.billings.ca.on.service;
+package io.github.carlos_emr.carlos.billings.ca.service;
 
 import java.math.BigDecimal;
 import java.util.List;

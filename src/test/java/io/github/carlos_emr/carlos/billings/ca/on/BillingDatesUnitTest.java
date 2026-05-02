@@ -232,6 +232,12 @@ class BillingDatesUnitTest {
     }
 
     @Test
+    void shouldFormatSqlDateAsOhipDate_withoutThrowing() {
+        java.sql.Date sqlDate = java.sql.Date.valueOf("2026-04-30");
+        assertThat(BillingDates.toOhipDate(sqlDate)).isEqualTo("20260430");
+    }
+
+    @Test
     void shouldFormatSqlTime_withoutThrowing() {
         java.sql.Time sqlTime = java.sql.Time.valueOf("12:34:56");
         assertThat(BillingDates.formatIsoTime(sqlTime)).isEqualTo("12:34:56");

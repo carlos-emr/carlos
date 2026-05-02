@@ -22,24 +22,38 @@
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 /**
- * Thrown when a diagnostic-code description update cannot complete because
- * the persistence layer failed. A missing code is a validation outcome and is
- * still reported as "not updated"; DAO, lock, and merge failures use this
- * exception so Spring rolls back the transaction instead of showing a generic
- * form failure.
+ * Thrown when a diagnostic-code description update cannot complete. Distinguishes
+ * missing/malformed codes and persistence failures from a successful update so
+ * callers do not collapse all outcomes into a boolean.
  */
 public class DiagDescriptionUpdateException extends RuntimeException {
 
     private static final long serialVersionUID = 1L;
 
     private final String diagnosticCode;
+    private final String reason;
 
     public DiagDescriptionUpdateException(String diagnosticCode, Throwable cause) {
-        super("Diagnostic code description update failed for " + diagnosticCode, cause);
+        this(diagnosticCode, "persistence failure", cause);
+    }
+
+    public DiagDescriptionUpdateException(String diagnosticCode, String reason) {
+        this(diagnosticCode, reason, null);
+    }
+
+    public DiagDescriptionUpdateException(String diagnosticCode, String reason, Throwable cause) {
+        super("Diagnostic code description update failed for "
+                + (diagnosticCode == null || diagnosticCode.isBlank() ? "<missing>" : diagnosticCode)
+                + ": " + reason, cause);
         this.diagnosticCode = diagnosticCode;
+        this.reason = reason;
     }
 
     public String diagnosticCode() {
         return diagnosticCode;
+    }
+
+    public String reason() {
+        return reason;
     }
 }

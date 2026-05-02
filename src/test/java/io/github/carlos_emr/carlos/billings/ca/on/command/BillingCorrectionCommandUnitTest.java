@@ -116,6 +116,47 @@ class BillingCorrectionCommandUnitTest {
     }
 
     @Test
+    void shouldSanitizeMalformedDateValue_inValidationMessage() {
+        assertThatThrownBy(() -> new BillingCorrectionSubmitCommand(
+                "42",
+                "<rd>Ref Doctor</rd>",
+                "3000",
+                "1234567890",
+                "not-a-date\r\nforged=true",
+                "00",
+                "2026-04-28",
+                "O",
+                "0000",
+                "999998",
+                "2026-04-28",
+                List.of()))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("dob")
+                .hasMessageNotContaining("\r")
+                .hasMessageNotContaining("\n");
+    }
+
+    @Test
+    void shouldTreatBlankSubmitTotalAsZero_withWhitespace() {
+        BillingCorrectionSubmitCommand command = new BillingCorrectionSubmitCommand(
+                "42",
+                "<rd>Ref Doctor</rd>",
+                " ",
+                "1234567890",
+                "",
+                "00",
+                "",
+                "O",
+                "0000",
+                "999998",
+                "",
+                List.of());
+
+        assertThat(command.totalStored()).isEqualTo("0");
+        assertThat(command.total().format()).isEqualTo("0.00");
+    }
+
+    @Test
     void shouldAllowBlankOptionalDates_forValidationCommand() {
         BillingCorrectionValidationCommand command = new BillingCorrectionValidationCommand(
                 "250|Diabetes",

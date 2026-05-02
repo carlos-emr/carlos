@@ -46,6 +46,26 @@
     <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
 
     <script type="text/javascript">
+        function csrfTokenValue() {
+            var tokenInput = document.querySelector("input[name='CSRF-TOKEN']");
+            return tokenInput ? tokenInput.value : "";
+        }
+
+        function attachCsrfToken(form) {
+            var token = csrfTokenValue();
+            if (!form || token.length === 0) {
+                return;
+            }
+            var existing = form.querySelector("input[name='CSRF-TOKEN']");
+            if (!existing) {
+                existing = document.createElement("input");
+                existing.type = "hidden";
+                existing.name = "CSRF-TOKEN";
+                form.appendChild(existing);
+            }
+            existing.value = token;
+        }
+
         function onSubmit() {
             var val1 = document.form1.file1.value;
             var n = val1.lastIndexOf('\\');
@@ -57,17 +77,21 @@
             if (val1.substring(0, 1) == "P" || val1.substring(0, 1) == "S") {
                 if (document.all) {
                     document.all.form1.action = "${pageContext.request.contextPath}/servlet/io.github.carlos_emr.DocumentUploadServlet";
+                    attachCsrfToken(document.all.form1);
                     document.all.form1.submit();
                 } else {
                     document.getElementById('form1').action = "${pageContext.request.contextPath}/servlet/io.github.carlos_emr.DocumentUploadServlet";
+                    attachCsrfToken(document.getElementById('form1'));
                     document.getElementById('form1').submit();
                 }
             } else {
                 if (document.all) {
                     document.all.form1.action = "${pageContext.request.contextPath}/oscarBilling/DocumentErrorReportUpload";
+                    attachCsrfToken(document.all.form1);
                     document.all.form1.submit();
                 } else {
                     document.getElementById('form1').action = "${pageContext.request.contextPath}/oscarBilling/DocumentErrorReportUpload";
+                    attachCsrfToken(document.getElementById('form1'));
                     document.getElementById('form1').submit();
                 }
             }
@@ -77,9 +101,10 @@
 </head>
 
 <body>
+<%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
 <h3><fmt:message key="admin.admin.uploadMOHFile"/></h3>
 <div class="container-fluid card card-body bg-body-tertiary">
-    <form id="form1" name="form1" method="post" action="" ENCTYPE="multipart/form-data" onsubmit="return onSubmit();">
+    <form id="form1" name="form1" method="post" action="${pageContext.request.contextPath}/oscarBilling/DocumentErrorReportUpload" ENCTYPE="multipart/form-data" onsubmit="return onSubmit();">
         Select diskette<input style="margin-left:40px;" type="file" name="file1" value="" required>
         <input class="btn btn-primary" type="submit" name="Submit" value="Create Report">
     </form>

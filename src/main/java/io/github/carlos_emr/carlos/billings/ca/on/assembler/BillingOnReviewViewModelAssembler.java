@@ -37,7 +37,7 @@ import java.util.ArrayList;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.appt.ApptUtil;
-import io.github.carlos_emr.carlos.billings.ca.on.service.GstSettingsService;
+import io.github.carlos_emr.carlos.billings.ca.service.GstSettingsService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.GstReportService;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingReviewServiceParam;
@@ -359,6 +359,7 @@ public class BillingOnReviewViewModelAssembler {
         // or GST percent fails strict parsing, so the JSP can banner-warn
         // and gate Submit.
         boolean[] parseFailed = {false};
+        boolean privatePayer = isPrivatePayer(request.getParameter("xml_billtype"));
         BigDecimal currentGst;
         try {
             currentGst = gstSettingsService.getCurrentPercent();
@@ -367,6 +368,11 @@ public class BillingOnReviewViewModelAssembler {
             currentGst = null;
         }
         String percent = currentGst == null ? "" : currentGst.toPlainString();
+        if (currentGst == null && privatePayer) {
+            parseFailed[0] = true;
+            MiscUtils.getLogger().error(
+                    "BillingOnReviewViewModelAssembler: GST percent unavailable for private-pay review; submission must be gated.");
+        }
         b.gstPercent(percent);
         GstReportService gstRep = gstReport;
 
@@ -455,7 +461,13 @@ public class BillingOnReviewViewModelAssembler {
                 List<BillingOnReviewViewModel.PercSegment> segments = new ArrayList<>();
                 int unitInt = parseIntSafe(codeUnit, 0);
                 for (int j = 0; j < percentageTotals.size(); j++) {
-                    String pt = String.valueOf((Float.parseFloat(percentageTotals.get(j))) * unitInt);
+                    String pt = parseReviewMoney(
+                            percentageTotals.get(j),
+                            "percentageTotal[" + codeName + ":" + j + "]",
+                            parseFailed)
+                            .multiply(BigDecimal.valueOf(unitInt))
+                            .stripTrailingZeros()
+                            .toPlainString();
                     String factor = j < percentageFees.size() ? String.valueOf(percentageFees.get(j)) : "";
                     segments.add(new BillingOnReviewViewModel.PercSegment(pt, factor));
                 }
@@ -486,8 +498,8 @@ public class BillingOnReviewViewModelAssembler {
                                                     Map<String, BillingOnReviewViewModel.ProviderName> providerNames,
                                                     String loggedInUserNo) {
         String xmlBilltype = request.getParameter("xml_billtype");
-        boolean publicPayer = xmlBilltype != null && xmlBilltype.matches("ODP.*|WCB.*|NOT.*|BON.*");
-        boolean privatePayer = xmlBilltype != null && !publicPayer;
+        boolean publicPayer = isPublicPayer(xmlBilltype);
+        boolean privatePayer = isPrivatePayer(xmlBilltype);
         boolean bMultisites = IsPropertiesOn.isMultisitesEnable();
 
         String tempLoc;
@@ -684,6 +696,14 @@ public class BillingOnReviewViewModelAssembler {
                     fieldName, io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(trimmed));
             return BigDecimal.ZERO;
         }
+    }
+
+    private static boolean isPublicPayer(String billType) {
+        return billType != null && billType.matches("ODP.*|WCB.*|NOT.*|BON.*");
+    }
+
+    private static boolean isPrivatePayer(String billType) {
+        return billType != null && !isPublicPayer(billType);
     }
 
     private static int parseIntSafe(String s, int fallback) {

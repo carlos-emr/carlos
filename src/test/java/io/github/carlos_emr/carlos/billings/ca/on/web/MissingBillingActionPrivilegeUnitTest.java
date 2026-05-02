@@ -33,6 +33,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.OnRaImportService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.OnRaSettlementService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.OnRaSummaryTotalsService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.RaHeaderTotalsPersister;
+import io.github.carlos_emr.carlos.billings.ca.on.service.ServiceCodePersister;
 import io.github.carlos_emr.carlos.commn.dao.Billing3rdPartyAddressDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.dao.ReportProviderDao;
@@ -172,7 +173,9 @@ class MissingBillingActionPrivilegeUnitTest extends CarlosUnitTestBase {
                         (ActionHarnessFactory) security -> {
                             BillingOnEditPrivateCodeViewModelAssembler assembler =
                                     mock(BillingOnEditPrivateCodeViewModelAssembler.class);
-                            return harness(() -> new ViewBillingOnEditPrivateCode2Action(security, assembler).execute(), assembler);
+                            ServiceCodePersister persister = mock(ServiceCodePersister.class);
+                            return harness(() -> new ViewBillingOnEditPrivateCode2Action(security, assembler, persister)
+                                    .execute(), assembler, persister);
                         }),
                 Arguments.of("ViewBillingOnHistory2Action", "_billing",
                         (ActionHarnessFactory) security -> {

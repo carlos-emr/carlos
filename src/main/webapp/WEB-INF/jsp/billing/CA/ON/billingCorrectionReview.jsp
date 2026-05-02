@@ -235,24 +235,24 @@
 
     <form action="${pageContext.request.contextPath}/billing/CA/ON/BillingCorrectionSubmit" method="post">
         <c:if test="${reviewModel.dataLoaded}">
-            <input type="hidden" name="billingNo" value="${fn:escapeXml(reviewModel.billingNo)}"/>
-            <input type="hidden" name="content" value="${fn:escapeXml(reviewModel.content)}"/>
-            <input type="hidden" name="total" value="${fn:escapeXml(reviewModel.storedTotal)}"/>
-            <input type="hidden" name="hin" value="${fn:escapeXml(reviewModel.hin)}"/>
-            <input type="hidden" name="dob" value="${fn:escapeXml(reviewModel.demoDob)}"/>
-            <input type="hidden" name="visitType" value="${fn:escapeXml(reviewModel.visitType)}"/>
-            <input type="hidden" name="visitDate" value="${fn:escapeXml(reviewModel.visitDate)}"/>
-            <input type="hidden" name="status" value="${fn:escapeXml(reviewModel.billingType)}"/>
-            <input type="hidden" name="clinicRefCode" value="${fn:escapeXml(reviewModel.visitLocation)}"/>
-            <input type="hidden" name="providerNo" value="${fn:escapeXml(reviewModel.billingPhysicianNo)}"/>
-            <input type="hidden" name="billingDate" value="${fn:escapeXml(reviewModel.billingDate)}"/>
+            <input type="hidden" name="billingNo" value="${carlos:forHtmlAttribute(reviewModel.billingNo)}"/>
+            <input type="hidden" name="content" value="${carlos:forHtmlAttribute(reviewModel.content)}"/>
+            <input type="hidden" name="total" value="${carlos:forHtmlAttribute(reviewModel.storedTotal)}"/>
+            <input type="hidden" name="hin" value="${carlos:forHtmlAttribute(reviewModel.hin)}"/>
+            <input type="hidden" name="dob" value="${carlos:forHtmlAttribute(reviewModel.demoDob)}"/>
+            <input type="hidden" name="visitType" value="${carlos:forHtmlAttribute(reviewModel.visitType)}"/>
+            <input type="hidden" name="visitDate" value="${carlos:forHtmlAttribute(reviewModel.visitDate)}"/>
+            <input type="hidden" name="status" value="${carlos:forHtmlAttribute(reviewModel.billingType)}"/>
+            <input type="hidden" name="clinicRefCode" value="${carlos:forHtmlAttribute(reviewModel.visitLocation)}"/>
+            <input type="hidden" name="providerNo" value="${carlos:forHtmlAttribute(reviewModel.billingPhysicianNo)}"/>
+            <input type="hidden" name="billingDate" value="${carlos:forHtmlAttribute(reviewModel.billingDate)}"/>
             <input type="hidden" name="itemCount" value="${fn:length(reviewModel.billingItems)}"/>
             <c:forEach var="__submitItem" items="${reviewModel.billingItems}" varStatus="__submitStatus">
-                <input type="hidden" name="serviceCode_${__submitStatus.index}" value="${fn:escapeXml(__submitItem.serviceCode)}"/>
-                <input type="hidden" name="description_${__submitStatus.index}" value="${fn:escapeXml(__submitItem.description)}"/>
-                <input type="hidden" name="serviceValue_${__submitStatus.index}" value="${fn:escapeXml(__submitItem.storedFee)}"/>
-                <input type="hidden" name="diagCode_${__submitStatus.index}" value="${fn:escapeXml(__submitItem.diagCode)}"/>
-                <input type="hidden" name="quantity_${__submitStatus.index}" value="${fn:escapeXml(__submitItem.quantity)}"/>
+                <input type="hidden" name="serviceCode_${__submitStatus.index}" value="${carlos:forHtmlAttribute(__submitItem.serviceCode)}"/>
+                <input type="hidden" name="description_${__submitStatus.index}" value="${carlos:forHtmlAttribute(__submitItem.description)}"/>
+                <input type="hidden" name="serviceValue_${__submitStatus.index}" value="${carlos:forHtmlAttribute(__submitItem.storedFee)}"/>
+                <input type="hidden" name="diagCode_${__submitStatus.index}" value="${carlos:forHtmlAttribute(__submitItem.diagCode)}"/>
+                <input type="hidden" name="quantity_${__submitStatus.index}" value="${carlos:forHtmlAttribute(__submitItem.quantity)}"/>
             </c:forEach>
         </c:if>
         <input type="submit" name="submit"

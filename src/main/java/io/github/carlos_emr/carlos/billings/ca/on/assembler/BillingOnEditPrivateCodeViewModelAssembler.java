@@ -35,22 +35,19 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.ServiceCodeLoader;
 import io.github.carlos_emr.carlos.billings.ca.on.service.ServiceCodePersister;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 /**
  * Assembles {@link BillingOnEditPrivateCodeViewModel} for
  * {@code billingONEditPrivateCode.jsp}, the manage-private-billing-code
- * admin form. Owns the four legacy form-processing branches the JSP
+ * admin form. Owns the read-side search branch and option population the JSP
  * performed inline in a 130-line top-of-page scriptlet:
  *
  * <ul>
- *   <li>{@code submit=Save} with {@code action.startsWith("edit")} &rarr;
- *       {@link ServiceCodePersister#updateCodeByName}</li>
- *   <li>{@code submit=Save} with {@code action.startsWith("add")} &rarr;
- *       {@link ServiceCodePersister#addCodeByStr}</li>
  *   <li>{@code submit=Search} &rarr; {@link ServiceCodeLoader#getBillingCodeAttr}</li>
- *   <li>{@code submit=Delete} &rarr; {@link ServiceCodePersister#deletePrivateCode}</li>
  * </ul>
+ *
+ * <p>The action layer invokes {@link ServiceCodePersister} for add/edit/delete
+ * submissions before calling this assembler.</p>
  *
  * <p>The legacy code prefixed all stored service codes with an underscore
  * to disambiguate from regular billing codes; that convention is
@@ -63,37 +60,35 @@ public class BillingOnEditPrivateCodeViewModelAssembler {
 
     private static final String SUFFIX_TYPE_TO_SEARCH =
             "Type in a service code and search first to see if it is available.";
-    private static final String FONT_RED_NOT = "<font color='red'>NOT</font>";
-    private static final String VERB_UPDATED = "u" + "pdated";
-    private static final String VERB_DELETED = "d" + "eleted";
-    private static final String VERB_ADDED = "added";
 
     private final ServiceCodeLoader codeLoader;
-    private final ServiceCodePersister codePersister;
 
-    /** Production constructor — Struts no-arg shape. */
-    public BillingOnEditPrivateCodeViewModelAssembler(ServiceCodeLoader codeLoader,
-                                                 ServiceCodePersister codePersister) {
+    public BillingOnEditPrivateCodeViewModelAssembler(ServiceCodeLoader codeLoader) {
         this.codeLoader = codeLoader;
-        this.codePersister = codePersister;
     }
 
-    /** Build the view model. Mirrors all four legacy submit modes. */
+    /** Build the read-side view model. */
     public BillingOnEditPrivateCodeViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
+        return assemble(request, loggedInInfo, null);
+    }
+
+    /** Build the view model after an optional private-code mutation. */
+    public BillingOnEditPrivateCodeViewModel assemble(
+            HttpServletRequest request, LoggedInInfo loggedInInfo,
+            ServiceCodePersister.PrivateCodeMutationResult mutationResult) {
         Map<String, String> formFields = new HashMap<>();
         String msg = SUFFIX_TYPE_TO_SEARCH;
         String alert = "info";
         String action = "search";
 
         String submit = request.getParameter("submit");
-        if ("Save".equals(submit)) {
-            FormResult r = handleSave(request, formFields);
-            msg = r.msg; action = r.action; alert = r.alert;
+        if (mutationResult != null) {
+            msg = mutationResult.message();
+            action = mutationResult.action();
+            alert = mutationResult.alert();
+            formFields.putAll(mutationResult.formFields());
         } else if ("Search".equals(submit)) {
             FormResult r = handleSearch(request, formFields);
-            msg = r.msg; action = r.action;
-        } else if ("Delete".equals(submit)) {
-            FormResult r = handleDelete(request, formFields);
             msg = r.msg; action = r.action;
         }
 
@@ -125,78 +120,6 @@ public class BillingOnEditPrivateCodeViewModelAssembler {
                 .build();
     }
 
-    private FormResult handleSave(HttpServletRequest request, Map<String, String> formFields) {
-        String actionParam = nullToEmpty(request.getParameter("action"));
-        String valuePara = nullToEmpty(request.getParameter("value"));
-        if (actionParam.startsWith("edit")) {
-            String serviceCode = "_" + nullToEmpty(request.getParameter("service_code"));
-            if (!serviceCode.equals(actionParam.substring("edit".length()))) {
-                formFields.put("service_code", serviceCode);
-                String mismatchMsg = new StringBuilder()
-                        .append("You can ").append(FONT_RED_NOT).append(" save the service code - ")
-                        .append(SafeEncode.forHtml(serviceCode))
-                        .append(". Please search the service code first.").toString();
-                return new FormResult(mismatchMsg, "search", "info");
-            }
-            boolean ok = codePersister.updateCodeByName(serviceCode,
-                    request.getParameter("description"), valuePara, "0.00",
-                    request.getParameter("billingservice_date"),
-                    request.getParameter("gstFlag"));
-            String safeCode = SafeEncode.forHtml(serviceCode);
-            if (ok) {
-                formFields.put("service_code", serviceCode);
-                String okMsg = new StringBuilder().append(safeCode).append(" is ")
-                        .append(VERB_UPDATED).append(".<br>")
-                        .append(SUFFIX_TYPE_TO_SEARCH).toString();
-                return new FormResult(okMsg, "search", "info");
-            }
-            // Persist failed
-            formFields.put("service_code", serviceCode);
-            String desc = nullToEmpty(request.getParameter("description"));
-            formFields.put("description", desc);
-            formFields.put("value", valuePara);
-            formFields.put("billingservice_date", nullToEmpty(request.getParameter("billingservice_date")));
-            formFields.put("gstFlag", nullToEmpty(request.getParameter("gstFlag")));
-            String failMsg = new StringBuilder().append(safeCode).append(" is ")
-                    .append(FONT_RED_NOT).append(" ").append(VERB_UPDATED)
-                    .append(". Action failed! Try edit it again.").toString();
-            return new FormResult(failMsg, "edit" + serviceCode, "info");
-        }
-        if (actionParam.startsWith("add")) {
-            String serviceCode = "_" + nullToEmpty(request.getParameter("service_code"));
-            String safeCode = SafeEncode.forHtml(serviceCode);
-            if (!serviceCode.equals(actionParam.substring("add".length()))) {
-                formFields.put("service_code", serviceCode);
-                String mismatchMsg = new StringBuilder().append("You can not save the service code - ")
-                        .append(safeCode)
-                        .append(". Please search the service code first.").toString();
-                return new FormResult(mismatchMsg, "search", "error");
-            }
-            int rc = codePersister.addCodeByStr(serviceCode,
-                    request.getParameter("description"), valuePara, "0.00",
-                    request.getParameter("billingservice_date"),
-                    request.getParameter("gstFlag"));
-            if (rc > 0) {
-                formFields.put("service_code", serviceCode);
-                String okMsg = new StringBuilder().append(safeCode).append(" is ")
-                        .append(VERB_ADDED).append(".<br>")
-                        .append(SUFFIX_TYPE_TO_SEARCH).toString();
-                return new FormResult(okMsg, "search", "info");
-            }
-            formFields.put("service_code", serviceCode);
-            String desc = nullToEmpty(request.getParameter("description"));
-            formFields.put("description", desc);
-            formFields.put("value", valuePara);
-            formFields.put("billingservice_date", nullToEmpty(request.getParameter("billingservice_date")));
-            formFields.put("gstFlag", nullToEmpty(request.getParameter("gstFlag")));
-            String failMsg = safeCode + " is not added. Action failed! Try edit it again.";
-            return new FormResult(failMsg, "add" + serviceCode, "error");
-        }
-        return new FormResult(
-                "You can not save the service code. Please search the service code first.",
-                "search", "error");
-    }
-
     private FormResult handleSearch(HttpServletRequest request, Map<String, String> formFields) {
         if (request.getParameter("service_code") == null) {
             return new FormResult("Please type in a right service code.", "search", "info");
@@ -217,22 +140,6 @@ public class BillingOnEditPrivateCodeViewModelAssembler {
         formFields.put("service_code", serviceCode);
         return new FormResult("It is a NEW service code. You can add it.",
                 "add" + serviceCode, "info");
-    }
-
-    private FormResult handleDelete(HttpServletRequest request, Map<String, String> formFields) {
-        if (request.getParameter("service_code") == null) {
-            return new FormResult("Please type in a right service code.", "search", "info");
-        }
-        String serviceCode = "_" + nullToEmpty(request.getParameter("service_code"));
-        if (codePersister.deletePrivateCode(serviceCode)) {
-            formFields.put("service_code", "_");
-            String okMsg = new StringBuilder().append(SafeEncode.forHtml(serviceCode))
-                    .append(" is ").append(VERB_DELETED).append(".<br>")
-                    .append(SUFFIX_TYPE_TO_SEARCH).toString();
-            return new FormResult(okMsg, "search", "info");
-        }
-        // No legacy fallthrough — leave message at default
-        return new FormResult(SUFFIX_TYPE_TO_SEARCH, "search", "info");
     }
 
     private static String nullToEmpty(String s) { return s == null ? "" : s; }

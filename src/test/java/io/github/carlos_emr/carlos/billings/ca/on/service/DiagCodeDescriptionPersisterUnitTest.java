@@ -60,25 +60,28 @@ class DiagCodeDescriptionPersisterUnitTest {
     }
 
     @Test
-    void shouldReturnFalseAndNotMerge_whenSubmitValueCannotCarryCode() {
+    void shouldThrowTypedException_whenSubmitValueCannotCarryCode() {
         DiagnosticCodeDao dao = mock(DiagnosticCodeDao.class);
         DiagCodeDescriptionPersister persister = new DiagCodeDescriptionPersister(dao);
 
-        boolean updated = persister.updateDescription("x", "ignored");
+        assertThatThrownBy(() -> persister.updateDescription("x", "ignored"))
+                .isInstanceOf(DiagDescriptionUpdateException.class)
+                .hasMessageContaining("missing diagnostic code");
 
-        assertThat(updated).isFalse();
         verify(dao, never()).merge(any(DiagnosticCode.class));
     }
 
     @Test
-    void shouldReturnFalseAndNotMerge_whenDiagnosticCodeDoesNotExist() {
+    void shouldThrowTypedException_whenDiagnosticCodeDoesNotExist() {
         DiagnosticCodeDao dao = mock(DiagnosticCodeDao.class);
         DiagCodeDescriptionPersister persister = new DiagCodeDescriptionPersister(dao);
         when(dao.findByDiagnosticCode("999")).thenReturn(List.of());
 
-        boolean updated = persister.updateDescription("update999", "ignored");
+        assertThatThrownBy(() -> persister.updateDescription("update999", "ignored"))
+                .isInstanceOf(DiagDescriptionUpdateException.class)
+                .hasMessageContaining("999")
+                .hasMessageContaining("not found");
 
-        assertThat(updated).isFalse();
         verify(dao, never()).merge(any(DiagnosticCode.class));
     }
 
