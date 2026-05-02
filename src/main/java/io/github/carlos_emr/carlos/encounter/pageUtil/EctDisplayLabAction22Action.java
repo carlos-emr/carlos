@@ -36,7 +36,6 @@ import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
@@ -82,17 +81,8 @@ public class EctDisplayLabAction22Action extends EctDisplayAction {
 
             winName = "AllLabs" + bean.demographicNo;
 
-            if (CarlosProperties.getInstance().getBooleanProperty("HL7TEXT_LABS", "yes")) {
-                Dao.addPopUpMenu(700, 1000, winName, request.getContextPath() + "/lab/ViewCumulativeLabValues3?demographic_no=" + bean.demographicNo);
-                Dao.addPopUpText(getText("encounter.LeftNavBar.LabMenuItem1"));
-                if (CarlosProperties.getInstance().getProperty("labs.hide_old_grid_display", "false").equals("false")) {
-                    Dao.addPopUpMenu(700, 1000, winName, request.getContextPath() + "/lab/ViewCumulativeLabValues2?demographic_no=" + bean.demographicNo);
-                    Dao.addPopUpText(getText("encounter.LeftNavBar.LabMenuItem1") + "-OLD");
-                }
-            } else {
-                Dao.addPopUpMenu(700, 1000, winName, request.getContextPath() + "/lab/ViewCumulativeLabValues2?demographic_no=" + bean.demographicNo);
-                Dao.addPopUpText(getText("encounter.LeftNavBar.LabMenuItem1"));
-            }
+            Dao.addPopUpMenu(700, 1000, winName, request.getContextPath() + "/lab/ViewCumulativeLabValues3?demographic_no=" + bean.demographicNo);
+            Dao.addPopUpText(getText("encounter.LeftNavBar.LabMenuItem1"));
             Dao.addPopUpMenu(700, 1000, winName, request.getContextPath() + "/lab/ViewCumulativeLabValues?demographic_no=" + bean.demographicNo);
             Dao.addPopUpText(getText("encounter.LeftNavBar.LabMenuItem2"));
 
