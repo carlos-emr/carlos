@@ -35,8 +35,6 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
-<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -149,6 +147,7 @@
 
 
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
@@ -208,8 +207,7 @@
                 alert("calling addLabToProfile");
                 var url = "<%= request.getContextPath() %>/lab/ViewDisplayLabValue";
                 var ran_number = Math.round(Math.random() * 1000000);
-                <c:set var="__enc_1"><carlos:encode value='<%= StringUtils.noNull(demographic_no) %>' context="uriComponent"/></c:set>
-                var params = "demographicNo=<carlos:encode value='${__enc_1}' context="javaScript"/>&rand=" + ran_number + "&labType=" + encodeURIComponent(labType) + "&testName=" + encodeURIComponent(testName);  //hack to get around ie caching the page
+                var params = "demographicNo=<%= SafeEncode.forJavaScript(StringUtils.noNull(demographic_no)) %>&rand=" + ran_number + "&labType=" + encodeURIComponent(labType) + "&testName=" + encodeURIComponent(testName);
                 alert(params);
                 CarlosAjax.updater('dd', url + '?' + params, {
                     method: 'GET',
@@ -232,8 +230,7 @@
 
                 var url = "<%= request.getContextPath() %>/lab/ViewDisplayLabValue";
                 var ran_number = Math.round(Math.random() * 1000000);
-                <c:set var="__enc_2"><carlos:encode value='<%= StringUtils.noNull(demographic_no) %>' context="uriComponent"/></c:set>
-                var params = "demographicNo=<carlos:encode value='${__enc_2}' context="javaScript"/>&rand=" + ran_number + "&labType=" + encodeURIComponent(labType) + "&testName=" + encodeURIComponent(testName);  //hack to get around ie caching the page
+                var params = "demographicNo=<%= SafeEncode.forJavaScript(StringUtils.noNull(demographic_no)) %>&rand=" + ran_number + "&labType=" + encodeURIComponent(labType) + "&testName=" + encodeURIComponent(testName);
                 CarlosAjax.updater(newNode, url + '?' + params, {
                     method: 'GET',
                     evalScripts: true
