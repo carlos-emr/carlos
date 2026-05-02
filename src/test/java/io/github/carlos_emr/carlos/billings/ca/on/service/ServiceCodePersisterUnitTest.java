@@ -36,6 +36,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.same;
@@ -210,6 +211,18 @@ class ServiceCodePersisterUnitTest {
         assertThat(limit.getMax()).isEqualTo("09");
         verify(dao).merge(same(existing));
         verify(percLimitDao).merge(same(limit));
+    }
+
+    @Test
+    void shouldRejectMalformedBillingServiceNo_whenEditingExistingCode() {
+        ServiceCodePersister.AddEditServiceCodeRequest request = new ServiceCodePersister.AddEditServiceCodeRequest(
+                "Save", "editA001A", "A001A", "not-a-number", "New description", "12.34", "10",
+                "2026-05-01", "9999-12-31", true, "-1", "01", "09");
+
+        assertThatThrownBy(() -> persister.saveOrAdd(request))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("billingserviceNo");
+        verify(dao, never()).findByServiceCode("A001A");
     }
 
     @Test

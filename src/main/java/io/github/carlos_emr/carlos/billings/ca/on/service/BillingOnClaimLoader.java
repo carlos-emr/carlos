@@ -217,33 +217,33 @@ public class BillingOnClaimLoader {
             String prevId = null;
             for (BillingClaimReportRow b : bills) {
                 ch1Obj = new BillingClaimHeaderDto();
-                ch1Obj.setId(b.id());
-                ch1Obj.setPay_program(b.payProgram());
-                ch1Obj.setDemographic_no(b.demographicNo());
-                ch1Obj.setDemographic_name(b.demographicName());
-                ch1Obj.setBilling_date(b.billingDate());
-                ch1Obj.setBilling_time(b.billingTime());
-                ch1Obj.setStatus(b.status());
-                ch1Obj.setProvider_no(b.providerNo());
-                ch1Obj.setProvider_ohip_no(b.providerOhipNo());
-                ch1Obj.setUpdate_datetime(b.updateDatetime());
-                ch1Obj.setTotal(b.total());
-                //ch1Obj.setPaid(b[11]);
-                ch1Obj.setClinic(b.clinic());
-                //ch1Obj.setTotal(b[13]);//fee is not total?
-                ch1Obj.setSer_num(b.serviceCount());
-                ch1Obj.setBilling_on_item_id(b.billingOnItemId());
+                ch1Obj = ch1Obj.withId(b.id());
+                ch1Obj = ch1Obj.withPayProgram(b.payProgram());
+                ch1Obj = ch1Obj.withDemographicNo(b.demographicNo());
+                ch1Obj = ch1Obj.withDemographicName(b.demographicName());
+                ch1Obj = ch1Obj.withBillingDate(b.billingDate());
+                ch1Obj = ch1Obj.withBillingTime(b.billingTime());
+                ch1Obj = ch1Obj.withStatus(b.status());
+                ch1Obj = ch1Obj.withProviderNo(b.providerNo());
+                ch1Obj = ch1Obj.withProviderOhipNo(b.providerOhipNo());
+                ch1Obj = ch1Obj.withUpdateDateTime(b.updateDatetime());
+                ch1Obj = ch1Obj.withTotal(b.total());
+                //ch1Obj = ch1Obj.withPaid(b[11]);
+                ch1Obj = ch1Obj.withClinic(b.clinic());
+                //ch1Obj = ch1Obj.withTotal(b[13]);//fee is not total?
+                ch1Obj = ch1Obj.withServiceNumber(b.serviceCount());
+                ch1Obj = ch1Obj.withBillingOnItemId(b.billingOnItemId());
 
                 List<BillingONExt> exts = extDao.findByBillingNoAndKey(Integer.parseInt(b.id()), "payDate");
                 for (BillingONExt e : exts) {
                     if (e.getStatus() == '1') {
-                        ch1Obj.setSettle_date(e.getValue());
+                        ch1Obj = ch1Obj.withSettleDate(e.getValue());
                     }
                 }
 
-                if ("PAT".equals(ch1Obj.getPay_program())) {
+                if ("PAT".equals(ch1Obj.payProgram())) {
                     BigDecimal amountPaid = billOnItemPaymentDao.getAmountPaidByItemId(Integer.parseInt(b.billingOnItemId()));
-                    ch1Obj.setPaid(amountPaid.toString());
+                    ch1Obj = ch1Obj.withPaid(amountPaid.toString());
                 } else {
                     // Dedup ch1.paid across the bi×ch1 join: a 3-item claim
                     // returns 3 rows that all carry the same ch1.paid value.
@@ -251,9 +251,9 @@ public class BillingOnClaimLoader {
                     // rows of the same claim get "0.00" so report totals
                     // don't multiply paid by item count.
                     if (prevId == null || !ch1Obj.getId().equals(prevId)) {
-                        ch1Obj.setPaid(b.paid());
+                        ch1Obj = ch1Obj.withPaid(b.paid());
                     } else {
-                        ch1Obj.setPaid("0.00");
+                        ch1Obj = ch1Obj.withPaid("0.00");
                     }
                 }
                 retval.add(ch1Obj);
@@ -277,25 +277,25 @@ public class BillingOnClaimLoader {
         try {
             for (BillingONCHeader1 h : dao.findByMagic(Arrays.asList(billType), statusType, providerNo, ConversionUtils.fromDateString(startDate), ConversionUtils.fromDateString(endDate), ConversionUtils.fromIntString(demoNo), visitLocation, ConversionUtils.fromDateString(paymentStartDate), ConversionUtils.fromDateString(paymentEndDate))) {
                 BillingClaimHeaderDto ch1Obj = new BillingClaimHeaderDto();
-                ch1Obj.setId("" + h.getId());
-                ch1Obj.setDemographic_no("" + h.getDemographicNo());
-                ch1Obj.setDemographic_name(h.getDemographicName());
-                ch1Obj.setBilling_date(ConversionUtils.toDateString(h.getBillingDate()));
-                ch1Obj.setBilling_time(ConversionUtils.toDateString(h.getBillingTime()));
-                ch1Obj.setStatus(h.getStatus());
-                ch1Obj.setProviderNo(h.getProviderNo());
-                ch1Obj.setProvider_ohip_no(h.getProviderOhipNo());
-                ch1Obj.setApptProvider_no(h.getApptProviderNo());
-                ch1Obj.setUpdate_datetime(ConversionUtils.toDateString(h.getTimestamp()));
-                ch1Obj.setTotal(String.valueOf(h.getTotal().doubleValue()));
-                ch1Obj.setPay_program(h.getPayProgram());
-                ch1Obj.setPaid(String.valueOf(h.getPaid().doubleValue()));
-                ch1Obj.setClinic(h.getClinic());
+                ch1Obj = ch1Obj.withId("" + h.getId());
+                ch1Obj = ch1Obj.withDemographicNo("" + h.getDemographicNo());
+                ch1Obj = ch1Obj.withDemographicName(h.getDemographicName());
+                ch1Obj = ch1Obj.withBillingDate(ConversionUtils.toDateString(h.getBillingDate()));
+                ch1Obj = ch1Obj.withBillingTime(ConversionUtils.toDateString(h.getBillingTime()));
+                ch1Obj = ch1Obj.withStatus(h.getStatus());
+                ch1Obj = ch1Obj.withProviderNo(h.getProviderNo());
+                ch1Obj = ch1Obj.withProviderOhipNo(h.getProviderOhipNo());
+                ch1Obj = ch1Obj.withAppointmentProviderNo(h.getApptProviderNo());
+                ch1Obj = ch1Obj.withUpdateDateTime(ConversionUtils.toDateString(h.getTimestamp()));
+                ch1Obj = ch1Obj.withTotal(String.valueOf(h.getTotal().doubleValue()));
+                ch1Obj = ch1Obj.withPayProgram(h.getPayProgram());
+                ch1Obj = ch1Obj.withPaid(String.valueOf(h.getPaid().doubleValue()));
+                ch1Obj = ch1Obj.withClinic(h.getClinic());
                 for (BillingONExt b : extDao.findByBillingNoAndKey(h.getId(), "payDate")) {
-                    ch1Obj.setSettle_date(b.getValue());
+                    ch1Obj = ch1Obj.withSettleDate(b.getValue());
                 }
 
-                ch1Obj.setFacilty_num(clinicLocationDao.searchVisitLocation(h.getFaciltyNum()));
+                ch1Obj = ch1Obj.withFacilityNumber(clinicLocationDao.searchVisitLocation(h.getFaciltyNum()));
 
                 retval.add(ch1Obj);
             }
@@ -376,22 +376,22 @@ public class BillingOnClaimLoader {
             // transitivity contract — corrupt rows compared-equal to every
             // other row, blowing up Collections.sort with
             // "Comparison method violates its general contract!".
-            return parseDateOrSentinel(arg0.getBilling_date())
-                    .compareTo(parseDateOrSentinel(arg1.getBilling_date()));
+            return parseDateOrSentinel(arg0.billingDate())
+                    .compareTo(parseDateOrSentinel(arg1.billingDate()));
         }
     };
 
     public static final Comparator<BillingClaimHeaderDto> DEMOGRAPHIC_NO_COMPARATOR = new Comparator<BillingClaimHeaderDto>() {
         public int compare(BillingClaimHeaderDto arg0, BillingClaimHeaderDto arg1) {
             return Integer.compare(
-                    parseIntOrSentinel(arg0.getDemographic_no()),
-                    parseIntOrSentinel(arg1.getDemographic_no()));
+                    parseIntOrSentinel(arg0.demographicNo()),
+                    parseIntOrSentinel(arg1.demographicNo()));
         }
     };
 
     public static final Comparator<BillingClaimHeaderDto> VISIT_LOCATION_COMPARATOR = new Comparator<BillingClaimHeaderDto>() {
         public int compare(BillingClaimHeaderDto arg0, BillingClaimHeaderDto arg1) {
-            return arg0.getFacilty_num().compareTo(arg1.getFacilty_num());
+            return arg0.facilityNumber().compareTo(arg1.facilityNumber());
         }
     };
 
@@ -417,45 +417,45 @@ public class BillingOnClaimLoader {
                 BillingONItem bi = (BillingONItem) o[1];
 
                 BillingClaimHeaderDto ch1Obj = new BillingClaimHeaderDto();
-                ch1Obj.setId("" + ch1.getId());
-                ch1Obj.setDemographic_no("" + ch1.getDemographicNo());
-                ch1Obj.setDemographic_name(ch1.getDemographicName());
-                ch1Obj.setBilling_date(ConversionUtils.toDateString(ch1.getBillingDate()));
-                ch1Obj.setBilling_time(ConversionUtils.toTimeString(ch1.getBillingTime()));
-                ch1Obj.setStatus(ch1.getStatus());
-                ch1Obj.setProviderNo(ch1.getProviderNo());
-                ch1Obj.setProvider_ohip_no(ch1.getProviderOhipNo());
-                ch1Obj.setApptProvider_no(ch1.getApptProviderNo());
-                ch1Obj.setUpdate_datetime(ConversionUtils.toTimestampString(ch1.getTimestamp()));
-                ch1Obj.setClinic(ch1.getClinic());
-                ch1Obj.setPay_program(ch1.getPayProgram());
+                ch1Obj = ch1Obj.withId("" + ch1.getId());
+                ch1Obj = ch1Obj.withDemographicNo("" + ch1.getDemographicNo());
+                ch1Obj = ch1Obj.withDemographicName(ch1.getDemographicName());
+                ch1Obj = ch1Obj.withBillingDate(ConversionUtils.toDateString(ch1.getBillingDate()));
+                ch1Obj = ch1Obj.withBillingTime(ConversionUtils.toTimeString(ch1.getBillingTime()));
+                ch1Obj = ch1Obj.withStatus(ch1.getStatus());
+                ch1Obj = ch1Obj.withProviderNo(ch1.getProviderNo());
+                ch1Obj = ch1Obj.withProviderOhipNo(ch1.getProviderOhipNo());
+                ch1Obj = ch1Obj.withAppointmentProviderNo(ch1.getApptProviderNo());
+                ch1Obj = ch1Obj.withUpdateDateTime(ConversionUtils.toTimestampString(ch1.getTimestamp()));
+                ch1Obj = ch1Obj.withClinic(ch1.getClinic());
+                ch1Obj = ch1Obj.withPayProgram(ch1.getPayProgram());
 
                 if ("PAT".equals(ch1.getPayProgram())) {
                     BigDecimal amountPaid = billOnItemPaymentDao.getAmountPaidByItemId(bi.getId());
-                    ch1Obj.setPaid(amountPaid.toString());
-                    ch1Obj.setBilling_on_item_id(bi.getId().toString());
+                    ch1Obj = ch1Obj.withPaid(amountPaid.toString());
+                    ch1Obj = ch1Obj.withBillingOnItemId(bi.getId().toString());
                 } else {
                     if (prevId == null && prevPaid == null) {
-                        ch1Obj.setPaid(ch1.getPaid().toString());
+                        ch1Obj = ch1Obj.withPaid(ch1.getPaid().toString());
                     } else if (prevId != null && prevPaid != null && !ch1Obj.getId().equals(prevId)) {
-                        ch1Obj.setPaid(ch1.getPaid().toString());
+                        ch1Obj = ch1Obj.withPaid(ch1.getPaid().toString());
                     } else
-                        ch1Obj.setPaid("0.00");
+                        ch1Obj = ch1Obj.withPaid("0.00");
                 }
-                ch1Obj.setTotal(bi.getFee());
-                ch1Obj.setRec_id(bi.getDx());
-                ch1Obj.setTransc_id(bi.getServiceCode());
+                ch1Obj = ch1Obj.withTotal(bi.getFee());
+                ch1Obj = ch1Obj.withRecordId(bi.getDx());
+                ch1Obj = ch1Obj.withTransactionId(bi.getServiceCode());
 
                 retval.add(ch1Obj);
                 prevId = ch1Obj.getId();
                 prevPaid = ch1.getPaid().toString();
 
-                ch1Obj.setFacilty_num(clinicLocationDao.searchVisitLocation(ch1.getFaciltyNum()));
+                ch1Obj = ch1Obj.withFacilityNumber(clinicLocationDao.searchVisitLocation(ch1.getFaciltyNum()));
 
                 BigDecimal cashTotal = BigDecimal.ZERO;
                 BigDecimal debitTotal = BigDecimal.ZERO;
 
-                ch1Obj.setNumItems(Integer.parseInt(bi.getServiceCount()));
+                ch1Obj = ch1Obj.withNumItems(Integer.parseInt(bi.getServiceCount()));
 
                 for (Integer paymentId : payDao.find3rdPartyPayments(Integer.parseInt(ch1Obj.getId()))) {
                     //because private billing changed, we'll check via paymentTypeId in billing_on_payment
@@ -477,12 +477,12 @@ public class BillingOnClaimLoader {
                 }
 
 
-                ch1Obj.setCashTotal(cashTotal);
-                ch1Obj.setDebitTotal(debitTotal);
+                ch1Obj = ch1Obj.withCashTotal(cashTotal);
+                ch1Obj = ch1Obj.withDebitTotal(debitTotal);
 
-                Provider provider = providerDao.getProvider(ch1Obj.getProvider_no());
+                Provider provider = providerDao.getProvider(ch1Obj.providerNo());
                 if (provider != null) {
-                    ch1Obj.setProviderName(provider.getFormattedName());
+                    ch1Obj = ch1Obj.withProviderName(provider.getFormattedName());
                 }
 
             }
@@ -544,25 +544,25 @@ public class BillingOnClaimLoader {
                     break;
                 }
                 ch1Obj = new BillingClaimHeaderDto();
-                ch1Obj.setId("" + h.getId());
-                ch1Obj.setBilling_date(ConversionUtils.toDateString(h.getBillingDate()));
-                ch1Obj.setBilling_time(ConversionUtils.toTimeString(h.getBillingTime()));
-                ch1Obj.setStatus(h.getStatus());
-                ch1Obj.setProviderNo(h.getProviderNo());
-                ch1Obj.setApptProvider_no(h.getApptProviderNo());
-                ch1Obj.setUpdate_datetime(ConversionUtils.toDateString(h.getTimestamp()));
+                ch1Obj = ch1Obj.withId("" + h.getId());
+                ch1Obj = ch1Obj.withBillingDate(ConversionUtils.toDateString(h.getBillingDate()));
+                ch1Obj = ch1Obj.withBillingTime(ConversionUtils.toTimeString(h.getBillingTime()));
+                ch1Obj = ch1Obj.withStatus(h.getStatus());
+                ch1Obj = ch1Obj.withProviderNo(h.getProviderNo());
+                ch1Obj = ch1Obj.withAppointmentProviderNo(h.getApptProviderNo());
+                ch1Obj = ch1Obj.withUpdateDateTime(ConversionUtils.toDateString(h.getTimestamp()));
 
-                ch1Obj.setClinic(h.getClinic());
-                ch1Obj.setAppointment_no("" + h.getAppointmentNo());
-                ch1Obj.setPay_program(h.getPayProgram());
-                ch1Obj.setVisittype(h.getVisitType());
-                ch1Obj.setAdmission_date(ConversionUtils.toDateString(h.getAdmissionDate()));
-                ch1Obj.setFacilty_num(h.getFaciltyNum());
-                ch1Obj.setTotal(h.getTotal().toString());
+                ch1Obj = ch1Obj.withClinic(h.getClinic());
+                ch1Obj = ch1Obj.withAppointmentNo("" + h.getAppointmentNo());
+                ch1Obj = ch1Obj.withPayProgram(h.getPayProgram());
+                ch1Obj = ch1Obj.withVisitType(h.getVisitType());
+                ch1Obj = ch1Obj.withAdmissionDate(ConversionUtils.toDateString(h.getAdmissionDate()));
+                ch1Obj = ch1Obj.withFacilityNumber(h.getFaciltyNum());
+                ch1Obj = ch1Obj.withTotal(h.getTotal().toString());
 
                 Provider provider = providerDao.getProvider(h.getProviderNo());
-                ch1Obj.setLast_name(provider.getLastName());
-                ch1Obj.setFirst_name(provider.getFirstName());
+                ch1Obj = ch1Obj.withLastName(provider.getLastName());
+                ch1Obj = ch1Obj.withFirstName(provider.getFirstName());
 
 
                 retval.add(ch1Obj);
@@ -592,19 +592,19 @@ public class BillingOnClaimLoader {
                 if (codeBuf.length() > 0) {
                     codeBuf.deleteCharAt(codeBuf.length() - 1);
                 }
-                itObj.setService_code(codeBuf.toString());
-                itObj.setDx(dx);
-                itObj.setService_date(strServiceDate);
+                itObj = itObj.withServiceCode(codeBuf.toString());
+                itObj = itObj.withDx(dx);
+                itObj = itObj.withServiceDate(strServiceDate);
 
                 List<BillingONPayment> payment = payDao.find3rdPartyPaymentsByBillingNo(h.getId());
-                itObj.setPaid(payDao.getTotalSumByBillingNoWeb(h.getId().toString()));
-                itObj.setRefund(payDao.getPaymentsRefundByBillingNoWeb(h.getId().toString()));
+                itObj = itObj.withPaid(payDao.getTotalSumByBillingNoWeb(h.getId().toString()));
+                itObj = itObj.withRefund(payDao.getPaymentsRefundByBillingNoWeb(h.getId().toString()));
                 BigDecimal discount_total = payDao.getPaymentsDiscountByBillingNo(h.getId());
                 if (discount_total == null) {
                     discount_total = new BigDecimal(0);
                 }
                 NumberFormat currency = NumberFormat.getCurrencyInstance(Locale.US);
-                itObj.setDiscount(currency.format(discount_total));
+                itObj = itObj.withDiscount(currency.format(discount_total));
 
                 retval.add(itObj);
             }
@@ -628,7 +628,8 @@ public class BillingOnClaimLoader {
                 res.add(new LabelValueBean(row.serviceTypeName(), row.serviceType()));
             }
         } catch (Exception ex) {
-            _logger.error("Error getting billing forms list", ex);
+            throw billingLoadFailure("Failed to load billing forms", ex,
+                    "lookup", "billingForms");
         }
         return res;
     }
@@ -665,28 +666,28 @@ public class BillingOnClaimLoader {
         try {
             for (BillingONCHeader1 h : dao.findByAppointmentNo(ConversionUtils.fromIntString(apptNo))) {
                 ch1Obj = new BillingClaimHeaderDto();
-                ch1Obj.setId("" + h.getId());
-                ch1Obj.setBilling_date(ConversionUtils.toDateString(h.getBillingDate()));
-                ch1Obj.setBilling_time(ConversionUtils.toTimeString(h.getBillingTime()));
-                ch1Obj.setStatus(h.getStatus());
-                ch1Obj.setProviderNo(h.getProviderNo());
-                ch1Obj.setAppointment_no("" + h.getAppointmentNo());
-                ch1Obj.setApptProvider_no(h.getApptProviderNo());
-                ch1Obj.setAsstProvider_no(h.getAsstProviderNo());
-                ch1Obj.setMan_review(h.getManReview());
-                ch1Obj.setUpdate_datetime(ConversionUtils.toTimestampString(h.getTimestamp()));
-                ch1Obj.setClinic(h.getClinic());
-                ch1Obj.setPay_program(h.getPayProgram());
-                ch1Obj.setVisittype(h.getVisitType());
-                ch1Obj.setAdmission_date(ConversionUtils.toDateString(h.getAdmissionDate()));
-                ch1Obj.setFacilty_num(h.getFaciltyNum());
-                ch1Obj.setHin(h.getHin());
-                ch1Obj.setVer(h.getVer());
-                ch1Obj.setProvince(h.getProvince());
-                ch1Obj.setDob(h.getDob());
-                ch1Obj.setDemographic_name(h.getDemographicName());
-                ch1Obj.setDemographic_no("" + h.getDemographicNo());
-                ch1Obj.setTotal(String.valueOf(h.getTotal().doubleValue()));
+                ch1Obj = ch1Obj.withId("" + h.getId());
+                ch1Obj = ch1Obj.withBillingDate(ConversionUtils.toDateString(h.getBillingDate()));
+                ch1Obj = ch1Obj.withBillingTime(ConversionUtils.toTimeString(h.getBillingTime()));
+                ch1Obj = ch1Obj.withStatus(h.getStatus());
+                ch1Obj = ch1Obj.withProviderNo(h.getProviderNo());
+                ch1Obj = ch1Obj.withAppointmentNo("" + h.getAppointmentNo());
+                ch1Obj = ch1Obj.withAppointmentProviderNo(h.getApptProviderNo());
+                ch1Obj = ch1Obj.withAssistantProviderNo(h.getAsstProviderNo());
+                ch1Obj = ch1Obj.withManualReview(h.getManReview());
+                ch1Obj = ch1Obj.withUpdateDateTime(ConversionUtils.toTimestampString(h.getTimestamp()));
+                ch1Obj = ch1Obj.withClinic(h.getClinic());
+                ch1Obj = ch1Obj.withPayProgram(h.getPayProgram());
+                ch1Obj = ch1Obj.withVisitType(h.getVisitType());
+                ch1Obj = ch1Obj.withAdmissionDate(ConversionUtils.toDateString(h.getAdmissionDate()));
+                ch1Obj = ch1Obj.withFacilityNumber(h.getFaciltyNum());
+                ch1Obj = ch1Obj.withHin(h.getHin());
+                ch1Obj = ch1Obj.withVer(h.getVer());
+                ch1Obj = ch1Obj.withProvince(h.getProvince());
+                ch1Obj = ch1Obj.withDob(h.getDob());
+                ch1Obj = ch1Obj.withDemographicName(h.getDemographicName());
+                ch1Obj = ch1Obj.withDemographicNo("" + h.getDemographicNo());
+                ch1Obj = ch1Obj.withTotal(String.valueOf(h.getTotal().doubleValue()));
                 retval.add(ch1Obj);
 
                 String dx = null;
@@ -704,11 +705,11 @@ public class BillingOnClaimLoader {
                 }
 
                 BillingClaimItemDto itObj = new BillingClaimItemDto();
-                itObj.setService_code(strService.toString());
-                itObj.setDx(dx);
-                itObj.setDx1(dx1);
-                itObj.setDx2(dx2);
-                itObj.setService_date(strServiceDate);
+                itObj = itObj.withServiceCode(strService.toString());
+                itObj = itObj.withDx(dx);
+                itObj = itObj.withDx1(dx1);
+                itObj = itObj.withDx2(dx2);
+                itObj = itObj.withServiceDate(strServiceDate);
                 retval.add(itObj);
 
             }

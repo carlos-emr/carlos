@@ -43,7 +43,7 @@ public interface ReportProviderDao extends AbstractDao<ReportProvider> {
 
     List<ReportProvider> findByProviderNoTeamAndAction(String providerNo, String team, String action);
 
-    List<io.github.carlos_emr.carlos.billings.ca.on.dto.ReporterRow> search_reportprovider(String action);
+    List<io.github.carlos_emr.carlos.commn.dao.projection.ReporterRow> search_reportprovider(String action);
 
-    List<io.github.carlos_emr.carlos.billings.ca.on.dto.ReporterRow> search_reportprovider(String action, String providerNo);
+    List<io.github.carlos_emr.carlos.commn.dao.projection.ReporterRow> search_reportprovider(String action, String providerNo);
 }

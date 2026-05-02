@@ -175,9 +175,11 @@ public class BillingOnReviewValidator {
                 serviceDate = DateUtils.parseDate(request.getParameter("service_date"), request.getLocale());
             } catch (java.text.ParseException e) {
                 MiscUtils.getLogger().warn(
-                        "BillingOnReviewValidator: A003A guard skipped — unparseable service_date '{}'",
+                        "BillingOnReviewValidator: A003A guard failed — unparseable service_date '{}'",
                         LogSanitizer.sanitize(request.getParameter("service_date")));
-                continue;
+                messages.add(new Message(Message.Severity.ERROR,
+                        "Invalid service date for A003A annual-billing check. Please correct the service date."));
+                return false;
             }
 
             Calendar serviceDateCal = Calendar.getInstance();

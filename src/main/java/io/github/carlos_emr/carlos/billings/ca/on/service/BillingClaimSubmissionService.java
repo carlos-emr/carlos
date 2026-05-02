@@ -114,7 +114,8 @@ public class BillingClaimSubmissionService {
         int billingNo = claimPersister.addOneClaimHeaderRecord(claim1Obj);
         if (billingNo == 0)
             return new SaveResult(false, 0);
-        claim1Obj.setId(Integer.toString(billingNo));
+        claim1Obj = claim1Obj.withId(Integer.toString(billingNo));
+        val.set(0, claim1Obj);
         if (val.size() > 1) {
             claimPersister.addItemRecord((List) val.get(1), billingNo);
             return new SaveResult(true, billingNo);
@@ -257,56 +258,56 @@ public class BillingClaimSubmissionService {
 
         BillingClaimHeaderDto claim1Header = new BillingClaimHeaderDto();
 
-        claim1Header.setTransc_id(BillingOnConstants.CLAIMHEADER1_TRANSACTIONIDENTIFIER);
-        claim1Header.setRec_id(BillingOnConstants.CLAIMHEADER1_REORDIDENTIFICATION);
+        claim1Header = claim1Header.withTransactionId(BillingOnConstants.CLAIMHEADER1_TRANSACTIONIDENTIFIER);
+        claim1Header = claim1Header.withRecordId(BillingOnConstants.CLAIMHEADER1_REORDIDENTIFICATION);
 
         if (!billtype.substring(0, 3).equals("BON")) {
-            claim1Header.setHin(val.getParameter("hin"));
-            claim1Header.setVer(val.getParameter("ver"));
-            claim1Header.setDob(val.getParameter("demographic_dob"));
-            claim1Header.setAppointment_no(val.getParameter("appointment_no")); // appointment_no;
-            claim1Header.setDemographic_name(val.getParameter("demographic_name"));
+            claim1Header = claim1Header.withHin(val.getParameter("hin"));
+            claim1Header = claim1Header.withVer(val.getParameter("ver"));
+            claim1Header = claim1Header.withDob(val.getParameter("demographic_dob"));
+            claim1Header = claim1Header.withAppointmentNo(val.getParameter("appointment_no")); // appointment_no;
+            claim1Header = claim1Header.withDemographicName(val.getParameter("demographic_name"));
             String temp[] = getPatientLF(val.getParameter("demographic_name"));
-            claim1Header.setLast_name(temp[0]);
-            claim1Header.setFirst_name(temp[1]);
-            claim1Header.setSex(val.getParameter("sex"));
-            claim1Header.setProvince(val.getParameter("hc_type"));
+            claim1Header = claim1Header.withLastName(temp[0]);
+            claim1Header = claim1Header.withFirstName(temp[1]);
+            claim1Header = claim1Header.withSex(val.getParameter("sex"));
+            claim1Header = claim1Header.withProvince(val.getParameter("hc_type"));
         } else {
-            claim1Header.setHin("");
-            claim1Header.setVer("");
-            claim1Header.setDob("");
-            claim1Header.setAppointment_no(""); // appointment_no;
-            claim1Header.setDemographic_name("");
-            claim1Header.setLast_name("");
-            claim1Header.setFirst_name("");
-            claim1Header.setSex("");
-            claim1Header.setProvince("ON");
+            claim1Header = claim1Header.withHin("");
+            claim1Header = claim1Header.withVer("");
+            claim1Header = claim1Header.withDob("");
+            claim1Header = claim1Header.withAppointmentNo(""); // appointment_no;
+            claim1Header = claim1Header.withDemographicName("");
+            claim1Header = claim1Header.withLastName("");
+            claim1Header = claim1Header.withFirstName("");
+            claim1Header = claim1Header.withSex("");
+            claim1Header = claim1Header.withProvince("ON");
         }
 
         // acc_num - billing no
-        claim1Header.setPay_program(getPayProgram(val.getParameter("xml_billtype"), val.getParameter("hc_type")));
-        claim1Header.setPayee(val.getParameter("payMethod") != null ? val.getParameter("payMethod")
+        claim1Header = claim1Header.withPayProgram(getPayProgram(val.getParameter("xml_billtype"), val.getParameter("hc_type")));
+        claim1Header = claim1Header.withPayee(val.getParameter("payMethod") != null ? val.getParameter("payMethod")
                 : BillingOnConstants.CLAIMHEADER1_PAYEE);
-        claim1Header.setRef_num(val.getParameter("referralCode"));
+        claim1Header = claim1Header.withReferralNumber(val.getParameter("referralCode"));
 
-        claim1Header.setFacilty_num(val.getParameter("xml_location").substring(0, 4));
-        claim1Header.setAdmission_date(val.getParameter("xml_vdate"));
+        claim1Header = claim1Header.withFacilityNumber(val.getParameter("xml_location").substring(0, 4));
+        claim1Header = claim1Header.withAdmissionDate(val.getParameter("xml_vdate"));
 
-        claim1Header.setRef_lab_num("");
-        claim1Header.setMan_review(val.getParameter("m_review") != null ? val.getParameter("m_review") : "");
+        claim1Header = claim1Header.withReferringLabNumber("");
+        claim1Header = claim1Header.withManualReview(val.getParameter("m_review") != null ? val.getParameter("m_review") : "");
 
         if (val.getParameter("xml_slicode") != null) {
-            claim1Header.setLocation(val.getParameter("xml_slicode").trim());
+            claim1Header = claim1Header.withLocation(val.getParameter("xml_slicode").trim());
         }
 
-        claim1Header.setDemographic_no(val.getParameter("demographic_no"));
-        claim1Header.setProviderNo(val.getParameter("xml_provider").substring(0,
+        claim1Header = claim1Header.withDemographicNo(val.getParameter("demographic_no"));
+        claim1Header = claim1Header.withProviderNo(val.getParameter("xml_provider").substring(0,
                 val.getParameter("xml_provider").indexOf("|")));
 
-        claim1Header.setBilling_date(val.getParameter("service_date"));
-        claim1Header.setBilling_time(val.getParameter("start_time"));
-        claim1Header.setUpdate_datetime(UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss"));
-        claim1Header.setTotal(val.getParameter("total"));
+        claim1Header = claim1Header.withBillingDate(val.getParameter("service_date"));
+        claim1Header = claim1Header.withBillingTime(val.getParameter("start_time"));
+        claim1Header = claim1Header.withUpdateDateTime(UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss"));
+        claim1Header = claim1Header.withTotal(val.getParameter("total"));
         String paid = "";
         if (val.getParameter("submit").equalsIgnoreCase("Settle")) {
             paid = val.getParameter("total");
@@ -316,18 +317,18 @@ public class BillingClaimSubmissionService {
                 || val.getParameter("submit").equalsIgnoreCase("Save & Add Another Bill")) {
             paid = val.getParameter("total_payment");
         }
-        claim1Header.setPaid(paid);
-        claim1Header.setStatus(getStatus(val.getParameter("submit"), val.getParameter("xml_billtype")));
-        claim1Header.setComment(val.getParameter("comment") != null ? val.getParameter("comment") : "");
-        claim1Header.setVisittype(val.getParameter("xml_visittype").substring(0, 2));
-        claim1Header.setProvider_ohip_no(val.getParameter("xml_provider").substring(
+        claim1Header = claim1Header.withPaid(paid);
+        claim1Header = claim1Header.withStatus(getStatus(val.getParameter("submit"), val.getParameter("xml_billtype")));
+        claim1Header = claim1Header.withComment(val.getParameter("comment") != null ? val.getParameter("comment") : "");
+        claim1Header = claim1Header.withVisitType(val.getParameter("xml_visittype").substring(0, 2));
+        claim1Header = claim1Header.withProviderOhipNo(val.getParameter("xml_provider").substring(
                 val.getParameter("xml_provider").indexOf("|") + 1));
-        claim1Header.setProvider_rma_no("");
-        claim1Header.setApptProvider_no(val.getParameter("apptProvider_no"));
-        claim1Header.setAsstProvider_no("");
-        claim1Header.setCreator((String) val.getSession().getAttribute("user"));
+        claim1Header = claim1Header.withProviderRmaNo("");
+        claim1Header = claim1Header.withAppointmentProviderNo(val.getParameter("apptProvider_no"));
+        claim1Header = claim1Header.withAssistantProviderNo("");
+        claim1Header = claim1Header.withCreator((String) val.getSession().getAttribute("user"));
 
-        claim1Header.setClinic(val.getParameter("site"));
+        claim1Header = claim1Header.withClinic(val.getParameter("site"));
 
         return claim1Header;
     }
@@ -339,33 +340,33 @@ public class BillingClaimSubmissionService {
 
         for (int i = 0; i < itemNum; i++) {
             claimItem[i] = new BillingClaimItemDto();
-            claimItem[i].setTransc_id(BillingOnConstants.ITEM_TRANSACTIONIDENTIFIER);
-            claimItem[i].setRec_id(BillingOnConstants.ITEM_REORDIDENTIFICATION);
-            claimItem[i].setService_code(val.getParameter("xserviceCode_" + i));
+            claimItem[i] = claimItem[i].withTransactionId(BillingOnConstants.ITEM_TRANSACTIONIDENTIFIER);
+            claimItem[i] = claimItem[i].withRecordId(BillingOnConstants.ITEM_REORDIDENTIFICATION);
+            claimItem[i] = claimItem[i].withServiceCode(val.getParameter("xserviceCode_" + i));
             if (val.getParameter("xsliCode_" + i) != null) {
-                claimItem[i].setLocation(val.getParameter("xsliCode_" + i));
+                claimItem[i] = claimItem[i].withLocation(val.getParameter("xsliCode_" + i));
             }
-            claimItem[i].setFee(val.getParameter("percCodeSubtotal_" + i));
-            claimItem[i].setSer_num(getDefaultUnit(val.getParameter("xserviceUnit_" + i)));
-            claimItem[i].setService_date(val.getParameter("service_date"));
-            claimItem[i].setDx(val.getParameter("dxCode"));
-            claimItem[i].setDx1(val.getParameter("dxCode1"));
-            claimItem[i].setDx2(val.getParameter("dxCode2"));
+            claimItem[i] = claimItem[i].withFee(val.getParameter("percCodeSubtotal_" + i));
+            claimItem[i] = claimItem[i].withServiceNumber(getDefaultUnit(val.getParameter("xserviceUnit_" + i)));
+            claimItem[i] = claimItem[i].withServiceDate(val.getParameter("service_date"));
+            claimItem[i] = claimItem[i].withDx(val.getParameter("dxCode"));
+            claimItem[i] = claimItem[i].withDx1(val.getParameter("dxCode1"));
+            claimItem[i] = claimItem[i].withDx2(val.getParameter("dxCode2"));
             if (val.getParameter("paid_" + i) != null) {
-                claimItem[i].setPaid(val.getParameter("paid_" + i));
+                claimItem[i] = claimItem[i].withPaid(val.getParameter("paid_" + i));
             } else {
-                claimItem[i].setPaid("0.00");
+                claimItem[i] = claimItem[i].withPaid("0.00");
             }
-            //claimItem[i].setRefund(val.getParameter("refund"));
+            //claimItem[i] = claimItem[i].withRefund(val.getParameter("refund"));
             if (val.getParameter("discount_" + i) != null) {
-                claimItem[i].setDiscount(val.getParameter("discount_" + i));
+                claimItem[i] = claimItem[i].withDiscount(val.getParameter("discount_" + i));
             } else {
-                claimItem[i].setDiscount("0.00");
+                claimItem[i] = claimItem[i].withDiscount("0.00");
             }
             if (val.getParameter("xml_billtype").substring(0, 3).matches(BillingOnConstants.BILLINGMATCHSTRING_3RDPARTY)) {
-                claimItem[i].setStatus("P");
+                claimItem[i] = claimItem[i].withStatus("P");
             } else {
-                claimItem[i].setStatus("O");
+                claimItem[i] = claimItem[i].withStatus("O");
             }
         }
 
@@ -375,57 +376,57 @@ public class BillingClaimSubmissionService {
     private BillingClaimHeaderDto getClaimHeader1HospObj(HttpServletRequest val, String service_date, String total) {
         BillingClaimHeaderDto claim1Header = new BillingClaimHeaderDto();
 
-        claim1Header.setTransc_id(BillingOnConstants.CLAIMHEADER1_TRANSACTIONIDENTIFIER);
-        claim1Header.setRec_id(BillingOnConstants.CLAIMHEADER1_REORDIDENTIFICATION);
+        claim1Header = claim1Header.withTransactionId(BillingOnConstants.CLAIMHEADER1_TRANSACTIONIDENTIFIER);
+        claim1Header = claim1Header.withRecordId(BillingOnConstants.CLAIMHEADER1_REORDIDENTIFICATION);
         String hin = getHinVer(val.getParameter("hin"))[0];
         String ver = getHinVer(val.getParameter("hin"))[1];
-        claim1Header.setHin(hin);
-        claim1Header.setVer(ver);
+        claim1Header = claim1Header.withHin(hin);
+        claim1Header = claim1Header.withVer(ver);
 
-        claim1Header.setDob(val.getParameter("demographic_dob"));
+        claim1Header = claim1Header.withDob(val.getParameter("demographic_dob"));
         // acc_num - billing no
-        claim1Header.setPay_program(getPayProgram(val.getParameter("xml_billtype"), val.getParameter("hc_type")));
-        claim1Header.setPayee(val.getParameter("payMethod") != null ? val.getParameter("payMethod")
+        claim1Header = claim1Header.withPayProgram(getPayProgram(val.getParameter("xml_billtype"), val.getParameter("hc_type")));
+        claim1Header = claim1Header.withPayee(val.getParameter("payMethod") != null ? val.getParameter("payMethod")
                 : BillingOnConstants.CLAIMHEADER1_PAYEE);
-        claim1Header.setRef_num(val.getParameter("referralCode"));
+        claim1Header = claim1Header.withReferralNumber(val.getParameter("referralCode"));
 
-        claim1Header.setFacilty_num(val.getParameter("xml_location").substring(0, 4));
-        claim1Header.setAdmission_date(val.getParameter("xml_vdate"));
+        claim1Header = claim1Header.withFacilityNumber(val.getParameter("xml_location").substring(0, 4));
+        claim1Header = claim1Header.withAdmissionDate(val.getParameter("xml_vdate"));
 
-        claim1Header.setRef_lab_num("");
-        claim1Header.setMan_review("");
+        claim1Header = claim1Header.withReferringLabNumber("");
+        claim1Header = claim1Header.withManualReview("");
 
-        claim1Header.setLocation(val.getParameter("xml_slicode").trim());
+        claim1Header = claim1Header.withLocation(val.getParameter("xml_slicode").trim());
 
-        claim1Header.setDemographic_no(val.getParameter("demographic_no"));
+        claim1Header = claim1Header.withDemographicNo(val.getParameter("demographic_no"));
         if (IsPropertiesOn.isMultisitesEnable()) {
-            claim1Header.setProviderNo(val.getParameter("xml_provider").substring(0, val.getParameter("xml_provider").indexOf("|")));
+            claim1Header = claim1Header.withProviderNo(val.getParameter("xml_provider").substring(0, val.getParameter("xml_provider").indexOf("|")));
         } else {
-            claim1Header.setProviderNo(val.getParameter("xml_provider"));
+            claim1Header = claim1Header.withProviderNo(val.getParameter("xml_provider"));
         }
 
-        claim1Header.setAppointment_no(val.getParameter("appointment_no"));
-        claim1Header.setDemographic_name(val.getParameter("demographic_name"));
+        claim1Header = claim1Header.withAppointmentNo(val.getParameter("appointment_no"));
+        claim1Header = claim1Header.withDemographicName(val.getParameter("demographic_name"));
         String temp[] = getPatientLF(val.getParameter("demographic_name"));
-        claim1Header.setLast_name(temp[0]);
-        claim1Header.setFirst_name(temp[1]);
-        claim1Header.setSex(val.getParameter("sex"));
-        claim1Header.setProvince(val.getParameter("hc_type"));
+        claim1Header = claim1Header.withLastName(temp[0]);
+        claim1Header = claim1Header.withFirstName(temp[1]);
+        claim1Header = claim1Header.withSex(val.getParameter("sex"));
+        claim1Header = claim1Header.withProvince(val.getParameter("hc_type"));
 
-        claim1Header.setBilling_date(service_date);
-        claim1Header.setBilling_time(val.getParameter("start_time"));
-        claim1Header.setUpdate_datetime(UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss"));
-        claim1Header.setTotal(total);
-        claim1Header.setPaid("");
-        claim1Header.setStatus(getStatus("", val.getParameter("xml_billtype")));
-        claim1Header.setComment(val.getParameter("comment") != null ? val.getParameter("comment") : "");
-        claim1Header.setVisittype(val.getParameter("xml_visittype").substring(0, 2));
-        claim1Header.setProvider_ohip_no(val.getParameter("proOHIPNO"));
-        claim1Header.setProvider_rma_no("");
-        claim1Header.setApptProvider_no(val.getParameter("apptProvider_no"));
-        claim1Header.setAsstProvider_no("");
-        claim1Header.setCreator((String) val.getSession().getAttribute("user"));
-        claim1Header.setClinic(val.getParameter("site"));
+        claim1Header = claim1Header.withBillingDate(service_date);
+        claim1Header = claim1Header.withBillingTime(val.getParameter("start_time"));
+        claim1Header = claim1Header.withUpdateDateTime(UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss"));
+        claim1Header = claim1Header.withTotal(total);
+        claim1Header = claim1Header.withPaid("");
+        claim1Header = claim1Header.withStatus(getStatus("", val.getParameter("xml_billtype")));
+        claim1Header = claim1Header.withComment(val.getParameter("comment") != null ? val.getParameter("comment") : "");
+        claim1Header = claim1Header.withVisitType(val.getParameter("xml_visittype").substring(0, 2));
+        claim1Header = claim1Header.withProviderOhipNo(val.getParameter("proOHIPNO"));
+        claim1Header = claim1Header.withProviderRmaNo("");
+        claim1Header = claim1Header.withAppointmentProviderNo(val.getParameter("apptProvider_no"));
+        claim1Header = claim1Header.withAssistantProviderNo("");
+        claim1Header = claim1Header.withCreator((String) val.getSession().getAttribute("user"));
+        claim1Header = claim1Header.withClinic(val.getParameter("site"));
 
         return claim1Header;
     }
@@ -441,20 +442,20 @@ public class BillingClaimSubmissionService {
             BigDecimal bdEachTotal = bdEachPrice.multiply(bdEachUnit).setScale(2, RoundingMode.HALF_UP);
 
             claimItem[i] = new BillingClaimItemDto();
-            claimItem[i].setTransc_id(BillingOnConstants.ITEM_TRANSACTIONIDENTIFIER);
-            claimItem[i].setRec_id(BillingOnConstants.ITEM_REORDIDENTIFICATION);
+            claimItem[i] = claimItem[i].withTransactionId(BillingOnConstants.ITEM_TRANSACTIONIDENTIFIER);
+            claimItem[i] = claimItem[i].withRecordId(BillingOnConstants.ITEM_REORDIDENTIFICATION);
 
-            claimItem[i].setService_code(line.code());
-            claimItem[i].setFee("" + bdEachTotal);
-            claimItem[i].setSer_num(getDefaultUnit(line.unit()));
-            claimItem[i].setService_date(service_date);
-            claimItem[i].setDx(getDefaultSpace(val.getParameter("dxCode")));
-            claimItem[i].setDx1(getDefaultSpace(val.getParameter("dxCode1")));
-            claimItem[i].setDx2(getDefaultSpace(val.getParameter("dxCode2")));
-            claimItem[i].setPaid(getDefaultSpace(val.getParameter("payment")));
-            claimItem[i].setRefund(getDefaultSpace(val.getParameter("refund")));
-            claimItem[i].setDiscount(getDefaultSpace(val.getParameter("discount")));
-            claimItem[i].setStatus("O");
+            claimItem[i] = claimItem[i].withServiceCode(line.code());
+            claimItem[i] = claimItem[i].withFee("" + bdEachTotal);
+            claimItem[i] = claimItem[i].withServiceNumber(getDefaultUnit(line.unit()));
+            claimItem[i] = claimItem[i].withServiceDate(service_date);
+            claimItem[i] = claimItem[i].withDx(getDefaultSpace(val.getParameter("dxCode")));
+            claimItem[i] = claimItem[i].withDx1(getDefaultSpace(val.getParameter("dxCode1")));
+            claimItem[i] = claimItem[i].withDx2(getDefaultSpace(val.getParameter("dxCode2")));
+            claimItem[i] = claimItem[i].withPaid(getDefaultSpace(val.getParameter("payment")));
+            claimItem[i] = claimItem[i].withRefund(getDefaultSpace(val.getParameter("refund")));
+            claimItem[i] = claimItem[i].withDiscount(getDefaultSpace(val.getParameter("discount")));
+            claimItem[i] = claimItem[i].withStatus("O");
         }
         return claimItem;
     }

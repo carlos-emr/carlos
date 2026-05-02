@@ -1007,12 +1007,12 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
             Appointment appt = createAndPersist(today, PROVIDER_NO, 100, "A");
 
             // When
-            List<io.github.carlos_emr.carlos.billings.ca.on.dto.AppointmentProviderRow> result =
+            List<io.github.carlos_emr.carlos.commn.dao.projection.AppointmentProviderRow> result =
                     oscarAppointmentDao.findAppointmentAndProviderByAppointmentNo(appt.getId());
 
             // Then
             assertThat(result).hasSize(1);
-            io.github.carlos_emr.carlos.billings.ca.on.dto.AppointmentProviderRow row = result.get(0);
+            io.github.carlos_emr.carlos.commn.dao.projection.AppointmentProviderRow row = result.get(0);
             // After projection: row carries only the location, appointment providerNo,
             // and provider OHIP no — the legacy Object[] of (Appointment, Provider) entities
             // was dropped to avoid lazy-init leakage.
@@ -1023,7 +1023,7 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
         @DisplayName("should return empty list for non-existent appointment")
         void shouldReturnEmptyList_whenAppointmentDoesNotExist() {
             // When
-            List<io.github.carlos_emr.carlos.billings.ca.on.dto.AppointmentProviderRow> result =
+            List<io.github.carlos_emr.carlos.commn.dao.projection.AppointmentProviderRow> result =
                     oscarAppointmentDao.findAppointmentAndProviderByAppointmentNo(99999);
 
             // Then

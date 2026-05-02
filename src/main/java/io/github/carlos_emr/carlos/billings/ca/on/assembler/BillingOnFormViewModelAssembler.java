@@ -33,6 +33,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingMultisiteContext;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnFormViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingAdmissionDateLoader;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnClaimLoader;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnLookupService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingSiteIdService;
@@ -97,6 +98,8 @@ public class BillingOnFormViewModelAssembler {
     private final BillingOnFormBillFormResolver billFormResolver;
     private final BillingOnFormServiceGridComposer serviceGridComposer;
     private final BillingOnFormSiteContextComposer siteContextComposer;
+    private final BillingSiteIdService siteIdService;
+    private final BillingAdmissionDateLoader admissionDateLoader;
 
     public BillingOnFormViewModelAssembler(DxresearchDAO dxresearchDao,
                                UserPropertyDAO userPropertyDao,
@@ -106,7 +109,9 @@ public class BillingOnFormViewModelAssembler {
                                BillingOnFormDemographicLoader demographicLoader,
                                BillingOnFormBillFormResolver billFormResolver,
                                BillingOnFormServiceGridComposer serviceGridComposer,
-                               BillingOnFormSiteContextComposer siteContextComposer) {
+                               BillingOnFormSiteContextComposer siteContextComposer,
+                               BillingSiteIdService siteIdService,
+                               BillingAdmissionDateLoader admissionDateLoader) {
         this.dxresearchDao = dxresearchDao;
         this.userPropertyDao = userPropertyDao;
         this.providerDao = providerDao;
@@ -116,6 +121,8 @@ public class BillingOnFormViewModelAssembler {
         this.billFormResolver = billFormResolver;
         this.serviceGridComposer = serviceGridComposer;
         this.siteContextComposer = siteContextComposer;
+        this.siteIdService = siteIdService;
+        this.admissionDateLoader = admissionDateLoader;
     }
 
     /**
@@ -360,7 +367,7 @@ public class BillingOnFormViewModelAssembler {
         // ---- recent-billing history rows (the bottom table renders aL/iAL pairs) ----
         b.billingHistoryRows(loadHistoryRows(demoNo));
 
-        // ---- visit-location dropdown (was inline tdbObj.getFacilty_num()) ----
+        // ---- visit-location dropdown (was inline tdbObj.facilityNumber()) ----
         List<String> facilityFlat = lookupService.getFacilty_num();
         List<BillingOnFormViewModel.FacilityNumOption> facilities = new ArrayList<>();
         if (facilityFlat != null) {
@@ -391,7 +398,6 @@ public class BillingOnFormViewModelAssembler {
         if (!IsPropertiesOn.isMultisitesEnable()) {
             String scheduleSiteId = oscarVars.getProperty("scheduleSiteID", "");
             if (scheduleSiteId != null && !scheduleSiteId.isEmpty()) {
-                BillingSiteIdService siteIdService = new BillingSiteIdService();
                 String[] siteList = siteIdService.getSiteList();
                 if (siteList != null && siteList.length > 0) {
                     String strServDate = firstNonNull(
@@ -427,11 +433,11 @@ public class BillingOnFormViewModelAssembler {
         if (inPatient != null && "yes".equalsIgnoreCase(inPatient.trim())
                 && demoNo != null && !demoNo.isEmpty()) {
             try {
-                admDate = nullToEmpty(new io.github.carlos_emr.carlos.demographic.data.DemographicData()
-                        .getDemographicDateJoined(loggedInInfo, demoNo));
+                admDate = nullToEmpty(admissionDateLoader.getAdmissionDate(loggedInInfo, demoNo));
             } catch (RuntimeException e) {
                 MiscUtils.getLogger().error(
                         "Admission-date lookup failed for demo={}", LogSanitizer.sanitize(demoNo), e);
+                b.admissionDateUnavailable(true);
             }
         }
         // Legacy override: hospital / nursing-home visit types pull the
@@ -621,12 +627,12 @@ public class BillingOnFormViewModelAssembler {
                         (io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto) raw.get(i);
                 io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto item =
                         (io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto) raw.get(i + 1);
-                String updateDt = nullToEmpty(header.getUpdate_datetime());
+                String updateDt = nullToEmpty(header.updateDateTime());
                 rows.add(new BillingOnFormViewModel.BillingHistoryRow(
                         nullToEmpty(header.getId()),
-                        nullToEmpty(header.getBilling_date()),
-                        nullToEmpty(item.getService_date()),
-                        nullToEmpty(item.getService_code()),
+                        nullToEmpty(header.billingDate()),
+                        nullToEmpty(item.serviceDate()),
+                        nullToEmpty(item.serviceCode()),
                         nullToEmpty(item.getDx()),
                         updateDt.length() >= 10 ? updateDt.substring(0, 10) : updateDt));
             }
@@ -729,9 +735,9 @@ public class BillingOnFormViewModelAssembler {
                 BillingClaimHeaderDto header = (BillingClaimHeaderDto) raw.get(0);
                 BillingClaimItemDto item = (BillingClaimItemDto) raw.get(1);
                 history.add(new BillingOnFormViewModel.BillingHistoryEntry(
-                        nullToEmpty(header.getAdmission_date()),
-                        nullToEmpty(header.getVisittype()),
-                        nullToEmpty(header.getFacilty_num()),
+                        nullToEmpty(header.admissionDate()),
+                        nullToEmpty(header.visitType()),
+                        nullToEmpty(header.facilityNumber()),
                         nullToEmpty(item.getDx())));
             }
         } catch (ClassCastException ccEx) {

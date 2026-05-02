@@ -174,7 +174,7 @@ public class BillingOnFormSiteContextComposer {
         if (selectedSite.isEmpty() && oscarAppointmentDao != null) {
             try {
                 int apptNoInt = ConversionUtils.fromIntString(nullToEmpty(apptNo));
-                for (io.github.carlos_emr.carlos.billings.ca.on.dto.AppointmentProviderRow row :
+                for (io.github.carlos_emr.carlos.commn.dao.projection.AppointmentProviderRow row :
                         oscarAppointmentDao.findAppointmentAndProviderByAppointmentNo(apptNoInt)) {
                     selectedSite = row.location();
                     defaultXmlp = row.appointmentProviderNo() + "|" + row.providerOhipNo();

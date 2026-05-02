@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  */
-package io.github.carlos_emr.carlos.billings.ca.on.dto;
+package io.github.carlos_emr.carlos.commn.dao.projection;
 
 /** Row returned by the ON new-report unbilled appointment query. */
 public record BillingOnNewReportUnbilledRow(

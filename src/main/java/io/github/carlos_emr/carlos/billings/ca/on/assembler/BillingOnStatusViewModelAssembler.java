@@ -467,7 +467,7 @@ public class BillingOnStatusViewModelAssembler {
             raRequests.add(new BillingRaLookupService.RaDataRequest(
                     ch1Obj.getId(),
                     raServiceDate(ch1Obj),
-                    ch1Obj.getProvider_ohip_no()));
+                    ch1Obj.providerOhipNo()));
         }
         Set<String> billingNosWithRaCode = filterByRaCode
                 ? raLookupService.findBillingNosWithErrorCode(visibleBillingNos, raCode)
@@ -490,7 +490,7 @@ public class BillingOnStatusViewModelAssembler {
                 }
             }
 
-            String ohipNo = ch1Obj.getProvider_ohip_no();
+            String ohipNo = ch1Obj.providerOhipNo();
             String raKey = BillingRaLookupService.RaDataRequest.key(ch1Obj.getId(), raServiceDate(ch1Obj), ohipNo);
             ArrayList<HashMap<String, String>> raList =
                     raDataByKey.getOrDefault(raKey, new ArrayList<HashMap<String, String>>());
@@ -521,7 +521,7 @@ public class BillingOnStatusViewModelAssembler {
             } else if (raList.size() > 0) {
                 io.github.carlos_emr.carlos.billings.ca.on.service.BillingRaLookupService.AmountPaidResult r =
                         raLookupService.getAmountPaidWithCount(raList,
-                                ch1Obj.getId(), ch1Obj.getTransc_id());
+                                ch1Obj.getId(), ch1Obj.transactionId());
                 amountPaid = r.formattedTotal();
                 unreadableTotalRowCount += r.unreadableCount();
                 errorCode = raLookupService.getErrorCodes(raList);
@@ -531,8 +531,8 @@ public class BillingOnStatusViewModelAssembler {
             // below must reference the same constant; an ||-chain that omits
             // any third-party code (e.g. IFH) silently skips 3rd-party
             // formatting on that pay program.
-            if (ch1Obj.getPay_program() != null
-                    && ch1Obj.getPay_program().matches(
+            if (ch1Obj.payProgram() != null
+                    && ch1Obj.payProgram().matches(
                             io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants.BILLINGMATCHSTRING_3RDPARTY)) {
                 amountPaid = ch1Obj.getPaid();
             }
@@ -576,14 +576,14 @@ public class BillingOnStatusViewModelAssembler {
             }
             String rowClass = nC ? "success" : "";
 
-            String settleDate = ch1Obj.getSettle_date();
+            String settleDate = ch1Obj.settleDate();
             if (settleDate == null || !BillingONCHeader1.SETTLED.equals(ch1Obj.getStatus())) {
                 settleDate = "N/A";
             } else if (settleDate.indexOf(' ') >= 0) {
                 settleDate = settleDate.substring(0, settleDate.indexOf(' '));
             }
 
-            String payProgram = ch1Obj.getPay_program();
+            String payProgram = ch1Obj.payProgram();
             // Same membership predicate as the matcher above — must use
             // the shared constant; an ||-chain that omits any third-party
             // code silently skips the formatting here while still sourcing
@@ -609,17 +609,17 @@ public class BillingOnStatusViewModelAssembler {
 
             rows.add(new BillingOnStatusViewModel.BillRow(
                     ch1Obj.getId(),
-                    ch1Obj.getBilling_date(),
-                    ch1Obj.getDemographic_no(),
-                    ch1Obj.getDemographic_name(),
-                    ch1Obj.getFacilty_num() != null ? ch1Obj.getFacilty_num() : "",
+                    ch1Obj.billingDate(),
+                    ch1Obj.demographicNo(),
+                    ch1Obj.demographicName(),
+                    ch1Obj.facilityNumber() != null ? ch1Obj.facilityNumber() : "",
                     ch1Obj.getStatus(),
                     settleDate,
-                    nullToSpace(ch1Obj.getTransc_id()),
+                    nullToSpace(ch1Obj.transactionId()),
                     getStdCurr(ch1Obj.getTotal()),
                     amountPaid,
                     adj.toString(),
-                    nullToSpace(ch1Obj.getRec_id()),
+                    nullToSpace(ch1Obj.recordId()),
                     payProgram,
                     ch1Obj.getId(),
                     errorCode,
@@ -664,9 +664,9 @@ public class BillingOnStatusViewModelAssembler {
     }
 
     private static String raServiceDate(BillingClaimHeaderDto ch1Obj) {
-        return ch1Obj.getBilling_date() == null
+        return ch1Obj.billingDate() == null
                 ? ""
-                : ch1Obj.getBilling_date().replaceAll("\\D", "");
+                : ch1Obj.billingDate().replaceAll("\\D", "");
     }
 
     private static String nullToSpace(String s) {

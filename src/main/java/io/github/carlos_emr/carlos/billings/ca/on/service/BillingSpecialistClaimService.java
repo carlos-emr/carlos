@@ -80,45 +80,45 @@ public class BillingSpecialistClaimService {
     private BillingClaimHeaderDto getClaimHeader1Obj(BillingSpecialistClaimCommand val) {
         BillingClaimHeaderDto claim1Header = new BillingClaimHeaderDto();
 
-        claim1Header.setTransc_id(BillingOnConstants.CLAIMHEADER1_TRANSACTIONIDENTIFIER);
-        claim1Header.setRec_id(BillingOnConstants.CLAIMHEADER1_REORDIDENTIFICATION);
+        claim1Header = claim1Header.withTransactionId(BillingOnConstants.CLAIMHEADER1_TRANSACTIONIDENTIFIER);
+        claim1Header = claim1Header.withRecordId(BillingOnConstants.CLAIMHEADER1_REORDIDENTIFICATION);
         String[] hinVer = getHinVer(val.demoHin());
-        claim1Header.setHin(hinVer[0]);
-        claim1Header.setVer(hinVer[1]);
-        claim1Header.setDob(val.demoDob());
+        claim1Header = claim1Header.withHin(hinVer[0]);
+        claim1Header = claim1Header.withVer(hinVer[1]);
+        claim1Header = claim1Header.withDob(val.demoDob());
         String hctype = normalizeHcType(val.demoHctype());
 
-        claim1Header.setPay_program(getPayProgram(val.xmlBilltype(), hctype));
-        claim1Header.setPayee(!val.payMethod().isEmpty() ? val.payMethod() : BillingOnConstants.CLAIMHEADER1_PAYEE);
-        claim1Header.setRef_num("");
+        claim1Header = claim1Header.withPayProgram(getPayProgram(val.xmlBilltype(), hctype));
+        claim1Header = claim1Header.withPayee(!val.payMethod().isEmpty() ? val.payMethod() : BillingOnConstants.CLAIMHEADER1_PAYEE);
+        claim1Header = claim1Header.withReferralNumber("");
 
-        claim1Header.setFacilty_num(val.clinicRefCode());
-        claim1Header.setAdmission_date("");
-        claim1Header.setRef_lab_num("");
-        claim1Header.setMan_review("");
-        claim1Header.setLocation(val.clinicNo());
-        claim1Header.setDemographic_no(val.functionId());
-        claim1Header.setProviderNo(afterPipe(val.providers()));
-        claim1Header.setAppointment_no(val.appointmentNo());
-        claim1Header.setDemographic_name(val.demoName());
+        claim1Header = claim1Header.withFacilityNumber(val.clinicRefCode());
+        claim1Header = claim1Header.withAdmissionDate("");
+        claim1Header = claim1Header.withReferringLabNumber("");
+        claim1Header = claim1Header.withManualReview("");
+        claim1Header = claim1Header.withLocation(val.clinicNo());
+        claim1Header = claim1Header.withDemographicNo(val.functionId());
+        claim1Header = claim1Header.withProviderNo(afterPipe(val.providers()));
+        claim1Header = claim1Header.withAppointmentNo(val.appointmentNo());
+        claim1Header = claim1Header.withDemographicName(val.demoName());
         String[] temp = getPatientLF(val.demoName());
-        claim1Header.setLast_name(temp[0]);
-        claim1Header.setFirst_name(temp[1]);
-        claim1Header.setSex(val.demoSex());
-        claim1Header.setProvince(hctype);
-        claim1Header.setBilling_date(val.apptDate());
-        claim1Header.setBilling_time("00:00:00");
-        claim1Header.setUpdate_datetime(UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss"));
-        claim1Header.setTotal(totalForCsvCodes(val.svcCode()));
-        claim1Header.setPaid("");
-        claim1Header.setStatus(getStatus(val.xmlBilltype()));
-        claim1Header.setComment("");
-        claim1Header.setVisittype(firstTwo(val.xmlVisittype()));
-        claim1Header.setProvider_ohip_no(beforePipe(val.providers()));
-        claim1Header.setProvider_rma_no("");
-        claim1Header.setApptProvider_no(val.apptProvider());
-        claim1Header.setAsstProvider_no("");
-        claim1Header.setCreator(val.creator());
+        claim1Header = claim1Header.withLastName(temp[0]);
+        claim1Header = claim1Header.withFirstName(temp[1]);
+        claim1Header = claim1Header.withSex(val.demoSex());
+        claim1Header = claim1Header.withProvince(hctype);
+        claim1Header = claim1Header.withBillingDate(val.apptDate());
+        claim1Header = claim1Header.withBillingTime("00:00:00");
+        claim1Header = claim1Header.withUpdateDateTime(UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss"));
+        claim1Header = claim1Header.withTotal(totalForCsvCodes(val.svcCode()));
+        claim1Header = claim1Header.withPaid("");
+        claim1Header = claim1Header.withStatus(getStatus(val.xmlBilltype()));
+        claim1Header = claim1Header.withComment("");
+        claim1Header = claim1Header.withVisitType(firstTwo(val.xmlVisittype()));
+        claim1Header = claim1Header.withProviderOhipNo(beforePipe(val.providers()));
+        claim1Header = claim1Header.withProviderRmaNo("");
+        claim1Header = claim1Header.withAppointmentProviderNo(val.apptProvider());
+        claim1Header = claim1Header.withAssistantProviderNo("");
+        claim1Header = claim1Header.withCreator(val.creator());
 
         return claim1Header;
     }
@@ -134,44 +134,44 @@ public class BillingSpecialistClaimService {
     private BillingClaimHeaderDto getClaimHeader1InrObj(BillingSpecialistClaimCommand val) {
         BillingClaimHeaderDto claim1Header = new BillingClaimHeaderDto();
 
-        claim1Header.setTransc_id(BillingOnConstants.CLAIMHEADER1_TRANSACTIONIDENTIFIER);
-        claim1Header.setRec_id(BillingOnConstants.CLAIMHEADER1_REORDIDENTIFICATION);
+        claim1Header = claim1Header.withTransactionId(BillingOnConstants.CLAIMHEADER1_TRANSACTIONIDENTIFIER);
+        claim1Header = claim1Header.withRecordId(BillingOnConstants.CLAIMHEADER1_REORDIDENTIFICATION);
         String[] hinVer = getHinVer(val.demoHin());
-        claim1Header.setHin(hinVer[0]);
-        claim1Header.setVer(hinVer[1]);
-        claim1Header.setDob(val.demoDob());
+        claim1Header = claim1Header.withHin(hinVer[0]);
+        claim1Header = claim1Header.withVer(hinVer[1]);
+        claim1Header = claim1Header.withDob(val.demoDob());
         String hctype = normalizeHcType(val.demoHctype());
 
-        claim1Header.setPay_program(getPayProgram(val.xmlBilltype(), hctype));
-        claim1Header.setPayee(!val.payMethod().isEmpty() ? val.payMethod() : BillingOnConstants.CLAIMHEADER1_PAYEE);
-        claim1Header.setRef_num("");
-        claim1Header.setFacilty_num("");
-        claim1Header.setAdmission_date("");
-        claim1Header.setRef_lab_num("");
-        claim1Header.setMan_review("");
-        claim1Header.setLocation(val.clinicNo());
-        claim1Header.setDemographic_no(val.functionId());
-        claim1Header.setProviderNo(afterPipe(val.providers()));
-        claim1Header.setAppointment_no(val.appointmentNo());
-        claim1Header.setDemographic_name(val.demoName());
+        claim1Header = claim1Header.withPayProgram(getPayProgram(val.xmlBilltype(), hctype));
+        claim1Header = claim1Header.withPayee(!val.payMethod().isEmpty() ? val.payMethod() : BillingOnConstants.CLAIMHEADER1_PAYEE);
+        claim1Header = claim1Header.withReferralNumber("");
+        claim1Header = claim1Header.withFacilityNumber("");
+        claim1Header = claim1Header.withAdmissionDate("");
+        claim1Header = claim1Header.withReferringLabNumber("");
+        claim1Header = claim1Header.withManualReview("");
+        claim1Header = claim1Header.withLocation(val.clinicNo());
+        claim1Header = claim1Header.withDemographicNo(val.functionId());
+        claim1Header = claim1Header.withProviderNo(afterPipe(val.providers()));
+        claim1Header = claim1Header.withAppointmentNo(val.appointmentNo());
+        claim1Header = claim1Header.withDemographicName(val.demoName());
         String[] temp = getPatientLF(val.demoName());
-        claim1Header.setLast_name(temp[0]);
-        claim1Header.setFirst_name(temp[1]);
-        claim1Header.setSex(val.demoSex());
-        claim1Header.setProvince(hctype);
-        claim1Header.setBilling_date(val.apptDate());
-        claim1Header.setBilling_time("00:00:00");
-        claim1Header.setUpdate_datetime(UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss"));
-        claim1Header.setTotal(feeForCode(val.svcCode()));
-        claim1Header.setPaid("");
-        claim1Header.setStatus(getStatus(val.xmlBilltype()));
-        claim1Header.setComment("");
-        claim1Header.setVisittype(firstTwo(val.xmlVisittype()));
-        claim1Header.setProvider_ohip_no(beforePipe(val.providers()));
-        claim1Header.setProvider_rma_no("");
-        claim1Header.setApptProvider_no(val.apptProvider());
-        claim1Header.setAsstProvider_no("");
-        claim1Header.setCreator(val.creator());
+        claim1Header = claim1Header.withLastName(temp[0]);
+        claim1Header = claim1Header.withFirstName(temp[1]);
+        claim1Header = claim1Header.withSex(val.demoSex());
+        claim1Header = claim1Header.withProvince(hctype);
+        claim1Header = claim1Header.withBillingDate(val.apptDate());
+        claim1Header = claim1Header.withBillingTime("00:00:00");
+        claim1Header = claim1Header.withUpdateDateTime(UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss"));
+        claim1Header = claim1Header.withTotal(feeForCode(val.svcCode()));
+        claim1Header = claim1Header.withPaid("");
+        claim1Header = claim1Header.withStatus(getStatus(val.xmlBilltype()));
+        claim1Header = claim1Header.withComment("");
+        claim1Header = claim1Header.withVisitType(firstTwo(val.xmlVisittype()));
+        claim1Header = claim1Header.withProviderOhipNo(beforePipe(val.providers()));
+        claim1Header = claim1Header.withProviderRmaNo("");
+        claim1Header = claim1Header.withAppointmentProviderNo(val.apptProvider());
+        claim1Header = claim1Header.withAssistantProviderNo("");
+        claim1Header = claim1Header.withCreator(val.creator());
 
         return claim1Header;
     }
@@ -182,16 +182,16 @@ public class BillingSpecialistClaimService {
 
     private BillingClaimItemDto item(String serviceCode, String serviceDate, String dxCode) {
         BillingClaimItemDto claimItem = new BillingClaimItemDto();
-        claimItem.setTransc_id(BillingOnConstants.ITEM_TRANSACTIONIDENTIFIER);
-        claimItem.setRec_id(BillingOnConstants.ITEM_REORDIDENTIFICATION);
-        claimItem.setService_code(serviceCode);
-        claimItem.setFee(feeForCode(serviceCode));
-        claimItem.setSer_num("1");
-        claimItem.setService_date(serviceDate);
-        claimItem.setDx(dxCode);
-        claimItem.setDx1("");
-        claimItem.setDx2("");
-        claimItem.setStatus("O");
+        claimItem = claimItem.withTransactionId(BillingOnConstants.ITEM_TRANSACTIONIDENTIFIER);
+        claimItem = claimItem.withRecordId(BillingOnConstants.ITEM_REORDIDENTIFICATION);
+        claimItem = claimItem.withServiceCode(serviceCode);
+        claimItem = claimItem.withFee(feeForCode(serviceCode));
+        claimItem = claimItem.withServiceNumber("1");
+        claimItem = claimItem.withServiceDate(serviceDate);
+        claimItem = claimItem.withDx(dxCode);
+        claimItem = claimItem.withDx1("");
+        claimItem = claimItem.withDx2("");
+        claimItem = claimItem.withStatus("O");
         return claimItem;
     }
 

@@ -156,39 +156,39 @@ public class BillingOnClaimPersister {
     public int addOneClaimHeaderRecord(BillingClaimHeaderDto val) {
         BillingONCHeader1 b = new BillingONCHeader1();
         b.setHeaderId(0);
-        b.setTranscId(val.getTransc_id());
-        b.setRecId(val.getRec_id());
+        b.setTranscId(val.transactionId());
+        b.setRecId(val.recordId());
         b.setHin(val.getHin());
         b.setVer(val.getVer());
         b.setDob(val.getDob());
-        b.setPayProgram(val.getPay_program());
+        b.setPayProgram(val.payProgram());
         b.setPayee(val.getPayee());
-        b.setRefNum(val.getRef_num());
-        b.setFaciltyNum(val.getFacilty_num());
+        b.setRefNum(val.referralNumber());
+        b.setFaciltyNum(val.facilityNumber());
         // Strict parse — silently nulling on malformed input persisted an
         // audit-incorrect billing_on_cheader1 row. Null/blank stays tolerated
         // (legacy contract) but a malformed date now aborts the @Transactional
         // unit-of-work. The setter is skipped on null because
         // BillingONCHeader1.setAdmissionDate calls format() and NPEs on null.
-        Date admissionDate = BillingDates.parseOptionalIsoDate(val.getAdmission_date(), "admission_date");
+        Date admissionDate = BillingDates.parseOptionalIsoDate(val.admissionDate(), "admission_date");
         if (admissionDate != null) {
             b.setAdmissionDate(admissionDate);
         }
 
-        b.setRefLabNum(val.getRef_lab_num());
-        b.setManReview(val.getMan_review());
+        b.setRefLabNum(val.referringLabNumber());
+        b.setManReview(val.manualReview());
         b.setLocation(val.getLocation());
-        b.setDemographicNo(Integer.parseInt(val.getDemographic_no()));
-        b.setProviderNo(val.getProvider_no());
-        String apptNo = StringUtils.trimToNull(val.getAppointment_no());
+        b.setDemographicNo(Integer.parseInt(val.demographicNo()));
+        b.setProviderNo(val.providerNo());
+        String apptNo = StringUtils.trimToNull(val.appointmentNo());
 
         if (apptNo != null) {
-            b.setAppointmentNo(Integer.parseInt(val.getAppointment_no()));
+            b.setAppointmentNo(Integer.parseInt(val.appointmentNo()));
         } else {
             b.setAppointmentNo(null);
         }
 
-        b.setDemographicName(val.getDemographic_name());
+        b.setDemographicName(val.demographicName());
         b.setSex(val.getSex());
         b.setProvince(val.getProvince());
         // Strict parse — silently logging on ParseException and persisting a
@@ -197,11 +197,11 @@ public class BillingOnClaimPersister {
         // malformed value now aborts the @Transactional unit-of-work. Setters
         // are guarded against null because BillingONCHeader1.setBillingDate /
         // setBillingTime call format() and NPE on null.
-        Date billingDate = BillingDates.parseOptionalIsoDate(val.getBilling_date(), "billing_date");
+        Date billingDate = BillingDates.parseOptionalIsoDate(val.billingDate(), "billing_date");
         if (billingDate != null) {
             b.setBillingDate(billingDate);
         }
-        Date billingTime = BillingDates.parseOptionalIsoTime(val.getBilling_time(), "billing_time");
+        Date billingTime = BillingDates.parseOptionalIsoTime(val.billingTime(), "billing_time");
         if (billingTime != null) {
             b.setBillingTime(billingTime);
         }
@@ -222,11 +222,11 @@ public class BillingOnClaimPersister {
 
         b.setStatus(val.getStatus());
         b.setComment(val.getComment());
-        b.setVisitType(val.getVisittype());
-        b.setProviderOhipNo(val.getProvider_ohip_no());
-        b.setProviderRmaNo(val.getProvider_rma_no());
-        b.setApptProviderNo(val.getApptProvider_no());
-        b.setAsstProviderNo(val.getAsstProvider_no());
+        b.setVisitType(val.visitType());
+        b.setProviderOhipNo(val.providerOhipNo());
+        b.setProviderRmaNo(val.providerRmaNo());
+        b.setApptProviderNo(val.appointmentProviderNo());
+        b.setAsstProviderNo(val.assistantProviderNo());
         b.setCreator(val.getCreator());
         b.setClinic(val.getClinic());
 
@@ -250,20 +250,20 @@ public class BillingOnClaimPersister {
 
             BillingONItem b = new BillingONItem();
             b.setCh1Id(id);
-            b.setTranscId(val.getTransc_id());
-            b.setRecId(val.getRec_id());
-            b.setServiceCode(val.getService_code());
+            b.setTranscId(val.transactionId());
+            b.setRecId(val.recordId());
+            b.setServiceCode(val.serviceCode());
             b.setFee(val.getFee());
-            b.setServiceCount(val.getSer_num());
+            b.setServiceCount(val.serviceNumber());
             // Strict parse — same reasoning as addOneClaimHeaderRecord above.
-            b.setServiceDate(BillingDates.parseOptionalIsoDate(val.getService_date(), "service_date"));
+            b.setServiceDate(BillingDates.parseOptionalIsoDate(val.serviceDate(), "service_date"));
             b.setDx(val.getDx());
             b.setDx1(val.getDx1());
             b.setDx2(val.getDx2());
             b.setStatus(val.getStatus());
 
             itemDao.persist(b);
-            val.setId(b.getId().toString());
+            lVal.set(i, val.withId(b.getId().toString()));
         }
     }
 
@@ -300,7 +300,7 @@ public class BillingOnClaimPersister {
             billOnItemPayment.setPaymentTimestamp(ts);
             billOnItemPayment.setRefund(refund);
             billOnItemPaymentDao.persist(billOnItemPayment);
-            val.setId(billOnItemPayment.getId().toString());
+            lVal.set(i, val.withId(billOnItemPayment.getId().toString()));
         }
         return (retval != 0);
     }
@@ -312,8 +312,8 @@ public class BillingOnClaimPersister {
         // Parse header dates upfront — surfacing failure here aborts the
         // surrounding @Transactional unit-of-work BEFORE any billOnTrans row
         // is persisted with a null/zero placeholder.
-        Date admissionDate = BillingDates.parseOptionalIsoDate(billHeader.getAdmission_date(), "admission_date");
-        Date billingDate = BillingDates.parseOptionalIsoDate(billHeader.getBilling_date(), "billing_date");
+        Date admissionDate = BillingDates.parseOptionalIsoDate(billHeader.admissionDate(), "admission_date");
+        Date billingDate = BillingDates.parseOptionalIsoDate(billHeader.billingDate(), "billing_date");
         Timestamp updateTs = new Timestamp(new Date().getTime());
         BillingOnTransaction billTrans = null;
         for (BillingClaimItemDto billItem : billItemList) {
@@ -337,28 +337,28 @@ public class BillingOnClaimPersister {
             billTrans.setCh1Id(Integer.parseInt(billHeader.getId()));
             billTrans.setClinic(billHeader.getClinic());
             billTrans.setCreator(billHeader.getCreator());
-            billTrans.setDemographicNo(Integer.parseInt(billHeader.getDemographic_no()));
+            billTrans.setDemographicNo(Integer.parseInt(billHeader.demographicNo()));
             billTrans.setDxCode(billItem.getDx());
-            billTrans.setFacilityNum(billHeader.getFacilty_num());
-            billTrans.setManReview(billHeader.getMan_review());
+            billTrans.setFacilityNum(billHeader.facilityNumber());
+            billTrans.setManReview(billHeader.manualReview());
             billTrans.setPaymentDate(billOnPayment.getPaymentDate());
             billTrans.setPaymentId(billOnPayment.getId());
             billTrans.setPaymentType(billOnPayment.getPaymentTypeId());
-            billTrans.setPayProgram(billHeader.getPay_program());
+            billTrans.setPayProgram(billHeader.payProgram());
             billTrans.setProviderNo(billHeader.getProviderNo());
             billTrans.setProvince(billHeader.getProvince());
-            billTrans.setRefNum(billHeader.getRef_num());
-            billTrans.setServiceCode(billItem.getService_code());
+            billTrans.setRefNum(billHeader.referralNumber());
+            billTrans.setServiceCode(billItem.serviceCode());
             billTrans.setServiceCodeInvoiced(billItem.getFee());
             billTrans.setServiceCodeDiscount(discount);
-            billTrans.setServiceCodeNum(billItem.getSer_num());
+            billTrans.setServiceCodeNum(billItem.serviceNumber());
             billTrans.setServiceCodePaid(paid);
             billTrans.setServiceCodeRefund(refund);
             billTrans.setStatus(billHeader.getStatus());
             billTrans.setSliCode(billHeader.getLocation());
             billTrans.setUpdateDatetime(updateTs);
             billTrans.setUpdateProviderNo(billHeader.getCreator());
-            billTrans.setVisittype(billHeader.getVisittype());
+            billTrans.setVisittype(billHeader.visitType());
             billTransDao.persist(billTrans);
         }
     }
@@ -393,8 +393,8 @@ public class BillingOnClaimPersister {
         // unit-of-work BEFORE any billOnTrans row is persisted with a null
         // placeholder. At OHIP-claim creation amounts are intentionally ZERO
         // (no payment received yet) so amount parsing is N/A here.
-        Date admissionDate = BillingDates.parseOptionalIsoDate(billHeader.getAdmission_date(), "admission_date");
-        Date billingDate = BillingDates.parseOptionalIsoDate(billHeader.getBilling_date(), "billing_date");
+        Date admissionDate = BillingDates.parseOptionalIsoDate(billHeader.admissionDate(), "admission_date");
+        Date billingDate = BillingDates.parseOptionalIsoDate(billHeader.billingDate(), "billing_date");
         Timestamp updateTs = new Timestamp(new Date().getTime());
         BillingOnTransaction billTrans = null;
         for (BillingClaimItemDto billItem : billItemList) {
@@ -408,28 +408,28 @@ public class BillingOnClaimPersister {
             billTrans.setCh1Id(Integer.parseInt(billHeader.getId()));
             billTrans.setClinic(billHeader.getClinic());
             billTrans.setCreator(billHeader.getCreator());
-            billTrans.setDemographicNo(Integer.parseInt(billHeader.getDemographic_no()));
+            billTrans.setDemographicNo(Integer.parseInt(billHeader.demographicNo()));
             billTrans.setDxCode(billItem.getDx());
-            billTrans.setFacilityNum(billHeader.getFacilty_num());
-            billTrans.setManReview(billHeader.getMan_review());
+            billTrans.setFacilityNum(billHeader.facilityNumber());
+            billTrans.setManReview(billHeader.manualReview());
             billTrans.setPaymentDate(null);
             billTrans.setPaymentId(0);
             billTrans.setPaymentType(0);
-            billTrans.setPayProgram(billHeader.getPay_program());
+            billTrans.setPayProgram(billHeader.payProgram());
             billTrans.setProviderNo(billHeader.getProviderNo());
             billTrans.setProvince(billHeader.getProvince());
-            billTrans.setRefNum(billHeader.getRef_num());
-            billTrans.setServiceCode(billItem.getService_code());
+            billTrans.setRefNum(billHeader.referralNumber());
+            billTrans.setServiceCode(billItem.serviceCode());
             billTrans.setServiceCodeInvoiced(billItem.getFee());
             billTrans.setServiceCodeDiscount(BigDecimal.ZERO);
             billTrans.setServiceCodePaid(BigDecimal.ZERO);
             billTrans.setServiceCodeRefund(BigDecimal.ZERO);
-            billTrans.setServiceCodeNum(billItem.getSer_num());
+            billTrans.setServiceCodeNum(billItem.serviceNumber());
             billTrans.setStatus(billHeader.getStatus());
             billTrans.setSliCode(billHeader.getLocation());
             billTrans.setUpdateDatetime(updateTs);
             billTrans.setUpdateProviderNo(billHeader.getCreator());
-            billTrans.setVisittype(billHeader.getVisittype());
+            billTrans.setVisittype(billHeader.visitType());
             billTransDao.persist(billTrans);
         }
     }
@@ -534,13 +534,13 @@ public class BillingOnClaimPersister {
      */
     public int addOneItemRecord(BillingClaimItemDto val) {
         BillingONItem item = new BillingONItem();
-        item.setCh1Id(Integer.parseInt(val.getCh1_id()));
-        item.setTranscId(val.getTransc_id());
-        item.setRecId(val.getRec_id());
-        item.setServiceCode(val.getService_code());
+        item.setCh1Id(Integer.parseInt(val.claimHeaderId()));
+        item.setTranscId(val.transactionId());
+        item.setRecId(val.recordId());
+        item.setServiceCode(val.serviceCode());
         item.setFee(val.getFee());
-        item.setServiceCount(val.getSer_num());
-        item.setServiceDate(BillingDates.parseIsoDate(val.getService_date()));
+        item.setServiceCount(val.serviceNumber());
+        item.setServiceDate(BillingDates.parseIsoDate(val.serviceDate()));
         item.setDx(val.getDx());
         item.setDx1(val.getDx1());
         item.setDx2(val.getDx2());

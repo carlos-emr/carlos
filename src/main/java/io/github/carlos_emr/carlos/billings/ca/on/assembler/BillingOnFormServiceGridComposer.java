@@ -289,7 +289,7 @@ public class BillingOnFormServiceGridComposer {
                 new LinkedHashMap<>();
         for (String st : serviceTypeCodes) {
             List<BillingOnFormViewModel.DxCodeEntry> entries = new ArrayList<>();
-            for (io.github.carlos_emr.carlos.billings.ca.on.dto.DiagnosticCodeRow row :
+            for (io.github.carlos_emr.carlos.commn.dao.projection.DiagnosticCodeRow row :
                     diagnosticCodeDao.findDiagnosictsAndCtlDiagCodesByServiceType(st)) {
                 entries.add(new BillingOnFormViewModel.DxCodeEntry(
                         st,

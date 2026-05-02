@@ -135,9 +135,9 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
         @Test
         void shouldPersistHeaderEntity_andReturnGeneratedId() throws Exception {
             BillingClaimHeaderDto dto = headerDto();
-            dto.setBilling_date("2026-04-28");
-            dto.setBilling_time("12:34:56");
-            dto.setAdmission_date("2026-04-15");
+            dto = dto.withBillingDate("2026-04-28");
+            dto = dto.withBillingTime("12:34:56");
+            dto = dto.withAdmissionDate("2026-04-15");
 
             // The DAO assigns the generated id during persist; simulate that
             // by stamping it on the entity Mockito sees.
@@ -161,8 +161,8 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
         @Test
         void shouldDefaultMoneyFields_whenTotalAndPaidAreNull() throws Exception {
             BillingClaimHeaderDto dto = headerDto();
-            dto.setTotal(null);
-            dto.setPaid(null);
+            dto = dto.withTotal(null);
+            dto = dto.withPaid(null);
 
             ArgumentCaptor<BillingONCHeader1> captor = ArgumentCaptor.forClass(BillingONCHeader1.class);
             doAssignId(captor, 1);
@@ -179,8 +179,7 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
             // Strict-parse contract: a malformed admission_date now aborts
             // the @Transactional unit-of-work via IllegalArgumentException
             // rather than silently nulling the field on the persisted row.
-            BillingClaimHeaderDto dto = headerDto();
-            dto.setAdmission_date("not-a-date");
+            BillingClaimHeaderDto dto = headerDto().withAdmissionDate("not-a-date");
 
             org.assertj.core.api.Assertions.assertThatThrownBy(() ->
                     persister.addOneClaimHeaderRecord(dto))
@@ -197,7 +196,7 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
             // legacy contract tolerated this and the strict-parse helper
             // preserves that. Persistence proceeds with admissionDate=null.
             BillingClaimHeaderDto dto = headerDto();
-            dto.setAdmission_date("");
+            dto = dto.withAdmissionDate("");
 
             ArgumentCaptor<BillingONCHeader1> captor = ArgumentCaptor.forClass(BillingONCHeader1.class);
             doAssignId(captor, 1);
@@ -217,8 +216,7 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
 
         @Test
         void shouldThrow_whenBillingDateIsMalformed() {
-            BillingClaimHeaderDto dto = headerDto();
-            dto.setBilling_date("not-a-date");
+            BillingClaimHeaderDto dto = headerDto().withBillingDate("not-a-date");
 
             org.assertj.core.api.Assertions.assertThatThrownBy(() ->
                     persister.addOneClaimHeaderRecord(dto))
@@ -232,7 +230,7 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
         @Test
         void shouldTreatBlankBillingDateAsNull_andPersist() {
             BillingClaimHeaderDto dto = headerDto();
-            dto.setBilling_date("");
+            dto = dto.withBillingDate("");
 
             ArgumentCaptor<BillingONCHeader1> captor = ArgumentCaptor.forClass(BillingONCHeader1.class);
             doAssignId(captor, 1);
@@ -245,8 +243,7 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
 
         @Test
         void shouldThrow_whenBillingTimeIsMalformed() {
-            BillingClaimHeaderDto dto = headerDto();
-            dto.setBilling_time("99:99:99");
+            BillingClaimHeaderDto dto = headerDto().withBillingTime("99:99:99");
 
             org.assertj.core.api.Assertions.assertThatThrownBy(() ->
                     persister.addOneClaimHeaderRecord(dto))
@@ -263,7 +260,7 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
             // string ("00:00:00") — that's a separate model-layer concern.
             // The persister's contract is just "don't throw, do persist".
             BillingClaimHeaderDto dto = headerDto();
-            dto.setBilling_time("");
+            dto = dto.withBillingTime("");
 
             ArgumentCaptor<BillingONCHeader1> captor = ArgumentCaptor.forClass(BillingONCHeader1.class);
             doAssignId(captor, 1);
@@ -331,10 +328,10 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
         @Test
         void shouldPersistOneItemPaymentPerEntry_withMoneyFieldsParsed() {
             BillingClaimItemDto a = itemDto("A001A", "2026-04-28");
-            a.setId("11");
-            a.setDiscount("1.25");
-            a.setPaid("33.70");
-            a.setRefund("0.00");
+            a = a.withId("11");
+            a = a.withDiscount("1.25");
+            a = a.withPaid("33.70");
+            a = a.withRefund("0.00");
 
             doAssignItemPaymentId(55);
 
@@ -360,11 +357,11 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
             // surfaces a typed validation failure so the Struts exception
             // mapping can render the billing validation page and the
             // surrounding @Transactional unit-of-work rolls back.
-            BillingClaimItemDto a = itemDto("A001A", "2026-04-28");
-            a.setId("11");
-            a.setDiscount("not-a-number");
-            a.setPaid("33.70");
-            a.setRefund("0.00");
+            BillingClaimItemDto a = itemDto("A001A", "2026-04-28")
+                    .withId("11")
+                    .withDiscount("not-a-number")
+                    .withPaid("33.70")
+                    .withRefund("0.00");
 
             org.assertj.core.api.Assertions.assertThatThrownBy(() ->
                     persister.addItemPaymentRecord(new ArrayList<>(List.of(a)), 4242, 7, 1))
@@ -382,10 +379,10 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
             // not enter a value. The strict-but-blank-tolerant parser must
             // accept these and write zero, distinct from malformed input.
             BillingClaimItemDto a = itemDto("A001A", "2026-04-28");
-            a.setId("11");
-            a.setDiscount("");
-            a.setPaid("33.70");
-            a.setRefund("");
+            a = a.withId("11");
+            a = a.withDiscount("");
+            a = a.withPaid("33.70");
+            a = a.withRefund("");
 
             doAssignItemPaymentId(55);
 
@@ -503,53 +500,52 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
 
     private static BillingClaimHeaderDto headerDto() {
         BillingClaimHeaderDto h = new BillingClaimHeaderDto();
-        h.setHin("1234567890");
-        h.setVer("AB");
-        h.setDob("1980-01-15");
-        h.setPay_program("HCP");
-        h.setPayee("P");
-        h.setRef_num("");
-        h.setFacilty_num("0000");
-        h.setRef_lab_num("");
-        h.setMan_review("");
-        h.setLocation("0000");
-        h.setDemographic_no("7");
-        h.setProviderNo("999998");
-        h.setAppointment_no(null);
-        h.setDemographic_name("Doe,Jane");
-        h.setSex("F");
-        h.setProvince("ON");
-        h.setBilling_date("");
-        h.setBilling_time("");
-        h.setTotal("1.50");
-        h.setPaid("0.00");
-        h.setStatus("O");
-        h.setComment("");
-        h.setVisittype("00");
-        h.setProvider_ohip_no("999998");
-        h.setProvider_rma_no("");
-        h.setApptProvider_no("999998");
-        h.setAsstProvider_no("");
-        h.setCreator("999998");
-        h.setClinic("");
-        h.setTransc_id("");
-        h.setRec_id("");
-        h.setAdmission_date("");
-        return h;
+        return h.withHin("1234567890")
+                .withVer("AB")
+                .withDob("1980-01-15")
+                .withPayProgram("HCP")
+                .withPayee("P")
+                .withReferralNumber("")
+                .withFacilityNumber("0000")
+                .withReferringLabNumber("")
+                .withManualReview("")
+                .withLocation("0000")
+                .withDemographicNo("7")
+                .withProviderNo("999998")
+                .withAppointmentNo(null)
+                .withDemographicName("Doe,Jane")
+                .withSex("F")
+                .withProvince("ON")
+                .withBillingDate("")
+                .withBillingTime("")
+                .withTotal("1.50")
+                .withPaid("0.00")
+                .withStatus("O")
+                .withComment("")
+                .withVisitType("00")
+                .withProviderOhipNo("999998")
+                .withProviderRmaNo("")
+                .withAppointmentProviderNo("999998")
+                .withAssistantProviderNo("")
+                .withCreator("999998")
+                .withClinic("")
+                .withTransactionId("")
+                .withRecordId("")
+                .withAdmissionDate("");
     }
 
     private static BillingClaimItemDto itemDto(String code, String serviceDate) {
         BillingClaimItemDto item = new BillingClaimItemDto();
-        item.setTransc_id("");
-        item.setRec_id("");
-        item.setService_code(code);
-        item.setFee("33.70");
-        item.setSer_num("1");
-        item.setService_date(serviceDate);
-        item.setDx("401");
-        item.setDx1("");
-        item.setDx2("");
-        item.setStatus("O");
+        item = item.withTransactionId("");
+        item = item.withRecordId("");
+        item = item.withServiceCode(code);
+        item = item.withFee("33.70");
+        item = item.withServiceNumber("1");
+        item = item.withServiceDate(serviceDate);
+        item = item.withDx("401");
+        item = item.withDx1("");
+        item = item.withDx2("");
+        item = item.withStatus("O");
         return item;
     }
 

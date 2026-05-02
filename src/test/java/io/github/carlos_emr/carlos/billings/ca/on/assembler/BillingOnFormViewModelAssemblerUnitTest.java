@@ -187,7 +187,9 @@ class BillingOnFormViewModelAssemblerUnitTest extends CarlosUnitTestBase {
                         ctlBillingServiceDao, billingServiceDao, ctlBillingServicePremiumDao,
                         cssStylesDAO, codeFilterManager, ctlBillingTypeDao, diagnosticCodeDao),
                 new BillingOnFormSiteContextComposer(
-                        siteDao, oscarAppointmentDao, clinicNbrDao, providerDao));
+                        siteDao, oscarAppointmentDao, clinicNbrDao, providerDao),
+                Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingSiteIdService.class),
+                Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingAdmissionDateLoader.class));
     }
 
     @Test
@@ -311,5 +313,15 @@ class BillingOnFormViewModelAssemblerUnitTest extends CarlosUnitTestBase {
         assertThat(source).doesNotContain("Drools billing-guidelines evaluation failed for demo={}");
         assertThat(source).doesNotContain("LogSanitizer.sanitize(demoNo), userNo, e");
         assertThat(source).doesNotContain("OutOfMemoryError-adjacent");
+    }
+
+    @Test
+    void shouldNotInstantiateSpringServicesDirectly() throws Exception {
+        String source = Files.readString(Path.of(
+                "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOnFormViewModelAssembler.java"));
+
+        assertThat(source)
+                .doesNotContain("new BillingSiteIdService()")
+                .doesNotContain("new io.github.carlos_emr.carlos.demographic.data.DemographicData()");
     }
 }

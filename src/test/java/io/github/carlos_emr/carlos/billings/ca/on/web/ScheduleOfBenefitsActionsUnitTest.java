@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.dto.FeeScheduleApplyResult;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.FeeScheduleAppliedChange;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.FeeScheduleChange;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.FeeScheduleImportResult;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.FeeScheduleValidationError;
 import io.github.carlos_emr.carlos.billings.ca.on.service.FeeScheduleImportService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -195,8 +196,27 @@ class ScheduleOfBenefitsActionsUnitTest {
                 new ScheduleOfBenefitsUpload2Action(securityInfoManager, feeScheduleImportService);
         attachUpload(action);
 
-        action.execute();
+        assertThat(action.execute()).isEqualTo("exception");
 
+        assertThat(request.getAttribute("outcome")).isEqualTo("exception");
+    }
+
+    @Test
+    void shouldReturnException_whenPreviewFindsValidationErrors() throws Exception {
+        uploadFile = Files.createTempFile("schedule-of-benefits-errors", ".txt");
+        Files.writeString(uploadFile, "bad");
+        when(feeScheduleImportService.preview(any(), any()))
+                .thenReturn(new FeeScheduleImportResult(
+                        Collections.emptyList(),
+                        List.of(new FeeScheduleValidationError(
+                                1, "bad", "serviceCode", "Invalid fee schedule line")),
+                        false));
+
+        ScheduleOfBenefitsUpload2Action action =
+                new ScheduleOfBenefitsUpload2Action(securityInfoManager, feeScheduleImportService);
+        attachUpload(action);
+
+        assertThat(action.execute()).isEqualTo("exception");
         assertThat(request.getAttribute("outcome")).isEqualTo("exception");
     }
 

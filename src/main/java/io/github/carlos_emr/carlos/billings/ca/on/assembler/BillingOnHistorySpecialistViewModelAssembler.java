@@ -107,7 +107,7 @@ public class BillingOnHistorySpecialistViewModelAssembler {
             for (int i = 0; i + 1 < aL.size(); i = i + 2) {
                 BillingClaimHeaderDto obj = (BillingClaimHeaderDto) aL.get(i);
                 BillingClaimItemDto itObj = (BillingClaimItemDto) aL.get(i + 1);
-                String strServiceCode = itObj.getService_code();
+                String strServiceCode = itObj.serviceCode();
                 if (!safeServiceCode.isEmpty()) {
                     if (strServiceCode == null || strServiceCode.indexOf(safeServiceCode) < 0) {
                         continue;
@@ -115,7 +115,7 @@ public class BillingOnHistorySpecialistViewModelAssembler {
                 }
                 rows.add(new BillingOnHistorySpecialistViewModel.HistoryRow(
                         String.valueOf(obj.getId()),
-                        nullToEmpty(obj.getBilling_date()),
+                        nullToEmpty(obj.billingDate()),
                         BillingOnConstants.propBillingType.getProperty(
                                 nullToEmpty(obj.getStatus()), ""),
                         nullToEmpty(strServiceCode),

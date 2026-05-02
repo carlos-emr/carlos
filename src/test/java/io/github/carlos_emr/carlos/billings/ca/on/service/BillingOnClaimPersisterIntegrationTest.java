@@ -124,35 +124,35 @@ class BillingOnClaimPersisterIntegrationTest extends CarlosTestBase {
 
     private BillingClaimHeaderDto headerDto(int billingNo) {
         BillingClaimHeaderDto header = new BillingClaimHeaderDto();
-        header.setId(String.valueOf(billingNo));
-        header.setCreator("999998");
-        header.setDemographic_no("700001");
-        header.setBilling_date("2026-05-01");
-        header.setAdmission_date("");
-        header.setComment("");
-        header.setClinic("");
-        header.setFacilty_num("0001");
-        header.setMan_review("");
-        header.setPay_program("PAT");
-        header.setProviderNo("999998");
-        header.setProvince("ON");
-        header.setRef_num("");
-        header.setLocation("");
-        header.setStatus("O");
-        header.setVisittype("00");
+        header = header.withId(String.valueOf(billingNo));
+        header = header.withCreator("999998");
+        header = header.withDemographicNo("700001");
+        header = header.withBillingDate("2026-05-01");
+        header = header.withAdmissionDate("");
+        header = header.withComment("");
+        header = header.withClinic("");
+        header = header.withFacilityNumber("0001");
+        header = header.withManualReview("");
+        header = header.withPayProgram("PAT");
+        header = header.withProviderNo("999998");
+        header = header.withProvince("ON");
+        header = header.withReferralNumber("");
+        header = header.withLocation("");
+        header = header.withStatus("O");
+        header = header.withVisitType("00");
         return header;
     }
 
     private BillingClaimItemDto itemDto(String id, String paid) {
         BillingClaimItemDto item = new BillingClaimItemDto();
-        item.setId(id);
-        item.setDiscount("0.00");
-        item.setPaid(paid);
-        item.setRefund("0.00");
-        item.setService_code("A001A");
-        item.setFee("25.00");
-        item.setSer_num("1");
-        item.setDx("001");
+        item = item.withId(id);
+        item = item.withDiscount("0.00");
+        item = item.withPaid(paid);
+        item = item.withRefund("0.00");
+        item = item.withServiceCode("A001A");
+        item = item.withFee("25.00");
+        item = item.withServiceNumber("1");
+        item = item.withDx("001");
         return item;
     }
 

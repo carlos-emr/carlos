@@ -249,7 +249,7 @@
                     href="${pageContext.request.contextPath}/servlet/OscarDownload?homepath=ohipdownload&filename=${carlos:forUriComponent(row.ohipFile)}"
                     target="_blank"><carlos:encode value="${row.ohipFile}" context="html"/></a></font></td>
             <td width="3%"><input type="button" value="R" class="btn d-print-none"
-                                  onclick="recreate(<c:out value='${row.diskId}'/>)"/></td>
+                                  onclick="recreate('<carlos:encode value='${row.diskId}' context='javaScriptAttribute'/>')"/></td>
             <td><font size="2"> <a
                     href="${pageContext.request.contextPath}/servlet/OscarDownload?homepath=ohipdownload&filename=${carlos:forUriComponent(row.htmlFile)}"
                     target="_blank"><carlos:encode value="${row.htmlFile}" context="html"/></a></font></td>

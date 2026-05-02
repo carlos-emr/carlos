@@ -623,10 +623,10 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
     }
 
     @Override
-    public List<io.github.carlos_emr.carlos.billings.ca.on.dto.AppointmentProviderRow> findAppointmentAndProviderByAppointmentNo(Integer apptNo) {
-        String sql = "SELECT new io.github.carlos_emr.carlos.billings.ca.on.dto.AppointmentProviderRow(a.location, a.providerNo, p.ohipNo) FROM Appointment a, Provider p WHERE a.providerNo = p.ProviderNo AND a.id = ?1";
-        jakarta.persistence.TypedQuery<io.github.carlos_emr.carlos.billings.ca.on.dto.AppointmentProviderRow> query =
-                entityManager.createQuery(sql, io.github.carlos_emr.carlos.billings.ca.on.dto.AppointmentProviderRow.class);
+    public List<io.github.carlos_emr.carlos.commn.dao.projection.AppointmentProviderRow> findAppointmentAndProviderByAppointmentNo(Integer apptNo) {
+        String sql = "SELECT new io.github.carlos_emr.carlos.commn.dao.projection.AppointmentProviderRow(a.location, a.providerNo, p.ohipNo) FROM Appointment a, Provider p WHERE a.providerNo = p.ProviderNo AND a.id = ?1";
+        jakarta.persistence.TypedQuery<io.github.carlos_emr.carlos.commn.dao.projection.AppointmentProviderRow> query =
+                entityManager.createQuery(sql, io.github.carlos_emr.carlos.commn.dao.projection.AppointmentProviderRow.class);
         query.setParameter(1, apptNo);
         return query.getResultList();
     }
@@ -780,7 +780,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
     }
 
     @Override
-    public List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportUnbilledRow>
+    public List<io.github.carlos_emr.carlos.commn.dao.projection.BillingOnNewReportUnbilledRow>
     findBillingOnNewReportUnbilledRows(String providerNo, String startDate, String endDate) {
         String sql = "select appointment_no, provider_no, appointment_date, start_time, demographic_no, name, reason, location "
                 + "from appointment where provider_no=?1 and appointment_date >=?2 and appointment_date<=?3 "
@@ -791,10 +791,10 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         query.setParameter(2, startDate);
         query.setParameter(3, endDate);
 
-        List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportUnbilledRow> rows =
+        List<io.github.carlos_emr.carlos.commn.dao.projection.BillingOnNewReportUnbilledRow> rows =
                 new ArrayList<>();
         for (Object[] r : (List<Object[]>) query.getResultList()) {
-            rows.add(new io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportUnbilledRow(
+            rows.add(new io.github.carlos_emr.carlos.commn.dao.projection.BillingOnNewReportUnbilledRow(
                     value(r[0]), value(r[1]), value(r[2]), value(r[3]),
                     value(r[4]), value(r[5]), value(r[6]), value(r[7])));
         }

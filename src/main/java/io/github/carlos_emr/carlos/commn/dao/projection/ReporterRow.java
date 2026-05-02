@@ -15,7 +15,7 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.billings.ca.on.dto;
+package io.github.carlos_emr.carlos.commn.dao.projection;
 
 /**
  * One billing-report-eligible provider — joined from

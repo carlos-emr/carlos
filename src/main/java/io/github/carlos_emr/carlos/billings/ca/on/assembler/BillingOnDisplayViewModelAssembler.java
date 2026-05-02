@@ -113,24 +113,24 @@ public class BillingOnDisplayViewModelAssembler {
         String rDoctorOhip = "";
 
         if (billPresent && recordObj != null && !recordObj.isEmpty()) {
-            updateDate = ch1Obj.getUpdate_datetime();
-            demoNo = ch1Obj.getDemographic_no();
-            demoName = ch1Obj.getDemographic_name();
+            updateDate = ch1Obj.updateDateTime();
+            demoNo = ch1Obj.demographicNo();
+            demoName = ch1Obj.demographicName();
             demoDOB = ch1Obj.getDob();
             String sex = ch1Obj.getSex();
             demoSex = "1".equals(sex) ? "M" : "F";
             hin = nullToEmpty(ch1Obj.getHin()) + nullToEmpty(ch1Obj.getVer());
-            location = ch1Obj.getFacilty_num();
-            billDate = ch1Obj.getBilling_date();
+            location = ch1Obj.facilityNumber();
+            billDate = ch1Obj.billingDate();
             provider = ch1Obj.getProviderNo();
             billType = ch1Obj.getStatus();
-            payProgram = ch1Obj.getPay_program();
-            visitDate = ch1Obj.getAdmission_date();
-            visitType = ch1Obj.getVisittype();
+            payProgram = ch1Obj.payProgram();
+            visitDate = ch1Obj.admissionDate();
+            visitType = ch1Obj.visitType();
             hcType = ch1Obj.getProvince();
             hcSex = ch1Obj.getSex();
-            rDoctorOhip = ch1Obj.getRef_num();
-            mReview = ch1Obj.getMan_review();
+            rDoctorOhip = ch1Obj.referralNumber();
+            mReview = ch1Obj.manualReview();
             comment = ch1Obj.getComment();
         }
 
@@ -216,11 +216,11 @@ public class BillingOnDisplayViewModelAssembler {
         if (billPresent && recordObj != null && recordObj.size() > 1) {
             for (int i = 1; i < recordObj.size(); i++) {
                 BillingClaimItemDto itemObj = (BillingClaimItemDto) recordObj.get(i);
-                String serviceCode = nullToEmpty(itemObj.getService_code());
+                String serviceCode = nullToEmpty(itemObj.serviceCode());
                 String serviceDesc = prep.getBillingCodeDesc(serviceCode);
                 String billAmount = nullToEmpty(itemObj.getFee());
                 String dx = nullToEmpty(itemObj.getDx());
-                String unit = nullToEmpty(itemObj.getSer_num());
+                String unit = nullToEmpty(itemObj.serviceNumber());
                 boolean settled = BillingONItem.SETTLED.equals(itemObj.getStatus());
                 rowCount++;
                 serviceRows.add(new BillingOnDisplayViewModel.ServiceItemRow(

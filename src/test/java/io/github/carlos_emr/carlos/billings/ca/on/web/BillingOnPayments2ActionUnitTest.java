@@ -211,12 +211,12 @@ class BillingOnPayments2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldNotDoublePrefixNegativeItemCurrencyValues() {
         BillingClaimItemDto item = new BillingClaimItemDto();
-        item.setId("1");
-        item.setService_code("A001A");
-        item.setFee("10.00");
-        item.setPaid("0.00");
-        item.setDiscount("0.00");
-        item.setCredit("15.00");
+        item = item.withId("1");
+        item = item.withServiceCode("A001A");
+        item = item.withFee("10.00");
+        item = item.withPaid("0.00");
+        item = item.withDiscount("0.00");
+        item = item.withCredit("15.00");
 
         BillingOnThirdPartyPaymentsViewModel model = new BillingOnPayments2Action()
                 .buildPaymentsViewModel(123, List.of(item), List.of(),

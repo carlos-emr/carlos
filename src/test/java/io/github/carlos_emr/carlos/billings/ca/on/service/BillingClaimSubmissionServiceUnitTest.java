@@ -82,7 +82,9 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
 
         assertThat(result.saved()).isTrue();
         assertThat(result.billingId()).isEqualTo(1234);
-        assertThat(header.getId()).isEqualTo("1234");
+        assertThat((BillingClaimHeaderDto) claim.get(0))
+                .extracting(BillingClaimHeaderDto::getId)
+                .isEqualTo("1234");
         verify(mockPersister).addItemRecord(items, 1234);
     }
 
@@ -148,26 +150,26 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
         BillingClaimHeaderDto header = (BillingClaimHeaderDto) claim.get(0);
         assertThat(header.getHin()).isEqualTo("1234567890");
         assertThat(header.getVer()).isEqualTo("AB");
-        assertThat(header.getDemographic_name()).isEqualTo("Doe,Jane");
-        assertThat(header.getLast_name()).isEqualTo("Doe");
-        assertThat(header.getFirst_name()).isEqualTo("Jane");
+        assertThat(header.demographicName()).isEqualTo("Doe,Jane");
+        assertThat(header.lastName()).isEqualTo("Doe");
+        assertThat(header.firstName()).isEqualTo("Jane");
         assertThat(header.getProviderNo()).isEqualTo("999998");
-        assertThat(header.getProvider_ohip_no()).isEqualTo("123456");
-        assertThat(header.getFacilty_num()).isEqualTo("0000");
-        assertThat(header.getVisittype()).isEqualTo("00");
+        assertThat(header.providerOhipNo()).isEqualTo("123456");
+        assertThat(header.facilityNumber()).isEqualTo("0000");
+        assertThat(header.visitType()).isEqualTo("00");
         assertThat(header.getPaid()).isEqualTo("5.00");
         assertThat(header.getStatus()).isEqualTo("O");
         assertThat(header.getCreator()).isEqualTo("999998");
 
         List<BillingClaimItemDto> items = (List<BillingClaimItemDto>) claim.get(1);
         assertThat(items).hasSize(2);
-        assertThat(items.get(0).getService_code()).isEqualTo("A001A");
-        assertThat(items.get(0).getSer_num()).isEqualTo("1");
+        assertThat(items.get(0).serviceCode()).isEqualTo("A001A");
+        assertThat(items.get(0).serviceNumber()).isEqualTo("1");
         assertThat(items.get(0).getLocation()).isEqualTo("OFF");
         assertThat(items.get(0).getPaid()).isEqualTo("1.00");
         assertThat(items.get(0).getDiscount()).isEqualTo("2.00");
         assertThat(items.get(0).getStatus()).isEqualTo("O");
-        assertThat(items.get(1).getSer_num()).isEqualTo("3");
+        assertThat(items.get(1).serviceNumber()).isEqualTo("3");
         assertThat(items.get(1).getPaid()).isEqualTo("0.00");
         assertThat(items.get(1).getDiscount()).isEqualTo("0.00");
     }
@@ -184,7 +186,7 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
 
         BillingClaimHeaderDto header = (BillingClaimHeaderDto) claim.get(0);
         List<BillingClaimItemDto> items = (List<BillingClaimItemDto>) claim.get(1);
-        assertThat(header.getPay_program()).isEqualTo("PAT");
+        assertThat(header.payProgram()).isEqualTo("PAT");
         assertThat(header.getPaid()).isEqualTo("100.00");
         assertThat(header.getStatus()).isEqualTo("S");
         assertThat(items).singleElement()
@@ -204,7 +206,7 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
         BillingClaimHeaderDto header = (BillingClaimHeaderDto) claim.get(0);
         assertThat(header.getHin()).isEmpty();
         assertThat(header.getVer()).isEmpty();
-        assertThat(header.getDemographic_name()).isEmpty();
+        assertThat(header.demographicName()).isEmpty();
         assertThat(header.getProvince()).isEqualTo("ON");
         assertThat(header.getStatus()).isEqualTo("I");
     }
@@ -221,18 +223,18 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
         BillingClaimHeaderDto header = (BillingClaimHeaderDto) claim.get(0);
         assertThat(header.getHin()).isEqualTo("1234567890");
         assertThat(header.getVer()).isEqualTo("AB");
-        assertThat(header.getBilling_date()).isEqualTo("2026-04-28");
+        assertThat(header.billingDate()).isEqualTo("2026-04-28");
         assertThat(header.getTotal()).isEqualTo("25.25");
         assertThat(header.getProviderNo()).isEqualTo("999998|123456");
-        assertThat(header.getProvider_ohip_no()).isEqualTo("123456");
+        assertThat(header.providerOhipNo()).isEqualTo("123456");
         assertThat(header.getStatus()).isEqualTo("O");
 
         List<BillingClaimItemDto> items = (List<BillingClaimItemDto>) claim.get(1);
         assertThat(items).hasSize(2);
-        assertThat(items.get(0).getService_code()).isEqualTo("A001");
+        assertThat(items.get(0).serviceCode()).isEqualTo("A001");
         assertThat(items.get(0).getFee()).isEqualTo("20.00");
-        assertThat(items.get(0).getSer_num()).isEqualTo("2");
-        assertThat(items.get(1).getSer_num()).isEqualTo("1");
+        assertThat(items.get(0).serviceNumber()).isEqualTo("2");
+        assertThat(items.get(1).serviceNumber()).isEqualTo("1");
     }
 
     @Test

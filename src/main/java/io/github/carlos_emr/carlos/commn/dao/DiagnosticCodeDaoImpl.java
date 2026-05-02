@@ -137,10 +137,10 @@ public class DiagnosticCodeDaoImpl extends AbstractDaoImpl<DiagnosticCode> imple
         return query.getResultList();
     }
 
-    public List<io.github.carlos_emr.carlos.billings.ca.on.dto.DiagnosticCodeRow> findDiagnosictsAndCtlDiagCodesByServiceType(String serviceType) {
-        String sql = "SELECT new io.github.carlos_emr.carlos.billings.ca.on.dto.DiagnosticCodeRow(d.diagnosticCode, d.description) FROM DiagnosticCode d, CtlDiagCode c WHERE c.diagnosticCode = d.diagnosticCode AND c.serviceType = ?1 ORDER BY d.description";
-        jakarta.persistence.TypedQuery<io.github.carlos_emr.carlos.billings.ca.on.dto.DiagnosticCodeRow> query =
-                entityManager.createQuery(sql, io.github.carlos_emr.carlos.billings.ca.on.dto.DiagnosticCodeRow.class);
+    public List<io.github.carlos_emr.carlos.commn.dao.projection.DiagnosticCodeRow> findDiagnosictsAndCtlDiagCodesByServiceType(String serviceType) {
+        String sql = "SELECT new io.github.carlos_emr.carlos.commn.dao.projection.DiagnosticCodeRow(d.diagnosticCode, d.description) FROM DiagnosticCode d, CtlDiagCode c WHERE c.diagnosticCode = d.diagnosticCode AND c.serviceType = ?1 ORDER BY d.description";
+        jakarta.persistence.TypedQuery<io.github.carlos_emr.carlos.commn.dao.projection.DiagnosticCodeRow> query =
+                entityManager.createQuery(sql, io.github.carlos_emr.carlos.commn.dao.projection.DiagnosticCodeRow.class);
         query.setParameter(1, serviceType);
         return query.getResultList();
     }

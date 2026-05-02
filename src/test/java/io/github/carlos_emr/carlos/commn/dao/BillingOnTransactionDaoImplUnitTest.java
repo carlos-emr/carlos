@@ -56,10 +56,10 @@ class BillingOnTransactionDaoImplUnitTest {
 
     private BillingClaimHeaderDto wellFormedDto() {
         BillingClaimHeaderDto dto = new BillingClaimHeaderDto();
-        dto.setId("42");
-        dto.setDemographic_no("1234");
-        dto.setBilling_date("2026-04-25");
-        dto.setAdmission_date("2026-04-25");
+        dto = dto.withId("42");
+        dto = dto.withDemographicNo("1234");
+        dto = dto.withBillingDate("2026-04-25");
+        dto = dto.withAdmissionDate("2026-04-25");
         return dto;
     }
 
@@ -83,8 +83,7 @@ class BillingOnTransactionDaoImplUnitTest {
 
     @Test
     void shouldThrowBillingValidationException_whenBillingDateMalformed() {
-        BillingClaimHeaderDto dto = wellFormedDto();
-        dto.setBilling_date("not-a-date");
+        BillingClaimHeaderDto dto = wellFormedDto().withBillingDate("not-a-date");
 
         // billing_date is required for OHIP submission — silent null would
         // produce a useless audit row.
@@ -95,8 +94,7 @@ class BillingOnTransactionDaoImplUnitTest {
 
     @Test
     void shouldThrowBillingValidationException_whenIdNonNumeric() {
-        BillingClaimHeaderDto dto = wellFormedDto();
-        dto.setId("not-a-number");
+        BillingClaimHeaderDto dto = wellFormedDto().withId("not-a-number");
 
         // ch1 id is the FK back to BillingONCHeader1 — persisting -1 would
         // create an orphan audit row.
@@ -107,8 +105,7 @@ class BillingOnTransactionDaoImplUnitTest {
 
     @Test
     void shouldThrowBillingValidationException_whenDemographicNoNonNumeric() {
-        BillingClaimHeaderDto dto = wellFormedDto();
-        dto.setDemographic_no("not-a-number");
+        BillingClaimHeaderDto dto = wellFormedDto().withDemographicNo("not-a-number");
 
         // demographic_no FK must point at a real patient — -1 sentinel
         // would mask a tampered form post.
@@ -120,7 +117,7 @@ class BillingOnTransactionDaoImplUnitTest {
     @Test
     void shouldStoreNullAdmissionDate_whenMalformed_butNotThrow() {
         BillingClaimHeaderDto dto = wellFormedDto();
-        dto.setAdmission_date("not-a-date");
+        dto = dto.withAdmissionDate("not-a-date");
 
         // admission_date is nullable in the source row — malformed input
         // logs an error but stores null on the audit row rather than
@@ -133,7 +130,7 @@ class BillingOnTransactionDaoImplUnitTest {
     @Test
     void shouldStoreNullAdmissionDate_whenAbsent() {
         BillingClaimHeaderDto dto = wellFormedDto();
-        dto.setAdmission_date(null);
+        dto = dto.withAdmissionDate(null);
 
         var template = dao.getUpdateCheader1TransTemplate(dto, "999");
         assertThat(template.getAdmissionDate()).isNull();

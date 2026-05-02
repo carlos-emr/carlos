@@ -442,9 +442,11 @@ public class BillingCorrectionService {
             bCh1.setFaciltyNum(request.getParameter("clinic_ref_code"));
             bCh1.setManReview(manualReview);
             bCh1.setBillingDate(billingDate);
-            // visitDate is guaranteed non-null here — the parse-or-throw BVE
-            // above ensures we never reach this assignment with a stale
-            // admission_date.
+            // visitDate may be null when xml_vdate was blank (outpatient bills
+            // legitimately have no admission date). DateUtils.parseDate("")
+            // returns null rather than throwing, so the parse-or-throw branch
+            // above does not fire for empty input. The setter accepts null
+            // and stores it as the empty admission_date sentinel.
             bCh1.setAdmissionDate(visitDate);
             bCh1.setProviderNo(request.getParameter("provider_no"));
             bCh1.setComment(request.getParameter("comment"));

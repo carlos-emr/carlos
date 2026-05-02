@@ -344,8 +344,8 @@
             <fmt:message key="billing.billingCorrection.msgLastUpdate"/>: <carlos:encode value="${correctionModel.createTimestamp}" context="html"/>
             </c:if>
 
-            <c:set var="__formAction" value="billingONCorrection.jsp${not empty correctionModel.requestParamEchoes['admin'] ? '?admin' : ''}"/>
-            <form name="form1" method="post"
+            <c:set var="__formAction" value="${pageContext.request.contextPath}/billing/CA/ON/BillingONCorrection${not empty correctionModel.requestParamEchoes['admin'] ? '?admin' : ''}"/>
+            <form name="form1" method="get"
                   action="${carlos:forHtmlAttribute(__formAction)}">
                 <input type="hidden" id="billTotal" value="${carlos:forHtmlAttribute(correctionModel.billTotal)}"/>
 

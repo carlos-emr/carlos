@@ -411,19 +411,19 @@ class BillingShortcutPg1ViewModelAssemblerUnitTest extends CarlosUnitTestBase {
 
     private BillingClaimHeaderDto newClaimHeader(String id) {
         BillingClaimHeaderDto header = new BillingClaimHeaderDto();
-        header.setId(id);
-        header.setBilling_date("2026-04-30");
-        header.setAdmission_date("2026-04-29");
-        header.setVisittype("00");
-        header.setFacilty_num("clinic");
-        header.setUpdate_datetime("2026-04-30 12:00:00");
+        header = header.withId(id);
+        header = header.withBillingDate("2026-04-30");
+        header = header.withAdmissionDate("2026-04-29");
+        header = header.withVisitType("00");
+        header = header.withFacilityNumber("clinic");
+        header = header.withUpdateDateTime("2026-04-30 12:00:00");
         return header;
     }
 
     private BillingClaimItemDto newClaimItem(String serviceCode, String dx) {
         BillingClaimItemDto item = new BillingClaimItemDto();
-        item.setService_code(serviceCode);
-        item.setDx(dx);
+        item = item.withServiceCode(serviceCode);
+        item = item.withDx(dx);
         return item;
     }
 }

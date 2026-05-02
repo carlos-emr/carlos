@@ -87,7 +87,7 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
     }
 
     @Override
-    public List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportPaidRaDetailRow>
+    public List<io.github.carlos_emr.carlos.commn.dao.projection.BillingOnNewReportPaidRaDetailRow>
     findBillingOnNewReportPaidRaDetails(List<Integer> billingNos) {
         if (billingNos == null || billingNos.isEmpty()) {
             return java.util.Collections.emptyList();
@@ -96,10 +96,10 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
                 + "from radetail where billing_no in (?1) and raheader_no !=0 order by billing_no, radetail_no";
         Query query = entityManager.createNativeQuery(sql);
         query.setParameter(1, billingNos);
-        List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportPaidRaDetailRow> rows =
+        List<io.github.carlos_emr.carlos.commn.dao.projection.BillingOnNewReportPaidRaDetailRow> rows =
                 new ArrayList<>();
         for (Object[] r : (List<Object[]>) query.getResultList()) {
-            rows.add(new io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportPaidRaDetailRow(
+            rows.add(new io.github.carlos_emr.carlos.commn.dao.projection.BillingOnNewReportPaidRaDetailRow(
                     value(r[0]), value(r[1]), value(r[2]), value(r[3]), value(r[4])));
         }
         return rows;

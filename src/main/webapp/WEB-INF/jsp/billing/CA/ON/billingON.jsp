@@ -889,6 +889,9 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                             <c:if test="${formModel.siteContextDegraded}">
                                 <div class="alert">Appointment site defaults are temporarily unavailable.</div>
                             </c:if>
+                            <c:if test="${formModel.admissionDateUnavailable}">
+                                <div class="alert">Inpatient admission date is temporarily unavailable.</div>
+                            </c:if>
                         </td>
                         <td style="text-align: center;">${formModel.display.displayMessage}
                         </td>

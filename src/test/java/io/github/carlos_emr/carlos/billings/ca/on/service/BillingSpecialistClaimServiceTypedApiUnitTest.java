@@ -77,7 +77,7 @@ class BillingSpecialistClaimServiceTypedApiUnitTest extends CarlosUnitTestBase {
         assertThat(claim.header().getCreator()).isEqualTo("999998");
         assertThat(claim.items()).singleElement()
                 .satisfies(item -> {
-                    assertThat(item.getService_code()).isEqualTo("A001A");
+                    assertThat(item.serviceCode()).isEqualTo("A001A");
                     assertThat(item.getFee()).isEqualTo("10.00");
                     assertThat(item.getDx()).isEqualTo("250");
                 });

@@ -35,7 +35,19 @@ import io.github.carlos_emr.carlos.appt.JdbcApptImpl;
 @org.springframework.stereotype.Service
 public class BillingSiteIdService {
     private final String NO_SITE = "NONE";
-    JdbcApptImpl dbObj = new JdbcApptImpl();
+    private JdbcApptImpl dbObj;
+
+    // JdbcApptImpl resolves DAOs through SpringUtils.getBean() in its field
+    // initialisers, which fails during Spring's eager singleton phase
+    // because the SpringUtils.beanFactory reference is not yet published.
+    // Defer the instantiation until first use, by which time Spring has
+    // finished refreshing.
+    private JdbcApptImpl dbObj() {
+        if (dbObj == null) {
+            dbObj = new JdbcApptImpl();
+        }
+        return dbObj;
+    }
 
     public String[] getSiteList() {
         CarlosProperties props = CarlosProperties.getInstance();
@@ -54,8 +66,8 @@ public class BillingSiteIdService {
             }
         } else {
             // get the previews appt date
-            String prevApptDate = dbObj.getPrevApptDate(thisServiceDate);
-            ret = dbObj.getLocationFromSchedule(prevApptDate, provider_no);
+            String prevApptDate = dbObj().getPrevApptDate(thisServiceDate);
+            ret = dbObj().getLocationFromSchedule(prevApptDate, provider_no);
         }
         return ret;
     }

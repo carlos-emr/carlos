@@ -53,13 +53,13 @@ class BillingOnClaimLoaderComparatorUnitTest {
 
     private static BillingClaimHeaderDto withBillingDate(String d) {
         BillingClaimHeaderDto dto = new BillingClaimHeaderDto();
-        dto.setBilling_date(d);
+        dto = dto.withBillingDate(d);
         return dto;
     }
 
     private static BillingClaimHeaderDto withDemoNo(String n) {
         BillingClaimHeaderDto dto = new BillingClaimHeaderDto();
-        dto.setDemographic_no(n);
+        dto = dto.withDemographicNo(n);
         return dto;
     }
 
@@ -77,11 +77,11 @@ class BillingOnClaimLoaderComparatorUnitTest {
         Collections.sort(list, BillingOnClaimLoader.SERVICE_DATE_COMPARATOR);
 
         // Garbage row must sort to position 0 (epoch sentinel < any 2026 date).
-        assertThat(list.get(0).getBilling_date()).isEqualTo("garbage");
+        assertThat(list.get(0).billingDate()).isEqualTo("garbage");
         // Remaining three are sorted ascending.
-        assertThat(list.get(1).getBilling_date()).isEqualTo("2026-01-15");
-        assertThat(list.get(2).getBilling_date()).isEqualTo("2026-03-20");
-        assertThat(list.get(3).getBilling_date()).isEqualTo("2026-04-01");
+        assertThat(list.get(1).billingDate()).isEqualTo("2026-01-15");
+        assertThat(list.get(2).billingDate()).isEqualTo("2026-03-20");
+        assertThat(list.get(3).billingDate()).isEqualTo("2026-04-01");
     }
 
     @Test
@@ -95,10 +95,10 @@ class BillingOnClaimLoaderComparatorUnitTest {
         Collections.sort(list, BillingOnClaimLoader.DEMOGRAPHIC_NO_COMPARATOR);
 
         // Corrupt row sorts to position 0 (Integer.MIN_VALUE).
-        assertThat(list.get(0).getDemographic_no()).isEqualTo("not-a-number");
-        assertThat(list.get(1).getDemographic_no()).isEqualTo("50");
-        assertThat(list.get(2).getDemographic_no()).isEqualTo("75");
-        assertThat(list.get(3).getDemographic_no()).isEqualTo("100");
+        assertThat(list.get(0).demographicNo()).isEqualTo("not-a-number");
+        assertThat(list.get(1).demographicNo()).isEqualTo("50");
+        assertThat(list.get(2).demographicNo()).isEqualTo("75");
+        assertThat(list.get(3).demographicNo()).isEqualTo("100");
     }
 
     @Test

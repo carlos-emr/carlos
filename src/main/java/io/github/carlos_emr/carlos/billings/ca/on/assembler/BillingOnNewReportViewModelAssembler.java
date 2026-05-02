@@ -36,8 +36,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportBilledRow;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportPaidBillingRow;
-import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportPaidRaDetailRow;
-import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportUnbilledRow;
+import io.github.carlos_emr.carlos.commn.dao.projection.BillingOnNewReportPaidRaDetailRow;
+import io.github.carlos_emr.carlos.commn.dao.projection.BillingOnNewReportUnbilledRow;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportUnpaidRow;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnNewReportViewModel;
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
@@ -124,7 +124,7 @@ public class BillingOnNewReportViewModelAssembler {
         if (currentUser == null) return Collections.emptyList();
         List<Site> sites = siteDao.getActiveSitesByProviderNo(currentUser);
         Set<String> reporters = new HashSet<>();
-        for (io.github.carlos_emr.carlos.billings.ca.on.dto.ReporterRow row :
+        for (io.github.carlos_emr.carlos.commn.dao.projection.ReporterRow row :
                 reportProviderDao.search_reportprovider("billingreport")) {
             reporters.add(row.providerNo());
         }
@@ -146,7 +146,7 @@ public class BillingOnNewReportViewModelAssembler {
 
     private List<BillingOnNewReportViewModel.ProviderOption> loadProviderOptions() {
         List<BillingOnNewReportViewModel.ProviderOption> out = new ArrayList<>();
-        for (io.github.carlos_emr.carlos.billings.ca.on.dto.ReporterRow row :
+        for (io.github.carlos_emr.carlos.commn.dao.projection.ReporterRow row :
                 reportProviderDao.search_reportprovider("billingreport")) {
             out.add(new BillingOnNewReportViewModel.ProviderOption(
                     row.providerNo(), row.lastName(), row.firstName()));

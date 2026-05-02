@@ -84,10 +84,10 @@ public class ViewBillingReportCenter2Action extends ActionSupport {
 
         // Provider rows from the legacy "billingreport" report scope.
         List<BillingReportCenterViewModel.ProviderRow> rows = new ArrayList<>();
-        List<io.github.carlos_emr.carlos.billings.ca.on.dto.ReporterRow> joined =
+        List<io.github.carlos_emr.carlos.commn.dao.projection.ReporterRow> joined =
                 reportProviderDao.search_reportprovider("billingreport");
         if (joined != null) {
-            for (io.github.carlos_emr.carlos.billings.ca.on.dto.ReporterRow row : joined) {
+            for (io.github.carlos_emr.carlos.commn.dao.projection.ReporterRow row : joined) {
                 rows.add(new BillingReportCenterViewModel.ProviderRow(
                         row.providerNo(), row.firstName(), row.lastName()));
             }

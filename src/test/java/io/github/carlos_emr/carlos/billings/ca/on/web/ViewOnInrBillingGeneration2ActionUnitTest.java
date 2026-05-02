@@ -184,16 +184,16 @@ class ViewOnInrBillingGeneration2ActionUnitTest extends CarlosUnitTestBase {
                 ArgumentCaptor.forClass(BillingClaimHeaderDto.class);
         verify(mockPersistenceService).addOneClaimHeaderRecord(headerCaptor.capture());
         BillingClaimHeaderDto h = headerCaptor.getValue();
-        assertThat(h.getDemographic_no()).isEqualTo("101");
+        assertThat(h.demographicNo()).isEqualTo("101");
         assertThat(h.getProviderNo()).isEqualTo("999998");
-        assertThat(h.getProvider_ohip_no()).isEqualTo("OHIP1");
-        assertThat(h.getPay_program()).isEqualTo("HCP"); // hcType=ON
+        assertThat(h.providerOhipNo()).isEqualTo("OHIP1");
+        assertThat(h.payProgram()).isEqualTo("HCP"); // hcType=ON
         assertThat(h.getProvince()).isEqualTo("ON");
-        assertThat(h.getBilling_date()).isEqualTo("2026-04-26");
+        assertThat(h.billingDate()).isEqualTo("2026-04-26");
         assertThat(h.getTotal()).isEqualTo("33.70");
         assertThat(h.getCreator()).isEqualTo("carlosdoc");
         assertThat(h.getLocation()).isEqualTo("C1");
-        assertThat(h.getFacilty_num()).isEqualTo("REF1");
+        assertThat(h.facilityNumber()).isEqualTo("REF1");
 
         @SuppressWarnings({"unchecked", "rawtypes"})
         ArgumentCaptor<List<BillingClaimItemDto>> itemsCaptor =
@@ -201,7 +201,7 @@ class ViewOnInrBillingGeneration2ActionUnitTest extends CarlosUnitTestBase {
         verify(mockPersistenceService).addItemRecord(itemsCaptor.capture(), eq(555));
         List<BillingClaimItemDto> items = itemsCaptor.getValue();
         assertThat(items).hasSize(1);
-        assertThat(items.get(0).getService_code()).isEqualTo("A007");
+        assertThat(items.get(0).serviceCode()).isEqualTo("A007");
         assertThat(items.get(0).getDx()).isEqualTo("401");
         assertThat(items.get(0).getFee()).isEqualTo("33.70");
 
@@ -228,7 +228,7 @@ class ViewOnInrBillingGeneration2ActionUnitTest extends CarlosUnitTestBase {
         ArgumentCaptor<BillingClaimHeaderDto> headerCaptor =
                 ArgumentCaptor.forClass(BillingClaimHeaderDto.class);
         verify(mockPersistenceService).addOneClaimHeaderRecord(headerCaptor.capture());
-        assertThat(headerCaptor.getValue().getPay_program()).isEqualTo("RMB");
+        assertThat(headerCaptor.getValue().payProgram()).isEqualTo("RMB");
     }
 
     @Test

@@ -142,7 +142,7 @@ public class BillingOnHistoryViewModelAssembler {
                 BillingClaimHeaderDto obj = (BillingClaimHeaderDto) aL.get(i);
                 BillingClaimItemDto itObj = (BillingClaimItemDto) aL.get(i + 1);
 
-                String strBillType = obj.getPay_program();
+                String strBillType = obj.payProgram();
                 if (strBillType != null) {
                     if (strBillType.matches(BillingOnConstants.BILLINGMATCHSTRING_3RDPARTY)) {
                         if ("Settled".equals(BillingOnConstants.propBillingType
@@ -196,10 +196,10 @@ public class BillingOnHistoryViewModelAssembler {
 
                 rows.add(new BillingOnHistoryViewModel.HistoryRow(
                         nullToEmpty(obj.getId()),
-                        nullToEmpty(obj.getLast_name()) + ", " + nullToEmpty(obj.getFirst_name()),
-                        nullToEmpty(obj.getBilling_date()),
+                        nullToEmpty(obj.lastName()) + ", " + nullToEmpty(obj.firstName()),
+                        nullToEmpty(obj.billingDate()),
                         strBillType,
-                        nullToEmpty(itObj.getService_code()),
+                        nullToEmpty(itObj.serviceCode()),
                         nullToEmpty(itObj.getDx()),
                         balance.toString(),
                         isPat,

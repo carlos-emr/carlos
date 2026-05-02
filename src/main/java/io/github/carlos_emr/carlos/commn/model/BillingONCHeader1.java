@@ -247,6 +247,10 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
     }
 
     public void setAdmissionDate(Date admissionDate) {
+        if (admissionDate == null) {
+            this.admissionDate = "";
+            return;
+        }
         this.admissionDate = (new SimpleDateFormat("yyyy-MM-dd")).format(admissionDate);
     }
 

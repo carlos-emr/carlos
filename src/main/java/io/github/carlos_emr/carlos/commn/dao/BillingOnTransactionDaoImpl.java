@@ -110,7 +110,7 @@ public class BillingOnTransactionDaoImpl extends AbstractDaoImpl<BillingOnTransa
         billTrans.setActionType(BillingOnConstants.ACTION_TYPE.UH.name());
 
         // Admission date is nullable on the DTO; only attempt to parse when present.
-        String admission = cheader1.getAdmission_date();
+        String admission = cheader1.admissionDate();
         if (admission == null || admission.isEmpty()) {
             billTrans.setAdmissionDate(null);
         } else {
@@ -126,10 +126,10 @@ public class BillingOnTransactionDaoImpl extends AbstractDaoImpl<BillingOnTransa
         // Billing date is required for OHIP submission — a malformed value would silently null
         // the transaction's billing_date and produce a useless audit row. Fail loudly instead.
         try {
-            billTrans.setBillingDate(admissionDateFormat.parse(cheader1.getBilling_date()));
+            billTrans.setBillingDate(admissionDateFormat.parse(cheader1.billingDate()));
         } catch (ParseException | NullPointerException e) {
             MiscUtils.getLogger().error("Malformed billing_date {} on ch1 {}: aborting transaction-row build",
-                    LogSanitizer.sanitize(cheader1.getBilling_date()), LogSanitizer.sanitize(cheader1.getId()), e);
+                    LogSanitizer.sanitize(cheader1.billingDate()), LogSanitizer.sanitize(cheader1.getId()), e);
             throw new BillingValidationException(
                     "Cannot build BillingOnTransaction: billing_date is missing or not yyyy-MM-dd", e);
         }
@@ -152,25 +152,25 @@ public class BillingOnTransactionDaoImpl extends AbstractDaoImpl<BillingOnTransa
         // demographic_no FK must point at a real patient — -1 sentinel would mask a tampered
         // form post and break downstream patient-history queries.
         try {
-            billTrans.setDemographicNo(Integer.parseInt(cheader1.getDemographic_no()));
+            billTrans.setDemographicNo(Integer.parseInt(cheader1.demographicNo()));
         } catch (NumberFormatException | NullPointerException e) {
             MiscUtils.getLogger().error("Non-numeric demographic_no {} supplied for ch1 {} transaction-row build",
-                    LogSanitizer.sanitize(cheader1.getDemographic_no()),
+                    LogSanitizer.sanitize(cheader1.demographicNo()),
                     LogSanitizer.sanitize(cheader1.getId()), e);
             throw new BillingValidationException(
                     "Cannot build BillingOnTransaction: demographic_no is missing or non-numeric", e);
         }
-        billTrans.setFacilityNum(cheader1.getFacilty_num());
-        billTrans.setManReview(cheader1.getMan_review());
-        billTrans.setPayProgram(cheader1.getPay_program());
+        billTrans.setFacilityNum(cheader1.facilityNumber());
+        billTrans.setManReview(cheader1.manualReview());
+        billTrans.setPayProgram(cheader1.payProgram());
         billTrans.setProviderNo(cheader1.getProviderNo());
         billTrans.setProvince(cheader1.getProvince());
-        billTrans.setRefNum(cheader1.getRef_num());
+        billTrans.setRefNum(cheader1.referralNumber());
         billTrans.setSliCode(cheader1.getLocation());
         billTrans.setStatus(cheader1.getStatus());
         billTrans.setUpdateDatetime(new Timestamp(curDate.getTime()));
         billTrans.setUpdateProviderNo(curProviderNo);
-        billTrans.setVisittype(cheader1.getVisittype());
+        billTrans.setVisittype(cheader1.visitType());
 
         return billTrans;
     }

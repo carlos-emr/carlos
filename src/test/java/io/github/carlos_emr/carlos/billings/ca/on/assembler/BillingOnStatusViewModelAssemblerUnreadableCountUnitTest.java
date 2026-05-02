@@ -90,21 +90,20 @@ class BillingOnStatusViewModelAssemblerUnreadableCountUnitTest {
 
     private BillingClaimHeaderDto headerWithTotal(String total) {
         BillingClaimHeaderDto h = new BillingClaimHeaderDto();
-        h.setId("123");
-        h.setTotal(total);
-        h.setBilling_date("2026-04-28");
-        h.setProvider_ohip_no("PRV01");
-        h.setPay_program("HCP");
-        h.setTransc_id("9");
-        return h;
+        return h.withId("123")
+                .withTotal(total)
+                .withBillingDate("2026-04-28")
+                .withProviderOhipNo("PRV01")
+                .withPayProgram("HCP")
+                .withTransactionId("9");
     }
 
     private Map<String, ArrayList<HashMap<String, String>>> raBatch(BillingClaimHeaderDto header,
                                                                     ArrayList<HashMap<String, String>> rows) {
         return Map.of(BillingRaLookupService.RaDataRequest.key(
                 header.getId(),
-                header.getBilling_date().replaceAll("\\D", ""),
-                header.getProvider_ohip_no()), rows);
+                header.billingDate().replaceAll("\\D", ""),
+                header.providerOhipNo()), rows);
     }
 
     @Test

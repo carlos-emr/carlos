@@ -82,13 +82,13 @@ public class BillingReportControlViewModelAssembler {
     }
 
     private List<BillingReportControlViewModel.ProviderOption> loadProviderOptions() {
-        List<io.github.carlos_emr.carlos.billings.ca.on.dto.ReporterRow> raw =
+        List<io.github.carlos_emr.carlos.commn.dao.projection.ReporterRow> raw =
                 reportProviderDao.search_reportprovider("billingreport");
         if (raw == null) {
             return List.of();
         }
         List<BillingReportControlViewModel.ProviderOption> out = new ArrayList<>(raw.size());
-        for (io.github.carlos_emr.carlos.billings.ca.on.dto.ReporterRow row : raw) {
+        for (io.github.carlos_emr.carlos.commn.dao.projection.ReporterRow row : raw) {
             out.add(new BillingReportControlViewModel.ProviderOption(
                     row.providerNo(), row.firstName(), row.lastName()));
         }

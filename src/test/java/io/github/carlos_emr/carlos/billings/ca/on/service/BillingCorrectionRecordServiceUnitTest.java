@@ -243,19 +243,19 @@ class BillingCorrectionRecordServiceUnitTest {
     @Test
     void shouldThrow_whenServiceDateMalformed_andNotPersistNewItem_onUpdateBillingItem() throws Exception {
         BillingClaimHeaderDto ch1Obj = new BillingClaimHeaderDto();
-        ch1Obj.setStatus("O");
+        ch1Obj = ch1Obj.withStatus("O");
         BillingClaimItemDto existingItem = new BillingClaimItemDto();
-        existingItem.setCh1_id("42");
-        existingItem.setRec_id("");
-        existingItem.setTransc_id("");
-        existingItem.setService_code("A001A");  // existing code
-        existingItem.setSer_num("1");
-        existingItem.setFee("33.70");
-        existingItem.setDx("");
-        existingItem.setDx1("");
-        existingItem.setDx2("");
-        existingItem.setStatus("O");
-        existingItem.setService_date("2026-04-28");
+        existingItem = existingItem.withClaimHeaderId("42");
+        existingItem = existingItem.withRecordId("");
+        existingItem = existingItem.withTransactionId("");
+        existingItem = existingItem.withServiceCode("A001A");  // existing code
+        existingItem = existingItem.withServiceNumber("1");
+        existingItem = existingItem.withFee("33.70");
+        existingItem = existingItem.withDx("");
+        existingItem = existingItem.withDx1("");
+        existingItem = existingItem.withDx2("");
+        existingItem = existingItem.withStatus("O");
+        existingItem = existingItem.withServiceDate("2026-04-28");
 
         // changeItem's else-branch (service code differs) writes a delete
         // transaction to billOnTransDao and only THEN calls the strict-date

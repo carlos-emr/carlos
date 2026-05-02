@@ -114,62 +114,62 @@ public class BillingOnCorrectionPersister {
      */
     public boolean updateBillingClaimHeader(BillingClaimHeaderDto ch1Obj) {
         BillingONCHeader1 c = billingHeaderDao.find(ch1Obj.getId());
-        c.setTranscId(ch1Obj.getTransc_id());
-        c.setRecId(ch1Obj.getRec_id());
+        c.setTranscId(ch1Obj.transactionId());
+        c.setRecId(ch1Obj.recordId());
         c.setHin(ch1Obj.getHin());
         c.setVer(ch1Obj.getVer());
         c.setDob(ch1Obj.getDob());
-        c.setPayProgram(ch1Obj.getPay_program());
+        c.setPayProgram(ch1Obj.payProgram());
         c.setPayee(ch1Obj.getPayee());
-        c.setRefNum(ch1Obj.getRef_num());
-        c.setFaciltyNum(ch1Obj.getFacilty_num());
-        c.setAdmissionDate(BillingDates.parseIsoDate(ch1Obj.getAdmission_date()));
-        c.setRefLabNum(ch1Obj.getRef_lab_num());
-        c.setManReview(ch1Obj.getMan_review());
+        c.setRefNum(ch1Obj.referralNumber());
+        c.setFaciltyNum(ch1Obj.facilityNumber());
+        c.setAdmissionDate(BillingDates.parseIsoDate(ch1Obj.admissionDate()));
+        c.setRefLabNum(ch1Obj.referringLabNumber());
+        c.setManReview(ch1Obj.manualReview());
         c.setLocation(ch1Obj.getLocation());
-        c.setDemographicNo(Integer.parseInt(ch1Obj.getDemographic_no()));
-        c.setProviderNo(ch1Obj.getProvider_no());
-        c.setAppointmentNo(Integer.parseInt(ch1Obj.getAppointment_no()));
-        c.setDemographicName(ch1Obj.getDemographic_name());
+        c.setDemographicNo(Integer.parseInt(ch1Obj.demographicNo()));
+        c.setProviderNo(ch1Obj.providerNo());
+        c.setAppointmentNo(Integer.parseInt(ch1Obj.appointmentNo()));
+        c.setDemographicName(ch1Obj.demographicName());
         c.setSex(ch1Obj.getSex());
         c.setProvince(ch1Obj.getProvince());
-        c.setBillingDate(BillingDates.parseIsoDate(ch1Obj.getBilling_date()));
-        c.setBillingTime(BillingDates.parseIsoTime(ch1Obj.getBilling_time()));
+        c.setBillingDate(BillingDates.parseIsoDate(ch1Obj.billingDate()));
+        c.setBillingTime(BillingDates.parseIsoTime(ch1Obj.billingTime()));
         c.setTotal(io.github.carlos_emr.carlos.billings.ca.on.BillingMoney
                 .parseNonNegativeAmount(ch1Obj.getTotal(), "total"));
         c.setPaid(io.github.carlos_emr.carlos.billings.ca.on.BillingMoney
                 .parseNonNegativeAmount(ch1Obj.getPaid(), "paid"));
         c.setStatus(ch1Obj.getStatus());
         c.setComment(ch1Obj.getComment());
-        c.setVisitType(ch1Obj.getVisittype());
-        c.setProviderOhipNo(ch1Obj.getProvider_ohip_no());
-        c.setProviderRmaNo(ch1Obj.getProvider_rma_no());
-        c.setApptProviderNo(ch1Obj.getApptProvider_no());
-        c.setAsstProviderNo(ch1Obj.getAsstProvider_no());
+        c.setVisitType(ch1Obj.visitType());
+        c.setProviderOhipNo(ch1Obj.providerOhipNo());
+        c.setProviderRmaNo(ch1Obj.providerRmaNo());
+        c.setApptProviderNo(ch1Obj.appointmentProviderNo());
+        c.setAsstProviderNo(ch1Obj.assistantProviderNo());
         c.setCreator(ch1Obj.getCreator());
         c.setClinic(ch1Obj.getClinic() == null ? "" : ch1Obj.getClinic());
 
         billingHeaderDao.merge(c);
 		
 		
-	/*	String sql = "update billing_on_cheader1 set transc_id='" + ch1Obj.getTransc_id() + "'," + " rec_id='"
-				+ ch1Obj.getRec_id() + "'," + " hin='" + ch1Obj.getHin() + "'," + " ver='" + ch1Obj.getVer() + "',"
-				+ " dob='" + ch1Obj.getDob() + "'," + " pay_program='" + ch1Obj.getPay_program() + "'," + " payee='"
-				+ ch1Obj.getPayee() + "'," + " ref_num='" + ch1Obj.getRef_num() + "'," + " facilty_num='"
-				+ ch1Obj.getFacilty_num() + "'," + " admission_date='" + ch1Obj.getAdmission_date() + "',"
-				+ " ref_lab_num='" + ch1Obj.getRef_lab_num() + "'," + " man_review='" + ch1Obj.getMan_review() + "',"
+	/*	String sql = "update billing_on_cheader1 set transc_id='" + ch1Obj.transactionId() + "'," + " rec_id='"
+				+ ch1Obj.recordId() + "'," + " hin='" + ch1Obj.getHin() + "'," + " ver='" + ch1Obj.getVer() + "',"
+				+ " dob='" + ch1Obj.getDob() + "'," + " pay_program='" + ch1Obj.payProgram() + "'," + " payee='"
+				+ ch1Obj.getPayee() + "'," + " ref_num='" + ch1Obj.referralNumber() + "'," + " facilty_num='"
+				+ ch1Obj.facilityNumber() + "'," + " admission_date='" + ch1Obj.admissionDate() + "',"
+				+ " ref_lab_num='" + ch1Obj.referringLabNumber() + "'," + " man_review='" + ch1Obj.manualReview() + "',"
 				+ " location='" + ch1Obj.getLocation()
 
-				+ "'," + " demographic_no='" + ch1Obj.getDemographic_no() + "'," + " provider_no='"
-				+ ch1Obj.getProviderNo() + "'," + " appointment_no='" + ch1Obj.getAppointment_no() + "',"
-				+ " demographic_name='" + StringEscapeUtilsch1Obj.getDemographic_name() + "'," + " sex='"
+				+ "'," + " demographic_no='" + ch1Obj.demographicNo() + "'," + " provider_no='"
+				+ ch1Obj.getProviderNo() + "'," + " appointment_no='" + ch1Obj.appointmentNo() + "',"
+				+ " demographic_name='" + StringEscapeUtilsch1Obj.demographicName() + "'," + " sex='"
 				+ ch1Obj.getSex() + "'," + " province='" + ch1Obj.getProvince() + "'," + " billing_date='"
-				+ ch1Obj.getBilling_date() + "'," + " billing_time='" + ch1Obj.getBilling_time() + "'," + " total='"
+				+ ch1Obj.billingDate() + "'," + " billing_time='" + ch1Obj.billingTime() + "'," + " total='"
 				+ ch1Obj.getTotal() + "'," + " paid='" + ch1Obj.getPaid() + "'," + " status='" + ch1Obj.getStatus()
-				+ "'," + " comment1='" + ch1Obj.getComment() + "'," + " visittype='" + ch1Obj.getVisittype() + "',"
-				+ " provider_ohip_no='" + ch1Obj.getProvider_ohip_no() + "'," + " provider_rma_no='"
-				+ ch1Obj.getProvider_rma_no() + "'," + " apptProvider_no='" + ch1Obj.getApptProvider_no() + "',"
-				+ " asstProvider_no='" + ch1Obj.getAsstProvider_no() + "'," + " creator='" + ch1Obj.getCreator()
+				+ "'," + " comment1='" + ch1Obj.getComment() + "'," + " visittype='" + ch1Obj.visitType() + "',"
+				+ " provider_ohip_no='" + ch1Obj.providerOhipNo() + "'," + " provider_rma_no='"
+				+ ch1Obj.providerRmaNo() + "'," + " apptProvider_no='" + ch1Obj.appointmentProviderNo() + "',"
+				+ " asstProvider_no='" + ch1Obj.assistantProviderNo() + "'," + " creator='" + ch1Obj.getCreator()
 
 				+ "', clinic=" + (ch1Obj.getClinic()==null?"null":"'"+ch1Obj.getClinic()+"'")
 
@@ -191,12 +191,12 @@ public class BillingOnCorrectionPersister {
     public boolean updateBillingOneItem(BillingClaimItemDto val) {
         BillingONItem b = billingItemDao.find(val.getId());
         if (b != null) {
-            b.setTranscId(val.getTransc_id());
-            b.setRecId(val.getRec_id());
-            b.setServiceCode(val.getService_code());
+            b.setTranscId(val.transactionId());
+            b.setRecId(val.recordId());
+            b.setServiceCode(val.serviceCode());
             b.setFee(val.getFee());
-            b.setServiceCount(val.getSer_num());
-            b.setServiceDate(BillingDates.parseIsoDate(val.getService_date()));
+            b.setServiceCount(val.serviceNumber());
+            b.setServiceDate(BillingDates.parseIsoDate(val.serviceDate()));
             b.setDx(val.getDx());
             b.setDx1(val.getDx1());
             b.setDx2(val.getDx2());
@@ -287,22 +287,22 @@ public class BillingOnCorrectionPersister {
         BillingONCHeader1 h = billingHeaderDao.find(Integer.parseInt(id));
         if (h != null) {
             ch1Obj = new BillingClaimHeaderDto();
-            ch1Obj.setId(h.getId().toString());
-            ch1Obj.setTransc_id(h.getTranscId());
-            ch1Obj.setRec_id(h.getRecId());
-            ch1Obj.setHin(h.getHin());
-            ch1Obj.setVer(h.getVer());
-            ch1Obj.setDob(h.getDob());
+            ch1Obj = ch1Obj.withId(h.getId().toString());
+            ch1Obj = ch1Obj.withTransactionId(h.getTranscId());
+            ch1Obj = ch1Obj.withRecordId(h.getRecId());
+            ch1Obj = ch1Obj.withHin(h.getHin());
+            ch1Obj = ch1Obj.withVer(h.getVer());
+            ch1Obj = ch1Obj.withDob(h.getDob());
 
-            ch1Obj.setPay_program(h.getPayProgram());
-            ch1Obj.setPayee(h.getPayee());
-            ch1Obj.setRef_num(h.getRefNum());
-            ch1Obj.setFacilty_num(h.getFaciltyNum());
+            ch1Obj = ch1Obj.withPayProgram(h.getPayProgram());
+            ch1Obj = ch1Obj.withPayee(h.getPayee());
+            ch1Obj = ch1Obj.withReferralNumber(h.getRefNum());
+            ch1Obj = ch1Obj.withFacilityNumber(h.getFaciltyNum());
             try {
                 if (h.getAdmissionDate() != null)
-                    ch1Obj.setAdmission_date(BillingDates.formatIsoDate(h.getAdmissionDate()));
+                    ch1Obj = ch1Obj.withAdmissionDate(BillingDates.formatIsoDate(h.getAdmissionDate()));
                 else
-                    ch1Obj.setAdmission_date("");
+                    ch1Obj = ch1Obj.withAdmissionDate("");
             } catch (ParseException e) {
                 // BillingONCHeader1.getAdmissionDate() parses the persisted
                 // string column and throws ParseException on malformed
@@ -317,54 +317,54 @@ public class BillingOnCorrectionPersister {
                         "Bill " + h.getId() + " has an unparseable admission date; refusing to render a blank correction field",
                         e);
             }
-            ch1Obj.setRef_lab_num(h.getRefLabNum());
-            ch1Obj.setMan_review(h.getManReview());
-            ch1Obj.setLocation(h.getLocation());
-            ch1Obj.setClinic(h.getClinic());
+            ch1Obj = ch1Obj.withReferringLabNumber(h.getRefLabNum());
+            ch1Obj = ch1Obj.withManualReview(h.getManReview());
+            ch1Obj = ch1Obj.withLocation(h.getLocation());
+            ch1Obj = ch1Obj.withClinic(h.getClinic());
 
-            ch1Obj.setDemographic_no(h.getDemographicNo().toString());
-            ch1Obj.setProviderNo(h.getProviderNo());
+            ch1Obj = ch1Obj.withDemographicNo(h.getDemographicNo().toString());
+            ch1Obj = ch1Obj.withProviderNo(h.getProviderNo());
 
             if (h.getAppointmentNo() != null) {
-                ch1Obj.setAppointment_no(h.getAppointmentNo().toString());
+                ch1Obj = ch1Obj.withAppointmentNo(h.getAppointmentNo().toString());
             } else {
-                ch1Obj.setAppointment_no(null);
+                ch1Obj = ch1Obj.withAppointmentNo(null);
             }
 
-            ch1Obj.setDemographic_name(h.getDemographicName());
-            ch1Obj.setSex(h.getSex());
-            ch1Obj.setProvince(h.getProvince());
+            ch1Obj = ch1Obj.withDemographicName(h.getDemographicName());
+            ch1Obj = ch1Obj.withSex(h.getSex());
+            ch1Obj = ch1Obj.withProvince(h.getProvince());
 
             if (h.getBillingDate() != null)
-                ch1Obj.setBilling_date(BillingDates.formatIsoDate(h.getBillingDate()));
+                ch1Obj = ch1Obj.withBillingDate(BillingDates.formatIsoDate(h.getBillingDate()));
             else
-                ch1Obj.setBilling_date("");
+                ch1Obj = ch1Obj.withBillingDate("");
 
             if (h.getBillingTime() != null)
-                ch1Obj.setBilling_time(BillingDates.formatIsoTime(h.getBillingTime()));
+                ch1Obj = ch1Obj.withBillingTime(BillingDates.formatIsoTime(h.getBillingTime()));
             else
-                ch1Obj.setBilling_time("");
+                ch1Obj = ch1Obj.withBillingTime("");
 
-            ch1Obj.setTotal(String.valueOf(h.getTotal().doubleValue()));
-            ch1Obj.setPaid(String.valueOf(h.getPaid().doubleValue()));
-            ch1Obj.setStatus(h.getStatus());
-            ch1Obj.setComment(h.getComment());
-            ch1Obj.setVisittype(h.getVisitType());
-            ch1Obj.setProvider_ohip_no(h.getProviderOhipNo());
-            ch1Obj.setProvider_rma_no(h.getProviderRmaNo());
-            ch1Obj.setAsstProvider_no(h.getAsstProviderNo());
-            ch1Obj.setCreator(h.getCreator());
+            ch1Obj = ch1Obj.withTotal(String.valueOf(h.getTotal().doubleValue()));
+            ch1Obj = ch1Obj.withPaid(String.valueOf(h.getPaid().doubleValue()));
+            ch1Obj = ch1Obj.withStatus(h.getStatus());
+            ch1Obj = ch1Obj.withComment(h.getComment());
+            ch1Obj = ch1Obj.withVisitType(h.getVisitType());
+            ch1Obj = ch1Obj.withProviderOhipNo(h.getProviderOhipNo());
+            ch1Obj = ch1Obj.withProviderRmaNo(h.getProviderRmaNo());
+            ch1Obj = ch1Obj.withAssistantProviderNo(h.getAsstProviderNo());
+            ch1Obj = ch1Obj.withCreator(h.getCreator());
             if (h.getTimestamp() != null)
-                ch1Obj.setUpdate_datetime(BillingDates.formatIsoTimestamp(h.getTimestamp()));
+                ch1Obj = ch1Obj.withUpdateDateTime(BillingDates.formatIsoTimestamp(h.getTimestamp()));
             else
-                ch1Obj.setUpdate_datetime("");
+                ch1Obj = ch1Obj.withUpdateDateTime("");
 
-            ch1Obj.setClinic(h.getClinic());
+            ch1Obj = ch1Obj.withClinic(h.getClinic());
 
             // get billTo from billing_on_ext
-            BillingONExt ext = billExtDao.getClaimExtItem(Integer.parseInt(ch1Obj.getId()), Integer.parseInt(ch1Obj.getDemographic_no()), "billTo");
+            BillingONExt ext = billExtDao.getClaimExtItem(Integer.parseInt(ch1Obj.getId()), Integer.parseInt(ch1Obj.demographicNo()), "billTo");
             if (ext != null) {
-                ch1Obj.setBillto(ext.getValue());
+                ch1Obj = ch1Obj.withBillto(ext.getValue());
             }
 
             obj.add(ch1Obj);
@@ -373,28 +373,28 @@ public class BillingOnCorrectionPersister {
         List<BillingONItem> items = billingItemDao.getActiveBillingItemByCh1Id(Integer.parseInt(id));
         for (BillingONItem i : items) {
             itemObj = new BillingClaimItemDto();
-            itemObj.setId(i.getId().toString());
-            itemObj.setCh1_id(i.getCh1Id().toString());
-            itemObj.setTransc_id(i.getTranscId());
-            itemObj.setRec_id(i.getRecId());
-            itemObj.setService_code(i.getServiceCode());
-            itemObj.setFee(i.getFee());
-            itemObj.setSer_num(i.getServiceCount());
+            itemObj = itemObj.withId(i.getId().toString());
+            itemObj = itemObj.withClaimHeaderId(i.getCh1Id().toString());
+            itemObj = itemObj.withTransactionId(i.getTranscId());
+            itemObj = itemObj.withRecordId(i.getRecId());
+            itemObj = itemObj.withServiceCode(i.getServiceCode());
+            itemObj = itemObj.withFee(i.getFee());
+            itemObj = itemObj.withServiceNumber(i.getServiceCount());
             if (i.getServiceDate() != null)
-                itemObj.setService_date(BillingDates.formatIsoDate(i.getServiceDate()));
+                itemObj = itemObj.withServiceDate(BillingDates.formatIsoDate(i.getServiceDate()));
             else
-                itemObj.setService_date("");
+                itemObj = itemObj.withServiceDate("");
 
             String diagcode = i.getDx();
             diagcode = ":::".equals(diagcode) ? "   " : diagcode;
-            itemObj.setDx(diagcode);
-            itemObj.setDx1(i.getDx1());
-            itemObj.setDx2(i.getDx2());
-            itemObj.setStatus(i.getStatus());
+            itemObj = itemObj.withDx(diagcode);
+            itemObj = itemObj.withDx1(i.getDx1());
+            itemObj = itemObj.withDx2(i.getDx2());
+            itemObj = itemObj.withStatus(i.getStatus());
             if (i.getLastEditDT() != null)
-                itemObj.setTimestamp(BillingDates.formatIsoTimestamp(i.getLastEditDT()));
+                itemObj = itemObj.withTimestamp(BillingDates.formatIsoTimestamp(i.getLastEditDT()));
             else
-                itemObj.setTimestamp("");
+                itemObj = itemObj.withTimestamp("");
 
             List<BillingOnItemPayment> itemPayList = itemPaymentDao.getAllByItemId(Integer.parseInt(itemObj.getId()));
             BigDecimal sumPaid = BigDecimal.ZERO;
@@ -407,9 +407,9 @@ public class BillingOnCorrectionPersister {
                     sumRefund = sumRefund.add(itemPay.getRefund());
                 }
             }
-            itemObj.setPaid(sumPaid.toString());
-            itemObj.setDiscount(sumDiscount.toString());
-            itemObj.setRefund(sumRefund.toString());
+            itemObj = itemObj.withPaid(sumPaid.toString());
+            itemObj = itemObj.withDiscount(sumDiscount.toString());
+            itemObj = itemObj.withRefund(sumRefund.toString());
 
 
             obj.add(itemObj);
@@ -533,8 +533,8 @@ public class BillingOnCorrectionPersister {
         // input persisted an audit-incorrect billing_on_transaction row.
         // Null/blank stays tolerated; malformed aborts the @Transactional
         // unit-of-work via IllegalArgumentException.
-        Date admissionDate = BillingDates.parseOptionalIsoDate(billHeader.getAdmission_date(), "admission_date");
-        Date billingDate = BillingDates.parseOptionalIsoDate(billHeader.getBilling_date(), "billing_date");
+        Date admissionDate = BillingDates.parseOptionalIsoDate(billHeader.admissionDate(), "admission_date");
+        Date billingDate = BillingDates.parseOptionalIsoDate(billHeader.billingDate(), "billing_date");
         BillingOnTransaction billTrans = new BillingOnTransaction();
         billTrans.setActionType(BillingOnConstants.ACTION_TYPE.C.name());
         billTrans.setAdmissionDate(admissionDate);
@@ -543,29 +543,29 @@ public class BillingOnCorrectionPersister {
         billTrans.setCh1Id(Integer.parseInt(billHeader.getId()));
         billTrans.setClinic(billHeader.getClinic());
         billTrans.setCreator(billHeader.getCreator());
-        billTrans.setDemographicNo(Integer.parseInt(billHeader.getDemographic_no()));
+        billTrans.setDemographicNo(Integer.parseInt(billHeader.demographicNo()));
         billTrans.setDxCode(billItem.getDx());
-        billTrans.setFacilityNum(billHeader.getFacilty_num());
-        billTrans.setManReview(billHeader.getMan_review());
+        billTrans.setFacilityNum(billHeader.facilityNumber());
+        billTrans.setManReview(billHeader.manualReview());
         billTrans.setProviderNo(billHeader.getProviderNo());
         billTrans.setProvince(billHeader.getProvince());
-        billTrans.setPayProgram(billHeader.getPay_program());
-        billTrans.setRefNum(billHeader.getRef_num());
+        billTrans.setPayProgram(billHeader.payProgram());
+        billTrans.setRefNum(billHeader.referralNumber());
 
         billTrans.setPaymentDate(null);
         billTrans.setPaymentId(0);
         billTrans.setPaymentType(0);
 
-        billTrans.setServiceCode(billItem.getService_code());
+        billTrans.setServiceCode(billItem.serviceCode());
         billTrans.setServiceCodeInvoiced(billItem.getFee());
         billTrans.setServiceCodePaid(BigDecimal.ZERO);
         billTrans.setServiceCodeDiscount(BigDecimal.ZERO);
         billTrans.setServiceCodeRefund(BigDecimal.ZERO);
-        billTrans.setServiceCodeNum(billItem.getSer_num());
+        billTrans.setServiceCodeNum(billItem.serviceNumber());
 
         billTrans.setSliCode(billHeader.getLocation());
         billTrans.setUpdateProviderNo(updateProviderNo);
-        billTrans.setVisittype(billHeader.getVisittype());
+        billTrans.setVisittype(billHeader.visitType());
         billTrans.setUpdateDatetime(new Timestamp(new Date().getTime()));
         billTrans.setStatus(billItem.getStatus());
 
@@ -582,8 +582,8 @@ public class BillingOnCorrectionPersister {
      */
     public void addUpdateOneBillItemTrans(BillingClaimHeaderDto billHeader, BillingClaimItemDto billItem, String updateProviderNo) {
         // Strict-parse — same reasoning as addInsertOneBillItemTrans above.
-        Date admissionDate = BillingDates.parseOptionalIsoDate(billHeader.getAdmission_date(), "admission_date");
-        Date billingDate = BillingDates.parseOptionalIsoDate(billHeader.getBilling_date(), "billing_date");
+        Date admissionDate = BillingDates.parseOptionalIsoDate(billHeader.admissionDate(), "admission_date");
+        Date billingDate = BillingDates.parseOptionalIsoDate(billHeader.billingDate(), "billing_date");
         BillingOnTransaction billTrans = new BillingOnTransaction();
         billTrans.setActionType(BillingOnConstants.ACTION_TYPE.U.name());
         billTrans.setAdmissionDate(admissionDate);
@@ -592,20 +592,20 @@ public class BillingOnCorrectionPersister {
         billTrans.setCh1Id(Integer.parseInt(billHeader.getId()));
         billTrans.setClinic(billHeader.getClinic());
         billTrans.setCreator(billHeader.getCreator());
-        billTrans.setDemographicNo(Integer.parseInt(billHeader.getDemographic_no()));
-        billTrans.setFacilityNum(billHeader.getFacilty_num());
-        billTrans.setManReview(billHeader.getMan_review());
+        billTrans.setDemographicNo(Integer.parseInt(billHeader.demographicNo()));
+        billTrans.setFacilityNum(billHeader.facilityNumber());
+        billTrans.setManReview(billHeader.manualReview());
         billTrans.setProviderNo(billHeader.getProviderNo());
         billTrans.setProvince(billHeader.getProvince());
-        billTrans.setPayProgram(billHeader.getPay_program());
-        billTrans.setRefNum(billHeader.getRef_num());
+        billTrans.setPayProgram(billHeader.payProgram());
+        billTrans.setRefNum(billHeader.referralNumber());
 
         billTrans.setPaymentDate(null);
         billTrans.setPaymentId(0);
         billTrans.setPaymentType(0);
-        billTrans.setServiceCode(billItem.getService_code());
+        billTrans.setServiceCode(billItem.serviceCode());
         billTrans.setServiceCodeInvoiced(billItem.getFee());
-        billTrans.setServiceCodeNum(billItem.getSer_num());
+        billTrans.setServiceCodeNum(billItem.serviceNumber());
         billTrans.setDxCode(billItem.getDx());
         billTrans.setStatus(billItem.getStatus());
 
@@ -615,7 +615,7 @@ public class BillingOnCorrectionPersister {
 
         billTrans.setSliCode(billHeader.getLocation());
         billTrans.setUpdateProviderNo(updateProviderNo);
-        billTrans.setVisittype(billHeader.getVisittype());
+        billTrans.setVisittype(billHeader.visitType());
         billTrans.setUpdateDatetime(new Timestamp(new Date().getTime()));
 
         billOnTransDao.persist(billTrans);

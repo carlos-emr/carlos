@@ -378,8 +378,8 @@ class BillingOnCorrectionPersisterUnitTest {
     void shouldThrowValidation_whenUpdateBillingClaimHeaderTotalIsNegative() {
         BillingONCHeader1 existing = new BillingONCHeader1();
         when(headerDao.find("100")).thenReturn(existing);
-        BillingClaimHeaderDto h = fullHeaderDto("2026-01-15", "2026-01-20", "12:34:56");
-        h.setTotal("-50.00");
+        BillingClaimHeaderDto h = fullHeaderDto("2026-01-15", "2026-01-20", "12:34:56")
+                .withTotal("-50.00");
 
         assertThatThrownBy(() -> persister.updateBillingClaimHeader(h))
                 .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
@@ -409,7 +409,7 @@ class BillingOnCorrectionPersisterUnitTest {
         BillingONItem existing = new BillingONItem();
         when(itemDao.find("1")).thenReturn(existing);
         BillingClaimItemDto i = itemDto();
-        i.setService_date("2026-01-15");
+        i = i.withServiceDate("2026-01-15");
 
         boolean ret = persister.updateBillingOneItem(i);
 
@@ -421,8 +421,7 @@ class BillingOnCorrectionPersisterUnitTest {
     void shouldThrowAndNotMerge_whenUpdateBillingOneItemServiceDateMalformed() {
         BillingONItem existing = new BillingONItem();
         when(itemDao.find("1")).thenReturn(existing);
-        BillingClaimItemDto i = itemDto();
-        i.setService_date("not-a-date");
+        BillingClaimItemDto i = itemDto().withServiceDate("not-a-date");
 
         assertThatThrownBy(() -> persister.updateBillingOneItem(i))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -437,57 +436,57 @@ class BillingOnCorrectionPersisterUnitTest {
                                                        String billingDate,
                                                        String billingTime) {
         BillingClaimHeaderDto h = headerDto(admissionDate, billingDate);
-        h.setBilling_time(billingTime);
-        h.setDemographic_no("7");
-        h.setAppointment_no("0");
-        h.setTotal("33.70");
-        h.setPaid("0");
-        h.setStatus("O");
-        h.setSex("M");
-        h.setHin("");
-        h.setVer("");
-        h.setDob("");
-        h.setPayee("");
-        h.setRef_lab_num("");
-        h.setDemographic_name("");
-        h.setProvider_no("999998");
-        h.setProvider_ohip_no("");
-        h.setProvider_rma_no("");
-        h.setApptProvider_no("");
-        h.setAsstProvider_no("");
-        h.setTransc_id("");
-        h.setRec_id("");
+        h = h.withBillingTime(billingTime);
+        h = h.withDemographicNo("7");
+        h = h.withAppointmentNo("0");
+        h = h.withTotal("33.70");
+        h = h.withPaid("0");
+        h = h.withStatus("O");
+        h = h.withSex("M");
+        h = h.withHin("");
+        h = h.withVer("");
+        h = h.withDob("");
+        h = h.withPayee("");
+        h = h.withReferringLabNumber("");
+        h = h.withDemographicName("");
+        h = h.withProviderNo("999998");
+        h = h.withProviderOhipNo("");
+        h = h.withProviderRmaNo("");
+        h = h.withAppointmentProviderNo("");
+        h = h.withAssistantProviderNo("");
+        h = h.withTransactionId("");
+        h = h.withRecordId("");
         return h;
     }
 
     private static BillingClaimHeaderDto headerDto(String admissionDate, String billingDate) {
         BillingClaimHeaderDto h = new BillingClaimHeaderDto();
-        h.setId("100");
-        h.setAdmission_date(admissionDate);
-        h.setBilling_date(billingDate);
-        h.setComment("");
-        h.setClinic("");
-        h.setCreator("999998");
-        h.setDemographic_no("7");
-        h.setFacilty_num("");
-        h.setMan_review("");
-        h.setProviderNo("999998");
-        h.setProvince("ON");
-        h.setPay_program("HCP");
-        h.setRef_num("");
-        h.setLocation("");
-        h.setVisittype("");
+        h = h.withId("100");
+        h = h.withAdmissionDate(admissionDate);
+        h = h.withBillingDate(billingDate);
+        h = h.withComment("");
+        h = h.withClinic("");
+        h = h.withCreator("999998");
+        h = h.withDemographicNo("7");
+        h = h.withFacilityNumber("");
+        h = h.withManualReview("");
+        h = h.withProviderNo("999998");
+        h = h.withProvince("ON");
+        h = h.withPayProgram("HCP");
+        h = h.withReferralNumber("");
+        h = h.withLocation("");
+        h = h.withVisitType("");
         return h;
     }
 
     private static BillingClaimItemDto itemDto() {
         BillingClaimItemDto i = new BillingClaimItemDto();
-        i.setId("1");
-        i.setService_code("A001A");
-        i.setFee("33.70");
-        i.setSer_num("1");
-        i.setDx("V70");
-        i.setStatus("O");
+        i = i.withId("1");
+        i = i.withServiceCode("A001A");
+        i = i.withFee("33.70");
+        i = i.withServiceNumber("1");
+        i = i.withDx("V70");
+        i = i.withStatus("O");
         return i;
     }
 }

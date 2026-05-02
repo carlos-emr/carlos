@@ -188,13 +188,13 @@ public class BillingOnPayments2Action extends ActionSupport {
             }
 
             BillingClaimItemDto itemData = new BillingClaimItemDto();
-            itemData.setId(item.getId().toString());
-            itemData.setService_code(item.getServiceCode());
-            itemData.setFee(item.getFee());
-            itemData.setPaid(payment.toString());
-            itemData.setDiscount(discount.toString());
-            itemData.setRefund(refund.toString());
-            itemData.setCredit(credit.toString());
+            itemData = itemData.withId(item.getId().toString());
+            itemData = itemData.withServiceCode(item.getServiceCode());
+            itemData = itemData.withFee(item.getFee());
+            itemData = itemData.withPaid(payment.toString());
+            itemData = itemData.withDiscount(discount.toString());
+            itemData = itemData.withRefund(refund.toString());
+            itemData = itemData.withCredit(credit.toString());
 
             itemDataList.add(itemData);
         }
@@ -252,7 +252,7 @@ public class BillingOnPayments2Action extends ActionSupport {
 
                 items.add(new BillingOnThirdPartyPaymentsViewModel.ItemSummary(
                         nullToEmpty(billItemData.getId()),
-                        nullToEmpty(billItemData.getService_code()),
+                        nullToEmpty(billItemData.serviceCode()),
                         nullToEmpty(billItemData.getFee()),
                         realPaidSign + currency.format(realPaid.abs()),
                         balanceSign + currency.format(itemBalance.abs())));
@@ -651,14 +651,14 @@ public class BillingOnPayments2Action extends ActionSupport {
                 continue;
             }
             BillingClaimItemDto itemData = new BillingClaimItemDto();
-            itemData.setId(Integer.toString(itemPayment.getBillingOnItemId()));
-            itemData.setService_code(billItemList.getServiceCode());
-            itemData.setFee(billItemList.getFee());
-            itemData.setPaid(itemPayment.getPaid().toString());
-            itemData.setDiscount(itemPayment.getDiscount().toString());
-            itemData.setRefund(itemPayment.getRefund().toString());
-            itemData.setCredit(itemPayment.getCredit().toString());
-            itemData.setCh1_id(String.valueOf(itemPayment.getCh1Id()));
+            itemData = itemData.withId(Integer.toString(itemPayment.getBillingOnItemId()));
+            itemData = itemData.withServiceCode(billItemList.getServiceCode());
+            itemData = itemData.withFee(billItemList.getFee());
+            itemData = itemData.withPaid(itemPayment.getPaid().toString());
+            itemData = itemData.withDiscount(itemPayment.getDiscount().toString());
+            itemData = itemData.withRefund(itemPayment.getRefund().toString());
+            itemData = itemData.withCredit(itemPayment.getCredit().toString());
+            itemData = itemData.withClaimHeaderId(String.valueOf(itemPayment.getCh1Id()));
             String ptName = "";
             Integer ch1_id = itemPayment.getCh1Id();
             BillingONCHeader1 ch1 = billingClaimDAO.find(ch1_id);
@@ -667,7 +667,7 @@ public class BillingOnPayments2Action extends ActionSupport {
                 if (ptName == null)
                     ptName = "";
             }
-            itemData.setPatientName(ptName);
+            itemData = itemData.withPatientName(ptName);
             itemDataList.add(itemData);
         }
 

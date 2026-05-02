@@ -23,212 +23,128 @@
 
 package io.github.carlos_emr.carlos.billings.ca.on.dto;
 
+public record BillingClaimItemDto(
+        String id,
+        String claimHeaderId,
+        String transactionId,
+        String recordId,
+        String serviceCode,
+        String fee,
+        String serviceNumber,
+        String serviceDate,
+        String dx,
+        String dx1,
+        String dx2,
+        String paid,
+        String refund,
+        String credit,
+        String discount,
+        String status,
+        String timestamp,
+        String location,
+        String patientName) {
 
-public class BillingClaimItemDto {
-    private String id;
-    private String ch1_id;
-    private String transc_id;
-    private String rec_id;
-    private String service_code;
-    private String fee;
-    private String ser_num;
-    private String service_date;
-    private String dx;
-    private String dx1;
-    private String dx2;
-    private String paid;
-    private String refund;
-    private String credit;
-    private String discount;
-    private String status;
-    private String timestamp;
-    private String location;
-    private String patientName;
-
-    /*
-     *Default Constructor
-     */
     public BillingClaimItemDto() {
-
+        this(null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null);
     }
 
-    /*
-     *Copy constructor
-     */
     public BillingClaimItemDto(BillingClaimItemDto copy) {
-
-        this.setId(copy.getId());
-        this.setCh1_id(copy.getCh1_id());
-        this.setTransc_id(copy.getTransc_id());
-        this.setRec_id(copy.getRec_id());
-        this.setService_code(copy.getService_code());
-        this.setFee(copy.getFee());
-        this.setSer_num(copy.getSer_num());
-        this.setService_date(copy.getService_date());
-        this.setDx(copy.getDx());
-        this.setDx1(copy.getDx1());
-        this.setDx2(copy.getDx2());
-        this.setPaid(copy.getPaid());
-        this.setRefund(copy.getRefund());
-        this.setCredit(copy.getCredit());
-        this.setDiscount(copy.getDiscount());
-        this.setStatus(copy.getStatus());
-        this.setTimestamp(copy.getTimestamp());
-        this.setLocation(copy.getLocation());
-        this.setPatientName(copy.getPatientName());
+        this(copy.id, copy.claimHeaderId, copy.transactionId, copy.recordId,
+                copy.serviceCode, copy.fee, copy.serviceNumber, copy.serviceDate,
+                copy.dx, copy.dx1, copy.dx2, copy.paid, copy.refund,
+                copy.credit, copy.discount, copy.status, copy.timestamp,
+                copy.location, copy.patientName);
     }
 
-    public String getCh1_id() {
-        return ch1_id;
+    public BillingClaimItemDto withId(String id) {
+        return new BillingClaimItemDto(id, claimHeaderId, transactionId, recordId, serviceCode, fee, serviceNumber, serviceDate, dx, dx1, dx2, paid, refund, credit, discount, status, timestamp, location, patientName);
     }
 
-    public void setCh1_id(String ch1_id) {
-        this.ch1_id = ch1_id;
+    public BillingClaimItemDto withClaimHeaderId(String claimHeaderId) {
+        return new BillingClaimItemDto(id, claimHeaderId, transactionId, recordId, serviceCode, fee, serviceNumber, serviceDate, dx, dx1, dx2, paid, refund, credit, discount, status, timestamp, location, patientName);
     }
 
-    public String getDx() {
-        return dx;
+    public BillingClaimItemDto withTransactionId(String transactionId) {
+        return new BillingClaimItemDto(id, claimHeaderId, transactionId, recordId, serviceCode, fee, serviceNumber, serviceDate, dx, dx1, dx2, paid, refund, credit, discount, status, timestamp, location, patientName);
     }
 
-    public void setDx(String dx) {
-        this.dx = dx;
+    public BillingClaimItemDto withRecordId(String recordId) {
+        return new BillingClaimItemDto(id, claimHeaderId, transactionId, recordId, serviceCode, fee, serviceNumber, serviceDate, dx, dx1, dx2, paid, refund, credit, discount, status, timestamp, location, patientName);
     }
 
-    public String getFee() {
-        return fee;
+    public BillingClaimItemDto withServiceCode(String serviceCode) {
+        return new BillingClaimItemDto(id, claimHeaderId, transactionId, recordId, serviceCode, fee, serviceNumber, serviceDate, dx, dx1, dx2, paid, refund, credit, discount, status, timestamp, location, patientName);
     }
 
-    public void setFee(String fee) {
-        this.fee = fee;
+    public BillingClaimItemDto withFee(String fee) {
+        return new BillingClaimItemDto(id, claimHeaderId, transactionId, recordId, serviceCode, fee, serviceNumber, serviceDate, dx, dx1, dx2, paid, refund, credit, discount, status, timestamp, location, patientName);
     }
 
-    public String getId() {
-        return id;
+    public BillingClaimItemDto withServiceNumber(String serviceNumber) {
+        return new BillingClaimItemDto(id, claimHeaderId, transactionId, recordId, serviceCode, fee, serviceNumber, serviceDate, dx, dx1, dx2, paid, refund, credit, discount, status, timestamp, location, patientName);
     }
 
-    public void setId(String id) {
-        this.id = id;
+    public BillingClaimItemDto withServiceDate(String serviceDate) {
+        return new BillingClaimItemDto(id, claimHeaderId, transactionId, recordId, serviceCode, fee, serviceNumber, serviceDate, dx, dx1, dx2, paid, refund, credit, discount, status, timestamp, location, patientName);
     }
 
-    public String getRec_id() {
-        return rec_id;
+    public BillingClaimItemDto withDx(String dx) {
+        return new BillingClaimItemDto(id, claimHeaderId, transactionId, recordId, serviceCode, fee, serviceNumber, serviceDate, dx, dx1, dx2, paid, refund, credit, discount, status, timestamp, location, patientName);
     }
 
-    public void setRec_id(String rec_id) {
-        this.rec_id = rec_id;
+    public BillingClaimItemDto withDx1(String dx1) {
+        return new BillingClaimItemDto(id, claimHeaderId, transactionId, recordId, serviceCode, fee, serviceNumber, serviceDate, dx, dx1, dx2, paid, refund, credit, discount, status, timestamp, location, patientName);
     }
 
-    public String getSer_num() {
-        return ser_num;
+    public BillingClaimItemDto withDx2(String dx2) {
+        return new BillingClaimItemDto(id, claimHeaderId, transactionId, recordId, serviceCode, fee, serviceNumber, serviceDate, dx, dx1, dx2, paid, refund, credit, discount, status, timestamp, location, patientName);
     }
 
-    public void setSer_num(String ser_num) {
-        this.ser_num = ser_num;
+    public BillingClaimItemDto withPaid(String paid) {
+        return new BillingClaimItemDto(id, claimHeaderId, transactionId, recordId, serviceCode, fee, serviceNumber, serviceDate, dx, dx1, dx2, paid, refund, credit, discount, status, timestamp, location, patientName);
     }
 
-    public String getService_code() {
-        return service_code;
+    public BillingClaimItemDto withRefund(String refund) {
+        return new BillingClaimItemDto(id, claimHeaderId, transactionId, recordId, serviceCode, fee, serviceNumber, serviceDate, dx, dx1, dx2, paid, refund, credit, discount, status, timestamp, location, patientName);
     }
 
-    public void setService_code(String service_code) {
-        this.service_code = service_code;
+    public BillingClaimItemDto withCredit(String credit) {
+        return new BillingClaimItemDto(id, claimHeaderId, transactionId, recordId, serviceCode, fee, serviceNumber, serviceDate, dx, dx1, dx2, paid, refund, credit, discount, status, timestamp, location, patientName);
     }
 
-    public String getService_date() {
-        return service_date;
+    public BillingClaimItemDto withDiscount(String discount) {
+        return new BillingClaimItemDto(id, claimHeaderId, transactionId, recordId, serviceCode, fee, serviceNumber, serviceDate, dx, dx1, dx2, paid, refund, credit, discount, status, timestamp, location, patientName);
     }
 
-    public void setService_date(String service_date) {
-        this.service_date = service_date;
+    public BillingClaimItemDto withStatus(String status) {
+        return new BillingClaimItemDto(id, claimHeaderId, transactionId, recordId, serviceCode, fee, serviceNumber, serviceDate, dx, dx1, dx2, paid, refund, credit, discount, status, timestamp, location, patientName);
     }
 
-    public String getStatus() {
-        return status;
+    public BillingClaimItemDto withTimestamp(String timestamp) {
+        return new BillingClaimItemDto(id, claimHeaderId, transactionId, recordId, serviceCode, fee, serviceNumber, serviceDate, dx, dx1, dx2, paid, refund, credit, discount, status, timestamp, location, patientName);
     }
 
-    public void setStatus(String status) {
-        this.status = status;
+    public BillingClaimItemDto withLocation(String location) {
+        return new BillingClaimItemDto(id, claimHeaderId, transactionId, recordId, serviceCode, fee, serviceNumber, serviceDate, dx, dx1, dx2, paid, refund, credit, discount, status, timestamp, location, patientName);
     }
 
-    public String getTimestamp() {
-        return timestamp;
-    }
-
-    public void setTimestamp(String timestamp) {
-        this.timestamp = timestamp;
-    }
-
-    public String getTransc_id() {
-        return transc_id;
-    }
-
-    public void setTransc_id(String transc_id) {
-        this.transc_id = transc_id;
-    }
-
-    public String getDx1() {
-        return dx1;
-    }
-
-    public String getCredit() {
-        return credit;
-    }
-
-    public void setCredit(String credit) {
-        this.credit = credit;
-    }
-
-    public void setDx1(String dx1) {
-        this.dx1 = dx1;
-    }
-
-    public String getDx2() {
-        return dx2;
-    }
-
-    public void setDx2(String dx2) {
-        this.dx2 = dx2;
-    }
-
-    public String getLocation() {
-        return location;
-    }
-
-    public void setLocation(String location) {
-        this.location = location;
-    }
-
-    public String getPaid() {
-        return paid;
-    }
-
-    public void setPaid(String paid) {
-        this.paid = paid;
-    }
-
-    public String getRefund() {
-        return refund;
-    }
-
-    public void setRefund(String refund) {
-        this.refund = refund;
-    }
-
-    public String getDiscount() {
-        return discount;
-    }
-
-    public void setDiscount(String discount) {
-        this.discount = discount;
-    }
-
-    public String getPatientName() {
-        return patientName;
-    }
-
-    public void setPatientName(String patientName) {
-        this.patientName = patientName;
+    public BillingClaimItemDto withPatientName(String patientName) {
+        return new BillingClaimItemDto(id, claimHeaderId, transactionId, recordId, serviceCode, fee, serviceNumber, serviceDate, dx, dx1, dx2, paid, refund, credit, discount, status, timestamp, location, patientName);
     }
 
 
+    public String getId() { return id; }
+    public String getFee() { return fee; }
+    public String getDx() { return dx; }
+    public String getDx1() { return dx1; }
+    public String getDx2() { return dx2; }
+    public String getPaid() { return paid; }
+    public String getRefund() { return refund; }
+    public String getCredit() { return credit; }
+    public String getDiscount() { return discount; }
+    public String getStatus() { return status; }
+    public String getTimestamp() { return timestamp; }
+    public String getLocation() { return location; }
+    public String getPatientName() { return patientName; }
 }

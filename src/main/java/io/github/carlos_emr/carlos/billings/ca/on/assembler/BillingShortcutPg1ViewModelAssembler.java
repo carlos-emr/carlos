@@ -268,15 +268,15 @@ public class BillingShortcutPg1ViewModelAssembler {
                         // positionally.
                         Properties p = new Properties();
                         p.setProperty("billing_no", nullToEmpty(String.valueOf(obj.getId())));
-                        p.setProperty("billing_date", nullToEmpty(obj.getBilling_date()));
-                        p.setProperty("visitdate", obj.getAdmission_date() == null ? "" : obj.getAdmission_date());
-                        p.setProperty("visitType", nullToEmpty(obj.getVisittype()));
-                        p.setProperty("clinic_ref_code", nullToEmpty(obj.getFacilty_num()));
-                        String updateDt = obj.getUpdate_datetime();
+                        p.setProperty("billing_date", nullToEmpty(obj.billingDate()));
+                        p.setProperty("visitdate", obj.admissionDate() == null ? "" : obj.admissionDate());
+                        p.setProperty("visitType", nullToEmpty(obj.visitType()));
+                        p.setProperty("clinic_ref_code", nullToEmpty(obj.facilityNumber()));
+                        String updateDt = obj.updateDateTime();
                         p.setProperty("update_date", updateDt != null && updateDt.length() >= 10 ? updateDt.substring(0, 10) : nullToEmpty(updateDt));
 
                         Properties detail = new Properties();
-                        detail.setProperty("service_code", nullToEmpty(iobj.getService_code()));
+                        detail.setProperty("service_code", nullToEmpty(iobj.serviceCode()));
                         detail.setProperty("diagnostic_code", nullToEmpty(iobj.getDx()));
 
                         billingHistory.add(p);
@@ -414,7 +414,7 @@ public class BillingShortcutPg1ViewModelAssembler {
         // Dx code panel for the selected ctlBillForm.
         java.util.List<BillingShortcutPg1ViewModel.DxCodeEntry> dxCodeEntries = new ArrayList<>();
         if (diagnosticCodeDao != null) {
-            for (io.github.carlos_emr.carlos.billings.ca.on.dto.DiagnosticCodeRow row :
+            for (io.github.carlos_emr.carlos.commn.dao.projection.DiagnosticCodeRow row :
                     diagnosticCodeDao.findDiagnosictsAndCtlDiagCodesByServiceType(ctlBillForm)) {
                 dxCodeEntries.add(new BillingShortcutPg1ViewModel.DxCodeEntry(
                         row.diagnosticCode(),

@@ -126,10 +126,12 @@ public final class BillingOnFormViewModel {
     private final BillingOnReferralDefaults referralDefaults;
     private final boolean recommendationsUnavailable;
     private final boolean siteContextDegraded;
+    private final boolean admissionDateUnavailable;
 
     private BillingOnFormViewModel(Builder b) {
         this.recommendationsUnavailable = b.recommendationsUnavailable;
         this.siteContextDegraded = b.siteContextDegraded;
+        this.admissionDateUnavailable = b.admissionDateUnavailable;
         // Resolve composed records first — either the composed-setter wins or
         // we synthesize from the legacy flat-field accumulators.
         this.demographic = (b.demographic != null)
@@ -395,6 +397,7 @@ public final class BillingOnFormViewModel {
     public Map<String, String> getRequestParamEchoes() { return requestContext.requestParamEchoes(); }
     public boolean isRecommendationsUnavailable() { return recommendationsUnavailable; }
     public boolean isSiteContextDegraded() { return siteContextDegraded; }
+    public boolean isAdmissionDateUnavailable() { return admissionDateUnavailable; }
 
     public static final class Builder {
         // ---- Composed-record setters (preferred) ----
@@ -413,6 +416,7 @@ public final class BillingOnFormViewModel {
         private BillingOnReferralDefaults referralDefaults;
         private boolean recommendationsUnavailable;
         private boolean siteContextDegraded;
+        private boolean admissionDateUnavailable;
 
         // ---- Legacy flat-field accumulators ----
         private String userNo;
@@ -521,6 +525,7 @@ public final class BillingOnFormViewModel {
         public Builder referralDefaults(BillingOnReferralDefaults v) { this.referralDefaults = v; return this; }
         public Builder recommendationsUnavailable(boolean v) { this.recommendationsUnavailable = v; return this; }
         public Builder siteContextDegraded(boolean v) { this.siteContextDegraded = v; return this; }
+        public Builder admissionDateUnavailable(boolean v) { this.admissionDateUnavailable = v; return this; }
 
         // ---- Legacy flat setters (back-compat — accumulate for build()) ----
 

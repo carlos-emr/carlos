@@ -139,7 +139,7 @@
                         </form>
                     </c:when>
                     <c:otherwise>
-                        <a href="${pageContext.request.contextPath}/billing/CA/ON/benefitScheduleUpload">Try again</a>
+                        <a href="${pageContext.request.contextPath}/billing/CA/ON/ViewBenefitScheduleUpload">Try again</a>
                     </c:otherwise>
                 </c:choose>
             </div><!--#2-->

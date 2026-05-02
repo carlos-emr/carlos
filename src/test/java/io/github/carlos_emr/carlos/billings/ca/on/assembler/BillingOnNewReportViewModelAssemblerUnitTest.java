@@ -22,8 +22,8 @@
 package io.github.carlos_emr.carlos.billings.ca.on.assembler;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportPaidBillingRow;
-import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportPaidRaDetailRow;
-import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportUnbilledRow;
+import io.github.carlos_emr.carlos.commn.dao.projection.BillingOnNewReportPaidRaDetailRow;
+import io.github.carlos_emr.carlos.commn.dao.projection.BillingOnNewReportUnbilledRow;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnNewReportViewModel;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;

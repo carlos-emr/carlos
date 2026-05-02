@@ -253,6 +253,35 @@ class BillingOnReviewValidatorUnitTest {
     }
 
     @Test
+    @DisplayName("emits ERROR when A003A guard cannot parse service date")
+    void shouldEmitError_whenA003AGuardServiceDateMalformed() {
+        request.setParameter("serviceCode0", "A003A");
+        request.setParameter("xml_billtype", "ODP");
+        request.setParameter("service_date", "not-a-date");
+        when(billingServiceDao.findBillingCodesByCodeAndTerminationDate(anyString(), any(Date.class)))
+                .thenReturn(List.of(new Object()));
+        BillingONCHeader1 lastBill = new BillingONCHeader1();
+        Calendar c = Calendar.getInstance();
+        c.set(2025, Calendar.OCTOBER, 26);
+        lastBill.setBillingDate(c.getTime());
+        when(bCh1Dao.getLastOHIPBillingDateForServiceCode(eq(1), eq("A003A")))
+                .thenReturn(lastBill);
+
+        BillingOnReviewValidator.Result result =
+                newValidator().validate(request, "1", "2026-04-26");
+
+        assertThat(result.codeValid()).isFalse();
+        assertThat(result.messages())
+                .anySatisfy(m -> {
+                    assertThat(m.severity())
+                            .isEqualTo(BillingOnReviewValidator.Message.Severity.ERROR);
+                    assertThat(m.text())
+                            .contains("service date")
+                            .contains("A003A");
+                });
+    }
+
+    @Test
     @DisplayName("does NOT run A003A guard when bill type is not ODP*")
     void shouldSkipA003AGuard_whenBillTypeIsNotODP() {
         request.setParameter("serviceCode0", "A003A");

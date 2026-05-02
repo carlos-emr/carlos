@@ -338,4 +338,19 @@ class BillingOnClaimLoaderUnitTest {
                     assertThat(e.context()).containsEntry("apptNo", "123");
                 });
     }
+
+    @Test
+    void shouldThrowBillingDataLoadException_whenBillingFormsLookupFails() {
+        when(ctlBillingServiceDao.findServiceTypes())
+                .thenThrow(new RuntimeException("DB outage simulation"));
+
+        assertThatThrownBy(() -> loader.listBillingForms())
+                .isInstanceOf(BillingDataLoadException.class)
+                .hasMessageContaining("Failed to load billing forms")
+                .satisfies(ex -> {
+                    BillingDataLoadException e = (BillingDataLoadException) ex;
+                    assertThat(e.phase()).isEqualTo(BillingDataLoadException.Phase.DAO_QUERY);
+                    assertThat(e.context()).containsEntry("lookup", "billingForms");
+                });
+    }
 }

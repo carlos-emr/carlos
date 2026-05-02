@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,6 +38,7 @@ import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 
 /**
  * Write access to the {@code billing_service} table — the private-code
@@ -58,6 +60,7 @@ public class ServiceCodePersister {
     private final BillingServiceDao dao;
     private final BillingPercLimitDao billingPercLimitDao;
 
+    @Autowired
     public ServiceCodePersister(BillingServiceDao dao, BillingPercLimitDao billingPercLimitDao) {
         this.dao = dao;
         this.billingPercLimitDao = billingPercLimitDao;
@@ -191,11 +194,11 @@ public class ServiceCodePersister {
     }
 
     private BillingService findSubmittedBillingService(AddEditServiceCodeRequest request) {
-        if (request.billingserviceNo() != null) {
+        if (request.billingserviceNo() != null && !request.billingserviceNo().isBlank()) {
             try {
                 return dao.find(Integer.parseInt(request.billingserviceNo()));
             } catch (NumberFormatException nfe) {
-                return null;
+                throw new BillingValidationException("Invalid billingserviceNo: " + request.billingserviceNo(), nfe);
             }
         }
         List<BillingService> bsList = dao.findByServiceCode(request.serviceCode());

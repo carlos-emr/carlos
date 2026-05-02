@@ -162,8 +162,7 @@ public class BillingCorrectionRecordService {
      */
     public boolean updateBillingClaimHeader(BillingClaimHeaderDto ch1Obj,
                                             HttpServletRequest requestData) {
-        BillingClaimHeaderDto ch1DataBackup = new BillingClaimHeaderDto();
-        ch1DataBackup.clone(ch1Obj);
+        BillingClaimHeaderDto ch1DataBackup = new BillingClaimHeaderDto(ch1Obj);
 
         boolean ret = true;
         String status;
@@ -173,39 +172,39 @@ public class BillingCorrectionRecordService {
             if (status.equals("S") && !ch1Obj.getStatus().equals(status)) {
                 this.updateExt("payDate", requestData);
             }
-            ch1Obj.setStatus(status);
+            ch1Obj = ch1Obj.withStatus(status);
 
             if (requestData.getParameter("status").substring(0, 1).equals("N")) {
-                ch1Obj.setPay_program("NOT");
+                ch1Obj = ch1Obj.withPayProgram("NOT");
             }
 
-            ch1Obj.setRef_num(requestData.getParameter("rdohip"));
-            ch1Obj.setVisittype(requestData.getParameter("visittype"));
+            ch1Obj = ch1Obj.withReferralNumber(requestData.getParameter("rdohip"));
+            ch1Obj = ch1Obj.withVisitType(requestData.getParameter("visittype"));
 
-            ch1Obj.setAdmission_date(requestData.getParameter("xml_vdate"));
-            ch1Obj.setFacilty_num(requestData.getParameter("clinic_ref_code"));
-            ch1Obj.setMan_review(requestData.getParameter("m_review") == null ? ""
+            ch1Obj = ch1Obj.withAdmissionDate(requestData.getParameter("xml_vdate"));
+            ch1Obj = ch1Obj.withFacilityNumber(requestData.getParameter("clinic_ref_code"));
+            ch1Obj = ch1Obj.withManualReview(requestData.getParameter("m_review") == null ? ""
                     : "Y");
-            ch1Obj.setBilling_date(requestData
+            ch1Obj = ch1Obj.withBillingDate(requestData
                     .getParameter("xml_appointment_date"));
-            ch1Obj.setProviderNo(requestData.getParameter("provider_no"));
-            ch1Obj.setComment(requestData.getParameter("comment"));
+            ch1Obj = ch1Obj.withProviderNo(requestData.getParameter("provider_no"));
+            ch1Obj = ch1Obj.withComment(requestData.getParameter("comment"));
 
             // provider_ohip_no update as well
             BillingProviderDto otemp = lookupService
                     .getProviderObj(requestData.getParameter("provider_no"));
-            ch1Obj.setProvider_ohip_no(otemp.getOhipNo());
-            ch1Obj.setProvider_rma_no(otemp.getRmaNo());
+            ch1Obj = ch1Obj.withProviderOhipNo(otemp.getOhipNo());
+            ch1Obj = ch1Obj.withProviderRmaNo(otemp.getRmaNo());
             LoggedInInfo liCreator = LoggedInInfo.getLoggedInInfoFromSession(requestData);
-            ch1Obj.setCreator(liCreator != null ? liCreator.getLoggedInProviderNo() : null);
+            ch1Obj = ch1Obj.withCreator(liCreator != null ? liCreator.getLoggedInProviderNo() : null);
 
-            ch1Obj.setClinic(requestData.getParameter("site"));
+            ch1Obj = ch1Obj.withClinic(requestData.getParameter("site"));
 
-            ch1Obj.setProvince(requestData.getParameter("hc_type"));
+            ch1Obj = ch1Obj.withProvince(requestData.getParameter("hc_type"));
 
-            ch1Obj.setLocation(requestData.getParameter("xml_slicode"));
+            ch1Obj = ch1Obj.withLocation(requestData.getParameter("xml_slicode"));
 
-            ch1Obj.setPay_program(requestData.getParameter("payProgram"));
+            ch1Obj = ch1Obj.withPayProgram(requestData.getParameter("payProgram"));
             ret = correctionPersister.updateBillingClaimHeader(ch1Obj);
 
             if (BillingONCHeader1.DELETED.equals(ch1Obj.getStatus())) {
@@ -245,13 +244,13 @@ public class BillingCorrectionRecordService {
                 ret &= update3rdPartyItem(BillingONExtDao.KEY_REFUND, requestData);
                 ret &= update3rdPartyItem(BillingONExtDao.KEY_PAY_DATE, requestData);
                 ret &= update3rdPartyItem(BillingONExtDao.KEY_CREDIT, requestData);
-                ch1Obj.setPaid(requestData.getParameter("payment"));
+                ch1Obj = ch1Obj.withPaid(requestData.getParameter("payment"));
                 ret &= correctionPersister.updateBillingClaimHeader(ch1Obj);
             }
 
             if (requestData.getParameter("billTo") != null) {
                 ret &= update3rdPartyItem("billTo", requestData);
-                ch1Obj.setBillto(requestData.getParameter("billTo"));
+                ch1Obj = ch1Obj.withBillto(requestData.getParameter("billTo"));
             }
         }
 
@@ -388,11 +387,11 @@ public class BillingCorrectionRecordService {
                     row.code(), row.unit(), row.fee(), row.status());
             if (billOnItem != null) {
                 // this condition indicates one service code item was changed
-                iObj.setService_code(billOnItem.getServiceCode());
-                iObj.setFee(billOnItem.getFee());
-                iObj.setSer_num(billOnItem.getServiceCount());
+                iObj = iObj.withServiceCode(billOnItem.getServiceCode());
+                iObj = iObj.withFee(billOnItem.getFee());
+                iObj = iObj.withServiceNumber(billOnItem.getServiceCount());
             }
-            _logger.info(LogSanitizer.sanitize(iObj.getService_code()));
+            _logger.info(LogSanitizer.sanitize(iObj.serviceCode()));
         }
 
         // add item if possible
@@ -424,13 +423,13 @@ public class BillingCorrectionRecordService {
         updateAmount(newAmount, ch1Obj.getId(), updateProviderNo, dx);
 
         // update total field in billing_on_ext if pay_program is 3rd party
-        if (ch1Obj.getPay_program().matches(
+        if (ch1Obj.payProgram().matches(
                 BillingOnConstants.BILLINGMATCHSTRING_3RDPARTY)) {
             // BillingONExtDao billOnExtDao = SpringUtils.getBean(BillingONExtDao.class);
             if (null != billOnExtDao) {
                 int billingNo = Integer.parseInt(ch1Obj.getId());
                 int demographicNo = Integer
-                        .parseInt(ch1Obj.getDemographic_no());
+                        .parseInt(ch1Obj.demographicNo());
                 BillingONExt billOnExt = billOnExtDao.getClaimExtItem(
                         billingNo, demographicNo, "payDate");
                 if (billOnExt != null) {
@@ -493,16 +492,16 @@ public class BillingCorrectionRecordService {
         if (oldData == null || newData == null) {
             return false;
         }
-        if (!oldData.getRef_num().equals(newData.getRef_num())) return true;
+        if (!oldData.referralNumber().equals(newData.referralNumber())) return true;
         if (!oldData.getProvince().equals(newData.getProvince())) return true;
-        if (!oldData.getMan_review().equals(newData.getMan_review())) return true;
-        if (!oldData.getBilling_date().equals(newData.getBilling_date())) return true;
+        if (!oldData.manualReview().equals(newData.manualReview())) return true;
+        if (!oldData.billingDate().equals(newData.billingDate())) return true;
         if (!oldData.getStatus().equals(newData.getStatus())) return true;
-        if (!oldData.getPay_program().equals(newData.getPay_program())) return true;
-        if (!oldData.getFacilty_num().equals(newData.getFacilty_num())) return true;
+        if (!oldData.payProgram().equals(newData.payProgram())) return true;
+        if (!oldData.facilityNumber().equals(newData.facilityNumber())) return true;
         if (!oldData.getProviderNo().equals(newData.getProviderNo())) return true;
-        if (!oldData.getVisittype().equals(newData.getVisittype())) return true;
-        if (!oldData.getAdmission_date().equals(newData.getAdmission_date())) return true;
+        if (!oldData.visitType().equals(newData.visitType())) return true;
+        if (!oldData.admissionDate().equals(newData.admissionDate())) return true;
         if (!oldData.getLocation().equals(newData.getLocation())) return true;
         if (!oldData.getComment().equals(newData.getComment())) return true;
         return !java.util.Objects.equals(oldData.getBillto(), newData.getBillto());
@@ -515,44 +514,44 @@ public class BillingCorrectionRecordService {
         if (existObj == null)
             return ret;
         // _logger.info("isChangedBillingClaimHeader(old value = " +
-        // existObj.getStatus() + "|" + existObj.getRef_num()
-        // + "|" + existObj.getAdmission_date() + "|" +
-        // existObj.getFacilty_num() + "|" + existObj.getMan_review()
-        // + "|" + existObj.getBilling_date() + "|" + existObj.getProviderNo()
-        // + "|" + existObj.getPay_program());
+        // existObj.getStatus() + "|" + existObj.referralNumber()
+        // + "|" + existObj.admissionDate() + "|" +
+        // existObj.facilityNumber() + "|" + existObj.manualReview()
+        // + "|" + existObj.billingDate() + "|" + existObj.getProviderNo()
+        // + "|" + existObj.payProgram());
         String temp = request.getParameter("m_review") == null ? "" : "Y";
         if (existObj.getStatus() != null
                 && request.getParameter("status") != null
                 && !existObj.getStatus().equals(
                 request.getParameter("status").substring(0, 1)))
             MiscUtils.getLogger().debug("status");
-        if (existObj.getPay_program() != null
-                && !existObj.getPay_program().equals(
+        if (existObj.payProgram() != null
+                && !existObj.payProgram().equals(
                 request.getParameter("payProgram")))
             MiscUtils.getLogger().debug("payProgram");
-        if (existObj.getRef_num() != null
-                && !existObj.getRef_num()
+        if (existObj.referralNumber() != null
+                && !existObj.referralNumber()
                 .equals(request.getParameter("rdohip")))
             MiscUtils.getLogger().debug("rdohip");
-        if (existObj.getVisittype() != null
-                && !existObj.getVisittype().equals(
+        if (existObj.visitType() != null
+                && !existObj.visitType().equals(
                 request.getParameter("visittype")))
             MiscUtils.getLogger().debug("visittype");
-        if (existObj.getAdmission_date() != null
-                && !existObj.getAdmission_date().equals(
+        if (existObj.admissionDate() != null
+                && !existObj.admissionDate().equals(
                 request.getParameter("xml_vdate")))
             MiscUtils.getLogger().debug("xml_vdate");
 
-        if (existObj.getFacilty_num() != null
-                && !existObj.getFacilty_num().equals(
+        if (existObj.facilityNumber() != null
+                && !existObj.facilityNumber().equals(
                 request.getParameter("clinic_ref_code")))
-            MiscUtils.getLogger().debug("facNum:" + existObj.getFacilty_num());
-        if (existObj.getMan_review() != null
-                && !existObj.getMan_review().equals(temp))
+            MiscUtils.getLogger().debug("facNum:" + existObj.facilityNumber());
+        if (existObj.manualReview() != null
+                && !existObj.manualReview().equals(temp))
             MiscUtils.getLogger().debug(
-                    "|" + existObj.getMan_review() + ":temp:" + temp + "|");
-        if (existObj.getBilling_date() != null
-                && !existObj.getBilling_date().equals(
+                    "|" + existObj.manualReview() + ":temp:" + temp + "|");
+        if (existObj.billingDate() != null
+                && !existObj.billingDate().equals(
                 request.getParameter("xml_appointment_date")))
             MiscUtils.getLogger().debug("Billing_date");
         if (existObj.getProviderNo() != null
@@ -564,23 +563,23 @@ public class BillingCorrectionRecordService {
                 && request.getParameter("status") != null && !existObj
                 .getStatus().equals(
                         request.getParameter("status").substring(0, 1)))
-                || (existObj.getPay_program() != null && !existObj
-                .getPay_program().equals(
+                || (existObj.payProgram() != null && !existObj
+                .payProgram().equals(
                         request.getParameter("payProgram")))
-                || (existObj.getRef_num() != null && !existObj.getRef_num()
+                || (existObj.referralNumber() != null && !existObj.referralNumber()
                 .equals(request.getParameter("rdohip")))
-                || (existObj.getVisittype() != null && !existObj.getVisittype()
+                || (existObj.visitType() != null && !existObj.visitType()
                 .equals(request.getParameter("visittype")))
-                || (existObj.getAdmission_date() != null && !existObj
-                .getAdmission_date().equals(
+                || (existObj.admissionDate() != null && !existObj
+                .admissionDate().equals(
                         request.getParameter("xml_vdate")))
-                || (existObj.getFacilty_num() != null && !existObj
-                .getFacilty_num().equals(
+                || (existObj.facilityNumber() != null && !existObj
+                .facilityNumber().equals(
                         request.getParameter("clinic_ref_code")))
-                || (existObj.getMan_review() != null && !existObj
-                .getMan_review().equals(temp))
-                || (existObj.getBilling_date() != null && !existObj
-                .getBilling_date().equals(
+                || (existObj.manualReview() != null && !existObj
+                .manualReview().equals(temp))
+                || (existObj.billingDate() != null && !existObj
+                .billingDate().equals(
                         request.getParameter("xml_appointment_date")))
                 || (existObj.getComment() != null && !existObj.getComment()
                 .equals(request.getParameter("comment")))
@@ -603,7 +602,7 @@ public class BillingCorrectionRecordService {
                                      String serviceDate, String serviceCode, String unit, String fee,
                                      String status) throws ParseException {
         boolean ret = true;
-        if (oldObj.getService_code().equals(serviceCode)) {
+        if (oldObj.serviceCode().equals(serviceCode)) {
             // change to settle or not
             boolean bStatusChange = false;
             // String cStatus = (String) oldObj.getStatus();
@@ -614,10 +613,10 @@ public class BillingCorrectionRecordService {
                 bStatusChange = true;
             }
 
-            if (!oldObj.getSer_num().equals(unit)
+            if (!oldObj.serviceNumber().equals(unit)
                     || !oldObj.getFee().equals(fee)
                     || !oldObj.getDx().equals(sDx)
-                    || !oldObj.getService_date().equals(serviceDate)
+                    || !oldObj.serviceDate().equals(serviceDate)
                     || bStatusChange) {
                 /*
                  * int j = correctionPersister.addRepoOneItem(oldObj);
@@ -625,26 +624,26 @@ public class BillingCorrectionRecordService {
                  * return null;
                  * }
                  */
-                oldObj.setSer_num(getUnit(unit));
-                oldObj.setFee(getFee(fee, getUnit(unit), serviceCode, serviceDate));
-                oldObj.setService_date(serviceDate);
-                oldObj.setDx(sDx);
-                oldObj.setStatus(cStatus);
+                oldObj = oldObj.withServiceNumber(getUnit(unit));
+                oldObj = oldObj.withFee(getFee(fee, getUnit(unit), serviceCode, serviceDate));
+                oldObj = oldObj.withServiceDate(serviceDate);
+                oldObj = oldObj.withDx(sDx);
+                oldObj = oldObj.withStatus(cStatus);
                 ret = correctionPersister.updateBillingOneItem(oldObj);
                 if (ret) {
                     correctionPersister.addUpdateOneBillItemTrans(ch1Obj, oldObj, updateProviderNo);
                 }
             }
         } else {
-            oldObj.setStatus(BillingStatus.DELETED);
+            oldObj = oldObj.withStatus(BillingStatus.DELETED);
             ret = correctionPersister.updateBillingOneItem(oldObj);
             // add one transaction: delete a service code
-            BillingONCHeader1 billCheader1 = cheader1Dao.find(Integer.parseInt(oldObj.getCh1_id()));
+            BillingONCHeader1 billCheader1 = cheader1Dao.find(Integer.parseInt(oldObj.claimHeaderId()));
             BillingOnTransaction billTrans = newTransactionFromHeader(
                     billCheader1, BillingOnConstants.ACTION_TYPE.D.name(),
                     sDx, updateProviderNo, "D");
-            billTrans.setServiceCode(oldObj.getService_code());
-            billTrans.setServiceCodeNum(oldObj.getSer_num());
+            billTrans.setServiceCode(oldObj.serviceCode());
+            billTrans.setServiceCodeNum(oldObj.serviceNumber());
             billTrans.setServiceCodeInvoiced(oldObj.getFee());
             billOnTransDao.persist(billTrans);
 
@@ -662,7 +661,7 @@ public class BillingCorrectionRecordService {
                 billTrans.setServiceCodeInvoiced(fee);
                 billOnTransDao.persist(billTrans);
 
-                if (ch1Obj.getPay_program().matches(BillingOnConstants.BILLINGMATCHSTRING_3RDPARTY)) {
+                if (ch1Obj.payProgram().matches(BillingOnConstants.BILLINGMATCHSTRING_3RDPARTY)) {
                     // get which item_payments are associated to this service code
                     List<BillingOnItemPayment> billOnItemPaymentList = billOnItemPaymentDao
                             .getAllByItemId(Integer.parseInt(oldObj.getId()));
@@ -722,7 +721,7 @@ public class BillingCorrectionRecordService {
                                   String serviceDate, String serviceCode, String unit, String fee,
                                   String status) {
         BillingONItem billOnItem = new BillingONItem();
-        billOnItem.setCh1Id(Integer.parseInt(oldObj.getCh1_id()));
+        billOnItem.setCh1Id(Integer.parseInt(oldObj.claimHeaderId()));
         billOnItem.setDx(sDx);
         billOnItem.setServiceCode(serviceCode);
         billOnItem.setServiceCount(getUnit(unit));
@@ -733,8 +732,8 @@ public class BillingCorrectionRecordService {
         // the service was provided. Surface the error to the caller so the
         // surrounding @Transactional unit-of-work rolls back.
         billOnItem.setServiceDate(BillingDates.parseIsoDate(serviceDate));
-        billOnItem.setRecId(oldObj.getRec_id());
-        billOnItem.setTranscId(oldObj.getTransc_id());
+        billOnItem.setRecId(oldObj.recordId());
+        billOnItem.setTranscId(oldObj.transactionId());
         billOnItem.setDx1(oldObj.getDx1());
         billOnItem.setDx2(oldObj.getDx2());
         billOnItem.setLastEditDT(new Date());
@@ -751,19 +750,19 @@ public class BillingCorrectionRecordService {
         BillingClaimItemDto newObj = null;
         for (int i = 0; i < lItemObj.size(); i++) {
             oldObj = (BillingClaimItemDto) lItemObj.get(i);
-            if (sName.equals(oldObj.getService_code())) {
+            if (sName.equals(oldObj.serviceCode())) {
                 ret = false;
                 break;
             }
         }
         if (ret) {
             newObj = new BillingClaimItemDto(oldObj);
-            newObj.setService_code(sName);
-            newObj.setSer_num(getUnit(sUnit));
-            newObj.setFee(getFee(sFee, getUnit(sUnit), sName, serviceDate));
-            newObj.setService_date(serviceDate);
-            newObj.setDx(sDx);
-            newObj.setStatus(sStatus);
+            newObj = newObj.withServiceCode(sName);
+            newObj = newObj.withServiceNumber(getUnit(sUnit));
+            newObj = newObj.withFee(getFee(sFee, getUnit(sUnit), sName, serviceDate));
+            newObj = newObj.withServiceDate(serviceDate);
+            newObj = newObj.withDx(sDx);
+            newObj = newObj.withStatus(sStatus);
             int i = claimPersister.addOneItemRecord(newObj);
             if (0 == i) {
                 // Throw so the surrounding @Transactional rolls back.

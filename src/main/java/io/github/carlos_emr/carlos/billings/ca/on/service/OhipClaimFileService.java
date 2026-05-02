@@ -278,19 +278,19 @@ public class OhipClaimFileService {
     private BillingClaimHeaderDto buildClaimHeaderDto(BillingONCHeader1 h, String bNo,
                                                       boolean billingTimeAsTimeString) {
         BillingClaimHeaderDto dto = new BillingClaimHeaderDto();
-        dto.setId(bNo);
-        dto.setTransc_id(h.getTranscId());
-        dto.setRec_id(h.getRecId());
-        dto.setHin(h.getHin());
-        dto.setVer(h.getVer());
-        dto.setDob(h.getDob());
+        dto = dto.withId(bNo);
+        dto = dto.withTransactionId(h.getTranscId());
+        dto = dto.withRecordId(h.getRecId());
+        dto = dto.withHin(h.getHin());
+        dto = dto.withVer(h.getVer());
+        dto = dto.withDob(h.getDob());
 
-        dto.setPay_program(h.getPayProgram());
-        dto.setPayee(h.getPayee());
-        dto.setRef_num(h.getRefNum());
-        dto.setFacilty_num(h.getFaciltyNum());
+        dto = dto.withPayProgram(h.getPayProgram());
+        dto = dto.withPayee(h.getPayee());
+        dto = dto.withReferralNumber(h.getRefNum());
+        dto = dto.withFacilityNumber(h.getFaciltyNum());
         try {
-            dto.setAdmission_date(ConversionUtils.toDateString(h.getAdmissionDate()));
+            dto = dto.withAdmissionDate(ConversionUtils.toDateString(h.getAdmissionDate()));
         } catch (ParseException e) {
             // A corrupt admission_date on a single bill must abort the
             // whole batch — the alternative (warn + continue) writes a
@@ -307,53 +307,53 @@ public class OhipClaimFileService {
                             "billId", String.valueOf(h.getId()),
                             "field", "admission_date"));
         }
-        dto.setRef_lab_num(h.getRefLabNum());
-        dto.setMan_review(h.getManReview());
-        dto.setLocation(h.getLocation());
+        dto = dto.withReferringLabNumber(h.getRefLabNum());
+        dto = dto.withManualReview(h.getManReview());
+        dto = dto.withLocation(h.getLocation());
 
-        dto.setDemographic_no("" + h.getDemographicNo());
-        dto.setProviderNo(h.getProviderNo());
-        dto.setAppointment_no("" + h.getAppointmentNo());
-        dto.setDemographic_name(h.getDemographicName());
-        dto.setSex(h.getSex());
-        dto.setProvince(h.getProvince());
+        dto = dto.withDemographicNo("" + h.getDemographicNo());
+        dto = dto.withProviderNo(h.getProviderNo());
+        dto = dto.withAppointmentNo("" + h.getAppointmentNo());
+        dto = dto.withDemographicName(h.getDemographicName());
+        dto = dto.withSex(h.getSex());
+        dto = dto.withProvince(h.getProvince());
 
-        dto.setBilling_date(ConversionUtils.toDateString(h.getBillingDate()));
-        dto.setBilling_time(billingTimeAsTimeString
+        dto = dto.withBillingDate(ConversionUtils.toDateString(h.getBillingDate()));
+        dto = dto.withBillingTime(billingTimeAsTimeString
                 ? ConversionUtils.toTimeString(h.getBillingTime())
                 : ConversionUtils.toDateString(h.getBillingTime()));
 
         NumberFormat currency = NumberFormat.getCurrencyInstance(Locale.US);
-        dto.setTotal(h.getTotal() == null ? "0.00" : currency.format(h.getTotal()));
-        dto.setPaid(h.getPaid() == null ? "0.00" : currency.format(h.getPaid()));
-        dto.setStatus(h.getStatus());
-        dto.setComment(h.getComment());
-        dto.setVisittype(h.getVisitType());
-        dto.setProvider_ohip_no(h.getProviderOhipNo());
-        dto.setProvider_rma_no(h.getProviderRmaNo());
-        dto.setApptProvider_no(h.getApptProviderNo());
-        dto.setAsstProvider_no(h.getAsstProviderNo());
-        dto.setCreator(h.getCreator());
+        dto = dto.withTotal(h.getTotal() == null ? "0.00" : currency.format(h.getTotal()));
+        dto = dto.withPaid(h.getPaid() == null ? "0.00" : currency.format(h.getPaid()));
+        dto = dto.withStatus(h.getStatus());
+        dto = dto.withComment(h.getComment());
+        dto = dto.withVisitType(h.getVisitType());
+        dto = dto.withProviderOhipNo(h.getProviderOhipNo());
+        dto = dto.withProviderRmaNo(h.getProviderRmaNo());
+        dto = dto.withAppointmentProviderNo(h.getApptProviderNo());
+        dto = dto.withAssistantProviderNo(h.getAsstProviderNo());
+        dto = dto.withCreator(h.getCreator());
 
-        dto.setClinic(h.getClinic());
+        dto = dto.withClinic(h.getClinic());
         return dto;
     }
 
     /** Build a {@link BillingClaimItemDto} from a {@link BillingONItem}. */
     private BillingClaimItemDto buildClaimItemDto(BillingONItem item) {
         BillingClaimItemDto dto = new BillingClaimItemDto();
-        dto.setTransc_id(item.getTranscId());
-        dto.setRec_id(item.getRecId());
-        dto.setService_code(item.getServiceCode());
-        dto.setFee(item.getFee());
-        dto.setSer_num(item.getServiceCount());
-        dto.setService_date(ConversionUtils.toDateString(item.getServiceDate()));
+        dto = dto.withTransactionId(item.getTranscId());
+        dto = dto.withRecordId(item.getRecId());
+        dto = dto.withServiceCode(item.getServiceCode());
+        dto = dto.withFee(item.getFee());
+        dto = dto.withServiceNumber(item.getServiceCount());
+        dto = dto.withServiceDate(ConversionUtils.toDateString(item.getServiceDate()));
         String diagcode = item.getDx();
         diagcode = ":::".equals(diagcode) ? "   " : diagcode;
-        dto.setDx(diagcode);
-        dto.setDx1(item.getDx1());
-        dto.setDx2(item.getDx2());
-        dto.setStatus(item.getStatus());
+        dto = dto.withDx(diagcode);
+        dto = dto.withDx1(item.getDx1());
+        dto = dto.withDx2(item.getDx2());
+        dto = dto.withStatus(item.getStatus());
         return dto;
     }
 
@@ -365,13 +365,13 @@ public class OhipClaimFileService {
         String str1Hin = isRMB() ? space(10) : leftJustify(" ", 10, currentClaimHeader.getHin());
         String ver = isRMB() ? space(2) : leftJustify(" ", 2, currentClaimHeader.getVer());
         String dob = leftJustify(" ", 8, currentClaimHeader.getDob().replaceAll("-", ""));
-        referral = currentClaimHeader.getRef_num().length() > 1 ? "R" : "";
+        referral = currentClaimHeader.referralNumber().length() > 1 ? "R" : "";
         hcFlag = isRMB() ? "H" : "";
-        m_Flag = currentClaimHeader.getMan_review().equals("Y") ? "M" : "";
+        m_Flag = currentClaimHeader.manualReview().equals("Y") ? "M" : "";
         _logger.debug("buildHeader1(ver = {})", ver);
 
-        header1 = currentClaimHeader.getTransc_id() + currentClaimHeader.getRec_id() + str1Hin + ver + dob + rightJustify("0", 8, currentClaimHeader.getId()) + currentClaimHeader.getPay_program() + currentClaimHeader.getPayee() + rightJustify(" ", 6, currentClaimHeader.getRef_num()) + rightJustify(" ", 4, currentClaimHeader.getFacilty_num().equals("0000") ? "" : currentClaimHeader.getFacilty_num()) + rightJustify(" ", 8, getCompactDateStr(currentClaimHeader.getAdmission_date() == null ? "" : currentClaimHeader.getAdmission_date())) + rightJustify(" ", 4, currentClaimHeader.getRef_lab_num())
-                + rightJustify(" ", 1, currentClaimHeader.getMan_review()) + leftJustify(" ", 4, currentClaimHeader.getLocation().equals("0000") ? "" : currentClaimHeader.getLocation()) + space(11) + space(6);
+        header1 = currentClaimHeader.transactionId() + currentClaimHeader.recordId() + str1Hin + ver + dob + rightJustify("0", 8, currentClaimHeader.getId()) + currentClaimHeader.payProgram() + currentClaimHeader.getPayee() + rightJustify(" ", 6, currentClaimHeader.referralNumber()) + rightJustify(" ", 4, currentClaimHeader.facilityNumber().equals("0000") ? "" : currentClaimHeader.facilityNumber()) + rightJustify(" ", 8, getCompactDateStr(currentClaimHeader.admissionDate() == null ? "" : currentClaimHeader.admissionDate())) + rightJustify(" ", 4, currentClaimHeader.referringLabNumber())
+                + rightJustify(" ", 1, currentClaimHeader.manualReview()) + leftJustify(" ", 4, currentClaimHeader.getLocation().equals("0000") ? "" : currentClaimHeader.getLocation()) + space(11) + space(6);
         checkHeader1();
         if (isRMB()) {
             header2 = buildHeader2();
@@ -386,7 +386,7 @@ public class OhipClaimFileService {
     private String buildHeader2() {
         healthcardCount++;
         String str1Hin = leftJustify(" ", 12, currentClaimHeader.getHin());
-        String strDemoName = currentClaimHeader.getDemographic_name();
+        String strDemoName = currentClaimHeader.demographicName();
         hcLast = strDemoName.substring(0, strDemoName.indexOf(",")).toUpperCase();
         hcFirst = strDemoName.substring(strDemoName.indexOf(",") + 1).toUpperCase();
         hcLast = hcLast.replaceAll("\\W", "");
@@ -439,17 +439,17 @@ public class OhipClaimFileService {
         ret = "";
         String styleClass = patientCount % 2 == 0 ? "myLightBlue" : "myIvory";
         if (invCount == 0) {
-            Demographic demo = demographicManager.getDemographic(loggedInInfo, currentClaimHeader.getDemographic_no());
+            Demographic demo = demographicManager.getDemographic(loggedInInfo, currentClaimHeader.demographicNo());
             ret += "\n<tr " + (summaryView ? "style='display:none;' class='record" + providerNo + "'" : "") + ">";
-            String safeDemoName = SafeEncode.forHtml(currentClaimHeader.getDemographic_name());
+            String safeDemoName = SafeEncode.forHtml(currentClaimHeader.demographicName());
             String safeBillId = SafeEncode.forUriComponent(String.valueOf(currentClaimHeader.getId()));
-            String safeDemoNo = SafeEncode.forUriComponent(String.valueOf(currentClaimHeader.getDemographic_no()));
+            String safeDemoNo = SafeEncode.forUriComponent(String.valueOf(currentClaimHeader.demographicNo()));
             String safeIdHtml = SafeEncode.forHtml(String.valueOf(currentClaimHeader.getId()));
             String tdOpen = "<td class=\"" + styleClass + "\">";
             if (simulation) {
                 String billOnclick = onclickPopup(1000, 800, contextPath + "/billing/CA/ON/BillingONCorrection?billing_no=" + safeBillId);
                 String demoOnclick = onclickPopup(720, 740, contextPath + "/demographic/DemographicEdit?demographic_no=" + safeDemoNo);
-                ret += tdOpen + SafeEncode.forHtml(currentClaimHeader.getProvider_ohip_no()) + "</td>"
+                ret += tdOpen + SafeEncode.forHtml(currentClaimHeader.providerOhipNo()) + "</td>"
                         + tdOpen + "<a href=\"javascript:void(0);\"  onclick=\"" + billOnclick + "\">" + safeIdHtml + "</a></td>"
                         + tdOpen + "<a href=\"javascript:void(0);\" onclick=\"" + demoOnclick + "\">" + safeDemoName + "</a></td>";
             } else {
@@ -460,14 +460,14 @@ public class OhipClaimFileService {
                     + "<td class='" + styleClass + "'>" + demo.getBirthDayAsString() + "</td>"
                     + "<td class='" + styleClass + "'>" + demo.getSex() + "</td>"
                     + "<td class='" + styleClass + "'>" + (currentClaimHeader.getHin() == null ? "" : currentClaimHeader.getHin()) + (currentClaimHeader.getVer() == null ? "" : currentClaimHeader.getVer()) + "</td>"
-                    + "<td class='" + styleClass + "'>" + currentClaimHeader.getBilling_date() + "</td>"
-                    + "<td class='" + styleClass + "'>" + currentItem.getService_code() + "</td>"
+                    + "<td class='" + styleClass + "'>" + currentClaimHeader.billingDate() + "</td>"
+                    + "<td class='" + styleClass + "'>" + currentItem.serviceCode() + "</td>"
                     + "<td align='right' class='" + styleClass + "'>" + currentItem.getFee() + "</td>"
                     + "<td align='right' class='" + styleClass + "'>" + currentItem.getDx() + "</td>"
                     + "<td class='" + styleClass + "'> &nbsp; &nbsp;" + referral + hcFlag + m_Flag + " </td></tr>";
         } else {
             ret = "\n<tr " + (summaryView ? "style='display:none;' class='record" + providerNo + "'" : "") + ">" + "<td class='" + styleClass + "'>&nbsp;</td>" + "<td class='" + styleClass + "'>&nbsp;</td> <td class='" + styleClass + "'>&nbsp;</td><td class='" + styleClass + "'>&nbsp;</td><td class='" + styleClass + "'>&nbsp;</td><td class='" + styleClass + "'>&nbsp;</td>" + "<td class='" + styleClass + "'>&nbsp;</td> <td class='" + styleClass + "'>&nbsp;</td>" + "<td class='" + styleClass + "'>"
-                    + currentItem.getService_code() + "</td><td align='right' class='" + styleClass + "'>" + currentItem.getFee() + "</td><td align='right' class='" + styleClass + "'>" + currentItem.getDx() + "</td><td class='" + styleClass + "'>&nbsp;</td></tr>";
+                    + currentItem.serviceCode() + "</td><td align='right' class='" + styleClass + "'>" + currentItem.getFee() + "</td><td align='right' class='" + styleClass + "'>" + currentItem.getDx() + "</td><td class='" + styleClass + "'>&nbsp;</td></tr>";
         }
         return ret;
     }
@@ -475,17 +475,17 @@ public class OhipClaimFileService {
     private String buildSiteHTMLContentRecord(int invCount) {
         String ret = null;
         if (invCount == 0) {
-            String safeDemoName = SafeEncode.forHtml(currentClaimHeader.getDemographic_name());
+            String safeDemoName = SafeEncode.forHtml(currentClaimHeader.demographicName());
             String safeBillId = SafeEncode.forUriComponent(String.valueOf(currentClaimHeader.getId()));
-            String safeDemoNo = SafeEncode.forUriComponent(String.valueOf(currentClaimHeader.getDemographic_no()));
+            String safeDemoNo = SafeEncode.forUriComponent(String.valueOf(currentClaimHeader.demographicNo()));
             String safeIdHtml = SafeEncode.forHtml(String.valueOf(currentClaimHeader.getId()));
             String billOnclick = onclickPopup(720, 740, contextPath + "/billing/CA/ON/BillingONCorrection?billing_no=" + safeBillId);
             String demoOnclick = onclickPopup(720, 740, contextPath + "/demographic/DemographicEdit?demographic_no=" + safeDemoNo);
             ret = "\n<tr><td class=\"myIvory\"><a href=\"#\" onclick=\"" + billOnclick + "\">" + safeIdHtml + "</a></td>"
                     + "<td class=\"myIvory\"><a href=\"#\" onclick=\"" + demoOnclick + "\">" + safeDemoName + "</a></td><td class='myIvory'>" + currentClaimHeader.getHin()
-                    + currentClaimHeader.getVer() + "</td><td class='myIvory'>" + currentClaimHeader.getBilling_date() + "</td><td class='myIvory'>" + currentItem.getService_code() + "</td><td align='right' class='myIvory'>" + currentItem.getFee() + "</td><td align='right' class='myIvory'>" + currentItem.getDx() + "</td><td class='myIvory'> &nbsp; &nbsp;" + referral + hcFlag + m_Flag + " </td>" + "<td bgcolor='" + clinicBgColor + "'> " + clinicShortName.get(currentClaimHeader.getClinic()) + "</td></tr>";
+                    + currentClaimHeader.getVer() + "</td><td class='myIvory'>" + currentClaimHeader.billingDate() + "</td><td class='myIvory'>" + currentItem.serviceCode() + "</td><td align='right' class='myIvory'>" + currentItem.getFee() + "</td><td align='right' class='myIvory'>" + currentItem.getDx() + "</td><td class='myIvory'> &nbsp; &nbsp;" + referral + hcFlag + m_Flag + " </td>" + "<td bgcolor='" + clinicBgColor + "'> " + clinicShortName.get(currentClaimHeader.getClinic()) + "</td></tr>";
         } else {
-            ret = "\n<tr><td class='myIvory'>&nbsp;</td> <td class='myIvory'>&nbsp;</td>" + "<td class='myIvory'>&nbsp;</td> <td class='myIvory'>&nbsp;</td>" + "<td class='myIvory'>" + currentItem.getService_code() + "</td><td align='right' class='myIvory'>" + currentItem.getFee() + "</td><td align='right' class='myIvory'>" + currentItem.getDx() + "</td><td class='myIvory'>&nbsp;</td>" + "<td bgcolor='" + clinicBgColor + "'> " + clinicShortName.get(currentClaimHeader.getClinic()) + "</td></tr>";
+            ret = "\n<tr><td class='myIvory'>&nbsp;</td> <td class='myIvory'>&nbsp;</td>" + "<td class='myIvory'>&nbsp;</td> <td class='myIvory'>&nbsp;</td>" + "<td class='myIvory'>" + currentItem.serviceCode() + "</td><td align='right' class='myIvory'>" + currentItem.getFee() + "</td><td align='right' class='myIvory'>" + currentItem.getDx() + "</td><td class='myIvory'>&nbsp;</td>" + "<td bgcolor='" + clinicBgColor + "'> " + clinicShortName.get(currentClaimHeader.getClinic()) + "</td></tr>";
         }
         return ret;
     }
@@ -541,7 +541,7 @@ public class OhipClaimFileService {
     }
 
     private String buildItem() {
-        String ret = currentItem.getTransc_id() + currentItem.getRec_id() + currentItem.getService_code() + space(2) + rightJustify("0", 6, currentItem.getFee().replaceAll("\\.", "")) + rightJustify("0", 2, currentItem.getSer_num()) + currentItem.getService_date().replaceAll("-", "") + leftJustify(" ", 4, currentItem.getDx()) + space(11) + space(5) + space(2) + space(6) + space(25);
+        String ret = currentItem.transactionId() + currentItem.recordId() + currentItem.serviceCode() + space(2) + rightJustify("0", 6, currentItem.getFee().replaceAll("\\.", "")) + rightJustify("0", 2, currentItem.serviceNumber()) + currentItem.serviceDate().replaceAll("-", "") + leftJustify(" ", 4, currentItem.getDx()) + space(11) + space(5) + space(2) + space(6) + space(25);
         if (ret.length() != 79) errorFatalMsg += "Item length wrong! - " + currentClaimHeader.getId() + "<br>";
         return "\n" + ret + "\r";
     }
@@ -559,14 +559,14 @@ public class OhipClaimFileService {
      * @return true if RMB, false otherwise
      */
     private boolean isRMB() {
-        return "RMB".equals(currentClaimHeader.getPay_program());
+        return "RMB".equals(currentClaimHeader.payProgram());
     }
 
     private void checkHeader1() {
-        if (!currentClaimHeader.getRef_num().equals("") && currentClaimHeader.getRef_num().length() != 6)
+        if (!currentClaimHeader.referralNumber().equals("") && currentClaimHeader.referralNumber().length() != 6)
             errorPartMsg = "Header1: Referral Doc. No. wrong!<br>";
-        if (currentClaimHeader.getVisittype() != null && currentClaimHeader.getVisittype().compareTo("00") != 0) {
-            if ((currentClaimHeader.getFacilty_num() != null && currentClaimHeader.getFacilty_num().length() != 4) || currentClaimHeader.getFacilty_num() == null) {
+        if (currentClaimHeader.visitType() != null && currentClaimHeader.visitType().compareTo("00") != 0) {
+            if ((currentClaimHeader.facilityNumber() != null && currentClaimHeader.facilityNumber().length() != 4) || currentClaimHeader.facilityNumber() == null) {
                 errorPartMsg += "Header1: outPatient Visit. wrong!<br>";
             }
         }
@@ -584,7 +584,7 @@ public class OhipClaimFileService {
 
 
     private void checkItem() {
-        if (currentItem.getService_code().trim().length() != 5) errorPartMsg = "Item: Service Code wrong!<br>";
+        if (currentItem.serviceCode().trim().length() != 5) errorPartMsg = "Item: Service Code wrong!<br>";
         errorMsg += errorPartMsg;
     }
 
@@ -650,7 +650,7 @@ public class OhipClaimFileService {
 
                 patientCount++;
                 currentClaimHeader = buildClaimHeaderDto(h, bNo, false);
-                ohipNo = currentClaimHeader.getProvider_ohip_no();
+                ohipNo = currentClaimHeader.providerOhipNo();
 
                 value += buildHeader1(loggedInInfo);
                 if (!simulation) {
@@ -670,8 +670,8 @@ public class OhipClaimFileService {
                     fee = boi.getFee();
 
                     if (!hasSliCode) {
-                        if (billingServiceDao.codeRequiresSLI(currentItem.getService_code())) {
-                            errorPartMsg = "Service code '" + currentItem.getService_code() + "' requires an SLI code. <br/>";
+                        if (billingServiceDao.codeRequiresSLI(currentItem.serviceCode())) {
+                            errorPartMsg = "Service code '" + currentItem.serviceCode() + "' requires an SLI code. <br/>";
                         }
                     }
 
@@ -771,7 +771,7 @@ public class OhipClaimFileService {
                 patientCount++;
                 currentClaimHeader = buildClaimHeaderDto(b, bNo, true);
                 if (currentClaimHeader.getClinic() == null || currentClaimHeader.getClinic().equalsIgnoreCase("null")) {
-                    currentClaimHeader.setClinic("");
+                    currentClaimHeader = currentClaimHeader.withClinic("");
                     clinicBgColor = "FFFFFF";
                 } else {
                     clinicBgColor = siteDao.getByLocation(currentClaimHeader.getClinic()).getBgColor();
@@ -893,26 +893,26 @@ public class OhipClaimFileService {
     private void updateDemoData(LoggedInInfo loggedInInfo, BillingClaimHeaderDto chObj) {
         // last_name,first_name,dob,hin,ver,hc_type,sex
         List<String> demoFields = lookupService
-                .getPatientCurBillingDemo(loggedInInfo, chObj.getDemographic_no());
+                .getPatientCurBillingDemo(loggedInInfo, chObj.demographicNo());
 
         //Bonus Billing (Incentives)? Block out patient data : update with patient data
         if (BillingONCHeader1.INDEPENDENT.equals(chObj.getStatus())) {
-            currentClaimHeader.setDemographic_name("");
-            currentClaimHeader.setDob("");
-            currentClaimHeader.setHin("");
-            currentClaimHeader.setVer("");
-            currentClaimHeader.setProvince("ON");
-            currentClaimHeader.setSex("");
+            currentClaimHeader = currentClaimHeader.withDemographicName("");
+            currentClaimHeader = currentClaimHeader.withDob("");
+            currentClaimHeader = currentClaimHeader.withHin("");
+            currentClaimHeader = currentClaimHeader.withVer("");
+            currentClaimHeader = currentClaimHeader.withProvince("ON");
+            currentClaimHeader = currentClaimHeader.withSex("");
         } else {
-            currentClaimHeader.setDemographic_name(demoFields.get(0) + "," + demoFields.get(1));
-            currentClaimHeader.setDob(demoFields.get(2));
-            currentClaimHeader.setHin(demoFields.get(3));
-            currentClaimHeader.setVer(demoFields.get(4));
-            currentClaimHeader.setProvince(demoFields.get(5));
-            currentClaimHeader.setSex(demoFields.get(6));
+            currentClaimHeader = currentClaimHeader.withDemographicName(demoFields.get(0) + "," + demoFields.get(1));
+            currentClaimHeader = currentClaimHeader.withDob(demoFields.get(2));
+            currentClaimHeader = currentClaimHeader.withHin(demoFields.get(3));
+            currentClaimHeader = currentClaimHeader.withVer(demoFields.get(4));
+            currentClaimHeader = currentClaimHeader.withProvince(demoFields.get(5));
+            currentClaimHeader = currentClaimHeader.withSex(demoFields.get(6));
         }
 
-        if (!"ON".equals(currentClaimHeader.getProvince()) && !"".equals(currentClaimHeader.getProvince())) currentClaimHeader.setPay_program("RMB");
+        if (!"ON".equals(currentClaimHeader.getProvince()) && !"".equals(currentClaimHeader.getProvince())) currentClaimHeader = currentClaimHeader.withPayProgram("RMB");
     }
 
     public void getBatchHeaderObj(String bid) {

@@ -117,15 +117,15 @@ class BillingOnHistoryViewModelAssemblerUnitTest {
     void shouldRaisePartial_whenPatBillIdIsNonNumeric() {
         BillingClaimHeaderDto header = mock(BillingClaimHeaderDto.class);
         when(header.getId()).thenReturn("NOT_NUMERIC");
-        when(header.getPay_program()).thenReturn("PAT"); // matches 3rd-party regex
+        when(header.payProgram()).thenReturn("PAT"); // matches 3rd-party regex
         when(header.getStatus()).thenReturn("O"); // propBillingType="Bill OHIP" — not Settled, so strBillType stays "PAT"
-        when(header.getBilling_date()).thenReturn("2026-04-25");
-        when(header.getLast_name()).thenReturn("Doe");
-        when(header.getFirst_name()).thenReturn("Jane");
+        when(header.billingDate()).thenReturn("2026-04-25");
+        when(header.lastName()).thenReturn("Doe");
+        when(header.firstName()).thenReturn("Jane");
         when(header.getTotal()).thenReturn("100.00");
 
         BillingClaimItemDto item = mock(BillingClaimItemDto.class);
-        when(item.getService_code()).thenReturn("A007");
+        when(item.serviceCode()).thenReturn("A007");
         when(item.getDx()).thenReturn("250");
 
         when(claimLoader.getBillingHist(anyString(), anyInt(), anyInt(), any()))
@@ -144,15 +144,15 @@ class BillingOnHistoryViewModelAssemblerUnitTest {
     void shouldNotRaisePartial_whenPatBillIdIsNumeric_andHeaderMissing() {
         BillingClaimHeaderDto header = mock(BillingClaimHeaderDto.class);
         when(header.getId()).thenReturn("999"); // numeric, but headerDao returns null
-        when(header.getPay_program()).thenReturn("PAT"); // PAT path with numeric id
+        when(header.payProgram()).thenReturn("PAT"); // PAT path with numeric id
         when(header.getStatus()).thenReturn("O");
-        when(header.getBilling_date()).thenReturn("2026-04-25");
-        when(header.getLast_name()).thenReturn("Doe");
-        when(header.getFirst_name()).thenReturn("Jane");
+        when(header.billingDate()).thenReturn("2026-04-25");
+        when(header.lastName()).thenReturn("Doe");
+        when(header.firstName()).thenReturn("Jane");
         when(header.getTotal()).thenReturn("100.00");
 
         BillingClaimItemDto item = mock(BillingClaimItemDto.class);
-        when(item.getService_code()).thenReturn("A007");
+        when(item.serviceCode()).thenReturn("A007");
         when(item.getDx()).thenReturn("250");
 
         when(claimLoader.getBillingHist(anyString(), anyInt(), anyInt(), any()))

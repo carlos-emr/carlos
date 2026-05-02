@@ -110,30 +110,30 @@ public class BillingEditWithApptNoViewModelAssembler {
             headerStatus = nullToEmpty(obj.getStatus());
             b.billNo(billNo)
                     .status(headerStatus)
-                    .visitDate(obj.getAdmission_date())
-                    .billingDate(obj.getBilling_date())
-                    .visitType(obj.getVisittype())
-                    .location(obj.getFacilty_num())
+                    .visitDate(obj.admissionDate())
+                    .billingDate(obj.billingDate())
+                    .visitType(obj.visitType())
+                    .location(obj.facilityNumber())
                     .clinicNo(obj.getClinic())
-                    .asstProviderNo(obj.getAsstProvider_no())
-                    .assgProviderNo(obj.getAsstProvider_no())
-                    .mReview(obj.getMan_review())
+                    .asstProviderNo(obj.assistantProviderNo())
+                    .assgProviderNo(obj.assistantProviderNo())
+                    .mReview(obj.manualReview())
                     .xmlProvider(obj.getProviderNo())
-                    .referralCode(obj.getRef_num() == null ? "" : obj.getRef_num())
+                    .referralCode(obj.referralNumber() == null ? "" : obj.referralNumber())
                     .site(obj.getClinic())
-                    .xmlBilltype(obj.getPay_program())
+                    .xmlBilltype(obj.payProgram())
                     .demoHin(obj.getHin())
                     .demoVer(obj.getVer())
                     .demoHcType(obj.getProvince())
                     .demoDob(obj.getDob())
-                    .demoName(obj.getDemographic_name())
-                    .serviceDate(iobj.getService_date())
-                    .serviceCode(iobj.getService_code())
+                    .demoName(obj.demographicName())
+                    .serviceDate(iobj.serviceDate())
+                    .serviceCode(iobj.serviceCode())
                     .dxCode(iobj.getDx())
                     .dxCode1(iobj.getDx1())
                     .dxCode2(iobj.getDx2());
 
-            serviceCode = nullToEmpty(iobj.getService_code());
+            serviceCode = nullToEmpty(iobj.serviceCode());
         } else {
             // Pass through the caller-supplied status when no header was
             // found, matching legacy behavior.

@@ -85,7 +85,8 @@ public class ScheduleOfBenefitsUpload2Action extends ActionSupport implements Up
 
         // POST-only — multipart file upload + fee-preview is a state mutation.
         // GET must surface 405 with an Allow header so a forged GET cannot
-        // even reach the import service.
+        // even reach the import service. View rendering for the empty form
+        // lives on the sibling ViewBenefitScheduleUpload2Action.
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.sendError(jakarta.servlet.http.HttpServletResponse.SC_METHOD_NOT_ALLOWED);
@@ -133,7 +134,7 @@ public class ScheduleOfBenefitsUpload2Action extends ActionSupport implements Up
         if (forceUpdate) {
             return "forceUpdate";
         }
-        return SUCCESS;
+        return "exception".equals(outcome) ? "exception" : SUCCESS;
     }
 
     private BigDecimal getBDValue(String value) {
