@@ -412,21 +412,33 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
     }
 
     /**
-     * Set the status code. Validates against the {@link #KNOWN_STATUSES}
-     * whitelist so drift is caught at write-time rather than spreading
-     * through the system as silently-accepted typos.
+     * Set the status code. Unknown legacy statuses are accepted during the
+     * deprecation period because historical workflows can still pass request
+     * values that are not in {@link #KNOWN_STATUSES}; they are logged so the
+     * database can be audited before switching callers to strict validation.
      *
      * @param value one of the {@code public static final String} constants
      *              on this class, or {@code null} (legacy contract permits
      *              null status)
-     * @throws IllegalArgumentException if {@code value} is non-null and not
-     *                                  in {@link #KNOWN_STATUSES}
      */
     public void setStatus(String value) {
         if (value != null && !KNOWN_STATUSES.contains(value)) {
-            // Logger captures the offending value with sanitization; the
-            // exception message stays static to keep the SQL-safety lint
-            // happy (no value interpolation in the throw site).
+            logger.warn("Accepting unknown BillingONCHeader1 status value during deprecation: {} (allowed: {})",
+                    value, KNOWN_STATUSES);
+        }
+        this.status = value;
+    }
+
+    /**
+     * Strict status setter for new code paths that have already normalized the
+     * status vocabulary.
+     *
+     * @param value one of {@link #KNOWN_STATUSES}, or {@code null}
+     * @throws IllegalArgumentException if {@code value} is non-null and not
+     *                                  in {@link #KNOWN_STATUSES}
+     */
+    public void setStatusStrict(String value) {
+        if (value != null && !KNOWN_STATUSES.contains(value)) {
             logger.warn("Rejecting unknown BillingONCHeader1 status value {} (allowed: {})",
                     value, KNOWN_STATUSES);
             throw new IllegalArgumentException(

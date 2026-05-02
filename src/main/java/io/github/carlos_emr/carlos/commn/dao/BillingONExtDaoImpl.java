@@ -26,12 +26,14 @@ package io.github.carlos_emr.carlos.commn.dao;
 import java.math.BigDecimal;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 import jakarta.persistence.Query;
 import jakarta.persistence.NoResultException;
 import jakarta.persistence.NonUniqueResultException;
 
 import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadException;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONExt;
@@ -177,8 +179,6 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
 
     @Override
     public BillingONExt getRemitTo(BillingONCHeader1 bCh1) {
-        BillingONExt bExt = null;
-
         String sql = "select bExt from BillingONExt bExt where billingNo=?1 and status=?2 and keyVal=?3 order by bExt.id DESC";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, bCh1.getId());
@@ -187,20 +187,11 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
 
         List<BillingONExt> results = query.getResultList();
 
-        if (results.size() > 1) {
-            MiscUtils.getLogger().error("More than one active remitTo result for invoice number: {}",
-                    LogSanitizer.sanitize(String.valueOf(bCh1.getId())));
-        }
-
-        if (!results.isEmpty())
-            bExt = results.get(0);
-        return bExt;
+        return singleExtOrNull(results, "remitTo", bCh1.getId(), '1');
     }
 
     @Override
     public BillingONExt getBillTo(BillingONCHeader1 bCh1) {
-        BillingONExt bExt = null;
-
         String sql = "select bExt from BillingONExt bExt where billingNo=?1 and status=?2 and keyVal=?3 order by bExt.id DESC";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, bCh1.getId());
@@ -209,20 +200,11 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
 
         List<BillingONExt> results = query.getResultList();
 
-        if (results.size() > 1) {
-            MiscUtils.getLogger().error("More than one active billTo result for invoice number: {}",
-                    LogSanitizer.sanitize(String.valueOf(bCh1.getId())));
-        }
-
-        if (!results.isEmpty())
-            bExt = results.get(0);
-        return bExt;
+        return singleExtOrNull(results, "billTo", bCh1.getId(), '1');
     }
 
     @Override
     public BillingONExt getBillToInactive(BillingONCHeader1 bCh1) {
-        BillingONExt bExt = null;
-
         String sql = "select bExt from BillingONExt bExt where billingNo=?1 and status=?2 and keyVal=?3 order by bExt.id DESC";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, bCh1.getId());
@@ -231,20 +213,11 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
 
         List<BillingONExt> results = query.getResultList();
 
-        if (results.size() > 1) {
-            MiscUtils.getLogger().error("More than one inactive billTo result for invoice number: {}",
-                    LogSanitizer.sanitize(String.valueOf(bCh1.getId())));
-        }
-
-        if (!results.isEmpty())
-            bExt = results.get(0);
-        return bExt;
+        return singleExtOrNull(results, "billTo", bCh1.getId(), '0');
     }
 
     @Override
     public BillingONExt getDueDate(BillingONCHeader1 bCh1) {
-        BillingONExt bExt = null;
-
         String sql = "select bExt from BillingONExt bExt where billingNo=?1 and status=?2 and keyVal=?3 order by bExt.id DESC";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, bCh1.getId());
@@ -253,22 +226,11 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
 
         List<BillingONExt> results = query.getResultList();
 
-        if (results.size() > 1) {
-            MiscUtils.getLogger().error("More than one active dueDate result for invoice number: {}",
-                    LogSanitizer.sanitize(String.valueOf(bCh1.getId())));
-        }
-
-        if (!results.isEmpty()) {
-            bExt = results.get(0);
-        }
-
-        return bExt;
+        return singleExtOrNull(results, "dueDate", bCh1.getId(), '1');
     }
 
     @Override
     public BillingONExt getUseBillTo(BillingONCHeader1 bCh1) {
-        BillingONExt bExt = null;
-
         String sql = "select bExt from BillingONExt bExt where billingNo=?1 and status=?2 and keyVal=?3 order by bExt.id DESC";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, bCh1.getId());
@@ -277,16 +239,26 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
 
         List<BillingONExt> results = query.getResultList();
 
+        return singleExtOrNull(results, "useBillTo", bCh1.getId(), '1');
+    }
+
+    private BillingONExt singleExtOrNull(List<BillingONExt> results, String key, Integer billingNo, char status) {
+        // These ext lookups are modeled as a single current row per
+        // billingNo/key/status combination. Silently picking the newest row
+        // would hide duplicate-active data and make billing edits
+        // non-deterministic for operators.
         if (results.size() > 1) {
-            MiscUtils.getLogger().error("More than one active useBillTo result for invoice number: {}",
-                    LogSanitizer.sanitize(String.valueOf(bCh1.getId())));
+            String statusLabel = status == '1' ? "active" : "inactive";
+            MiscUtils.getLogger().error("Duplicate {} billing_on_ext {} rows for invoice number: {}",
+                    statusLabel,
+                    LogSanitizer.sanitize(key),
+                    LogSanitizer.sanitize(String.valueOf(billingNo)));
+            throw new BillingDataLoadException(
+                    "duplicate " + statusLabel + " billing_on_ext " + key,
+                    BillingDataLoadException.Phase.DAO_QUERY,
+                    Map.of("billingNo", String.valueOf(billingNo), "key", key, "status", String.valueOf(status)));
         }
-
-        if (!results.isEmpty()) {
-            bExt = results.get(0);
-        }
-
-        return bExt;
+        return results.isEmpty() ? null : results.get(0);
     }
 
     @Override

@@ -81,4 +81,38 @@ public record BillingCorrectionReviewDraft(boolean dataLoaded,
         diagCode = BillingViewStrings.nullToEmpty(diagCode);
         items = items == null ? List.of() : List.copyOf(items);
     }
+
+    @Override
+    public String toString() {
+        // Validation and error paths log the draft object for troubleshooting;
+        // keep the operational shape visible without writing PHI into logs.
+        return "BillingCorrectionReviewDraft["
+                + "dataLoaded=" + dataLoaded + ", "
+                + "content=" + content + ", "
+                + "billingNo=" + billingNo + ", "
+                + "hin=<redacted>, "
+                + "dob=<redacted>, "
+                + "visitType=" + visitType + ", "
+                + "visitDate=" + visitDate + ", "
+                + "status=" + status + ", "
+                + "clinicRefCode=" + clinicRefCode + ", "
+                + "providerNo=" + providerNo + ", "
+                + "billingDate=" + billingDate + ", "
+                + "updateDate=" + updateDate + ", "
+                + "total=" + total + ", "
+                + "demoName=<redacted>, "
+                + "demoAddress=<redacted>, "
+                + "demoProvince=<redacted>, "
+                + "demoCity=<redacted>, "
+                + "demoPostal=<redacted>, "
+                + "demoSex=<redacted>, "
+                + "referralDoctor=<redacted>, "
+                + "referralDoctorOhip=<redacted>, "
+                + "hcType=" + hcType + ", "
+                + "manualReviewLabel=" + manualReviewLabel + ", "
+                + "referralCheckedLabel=" + referralCheckedLabel + ", "
+                + "rosterStatus=" + rosterStatus + ", "
+                + "diagCode=" + diagCode + ", "
+                + "items=" + items + "]";
+    }
 }

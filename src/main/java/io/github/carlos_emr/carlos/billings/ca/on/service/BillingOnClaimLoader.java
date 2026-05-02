@@ -117,6 +117,11 @@ public class BillingOnClaimLoader {
         this.ctlBillingServiceDao = ctlBillingServiceDao;
     }
 
+    /**
+     * @deprecated use {@link #getCodeFeeResult(String, String)} so callers do
+     *             not discard partial-load signals.
+     */
+    @Deprecated(forRemoval = false)
     public String getCodeFee(String val, String billReferalDate) {
         return getCodeFeeResult(val, billReferalDate).value();
     }
@@ -147,6 +152,11 @@ public class BillingOnClaimLoader {
         }
     }
 
+    /**
+     * @deprecated use {@link #getPercFeeResult(String, String)} so callers do
+     *             not discard partial-load signals.
+     */
+    @Deprecated(forRemoval = false)
     public String getPercFee(String val, String billReferalDate) {
         return getPercFeeResult(val, billReferalDate).value();
     }
@@ -167,6 +177,11 @@ public class BillingOnClaimLoader {
         }
     }
 
+    /**
+     * @deprecated use {@link #getPercMinMaxFeeResult(String, String)} so callers
+     *             do not discard partial-load signals.
+     */
+    @Deprecated(forRemoval = false)
     public String[] getPercMinMaxFee(String val, String billReferalDate) {
         FeeRangeLookupResult result = getPercMinMaxFeeResult(val, billReferalDate);
         return new String[] {result.min(), result.max()};

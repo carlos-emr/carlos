@@ -122,6 +122,7 @@ class BillingEdtObecOutputSpecificationParserUnitTest {
 
         assertThat(parser.verdict).isFalse();
         assertThat(parser.getEdtObecOutputSpecificationRecords()).isEmpty();
+        assertThat(parser.getAttemptedRecordCount()).isEqualTo(1);
     }
 
     @Test
@@ -148,6 +149,7 @@ class BillingEdtObecOutputSpecificationParserUnitTest {
 
         assertThat(parser.verdict).isFalse();
         assertThat(parser.getEdtObecOutputSpecificationRecords()).isEmpty();
+        assertThat(parser.getAttemptedRecordCount()).isEqualTo(2);
     }
 
     private static String fixedWidthLine(String hin, String version, String response,

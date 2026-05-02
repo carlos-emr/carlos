@@ -32,7 +32,7 @@
 <c:choose>
 <c:when test="${empty billingReportFragmentModel.fluClinicRows and empty billingReportFragmentModel.fluWalkinRows}">
     <tr>
-        <td>failed!!!</td>
+        <td>No flu billing rows found.</td>
     </tr>
 </c:when>
 <c:otherwise>
@@ -57,8 +57,8 @@
     <tr bgcolor="<carlos:encode value='${row.rowBgColor}' context='htmlAttribute'/>">
         <TD align="left" width="20%"><b><font size="2"
             face="Arial, Helvetica, sans-serif"><a href=#
-            onClick='popupPage(700,720, "${pageContext.request.contextPath}/billing/CA/ON/ViewBillingOB2?billing_no=<carlos:encode value='${row.billingId}' context='javaScript'/>&dboperation=search_bill&hotclick=0")'
-            title="<carlos:encode value='${row.reasonCode}' context='htmlAttribute'/>"> <c:out value="${row.billingId}"/></a></font></b></TD>
+            onClick='popupPage(700,720, "${pageContext.request.contextPath}/billing/CA/ON/ViewBillingOB2?billing_no=<carlos:encode value='${row.billingId}' context='uriComponent'/>&dboperation=search_bill&hotclick=0")'
+            title="<carlos:encode value='${row.reasonCode}' context='htmlAttribute'/>"> <carlos:encode value="${row.billingId}" context="html"/></a></font></b></TD>
         <TD align="left" width="20%"><b><font size="2"
             face="Arial, Helvetica, sans-serif"><carlos:encode value="${row.demoName}" context="html"/></font></b></TD>
         <TD align="left" width="20%"><b><font size="2"
@@ -68,7 +68,7 @@
         <TD align="right" width="10%"><b> <font size="2"
             face="Arial, Helvetica, sans-serif"><carlos:encode value="${row.total}" context="html"/></font></b></TD>
         <TD align="center" width="20%"><b><font size="2"
-            face="Arial, Helvetica, sans-serif"><c:choose><c:when test="${row.reasonIsAnchor}"><a href=# onClick='popupPage(700,720, "${pageContext.request.contextPath}/billing/CA/ON/BillingDeleteNoAppt?billing_no=<carlos:encode value='${row.billingId}' context='javaScript'/>&billCode=<carlos:encode value='${row.reasonCode}' context='javaScript'/>&hotclick=0")'>-B</a></c:when><c:otherwise><carlos:encode value="${row.reasonLabel}" context="html"/></c:otherwise></c:choose></font></b></TD>
+            face="Arial, Helvetica, sans-serif"><c:choose><c:when test="${row.reasonIsAnchor}"><a href=# onClick='popupPage(700,720, "${pageContext.request.contextPath}/billing/CA/ON/BillingDeleteNoAppt?billing_no=<carlos:encode value='${row.billingId}' context='uriComponent'/>&billCode=<carlos:encode value='${row.reasonCode}' context='uriComponent'/>&hotclick=0")'>-B</a></c:when><c:otherwise><carlos:encode value="${row.reasonLabel}" context="html"/></c:otherwise></c:choose></font></b></TD>
     </tr>
     </c:forEach>
 
@@ -78,8 +78,8 @@
     <tr bgcolor="<carlos:encode value='${row.rowBgColor}' context='htmlAttribute'/>">
         <TD align="left" width="20%"><b><font size="2"
             face="Arial, Helvetica, sans-serif"><a href=#
-            onClick='popupPage(700,720, "${pageContext.request.contextPath}/billing/CA/ON/ViewBillingOB2?billing_no=<carlos:encode value='${row.billingId}' context='javaScript'/>&dboperation=search_bill&hotclick=0")'
-            title="<carlos:encode value='${row.reasonCode}' context='htmlAttribute'/>"> <c:out value="${row.billingId}"/></a></font></b></TD>
+            onClick='popupPage(700,720, "${pageContext.request.contextPath}/billing/CA/ON/ViewBillingOB2?billing_no=<carlos:encode value='${row.billingId}' context='uriComponent'/>&dboperation=search_bill&hotclick=0")'
+            title="<carlos:encode value='${row.reasonCode}' context='htmlAttribute'/>"> <carlos:encode value="${row.billingId}" context="html"/></a></font></b></TD>
         <TD align="left" width="20%"><b><font size="2"
             face="Arial, Helvetica, sans-serif"><carlos:encode value="${row.demoName}" context="html"/></font></b></TD>
         <TD align="left" width="20%"><b><font size="2"
@@ -89,7 +89,7 @@
         <TD align="right" width="10%"><b> <font size="2"
             face="Arial, Helvetica, sans-serif">&nbsp;</font></b></TD>
         <TD align="center" width="20%"><b><font size="2"
-            face="Arial, Helvetica, sans-serif"><c:choose><c:when test="${row.reasonIsAnchor}"><a href=# onClick='popupPage(700,720, "${pageContext.request.contextPath}/billing/CA/ON/BillingDeleteNoAppt?billing_no=<carlos:encode value='${row.billingId}' context='javaScript'/>&billCode=<carlos:encode value='${row.reasonCode}' context='javaScript'/>&hotclick=0")'>-B</a></c:when><c:otherwise><carlos:encode value="${row.reasonLabel}" context="html"/></c:otherwise></c:choose></font></b></TD>
+            face="Arial, Helvetica, sans-serif"><c:choose><c:when test="${row.reasonIsAnchor}"><a href=# onClick='popupPage(700,720, "${pageContext.request.contextPath}/billing/CA/ON/BillingDeleteNoAppt?billing_no=<carlos:encode value='${row.billingId}' context='uriComponent'/>&billCode=<carlos:encode value='${row.reasonCode}' context='uriComponent'/>&hotclick=0")'>-B</a></c:when><c:otherwise><carlos:encode value="${row.reasonLabel}" context="html"/></c:otherwise></c:choose></font></b></TD>
     </tr>
     </c:forEach>
 

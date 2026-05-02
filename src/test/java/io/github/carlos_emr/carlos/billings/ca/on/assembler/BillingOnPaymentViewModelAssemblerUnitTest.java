@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingONPremium;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.model.RaDetail;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -222,5 +223,54 @@ class BillingOnPaymentViewModelAssemblerUnitTest {
         assertThat(vm.getThirdPartyRows()).hasSize(1);
         assertThat(vm.getThirdPartyRows().get(0).items().get(0).amtBilled()).isEqualTo("bad-fee");
         assertThat(vm.getThirdPartyBilledTotal()).isEqualTo("0.00");
+    }
+
+    @Test
+    void shouldTreatBlankRaPaidAmountAsZero_whenRenderingRaReport() {
+        MockHttpServletRequest req = new MockHttpServletRequest();
+        req.setParameter("providerList", "");
+
+        RaDetailRowFixture fixture = arrangeRaDetailWithPaidAmount("");
+
+        BillingOnPaymentViewModel vm = assembler.assemble(req, loggedInInfo, false, false);
+
+        assertThat(vm.getRaRows()).hasSize(1);
+        assertThat(vm.getRaPaidTotal()).isEqualTo("0.00");
+        assertThat(vm.getRaAdjTotal()).isEqualTo("10.00");
+        assertThat(fixture.header.getStatus()).isEqualTo(BillingONCHeader1.OPEN);
+    }
+
+    @Test
+    void shouldThrowDataLoadException_whenRaPaidAmountIsMalformed() {
+        MockHttpServletRequest req = new MockHttpServletRequest();
+        req.setParameter("providerList", "");
+        arrangeRaDetailWithPaidAmount("not-money");
+
+        assertThatThrownBy(() -> assembler.assemble(req, loggedInInfo, false, false))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadException.class)
+                .hasMessageContaining("RA payment amount");
+    }
+
+    private RaDetailRowFixture arrangeRaDetailWithPaidAmount(String amountPay) {
+        RaDetail rad = new RaDetail();
+        rad.setBillingNo(42);
+        rad.setServiceCode("A001A");
+        rad.setServiceDate("2026-04-01");
+        rad.setAmountClaim("10.00");
+        rad.setAmountPay(amountPay);
+        when(raDetailDao.getRaDetailByDate(any(), any(), any()))
+                .thenReturn(List.of(rad));
+
+        BillingONCHeader1 header = mock(BillingONCHeader1.class);
+        when(header.getId()).thenReturn(42);
+        when(header.getStatus()).thenReturn(BillingONCHeader1.OPEN);
+        when(header.getBillingDate()).thenReturn(new Date());
+        when(header.getDemographicNo()).thenReturn(null);
+        when(bCh1Dao.getInvoicesByIds(List.of(42))).thenReturn(List.of(header));
+        when(bCh1Dao.findItemsByInvoiceNos(List.of(42))).thenReturn(Collections.emptyList());
+        return new RaDetailRowFixture(header);
+    }
+
+    private record RaDetailRowFixture(BillingONCHeader1 header) {
     }
 }

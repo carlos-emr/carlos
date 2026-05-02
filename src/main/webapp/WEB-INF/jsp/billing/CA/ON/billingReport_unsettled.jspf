@@ -32,7 +32,7 @@
 <c:choose>
 <c:when test="${empty billingReportFragmentModel.unsettledRows}">
     <tr>
-        <td>failed!!!</td>
+        <td>No unsettled billing rows found.</td>
     </tr>
 </c:when>
 <c:otherwise>
@@ -60,7 +60,7 @@
             face="Arial, Helvetica, sans-serif"><carlos:encode value="${row.note}" context="html"/></font></b></TD>
         <TD align="center" width="10%"><b> <font size="2"
             face="Arial, Helvetica, sans-serif"><a href=#
-            onClick='popupPage(700,720, "${pageContext.request.contextPath}/billing/CA/ON/ViewBillingOB2?billing_no=<carlos:encode value='${row.billingId}' context='javaScript'/>&dboperation=search_bill&hotclick=0")'
+            onClick='popupPage(700,720, "${pageContext.request.contextPath}/billing/CA/ON/ViewBillingOB2?billing_no=<carlos:encode value='${row.billingId}' context='uriComponent'/>&dboperation=search_bill&hotclick=0")'
             title="<carlos:encode value='${row.reasonCode}' context='htmlAttribute'/>"> <carlos:encode value="${row.billingId}" context="html"/></a></font></b></TD>
     </tr>
     </c:forEach>

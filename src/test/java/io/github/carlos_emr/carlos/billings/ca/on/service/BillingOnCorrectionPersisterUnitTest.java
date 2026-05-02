@@ -54,6 +54,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.ArgumentMatchers.same;
 import org.springframework.test.util.ReflectionTestUtils;
 
 /**
@@ -136,6 +139,14 @@ class BillingOnCorrectionPersisterUnitTest {
 
         assertThat(item1.getStatus()).isEqualTo("D");
         assertThat(item2.getStatus()).isEqualTo("D");
+        verify(itemDao).merge(same(item1));
+        verify(itemDao).merge(same(item2));
+        InOrder order = inOrder(headerDao, itemDao, auditLog);
+        order.verify(headerDao).merge(header);
+        order.verify(itemDao).merge(same(item1));
+        order.verify(itemDao).merge(same(item2));
+        order.verify(auditLog).addBillingLog("999998", "updateBillingStatus", "", "42");
+        order.verify(auditLog).addBillingLog("999998", "updateBillingStatus-items", "", "42");
     }
 
     @Test

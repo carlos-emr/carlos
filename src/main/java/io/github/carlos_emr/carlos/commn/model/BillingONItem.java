@@ -261,13 +261,33 @@ public class BillingONItem extends AbstractModel<Integer> implements Serializabl
     }
 
     /**
-     * Set the status code. Validates against the {@link #KNOWN_STATUSES}
-     * whitelist. See {@code BillingONCHeader1#setStatus(String)}.
+     * Set the status code. Logs a WARN when {@code status} is non-null and
+     * not in {@link #KNOWN_STATUSES} but accepts the value during the
+     * post-refactor deprecation window — drift surfaces in logs without
+     * crashing operator-driven correction cascades. Mirrors
+     * {@code BillingONCHeader1#setStatus(String)}.
      *
+     * <p>Callers that have already normalised the status vocabulary should
+     * use {@link #setStatusStrict(String)} for fail-fast semantics.
+     */
+    public void setStatus(String status) {
+        if (status != null && !KNOWN_STATUSES.contains(status)) {
+            logger.warn("Accepting unknown BillingONItem status value during deprecation: {} (allowed: {})",
+                    status, KNOWN_STATUSES);
+        }
+        this.status = status;
+    }
+
+    /**
+     * Strict status setter for new code paths that have already normalised
+     * the status vocabulary. Mirrors
+     * {@code BillingONCHeader1#setStatusStrict(String)}.
+     *
+     * @param status one of {@link #KNOWN_STATUSES}, or {@code null}
      * @throws IllegalArgumentException if {@code status} is non-null and not
      *                                  in {@link #KNOWN_STATUSES}
      */
-    public void setStatus(String status) {
+    public void setStatusStrict(String status) {
         if (status != null && !KNOWN_STATUSES.contains(status)) {
             logger.warn("Rejecting unknown BillingONItem status value {} (allowed: {})",
                     status, KNOWN_STATUSES);

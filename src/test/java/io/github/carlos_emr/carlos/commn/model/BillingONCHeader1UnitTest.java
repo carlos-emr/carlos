@@ -169,12 +169,17 @@ class BillingONCHeader1UnitTest {
         }
 
         @Test
-        void shouldThrowIllegalArgumentException_whenSetStatusUnknownValue() {
+        void shouldAcceptUnknownStatusDuringDeprecation_whenSetStatusUnknownValue() {
             BillingONCHeader1 header = new BillingONCHeader1();
-            // "Z" is not in KNOWN_STATUSES = {O,S,D,B,P,N,I,W,A}; whitelist rejection
-            // catches drift at write-time so a future contributor's typo stops here
-            // rather than spreading through the system.
-            assertThatThrownBy(() -> header.setStatus("Z"))
+            header.setStatus("Z");
+            assertThat(header.getStatus()).isEqualTo("Z");
+        }
+
+        @Test
+        void shouldThrowIllegalArgumentException_whenSetStatusStrictUnknownValue() {
+            BillingONCHeader1 header = new BillingONCHeader1();
+
+            assertThatThrownBy(() -> header.setStatusStrict("Z"))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("known set");
         }

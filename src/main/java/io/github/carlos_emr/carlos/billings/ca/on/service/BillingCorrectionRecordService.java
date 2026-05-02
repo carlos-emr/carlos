@@ -204,7 +204,11 @@ public class BillingCorrectionRecordService {
 
             ch1Obj = ch1Obj.withLocation(requestData.getParameter("xml_slicode"));
 
-            ch1Obj = ch1Obj.withPayProgram(requestData.getParameter("payProgram"));
+            String submittedPayProgram = requestData.getParameter("payProgram");
+            // "N" is the legacy "do not bill" status; persisting NOT here
+            // keeps downstream third-party/private-claim checks from treating a
+            // stale UI pay-program selection as still active.
+            ch1Obj = ch1Obj.withPayProgram("N".equals(status) ? "NOT" : submittedPayProgram);
             ret = correctionPersister.updateBillingClaimHeader(ch1Obj);
 
             if (BillingONCHeader1.DELETED.equals(ch1Obj.getStatus())) {
@@ -219,7 +223,12 @@ public class BillingCorrectionRecordService {
 
         // set inactive 3rd party payment record if user switched from 3rd party
         // to some other pay program
-        String payProgram = requestData.getParameter("payProgram");
+        // Re-read the normalized value from the header first so the cleanup
+        // logic below uses the same pay-program that was just persisted.
+        String payProgram = ch1Obj.payProgram();
+        if (payProgram == null) {
+            payProgram = requestData.getParameter("payProgram");
+        }
         if ("thirdParty".equals(requestData.getParameter("oldStatus"))
                 && ("HCP".equals(payProgram) || "RMB".equals(payProgram) || "WCB"
                 .equals(payProgram))) {

@@ -37,6 +37,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import java.util.ArrayList;
@@ -257,6 +258,53 @@ class BillingCorrectionRecordServiceUnitTest {
         assertThat(updated).isTrue();
         verify(correctionPersister).updateBillingClaimHeader(any(BillingClaimHeaderDto.class));
         verify(billOnTransDao).persist(any(BillingOnTransaction.class));
+    }
+
+    @Test
+    void shouldNormalizePayProgramToNot_whenStatusIsN() {
+        BillingClaimHeaderDto header = baseHeader();
+        BillingProviderDto provider = new BillingProviderDto();
+        provider.setOhipNo("OHIP2");
+        provider.setRmaNo("RMA2");
+        when(lookupService.getProviderObj("111")).thenReturn(provider);
+        when(correctionPersister.updateBillingClaimHeader(any(BillingClaimHeaderDto.class))).thenReturn(true);
+        when(billOnTransDao.getUpdateCheader1TransTemplate(
+                any(BillingClaimHeaderDto.class), org.mockito.ArgumentMatchers.isNull()))
+                .thenReturn(new BillingOnTransaction());
+
+        MockHttpServletRequest request = baseHeaderRequest();
+        request.setParameter("status", "N");
+        request.setParameter("payProgram", "HCP");
+
+        assertThat(service.updateBillingClaimHeader(header, request)).isTrue();
+
+        ArgumentCaptor<BillingClaimHeaderDto> captor = ArgumentCaptor.forClass(BillingClaimHeaderDto.class);
+        verify(correctionPersister).updateBillingClaimHeader(captor.capture());
+        assertThat(captor.getValue().payProgram()).isEqualTo("NOT");
+    }
+
+    @Test
+    void shouldCascadeDeletedStatusToItems_whenHeaderStatusChangesToDeleted() {
+        BillingClaimHeaderDto header = baseHeader();
+        BillingProviderDto provider = new BillingProviderDto();
+        provider.setOhipNo("OHIP2");
+        provider.setRmaNo("RMA2");
+        when(lookupService.getProviderObj("111")).thenReturn(provider);
+        when(correctionPersister.updateBillingClaimHeader(any(BillingClaimHeaderDto.class))).thenReturn(true);
+        when(billOnTransDao.getUpdateCheader1TransTemplate(
+                any(BillingClaimHeaderDto.class), org.mockito.ArgumentMatchers.isNull()))
+                .thenReturn(new BillingOnTransaction());
+        BillingONItem item = new BillingONItem();
+        item.setStatus("O");
+        when(billOnItemDao.getBillingItemByCh1Id(42)).thenReturn(List.of(item));
+
+        MockHttpServletRequest request = baseHeaderRequest();
+        request.setParameter("status", "D");
+
+        assertThat(service.updateBillingClaimHeader(header, request)).isTrue();
+
+        assertThat(item.getStatus()).isEqualTo("D");
+        verify(billOnItemDao).merge(item);
     }
 
     // ---- updateBillingItem strict-date contract ------------------------

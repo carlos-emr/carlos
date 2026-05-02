@@ -25,6 +25,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,6 +33,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Service;
 
 import io.github.carlos_emr.carlos.billings.ca.on.service.GstReportService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadException;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.GstReportViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnLookupService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -106,8 +108,8 @@ public class GstReportViewModelAssembler {
         BigDecimal billedTotal = BigDecimal.ZERO;
 
         for (Properties row : rawRows) {
-            BigDecimal billed = parseScaledOrZero(row.getProperty("total"));
-            BigDecimal gst = parseScaledOrZero(row.getProperty("gst"));
+            BigDecimal billed = parseScaledOrZero(row.getProperty("total"), "total", row);
+            BigDecimal gst = parseScaledOrZero(row.getProperty("gst"), "gst", row);
             BigDecimal earned = billed.subtract(gst);
 
             billedTotal = billedTotal.add(billed);
@@ -129,12 +131,18 @@ public class GstReportViewModelAssembler {
                 gstTotal, earnedTotal, billedTotal);
     }
 
-    private static BigDecimal parseScaledOrZero(String value) {
-        if (value == null || value.isEmpty()) return BigDecimal.ZERO;
+    private static BigDecimal parseScaledOrZero(String value, String field, Properties row) {
+        if (value == null || value.isBlank()) return BigDecimal.ZERO;
         try {
-            return new BigDecimal(value).setScale(2, RoundingMode.HALF_UP);
+            return new BigDecimal(value.trim()).setScale(2, RoundingMode.HALF_UP);
         } catch (NumberFormatException e) {
-            return BigDecimal.ZERO;
+            throw new BillingDataLoadException(
+                    "Malformed GST report amount",
+                    e,
+                    BillingDataLoadException.Phase.DAO_QUERY,
+                    Map.of("field", field,
+                            "serviceDate", nullToEmpty(row.getProperty("date")),
+                            "demographicNo", nullToEmpty(row.getProperty("demographic_no"))));
         }
     }
 

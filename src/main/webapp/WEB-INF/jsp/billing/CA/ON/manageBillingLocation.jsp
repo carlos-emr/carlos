@@ -149,7 +149,7 @@
 
                         <c:choose>
                             <c:when test="${empty manageLocationModel.locations}">
-                                <c:out value="failed!!!"/>
+                                <tr><td colspan="3">Unable to load billing locations.</td></tr>
                             </c:when>
                             <c:otherwise>
                                 <c:forEach var="clinicLocation" items="${manageLocationModel.locations}">

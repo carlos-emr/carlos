@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
@@ -61,11 +62,11 @@ public final class OnRaSummaryViewModel {
         this.selectedProviderOhip = b.selectedProviderOhip;
         this.providerOptions = List.copyOf(b.providerOptions);
         this.summaryRows = List.copyOf(b.summaryRows);
-        this.localTotal = b.localTotal;
-        this.payTotal = b.payTotal;
-        this.otherTotal = b.otherTotal;
-        this.obTotal = b.obTotal;
-        this.coTotal = b.coTotal;
+        this.localTotal = money(b.localTotal);
+        this.payTotal = money(b.payTotal);
+        this.otherTotal = money(b.otherTotal);
+        this.obTotal = money(b.obTotal);
+        this.coTotal = money(b.coTotal);
         this.multisitesEnabled = b.multisitesEnabled;
         this.unreadableRowCount = b.unreadableRowCount;
     }
@@ -84,6 +85,10 @@ public final class OnRaSummaryViewModel {
     public boolean isPartial() { return unreadableRowCount > 0; }
 
     public static Builder builder() { return new Builder(); }
+
+    private static BigDecimal money(BigDecimal value) {
+        return (value == null ? BigDecimal.ZERO : value).setScale(2, RoundingMode.HALF_UP);
+    }
 
     public static final class Builder {
         private String raNo = "";

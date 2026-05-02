@@ -22,9 +22,11 @@
 package io.github.carlos_emr.carlos.billings.ca.on.assembler;
 
 import java.util.ArrayList;
+import java.util.Properties;
 
 import io.github.carlos_emr.carlos.billings.ca.on.service.GstReportService;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.GstReportViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadException;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnLookupService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -35,6 +37,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -66,5 +69,28 @@ class GstReportViewModelAssemblerUnitTest {
 
         assertThat(model.getProviderOptions()).isEmpty();
         assertThat(model.getRows()).isEmpty();
+    }
+
+    @Test
+    void shouldThrowDataLoadException_whenGstAmountIsMalformed() {
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        GstReportService gstReport = mock(GstReportService.class);
+        BillingOnLookupService lookupService = mock(BillingOnLookupService.class);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), any(String.class), eq("r"), isNull()))
+                .thenReturn(false);
+        when(lookupService.getCurProviderStr()).thenReturn(null);
+        Properties row = new Properties();
+        row.setProperty("total", "100.00");
+        row.setProperty("gst", "not-money");
+        when(gstReport.getGST(eq(loggedInInfo), eq(""), eq(""), eq("")))
+                .thenReturn(new ArrayList<>(java.util.List.of(row)));
+        GstReportViewModelAssembler assembler =
+                new GstReportViewModelAssembler(securityInfoManager, gstReport, lookupService);
+
+        assertThatThrownBy(() -> assembler.assemble(new MockHttpServletRequest(), loggedInInfo))
+                .isInstanceOf(BillingDataLoadException.class)
+                .hasMessageContaining("GST report amount");
     }
 }

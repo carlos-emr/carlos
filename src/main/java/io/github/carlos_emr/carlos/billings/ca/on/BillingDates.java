@@ -32,7 +32,19 @@ import java.time.format.DateTimeFormatter;
 import java.util.Date;
 
 /**
- * Central date parsing for Ontario billing.
+ * Central date parsing and formatting for Ontario billing.
+ *
+ * <p>Billing date/timestamp helpers return legacy {@link Date} values because
+ * the surrounding DAO and model APIs still expose {@code java.util.Date}.
+ * Formatting routes through epoch milliseconds rather than {@code toInstant()}
+ * so Hibernate-hydrated {@code java.sql.Date}, {@code java.sql.Time}, and
+ * {@code java.sql.Timestamp} instances work consistently.</p>
+ *
+ * <p>The billing zone is configurable through {@code billing_on_timezone} in
+ * {@code carlos.properties}. When unset, Ontario billing preserves the legacy
+ * server-default timezone behavior. The resolved zone is cached with a single
+ * volatile key/value snapshot so concurrent readers cannot observe a stale key
+ * paired with a new zone.</p>
  */
 public final class BillingDates {
     private static final String BILLING_TIMEZONE_PROPERTY = "billing_on_timezone";
@@ -40,8 +52,9 @@ public final class BillingDates {
     private static final DateTimeFormatter OHIP_DATE = DateTimeFormatter.BASIC_ISO_DATE;
     private static final DateTimeFormatter ISO_TIME = DateTimeFormatter.ofPattern("HH:mm:ss");
     private static final DateTimeFormatter ISO_TIMESTAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-    private static volatile String cachedBillingZoneKey;
-    private static volatile ZoneId cachedBillingZone;
+    // Cache the lookup key and resolved zone together so callers never see a
+    // stale property key paired with a freshly-resolved ZoneId.
+    private static volatile ZoneCache cachedBillingZone;
 
     private BillingDates() {
     }
@@ -50,7 +63,7 @@ public final class BillingDates {
         if (raw == null || raw.trim().isEmpty() || "null".equalsIgnoreCase(raw.trim())) {
             return fallbackDate.format(SERVICE_DATE);
         }
-        return parseOhipDate(raw, false).format(SERVICE_DATE);
+        return OhipDateParser.parse(raw, false).format(SERVICE_DATE);
     }
 
     public static Date serviceDate(String serviceDate) {
@@ -207,9 +220,9 @@ public final class BillingDates {
         String zoneId = configuredZone == null ? "" : configuredZone.toString().trim();
         ZoneId systemDefault = ZoneId.systemDefault();
         String cacheKey = zoneId.isEmpty() ? "system:" + systemDefault.getId() : "configured:" + zoneId;
-        ZoneId cached = cachedBillingZone;
-        if (cached != null && cacheKey.equals(cachedBillingZoneKey)) {
-            return cached;
+        ZoneCache cached = cachedBillingZone;
+        if (cached != null && cacheKey.equals(cached.key())) {
+            return cached.zone();
         }
 
         ZoneId resolved;
@@ -223,24 +236,11 @@ public final class BillingDates {
             }
         }
         synchronized (BillingDates.class) {
-            cachedBillingZoneKey = cacheKey;
-            cachedBillingZone = resolved;
+            cachedBillingZone = new ZoneCache(cacheKey, resolved);
         }
         return resolved;
     }
 
-    private static LocalDate parseOhipDate(String raw, boolean normalizeZeroDay) {
-        String value = raw == null ? "" : raw.trim();
-        if (!value.matches("\\d{8}")) {
-            throw new IllegalArgumentException("Expected OHIP date in yyyyMMdd format: " + raw);
-        }
-
-        int year = Integer.parseInt(value.substring(0, 4));
-        int month = Integer.parseInt(value.substring(4, 6));
-        int day = Integer.parseInt(value.substring(6, 8));
-        if (normalizeZeroDay && day == 0) {
-            day = 1;
-        }
-        return LocalDate.of(year, month, day);
+    private record ZoneCache(String key, ZoneId zone) {
     }
 }

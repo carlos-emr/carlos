@@ -168,5 +168,18 @@ class BillingDemographicSummaryUnitTest {
             d.setSex(null);
             assertThat(BillingDemographicSummary.fromDemographic(d).sex()).isEmpty();
         }
+
+        @Test
+        @DisplayName("should redact PHI from toString")
+        void shouldRedactPhi_fromToString() {
+            BillingDemographicSummary summary = new BillingDemographicSummary(
+                    "Jane", "Doe", "1234567890", "AB", "F",
+                    "ON", "19800407", "1980", "04", "07");
+
+            String value = summary.toString();
+
+            assertThat(value).contains("hin=<redacted>", "dob=<redacted>");
+            assertThat(value).doesNotContain("Jane", "Doe", "1234567890", "19800407");
+        }
     }
 }

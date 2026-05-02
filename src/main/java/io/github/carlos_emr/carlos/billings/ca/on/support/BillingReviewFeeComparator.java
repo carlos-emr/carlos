@@ -23,6 +23,9 @@
 package io.github.carlos_emr.carlos.billings.ca.on.support;
 
 import java.util.Comparator;
+import java.util.Map;
+
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadException;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnClaimLoader;
 
 /**
@@ -42,8 +45,8 @@ public class BillingReviewFeeComparator implements Comparator<BillingReviewServi
     }
 
     public int compare(BillingReviewServiceParam a, BillingReviewServiceParam b) {
-        String fee1 = dbObj.getCodeFee(a.code(), billReferenceDate);
-        String fee2 = dbObj.getCodeFee(b.code(), billReferenceDate);
+        String fee1 = feeFor(a);
+        String fee2 = feeFor(b);
 
         if (fee1 == null && fee2 == null) {
             return 0;
@@ -60,6 +63,18 @@ public class BillingReviewFeeComparator implements Comparator<BillingReviewServi
         }
 
         return 0;
+    }
+
+    private String feeFor(BillingReviewServiceParam param) {
+        BillingOnClaimLoader.FeeLookupResult result =
+                dbObj.getCodeFeeResult(param.code(), billReferenceDate);
+        if (result.partial()) {
+            throw new BillingDataLoadException(
+                    result.message(),
+                    BillingDataLoadException.Phase.DAO_QUERY,
+                    Map.of("serviceCode", param.code(), "billReferenceDate", billReferenceDate));
+        }
+        return result.value();
     }
 
 }

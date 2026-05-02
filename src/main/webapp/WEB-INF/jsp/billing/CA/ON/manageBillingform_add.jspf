@@ -120,7 +120,7 @@
 
 			<c:choose>
 				<c:when test="${not manageBillingformModel.uniqueServiceTypesLoaded}">
-					<c:out value="failed!!!"/>
+						<tr><td colspan="2">Unable to load billing service types.</td></tr>
 				</c:when>
 				<c:otherwise>
 					<c:forEach var="serviceRow" items="${manageBillingformModel.uniqueServiceTypes}">

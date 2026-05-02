@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 
 /**
@@ -41,6 +42,14 @@ public record GstReportViewModel(
         BigDecimal gstTotal,
         BigDecimal earnedTotal,
         BigDecimal billedTotal) {
+
+    public GstReportViewModel {
+        providerOptions = providerOptions == null ? List.of() : List.copyOf(providerOptions);
+        rows = rows == null ? List.of() : List.copyOf(rows);
+        gstTotal = money(gstTotal);
+        earnedTotal = money(earnedTotal);
+        billedTotal = money(billedTotal);
+    }
 
     public String getToday() { return today; }
     public String getStartDate() { return startDate; }
@@ -73,11 +82,24 @@ public record GstReportViewModel(
             BigDecimal gstBilled,
             BigDecimal earned,
             BigDecimal billed) {
+        public Row {
+            serviceDate = serviceDate == null ? "" : serviceDate;
+            demographicNo = demographicNo == null ? "" : demographicNo;
+            patientName = patientName == null ? "" : patientName;
+            gstBilled = money(gstBilled);
+            earned = money(earned);
+            billed = money(billed);
+        }
+
         public String getServiceDate() { return serviceDate; }
         public String getDemographicNo() { return demographicNo; }
         public String getPatientName() { return patientName; }
         public BigDecimal getGstBilled() { return gstBilled; }
         public BigDecimal getEarned() { return earned; }
         public BigDecimal getBilled() { return billed; }
+    }
+
+    private static BigDecimal money(BigDecimal value) {
+        return (value == null ? BigDecimal.ZERO : value).setScale(2, RoundingMode.HALF_UP);
     }
 }

@@ -22,6 +22,8 @@
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingReviewFeeComparator;
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingReviewServiceParam;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -32,6 +34,9 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Pins the sentinel-sort behaviour of {@link BillingOnClaimLoader#SERVICE_DATE_COMPARATOR}
@@ -118,5 +123,21 @@ class BillingOnClaimLoaderComparatorUnitTest {
 
         assertThat(BillingOnClaimLoader.DEMOGRAPHIC_NO_COMPARATOR.compare(a, b))
                 .isLessThan(0);
+    }
+
+    @Test
+    void shouldThrowDataLoadException_whenFeeLookupIsPartial() {
+        BillingOnClaimLoader claimLoader = mock(BillingOnClaimLoader.class);
+        when(claimLoader.getCodeFeeResult("A001A", "2026-04-01"))
+                .thenReturn(BillingOnClaimLoader.FeeLookupResult.partial("fee DAO failed"));
+
+        BillingReviewFeeComparator comparator =
+                new BillingReviewFeeComparator(claimLoader, "2026-04-01");
+
+        assertThatThrownBy(() -> comparator.compare(
+                new BillingReviewServiceParam("A001A", "1", ""),
+                new BillingReviewServiceParam("A002A", "1", "")))
+                .isInstanceOf(BillingDataLoadException.class)
+                .hasMessageContaining("fee DAO failed");
     }
 }

@@ -509,8 +509,8 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
         if (!hd.verdict) {
             request.setAttribute("obecApplyResult",
                     new io.github.carlos_emr.carlos.billings.ca.on.service.BillingObecOutputApplyService.ApplyResult(
-                            0, hd.getEdtObecOutputSpecificationRecords().size(),
-                            java.util.List.of("Output specification was not applied because the file could not be fully parsed")));
+                            0, hd.getAttemptedRecordCount(),
+                            java.util.List.of("Output specification was not applied because the whole file could not be fully parsed")));
             return hd;
         }
 
@@ -528,7 +528,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
             MiscUtils.getLogger().error("OBEC output-spec apply rolled back; demographic graph unchanged", e);
             request.setAttribute("obecApplyResult",
                     new io.github.carlos_emr.carlos.billings.ca.on.service.BillingObecOutputApplyService.ApplyResult(
-                            0, hd.getEdtObecOutputSpecificationRecords().size(),
+                            0, hd.getAttemptedRecordCount(),
                             java.util.List.of("Output specification apply rolled back; demographic graph unchanged")));
             hd.verdict = false;
         }

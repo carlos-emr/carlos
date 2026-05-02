@@ -138,4 +138,19 @@ public record BillingDemographicSummary(
     private static String padTwo(String s) {
         return s.length() == 1 ? "0" + s : s;
     }
+
+    @Override
+    public String toString() {
+        return "BillingDemographicSummary["
+                + "firstName=<redacted>, "
+                + "lastName=<redacted>, "
+                + "hin=<redacted>, "
+                + "ver=<redacted>, "
+                + "sex=" + sex + ", "
+                + "hcType=" + hcType + ", "
+                + "dob=<redacted>, "
+                + "dobYy=<redacted>, "
+                + "dobMm=<redacted>, "
+                + "dobDd=<redacted>]";
+    }
 }

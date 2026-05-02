@@ -32,7 +32,7 @@
 <c:choose>
 <c:when test="${empty billingReportFragmentModel.billobRows}">
     <tr>
-        <td>failed!!!</td>
+        <td>No OB billing rows found.</td>
     </tr>
 </c:when>
 <c:otherwise>
@@ -54,8 +54,8 @@
     <tr bgcolor="<carlos:encode value='${row.rowBgColor}' context='htmlAttribute'/>">
         <TD align="left" width="5%"><b><font size="2"
             face="Arial, Helvetica, sans-serif"><a href=#
-            onClick='popupPage(700,720, "${pageContext.request.contextPath}/billing/CA/ON/ViewBillingOB2?billing_no=<carlos:encode value='${row.billingId}' context='javaScript'/>&dboperation=search_bill&hotclick=0")'
-            title="<carlos:encode value='${row.reasonCode}' context='htmlAttribute'/>"> <c:out value="${row.billingId}"/></a></font></b></TD>
+            onClick='popupPage(700,720, "${pageContext.request.contextPath}/billing/CA/ON/ViewBillingOB2?billing_no=<carlos:encode value='${row.billingId}' context='uriComponent'/>&dboperation=search_bill&hotclick=0")'
+            title="<carlos:encode value='${row.reasonCode}' context='htmlAttribute'/>"> <carlos:encode value="${row.billingId}" context="html"/></a></font></b></TD>
         <TD align="left" width="20%"><b><font size="2"
             face="Arial, Helvetica, sans-serif"><carlos:encode value="${row.demoName}" context="html"/></font></b></TD>
         <TD align="left" width="12%"><b><font size="2"

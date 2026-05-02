@@ -117,8 +117,7 @@ public class ManageBillingFormViewModelAssembler {
         }
 
         // Unique service-types table for the manageBillingform_add.jspf
-        // right-hand panel. Mirrors the legacy
-        // ctlBillingServiceDao.getUniqueServiceTypes() / "failed!!!" branch.
+        // right-hand panel, with an explicit loaded flag for lookup failure.
         List<io.github.carlos_emr.carlos.billings.ca.on.dto.UniqueServiceTypeRow> uniqueRowsRaw =
                 ctlBillingServiceDao.getUniqueServiceTypes();
         boolean uniqueLoaded = uniqueRowsRaw != null;

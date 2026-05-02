@@ -120,8 +120,7 @@ public final class ManageBillingFormViewModel {
     public List<ServiceGroup> getServiceGroups() { return serviceGroups; }
     public String getCurrentServiceTypeName() { return currentServiceTypeName; }
     public List<UniqueServiceTypeRow> getUniqueServiceTypes() { return uniqueServiceTypes; }
-    /** Mirrors the legacy {@code if (uniqueServiceTypeList == null) print "failed!!!"}
-     *  branch in manageBillingform_add.jspf. */
+    /** True when the unique service-type lookup completed and rows can be rendered. */
     public boolean isUniqueServiceTypesLoaded() { return uniqueServiceTypesLoaded; }
     public Map<String, String> getRequestParamEchoes() { return requestParamEchoes; }
 

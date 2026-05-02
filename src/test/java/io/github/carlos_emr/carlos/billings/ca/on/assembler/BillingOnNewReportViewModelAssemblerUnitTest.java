@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.assembler;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportPaidBillingRow;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportUnpaidRow;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadException;
 import io.github.carlos_emr.carlos.commn.dao.projection.BillingOnNewReportPaidRaDetailRow;
 import io.github.carlos_emr.carlos.commn.dao.projection.BillingOnNewReportUnbilledRow;
@@ -129,10 +130,33 @@ class BillingOnNewReportViewModelAssemblerUnitTest {
         assertThat(model.getRows()).hasSize(1);
         assertThat(model.getRows().get(0).getProperty("Billing No")).contains("billing_no=42");
         assertThat(model.getRows().get(0).getProperty("Claim")).isEqualTo("100.00");
-        assertThat(model.getRows().get(0).getProperty("Paid")).isEqualTo("35.0");
-        assertThat(model.getTotalRow()).containsExactly("Total", "", "", "100.0", "35.0", "");
+        assertThat(model.getRows().get(0).getProperty("Paid")).isEqualTo("35.00");
+        assertThat(model.getTotalRow()).containsExactly("Total", "", "", "100.00", "35.00", "");
         verify(billingDao).findBillingOnNewReportPaidBillings("999", "2026-04-01", "2026-04-30");
         verify(raDetailDao).findBillingOnNewReportPaidRaDetails(List.of(42));
+    }
+
+    @Test
+    void shouldTreatBlankUnpaidTotalAsZero_whenBuildingTotals() {
+        ReportProviderDao reportProviderDao = mock(ReportProviderDao.class);
+        SiteDao siteDao = mock(SiteDao.class);
+        OscarAppointmentDao appointmentDao = mock(OscarAppointmentDao.class);
+        BillingONCHeader1Dao headerDao = mock(BillingONCHeader1Dao.class);
+        BillingDao billingDao = mock(BillingDao.class);
+        RaDetailDao raDetailDao = mock(RaDetailDao.class);
+        when(reportProviderDao.search_reportprovider("billingreport")).thenReturn(Collections.emptyList());
+        when(billingDao.findBillingOnNewReportUnpaidRows("999", "2026-04-01", "2026-04-30"))
+                .thenReturn(List.of(new BillingOnNewReportUnpaidRow(
+                        "42", "2026-04-01", "09:30", "Patient",
+                        "O", "111", "999", "")));
+
+        BillingOnNewReportViewModelAssembler assembler = new BillingOnNewReportViewModelAssembler(
+                reportProviderDao, siteDao, appointmentDao, headerDao, billingDao, raDetailDao);
+
+        BillingOnNewReportViewModel model = assembler.assemble(reportRequest("unpaid"), null);
+
+        assertThat(model.getRows()).hasSize(1);
+        assertThat(model.getTotalRow()).contains("0.00");
     }
 
     @Test

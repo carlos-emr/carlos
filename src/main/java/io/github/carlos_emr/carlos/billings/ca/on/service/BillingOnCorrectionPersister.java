@@ -196,12 +196,13 @@ public class BillingOnCorrectionPersister {
         if (h != null) {
             h.setStatus(status);
             billingHeaderDao.merge(h);
-            auditLog.addBillingLog(providerNo, "updateBillingStatus", "", id);
 
             List<BillingONItem> items = billingItemDao.getBillingItemByCh1Id(Integer.valueOf(id));
             for (BillingONItem i : items) {
                 i.setStatus(status);
+                billingItemDao.merge(i);
             }
+            auditLog.addBillingLog(providerNo, "updateBillingStatus", "", id);
             auditLog.addBillingLog(providerNo, "updateBillingStatus-items", "", id);
             return true;
         } else {

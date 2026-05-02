@@ -22,7 +22,9 @@
 package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 /**
@@ -44,6 +46,8 @@ public final class OnThirdPartyAddressEditViewModel {
     private final String action;
     /** Existing form-field values keyed by name (id, attention, company_name, etc). */
     private final Properties prop;
+    /** Immutable string-only view for JSP EL; avoids exposing mutable {@link Properties} to the page. */
+    private final Map<String, String> propView;
     /** Existing 3rd-party address rows for the company-name dropdown. */
     private final List<Properties> companyOptions;
 
@@ -51,6 +55,7 @@ public final class OnThirdPartyAddressEditViewModel {
         this.message = b.message == null ? "" : b.message;
         this.action = b.action == null ? "search" : b.action;
         this.prop = b.prop == null ? new Properties() : (Properties) b.prop.clone();
+        this.propView = Collections.unmodifiableMap(toStringMap(this.prop));
         this.companyOptions = b.companyOptions == null ? Collections.emptyList() : List.copyOf(b.companyOptions);
     }
 
@@ -58,7 +63,7 @@ public final class OnThirdPartyAddressEditViewModel {
 
     public String getMessage() { return message; }
     public String getAction() { return action; }
-    public Properties getProp() { return (Properties) prop.clone(); }
+    public Map<String, String> getProp() { return propView; }
     public String getProp(String key, String def) { return prop.getProperty(key, def); }
     public List<Properties> getCompanyOptions() { return companyOptions; }
 
@@ -85,5 +90,13 @@ public final class OnThirdPartyAddressEditViewModel {
         public Builder companyOptions(List<Properties> v) { this.companyOptions = v == null ? null : List.copyOf(v); return this; }
 
         public OnThirdPartyAddressEditViewModel build() { return new OnThirdPartyAddressEditViewModel(this); }
+    }
+
+    private static Map<String, String> toStringMap(Properties properties) {
+        Map<String, String> values = new HashMap<>();
+        for (String name : properties.stringPropertyNames()) {
+            values.put(name, properties.getProperty(name, ""));
+        }
+        return values;
     }
 }

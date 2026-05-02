@@ -55,7 +55,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 @org.springframework.stereotype.Service
 public class BillingOnHistoryViewModelAssembler {
 
-    private final BillingOnHistoryBalanceCalculator balanceCalculator;
+    private final BillingOnHistoryBalanceLoader balanceLoader;
     private final DemographicManager demographicManager;
     private final SecurityInfoManager securityInfoManager;
     private final BillingOnClaimLoader claimQueryService;
@@ -65,7 +65,7 @@ public class BillingOnHistoryViewModelAssembler {
                                   DemographicManager demographicManager,
                                   SecurityInfoManager securityInfoManager,
                                   BillingOnClaimLoader claimQueryService) {
-        this.balanceCalculator = new BillingOnHistoryBalanceCalculator(billingOnPaymentDao, bCh1Dao);
+        this.balanceLoader = new BillingOnHistoryBalanceLoader(billingOnPaymentDao, bCh1Dao);
         this.demographicManager = demographicManager;
         this.securityInfoManager = securityInfoManager;
         this.claimQueryService = claimQueryService;
@@ -157,7 +157,7 @@ public class BillingOnHistoryViewModelAssembler {
                 BillingOnHistoryBalanceCalculator.Result balanceResult =
                         BillingOnHistoryBalanceCalculator.Result.ZERO;
                 if (isPat) {
-                    balanceResult = balanceCalculator.calculate(obj.getId());
+                    balanceResult = balanceLoader.calculate(obj.getId());
                     partial |= balanceResult.partial();
                 }
 

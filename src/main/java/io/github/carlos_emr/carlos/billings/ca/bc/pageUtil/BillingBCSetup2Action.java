@@ -93,6 +93,9 @@ public final class BillingBCSetup2Action extends ActionSupport {
             // If newWCBClaim == 1, this action was invoked from the WCB form,
             // so seed the form with the codes/diagnostic the WCB flow handed in.
             if ("1".equals(newWCBClaim)) {
+                if (form == null) {
+                    form = new BillingCreateBilling2Form();
+                }
                 form.setXml_billtype("WCB");
 
                 List l = (List) request.getAttribute("billingcodes");

@@ -54,6 +54,10 @@ public class BillingEdtObecOutputSpecificationParser {
 
     ArrayList<BillingEdtObecOutputSpecificationRecordDto> edtObecOutputSpecificationRecords = new ArrayList<BillingEdtObecOutputSpecificationRecordDto>();
     public boolean verdict = true;
+    // Tracks how many non-empty records were encountered before a parse
+    // failure cleared the DTO list, so the upload UI can still report file
+    // scope accurately on all-or-nothing failures.
+    private int attemptedRecordCount;
 
     public BillingEdtObecOutputSpecificationParser(LoggedInInfo loggedInInfo, FileInputStream file,
                                                         BatchEligibilityDao batchEligibilityDao,
@@ -74,6 +78,7 @@ public class BillingEdtObecOutputSpecificationParser {
             while ((nextline = input.readLine()) != null) {
 
                 if (nextline.length() > 2) {
+                    attemptedRecordCount++;
 
                     String obecHIN = nextline.substring(0, 10);
                     String obecVer = nextline.substring(10, 12);
@@ -130,6 +135,10 @@ public class BillingEdtObecOutputSpecificationParser {
 
     public java.util.List<BillingEdtObecOutputSpecificationRecordDto> getEdtObecOutputSpecificationRecords() {
         return edtObecOutputSpecificationRecords;
+    }
+
+    public int getAttemptedRecordCount() {
+        return attemptedRecordCount;
     }
 
 }

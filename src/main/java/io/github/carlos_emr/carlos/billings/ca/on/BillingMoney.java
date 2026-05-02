@@ -165,7 +165,11 @@ public record BillingMoney(BigDecimal amount, Currency currency) implements Comp
      * @param scale int target {@link BigDecimal} scale (typically {@link #MONEY_SCALE})
      * @return BigDecimal parsed amount, scaled and half-up rounded
      * @throws NumberFormatException when {@code raw} is null, blank, or unparseable
+     * @deprecated use {@link #parseNonNegativeAmount(String, String)} on
+     *             mutating paths so failures surface as billing validation
+     *             errors with field context.
      */
+    @Deprecated(forRemoval = false)
     public static BigDecimal amountOrThrow(String raw, int scale) {
         if (raw == null || raw.trim().isEmpty()) {
             throw new NumberFormatException("BillingMoney.amountOrThrow: amount is null or blank");
@@ -185,7 +189,11 @@ public record BillingMoney(BigDecimal amount, Currency currency) implements Comp
      * @param raw String the user/DB-supplied numeric token
      * @return BigDecimal parsed amount at {@link #MONEY_SCALE}
      * @throws NumberFormatException when {@code raw} is null, blank, or unparseable
+     * @deprecated use {@link #parseNonNegativeAmount(String, String)} on
+     *             mutating paths so failures surface as billing validation
+     *             errors with field context.
      */
+    @Deprecated(forRemoval = false)
     public static BigDecimal amountOrThrow(String raw) {
         return amountOrThrow(raw, MONEY_SCALE);
     }
@@ -200,7 +208,11 @@ public record BillingMoney(BigDecimal amount, Currency currency) implements Comp
      * @param scale int target {@link BigDecimal} scale
      * @return BigDecimal parsed amount, or {@code ZERO} when {@code raw} is null/blank
      * @throws NumberFormatException when {@code raw} is non-blank and unparseable
+     * @deprecated use {@link #amountOrZero(String, int)} only for explicitly
+     *             lossy report display, or {@link #parseNonNegativeAmount(String, String)}
+     *             for mutating paths.
      */
+    @Deprecated(forRemoval = false)
     public static BigDecimal amountStrictOrZero(String raw, int scale) {
         if (raw == null || raw.trim().isEmpty()) {
             return BigDecimal.ZERO.setScale(scale);
@@ -215,7 +227,11 @@ public record BillingMoney(BigDecimal amount, Currency currency) implements Comp
      * @param raw String the user/DB-supplied numeric token (null/blank → zero)
      * @return BigDecimal parsed amount at {@link #MONEY_SCALE}, or {@code ZERO} when blank
      * @throws NumberFormatException when {@code raw} is non-blank and unparseable
+     * @deprecated use {@link #amountOrZero(String)} only for explicitly lossy
+     *             report display, or {@link #parseNonNegativeAmount(String, String)}
+     *             for mutating paths.
      */
+    @Deprecated(forRemoval = false)
     public static BigDecimal amountStrictOrZero(String raw) {
         return amountStrictOrZero(raw, MONEY_SCALE);
     }

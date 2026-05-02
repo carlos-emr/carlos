@@ -192,7 +192,7 @@
 <body bgcolor="ivory" text="#000000" topmargin="0" leftmargin="0" rightmargin="0">
 
 <c:if test="${not empty paymentTypeList}">
-    <form name="editPayment" id="editPayment" method="POST" action="${pageContext.request.contextPath}/billing/CA/ON/BillingONPayments">
+    <form name="editPayment" id="editPayment" method="POST" action="${pageContext.request.contextPath}/billing/CA/ON/billingON3rdPayments">
         <input type="hidden" name="method" value="savePayment"/>
         <input type="hidden" name="billingNo" value="<carlos:encode value='${paymentsViewModel.billingNo}' context='htmlAttribute'/>"/>
         <input type="hidden" name="id" id="paymentId" value=""/>

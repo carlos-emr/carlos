@@ -310,6 +310,21 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
 
     @Test
     @Tag("read")
+    @DisplayName("should throw when duplicate active billTo ext records exist")
+    void shouldThrowDataLoadException_whenDuplicateActiveBillToRecordsExist() {
+        BillingONExt first = ext("billTo", '1');
+        BillingONExt second = ext("billTo", '1');
+        dao.persist(first);
+        dao.persist(second);
+        hibernateTemplate.flush();
+
+        assertThatThrownBy(() -> dao.getBillTo(parentHeader))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadException.class)
+                .hasMessageContaining("duplicate active billing_on_ext billTo");
+    }
+
+    @Test
+    @Tag("read")
     @DisplayName("should return null billTo when status does not match active")
     void shouldReturnNullBillTo_whenStatusIsNotActive() throws Exception {
         BillingONExt extraBillingPayment = new BillingONExt();
@@ -356,6 +371,14 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
 
         BillingONExt billingRecord = dao.getBillToInactive(parentHeader);
         assertThat(billingRecord).isNull();
+    }
+
+    private BillingONExt ext(String key, char status) {
+        BillingONExt ext = new BillingONExt();
+        ext.setBillingNo(parentHeader.getId());
+        ext.setStatus(status);
+        ext.setKeyVal(key);
+        return ext;
     }
 
     @Test

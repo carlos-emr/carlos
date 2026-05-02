@@ -134,8 +134,10 @@ public class BillingClaimSubmissionService {
     SaveResult addABillingRecord(ArrayList val) {
         BillingClaimHeaderDto claim1Obj = (BillingClaimHeaderDto) val.get(0);
         int billingNo = claimPersister.addOneClaimHeaderRecord(claim1Obj);
-        if (billingNo == 0)
+        if (billingNo == 0) {
+            _logger.error("addABillingRecord failed: claim header persist returned billingNo=0");
             return new SaveResult(false, 0);
+        }
         claim1Obj = claim1Obj.withId(Integer.toString(billingNo));
         val.set(0, claim1Obj);
         if (val.size() > 1) {
@@ -156,8 +158,10 @@ public class BillingClaimSubmissionService {
         boolean ret = false;
         Map<String, String> val = getPrivateBillExtObj(requestData);
         ret = claimPersister.add3rdBillExt(val, billingId);
-        if (!ret)
-            _logger.error("addPrivateBillExtRecord " + billingId);
+        if (!ret) {
+            _logger.error("addPrivateBillExtRecord failed for billingId={} using request-derived third-party extension data",
+                    billingId);
+        }
 
         return ret;
     }
@@ -172,8 +176,10 @@ public class BillingClaimSubmissionService {
 
         Map<String, String> val = getPrivateBillExtObj(requestData);
         ret = claimPersister.add3rdBillExt(val, billingId, claimEnvelope);
-        if (!ret)
-            _logger.error("addPrivateBillExtRecord " + billingId);
+        if (!ret) {
+            _logger.error("addPrivateBillExtRecord failed for billingId={} while updating claim envelope",
+                    billingId);
+        }
 
         return ret;
     }

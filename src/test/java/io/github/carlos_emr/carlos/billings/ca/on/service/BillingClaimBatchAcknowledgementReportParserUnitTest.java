@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimBatchAcknowledgementReportRecordDto;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -70,6 +71,33 @@ class BillingClaimBatchAcknowledgementReportParserUnitTest {
                 new BillingClaimBatchAcknowledgementReportParser(new FileInputStream(f));
 
         assertThat(parser.verdict).isTrue();
+    }
+
+    @Test
+    void shouldParseAllAcknowledgementFields_fromFixedWidthRecord() throws Exception {
+        File f = Files.createTempFile(tempDir, "ack", ".txt").toFile();
+        Files.writeString(f.toPath(), headerLine());
+
+        BillingClaimBatchAcknowledgementReportParser parser =
+                new BillingClaimBatchAcknowledgementReportParser(new FileInputStream(f));
+
+        assertThat(parser.verdict).isTrue();
+        assertThat(parser.getBatchAcknowledgementRecords()).hasSize(1);
+        BillingClaimBatchAcknowledgementReportRecordDto record =
+                (BillingClaimBatchAcknowledgementReportRecordDto) parser.getBatchAcknowledgementRecords().get(0);
+        assertThat(record.getBatchNumber()).isEqualTo("BATCH");
+        assertThat(record.getOperatorNumber()).isEqualTo("OPER01");
+        assertThat(record.getProviderNumber()).isEqualTo("PRV001");
+        assertThat(record.getGroupNumber()).isEqualTo("GRP1");
+        assertThat(record.getBatchCreateDate()).isEqualTo("20260428");
+        assertThat(record.getBatchSequenceNumber()).isEqualTo("0001");
+        assertThat(record.getMicroStart()).isEqualTo("MICROSTART1");
+        assertThat(record.getMicroEnd()).isEqualTo("END01");
+        assertThat(record.getMicroType()).isEqualTo("TYPE001");
+        assertThat(record.getClaimNumber()).isEqualTo("CLM01");
+        assertThat(record.getRecordNumber()).isEqualTo("REC001");
+        assertThat(record.getBatchProcessDate()).isEqualTo("20260429");
+        assertThat(record.getExplain()).isEqualTo("processed ok" + " ".repeat(18));
     }
 
     @Test

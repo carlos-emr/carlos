@@ -54,13 +54,31 @@ class BillingONItemUnitTest {
         }
 
         @Test
-        void shouldThrowIllegalArgumentException_whenSetStatusUnknownValue() {
+        void shouldAcceptUnknownValueAndLogWarning_whenSetStatusUnknown() {
             BillingONItem item = new BillingONItem();
-            // "Z" is not in KNOWN_STATUSES = {O,S,D,B,P,N,I,W,A}; whitelist rejection
-            // catches drift at write-time.
-            assertThatThrownBy(() -> item.setStatus("Z"))
+            // "Z" is not in KNOWN_STATUSES = {O,S,D,B,P,N,I,W,A}. During the
+            // post-refactor deprecation window the lenient setter accepts the
+            // value (matching BillingONCHeader1.setStatus) so operator-driven
+            // correction cascades do not crash on legacy/unrecognised codes.
+            item.setStatus("Z");
+            assertThat(item.getStatus()).isEqualTo("Z");
+        }
+
+        @Test
+        void shouldThrowIllegalArgumentException_whenSetStatusStrictUnknownValue() {
+            BillingONItem item = new BillingONItem();
+            // setStatusStrict is the fail-fast variant for callers that have
+            // already normalised the vocabulary; mirrors BillingONCHeader1.
+            assertThatThrownBy(() -> item.setStatusStrict("Z"))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("known set");
+        }
+
+        @Test
+        void shouldAcceptNull_whenSetStatusStrict() {
+            BillingONItem item = new BillingONItem();
+            item.setStatusStrict(null);
+            assertThat(item.getStatus()).isNull();
         }
 
         @Test
@@ -75,6 +93,20 @@ class BillingONItemUnitTest {
             item.setStatus(BillingONItem.INDEPENDENT);
             item.setStatus(BillingONItem.WCB);
             item.setStatus(BillingONItem.ACKNOWLEDGED);
+        }
+
+        @Test
+        void shouldAcceptAllNineKnownStatusConstants_whenSetStatusStrict() {
+            BillingONItem item = new BillingONItem();
+            item.setStatusStrict(BillingONItem.OPEN);
+            item.setStatusStrict(BillingONItem.SETTLED);
+            item.setStatusStrict(BillingONItem.DELETED);
+            item.setStatusStrict(BillingONItem.BILLED);
+            item.setStatusStrict(BillingONItem.PATIENT_BILLED);
+            item.setStatusStrict(BillingONItem.NOT_BILLED);
+            item.setStatusStrict(BillingONItem.INDEPENDENT);
+            item.setStatusStrict(BillingONItem.WCB);
+            item.setStatusStrict(BillingONItem.ACKNOWLEDGED);
         }
     }
 

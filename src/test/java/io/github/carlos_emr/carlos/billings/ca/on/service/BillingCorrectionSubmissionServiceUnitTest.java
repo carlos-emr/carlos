@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao;
 import io.github.carlos_emr.carlos.billing.CA.model.BillingDetail;
 import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionSubmitCommand;
 import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionSubmitItemCommand;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.dao.RecycleBinDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
@@ -42,6 +43,9 @@ import org.mockito.MockitoAnnotations;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -114,5 +118,64 @@ class BillingCorrectionSubmissionServiceUnitTest extends CarlosUnitTestBase {
         assertThat(detail.getValue().getBillingAmount()).isEqualTo("2000");
         assertThat(detail.getValue().getDiagnosticCode()).isEqualTo("250");
         assertThat(detail.getValue().getBillingUnit()).isEqualTo("2");
+    }
+
+    @Test
+    void shouldThrowValidationException_whenBillingNumberIsMalformed() {
+        BillingCorrectionSubmitCommand command = command("not-a-number",
+                List.of(new BillingCorrectionSubmitItemCommand(
+                        "A001A", "Minor assessment", "2000", "250", "1")));
+
+        assertThatThrownBy(() -> service.submit(loggedInInfo, command))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("invalid billing number");
+
+        verify(recycleBinDao, never()).persist(any(RecycleBin.class));
+        verify(billingDao, never()).find(any());
+        verify(billingDetailDao, never()).persist(any(BillingDetail.class));
+    }
+
+    @Test
+    void shouldStillPersistCorrectionItems_whenBillingHeaderIsMissing() {
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        when(billingDetailDao.findAllIncludingDeletedByBillingNo(42)).thenReturn(List.of());
+        when(billingDao.find(42)).thenReturn(null);
+
+        service.submit(loggedInInfo, command("42",
+                List.of(new BillingCorrectionSubmitItemCommand(
+                        "A001A", "Minor assessment", "2000", "250", "1"))));
+
+        verify(billingDao, never()).merge(any(Billing.class));
+        verify(billingDetailDao).persist(any(BillingDetail.class));
+    }
+
+    @Test
+    void shouldSkipDetailPersist_whenCorrectionHasNoItems() {
+        Billing existing = new Billing();
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        when(billingDetailDao.findAllIncludingDeletedByBillingNo(42)).thenReturn(List.of());
+        when(billingDao.find(42)).thenReturn(existing);
+
+        service.submit(loggedInInfo, command("42", List.of()));
+
+        verify(billingDao).merge(existing);
+        verify(billingDetailDao, never()).persist(any(BillingDetail.class));
+    }
+
+    private static BillingCorrectionSubmitCommand command(
+            String billingNo, List<BillingCorrectionSubmitItemCommand> items) {
+        return new BillingCorrectionSubmitCommand(
+                billingNo,
+                "<rd>Ref Doctor</rd>",
+                "3000",
+                "1234567890",
+                "1980-01-01",
+                "00",
+                "2026-04-28",
+                "O",
+                "0000",
+                "999998",
+                "2026-04-28",
+                items);
     }
 }

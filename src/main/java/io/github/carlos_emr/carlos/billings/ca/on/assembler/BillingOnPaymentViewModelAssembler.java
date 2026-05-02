@@ -37,6 +37,7 @@ import java.util.stream.Collectors;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadException;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnPaymentViewModel;
 import io.github.carlos_emr.carlos.commn.dao.BillingOnItemPaymentDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
@@ -344,8 +345,8 @@ public class BillingOnPaymentViewModelAssembler {
             if (!bItemFee.isEmpty() && !"D".equals(bItemFee)) {
                 feeAmt = new BigDecimal(bItemFee);
             }
-            BigDecimal claimAmt = new BigDecimal(claimAmtStr);
-            BigDecimal paidAmt = new BigDecimal(rad.getAmountPay().trim());
+            BigDecimal claimAmt = parseMoneyOrZeroForBlank(claimAmtStr, "RA claim amount", rad.getBillingNo());
+            BigDecimal paidAmt = parseMoneyOrZeroForBlank(rad.getAmountPay(), "RA payment amount", rad.getBillingNo());
             BigDecimal adjAmt = claimAmt.subtract(paidAmt);
 
             feeTotal = feeTotal.add(feeAmt);
@@ -376,6 +377,24 @@ public class BillingOnPaymentViewModelAssembler {
                 .raClaimTotal(claimTotal.toPlainString())
                 .raPaidTotal(paidTotal.toPlainString())
                 .raAdjTotal(adjTotal.toPlainString());
+    }
+
+    private static BigDecimal parseMoneyOrZeroForBlank(String value, String field, Integer billingNo) {
+        // Legacy RA extracts leave optional monetary columns blank instead of
+        // emitting 0.00; keep that display contract, but surface any non-blank
+        // malformed token as a data-load error with billing context.
+        if (value == null || value.isBlank()) {
+            return ZERO;
+        }
+        try {
+            return new BigDecimal(value.trim());
+        } catch (NumberFormatException e) {
+            throw new BillingDataLoadException(
+                    "Malformed " + field,
+                    e,
+                    BillingDataLoadException.Phase.DAO_QUERY,
+                    Map.of("billingNo", String.valueOf(billingNo), "field", field));
+        }
     }
 
     private boolean buildPremiumReport(BillingOnPaymentViewModel.Builder b,

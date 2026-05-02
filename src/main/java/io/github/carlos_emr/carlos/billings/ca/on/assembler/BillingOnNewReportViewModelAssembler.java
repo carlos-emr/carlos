@@ -376,7 +376,10 @@ public class BillingOnNewReportViewModelAssembler {
     }
 
     private static BigDecimal parseMoney(String value) {
-        return new BigDecimal(value == null ? "0" : value.trim());
+        if (value == null || value.isBlank()) {
+            return BigDecimal.ZERO;
+        }
+        return new BigDecimal(value.trim());
     }
 
     private static String formatMoney(BigDecimal value) {

@@ -126,7 +126,7 @@ only when nothing more specific applies.
 | Sub-assembler / partial composer | `*RenderComposer` | `BillingOnCorrectionRenderComposer` |
 | Pure-read query service | `*Loader` | `BillingOnClaimLoader`, `BillingOnDiskLoader`, `ServiceCodeLoader` |
 | Pure-write persistence service | `*Persister` | `BillingOnClaimPersister`, `BillingOnReviewDiagPersister`, `DiagCodeDescriptionPersister`, `RaHeaderTotalsPersister`, `ServiceCodePersister` |
-| Pure calculation | `*Calculator` | _(none currently in the ON module — `BillingOnInvoiceTotalsService` reads multiple DAOs and is therefore a `*Service`.)_ |
+| Pure calculation | `*Calculator` | `BillingOnHistoryBalanceCalculator` (pure arithmetic only; DAO-backed balance loading belongs in a `*Service` / `*Loader`.) |
 | Input validator | `*Validator` | `BillingOnReviewValidator` (with `BillingValidationException` for fail-fast paths) |
 | Mixed read/write orchestration | `*Service` | `BillingCorrectionService`, `BillingOnHeaderCreationService`, `BillingOnLookupService` |
 | Data access | `*Dao` | `BillingONCHeader1Dao`, `BillingONPaymentDao`, `BillingServiceDao` |
@@ -172,8 +172,7 @@ Three constraints drove the layered shape:
 2. **Single-purpose classes over catch-alls.** The legacy `BillingONService`
    grew to 30+ unrelated methods and was deleted; its responsibilities now
    live across `BillingOnClaimLoader`, `BillingOnClaimPersister`,
-   `BillingOnInvoiceTotalsService`, and several others. The same shape
-   was applied to `*Step` / `*Prep` legacy classes.
+   `BillingOnInvoiceTotalsService`, and several others.
 3. **Pure queries on the entity, cross-DAO work in services.** Pure-state
    checks (`isOhipBill`, `isPaidInFull`, `isActive`, `recomputeTotalFromItems`)
    sit on `BillingONCHeader1` and `BillingONItem`. Cross-DAO operations

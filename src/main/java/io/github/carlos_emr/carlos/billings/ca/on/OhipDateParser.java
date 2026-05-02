@@ -21,24 +21,29 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on;
 
-import java.time.format.DateTimeFormatter;
+import java.time.LocalDate;
 
 /**
- * OHIP Schedule of Benefits date normalizers that include file-format
- * sentinels not shared by the generic Ontario billing date utility.
+ * Package-private parser for OHIP {@code yyyyMMdd} date tokens shared by
+ * Ontario billing date utilities and Schedule of Benefits import logic.
  */
-public final class OhipScheduleDates {
-    private static final DateTimeFormatter SERVICE_DATE = DateTimeFormatter.ISO_LOCAL_DATE;
+final class OhipDateParser {
 
-    private OhipScheduleDates() {
+    private OhipDateParser() {
     }
 
-    public static String terminationDate(String raw) {
-        // Ministry schedule extracts use 99999999 as the open-ended sentinel
-        // for "no termination date yet", not as a literal calendar date.
-        if ("99999999".equals(raw)) {
-            return "9999-12-31";
+    static LocalDate parse(String raw, boolean normalizeZeroDay) {
+        String value = raw == null ? "" : raw.trim();
+        if (!value.matches("\\d{8}")) {
+            throw new IllegalArgumentException("Expected OHIP date in yyyyMMdd format: " + raw);
         }
-        return OhipDateParser.parse(raw, true).format(SERVICE_DATE);
+
+        int year = Integer.parseInt(value.substring(0, 4));
+        int month = Integer.parseInt(value.substring(4, 6));
+        int day = Integer.parseInt(value.substring(6, 8));
+        if (normalizeZeroDay && day == 0) {
+            day = 1;
+        }
+        return LocalDate.of(year, month, day);
     }
 }
