@@ -23,6 +23,13 @@
 
 package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;
 
+/**
+ * Presentation row for one billing code on the Ontario review screen.
+ *
+ * <p>The record preserves the legacy JSP field names because the page still
+ * renders against those identifiers while the backing workflow is being
+ * modernized.</p>
+ */
 public record BillingReviewCodeItem(
         String codeName,
         String codeUnit,

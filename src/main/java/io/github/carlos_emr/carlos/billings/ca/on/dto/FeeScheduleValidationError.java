@@ -21,5 +21,9 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.dto;
 
+/**
+ * Validation problem encountered while previewing or applying a fee schedule
+ * import.
+ */
 public record FeeScheduleValidationError(int lineNumber, String rawLine, String field, String message) {
 }

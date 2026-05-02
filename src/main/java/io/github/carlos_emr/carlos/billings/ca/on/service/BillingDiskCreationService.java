@@ -36,6 +36,10 @@ import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingDiskNameDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.DiskFilenameRow;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+// NOTE: this service is read+write — addBillingDiskName/addRepoDiskName/
+// updateDiskName (lines ~135/166/177/187) write through the persister. Class-
+// level MUST NOT be readOnly=true; Hibernate would skip the flush on those
+// writes (or throw on commit). Same fix as BillingOnRaService.
 /**
  * Builds the per-provider OHIP submission "disk" that backs an MOH file
  * upload — assembles {@code BillingONDiskName} headers and per-provider
@@ -51,10 +55,6 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  * <p>Web security is enforced at the action layer before invocation.</p>
  */
 @org.springframework.stereotype.Service
-// NOTE: this service is read+write — addBillingDiskName/addRepoDiskName/
-// updateDiskName (lines ~135/166/177/187) write through the persister. Class-
-// level MUST NOT be readOnly=true; Hibernate would skip the flush on those
-// writes (or throw on commit). Same fix as BillingOnRaService.
 @org.springframework.transaction.annotation.Transactional
 public class BillingDiskCreationService {
     private static final Logger _logger = MiscUtils.getLogger();

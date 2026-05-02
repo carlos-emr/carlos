@@ -60,6 +60,7 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+/** Unit coverage for session guards on Ontario billing report actions. */
 @DisplayName("ON report/action session guards")
 @Tag("unit")
 @Tag("billing")

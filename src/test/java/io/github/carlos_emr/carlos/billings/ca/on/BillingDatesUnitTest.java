@@ -33,6 +33,7 @@ import java.util.TimeZone;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/** Unit coverage for {@code BillingDates} parsing, formatting, and Ontario billing date normalization rules. */
 @DisplayName("ON billing date parsing")
 @Tag("unit")
 @Tag("billing")

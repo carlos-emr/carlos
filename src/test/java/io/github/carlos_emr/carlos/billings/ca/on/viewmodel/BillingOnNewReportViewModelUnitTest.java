@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/** Unit coverage for {@code BillingOnNewReportViewModel} report-center presentation state. */
 @DisplayName("BillingOnNewReportViewModel")
 @Tag("unit")
 @Tag("billing")

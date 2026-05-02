@@ -51,6 +51,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.ArgumentCaptor;
 
+/** Unit coverage for {@code BillingCorrectionValid2Action} request parsing and correction-review handoff. */
 @DisplayName("BillingCorrectionValid2Action")
 @Tag("unit")
 @Tag("billing")

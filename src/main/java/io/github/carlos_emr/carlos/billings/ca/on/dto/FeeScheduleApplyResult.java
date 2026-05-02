@@ -24,6 +24,9 @@ package io.github.carlos_emr.carlos.billings.ca.on.dto;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Result of applying fee-schedule preview rows to {@code billing_service}.
+ */
 public record FeeScheduleApplyResult(
         List<FeeScheduleAppliedChange> changes,
         List<FeeScheduleValidationError> validationErrors) {
@@ -33,6 +36,7 @@ public record FeeScheduleApplyResult(
         validationErrors = List.copyOf(validationErrors);
     }
 
+    /** Render applied rows into the map format consumed by the legacy JSP. */
     public List<Map<String, Object>> viewMaps() {
         return changes.stream().map(FeeScheduleAppliedChange::toViewMap).toList();
     }

@@ -45,6 +45,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/** Unit coverage for {@code BillingOnFormServiceGridComposer} service-grid and code-menu composition. */
 @DisplayName("BillingOnFormServiceGridComposer")
 @Tag("unit")
 @Tag("billing")

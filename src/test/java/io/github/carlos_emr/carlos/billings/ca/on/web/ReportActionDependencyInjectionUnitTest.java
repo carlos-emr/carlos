@@ -49,6 +49,7 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/** Unit coverage for required Spring dependency injection on Ontario billing report actions. */
 @DisplayName("ON report actions use injected services")
 @Tag("unit")
 @Tag("billing")

@@ -66,6 +66,7 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+/** Unit coverage for security-failure behavior when Ontario billing action privileges are missing. */
 @DisplayName("Missing ON billing action privilege coverage")
 @Tag("unit")
 @Tag("billing")

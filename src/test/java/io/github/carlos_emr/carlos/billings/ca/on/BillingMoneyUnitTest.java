@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/** Unit coverage for {@code BillingMoney} parsing, formatting, and validation rules. */
 @DisplayName("ON billing money parsing")
 @Tag("unit")
 @Tag("billing")

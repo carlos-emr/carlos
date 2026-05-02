@@ -38,6 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/** Unit coverage for {@code BillingOnFormSiteContextComposer} multisite context assembly rules. */
 @DisplayName("BillingOnFormSiteContextComposer")
 @Tag("unit")
 @Tag("billing")
@@ -45,6 +46,8 @@ class BillingOnFormSiteContextComposerUnitTest {
 
     @Test
     void shouldNotThrow_whenPopulateCalledWithMockedDependencies() {
+        // CarlosProperties is process-global, so each scenario snapshots and
+        // restores the relevant switches instead of relying on test order.
         Object originalMultisites = CarlosProperties.getInstance().get("multisites");
         Object originalRma = CarlosProperties.getInstance().get("rma_enabled");
         try {
@@ -70,6 +73,8 @@ class BillingOnFormSiteContextComposerUnitTest {
 
     @Test
     void shouldFlagSiteContextDegraded_whenAppointmentDefaultLookupFails() {
+        // This scenario exercises the multisite branch specifically; the
+        // toggles steer the composer onto the fallback path under test.
         Object originalMultisites = CarlosProperties.getInstance().get("multisites");
         Object originalRma = CarlosProperties.getInstance().get("rma_enabled");
         try {

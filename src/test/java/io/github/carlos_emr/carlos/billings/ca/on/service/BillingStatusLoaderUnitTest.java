@@ -36,6 +36,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/** Unit coverage for {@code BillingStatusLoader} status-summary counts and list shaping. */
 @DisplayName("Ontario billing status loader")
 @Tag("unit")
 @Tag("billing")

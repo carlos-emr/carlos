@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/** Unit coverage for {@code BillingOhipSimulationViewModelAssembler} preview-row assembly. */
 @DisplayName("BillingOhipSimulationViewModelAssembler")
 @Tag("unit")
 @Tag("billing")

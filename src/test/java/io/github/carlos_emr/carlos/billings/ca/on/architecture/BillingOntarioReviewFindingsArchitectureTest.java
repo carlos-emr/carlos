@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/** Architecture guard coverage for the Ontario billing review-findings refactor boundaries. */
 @DisplayName("Ontario billing review finding architecture checks")
 @Tag("unit")
 @Tag("billing")

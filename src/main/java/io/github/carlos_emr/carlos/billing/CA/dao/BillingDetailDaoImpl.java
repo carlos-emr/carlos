@@ -33,6 +33,9 @@ import io.github.carlos_emr.carlos.billing.CA.model.BillingDetail;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Hibernate-backed implementation of {@link BillingDetailDao}.
+ */
 @Repository
 @SuppressWarnings("unchecked")
 public class BillingDetailDaoImpl extends AbstractDaoImpl<BillingDetail> implements BillingDetailDao {

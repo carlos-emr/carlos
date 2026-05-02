@@ -40,6 +40,9 @@ import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Hibernate-backed implementation of {@link BillingONItemDao}.
+ */
 @Repository
 @SuppressWarnings("unchecked")
 public class BillingONItemDaoImpl extends AbstractDaoImpl<BillingONItem> implements BillingONItemDao {

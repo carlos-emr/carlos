@@ -23,6 +23,13 @@
 
 package io.github.carlos_emr.carlos.billings.ca.on.dto;
 
+/**
+ * Mutable carrier for one remittance-advice detail row.
+ *
+ * <p>The import path still loads RA files into this bean before persisting and
+ * summarizing them, so the property names mirror the historic table/report
+ * terminology instead of a newer domain model.</p>
+ */
 public class BillingRaDetailDto {
     String radetail_no;
     String raheader_no;

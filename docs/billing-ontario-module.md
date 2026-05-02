@@ -594,6 +594,29 @@ the result is incomplete":
 `LOAD_FAILURE_MARKER`, migrate to a `partial` flag.** Do not add new
 `LOAD_FAILURE_MARKER` sites; the sentinel is a transitional shape.
 
+### 9.2.2 Ontario billing documentation standard
+
+Documentation-only passes in this module should be comment-only changes: no
+behavioral rewrites hidden inside a comment sweep.
+
+- `assembler`: class-level Javadoc, public entrypoint Javadoc, and targeted
+  section comments where request normalization, precedence chains, or
+  partial-load behavior would otherwise be opaque.
+- `command`: record/class-level docs describing accepted legacy inputs,
+  normalization rules, and validation semantics; helper methods are documented
+  only when they encode non-obvious parsing contracts.
+- `dto`: carrier types get class-level contract docs; method-level Javadoc is
+  reserved for behavioral conversion helpers such as JSP map serialization or
+  request-token parsing.
+- root/support helpers: document null/blank/fallback/error semantics and any
+  legacy formatting assumptions. Do not add mechanical comments to trivial
+  getters, setters, or tiny private helpers.
+
+Inline comments in billing-on code should explain the why: ministry file
+offsets, PHI/security constraints, transaction boundaries, legacy JSP
+compatibility, and invariants that a junior maintainer might otherwise infer
+incorrectly from old names alone.
+
 ### 9.3 The JSP itself
 
 After the refactor, every billing JSP under `WEB-INF/jsp/billing/CA/ON/`

@@ -46,6 +46,7 @@ import static org.mockito.Mockito.same;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/** Unit coverage for {@code BillingClaimSubmissionService} claim-save submission rules and legacy compatibility. */
 @DisplayName("BillingClaimSubmissionService")
 @Tag("unit")
 @Tag("billing")
@@ -265,6 +266,9 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
     }
 
     private MockHttpServletRequest standardBillingRequest(String billType, String submit) {
+        // Keep this fixture close to the legacy form contract: tests mutate a
+        // few fields per scenario, but the shared baseline mirrors the request
+        // shape the Struts action/service boundary normally receives.
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.getSession().setAttribute("user", "999998");
         request.setParameter("xml_billtype", billType);
@@ -297,6 +301,8 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
     }
 
     private MockHttpServletRequest hospitalBillingRequest() {
+        // Hospital/ODP billing uses a slightly different field mix than the
+        // standard office-billing path, so it gets its own baseline fixture.
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.getSession().setAttribute("user", "999998");
         request.setParameter("hin", "1234567890AB");

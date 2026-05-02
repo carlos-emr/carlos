@@ -38,9 +38,15 @@ import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.commn.dao.RaDetailDao;
 import io.github.carlos_emr.carlos.commn.model.RaDetail;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-
 import io.github.carlos_emr.carlos.util.ConversionUtils;
-
+/**
+ * Typed lookup helper for remittance-advice data associated with Ontario
+ * claims.
+ *
+ * <p>This service wraps the older RA detail access patterns in a smaller API
+ * that can be reused by newer review and reporting code without re-encoding
+ * the same aggregation rules.</p>
+ */
 @Service
 public class BillingRaLookupService {
 
@@ -54,12 +60,7 @@ public class BillingRaLookupService {
     // radetail_no | raheader_no | providerohip_no | billing_no | service_code |
     // service_count | hin | amountclaim | amountpay | service_date | error_code
     // | billtype |
-    /**
-     * Returns r a data.
-     *
-     * @param billingNo String
-     * @return ArrayList<HashMap<String, String>>
-     */
+    /** Load every RA detail row recorded against one billing number in legacy map form. */
     public ArrayList<HashMap<String, String>> getRAData(String billingNo) {
         ArrayList<HashMap<String, String>> list = new ArrayList<HashMap<String, String>>();
         for (RaDetail ra : dao.findByBillingNo(ConversionUtils.fromIntString(billingNo))) {
@@ -85,22 +86,7 @@ public class BillingRaLookupService {
         return h;
     }
 
-    /**
-
-     * Returns r a data intern.
-
-     *
-
-     * @param billingNo String
-
-     * @param service_date String
-
-     * @param ohip_no String
-
-     * @return ArrayList<HashMap<String, String>>
-
-     */
-
+    /** Load RA detail rows for one billing number, service date, and provider OHIP combination. */
     public ArrayList<HashMap<String, String>> getRADataIntern(String billingNo, String service_date, String ohip_no) {
         ArrayList<HashMap<String, String>> list = new ArrayList<HashMap<String, String>>();
         for (RaDetail ra : dao.findByBillingNoServiceDateAndProviderNo(ConversionUtils.fromIntString(billingNo), service_date, ohip_no)) {
@@ -109,6 +95,7 @@ public class BillingRaLookupService {
         return list;
     }
 
+    /** Bulk variant of {@link #getRADataIntern} keyed by the request tuple's stable composite key. */
     public Map<String, ArrayList<HashMap<String, String>>> getRADataInternBatch(Collection<RaDataRequest> requests) {
         Map<String, ArrayList<HashMap<String, String>>> result = new LinkedHashMap<>();
         if (requests == null || requests.isEmpty()) {
@@ -137,6 +124,7 @@ public class BillingRaLookupService {
         return result;
     }
 
+    /** Return the subset of billing numbers that have at least one RA detail with the requested error code. */
     public Set<String> findBillingNosWithErrorCode(Collection<String> billingNos, String errorCode) {
         Set<String> result = new HashSet<>();
         if (billingNos == null || billingNos.isEmpty()) {
@@ -161,10 +149,12 @@ public class BillingRaLookupService {
     }
 
     public record RaDataRequest(String billingNo, String serviceDate, String providerOhipNo) {
+        /** Composite key used by batch lookup results to stay map-addressable without a custom DTO wrapper. */
         public String key() {
             return key(billingNo, serviceDate, providerOhipNo);
         }
 
+        /** Static form used while batching raw {@link RaDetail} rows back into request buckets. */
         public static String key(String billingNo, String serviceDate, String providerOhipNo) {
             return String.valueOf(billingNo) + "\u0001"
                     + String.valueOf(serviceDate) + "\u0001"
@@ -172,18 +162,7 @@ public class BillingRaLookupService {
         }
     }
 
-    /**
-
-     * Returns error codes.
-
-     *
-
-     * @param a ArrayList<HashMap<String, String>>
-
-     * @return String
-
-     */
-
+    /** Concatenate the RA error codes from the provided legacy row maps for display. */
     public String getErrorCodes(ArrayList<HashMap<String, String>> a) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < a.size(); i++) {
@@ -194,18 +173,7 @@ public class BillingRaLookupService {
         return sb.toString();
     }
 
-    /**
-
-     * Returns amount paid.
-
-     *
-
-     * @param a ArrayList<HashMap<String, String>>
-
-     * @return String
-
-     */
-
+    /** Sum the amount-paid values from the provided legacy row maps and return a formatted total. */
     public String getAmountPaid(ArrayList<HashMap<String, String>> a) {
         return getAmountPaidWithCount(a).formattedTotal();
     }

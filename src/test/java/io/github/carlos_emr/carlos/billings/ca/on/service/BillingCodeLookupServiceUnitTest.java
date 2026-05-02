@@ -37,6 +37,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/** Unit coverage for {@code BillingCodeLookupService} search, edit, and insert behavior. */
 @DisplayName("ON BillingCodeLookupService")
 @Tag("unit")
 @Tag("billing")

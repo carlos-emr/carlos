@@ -38,6 +38,14 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 
+/**
+ * Struts action for viewing, creating, and deleting Ontario billing CSS style
+ * snippets used by the legacy billing UI.
+ *
+ * <p>The action still routes by {@code method=} to stay compatible with the
+ * existing JSP, but read and write paths are split by privilege and POST
+ * guards so the operational contract remains explicit.</p>
+ */
 public class ManageCss2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -45,6 +53,7 @@ public class ManageCss2Action extends ActionSupport {
     private CSSStylesDAO cssStylesDao = (CSSStylesDAO) SpringUtils.getBean(CSSStylesDAO.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /** Dispatch the legacy style-management screen to render, save, or delete flows. */
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
@@ -67,6 +76,7 @@ public class ManageCss2Action extends ActionSupport {
         return "init";
     }
 
+    /** Persist a new or edited CSS style after privilege and POST checks succeed. */
     public String save() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {
             throw new SecurityException("missing required sec object (_admin)");
@@ -121,6 +131,7 @@ public class ManageCss2Action extends ActionSupport {
     }
 
 
+    /** Soft-delete a CSS style and clear any billing-service rows still pointing at it. */
     public String delete() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {

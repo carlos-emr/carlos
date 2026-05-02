@@ -27,6 +27,14 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+/**
+ * Small HTTP-method guard helpers shared by the migrated Ontario billing
+ * Struts actions.
+ *
+ * <p>The older actions relied on framework defaults and scattered inline
+ * checks. Centralizing the POST guard keeps the write-action contract obvious
+ * and consistent across the remaining multi-method actions.</p>
+ */
 final class BillingRequestGuards {
 
     private static final String POST = "POST";
@@ -34,6 +42,10 @@ final class BillingRequestGuards {
     private BillingRequestGuards() {
     }
 
+    /**
+     * Enforce a POST-only mutation contract, returning a 405 when the request
+     * method is wrong.
+     */
     static boolean requirePost(HttpServletRequest request, HttpServletResponse response) {
         if (POST.equalsIgnoreCase(request.getMethod())) {
             return true;

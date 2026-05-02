@@ -25,6 +25,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+/** Unit coverage for {@code BatchBillingSubmissionService} batch-submit orchestration and validation paths. */
 @DisplayName("BatchBillingSubmissionService")
 @Tag("unit")
 @Tag("billing")

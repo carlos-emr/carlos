@@ -30,7 +30,7 @@ Administrative functions for system configuration, user management, and maintena
 | admin/GenerateTraceabilityReportAction | io.github.carlos_emr.carlos.admin.traceability.GenerateTraceabilityReport2Action | Generates system traceability reports for compliance |
 | admin/GenerateTraceAction | io.github.carlos_emr.carlos.admin.traceability.GenerateTrace2Action | Creates audit trails for data changes |
 | admin/GroupPreference | io.github.carlos_emr.carlos.commn.web.GroupPreference2Action | Manages user group preferences and settings |
-| admin/GstControl | io.github.carlos_emr.carlos.billings.ca.on.administration.GstControl2Action | Controls GST/HST billing settings for Ontario |
+| admin/GstControl | io.github.carlos_emr.carlos.billings.ca.on.web.GstControl2Action | Controls GST/HST billing settings for Ontario |
 | admin/ManageBillingReferral | io.github.carlos_emr.carlos.commn.web.BillingreferralEdit2Action | Manages billing referral configurations |
 | admin/ManageClinic | io.github.carlos_emr.carlos.commn.web.ClinicManage2Action | Administers clinic information and settings |
 | admin/manageCSSStyles | io.github.carlos_emr.carlos.billings.ca.on.web.ManageCss2Action | Manages custom CSS styles for billing forms |
@@ -102,8 +102,8 @@ Comprehensive billing management for various Canadian provinces.
 | billing/CA/BC/viewReceivePaymentAction | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewReceivePayment2Action | Views payment records |
 | billing/CA/ON/ApplyPractitionerPremium | io.github.carlos_emr.carlos.commn.web.ApplyPractitionerPremium2Action | Applies practitioner premiums for Ontario |
 | billing/CA/ON/BatchBill | io.github.carlos_emr.carlos.billings.ca.on.web.BatchBill2Action | Processes batch billing for Ontario |
-| billing/CA/ON/benefitScheduleChange | io.github.carlos_emr.carlos.billings.ca.on.OHIP.ScheduleOfBenefitsUpdate2Action | Updates OHIP benefit schedules |
-| billing/CA/ON/benefitScheduleUpload | io.github.carlos_emr.carlos.billings.ca.on.OHIP.ScheduleOfBenefitsUpload2Action | Uploads OHIP benefit schedules |
+| billing/CA/ON/benefitScheduleChange | io.github.carlos_emr.carlos.billings.ca.on.web.ScheduleOfBenefitsUpdate2Action | Updates OHIP benefit schedules |
+| billing/CA/ON/benefitScheduleUpload | io.github.carlos_emr.carlos.billings.ca.on.web.ScheduleOfBenefitsUpload2Action | Uploads OHIP benefit schedules |
 | billing/CA/ON/billingON3rdPayments | io.github.carlos_emr.carlos.billings.ca.on.web.BillingOnPayments2Action | Manages third-party payments for Ontario |
 | billing/CA/ON/BillingONCorrection | io.github.carlos_emr.carlos.billings.ca.on.web.BillingCorrection2Action | Handles billing corrections for Ontario |
 | billing/ca/on/DisplayInvoiceLogo | io.github.carlos_emr.carlos.billing.CA.ON.util.DisplayInvoiceLogo2Action | Displays invoice logos for Ontario |

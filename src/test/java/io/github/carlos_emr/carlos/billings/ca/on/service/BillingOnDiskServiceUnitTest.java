@@ -35,6 +35,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/** Unit coverage for {@code BillingOnDiskService} disk-generation orchestration and status updates. */
 @DisplayName("BillingOnDiskService")
 @Tag("unit")
 @Tag("billing")

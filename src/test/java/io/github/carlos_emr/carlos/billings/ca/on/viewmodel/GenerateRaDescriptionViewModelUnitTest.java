@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/** Unit coverage for {@code GenerateRaDescriptionViewModel} descriptive row formatting and defaults. */
 @DisplayName("GenerateRaDescriptionViewModel")
 @Tag("unit")
 @Tag("billing")

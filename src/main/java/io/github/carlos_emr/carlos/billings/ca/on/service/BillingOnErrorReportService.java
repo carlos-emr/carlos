@@ -32,6 +32,10 @@ import io.github.carlos_emr.carlos.commn.model.BillingONEAReport;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+// NOTE: this service is read+write — methods around lines 111/141/162 call
+// remove/persist/merge. Class-level MUST NOT be readOnly=true; Hibernate
+// would skip the flush on those writes (or throw on commit). Same fix as
+// BillingOnRaService.
 /**
  * Side-effect service for the {@code billing_on_eareport} table — the
  * MOH error-report ingestion + display surface. Reads
@@ -45,10 +49,6 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
  * @since 2026-04-26
  */
 @org.springframework.stereotype.Service
-// NOTE: this service is read+write — methods around lines 111/141/162 call
-// remove/persist/merge. Class-level MUST NOT be readOnly=true; Hibernate
-// would skip the flush on those writes (or throw on commit). Same fix as
-// BillingOnRaService.
 @org.springframework.transaction.annotation.Transactional
 public class BillingOnErrorReportService {
 
@@ -59,6 +59,7 @@ public class BillingOnErrorReportService {
         this.billingONEARReportDao = billingONEARReportDao;
     }
 
+    /** Load error-report rows for one provider envelope and date/report-name filter set. */
     public List<BillingErrorReportDto> getErrorRecords(BillingProviderDto val, String fromDate, String toDate, String filename) {
         List<BillingErrorReportDto> retval = new ArrayList<BillingErrorReportDto>();
         for (BillingONEAReport r : billingONEARReportDao.findByMagic(val.getOhipNo(), val.getBillingGroupNo(), val.getSpecialtyCode(), ConversionUtils.fromDateString(fromDate), ConversionUtils.fromDateString(toDate), filename)) {
@@ -96,6 +97,7 @@ public class BillingOnErrorReportService {
         retval.add(obj);
     }
 
+    /** Bulk-provider variant used by report screens that aggregate several providers at once. */
     public List<BillingErrorReportDto> getErrorRecords(List<BillingProviderDto> list, String fromDate, String toDate, String filename) {
         List<BillingErrorReportDto> retval = new ArrayList<BillingErrorReportDto>();
         if (list == null) {
@@ -109,6 +111,7 @@ public class BillingOnErrorReportService {
         return retval;
     }
 
+    /** Delete every imported row that belongs to the provider/process-date/billing tuple carried by the DTO. */
     public boolean deleteErrorReport(BillingErrorReportDto val) {
         List<BillingONEAReport> bs = billingONEARReportDao.findByProviderOhipNoAndGroupNoAndSpecialtyAndProcessDateAndBillingNo(val.getProviderohip_no(), val.getGroup_no(), val.getSpecialty(), ConversionUtils.fromDateString(val.getProcess_date()), Integer.parseInt(val.getBilling_no()));
         for (BillingONEAReport b : bs) {
@@ -117,6 +120,7 @@ public class BillingOnErrorReportService {
         return true;
     }
 
+    /** Persist one imported error-report row converted from the DTO carrier. */
     public int addErrorReportRecord(BillingErrorReportDto val) {
         BillingONEAReport b = new BillingONEAReport();
         b.setProviderOHIPNo(val.getProviderohip_no());

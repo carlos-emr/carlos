@@ -55,6 +55,7 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/** Unit coverage for authorization gates on Ontario billing report-view actions. */
 @DisplayName("ON billing report view actions")
 @Tag("unit")
 @Tag("billing")

@@ -434,15 +434,16 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 ```
 
 **Documentation Standards**:
-- **JavaDoc Required**: All public classes and methods MUST have comprehensive JavaDoc
+- **JavaDoc Required**: Public entrypoint classes and non-obvious public/protected methods should have contract-level JavaDoc. Carrier DTOs, trivial records, getters/setters, and tiny private helpers do not need mechanical method-by-method JavaDoc.
 - **No @author Tags**: Do NOT add @author annotations (misleading after Bitbucket→GitHub migration)
 - **@since Tags**: Use git history to determine accurate dates: `git log --follow --format="%ai" <file> | tail -1`
-- **Parameter Documentation**: Include specific data types in @param tags (e.g., `@param id String the unique identifier`)
-- **Return Documentation**: Specify exact return types in @return tags (e.g., `@return List<Provider> list of healthcare providers`)
-- **Exception Documentation**: Document all thrown exceptions with @throws tags
+- **Parameter Documentation**: Use `@param` tags when the method contract is not obvious from the signature or when legacy field semantics matter
+- **Return Documentation**: Use `@return` tags when callers need help understanding shape, nullability, or compatibility expectations
+- **Exception Documentation**: Document thrown exceptions when failure modes are part of the caller contract
 - **Deprecation**: Use @deprecated with migration guidance to newer APIs
 - **JSP Documentation**: Add comprehensive JSP comment blocks after copyright headers with purpose, features, parameters, and @since
-- **Inline Comments**: Add comments for complex logic on separate lines (not same line as code)
+- **Package-Level Docs**: Use `package-info.java` to document ownership boundaries and conventions for `assembler`, `command`, `dto`, and `support` packages
+- **Inline Comments**: Comment the why: legacy compatibility, security/compliance constraints, file-format offsets, transaction boundaries, and non-obvious control flow. Do not narrate obvious assignments or getters/setters.
 
 **Copyright Header Standards**:
 - **New Files**: Use CARLOS project header (see `docs/copyright-header-carlos.md`)

@@ -50,6 +50,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/** Integration coverage for {@code BillingOnClaimPersister} across its multi-table write workflow. */
 @DisplayName("BillingOnClaimPersister integration")
 @Tag("integration")
 @Tag("billing")
@@ -68,6 +69,8 @@ class BillingOnClaimPersisterIntegrationTest extends CarlosTestBase {
 
     @Test
     void shouldRollbackExtPaymentAndItemPaymentRows_whenThirdPartyItemPaymentFailsMidBatch() {
+        // Run setup/assertions in their own transactions so the integration
+        // test can observe committed database state before and after rollback.
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
         int billingNo = tx.execute(status -> createHeader());
         try {
@@ -77,6 +80,9 @@ class BillingOnClaimPersisterIntegrationTest extends CarlosTestBase {
             values.put("total_discount", "0.00");
             values.put("payMethod", "1");
 
+            // Match the legacy add3rdBillExt payload shape: [claim header DTO,
+            // item DTO list]. The second item carries the malformed paid
+            // amount that should abort the whole write set.
             ArrayList<Object> envelope = new ArrayList<>();
             envelope.add(headerDto(billingNo));
             envelope.add(List.of(

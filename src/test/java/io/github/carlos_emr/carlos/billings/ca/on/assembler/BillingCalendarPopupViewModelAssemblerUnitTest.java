@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/** Unit coverage for {@code BillingCalendarPopupViewModelAssembler} and its popup field contract. */
 @DisplayName("BillingCalendarPopupViewModelAssembler")
 @Tag("unit")
 @Tag("billing")

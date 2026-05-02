@@ -34,6 +34,13 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * CRUD-style lookup helper around Ontario billing service codes.
+ *
+ * <p>This service still supports the legacy search/edit screens, so several
+ * methods intentionally return map/list structures that match the older JSP
+ * and JavaScript callers rather than newer typed view models.</p>
+ */
 public class BillingCodeLookupService {
 
     private final BillingServiceDao billingServiceDao;
@@ -42,6 +49,7 @@ public class BillingCodeLookupService {
         this.billingServiceDao = Objects.requireNonNull(billingServiceDao, "billingServiceDao");
     }
 
+    /** Search service-code rows by code or description for the legacy maintenance UI. */
     public List<HashMap<String, String>> search(String str) {
         ArrayList<HashMap<String, String>> list = new ArrayList<HashMap<String, String>>();
 
@@ -51,6 +59,7 @@ public class BillingCodeLookupService {
         return list;
     }
 
+    /** Flatten one {@link BillingService} row into the map shape expected by older JSP/JavaScript callers. */
     public HashMap<String, String> toCodeDataMap(BillingService bs) {
         HashMap<String, String> h = new HashMap<String, String>();
         if (bs == null) {
@@ -74,6 +83,7 @@ public class BillingCodeLookupService {
         return (str == null) ? "" : str;
     }
 
+    /** Load the most recent billing-code row for a service code and return it in legacy map form. */
     public HashMap<String, String> searchBillingCode(String str) {
         HashMap<String, String> h = null;
 
@@ -90,10 +100,12 @@ public class BillingCodeLookupService {
         return h;
     }
 
+    /** Count how many stored revisions exist for one service code. */
     public int searchNumBillingCode(String str) {
         return billingServiceDao.findMostRecentByServiceCode(str).size();
     }
 
+    /** Update description and/or value on a billing-service row identified by primary key. */
     public boolean editBillingCodeDesc(String desc, String val, String codeId) {
         BillingService bs = billingServiceDao.find(codeId);
         if (bs == null) {
@@ -113,10 +125,12 @@ public class BillingCodeLookupService {
         return true;
     }
 
+    /** Convenience wrapper for value-only edits. */
     public boolean editBillingCode(String val, String codeId) {
         return editBillingCodeDesc(null, val, codeId);
     }
 
+    /** Update all stored revisions for one service code on the given effective date. */
     public boolean editBillingCodeByServiceCode(String val, String codeId, String date) {
         for (BillingService bs : billingServiceDao.findByServiceCodeAndDate(codeId, ConversionUtils.fromDateString(date))) {
             bs.setValue(val);
@@ -125,6 +139,7 @@ public class BillingCodeLookupService {
         return true;
     }
 
+    /** Insert a new billing-service row using the legacy maintenance-screen parameter contract. */
     public boolean insertBillingCode(String value, String code, String date, String description, String termDate) throws Exception {
         SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
         BillingService bs = new BillingService();

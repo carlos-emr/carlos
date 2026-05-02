@@ -37,6 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
+/** Unit coverage for the typed specialist-claim service API and its legacy adapter behavior. */
 @DisplayName("BillingSpecialistClaimService typed API")
 @Tag("unit")
 @Tag("billing")

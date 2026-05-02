@@ -52,6 +52,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/** Unit coverage for {@code ViewBillingCalendarPopup2Action} authorization and popup rendering behavior. */
 @DisplayName("ViewBillingCalendarPopup2Action")
 @Tag("unit")
 @Tag("billing")

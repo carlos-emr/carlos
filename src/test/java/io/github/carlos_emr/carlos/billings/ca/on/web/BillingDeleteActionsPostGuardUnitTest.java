@@ -52,6 +52,7 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+/** Unit coverage for POST-only guards on destructive Ontario billing actions. */
 @DisplayName("Billing delete action POST guards")
 @Tag("unit")
 @Tag("billing")

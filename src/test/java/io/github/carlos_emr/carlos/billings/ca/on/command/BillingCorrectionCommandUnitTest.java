@@ -28,6 +28,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/** Unit coverage for {@code BillingCorrectionCommand} request normalization and validation behavior. */
 @DisplayName("Ontario billing correction commands")
 @Tag("unit")
 @Tag("billing")

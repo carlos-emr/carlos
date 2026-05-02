@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/** Unit coverage for {@code BillingClaimHeaderDto} compatibility accessors and normalization helpers. */
 @DisplayName("Ontario claim header DTO")
 @Tag("unit")
 @Tag("billing")

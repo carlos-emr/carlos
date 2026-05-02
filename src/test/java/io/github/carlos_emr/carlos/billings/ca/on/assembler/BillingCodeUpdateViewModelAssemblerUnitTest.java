@@ -30,6 +30,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/** Unit coverage for {@code BillingCodeUpdateViewModelAssembler} edit-screen state assembly. */
 @DisplayName("BillingCodeUpdateViewModelAssembler")
 @Tag("unit")
 @Tag("billing")

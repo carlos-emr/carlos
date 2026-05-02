@@ -37,6 +37,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
+/** Unit coverage for {@code BillingCorrectionReviewPreparationService} review-page preparation and messaging. */
 @DisplayName("BillingCorrectionReviewPreparationService")
 @Tag("unit")
 @Tag("billing")

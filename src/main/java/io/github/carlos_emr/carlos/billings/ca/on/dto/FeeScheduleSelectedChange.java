@@ -25,6 +25,13 @@ import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 
 import java.math.BigDecimal;
 
+/**
+ * Subset of previewed fee-schedule rows the operator chose to apply.
+ *
+ * <p>The review page posts selected rows back as delimited text, so this
+ * record owns both the normalized typed form and the parser for that posted
+ * representation.</p>
+ */
 public record FeeScheduleSelectedChange(
         String feeCode,
         BigDecimal newPrice,
@@ -41,6 +48,7 @@ public record FeeScheduleSelectedChange(
         newPrice = BillingMoney.amount(newPrice.toPlainString());
     }
 
+    /** Parse one selected preview row posted back from the legacy review form. */
     public static FeeScheduleSelectedChange fromSubmittedValue(String submittedValue) {
         String[] fields = submittedValue == null ? new String[0] : submittedValue.split("\\|", 5);
         if (fields.length != 5) {

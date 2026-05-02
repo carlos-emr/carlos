@@ -52,6 +52,15 @@ import jakarta.persistence.TemporalType;
 import org.apache.cxf.common.util.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+/**
+ * Legacy Ontario billing claim header entity.
+ *
+ * <p>This model still carries the persisted column vocabulary used throughout
+ * older billing code, including ministry-facing status and pay-program values.
+ * The newer services wrap it with DTOs/view models where a more explicit
+ * workflow contract is needed, but the entity remains the source of truth for
+ * stored invoice/header state.</p>
+ */
 @Entity
 @Table(name = "billing_on_cheader1")
 public class BillingONCHeader1 extends AbstractModel<Integer> implements Serializable {

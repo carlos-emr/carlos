@@ -67,6 +67,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/** Unit coverage for {@code BillingOnPayments2Action} dispatch, guards, and JSON response contracts. */
 @DisplayName("BillingOnPayments2Action")
 @Tag("unit")
 @Tag("billing")

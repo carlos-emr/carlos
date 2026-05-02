@@ -38,6 +38,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/** Unit coverage for {@code PatientEndYearStatementService} patient resolution, aggregation, and PDF contracts. */
 @DisplayName("PatientEndYearStatementService")
 @Tag("unit")
 @Tag("billing")
@@ -85,6 +86,9 @@ class PatientEndYearStatementServiceUnitTest {
 
     private static BillingONCHeader1 header(int id, String total, String paid) throws Exception {
         BillingONCHeader1 header = new BillingONCHeader1();
+        // The entity id is generated in production. The unit test seeds it via
+        // reflection so the aggregation result can key invoice rows
+        // deterministically without bootstrapping JPA.
         java.lang.reflect.Field idField = header.getClass().getDeclaredField("id");
         idField.setAccessible(true);
         idField.set(header, id);

@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/** Unit coverage for {@code OhipScheduleDates} effective/termination date translation rules. */
 @DisplayName("OHIP Schedule of Benefits date parsing")
 @Tag("unit")
 @Tag("billing")

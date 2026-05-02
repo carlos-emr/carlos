@@ -27,6 +27,13 @@ import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+/**
+ * Preview-time representation of one Ontario fee schedule delta.
+ *
+ * <p>The record keeps both the newly parsed ministry value and the currently
+ * stored value so the UI can show operators exactly what will change before
+ * they commit the import.</p>
+ */
 public record FeeScheduleChange(
         String feeCode,
         BigDecimal oldPrice,
@@ -49,6 +56,7 @@ public record FeeScheduleChange(
         }
     }
 
+    /** Convert the preview row into the warning-table map shape posted back by the JSP. */
     public Map<String, Object> toWarningMap() {
         Map<String, Object> warning = new LinkedHashMap<>();
         warning.put("newprice", newPrice);
@@ -65,6 +73,7 @@ public record FeeScheduleChange(
         return warning;
     }
 
+    /** Rehydrate a preview row that was posted back from the legacy warning table. */
     public static FeeScheduleChange fromWarningMap(Map<?, ?> warning) {
         Object oldPriceValue = warning.get("oldprice");
         boolean newCode = "--".equals(String.valueOf(oldPriceValue));

@@ -25,6 +25,13 @@
 package io.github.carlos_emr.carlos.billings.ca.on.dto;
 
 
+/**
+ * Parsed OBEC eligibility-response row keyed by health number and version.
+ *
+ * <p>The importer uses this bean as a direct carrier for the ministry output
+ * specification so validation and application code can keep record-field names
+ * aligned with the external file.</p>
+ */
 public class BillingEdtObecOutputSpecificationRecordDto {
 
     String healthNo;

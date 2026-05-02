@@ -46,6 +46,12 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+// NOTE: tx is writable (not readOnly = true). This service's reads are
+// dominant, but DemographicManager.searchDemographic — called from
+// findUniquePatient — writes an audit row via LogAction. Marking the
+// outer tx readOnly = true caused that audit insert to fail with
+// "Connection is read-only", silently dropping a PHI-access audit
+// (regression caught 2026-04-28 during Playwright sweep).
 /**
  * Side-effect operations behind the patient end-year-statement workflow.
  *
@@ -70,12 +76,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  *
  * @since 2026-04-26
  */
-// NOTE: tx is writable (not readOnly = true). This service's reads are
-// dominant, but DemographicManager.searchDemographic — called from
-// findUniquePatient — writes an audit row via LogAction. Marking the
-// outer tx readOnly = true caused that audit insert to fail with
-// "Connection is read-only", silently dropping a PHI-access audit
-// (regression caught 2026-04-28 during Playwright sweep).
 @org.springframework.stereotype.Service
 @org.springframework.transaction.annotation.Transactional
 public class PatientEndYearStatementService {

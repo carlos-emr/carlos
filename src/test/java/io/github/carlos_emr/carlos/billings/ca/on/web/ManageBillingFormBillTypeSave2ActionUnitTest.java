@@ -48,6 +48,7 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
+/** Unit coverage for {@code ManageBillingFormBillTypeSave2Action} save contracts and privilege checks. */
 @DisplayName("ManageBillingFormBillTypeSave2Action")
 @Tag("unit")
 @Tag("billing")

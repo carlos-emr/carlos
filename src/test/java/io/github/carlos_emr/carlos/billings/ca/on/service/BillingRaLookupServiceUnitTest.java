@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Test;
 
 import io.github.carlos_emr.carlos.commn.dao.RaDetailDao;
 
+/** Unit coverage for {@code BillingRaLookupService} remittance lookup aggregation helpers. */
 @DisplayName("BillingRaLookupService")
 @Tag("unit")
 @Tag("billing")

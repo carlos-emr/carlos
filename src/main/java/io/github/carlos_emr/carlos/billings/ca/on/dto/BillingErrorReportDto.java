@@ -23,6 +23,13 @@
 
 package io.github.carlos_emr.carlos.billings.ca.on.dto;
 
+/**
+ * Normalized Ontario billing error-report row used by import, lookup, and UI
+ * reporting flows.
+ *
+ * <p>The bean remains mutable because older DAO and JSP paths still populate
+ * and consume it field by field.</p>
+ */
 public class BillingErrorReportDto {
     String id;
     String providerohip_no;

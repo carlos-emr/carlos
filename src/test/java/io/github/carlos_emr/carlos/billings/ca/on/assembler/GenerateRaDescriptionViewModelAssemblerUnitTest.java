@@ -53,6 +53,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/** Unit coverage for {@code GenerateRaDescriptionViewModelAssembler} description-page assembly rules. */
 @DisplayName("GenerateRaDescriptionViewModelAssembler")
 @Tag("unit")
 @Tag("billing")

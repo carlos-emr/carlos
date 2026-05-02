@@ -66,6 +66,15 @@ import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationExc
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+/**
+ * Write-side persistence service for Ontario billing claims and related batch,
+ * item, payment, and export metadata rows.
+ *
+ * <p>This class is intentionally broad because the legacy claim-save workflow
+ * spans several tables that must stay in sync. The method names mirror the old
+ * pageUtil/service vocabulary so callers can be migrated incrementally without
+ * losing the original business meaning.</p>
+ */
 @org.springframework.stereotype.Service
 @org.springframework.transaction.annotation.Transactional
 public class BillingOnClaimPersister {

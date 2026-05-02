@@ -59,6 +59,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+/** Unit coverage for {@code BillingOnSave2Action} save guards, validation, and result handling. */
 @DisplayName("BillingOnSave2Action")
 @Tag("unit")
 @Tag("billing")

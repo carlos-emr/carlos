@@ -23,6 +23,10 @@ package io.github.carlos_emr.carlos.billings.ca.on.dto;
 
 import java.math.BigDecimal;
 
+/**
+ * Operator-selected flags and override values for a Schedule of Benefits
+ * import preview/apply run.
+ */
 public record FeeScheduleImportRequest(
         boolean addNewCodes,
         boolean addChangedCodes,

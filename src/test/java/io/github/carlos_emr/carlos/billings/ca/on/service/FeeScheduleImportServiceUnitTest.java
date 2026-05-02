@@ -50,6 +50,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/** Unit coverage for {@code FeeScheduleImportService} preview/apply parsing and validation rules. */
 @DisplayName("Fee schedule import service")
 @Tag("unit")
 @Tag("billing")

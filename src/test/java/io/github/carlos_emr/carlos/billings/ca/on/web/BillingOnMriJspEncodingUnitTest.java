@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/** Unit coverage for MRI JSP encoding assumptions that must remain safe after refactors. */
 @DisplayName("billingONMRI.jsp encoding")
 @Tag("unit")
 @Tag("billing")

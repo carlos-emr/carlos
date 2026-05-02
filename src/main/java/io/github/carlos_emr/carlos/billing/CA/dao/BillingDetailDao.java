@@ -30,13 +30,24 @@ import java.util.List;
 import io.github.carlos_emr.carlos.billing.CA.model.BillingDetail;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
 
+/**
+ * DAO for Ontario billing detail rows tied to a parent invoice/header.
+ *
+ * <p>The methods distinguish between active-only and including-deleted lookups
+ * because correction, review, and audit screens do not all share the same
+ * visibility rules.</p>
+ */
 public interface BillingDetailDao extends AbstractDao<BillingDetail> {
 
+    /** Load every detail row for an invoice, including soft-deleted rows needed by audit/review flows. */
     public List<BillingDetail> findAllIncludingDeletedByBillingNo(int billingNo);
 
+    /** Load detail rows for an invoice restricted to one stored status value. */
     public List<BillingDetail> findByBillingNoAndStatus(Integer billingNo, String status);
 
+    /** Load only the active/default-visible detail rows for an invoice. */
     public List<BillingDetail> findByBillingNo(Integer billingNo);
 
+    /** Bulk variant used when report/export workflows need detail rows for many invoices at once. */
     public List<BillingDetail> findByBillingNos(Collection<Integer> billingNos);
 }

@@ -25,6 +25,13 @@
 package io.github.carlos_emr.carlos.billings.ca.on.dto;
 
 
+/**
+ * Parsed row from the Ontario claims error report file.
+ *
+ * <p>The field names intentionally match the historic fixed-width report
+ * vocabulary so existing import, reconciliation, and JSP code can reason
+ * about the same terms the ministry uses.</p>
+ */
 public class BillingClaimsErrorReportRecordDto {
 
     String techSpec = null;

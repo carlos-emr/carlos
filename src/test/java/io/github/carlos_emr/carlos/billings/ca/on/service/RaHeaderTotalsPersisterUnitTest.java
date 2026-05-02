@@ -51,6 +51,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/** Unit coverage for {@code RaHeaderTotalsPersister} RA header total recalculation and persistence rules. */
 @DisplayName("RaHeaderTotalsPersister")
 @Tag("unit")
 @Tag("billing")

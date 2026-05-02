@@ -37,20 +37,35 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 
+/**
+ * DAO for Ontario claim item rows and the header relationships built from
+ * them.
+ *
+ * <p>Status filtering matters here because many workflows exclude deleted or
+ * settled rows while audit/report paths still need broader visibility.</p>
+ */
 public interface BillingONItemDao extends AbstractDao<BillingONItem> {
+    /** Load every item row tied to one billing header, regardless of active/deleted visibility. */
     List<BillingONItem> getBillingItemByCh1Id(Integer ch1_id);
 
+    /** Load the default-visible item rows for one billing header. */
     List<BillingONItem> getActiveBillingItemByCh1Id(Integer ch1_id);
 
+    /** Find headers that have item rows for the given demographic. */
     List<BillingONCHeader1> getCh1ByDemographicNo(Integer demographic_no);
 
+    /** Load non-deleted/non-settled items for a header using the historic correction/report semantics. */
     List<BillingONItem> findByCh1Id(Integer id);
 
+    /** Bulk-load active items for several headers while excluding deleted and settled statuses. */
     List<BillingONItem> findByCh1IdsExcludingDeletedAndSettled(List<Integer> ch1Ids);
 
+    /** Load item rows for one header while excluding a caller-specified status value. */
     List<BillingONItem> findByCh1IdAndStatusNotEqual(Integer chId, String string);
 
+    /** Find headers for a demographic updated since the given cutoff date. */
     List<BillingONCHeader1> getCh1ByDemographicNoSince(Integer demographic_no, Date lastUpdateDate);
 
+    /** Find demographics with any billing-item activity since the given cutoff date. */
     List<Integer> getDemographicNoSince(Date lastUpdateDate);
 }

@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.billing.CA.model.BillingDetail;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 
+/** Unit coverage for {@code OhipClaimExtractService} fixed-width OHIP claim extraction rules. */
 @DisplayName("OHIP OhipClaimExtractService")
 @Tag("unit")
 @Tag("billing")

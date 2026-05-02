@@ -47,6 +47,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/** Unit coverage for {@code BillingOnNewReportViewModelAssembler} report-center view state assembly. */
 @DisplayName("BillingOnNewReportViewModelAssembler")
 @Tag("unit")
 @Tag("billing")

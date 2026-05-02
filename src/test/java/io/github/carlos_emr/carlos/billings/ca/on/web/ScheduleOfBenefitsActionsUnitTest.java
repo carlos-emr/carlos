@@ -59,6 +59,7 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/** Unit coverage for Schedule of Benefits action-layer request, validation, and result contracts. */
 @DisplayName("Schedule of Benefits actions")
 @Tag("unit")
 @Tag("billing")

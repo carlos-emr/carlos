@@ -49,6 +49,17 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+// NOTE: this service is read+write — addOneRADtRecord/importDocumentBeanFile
+// call raDetailDao.persist, raHeaderDao.persist, cheader1Dao.merge (lines
+// 96, 184, 275, 335, 579). The class-level annotation MUST NOT be
+// readOnly=true; Hibernate would silently skip the flush on those writes
+// (or throw on commit, depending on the dialect).
+//
+// rollbackFor = Exception.class is required because importRAFile() declares
+// `throws Exception` and the loop chain throws checked IOException on
+// readLine failures. Spring's default rollback rule does NOT roll back
+// checked exceptions, so without this attribute a mid-file IOException
+// would COMMIT the partial RaHeader insert at line ~189.
 /**
  * Parses a Remittance Advice (RA) flat file from MOH and writes the
  * resulting {@code RaHeader} / {@code RaDetail} rows. Also exposes lookups
@@ -63,17 +74,6 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  * <p>Web security is enforced at the action layer before invocation.</p>
  */
 @org.springframework.stereotype.Service
-// NOTE: this service is read+write — addOneRADtRecord/importDocumentBeanFile
-// call raDetailDao.persist, raHeaderDao.persist, cheader1Dao.merge (lines
-// 96, 184, 275, 335, 579). The class-level annotation MUST NOT be
-// readOnly=true; Hibernate would silently skip the flush on those writes
-// (or throw on commit, depending on the dialect).
-//
-// rollbackFor = Exception.class is required because importRAFile() declares
-// `throws Exception` and the loop chain throws checked IOException on
-// readLine failures. Spring's default rollback rule does NOT roll back
-// checked exceptions, so without this attribute a mid-file IOException
-// would COMMIT the partial RaHeader insert at line ~189.
 @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
 public class BillingOnRaService {
     private static final Logger _logger = MiscUtils.getLogger();

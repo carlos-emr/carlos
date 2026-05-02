@@ -37,6 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/** Unit coverage for {@code BillingReviewLoader} review-screen data assembly and fallback behavior. */
 @DisplayName("Ontario billing review loader")
 @Tag("unit")
 @Tag("billing")

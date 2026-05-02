@@ -31,6 +31,7 @@ import java.util.Arrays;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/** Unit coverage for {@code BillingReviewPresentationItem} review-row formatting helpers. */
 @DisplayName("Billing review presentation items")
 @Tag("unit")
 @Tag("billing")

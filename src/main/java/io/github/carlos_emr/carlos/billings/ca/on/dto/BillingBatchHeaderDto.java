@@ -23,6 +23,14 @@
 
 package io.github.carlos_emr.carlos.billings.ca.on.dto;
 
+/**
+ * Legacy bean representation of an OHIP batch-header record.
+ *
+ * <p>This DTO keeps both camelCase and underscore-style accessors because the
+ * migrated services, JSPs, and older helper code still read it through mixed
+ * naming conventions. The class remains mutable to preserve that compatibility
+ * while the surrounding workflow is being typed incrementally.</p>
+ */
 public class BillingBatchHeaderDto {
     String id;
     String diskId;

@@ -41,6 +41,9 @@ import org.springframework.stereotype.Repository;
 
 import io.github.carlos_emr.carlos.util.DateUtils;
 
+/**
+ * Hibernate-backed implementation of {@link BillingONPaymentDao}.
+ */
 @Repository
 public class BillingONPaymentDaoImpl extends AbstractDaoImpl<BillingONPayment> implements BillingONPaymentDao {
     public BillingONPaymentDaoImpl() {

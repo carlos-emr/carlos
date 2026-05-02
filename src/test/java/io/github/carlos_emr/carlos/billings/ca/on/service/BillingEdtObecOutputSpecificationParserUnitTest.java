@@ -44,6 +44,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/** Unit coverage for the OBEC output-specification parser and its fixed-width field extraction rules. */
 @DisplayName("BillingEdtObecOutputSpecificationParser")
 @Tag("unit")
 @Tag("billing")
@@ -125,6 +126,8 @@ class BillingEdtObecOutputSpecificationParserUnitTest {
 
     private static String fixedWidthLine(String hin, String version, String response,
                                          String expiry, String secondName) {
+        // Pin the ministry file offsets the parser depends on so regressions
+        // fail in one helper instead of being re-derived in every test body.
         StringBuilder line = new StringBuilder(" ".repeat(110));
         replace(line, 0, hin);
         replace(line, 10, version);

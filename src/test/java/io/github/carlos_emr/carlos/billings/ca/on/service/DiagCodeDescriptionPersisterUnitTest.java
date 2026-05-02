@@ -39,6 +39,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/** Unit coverage for {@code DiagCodeDescriptionPersister} description save/update behavior. */
 @DisplayName("DiagCodeDescriptionPersister")
 @Tag("unit")
 @Tag("billing")

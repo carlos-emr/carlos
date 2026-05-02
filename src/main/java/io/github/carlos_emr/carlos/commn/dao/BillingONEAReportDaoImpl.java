@@ -33,6 +33,9 @@ import org.springframework.stereotype.Repository;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
 import io.github.carlos_emr.carlos.util.ParamAppender;
 
+/**
+ * Hibernate-backed implementation of {@link BillingONEAReportDao}.
+ */
 @Repository
 @SuppressWarnings("unchecked")
 public class BillingONEAReportDaoImpl extends AbstractDaoImpl<BillingONEAReport> implements BillingONEAReportDao {

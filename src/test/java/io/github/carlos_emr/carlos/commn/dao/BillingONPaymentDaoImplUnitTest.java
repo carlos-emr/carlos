@@ -15,6 +15,7 @@ import java.util.Arrays;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/** Unit coverage for {@code BillingONPaymentDaoImpl} payment query and aggregation semantics. */
 @DisplayName("BillingONPaymentDaoImpl")
 @Tag("unit")
 @Tag("dao")

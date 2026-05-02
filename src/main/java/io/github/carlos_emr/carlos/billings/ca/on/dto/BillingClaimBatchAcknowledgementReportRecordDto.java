@@ -25,6 +25,13 @@
 package io.github.carlos_emr.carlos.billings.ca.on.dto;
 
 
+/**
+ * Parsed acknowledgement-report row for an outbound Ontario claim batch.
+ *
+ * <p>Each instance mirrors a single MOH acknowledgement record so the import
+ * and reporting code can keep file-format details at the edges instead of
+ * passing raw substring offsets through the workflow.</p>
+ */
 public class BillingClaimBatchAcknowledgementReportRecordDto {
 
     String batchNumber = "";

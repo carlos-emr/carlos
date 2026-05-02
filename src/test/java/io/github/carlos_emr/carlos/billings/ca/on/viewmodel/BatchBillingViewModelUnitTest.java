@@ -31,6 +31,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/** Unit coverage for {@code BatchBillingViewModel} presentation defaults and derived flags. */
 @DisplayName("BatchBillingViewModel")
 @Tag("unit")
 @Tag("billing")

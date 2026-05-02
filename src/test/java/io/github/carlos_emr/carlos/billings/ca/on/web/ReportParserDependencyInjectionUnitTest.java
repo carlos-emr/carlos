@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.commn.dao.BatchEligibilityDao;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+/** Unit coverage for parser dependency injection required by Ontario billing report import actions. */
 @DisplayName("Report upload parsers")
 @Tag("unit")
 @Tag("billing")

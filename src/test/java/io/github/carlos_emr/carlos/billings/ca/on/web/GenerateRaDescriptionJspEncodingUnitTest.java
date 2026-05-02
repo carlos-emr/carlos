@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/** Unit coverage for Generate RA Description JSP encoding expectations. */
 @DisplayName("genRADesc.jsp encoding")
 @Tag("unit")
 @Tag("billing")

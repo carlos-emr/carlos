@@ -24,6 +24,10 @@ package io.github.carlos_emr.carlos.billings.ca.on.dto;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Preview result for a Schedule of Benefits upload before any database writes
+ * occur.
+ */
 public record FeeScheduleImportResult(
         List<FeeScheduleChange> changes,
         List<FeeScheduleValidationError> validationErrors,
@@ -34,6 +38,7 @@ public record FeeScheduleImportResult(
         validationErrors = List.copyOf(validationErrors);
     }
 
+    /** Render preview rows into the map format consumed by the legacy JSP. */
     public List<Map<String, Object>> warningMaps() {
         return changes.stream().map(FeeScheduleChange::toWarningMap).toList();
     }

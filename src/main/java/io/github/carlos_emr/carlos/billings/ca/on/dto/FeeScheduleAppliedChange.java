@@ -27,8 +27,13 @@ import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+/**
+ * One fee-schedule change that was actually persisted during an import apply
+ * step.
+ */
 public record FeeScheduleAppliedChange(String code, BigDecimal value) {
 
+    /** Convert the applied row into the map shape expected by the legacy review JSP. */
     public Map<String, Object> toViewMap() {
         Map<String, Object> view = new LinkedHashMap<>();
         view.put("code", code);

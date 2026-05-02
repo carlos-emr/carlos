@@ -23,6 +23,13 @@
 
 package io.github.carlos_emr.carlos.billings.ca.on.dto;
 
+/**
+ * Provider identity/details bundle used by Ontario billing export, RA, and
+ * third-party billing workflows.
+ *
+ * <p>It bridges provider registry data with the legacy billing-specific codes
+ * and numbers those workflows still store separately.</p>
+ */
 public class BillingProviderDto {
     private String providerNo;
     private String lastName;

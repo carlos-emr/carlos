@@ -36,6 +36,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+/** Architecture guard coverage for package and dependency boundaries in Ontario billing assemblers. */
 @DisplayName("Ontario assembler architecture")
 @Tag("unit")
 @Tag("billing")

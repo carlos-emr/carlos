@@ -45,6 +45,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/** Unit coverage for {@code BillingCorrectionSubmissionService} correction persistence workflow contracts. */
 @DisplayName("BillingCorrectionSubmissionService")
 @Tag("unit")
 @Tag("billing")

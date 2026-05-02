@@ -50,7 +50,13 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-
+/**
+ * Preview/apply service for Ontario Schedule of Benefits fee uploads.
+ *
+ * <p>The workflow is deliberately two-phase: preview parses the fixed-width
+ * ministry file and computes deltas without writing, then apply persists only
+ * the operator-approved changes back into {@code billing_service}.</p>
+ */
 @Service
 public class FeeScheduleImportService {
     private static final String REGION_ON = "ON";
@@ -68,6 +74,10 @@ public class FeeScheduleImportService {
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
+    /**
+     * Parse a fixed-width Schedule of Benefits file and compute the change set
+     * the operator would apply, without writing to the database.
+     */
     @Transactional(readOnly = true)
     public FeeScheduleImportResult preview(InputStream stream, FeeScheduleImportRequest request) {
         List<FeeScheduleChange> changes = new ArrayList<>();
@@ -92,6 +102,7 @@ public class FeeScheduleImportService {
         return new FeeScheduleImportResult(changes, errors, request.forceUpdate());
     }
 
+    /** Persist every previewed change in order, returning the rows that were applied. */
     @Transactional
     public FeeScheduleApplyResult applyAll(List<FeeScheduleChange> changes) {
         List<FeeScheduleAppliedChange> applied = new ArrayList<>();
@@ -103,6 +114,7 @@ public class FeeScheduleImportService {
         return new FeeScheduleApplyResult(applied, List.of());
     }
 
+    /** Persist only the subset of preview rows the operator selected on the review page. */
     @Transactional
     public FeeScheduleApplyResult applySelected(List<FeeScheduleSelectedChange> changes) {
         List<FeeScheduleAppliedChange> applied = new ArrayList<>();
