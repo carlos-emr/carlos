@@ -237,7 +237,7 @@
                             int bMonth = Integer.parseInt(monthStr);
                             int bDay   = Integer.parseInt(Misc.getString(rs, "date_of_birth"));
                             age = curYear - bYear;
-                            if (curMonth < bMonth || (curMonth == bMonth && curDay <= bDay)) age--;
+                            if (curMonth < bMonth || (curMonth == bMonth && curDay < bDay)) age--;
                         } catch (NumberFormatException e2) {}
                     }
 
@@ -554,6 +554,9 @@
         // Legacy addName compatibility (used by some older callers)
         function addName(lastname, firstname, chartno) {
             var from = '${carlos:forJavaScript(from)}';
+            if (!from.startsWith('/') || from.startsWith('//')) {
+                from = '${pageContext.request.contextPath}/oscarMDS/ViewPatientSearch';
+            }
             document.getElementById('addform').action = from + '?name='
                 + encodeURIComponent(lastname + ',' + firstname)
                 + '&chart_no=' + encodeURIComponent(chartno)
