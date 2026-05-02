@@ -34,9 +34,8 @@
 
 --%>
 <%@ page import="java.util.*, java.sql.*, java.net.URLEncoder" %>
-<%@ page import="io.github.carlos_emr.carlos.db.DBPreparedHandler, io.github.carlos_emr.MyDateFormat, io.github.carlos_emr.Misc" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.DbConnectionFilter, io.github.carlos_emr.MyDateFormat, io.github.carlos_emr.Misc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler" %>
@@ -184,50 +183,48 @@
             }
         }
 
+        // Merged non-head records are excluded by the NOT EXISTS subquery so no per-row
+        // getHead() call is needed. LIMIT/OFFSET push pagination to the database engine.
         String sql = "select demographic_no,first_name,last_name,roster_status,patient_status,sex,"
             + "chart_no,year_of_birth,month_of_birth,date_of_birth,provider_no "
-            + "from demographic where " + fieldname + " " + regularexp + " ? " + safeOrderby;
+            + "from demographic "
+            + "where " + fieldname + " " + regularexp + " ? "
+            + "and not exists (select 1 from demographic_merged dm "
+            + "  where dm.demographic_no = demographic.demographic_no and dm.deleted = 0) "
+            + safeOrderby + " limit ? offset ?";
 
-        DBPreparedHandler db = new DBPreparedHandler();
-        ResultSet rs = null;
-        try {
+        Connection dbConn = DbConnectionFilter.getThreadLocalDbConnection();
+        try (PreparedStatement ps = dbConn.prepareStatement(sql)) {
+            int pidx = 1;
             if ("search_dob".equals(p_searchMode)) {
                 String yearStr = "" + MyDateFormat.getYearFromStandardDate(p_keyword) + "%";
                 String monStr  = "" + MyDateFormat.getMonthFromStandardDate(p_keyword) + "%";
                 String dayStr  = "" + MyDateFormat.getDayFromStandardDate(p_keyword) + "%";
                 if (monStr.length() == 2) monStr = "0" + monStr; // zero-pad single-digit month
-                String[] param = { yearStr, monStr, dayStr };
-                rs = db.queryResults(sql, param);
+                ps.setString(pidx++, yearStr);
+                ps.setString(pidx++, monStr);
+                ps.setString(pidx++, dayStr);
             } else if ("search_name".equals(p_searchMode)) {
                 String kw = p_keyword + "%";
                 if (kw.indexOf(",") < 0) {
-                    rs = db.queryResults(sql, kw);
+                    ps.setString(pidx++, kw);
                 } else {
                     int commaIdx = kw.indexOf(",");
                     if (isNameByLastAndFirst) {
-                        String[] param = {
-                            kw.substring(0, commaIdx).trim() + "%",
-                            kw.substring(commaIdx + 1).trim() + "%"
-                        };
-                        rs = db.queryResults(sql, param);
+                        ps.setString(pidx++, kw.substring(0, commaIdx).trim() + "%");
+                        ps.setString(pidx++, kw.substring(commaIdx + 1).trim() + "%");
                     } else {
-                        String[] param = { kw.substring(0, commaIdx).trim() + "%" };
-                        rs = db.queryResults(sql, param);
+                        ps.setString(pidx++, kw.substring(0, commaIdx).trim() + "%");
                     }
                 }
             } else {
-                rs = db.queryResults(sql, p_keyword + "%");
+                ps.setString(pidx++, p_keyword + "%");
             }
+            ps.setInt(pidx++, parsedLimit2);
+            ps.setInt(pidx,   parsedLimit1);
 
-            if (rs != null) {
-                DemographicMerged dmDAO = new DemographicMerged();
-                for (int skip = 0; skip < parsedLimit1 && rs.next(); skip++) {}
-
-                while (rs.next() && nItems < parsedLimit2) {
-                    String demoNo = Misc.getString(rs, "demographic_no");
-                    String head = dmDAO.getHead(demoNo);
-                    if (head != null && !head.equals(demoNo)) continue; // skip merged non-head records
-
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
                     nItems++;
                     int age = 0;
                     String monthStr = Misc.getString(rs, "month_of_birth");
@@ -241,6 +238,7 @@
                         } catch (NumberFormatException e2) {}
                     }
 
+                    String demoNo = Misc.getString(rs, "demographic_no");
                     String dob = Misc.getString(rs, "year_of_birth") + "-"
                         + Misc.getString(rs, "month_of_birth") + "-"
                         + Misc.getString(rs, "date_of_birth");
