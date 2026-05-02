@@ -71,6 +71,22 @@
     java.util.Locale vLocale = request.getLocale();
     String searchMode = request.getParameter("search_mode");
     String keyWord = request.getParameter("keyword");
+
+    // Pre-fill values passed from the HL7 lab result (e.g. via PatientSearch.jsp)
+    String prefillLastName      = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_last_name"));
+    String prefillFirstName     = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_first_name"));
+    String prefillAddress       = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_address"));
+    String prefillCity          = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_city"));
+    String prefillProvince      = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_province"));
+    String prefillPostal        = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_postal"));
+    String prefillPhone         = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_phone"));
+    String prefillSex           = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_sex")).toUpperCase();
+    String prefillYearOfBirth   = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_year_of_birth"));
+    String prefillMonthOfBirth  = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_month_of_birth"));
+    String prefillDateOfBirth   = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_date_of_birth"));
+    String prefillHin           = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_hin"));
+    String prefillVer           = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_ver"));
+    String prefillHcType        = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_hc_type"));
 %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 <jsp:useBean id="apptMainBean" class="io.github.carlos_emr.AppointmentMainBean" scope="session"/>
@@ -143,6 +159,13 @@
                                     chartNoVal = keyWord;
                                 }
                             }
+                            // Prefill values from HL7 lab take precedence over search keyword
+                            if (!prefillLastName.isEmpty())  lastNameVal  = prefillLastName;
+                            if (!prefillFirstName.isEmpty()) firstNameVal = prefillFirstName;
+                            // Province for address select (separate from hc_type)
+                            String selectedProvince = prefillProvince.isEmpty() ? defaultProvince : prefillProvince;
+                            // HC type for health card select
+                            String selectedHcType = prefillHcType.isEmpty() ? HCType : prefillHcType;
                         %>
 
                         <tr id="rowWithLastName">
@@ -235,12 +258,13 @@
 
                         <tr valign="top">
                             <td id="addrLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formAddress"/>: </b></td>
-                            <td id="addressCell" align="left"><input id="address" type="text" name="address" size=40/>
+                            <td id="addressCell" align="left"><input id="address" type="text" name="address" size=40
+                                       value="<carlos:encode value='<%= prefillAddress %>' context="htmlAttribute"/>"/>
 
                             </td>
                             <td id="cityLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formCity"/>: </b></td>
                             <td id="cityCell" align="left"><input type="text" id="city" name="city"
-                                                                  value="<%=defaultCity %>"/></td>
+                                                                  value="<carlos:encode value='<%= prefillCity.isEmpty() ? defaultCity : prefillCity %>' context="htmlAttribute"/>"/></td>
                         </tr>
 
                         <tr valign="top">
@@ -261,7 +285,7 @@
                                 <% } else { %>
                                 <select id="province" name="province">
                                     <option value="OT"
-                                            <%=defaultProvince.equals("") || defaultProvince.equals("OT") ? " selected" : ""%>>
+                                            <%=selectedProvince.equals("") || selectedProvince.equals("OT") ? " selected" : ""%>>
                                         Other
                                     </option>
                                         <%-- <option value="">None Selected</option> --%>
@@ -269,213 +293,213 @@
                                         for (ListIterator li = pNames.listIterator(); li.hasNext(); ) {
                                             String province = (String) li.next(); %>
                                     <option value="<%=province%>"
-                                            <%=province.equals(defaultProvince) ? " selected" : ""%>><%=li.next()%>
+                                            <%=province.equals(selectedProvince) ? " selected" : ""%>><%=li.next()%>
                                     </option>
                                     <% } %>
                                     <% } else { %>
-                                    <option value="AB" <%=defaultProvince.equals("AB") ? " selected" : ""%>>AB-Alberta
+                                    <option value="AB" <%=selectedProvince.equals("AB") ? " selected" : ""%>>AB-Alberta
                                     </option>
-                                    <option value="BC" <%=defaultProvince.equals("BC") ? " selected" : ""%>>BC-British
+                                    <option value="BC" <%=selectedProvince.equals("BC") ? " selected" : ""%>>BC-British
                                         Columbia
                                     </option>
-                                    <option value="MB" <%=defaultProvince.equals("MB") ? " selected" : ""%>>
+                                    <option value="MB" <%=selectedProvince.equals("MB") ? " selected" : ""%>>
                                         MB-Manitoba
                                     </option>
-                                    <option value="NB" <%=defaultProvince.equals("NB") ? " selected" : ""%>>NB-New
+                                    <option value="NB" <%=selectedProvince.equals("NB") ? " selected" : ""%>>NB-New
                                         Brunswick
                                     </option>
-                                    <option value="NL" <%=defaultProvince.equals("NL") ? " selected" : ""%>>
+                                    <option value="NL" <%=selectedProvince.equals("NL") ? " selected" : ""%>>
                                         NL-Newfoundland & Labrador
                                     </option>
-                                    <option value="NT" <%=defaultProvince.equals("NT") ? " selected" : ""%>>NT-Northwest
+                                    <option value="NT" <%=selectedProvince.equals("NT") ? " selected" : ""%>>NT-Northwest
                                         Territory
                                     </option>
-                                    <option value="NS" <%=defaultProvince.equals("NS") ? " selected" : ""%>>NS-Nova
+                                    <option value="NS" <%=selectedProvince.equals("NS") ? " selected" : ""%>>NS-Nova
                                         Scotia
                                     </option>
-                                    <option value="NU" <%=defaultProvince.equals("NU") ? " selected" : ""%>>NU-Nunavut
+                                    <option value="NU" <%=selectedProvince.equals("NU") ? " selected" : ""%>>NU-Nunavut
                                     </option>
-                                    <option value="ON" <%=defaultProvince.equals("ON") ? " selected" : ""%>>ON-Ontario
+                                    <option value="ON" <%=selectedProvince.equals("ON") ? " selected" : ""%>>ON-Ontario
                                     </option>
-                                    <option value="PE" <%=defaultProvince.equals("PE") ? " selected" : ""%>>PE-Prince
+                                    <option value="PE" <%=selectedProvince.equals("PE") ? " selected" : ""%>>PE-Prince
                                         Edward Island
                                     </option>
-                                    <option value="QC" <%=defaultProvince.equals("QC") ? " selected" : ""%>>QC-Quebec
+                                    <option value="QC" <%=selectedProvince.equals("QC") ? " selected" : ""%>>QC-Quebec
                                     </option>
-                                    <option value="SK" <%=defaultProvince.equals("SK") ? " selected" : ""%>>
+                                    <option value="SK" <%=selectedProvince.equals("SK") ? " selected" : ""%>>
                                         SK-Saskatchewan
                                     </option>
-                                    <option value="YT" <%=defaultProvince.equals("YT") ? " selected" : ""%>>YT-Yukon
+                                    <option value="YT" <%=selectedProvince.equals("YT") ? " selected" : ""%>>YT-Yukon
                                     </option>
-                                    <option value="US" <%=defaultProvince.equals("US") ? " selected" : ""%>>US
+                                    <option value="US" <%=selectedProvince.equals("US") ? " selected" : ""%>>US
                                         resident
                                     </option>
-                                    <option value="US-AK" <%=defaultProvince.equals("US-AK") ? " selected" : ""%>>
+                                    <option value="US-AK" <%=selectedProvince.equals("US-AK") ? " selected" : ""%>>
                                         US-AK-Alaska
                                     </option>
-                                    <option value="US-AL" <%=defaultProvince.equals("US-AL") ? " selected" : ""%>>
+                                    <option value="US-AL" <%=selectedProvince.equals("US-AL") ? " selected" : ""%>>
                                         US-AL-Alabama
                                     </option>
-                                    <option value="US-AR" <%=defaultProvince.equals("US-AR") ? " selected" : ""%>>
+                                    <option value="US-AR" <%=selectedProvince.equals("US-AR") ? " selected" : ""%>>
                                         US-AR-Arkansas
                                     </option>
-                                    <option value="US-AZ" <%=defaultProvince.equals("US-AZ") ? " selected" : ""%>>
+                                    <option value="US-AZ" <%=selectedProvince.equals("US-AZ") ? " selected" : ""%>>
                                         US-AZ-Arizona
                                     </option>
-                                    <option value="US-CA" <%=defaultProvince.equals("US-CA") ? " selected" : ""%>>
+                                    <option value="US-CA" <%=selectedProvince.equals("US-CA") ? " selected" : ""%>>
                                         US-CA-California
                                     </option>
-                                    <option value="US-CO" <%=defaultProvince.equals("US-CO") ? " selected" : ""%>>
+                                    <option value="US-CO" <%=selectedProvince.equals("US-CO") ? " selected" : ""%>>
                                         US-CO-Colorado
                                     </option>
-                                    <option value="US-CT" <%=defaultProvince.equals("US-CT") ? " selected" : ""%>>
+                                    <option value="US-CT" <%=selectedProvince.equals("US-CT") ? " selected" : ""%>>
                                         US-CT-Connecticut
                                     </option>
-                                    <option value="US-CZ" <%=defaultProvince.equals("US-CZ") ? " selected" : ""%>>
+                                    <option value="US-CZ" <%=selectedProvince.equals("US-CZ") ? " selected" : ""%>>
                                         US-CZ-Canal Zone
                                     </option>
-                                    <option value="US-DC" <%=defaultProvince.equals("US-DC") ? " selected" : ""%>>
+                                    <option value="US-DC" <%=selectedProvince.equals("US-DC") ? " selected" : ""%>>
                                         US-DC-District Of Columbia
                                     </option>
-                                    <option value="US-DE" <%=defaultProvince.equals("US-DE") ? " selected" : ""%>>
+                                    <option value="US-DE" <%=selectedProvince.equals("US-DE") ? " selected" : ""%>>
                                         US-DE-Delaware
                                     </option>
-                                    <option value="US-FL" <%=defaultProvince.equals("US-FL") ? " selected" : ""%>>
+                                    <option value="US-FL" <%=selectedProvince.equals("US-FL") ? " selected" : ""%>>
                                         US-FL-Florida
                                     </option>
-                                    <option value="US-GA" <%=defaultProvince.equals("US-GA") ? " selected" : ""%>>
+                                    <option value="US-GA" <%=selectedProvince.equals("US-GA") ? " selected" : ""%>>
                                         US-GA-Georgia
                                     </option>
-                                    <option value="US-GU" <%=defaultProvince.equals("US-GU") ? " selected" : ""%>>
+                                    <option value="US-GU" <%=selectedProvince.equals("US-GU") ? " selected" : ""%>>
                                         US-GU-Guam
                                     </option>
-                                    <option value="US-HI" <%=defaultProvince.equals("US-HI") ? " selected" : ""%>>
+                                    <option value="US-HI" <%=selectedProvince.equals("US-HI") ? " selected" : ""%>>
                                         US-HI-Hawaii
                                     </option>
-                                    <option value="US-IA" <%=defaultProvince.equals("US-IA") ? " selected" : ""%>>
+                                    <option value="US-IA" <%=selectedProvince.equals("US-IA") ? " selected" : ""%>>
                                         US-IA-Iowa
                                     </option>
-                                    <option value="US-ID" <%=defaultProvince.equals("US-ID") ? " selected" : ""%>>
+                                    <option value="US-ID" <%=selectedProvince.equals("US-ID") ? " selected" : ""%>>
                                         US-ID-Idaho
                                     </option>
-                                    <option value="US-IL" <%=defaultProvince.equals("US-IL") ? " selected" : ""%>>
+                                    <option value="US-IL" <%=selectedProvince.equals("US-IL") ? " selected" : ""%>>
                                         US-IL-Illinois
                                     </option>
-                                    <option value="US-IN" <%=defaultProvince.equals("US-IN") ? " selected" : ""%>>
+                                    <option value="US-IN" <%=selectedProvince.equals("US-IN") ? " selected" : ""%>>
                                         US-IN-Indiana
                                     </option>
-                                    <option value="US-KS" <%=defaultProvince.equals("US-KS") ? " selected" : ""%>>
+                                    <option value="US-KS" <%=selectedProvince.equals("US-KS") ? " selected" : ""%>>
                                         US-KS-Kansas
                                     </option>
-                                    <option value="US-KY" <%=defaultProvince.equals("US-KY") ? " selected" : ""%>>
+                                    <option value="US-KY" <%=selectedProvince.equals("US-KY") ? " selected" : ""%>>
                                         US-KY-Kentucky
                                     </option>
-                                    <option value="US-LA" <%=defaultProvince.equals("US-LA") ? " selected" : ""%>>
+                                    <option value="US-LA" <%=selectedProvince.equals("US-LA") ? " selected" : ""%>>
                                         US-LA-Louisiana
                                     </option>
-                                    <option value="US-MA" <%=defaultProvince.equals("US-MA") ? " selected" : ""%>>
+                                    <option value="US-MA" <%=selectedProvince.equals("US-MA") ? " selected" : ""%>>
                                         US-MA-Massachusetts
                                     </option>
-                                    <option value="US-MD" <%=defaultProvince.equals("US-MD") ? " selected" : ""%>>
+                                    <option value="US-MD" <%=selectedProvince.equals("US-MD") ? " selected" : ""%>>
                                         US-MD-Maryland
                                     </option>
-                                    <option value="US-ME" <%=defaultProvince.equals("US-ME") ? " selected" : ""%>>
+                                    <option value="US-ME" <%=selectedProvince.equals("US-ME") ? " selected" : ""%>>
                                         US-ME-Maine
                                     </option>
-                                    <option value="US-MI" <%=defaultProvince.equals("US-MI") ? " selected" : ""%>>
+                                    <option value="US-MI" <%=selectedProvince.equals("US-MI") ? " selected" : ""%>>
                                         US-MI-Michigan
                                     </option>
-                                    <option value="US-MN" <%=defaultProvince.equals("US-MN") ? " selected" : ""%>>
+                                    <option value="US-MN" <%=selectedProvince.equals("US-MN") ? " selected" : ""%>>
                                         US-MN-Minnesota
                                     </option>
-                                    <option value="US-MO" <%=defaultProvince.equals("US-MO") ? " selected" : ""%>>
+                                    <option value="US-MO" <%=selectedProvince.equals("US-MO") ? " selected" : ""%>>
                                         US-MO-Missouri
                                     </option>
-                                    <option value="US-MS" <%=defaultProvince.equals("US-MS") ? " selected" : ""%>>
+                                    <option value="US-MS" <%=selectedProvince.equals("US-MS") ? " selected" : ""%>>
                                         US-MS-Mississippi
                                     </option>
-                                    <option value="US-MT" <%=defaultProvince.equals("US-MT") ? " selected" : ""%>>
+                                    <option value="US-MT" <%=selectedProvince.equals("US-MT") ? " selected" : ""%>>
                                         US-MT-Montana
                                     </option>
-                                    <option value="US-NC" <%=defaultProvince.equals("US-NC") ? " selected" : ""%>>
+                                    <option value="US-NC" <%=selectedProvince.equals("US-NC") ? " selected" : ""%>>
                                         US-NC-North Carolina
                                     </option>
-                                    <option value="US-ND" <%=defaultProvince.equals("US-ND") ? " selected" : ""%>>
+                                    <option value="US-ND" <%=selectedProvince.equals("US-ND") ? " selected" : ""%>>
                                         US-ND-North Dakota
                                     </option>
-                                    <option value="US-NE" <%=defaultProvince.equals("US-NE") ? " selected" : ""%>>
+                                    <option value="US-NE" <%=selectedProvince.equals("US-NE") ? " selected" : ""%>>
                                         US-NE-Nebraska
                                     </option>
-                                    <option value="US-NH" <%=defaultProvince.equals("US-NH") ? " selected" : ""%>>
+                                    <option value="US-NH" <%=selectedProvince.equals("US-NH") ? " selected" : ""%>>
                                         US-NH-New Hampshire
                                     </option>
-                                    <option value="US-NJ" <%=defaultProvince.equals("US-NJ") ? " selected" : ""%>>
+                                    <option value="US-NJ" <%=selectedProvince.equals("US-NJ") ? " selected" : ""%>>
                                         US-NJ-New Jersey
                                     </option>
-                                    <option value="US-NM" <%=defaultProvince.equals("US-NM") ? " selected" : ""%>>
+                                    <option value="US-NM" <%=selectedProvince.equals("US-NM") ? " selected" : ""%>>
                                         US-NM-New Mexico
                                     </option>
-                                    <option value="US-NU" <%=defaultProvince.equals("US-NU") ? " selected" : ""%>>
+                                    <option value="US-NU" <%=selectedProvince.equals("US-NU") ? " selected" : ""%>>
                                         US-NU-Nunavut
                                     </option>
-                                    <option value="US-NV" <%=defaultProvince.equals("US-NV") ? " selected" : ""%>>
+                                    <option value="US-NV" <%=selectedProvince.equals("US-NV") ? " selected" : ""%>>
                                         US-NV-Nevada
                                     </option>
-                                    <option value="US-NY" <%=defaultProvince.equals("US-NY") ? " selected" : ""%>>
+                                    <option value="US-NY" <%=selectedProvince.equals("US-NY") ? " selected" : ""%>>
                                         US-NY-New York
                                     </option>
-                                    <option value="US-OH" <%=defaultProvince.equals("US-OH") ? " selected" : ""%>>
+                                    <option value="US-OH" <%=selectedProvince.equals("US-OH") ? " selected" : ""%>>
                                         US-OH-Ohio
                                     </option>
-                                    <option value="US-OK" <%=defaultProvince.equals("US-OK") ? " selected" : ""%>>
+                                    <option value="US-OK" <%=selectedProvince.equals("US-OK") ? " selected" : ""%>>
                                         US-OK-Oklahoma
                                     </option>
-                                    <option value="US-OR" <%=defaultProvince.equals("US-OR") ? " selected" : ""%>>
+                                    <option value="US-OR" <%=selectedProvince.equals("US-OR") ? " selected" : ""%>>
                                         US-OR-Oregon
                                     </option>
-                                    <option value="US-PA" <%=defaultProvince.equals("US-PA") ? " selected" : ""%>>
+                                    <option value="US-PA" <%=selectedProvince.equals("US-PA") ? " selected" : ""%>>
                                         US-PA-Pennsylvania
                                     </option>
-                                    <option value="US-PR" <%=defaultProvince.equals("US-PR") ? " selected" : ""%>>
+                                    <option value="US-PR" <%=selectedProvince.equals("US-PR") ? " selected" : ""%>>
                                         US-PR-Puerto Rico
                                     </option>
-                                    <option value="US-RI" <%=defaultProvince.equals("US-RI") ? " selected" : ""%>>
+                                    <option value="US-RI" <%=selectedProvince.equals("US-RI") ? " selected" : ""%>>
                                         US-RI-Rhode Island
                                     </option>
-                                    <option value="US-SC" <%=defaultProvince.equals("US-SC") ? " selected" : ""%>>
+                                    <option value="US-SC" <%=selectedProvince.equals("US-SC") ? " selected" : ""%>>
                                         US-SC-South Carolina
                                     </option>
-                                    <option value="US-SD" <%=defaultProvince.equals("US-SD") ? " selected" : ""%>>
+                                    <option value="US-SD" <%=selectedProvince.equals("US-SD") ? " selected" : ""%>>
                                         US-SD-South Dakota
                                     </option>
-                                    <option value="US-TN" <%=defaultProvince.equals("US-TN") ? " selected" : ""%>>
+                                    <option value="US-TN" <%=selectedProvince.equals("US-TN") ? " selected" : ""%>>
                                         US-TN-Tennessee
                                     </option>
-                                    <option value="US-TX" <%=defaultProvince.equals("US-TX") ? " selected" : ""%>>
+                                    <option value="US-TX" <%=selectedProvince.equals("US-TX") ? " selected" : ""%>>
                                         US-TX-Texas
                                     </option>
-                                    <option value="US-UT" <%=defaultProvince.equals("US-UT") ? " selected" : ""%>>
+                                    <option value="US-UT" <%=selectedProvince.equals("US-UT") ? " selected" : ""%>>
                                         US-UT-Utah
                                     </option>
-                                    <option value="US-VA" <%=defaultProvince.equals("US-VA") ? " selected" : ""%>>
+                                    <option value="US-VA" <%=selectedProvince.equals("US-VA") ? " selected" : ""%>>
                                         US-VA-Virginia
                                     </option>
-                                    <option value="US-VI" <%=defaultProvince.equals("US-VI") ? " selected" : ""%>>
+                                    <option value="US-VI" <%=selectedProvince.equals("US-VI") ? " selected" : ""%>>
                                         US-VI-Virgin Islands
                                     </option>
-                                    <option value="US-VT" <%=defaultProvince.equals("US-VT") ? " selected" : ""%>>
+                                    <option value="US-VT" <%=selectedProvince.equals("US-VT") ? " selected" : ""%>>
                                         US-VT-Vermont
                                     </option>
-                                    <option value="US-WA" <%=defaultProvince.equals("US-WA") ? " selected" : ""%>>
+                                    <option value="US-WA" <%=selectedProvince.equals("US-WA") ? " selected" : ""%>>
                                         US-WA-Washington
                                     </option>
-                                    <option value="US-WI" <%=defaultProvince.equals("US-WI") ? " selected" : ""%>>
+                                    <option value="US-WI" <%=selectedProvince.equals("US-WI") ? " selected" : ""%>>
                                         US-WI-Wisconsin
                                     </option>
-                                    <option value="US-WV" <%=defaultProvince.equals("US-WV") ? " selected" : ""%>>
+                                    <option value="US-WV" <%=selectedProvince.equals("US-WV") ? " selected" : ""%>>
                                         US-WV-West Virginia
                                     </option>
-                                    <option value="US-WY" <%=defaultProvince.equals("US-WY") ? " selected" : ""%>>
+                                    <option value="US-WY" <%=selectedProvince.equals("US-WY") ? " selected" : ""%>>
                                         US-WY-Wyoming
                                     </option>
                                     <% } %>
@@ -493,7 +517,8 @@
                                         out.print(oscarProps.getProperty("demographicLabelPostal"));
                                     } %> : </b></td>
                             <td class="postalCell" align="left"><input type="text" id="postal" name="postal"
-                                                                       onBlur="upCaseCtrl(this)"></td>
+                                                                       onBlur="upCaseCtrl(this)"
+                                                                       value="<carlos:encode value='<%= prefillPostal %>' context="htmlAttribute"/>"></td>
                         </tr>
 
 
@@ -524,7 +549,7 @@
                                 <% } else { %>
                                 <select id="residentialProvince" name="residentialProvince">
                                     <option value="OT"
-                                            <%=defaultProvince.equals("") || defaultProvince.equals("OT") ? " selected" : ""%>>
+                                            <%=selectedProvince.equals("") || selectedProvince.equals("OT") ? " selected" : ""%>>
                                         Other
                                     </option>
 
@@ -536,209 +561,209 @@
                                     </option>
                                     <% } %>
                                     <% } else { %>
-                                    <option value="AB" <%=defaultProvince.equals("AB") ? " selected" : ""%>>AB-Alberta
+                                    <option value="AB" <%=selectedProvince.equals("AB") ? " selected" : ""%>>AB-Alberta
                                     </option>
-                                    <option value="BC" <%=defaultProvince.equals("BC") ? " selected" : ""%>>BC-British
+                                    <option value="BC" <%=selectedProvince.equals("BC") ? " selected" : ""%>>BC-British
                                         Columbia
                                     </option>
-                                    <option value="MB" <%=defaultProvince.equals("MB") ? " selected" : ""%>>
+                                    <option value="MB" <%=selectedProvince.equals("MB") ? " selected" : ""%>>
                                         MB-Manitoba
                                     </option>
-                                    <option value="NB" <%=defaultProvince.equals("NB") ? " selected" : ""%>>NB-New
+                                    <option value="NB" <%=selectedProvince.equals("NB") ? " selected" : ""%>>NB-New
                                         Brunswick
                                     </option>
-                                    <option value="NL" <%=defaultProvince.equals("NL") ? " selected" : ""%>>
+                                    <option value="NL" <%=selectedProvince.equals("NL") ? " selected" : ""%>>
                                         NL-Newfoundland & Labrador
                                     </option>
-                                    <option value="NT" <%=defaultProvince.equals("NT") ? " selected" : ""%>>NT-Northwest
+                                    <option value="NT" <%=selectedProvince.equals("NT") ? " selected" : ""%>>NT-Northwest
                                         Territory
                                     </option>
-                                    <option value="NS" <%=defaultProvince.equals("NS") ? " selected" : ""%>>NS-Nova
+                                    <option value="NS" <%=selectedProvince.equals("NS") ? " selected" : ""%>>NS-Nova
                                         Scotia
                                     </option>
-                                    <option value="NU" <%=defaultProvince.equals("NU") ? " selected" : ""%>>NU-Nunavut
+                                    <option value="NU" <%=selectedProvince.equals("NU") ? " selected" : ""%>>NU-Nunavut
                                     </option>
-                                    <option value="ON" <%=defaultProvince.equals("ON") ? " selected" : ""%>>ON-Ontario
+                                    <option value="ON" <%=selectedProvince.equals("ON") ? " selected" : ""%>>ON-Ontario
                                     </option>
-                                    <option value="PE" <%=defaultProvince.equals("PE") ? " selected" : ""%>>PE-Prince
+                                    <option value="PE" <%=selectedProvince.equals("PE") ? " selected" : ""%>>PE-Prince
                                         Edward Island
                                     </option>
-                                    <option value="QC" <%=defaultProvince.equals("QC") ? " selected" : ""%>>QC-Quebec
+                                    <option value="QC" <%=selectedProvince.equals("QC") ? " selected" : ""%>>QC-Quebec
                                     </option>
-                                    <option value="SK" <%=defaultProvince.equals("SK") ? " selected" : ""%>>
+                                    <option value="SK" <%=selectedProvince.equals("SK") ? " selected" : ""%>>
                                         SK-Saskatchewan
                                     </option>
-                                    <option value="YT" <%=defaultProvince.equals("YT") ? " selected" : ""%>>YT-Yukon
+                                    <option value="YT" <%=selectedProvince.equals("YT") ? " selected" : ""%>>YT-Yukon
                                     </option>
-                                    <option value="US" <%=defaultProvince.equals("US") ? " selected" : ""%>>US
+                                    <option value="US" <%=selectedProvince.equals("US") ? " selected" : ""%>>US
                                         resident
                                     </option>
-                                    <option value="US-AK" <%=defaultProvince.equals("US-AK") ? " selected" : ""%>>
+                                    <option value="US-AK" <%=selectedProvince.equals("US-AK") ? " selected" : ""%>>
                                         US-AK-Alaska
                                     </option>
-                                    <option value="US-AL" <%=defaultProvince.equals("US-AL") ? " selected" : ""%>>
+                                    <option value="US-AL" <%=selectedProvince.equals("US-AL") ? " selected" : ""%>>
                                         US-AL-Alabama
                                     </option>
-                                    <option value="US-AR" <%=defaultProvince.equals("US-AR") ? " selected" : ""%>>
+                                    <option value="US-AR" <%=selectedProvince.equals("US-AR") ? " selected" : ""%>>
                                         US-AR-Arkansas
                                     </option>
-                                    <option value="US-AZ" <%=defaultProvince.equals("US-AZ") ? " selected" : ""%>>
+                                    <option value="US-AZ" <%=selectedProvince.equals("US-AZ") ? " selected" : ""%>>
                                         US-AZ-Arizona
                                     </option>
-                                    <option value="US-CA" <%=defaultProvince.equals("US-CA") ? " selected" : ""%>>
+                                    <option value="US-CA" <%=selectedProvince.equals("US-CA") ? " selected" : ""%>>
                                         US-CA-California
                                     </option>
-                                    <option value="US-CO" <%=defaultProvince.equals("US-CO") ? " selected" : ""%>>
+                                    <option value="US-CO" <%=selectedProvince.equals("US-CO") ? " selected" : ""%>>
                                         US-CO-Colorado
                                     </option>
-                                    <option value="US-CT" <%=defaultProvince.equals("US-CT") ? " selected" : ""%>>
+                                    <option value="US-CT" <%=selectedProvince.equals("US-CT") ? " selected" : ""%>>
                                         US-CT-Connecticut
                                     </option>
-                                    <option value="US-CZ" <%=defaultProvince.equals("US-CZ") ? " selected" : ""%>>
+                                    <option value="US-CZ" <%=selectedProvince.equals("US-CZ") ? " selected" : ""%>>
                                         US-CZ-Canal Zone
                                     </option>
-                                    <option value="US-DC" <%=defaultProvince.equals("US-DC") ? " selected" : ""%>>
+                                    <option value="US-DC" <%=selectedProvince.equals("US-DC") ? " selected" : ""%>>
                                         US-DC-District Of Columbia
                                     </option>
-                                    <option value="US-DE" <%=defaultProvince.equals("US-DE") ? " selected" : ""%>>
+                                    <option value="US-DE" <%=selectedProvince.equals("US-DE") ? " selected" : ""%>>
                                         US-DE-Delaware
                                     </option>
-                                    <option value="US-FL" <%=defaultProvince.equals("US-FL") ? " selected" : ""%>>
+                                    <option value="US-FL" <%=selectedProvince.equals("US-FL") ? " selected" : ""%>>
                                         US-FL-Florida
                                     </option>
-                                    <option value="US-GA" <%=defaultProvince.equals("US-GA") ? " selected" : ""%>>
+                                    <option value="US-GA" <%=selectedProvince.equals("US-GA") ? " selected" : ""%>>
                                         US-GA-Georgia
                                     </option>
-                                    <option value="US-GU" <%=defaultProvince.equals("US-GU") ? " selected" : ""%>>
+                                    <option value="US-GU" <%=selectedProvince.equals("US-GU") ? " selected" : ""%>>
                                         US-GU-Guam
                                     </option>
-                                    <option value="US-HI" <%=defaultProvince.equals("US-HI") ? " selected" : ""%>>
+                                    <option value="US-HI" <%=selectedProvince.equals("US-HI") ? " selected" : ""%>>
                                         US-HI-Hawaii
                                     </option>
-                                    <option value="US-IA" <%=defaultProvince.equals("US-IA") ? " selected" : ""%>>
+                                    <option value="US-IA" <%=selectedProvince.equals("US-IA") ? " selected" : ""%>>
                                         US-IA-Iowa
                                     </option>
-                                    <option value="US-ID" <%=defaultProvince.equals("US-ID") ? " selected" : ""%>>
+                                    <option value="US-ID" <%=selectedProvince.equals("US-ID") ? " selected" : ""%>>
                                         US-ID-Idaho
                                     </option>
-                                    <option value="US-IL" <%=defaultProvince.equals("US-IL") ? " selected" : ""%>>
+                                    <option value="US-IL" <%=selectedProvince.equals("US-IL") ? " selected" : ""%>>
                                         US-IL-Illinois
                                     </option>
-                                    <option value="US-IN" <%=defaultProvince.equals("US-IN") ? " selected" : ""%>>
+                                    <option value="US-IN" <%=selectedProvince.equals("US-IN") ? " selected" : ""%>>
                                         US-IN-Indiana
                                     </option>
-                                    <option value="US-KS" <%=defaultProvince.equals("US-KS") ? " selected" : ""%>>
+                                    <option value="US-KS" <%=selectedProvince.equals("US-KS") ? " selected" : ""%>>
                                         US-KS-Kansas
                                     </option>
-                                    <option value="US-KY" <%=defaultProvince.equals("US-KY") ? " selected" : ""%>>
+                                    <option value="US-KY" <%=selectedProvince.equals("US-KY") ? " selected" : ""%>>
                                         US-KY-Kentucky
                                     </option>
-                                    <option value="US-LA" <%=defaultProvince.equals("US-LA") ? " selected" : ""%>>
+                                    <option value="US-LA" <%=selectedProvince.equals("US-LA") ? " selected" : ""%>>
                                         US-LA-Louisiana
                                     </option>
-                                    <option value="US-MA" <%=defaultProvince.equals("US-MA") ? " selected" : ""%>>
+                                    <option value="US-MA" <%=selectedProvince.equals("US-MA") ? " selected" : ""%>>
                                         US-MA-Massachusetts
                                     </option>
-                                    <option value="US-MD" <%=defaultProvince.equals("US-MD") ? " selected" : ""%>>
+                                    <option value="US-MD" <%=selectedProvince.equals("US-MD") ? " selected" : ""%>>
                                         US-MD-Maryland
                                     </option>
-                                    <option value="US-ME" <%=defaultProvince.equals("US-ME") ? " selected" : ""%>>
+                                    <option value="US-ME" <%=selectedProvince.equals("US-ME") ? " selected" : ""%>>
                                         US-ME-Maine
                                     </option>
-                                    <option value="US-MI" <%=defaultProvince.equals("US-MI") ? " selected" : ""%>>
+                                    <option value="US-MI" <%=selectedProvince.equals("US-MI") ? " selected" : ""%>>
                                         US-MI-Michigan
                                     </option>
-                                    <option value="US-MN" <%=defaultProvince.equals("US-MN") ? " selected" : ""%>>
+                                    <option value="US-MN" <%=selectedProvince.equals("US-MN") ? " selected" : ""%>>
                                         US-MN-Minnesota
                                     </option>
-                                    <option value="US-MO" <%=defaultProvince.equals("US-MO") ? " selected" : ""%>>
+                                    <option value="US-MO" <%=selectedProvince.equals("US-MO") ? " selected" : ""%>>
                                         US-MO-Missouri
                                     </option>
-                                    <option value="US-MS" <%=defaultProvince.equals("US-MS") ? " selected" : ""%>>
+                                    <option value="US-MS" <%=selectedProvince.equals("US-MS") ? " selected" : ""%>>
                                         US-MS-Mississippi
                                     </option>
-                                    <option value="US-MT" <%=defaultProvince.equals("US-MT") ? " selected" : ""%>>
+                                    <option value="US-MT" <%=selectedProvince.equals("US-MT") ? " selected" : ""%>>
                                         US-MT-Montana
                                     </option>
-                                    <option value="US-NC" <%=defaultProvince.equals("US-NC") ? " selected" : ""%>>
+                                    <option value="US-NC" <%=selectedProvince.equals("US-NC") ? " selected" : ""%>>
                                         US-NC-North Carolina
                                     </option>
-                                    <option value="US-ND" <%=defaultProvince.equals("US-ND") ? " selected" : ""%>>
+                                    <option value="US-ND" <%=selectedProvince.equals("US-ND") ? " selected" : ""%>>
                                         US-ND-North Dakota
                                     </option>
-                                    <option value="US-NE" <%=defaultProvince.equals("US-NE") ? " selected" : ""%>>
+                                    <option value="US-NE" <%=selectedProvince.equals("US-NE") ? " selected" : ""%>>
                                         US-NE-Nebraska
                                     </option>
-                                    <option value="US-NH" <%=defaultProvince.equals("US-NH") ? " selected" : ""%>>
+                                    <option value="US-NH" <%=selectedProvince.equals("US-NH") ? " selected" : ""%>>
                                         US-NH-New Hampshire
                                     </option>
-                                    <option value="US-NJ" <%=defaultProvince.equals("US-NJ") ? " selected" : ""%>>
+                                    <option value="US-NJ" <%=selectedProvince.equals("US-NJ") ? " selected" : ""%>>
                                         US-NJ-New Jersey
                                     </option>
-                                    <option value="US-NM" <%=defaultProvince.equals("US-NM") ? " selected" : ""%>>
+                                    <option value="US-NM" <%=selectedProvince.equals("US-NM") ? " selected" : ""%>>
                                         US-NM-New Mexico
                                     </option>
-                                    <option value="US-NU" <%=defaultProvince.equals("US-NU") ? " selected" : ""%>>
+                                    <option value="US-NU" <%=selectedProvince.equals("US-NU") ? " selected" : ""%>>
                                         US-NU-Nunavut
                                     </option>
-                                    <option value="US-NV" <%=defaultProvince.equals("US-NV") ? " selected" : ""%>>
+                                    <option value="US-NV" <%=selectedProvince.equals("US-NV") ? " selected" : ""%>>
                                         US-NV-Nevada
                                     </option>
-                                    <option value="US-NY" <%=defaultProvince.equals("US-NY") ? " selected" : ""%>>
+                                    <option value="US-NY" <%=selectedProvince.equals("US-NY") ? " selected" : ""%>>
                                         US-NY-New York
                                     </option>
-                                    <option value="US-OH" <%=defaultProvince.equals("US-OH") ? " selected" : ""%>>
+                                    <option value="US-OH" <%=selectedProvince.equals("US-OH") ? " selected" : ""%>>
                                         US-OH-Ohio
                                     </option>
-                                    <option value="US-OK" <%=defaultProvince.equals("US-OK") ? " selected" : ""%>>
+                                    <option value="US-OK" <%=selectedProvince.equals("US-OK") ? " selected" : ""%>>
                                         US-OK-Oklahoma
                                     </option>
-                                    <option value="US-OR" <%=defaultProvince.equals("US-OR") ? " selected" : ""%>>
+                                    <option value="US-OR" <%=selectedProvince.equals("US-OR") ? " selected" : ""%>>
                                         US-OR-Oregon
                                     </option>
-                                    <option value="US-PA" <%=defaultProvince.equals("US-PA") ? " selected" : ""%>>
+                                    <option value="US-PA" <%=selectedProvince.equals("US-PA") ? " selected" : ""%>>
                                         US-PA-Pennsylvania
                                     </option>
-                                    <option value="US-PR" <%=defaultProvince.equals("US-PR") ? " selected" : ""%>>
+                                    <option value="US-PR" <%=selectedProvince.equals("US-PR") ? " selected" : ""%>>
                                         US-PR-Puerto Rico
                                     </option>
-                                    <option value="US-RI" <%=defaultProvince.equals("US-RI") ? " selected" : ""%>>
+                                    <option value="US-RI" <%=selectedProvince.equals("US-RI") ? " selected" : ""%>>
                                         US-RI-Rhode Island
                                     </option>
-                                    <option value="US-SC" <%=defaultProvince.equals("US-SC") ? " selected" : ""%>>
+                                    <option value="US-SC" <%=selectedProvince.equals("US-SC") ? " selected" : ""%>>
                                         US-SC-South Carolina
                                     </option>
-                                    <option value="US-SD" <%=defaultProvince.equals("US-SD") ? " selected" : ""%>>
+                                    <option value="US-SD" <%=selectedProvince.equals("US-SD") ? " selected" : ""%>>
                                         US-SD-South Dakota
                                     </option>
-                                    <option value="US-TN" <%=defaultProvince.equals("US-TN") ? " selected" : ""%>>
+                                    <option value="US-TN" <%=selectedProvince.equals("US-TN") ? " selected" : ""%>>
                                         US-TN-Tennessee
                                     </option>
-                                    <option value="US-TX" <%=defaultProvince.equals("US-TX") ? " selected" : ""%>>
+                                    <option value="US-TX" <%=selectedProvince.equals("US-TX") ? " selected" : ""%>>
                                         US-TX-Texas
                                     </option>
-                                    <option value="US-UT" <%=defaultProvince.equals("US-UT") ? " selected" : ""%>>
+                                    <option value="US-UT" <%=selectedProvince.equals("US-UT") ? " selected" : ""%>>
                                         US-UT-Utah
                                     </option>
-                                    <option value="US-VA" <%=defaultProvince.equals("US-VA") ? " selected" : ""%>>
+                                    <option value="US-VA" <%=selectedProvince.equals("US-VA") ? " selected" : ""%>>
                                         US-VA-Virginia
                                     </option>
-                                    <option value="US-VI" <%=defaultProvince.equals("US-VI") ? " selected" : ""%>>
+                                    <option value="US-VI" <%=selectedProvince.equals("US-VI") ? " selected" : ""%>>
                                         US-VI-Virgin Islands
                                     </option>
-                                    <option value="US-VT" <%=defaultProvince.equals("US-VT") ? " selected" : ""%>>
+                                    <option value="US-VT" <%=selectedProvince.equals("US-VT") ? " selected" : ""%>>
                                         US-VT-Vermont
                                     </option>
-                                    <option value="US-WA" <%=defaultProvince.equals("US-WA") ? " selected" : ""%>>
+                                    <option value="US-WA" <%=selectedProvince.equals("US-WA") ? " selected" : ""%>>
                                         US-WA-Washington
                                     </option>
-                                    <option value="US-WI" <%=defaultProvince.equals("US-WI") ? " selected" : ""%>>
+                                    <option value="US-WI" <%=selectedProvince.equals("US-WI") ? " selected" : ""%>>
                                         US-WI-Wisconsin
                                     </option>
-                                    <option value="US-WV" <%=defaultProvince.equals("US-WV") ? " selected" : ""%>>
+                                    <option value="US-WV" <%=selectedProvince.equals("US-WV") ? " selected" : ""%>>
                                         US-WV-West Virginia
                                     </option>
-                                    <option value="US-WY" <%=defaultProvince.equals("US-WY") ? " selected" : ""%>>
+                                    <option value="US-WY" <%=selectedProvince.equals("US-WY") ? " selected" : ""%>>
                                         US-WY-Wyoming
                                     </option>
                                     <% } %>
@@ -757,7 +782,7 @@
                             <td id="phoneLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formPhoneHome"/>: </b></td>
                             <td id="phoneCell" align="left"><input type="text" id="phone" name="phone"
                                                                    onBlur="formatPhoneNum()"
-                                                                   value="<%=props.getProperty("phoneprefix", "905-")%>">
+                                                                   value="<carlos:encode value='<%= prefillPhone.isEmpty() ? props.getProperty("phoneprefix", "905-") : prefillPhone %>' context="htmlAttribute"/>">
                                 <fmt:message key="demographic.demographicaddrecordhtm.Ext"/>:<input
                                         type="text" id="hPhoneExt" name="hPhoneExt" value="" size="4"/></td>
                             <td id="phoneWorkLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formPhoneWork"/>:</b></td>
@@ -806,57 +831,22 @@
                                     <tr>
                                         <td><input type="text" name="year_of_birth" placeholder="yyyy"
                                                    id="year_of_birth"
-                                                   maxlength="4"></td>
+                                                   maxlength="4"
+                                                   value="<carlos:encode value='<%= prefillYearOfBirth %>' context="htmlAttribute"/>"></td>
 
                                         <td>
                                             <select name="month_of_birth" id="month_of_birth">
-                                                <option value="01">01
-                                                <option value="02">02
-                                                <option value="03">03
-                                                <option value="04">04
-                                                <option value="05">05
-                                                <option selected value="06">06
-                                                <option value="07">07
-                                                <option value="08">08
-                                                <option value="09">09
-                                                <option value="10">10
-                                                <option value="11">11
-                                                <option value="12">12
+                                                <% for (String m : new String[]{"01","02","03","04","05","06","07","08","09","10","11","12"}) { %>
+                                                <option value="<%=m%>" <%=(prefillMonthOfBirth.isEmpty() ? "06" : prefillMonthOfBirth).equals(m) ? "selected" : ""%>><%=m%>
+                                                <% } %>
                                             </select></td>
 
                                         <td>
                                             <select name="date_of_birth" id="date_of_birth">
-                                                <option value="01">01
-                                                <option value="02">02
-                                                <option value="03">03
-                                                <option value="04">04
-                                                <option value="05">05
-                                                <option value="06">06
-                                                <option value="07">07
-                                                <option value="08">08
-                                                <option value="09">09
-                                                <option value="10">10
-                                                <option value="11">11
-                                                <option value="12">12
-                                                <option value="13">13
-                                                <option value="14">14
-                                                <option selected value="15">15
-                                                <option value="16">16
-                                                <option value="17">17
-                                                <option value="18">18
-                                                <option value="19">19
-                                                <option value="20">20
-                                                <option value="21">21
-                                                <option value="22">22
-                                                <option value="23">23
-                                                <option value="24">24
-                                                <option value="25">25
-                                                <option value="26">26
-                                                <option value="27">27
-                                                <option value="28">28
-                                                <option value="29">29
-                                                <option value="30">30
-                                                <option value="31">31
+                                                <% for (int d = 1; d <= 31; d++) {
+                                                    String dStr = String.format("%02d", d); %>
+                                                <option value="<%=dStr%>" <%=(prefillDateOfBirth.isEmpty() ? "15" : prefillDateOfBirth).equals(dStr) ? "selected" : ""%>><%=dStr%>
+                                                <% } %>
                                             </select></td>
                                     </tr>
                                 </table>
@@ -882,6 +872,8 @@
                                     // Access defaultsex system property
                                     sex = props.getProperty("defaultsex", "");
                                 }
+                                // Prefill sex overrides the user/system default
+                                if (!prefillSex.isEmpty()) sex = prefillSex;
                             %>
                             <td id="gender" align="left">
 
@@ -909,9 +901,11 @@
                         <tr valign="top">
                             <td align="right" id="hinLbl"><b><fmt:message key="demographic.demographicaddrecordhtm.formHIN"/>: </b></td>
                             <td align="left" id="hinVer">
-                                <input type="text" name="hin" id="hin" onfocus="autoFillHin()">
+                                <input type="text" name="hin" id="hin" onfocus="autoFillHin()"
+                                       value="<carlos:encode value='<%= prefillHin %>' context="htmlAttribute"/>">
                                 <fmt:message key="demographic.demographicaddrecordhtm.formVer"/>:
-                                <input type="text" id="ver" name="ver" value="" onBlur="upCaseCtrl(this)">
+                                <input type="text" id="ver" name="ver" onBlur="upCaseCtrl(this)"
+                                       value="<carlos:encode value='<%= prefillVer %>' context="htmlAttribute"/>">
                             </td>
                             <td id="effDateLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formEFFDate"/>: </b></td>
                             <td id="effDate" align="left">
@@ -929,185 +923,185 @@
 
                                 <select name="hc_type" id="hc_type">
                                     <option value="OT"
-                                            <%=HCType.equals("") || HCType.equals("OT") ? " selected" : ""%>>Other
+                                            <%=selectedHcType.equals("") || selectedHcType.equals("OT") ? " selected" : ""%>>Other
                                     </option>
                                     <% if (pNames.isDefined()) {
                                         for (ListIterator li = pNames.listIterator(); li.hasNext(); ) {
                                             String province = (String) li.next(); %>
-                                    <option value="<%=province%>"<%=province.equals(HCType) ? " selected" : ""%>><%=li.next()%>
+                                    <option value="<%=province%>"<%=province.equals(selectedHcType) ? " selected" : ""%>><%=li.next()%>
                                     </option>
                                     <% } %>
                                     <% } else { %>
-                                    <option value="AB"<%=HCType.equals("AB") ? " selected" : ""%>>AB-Alberta</option>
-                                    <option value="BC"<%=HCType.equals("BC") ? " selected" : ""%>>BC-British Columbia
+                                    <option value="AB"<%=selectedHcType.equals("AB") ? " selected" : ""%>>AB-Alberta</option>
+                                    <option value="BC"<%=selectedHcType.equals("BC") ? " selected" : ""%>>BC-British Columbia
                                     </option>
-                                    <option value="MB"<%=HCType.equals("MB") ? " selected" : ""%>>MB-Manitoba</option>
-                                    <option value="NB"<%=HCType.equals("NB") ? " selected" : ""%>>NB-New Brunswick
+                                    <option value="MB"<%=selectedHcType.equals("MB") ? " selected" : ""%>>MB-Manitoba</option>
+                                    <option value="NB"<%=selectedHcType.equals("NB") ? " selected" : ""%>>NB-New Brunswick
                                     </option>
-                                    <option value="NL"<%=HCType.equals("NL") ? " selected" : ""%>>NL-Newfoundland &
+                                    <option value="NL"<%=selectedHcType.equals("NL") ? " selected" : ""%>>NL-Newfoundland &
                                         Labrador
                                     </option>
-                                    <option value="NT"<%=HCType.equals("NT") ? " selected" : ""%>>NT-Northwest
+                                    <option value="NT"<%=selectedHcType.equals("NT") ? " selected" : ""%>>NT-Northwest
                                         Territory
                                     </option>
-                                    <option value="NS"<%=HCType.equals("NS") ? " selected" : ""%>>NS-Nova Scotia
+                                    <option value="NS"<%=selectedHcType.equals("NS") ? " selected" : ""%>>NS-Nova Scotia
                                     </option>
-                                    <option value="NU"<%=HCType.equals("NU") ? " selected" : ""%>>NU-Nunavut</option>
-                                    <option value="ON"<%=HCType.equals("ON") ? " selected" : ""%>>ON-Ontario</option>
-                                    <option value="PE"<%=HCType.equals("PE") ? " selected" : ""%>>PE-Prince Edward
+                                    <option value="NU"<%=selectedHcType.equals("NU") ? " selected" : ""%>>NU-Nunavut</option>
+                                    <option value="ON"<%=selectedHcType.equals("ON") ? " selected" : ""%>>ON-Ontario</option>
+                                    <option value="PE"<%=selectedHcType.equals("PE") ? " selected" : ""%>>PE-Prince Edward
                                         Island
                                     </option>
-                                    <option value="QC"<%=HCType.equals("QC") ? " selected" : ""%>>QC-Quebec</option>
-                                    <option value="SK"<%=HCType.equals("SK") ? " selected" : ""%>>SK-Saskatchewan
+                                    <option value="QC"<%=selectedHcType.equals("QC") ? " selected" : ""%>>QC-Quebec</option>
+                                    <option value="SK"<%=selectedHcType.equals("SK") ? " selected" : ""%>>SK-Saskatchewan
                                     </option>
-                                    <option value="YT"<%=HCType.equals("YT") ? " selected" : ""%>>YT-Yukon</option>
-                                    <option value="US"<%=HCType.equals("US") ? " selected" : ""%>>US resident</option>
-                                    <option value="US-AK" <%=HCType.equals("US-AK") ? " selected" : ""%>>US-AK-Alaska
+                                    <option value="YT"<%=selectedHcType.equals("YT") ? " selected" : ""%>>YT-Yukon</option>
+                                    <option value="US"<%=selectedHcType.equals("US") ? " selected" : ""%>>US resident</option>
+                                    <option value="US-AK" <%=selectedHcType.equals("US-AK") ? " selected" : ""%>>US-AK-Alaska
                                     </option>
-                                    <option value="US-AL" <%=HCType.equals("US-AL") ? " selected" : ""%>>US-AL-Alabama
+                                    <option value="US-AL" <%=selectedHcType.equals("US-AL") ? " selected" : ""%>>US-AL-Alabama
                                     </option>
-                                    <option value="US-AR" <%=HCType.equals("US-AR") ? " selected" : ""%>>
+                                    <option value="US-AR" <%=selectedHcType.equals("US-AR") ? " selected" : ""%>>
                                         US-AR-Arkansas
                                     </option>
-                                    <option value="US-AZ" <%=HCType.equals("US-AZ") ? " selected" : ""%>>US-AZ-Arizona
+                                    <option value="US-AZ" <%=selectedHcType.equals("US-AZ") ? " selected" : ""%>>US-AZ-Arizona
                                     </option>
-                                    <option value="US-CA" <%=HCType.equals("US-CA") ? " selected" : ""%>>
+                                    <option value="US-CA" <%=selectedHcType.equals("US-CA") ? " selected" : ""%>>
                                         US-CA-California
                                     </option>
-                                    <option value="US-CO" <%=HCType.equals("US-CO") ? " selected" : ""%>>
+                                    <option value="US-CO" <%=selectedHcType.equals("US-CO") ? " selected" : ""%>>
                                         US-CO-Colorado
                                     </option>
-                                    <option value="US-CT" <%=HCType.equals("US-CT") ? " selected" : ""%>>
+                                    <option value="US-CT" <%=selectedHcType.equals("US-CT") ? " selected" : ""%>>
                                         US-CT-Connecticut
                                     </option>
-                                    <option value="US-CZ" <%=HCType.equals("US-CZ") ? " selected" : ""%>>US-CZ-Canal
+                                    <option value="US-CZ" <%=selectedHcType.equals("US-CZ") ? " selected" : ""%>>US-CZ-Canal
                                         Zone
                                     </option>
-                                    <option value="US-DC" <%=HCType.equals("US-DC") ? " selected" : ""%>>US-DC-District
+                                    <option value="US-DC" <%=selectedHcType.equals("US-DC") ? " selected" : ""%>>US-DC-District
                                         Of Columbia
                                     </option>
-                                    <option value="US-DE" <%=HCType.equals("US-DE") ? " selected" : ""%>>
+                                    <option value="US-DE" <%=selectedHcType.equals("US-DE") ? " selected" : ""%>>
                                         US-DE-Delaware
                                     </option>
-                                    <option value="US-FL" <%=HCType.equals("US-FL") ? " selected" : ""%>>US-FL-Florida
+                                    <option value="US-FL" <%=selectedHcType.equals("US-FL") ? " selected" : ""%>>US-FL-Florida
                                     </option>
-                                    <option value="US-GA" <%=HCType.equals("US-GA") ? " selected" : ""%>>US-GA-Georgia
+                                    <option value="US-GA" <%=selectedHcType.equals("US-GA") ? " selected" : ""%>>US-GA-Georgia
                                     </option>
-                                    <option value="US-GU" <%=HCType.equals("US-GU") ? " selected" : ""%>>US-GU-Guam
+                                    <option value="US-GU" <%=selectedHcType.equals("US-GU") ? " selected" : ""%>>US-GU-Guam
                                     </option>
-                                    <option value="US-HI" <%=HCType.equals("US-HI") ? " selected" : ""%>>US-HI-Hawaii
+                                    <option value="US-HI" <%=selectedHcType.equals("US-HI") ? " selected" : ""%>>US-HI-Hawaii
                                     </option>
-                                    <option value="US-IA" <%=HCType.equals("US-IA") ? " selected" : ""%>>US-IA-Iowa
+                                    <option value="US-IA" <%=selectedHcType.equals("US-IA") ? " selected" : ""%>>US-IA-Iowa
                                     </option>
-                                    <option value="US-ID" <%=HCType.equals("US-ID") ? " selected" : ""%>>US-ID-Idaho
+                                    <option value="US-ID" <%=selectedHcType.equals("US-ID") ? " selected" : ""%>>US-ID-Idaho
                                     </option>
-                                    <option value="US-IL" <%=HCType.equals("US-IL") ? " selected" : ""%>>
+                                    <option value="US-IL" <%=selectedHcType.equals("US-IL") ? " selected" : ""%>>
                                         US-IL-Illinois
                                     </option>
-                                    <option value="US-IN" <%=HCType.equals("US-IN") ? " selected" : ""%>>US-IN-Indiana
+                                    <option value="US-IN" <%=selectedHcType.equals("US-IN") ? " selected" : ""%>>US-IN-Indiana
                                     </option>
-                                    <option value="US-KS" <%=HCType.equals("US-KS") ? " selected" : ""%>>US-KS-Kansas
+                                    <option value="US-KS" <%=selectedHcType.equals("US-KS") ? " selected" : ""%>>US-KS-Kansas
                                     </option>
-                                    <option value="US-KY" <%=HCType.equals("US-KY") ? " selected" : ""%>>
+                                    <option value="US-KY" <%=selectedHcType.equals("US-KY") ? " selected" : ""%>>
                                         US-KY-Kentucky
                                     </option>
-                                    <option value="US-LA" <%=HCType.equals("US-LA") ? " selected" : ""%>>
+                                    <option value="US-LA" <%=selectedHcType.equals("US-LA") ? " selected" : ""%>>
                                         US-LA-Louisiana
                                     </option>
-                                    <option value="US-MA" <%=HCType.equals("US-MA") ? " selected" : ""%>>
+                                    <option value="US-MA" <%=selectedHcType.equals("US-MA") ? " selected" : ""%>>
                                         US-MA-Massachusetts
                                     </option>
-                                    <option value="US-MD" <%=HCType.equals("US-MD") ? " selected" : ""%>>
+                                    <option value="US-MD" <%=selectedHcType.equals("US-MD") ? " selected" : ""%>>
                                         US-MD-Maryland
                                     </option>
-                                    <option value="US-ME" <%=HCType.equals("US-ME") ? " selected" : ""%>>US-ME-Maine
+                                    <option value="US-ME" <%=selectedHcType.equals("US-ME") ? " selected" : ""%>>US-ME-Maine
                                     </option>
-                                    <option value="US-MI" <%=HCType.equals("US-MI") ? " selected" : ""%>>
+                                    <option value="US-MI" <%=selectedHcType.equals("US-MI") ? " selected" : ""%>>
                                         US-MI-Michigan
                                     </option>
-                                    <option value="US-MN" <%=HCType.equals("US-MN") ? " selected" : ""%>>
+                                    <option value="US-MN" <%=selectedHcType.equals("US-MN") ? " selected" : ""%>>
                                         US-MN-Minnesota
                                     </option>
-                                    <option value="US-MO" <%=HCType.equals("US-MO") ? " selected" : ""%>>
+                                    <option value="US-MO" <%=selectedHcType.equals("US-MO") ? " selected" : ""%>>
                                         US-MO-Missouri
                                     </option>
-                                    <option value="US-MS" <%=HCType.equals("US-MS") ? " selected" : ""%>>
+                                    <option value="US-MS" <%=selectedHcType.equals("US-MS") ? " selected" : ""%>>
                                         US-MS-Mississippi
                                     </option>
-                                    <option value="US-MT" <%=HCType.equals("US-MT") ? " selected" : ""%>>US-MT-Montana
+                                    <option value="US-MT" <%=selectedHcType.equals("US-MT") ? " selected" : ""%>>US-MT-Montana
                                     </option>
-                                    <option value="US-NC" <%=HCType.equals("US-NC") ? " selected" : ""%>>US-NC-North
+                                    <option value="US-NC" <%=selectedHcType.equals("US-NC") ? " selected" : ""%>>US-NC-North
                                         Carolina
                                     </option>
-                                    <option value="US-ND" <%=HCType.equals("US-ND") ? " selected" : ""%>>US-ND-North
+                                    <option value="US-ND" <%=selectedHcType.equals("US-ND") ? " selected" : ""%>>US-ND-North
                                         Dakota
                                     </option>
-                                    <option value="US-NE" <%=HCType.equals("US-NE") ? " selected" : ""%>>
+                                    <option value="US-NE" <%=selectedHcType.equals("US-NE") ? " selected" : ""%>>
                                         US-NE-Nebraska
                                     </option>
-                                    <option value="US-NH" <%=HCType.equals("US-NH") ? " selected" : ""%>>US-NH-New
+                                    <option value="US-NH" <%=selectedHcType.equals("US-NH") ? " selected" : ""%>>US-NH-New
                                         Hampshire
                                     </option>
-                                    <option value="US-NJ" <%=HCType.equals("US-NJ") ? " selected" : ""%>>US-NJ-New
+                                    <option value="US-NJ" <%=selectedHcType.equals("US-NJ") ? " selected" : ""%>>US-NJ-New
                                         Jersey
                                     </option>
-                                    <option value="US-NM" <%=HCType.equals("US-NM") ? " selected" : ""%>>US-NM-New
+                                    <option value="US-NM" <%=selectedHcType.equals("US-NM") ? " selected" : ""%>>US-NM-New
                                         Mexico
                                     </option>
-                                    <option value="US-NU" <%=HCType.equals("US-NU") ? " selected" : ""%>>US-NU-Nunavut
+                                    <option value="US-NU" <%=selectedHcType.equals("US-NU") ? " selected" : ""%>>US-NU-Nunavut
                                     </option>
-                                    <option value="US-NV" <%=HCType.equals("US-NV") ? " selected" : ""%>>US-NV-Nevada
+                                    <option value="US-NV" <%=selectedHcType.equals("US-NV") ? " selected" : ""%>>US-NV-Nevada
                                     </option>
-                                    <option value="US-NY" <%=HCType.equals("US-NY") ? " selected" : ""%>>US-NY-New
+                                    <option value="US-NY" <%=selectedHcType.equals("US-NY") ? " selected" : ""%>>US-NY-New
                                         York
                                     </option>
-                                    <option value="US-OH" <%=HCType.equals("US-OH") ? " selected" : ""%>>US-OH-Ohio
+                                    <option value="US-OH" <%=selectedHcType.equals("US-OH") ? " selected" : ""%>>US-OH-Ohio
                                     </option>
-                                    <option value="US-OK" <%=HCType.equals("US-OK") ? " selected" : ""%>>
+                                    <option value="US-OK" <%=selectedHcType.equals("US-OK") ? " selected" : ""%>>
                                         US-OK-Oklahoma
                                     </option>
-                                    <option value="US-OR" <%=HCType.equals("US-OR") ? " selected" : ""%>>US-OR-Oregon
+                                    <option value="US-OR" <%=selectedHcType.equals("US-OR") ? " selected" : ""%>>US-OR-Oregon
                                     </option>
-                                    <option value="US-PA" <%=HCType.equals("US-PA") ? " selected" : ""%>>
+                                    <option value="US-PA" <%=selectedHcType.equals("US-PA") ? " selected" : ""%>>
                                         US-PA-Pennsylvania
                                     </option>
-                                    <option value="US-PR" <%=HCType.equals("US-PR") ? " selected" : ""%>>US-PR-Puerto
+                                    <option value="US-PR" <%=selectedHcType.equals("US-PR") ? " selected" : ""%>>US-PR-Puerto
                                         Rico
                                     </option>
-                                    <option value="US-RI" <%=HCType.equals("US-RI") ? " selected" : ""%>>US-RI-Rhode
+                                    <option value="US-RI" <%=selectedHcType.equals("US-RI") ? " selected" : ""%>>US-RI-Rhode
                                         Island
                                     </option>
-                                    <option value="US-SC" <%=HCType.equals("US-SC") ? " selected" : ""%>>US-SC-South
+                                    <option value="US-SC" <%=selectedHcType.equals("US-SC") ? " selected" : ""%>>US-SC-South
                                         Carolina
                                     </option>
-                                    <option value="US-SD" <%=HCType.equals("US-SD") ? " selected" : ""%>>US-SD-South
+                                    <option value="US-SD" <%=selectedHcType.equals("US-SD") ? " selected" : ""%>>US-SD-South
                                         Dakota
                                     </option>
-                                    <option value="US-TN" <%=HCType.equals("US-TN") ? " selected" : ""%>>
+                                    <option value="US-TN" <%=selectedHcType.equals("US-TN") ? " selected" : ""%>>
                                         US-TN-Tennessee
                                     </option>
-                                    <option value="US-TX" <%=HCType.equals("US-TX") ? " selected" : ""%>>US-TX-Texas
+                                    <option value="US-TX" <%=selectedHcType.equals("US-TX") ? " selected" : ""%>>US-TX-Texas
                                     </option>
-                                    <option value="US-UT" <%=HCType.equals("US-UT") ? " selected" : ""%>>US-UT-Utah
+                                    <option value="US-UT" <%=selectedHcType.equals("US-UT") ? " selected" : ""%>>US-UT-Utah
                                     </option>
-                                    <option value="US-VA" <%=HCType.equals("US-VA") ? " selected" : ""%>>
+                                    <option value="US-VA" <%=selectedHcType.equals("US-VA") ? " selected" : ""%>>
                                         US-VA-Virginia
                                     </option>
-                                    <option value="US-VI" <%=HCType.equals("US-VI") ? " selected" : ""%>>US-VI-Virgin
+                                    <option value="US-VI" <%=selectedHcType.equals("US-VI") ? " selected" : ""%>>US-VI-Virgin
                                         Islands
                                     </option>
-                                    <option value="US-VT" <%=HCType.equals("US-VT") ? " selected" : ""%>>US-VT-Vermont
+                                    <option value="US-VT" <%=selectedHcType.equals("US-VT") ? " selected" : ""%>>US-VT-Vermont
                                     </option>
-                                    <option value="US-WA" <%=HCType.equals("US-WA") ? " selected" : ""%>>
+                                    <option value="US-WA" <%=selectedHcType.equals("US-WA") ? " selected" : ""%>>
                                         US-WA-Washington
                                     </option>
-                                    <option value="US-WI" <%=HCType.equals("US-WI") ? " selected" : ""%>>
+                                    <option value="US-WI" <%=selectedHcType.equals("US-WI") ? " selected" : ""%>>
                                         US-WI-Wisconsin
                                     </option>
-                                    <option value="US-WV" <%=HCType.equals("US-WV") ? " selected" : ""%>>US-WV-West
+                                    <option value="US-WV" <%=selectedHcType.equals("US-WV") ? " selected" : ""%>>US-WV-West
                                         Virginia
                                     </option>
-                                    <option value="US-WY" <%=HCType.equals("US-WY") ? " selected" : ""%>>US-WY-Wyoming
+                                    <option value="US-WY" <%=selectedHcType.equals("US-WY") ? " selected" : ""%>>US-WY-Wyoming
                                     </option>
                                     <% } %>
                                 </select>

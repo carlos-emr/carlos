@@ -33,6 +33,8 @@
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -74,6 +76,45 @@
     int parsedLimit2;
     try { parsedLimit2 = Integer.parseInt(strLimit2); } catch (NumberFormatException e) { parsedLimit2 = 10; }
     strLimit2 = String.valueOf(parsedLimit2);
+
+    // Extract patient demographics from the HL7 lab result for the "Add as New Patient" pre-fill
+    String labPatientFirstName  = "";
+    String labPatientLastName   = "";
+    String labPatientDobYear    = "";
+    String labPatientDobMonth   = "";
+    String labPatientDobDay     = "";
+    String labPatientSex        = "";
+    String labPatientAddress    = "";
+    String labPatientCity       = "";
+    String labPatientProvince   = "";
+    String labPatientPostal     = "";
+    String labPatientPhone      = "";
+    String labPatientHin        = "";
+    String labPatientHinVer     = "";
+    String labNo_param = StringUtils.noNull(request.getParameter("labNo"));
+    if (!labNo_param.isEmpty()) {
+        try {
+            MessageHandler labHandler = Factory.getHandler(labNo_param);
+            labPatientFirstName = StringUtils.noNull(labHandler.getFirstName());
+            labPatientLastName  = StringUtils.noNull(labHandler.getLastName());
+            String dob = StringUtils.noNull(labHandler.getDOB()); // YYYY-MM-DD
+            if (dob.length() == 10) {
+                labPatientDobYear  = dob.substring(0, 4);
+                labPatientDobMonth = dob.substring(5, 7);
+                labPatientDobDay   = dob.substring(8, 10);
+            }
+            labPatientSex      = StringUtils.noNull(labHandler.getSex());
+            labPatientAddress  = StringUtils.noNull(labHandler.getPatientAddress());
+            labPatientCity     = StringUtils.noNull(labHandler.getPatientCity());
+            labPatientProvince = StringUtils.noNull(labHandler.getPatientProvince());
+            labPatientPostal   = StringUtils.noNull(labHandler.getPatientPostal());
+            labPatientPhone    = StringUtils.noNull(labHandler.getHomePhone());
+            labPatientHin      = StringUtils.noNull(labHandler.getHealthNum());
+            labPatientHinVer   = StringUtils.noNull(labHandler.getHealthNumVersion());
+        } catch (Exception e) {
+            // Lab data unavailable; button will open blank add-patient form
+        }
+    }
 %>
 
 
@@ -400,6 +441,35 @@
         </form>
 
     </table>
+
+    <%-- "Add as New Patient" button — opens the demographic add form pre-filled with HL7 lab data --%>
+    <%
+        StringBuilder addPatientUrl = new StringBuilder(request.getContextPath())
+            .append("/demographic/DemographicAdd");
+        boolean hasLabData = !labNo_param.isEmpty();
+        if (hasLabData) {
+            addPatientUrl.append("?prefill_last_name=")   .append(java.net.URLEncoder.encode(labPatientLastName,  "UTF-8"));
+            addPatientUrl.append("&prefill_first_name=")  .append(java.net.URLEncoder.encode(labPatientFirstName, "UTF-8"));
+            addPatientUrl.append("&prefill_year_of_birth=").append(java.net.URLEncoder.encode(labPatientDobYear,   "UTF-8"));
+            addPatientUrl.append("&prefill_month_of_birth=").append(java.net.URLEncoder.encode(labPatientDobMonth, "UTF-8"));
+            addPatientUrl.append("&prefill_date_of_birth=").append(java.net.URLEncoder.encode(labPatientDobDay,    "UTF-8"));
+            addPatientUrl.append("&prefill_sex=")          .append(java.net.URLEncoder.encode(labPatientSex,       "UTF-8"));
+            addPatientUrl.append("&prefill_address=")      .append(java.net.URLEncoder.encode(labPatientAddress,   "UTF-8"));
+            addPatientUrl.append("&prefill_city=")         .append(java.net.URLEncoder.encode(labPatientCity,      "UTF-8"));
+            addPatientUrl.append("&prefill_province=")     .append(java.net.URLEncoder.encode(labPatientProvince,  "UTF-8"));
+            addPatientUrl.append("&prefill_postal=")       .append(java.net.URLEncoder.encode(labPatientPostal,    "UTF-8"));
+            addPatientUrl.append("&prefill_phone=")        .append(java.net.URLEncoder.encode(labPatientPhone,     "UTF-8"));
+            addPatientUrl.append("&prefill_hin=")          .append(java.net.URLEncoder.encode(labPatientHin,       "UTF-8"));
+            addPatientUrl.append("&prefill_ver=")          .append(java.net.URLEncoder.encode(labPatientHinVer,    "UTF-8"));
+            addPatientUrl.append("&prefill_hc_type=")      .append(java.net.URLEncoder.encode(labPatientProvince,  "UTF-8"));
+        }
+    %>
+    <div style="margin: 8px 0; text-align: center;">
+        <input type="button"
+               value="Add as New Patient"
+               style="background-color:#339999; color:#ffffff; font-weight:bold; padding:4px 12px; cursor:pointer;"
+               onclick="window.open('<carlos:encode value='<%= addPatientUrl.toString() %>' context="javaScriptAttribute"/>', 'addNewPatient', 'scrollbars=yes,resizable=yes,width=900,height=700')"/>
+    </div>
 
     <%
         int nLastPage = 0, nNextPage = 0;
