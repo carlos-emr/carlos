@@ -27,28 +27,32 @@
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
 
+    @since 2001-01-01
+    @see oscarMDS/ViewPatientSearch (Struts action that renders this page)
+    @see io.github.carlos_emr.carlos.mds.pageUtil.SearchPatient2Action
+    @see io.github.carlos_emr.carlos.mds.pageUtil.PatientMatch2Action
+
 --%>
-<%@ page import="java.util.*, java.sql.*,java.net.*, io.github.carlos_emr.carlos.db.DBPreparedHandler, io.github.carlos_emr.MyDateFormat, io.github.carlos_emr.Misc" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="java.util.*, java.sql.*, java.net.URLEncoder" %>
+<%@ page import="io.github.carlos_emr.carlos.db.DBPreparedHandler, io.github.carlos_emr.MyDateFormat, io.github.carlos_emr.Misc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler" %>
 
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-
-
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="r" reverse="<%=true%>">
-    <%authed = false; %>
+    <%authed = false;%>
     <%response.sendRedirect(request.getContextPath() + "/securityError?type=_lab");%>
 </security:oscarSec>
 <%
@@ -56,48 +60,41 @@
         return;
     }
 %>
+<jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 
 <%
+    // === Parameters ===
+    String p_from      = StringUtils.noNull(request.getParameter("from"));
+    String p_labNo     = StringUtils.noNull(request.getParameter("labNo"));
+    String p_labType   = StringUtils.noNull(request.getParameter("labType"));
+    String p_keyword   = StringUtils.noNull(request.getParameter("keyword")).trim();
+    String p_searchMode = StringUtils.noNull(request.getParameter("search_mode"));
+    String p_orderby   = StringUtils.noNull(request.getParameter("orderby"));
 
-    // Apologies for the crap code.  Definitely could do with a major rewrite...
-
-    // String curProvider_no = (String) session.getAttribute("user");
-    String curProvider_no = request.getParameter("provider_no");
-    String strLimit1 = "0";
-    String strLimit2 = "10";
-    StringBuffer bufChart = null, bufName = null, bufNo = null;
-    if (request.getParameter("limit1") != null) strLimit1 = request.getParameter("limit1");
-    if (request.getParameter("limit2") != null) strLimit2 = request.getParameter("limit2");
-
-    int parsedLimit1;
-    try { parsedLimit1 = Integer.parseInt(strLimit1); } catch (NumberFormatException e) { parsedLimit1 = 0; }
-    strLimit1 = String.valueOf(parsedLimit1);
-
-    int parsedLimit2;
-    try { parsedLimit2 = Integer.parseInt(strLimit2); } catch (NumberFormatException e) { parsedLimit2 = 10; }
-    strLimit2 = String.valueOf(parsedLimit2);
-
-    // Extract patient demographics from the HL7 lab result for the "Add as New Patient" pre-fill
-    String labPatientFirstName  = "";
-    String labPatientLastName   = "";
-    String labPatientDobYear    = "";
-    String labPatientDobMonth   = "";
-    String labPatientDobDay     = "";
-    String labPatientSex        = "";
-    String labPatientAddress    = "";
-    String labPatientCity       = "";
-    String labPatientProvince   = "";
-    String labPatientPostal     = "";
-    String labPatientPhone      = "";
-    String labPatientHin        = "";
-    String labPatientHinVer     = "";
-    String labNo_param = StringUtils.noNull(request.getParameter("labNo"));
-    if (!labNo_param.isEmpty()) {
+    int parsedLimit1 = 0;
+    int parsedLimit2 = 500;
+    if (request.getParameter("limit1") != null) {
+        try { parsedLimit1 = Math.max(0, Integer.parseInt(request.getParameter("limit1"))); } catch (NumberFormatException e) {}
+    }
+    if (request.getParameter("limit2") != null) {
         try {
-            MessageHandler labHandler = Factory.getHandler(labNo_param);
+            int tmp = Integer.parseInt(request.getParameter("limit2"));
+            if (tmp > 0) parsedLimit2 = tmp;
+        } catch (NumberFormatException e) {}
+    }
+
+    // === HL7 patient data extraction for Add as New Patient pre-fill ===
+    String labPatientFirstName = "", labPatientLastName  = "";
+    String labPatientDobYear   = "", labPatientDobMonth  = "", labPatientDobDay = "";
+    String labPatientSex       = "", labPatientAddress   = "", labPatientCity    = "";
+    String labPatientProvince  = "", labPatientPostal    = "", labPatientPhone   = "";
+    String labPatientHin       = "", labPatientHinVer    = "";
+    if (!p_labNo.isEmpty()) {
+        try {
+            MessageHandler labHandler = Factory.getHandler(p_labNo);
             labPatientFirstName = StringUtils.noNull(labHandler.getFirstName());
             labPatientLastName  = StringUtils.noNull(labHandler.getLastName());
-            String dob = StringUtils.noNull(labHandler.getDOB()); // YYYY-MM-DD
+            String dob = StringUtils.noNull(labHandler.getDOB());
             if (dob.length() == 10) {
                 labPatientDobYear  = dob.substring(0, 4);
                 labPatientDobMonth = dob.substring(5, 7);
@@ -111,428 +108,437 @@
             labPatientPhone    = StringUtils.noNull(labHandler.getHomePhone());
             labPatientHin      = StringUtils.noNull(labHandler.getHealthNum());
             labPatientHinVer   = StringUtils.noNull(labHandler.getHealthNumVersion());
-        } catch (Exception e) {
-            // Lab data unavailable; button will open blank add-patient form
-        }
+        } catch (Exception e) { /* lab data unavailable; button opens blank add-patient form */ }
     }
-%>
 
+    // === Add as New Patient URL ===
+    StringBuilder addPatientUrl = new StringBuilder(request.getContextPath()).append("/demographic/DemographicAdd");
+    if (!p_labNo.isEmpty()) {
+        addPatientUrl
+            .append("?prefill_last_name=")     .append(URLEncoder.encode(labPatientLastName,  "UTF-8"))
+            .append("&prefill_first_name=")    .append(URLEncoder.encode(labPatientFirstName, "UTF-8"))
+            .append("&prefill_year_of_birth=") .append(URLEncoder.encode(labPatientDobYear,   "UTF-8"))
+            .append("&prefill_month_of_birth=").append(URLEncoder.encode(labPatientDobMonth,  "UTF-8"))
+            .append("&prefill_date_of_birth=") .append(URLEncoder.encode(labPatientDobDay,    "UTF-8"))
+            .append("&prefill_sex=")           .append(URLEncoder.encode(labPatientSex,       "UTF-8"))
+            .append("&prefill_address=")       .append(URLEncoder.encode(labPatientAddress,   "UTF-8"))
+            .append("&prefill_city=")          .append(URLEncoder.encode(labPatientCity,       "UTF-8"))
+            .append("&prefill_province=")      .append(URLEncoder.encode(labPatientProvince,  "UTF-8"))
+            .append("&prefill_postal=")        .append(URLEncoder.encode(labPatientPostal,    "UTF-8"))
+            .append("&prefill_phone=")         .append(URLEncoder.encode(labPatientPhone,     "UTF-8"))
+            .append("&prefill_hin=")           .append(URLEncoder.encode(labPatientHin,       "UTF-8"))
+            .append("&prefill_ver=")           .append(URLEncoder.encode(labPatientHinVer,    "UTF-8"))
+            .append("&prefill_hc_type=")       .append(URLEncoder.encode(labPatientProvince,  "UTF-8"));
+    }
 
-<jsp:useBean id="providerBean" class="java.util.Properties"
-             scope="session"/>
-<html>
-<head>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title><fmt:message key="oscarMDS.segmentDisplay.patientSearch.title"/></title>
-    <script language="JavaScript">
-        <!--
-        function setfocus() {
-            this.focus();
-            document.titlesearch.keyword.focus();
-            document.titlesearch.keyword.select();
-        }
+    // === DB query: build patient rows list ===
+    List<Map<String,String>> patientRows = new ArrayList<>();
+    int nItems = 0;
 
-        function checkTypeIn() {
-            var dob = document.titlesearch.keyword;
-            if (document.titlesearch.search_mode[2].checked) {
-                if (dob.value.length == 8) {
-                    dob.value = dob.value.substring(0, 4) + "-" + dob.value.substring(4, 6) + "-" + dob.value.substring(6, 8);
-                    //alert(dob.value.length);
+    if (!p_searchMode.isEmpty()) {
+        GregorianCalendar now = new GregorianCalendar();
+        int curYear  = now.get(Calendar.YEAR);
+        int curMonth = now.get(Calendar.MONTH) + 1;
+        int curDay   = now.get(Calendar.DAY_OF_MONTH);
+
+        // Sanitize ORDER BY against allowed column names
+        String safeOrderby = "order by last_name";
+        if (!p_orderby.isEmpty()) {
+            Set<String> validCols = Set.of("last_name","first_name","demographic_no","chart_no",
+                "hin","phone","sex","year_of_birth","month_of_birth","date_of_birth",
+                "roster_status","patient_status","provider_no");
+            String[] parts = p_orderby.trim().split("\\s+");
+            if (parts.length >= 1 && parts.length <= 2) {
+                String col = parts[0];
+                String dir = "";
+                if (parts.length == 2) {
+                    if ("asc".equalsIgnoreCase(parts[1]))       dir = " ASC";
+                    else if ("desc".equalsIgnoreCase(parts[1])) dir = " DESC";
+                    else col = "";
                 }
-                if (dob.value.length != 10) {
-                    alert("DOB format is incorrect");
-                    return false;
-                }
+                if (validCols.contains(col)) safeOrderby = "order by " + col + dir;
             }
         }
 
-        //-->
-    </SCRIPT>
+        String regularexp = "like";
+        String fieldname;
+        boolean isNameByLastAndFirst = false;
 
-</head>
-<body onLoad="setfocus()" topmargin="0" leftmargin="0" rightmargin="0">
-<table border="0" cellspacing="0" cellpadding="0" width="100%">
-    <tr bgcolor="#486ebd">
-        <th align=CENTER NOWRAP><font face="Helvetica" color="#FFFFFF">PATIENT
-            MATCHING</font></th>
-    </tr>
-</table>
+        if ("search_address".equals(p_searchMode)) {
+            fieldname = "address";
+        } else if ("search_phone".equals(p_searchMode)) {
+            fieldname = "phone";
+        } else if ("search_hin".equals(p_searchMode)) {
+            fieldname = "hin";
+        } else if ("search_dob".equals(p_searchMode)) {
+            fieldname = "year_of_birth " + regularexp + " ? and month_of_birth " + regularexp + " ? and date_of_birth";
+        } else if ("search_chart_no".equals(p_searchMode)) {
+            fieldname = "chart_no";
+        } else { // search_name (default)
+            String kwtrim = p_keyword.trim();
+            if (kwtrim.indexOf(",") < 0 || kwtrim.indexOf(",") == kwtrim.length() - 1) {
+                fieldname = "last_name";
+            } else {
+                isNameByLastAndFirst = true;
+                fieldname = "last_name " + regularexp + " ? and first_name";
+            }
+        }
 
-<table border="0" cellpadding="1" cellspacing="0" width="100%"
-       bgcolor="#C4D9E7">
-    <form method="post" name="titlesearch" action="<%=request.getContextPath()%>/oscarMDS/SearchPatient"
-          onSubmit="return checkTypeIn();">
-        <input type="hidden"
-               name="from" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("from")) %>' context="htmlAttribute"/>"/>
-        <input type="hidden"
-               name="labNo" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("labNo")) %>' context="htmlAttribute"/>"/> <input
-            type="hidden" name="labType"
-            value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("labType")) %>' context="htmlAttribute"/>"/> <%--@ include file="zdemographictitlesearch.htm"--%>
-        <tr valign="top">
-            <td rowspan="2" ALIGN="right" valign="middle"><font
-                    face="Verdana" color="#0000FF"><b><i>Search</i></b></font></td>
-            <td width="10%" nowrap><font size="1" face="Verdana"
-                                         color="#0000FF"> <input type="radio" checked
-                                                                 name="search_mode" value="search_name"> <fmt:message key="oscarMDS.segmentDisplay.patientSearch.formName"/> </font></td>
-            <td nowrap><font size="1" face="Verdana" color="#0000FF">
-                <input type="radio" name="search_mode" value="search_phone"> <fmt:message key="oscarMDS.segmentDisplay.patientSearch.formPhone"/> </font></td>
-            <td nowrap><font size="1" face="Verdana" color="#0000FF">
-                <input type="radio" name="search_mode" value="search_dob"> <fmt:message key="oscarMDS.segmentDisplay.patientSearch.formDOB"/> </font></td>
-            <td valign="middle" rowspan="2" ALIGN="left"><input type="text"
-                                                                NAME="keyword" SIZE="17" MAXLENGTH="100"
-                                                                value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' context="htmlAttribute"/>"> <INPUT
-                    TYPE="hidden" NAME="orderby" VALUE="last_name"> <INPUT
-                    TYPE="hidden" NAME="dboperation" VALUE="search_titlename"> <INPUT
-                    TYPE="hidden" NAME="limit1" VALUE="0"> <INPUT TYPE="hidden"
-                                                                  NAME="limit2" VALUE="5"> <input type="hidden"
-                                                                                                  name="displaymode"
-                                                                                                  value="Search ">
-                <input type="SUBMIT"
-                       name="displaymode"
-                       value="<fmt:message key="oscarMDS.segmentDisplay.patientSearch.btnSearch"/>"
-                       size="17"></td>
-        </tr>
-        <tr>
-            <td nowrap><font size="1" face="Verdana" color="#0000FF">
-                <input type="radio" name="search_mode" value="search_address">
-                <fmt:message key="oscarMDS.segmentDisplay.patientSearch.formAddress"/>
-            </font></td>
-            <td nowrap><font size="1" face="Verdana" color="#0000FF">
-                <input type="radio" name="search_mode" value="search_hin"> <fmt:message key="oscarMDS.segmentDisplay.patientSearch.formHIN"/> </font></td>
-            <td>&nbsp;</td>
-        </tr>
-    </form>
-</table>
+        String sql = "select demographic_no,first_name,last_name,roster_status,patient_status,sex,"
+            + "chart_no,year_of_birth,month_of_birth,date_of_birth,provider_no "
+            + "from demographic where " + fieldname + " " + regularexp + " ? " + safeOrderby;
 
-<table width="95%" border="0">
-    <tr>
-        <td align="left"><font size="-1"> <i><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgResults"/></i> : <carlos:encode value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' context="html"/>
-        </font></td>
-    </tr>
-</table>
-
-
-<script language="JavaScript">
-    <!--
-    var fullname = "";
-
-    function addName(lastname, firstname, chartno) {
-        fullname = lastname + "," + firstname;
-        document.addform.action = "<carlos:encode value='<%= StringUtils.noNull(request.getParameter("originalpage")) %>' context="javaScript"/>?name=" + fullname + "&chart_no=" + chartno + "&bFirstDisp=false";  //+"\"" ;
-        document.addform.submit(); //
-        //return;
-    }
-
-    //-->
-</SCRIPT>
-<script>
-    function updateOpener(t1, t2) {
-        window.opener.updateLabDemoStatus(t1);
-    }
-</script>
-<CENTER>
-    <table width="100%" border="1" cellpadding="0" cellspacing="1"
-           bgcolor="#ffffff">
-        <form method="post" name="addform" action="PatientMatch"><input
-                type="hidden" name="labNo" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("labNo")) %>' context="htmlAttribute"/>">
-            <input type="hidden" name="labType"
-                   value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("labType")) %>' context="htmlAttribute"/>"/>
-            <tr bgcolor="#339999">
-                <TH align="center" width="10%"><b><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgPatientId"/></b></TH>
-                <TH align="center" width="20%"><b><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgLastName"/></b></TH>
-                <TH align="center" width="20%"><b><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgFirstName"/></b></TH>
-                <TH align="center" width="5%"><b><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgAge"/></b></TH>
-                <TH align="center" width="10%"><b><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgRosterStatus"/></b></TH>
-                <TH align="center" width="10%"><b><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgPatientStatus"/></b></TH>
-                <TH align="center" width="5%"><b><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgSex"/></B></TH>
-                <TH align="center" width="10%"><b><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgDOB"/></B></TH>
-                <TH align="center" width="10%"><b><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgDoctor"/></B></TH>
-            </tr>
-
-            <%
-                GregorianCalendar now = new GregorianCalendar();
-                int curYear = now.get(Calendar.YEAR);
-                int curMonth = (now.get(Calendar.MONTH) + 1);
-                int curDay = now.get(Calendar.DAY_OF_MONTH);
-                int age = 0;
-
-                ResultSet rs = null;
-                Properties props = io.github.carlos_emr.CarlosProperties.getInstance();
-                DBPreparedHandler db = new DBPreparedHandler();
-
-                String keyword = "";
-                if (request.getParameter("keyword") != null) {
-                    keyword = request.getParameter("keyword").trim();
-                }
-
-                String orderby = "", limit = "", limit1 = "", limit2 = "";
-                // Validate orderby against allowed demographic columns to prevent SQL injection
-                // while still allowing an optional ASC/DESC direction.
-                String orderbyParam = request.getParameter("orderby");
-                if (orderbyParam != null) {
-                    Set<String> validColumns = Set.of("last_name", "first_name", "demographic_no",
-                        "chart_no", "hin", "phone", "sex", "year_of_birth", "month_of_birth",
-                        "date_of_birth", "roster_status", "patient_status", "provider_no");
-                    String[] orderbyParts = orderbyParam.trim().split("\\s+");
-                    if (orderbyParts.length >= 1 && orderbyParts.length <= 2) {
-                        String orderbyColumn = orderbyParts[0];
-                        String orderbyDirection = "";
-                        if (orderbyParts.length == 2) {
-                            if ("asc".equalsIgnoreCase(orderbyParts[1])) {
-                                orderbyDirection = " ASC";
-                            } else if ("desc".equalsIgnoreCase(orderbyParts[1])) {
-                                orderbyDirection = " DESC";
-                            } else {
-                                orderbyColumn = "";
-                            }
-                        }
-                        if (validColumns.contains(orderbyColumn)) {
-                            orderby = "order by " + orderbyColumn + orderbyDirection;
-                        }
-                    }
-                }
-                // Validate limit values as integers to prevent SQL injection
-                if (request.getParameter("limit1") != null) {
-                    try { limit1 = String.valueOf(Math.max(0, Integer.parseInt(request.getParameter("limit1")))); } catch (NumberFormatException e) { limit1 = "0"; }
-                }
-                if (request.getParameter("limit2") != null) {
-                    try { limit2 = String.valueOf(Math.max(0, Integer.parseInt(request.getParameter("limit2")))); } catch (NumberFormatException e) { limit2 = ""; }
-                    if (!limit2.isEmpty()) {
-                        limit = "limit " + limit2 + " offset " + (limit1.isEmpty() ? "0" : limit1);
-                    }
-                }
-
-                String fieldname = "", regularexp = "like"; // exactly search is not required by users, e.g. regularexp="=";
-                boolean isNameSearchByLastNameAndFirstName = false;
-                if (request.getParameter("search_mode") != null) {
-                    if (request.getParameter("keyword").indexOf("*") != -1 || request.getParameter("keyword").indexOf("%") != -1)
-                        regularexp = "like";
-                    if (request.getParameter("search_mode").equals("search_address")) fieldname = "address";
-                    if (request.getParameter("search_mode").equals("search_phone")) fieldname = "phone";
-                    if (request.getParameter("search_mode").equals("search_hin")) fieldname = "hin";
-                    if (request.getParameter("search_mode").equals("search_dob"))
-                        fieldname = "year_of_birth " + regularexp + " ?" + " and month_of_birth " + regularexp + " ?" + " and date_of_birth ";
-                    if (request.getParameter("search_mode").equals("search_chart_no")) fieldname = "chart_no";
-                    if (request.getParameter("search_mode").equals("search_name")) {
-                        if (request.getParameter("keyword").indexOf(",") == -1) {
-                            fieldname = "last_name";
-                        } else if (request.getParameter("keyword").trim().indexOf(",") == (request.getParameter("keyword").trim().length() - 1)) {
-                            fieldname = "last_name";
-                        } else {
-                            isNameSearchByLastNameAndFirstName = true;
-                            fieldname = "last_name " + regularexp + " ?" + " and first_name ";
-                        }
-                    }
-                }
-
-                String sql = "select demographic_no,first_name,last_name,roster_status,patient_status,sex,chart_no,year_of_birth,month_of_birth,date_of_birth,provider_no from demographic where " + fieldname + " " + regularexp + " ? " + orderby; // + " "+limit;
-
-                if (request.getParameter("search_mode").equals("search_name")) {
-                    keyword = keyword + "%";
-                    if (keyword.indexOf(",") == -1) {
-                        rs = db.queryResults(sql, keyword); //lastname
-                    } else if (keyword.indexOf(",") == (keyword.length() - 1)) {
-                        rs = db.queryResults(sql, keyword.substring(0, (keyword.length() - 1)));//lastname
-                    } else { //lastname,firstname
-                        String[] param;
-                        int index = keyword.indexOf(",");
-                        if (index != -1) {
-                            if (isNameSearchByLastNameAndFirstName) {
-                                param = new String[2];
-                                param[0] = keyword.substring(0, index).trim() + "%";//(",");
-                                param[1] = keyword.substring(index + 1).trim() + "%";
-                            } else {
-                                param = new String[1];
-                                param[0] = keyword.substring(0, index).trim() + "%";//(",");
-                            }
-                        } else {
-                            param = new String[1];
-                            param[0] = keyword;
-                        }
+        DBPreparedHandler db = new DBPreparedHandler();
+        ResultSet rs = null;
+        try {
+            if ("search_dob".equals(p_searchMode)) {
+                String yearStr = "" + MyDateFormat.getYearFromStandardDate(p_keyword) + "%";
+                String monStr  = "" + MyDateFormat.getMonthFromStandardDate(p_keyword) + "%";
+                String dayStr  = "" + MyDateFormat.getDayFromStandardDate(p_keyword) + "%";
+                if (monStr.length() == 2) monStr = "0" + monStr; // zero-pad single-digit month
+                String[] param = { yearStr, monStr, dayStr };
+                rs = db.queryResults(sql, param);
+            } else if ("search_name".equals(p_searchMode)) {
+                String kw = p_keyword + "%";
+                if (kw.indexOf(",") < 0) {
+                    rs = db.queryResults(sql, kw);
+                } else {
+                    int commaIdx = kw.indexOf(",");
+                    if (isNameByLastAndFirst) {
+                        String[] param = {
+                            kw.substring(0, commaIdx).trim() + "%",
+                            kw.substring(commaIdx + 1).trim() + "%"
+                        };
+                        rs = db.queryResults(sql, param);
+                    } else {
+                        String[] param = { kw.substring(0, commaIdx).trim() + "%" };
                         rs = db.queryResults(sql, param);
                     }
-                } else if (request.getParameter("search_mode").equals("search_dob")) {
-                    String[] param = new String[3];
-                    param[0] = "" + MyDateFormat.getYearFromStandardDate(keyword) + "%";//(",");
-                    param[1] = "" + MyDateFormat.getMonthFromStandardDate(keyword) + "%";
-                    param[2] = "" + MyDateFormat.getDayFromStandardDate(keyword) + "%";
-                    if (param[1].length() == 2) {
-                        param[1] = "0" + param[1];
-                    }
-                    rs = db.queryResults(sql, param);
-                } else {
-                    keyword = keyword + "%";
-                    rs = db.queryResults(sql, keyword);
                 }
+            } else {
+                rs = db.queryResults(sql, p_keyword + "%");
+            }
 
-                boolean bodd = false;
-                int nItems = 0;
+            if (rs != null) {
+                DemographicMerged dmDAO = new DemographicMerged();
+                for (int skip = 0; skip < parsedLimit1 && rs.next(); skip++) {}
 
-                if (rs == null) {
-                    out.println("failed!!!");
-                } else {
-                    int offset = Integer.parseInt(strLimit1);
-                    int idx = 0;
-                    while (idx < offset) {
-                        rs.next();
-                        idx++;
+                while (rs.next() && nItems < parsedLimit2) {
+                    String demoNo = Misc.getString(rs, "demographic_no");
+                    String head = dmDAO.getHead(demoNo);
+                    if (head != null && !head.equals(demoNo)) continue; // skip merged non-head records
+
+                    nItems++;
+                    int age = 0;
+                    String monthStr = Misc.getString(rs, "month_of_birth");
+                    if (!monthStr.isEmpty()) {
+                        try {
+                            int bYear  = Integer.parseInt(Misc.getString(rs, "year_of_birth"));
+                            int bMonth = Integer.parseInt(monthStr);
+                            int bDay   = Integer.parseInt(Misc.getString(rs, "date_of_birth"));
+                            age = curYear - bYear;
+                            if (curMonth < bMonth || (curMonth == bMonth && curDay <= bDay)) age--;
+                        } catch (NumberFormatException e2) {}
                     }
-                    idx = 0;
 
+                    String dob = Misc.getString(rs, "year_of_birth") + "-"
+                        + Misc.getString(rs, "month_of_birth") + "-"
+                        + Misc.getString(rs, "date_of_birth");
 
-                    DemographicMerged dmDAO = new DemographicMerged();
-
-                    while (rs.next() && idx < Integer.parseInt(strLimit2)) {
-                        String dem_no = io.github.carlos_emr.Misc.getString(rs, "demographic_no");
-                        String head = dmDAO.getHead(dem_no);
-
-                        if (head != null && !head.equals(dem_no)) {
-                            //skip non head records
-                            continue;
-                        }
-
-                        bodd = bodd ? false : true; //for the color of rows
-                        nItems++; //to calculate if it is the end of records
-
-                        if (!(io.github.carlos_emr.Misc.getString(rs, "month_of_birth").equals(""))) {//   ||io.github.carlos_emr.Misc.getString(rs,"year_of_birth")||io.github.carlos_emr.Misc.getString(rs,"date_of_birth")) {
-                            if (curMonth > Integer.parseInt(io.github.carlos_emr.Misc.getString(rs, "month_of_birth"))) {
-                                age = curYear - Integer.parseInt(io.github.carlos_emr.Misc.getString(rs, "year_of_birth"));
-                            } else {
-                                if (curMonth == Integer.parseInt(io.github.carlos_emr.Misc.getString(rs, "month_of_birth")) &&
-                                        curDay > Integer.parseInt(io.github.carlos_emr.Misc.getString(rs, "date_of_birth"))) {
-                                    age = curYear - Integer.parseInt(io.github.carlos_emr.Misc.getString(rs, "year_of_birth"));
-                                } else {
-                                    age = curYear - Integer.parseInt(io.github.carlos_emr.Misc.getString(rs, "year_of_birth")) - 1;
-                                }
-                            }
-                        }
-            %>
-
-            <tr bgcolor="<%=bodd?"ivory":"white"%>" align="center">
-                <td><input type="submit" name="demographicNo"
-                           value="<carlos:encode value='<%= io.github.carlos_emr.Misc.getString(rs,"demographic_no") %>' context="htmlAttribute"/>"
-                           onclick="updateOpener('<carlos:encode value='<%= StringUtils.noNull(request.getParameter("labNo")) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= io.github.carlos_emr.Misc.getString(rs,"demographic_no") %>' context="javaScriptAttribute"/>');">
-                </td>
-                <td><%=nbsp(SafeEncode.forHtml(Misc.toUpperLowerCase(io.github.carlos_emr.Misc.getString(rs, "last_name"))))%>
-                </td>
-                <td><%=nbsp(SafeEncode.forHtml(Misc.toUpperLowerCase(io.github.carlos_emr.Misc.getString(rs, "first_name"))))%>
-                </td>
-                <td><%= age %>
-                </td>
-                <td><%=nbsp(SafeEncode.forHtml(io.github.carlos_emr.Misc.getString(rs, "roster_status")))%>
-                </td>
-                <td><%=nbsp(SafeEncode.forHtml(io.github.carlos_emr.Misc.getString(rs, "patient_status")))%>
-                </td>
-                <td><%=nbsp(SafeEncode.forHtml(io.github.carlos_emr.Misc.getString(rs, "sex")))%>
-                </td>
-                <td><%=nbsp(SafeEncode.forHtml(io.github.carlos_emr.Misc.getString(rs, "year_of_birth") + "-" + io.github.carlos_emr.Misc.getString(rs, "month_of_birth") + "-" + io.github.carlos_emr.Misc.getString(rs, "date_of_birth")))%>
-                </td>
-                <td><%=providerBean.getProperty(io.github.carlos_emr.Misc.getString(rs, "provider_no")) == null ? "&nbsp;" : SafeEncode.forHtml(providerBean.getProperty(io.github.carlos_emr.Misc.getString(rs, "provider_no"))) %>
-                </td>
-
-            </tr>
-            <%
-                        bufName = new StringBuffer((io.github.carlos_emr.Misc.getString(rs, "last_name") + "," + io.github.carlos_emr.Misc.getString(rs, "first_name")));
-                        bufNo = new StringBuffer((io.github.carlos_emr.Misc.getString(rs, "demographic_no")));
-                        bufChart = new StringBuffer((io.github.carlos_emr.Misc.getString(rs, "chart_no")));
-                    }
+                    String pNo = Misc.getString(rs, "provider_no");
+                    Map<String,String> row = new LinkedHashMap<>();
+                    row.put("demoNo",       demoNo);
+                    row.put("lastName",     Misc.toUpperLowerCase(Misc.getString(rs, "last_name")));
+                    row.put("firstName",    Misc.toUpperLowerCase(Misc.getString(rs, "first_name")));
+                    row.put("age",          String.valueOf(age));
+                    row.put("rosterStatus", Misc.getString(rs, "roster_status"));
+                    row.put("patientStatus",Misc.getString(rs, "patient_status"));
+                    row.put("sex",          Misc.getString(rs, "sex"));
+                    row.put("dob",          dob);
+                    row.put("providerName", providerBean.getProperty(pNo, ""));
+                    patientRows.add(row);
                 }
-            %>
-        </form>
-
-    </table>
-
-    <%-- "Add as New Patient" button — opens the demographic add form pre-filled with HL7 lab data --%>
-    <%
-        StringBuilder addPatientUrl = new StringBuilder(request.getContextPath())
-            .append("/demographic/DemographicAdd");
-        boolean hasLabData = !labNo_param.isEmpty();
-        if (hasLabData) {
-            addPatientUrl.append("?prefill_last_name=")   .append(java.net.URLEncoder.encode(labPatientLastName,  "UTF-8"));
-            addPatientUrl.append("&prefill_first_name=")  .append(java.net.URLEncoder.encode(labPatientFirstName, "UTF-8"));
-            addPatientUrl.append("&prefill_year_of_birth=").append(java.net.URLEncoder.encode(labPatientDobYear,   "UTF-8"));
-            addPatientUrl.append("&prefill_month_of_birth=").append(java.net.URLEncoder.encode(labPatientDobMonth, "UTF-8"));
-            addPatientUrl.append("&prefill_date_of_birth=").append(java.net.URLEncoder.encode(labPatientDobDay,    "UTF-8"));
-            addPatientUrl.append("&prefill_sex=")          .append(java.net.URLEncoder.encode(labPatientSex,       "UTF-8"));
-            addPatientUrl.append("&prefill_address=")      .append(java.net.URLEncoder.encode(labPatientAddress,   "UTF-8"));
-            addPatientUrl.append("&prefill_city=")         .append(java.net.URLEncoder.encode(labPatientCity,      "UTF-8"));
-            addPatientUrl.append("&prefill_province=")     .append(java.net.URLEncoder.encode(labPatientProvince,  "UTF-8"));
-            addPatientUrl.append("&prefill_postal=")       .append(java.net.URLEncoder.encode(labPatientPostal,    "UTF-8"));
-            addPatientUrl.append("&prefill_phone=")        .append(java.net.URLEncoder.encode(labPatientPhone,     "UTF-8"));
-            addPatientUrl.append("&prefill_hin=")          .append(java.net.URLEncoder.encode(labPatientHin,       "UTF-8"));
-            addPatientUrl.append("&prefill_ver=")          .append(java.net.URLEncoder.encode(labPatientHinVer,    "UTF-8"));
-            addPatientUrl.append("&prefill_hc_type=")      .append(java.net.URLEncoder.encode(labPatientProvince,  "UTF-8"));
-        }
-    %>
-    <div style="margin: 8px 0; text-align: center;">
-        <input type="button"
-               value="Add as New Patient"
-               style="background-color:#339999; color:#ffffff; font-weight:bold; padding:4px 12px; cursor:pointer;"
-               onclick="window.open('<carlos:encode value='<%= addPatientUrl.toString() %>' context="javaScriptAttribute"/>', 'addNewPatient', 'scrollbars=yes,resizable=yes,width=900,height=700')"/>
-    </div>
-
-    <%
-        int nLastPage = 0, nNextPage = 0;
-        nNextPage = Integer.parseInt(strLimit2) + Integer.parseInt(strLimit1);
-        nLastPage = Integer.parseInt(strLimit1) - Integer.parseInt(strLimit2);
-    %>
-    <c:set var="__enc_1"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' context="uriComponent"/></c:set>
-    <c:set var="__enc_2"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' context="uriComponent"/></c:set>
-    <c:set var="__enc_3"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("displaymode")) %>' context="uriComponent"/></c:set>
-    <c:set var="__enc_4"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("dboperation")) %>' context="uriComponent"/></c:set>
-    <c:set var="__enc_5"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("orderby")) %>' context="uriComponent"/></c:set>
-    <c:set var="__enc_6"><carlos:encode value='<%= strLimit2 %>' context="uriComponent"/></c:set>
-    <c:set var="__enc_7"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("from")) %>' context="uriComponent"/></c:set>
-    <script language="JavaScript">
-        <!--
-        function last() {
-            document.nextform.action = "<%= request.getContextPath() %>/oscarMDS/SearchPatient?keyword=<carlos:encode value='${__enc_1}' context="javaScript"/>&search_mode=<carlos:encode value='${__enc_2}' context="javaScript"/>&displaymode=<carlos:encode value='${__enc_3}' context="javaScript"/>&dboperation=<carlos:encode value='${__enc_4}' context="javaScript"/>&orderby=<carlos:encode value='${__enc_5}' context="javaScript"/>&limit1=<%=nLastPage%>&limit2=<carlos:encode value='${__enc_6}' context="javaScript"/>&from=<carlos:encode value='${__enc_7}' context="javaScript"/>";
-            //document.nextform.submit();
-        }
-
-        function next() {
-            <c:set var="__enc_8"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' context="uriComponent"/></c:set>
-            <c:set var="__enc_9"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' context="uriComponent"/></c:set>
-            <c:set var="__enc_10"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("displaymode")) %>' context="uriComponent"/></c:set>
-            <c:set var="__enc_11"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("dboperation")) %>' context="uriComponent"/></c:set>
-            <c:set var="__enc_12"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("orderby")) %>' context="uriComponent"/></c:set>
-            <c:set var="__enc_13"><carlos:encode value='<%= strLimit2 %>' context="uriComponent"/></c:set>
-            <c:set var="__enc_14"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("from")) %>' context="uriComponent"/></c:set>
-            document.nextform.action = "<%= request.getContextPath() %>/oscarMDS/SearchPatient?keyword=<carlos:encode value='${__enc_8}' context="javaScript"/>&search_mode=<carlos:encode value='${__enc_9}' context="javaScript"/>&displaymode=<carlos:encode value='${__enc_10}' context="javaScript"/>&dboperation=<carlos:encode value='${__enc_11}' context="javaScript"/>&orderby=<carlos:encode value='${__enc_12}' context="javaScript"/>&limit1=            
-<%=nNextPage%>&limit2=<carlos:encode value='${__enc_13}' context="javaScript"/>&from=<carlos:encode value='${__enc_14}' context="javaScript"/>";
-            //document.nextform.submit();
-        }
-
-        //-->
-    </SCRIPT>
-
-    <form method="post" name="nextform"
-          action="<%= request.getContextPath() %>/demographic/DemographicSearch"><input
-            type="hidden" name="labNo" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("labNo")) %>' context="htmlAttribute"/>">
-        <input type="hidden" name="labType"
-               value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("labType")) %>' context="htmlAttribute"/>"/> <%
-            if (nLastPage >= 0) {
-        %> <input type="submit" name="submit"
-                  value="<fmt:message key="oscarMDS.segmentDisplay.patientSearch.btnLastPage"/>"
-                  onClick="last()"> <%
             }
-            if (nItems == Integer.parseInt(strLimit2)) {
-        %> <input type="submit" name="submit"
-                  value="<fmt:message key="oscarMDS.segmentDisplay.patientSearch.btnNextPage"/>"
-                  onClick="next()"> <%
-            }
-        %>
+        } catch (Exception e) { /* query failed — show empty results */ }
+    }
+
+    boolean isTruncated = (nItems == parsedLimit2 && parsedLimit2 == 500);
+
+    String loadMoreUrl = request.getContextPath() + "/oscarMDS/ViewPatientSearch?"
+        + "keyword="     + URLEncoder.encode(p_keyword, "UTF-8")
+        + "&search_mode=" + URLEncoder.encode(p_searchMode, "UTF-8")
+        + "&displaymode=Search"
+        + "&dboperation=search_titlename"
+        + "&orderby="    + URLEncoder.encode(p_orderby.isEmpty() ? "last_name" : p_orderby, "UTF-8")
+        + "&limit1="     + (parsedLimit1 + nItems)
+        + "&limit2=500"
+        + "&from="       + URLEncoder.encode(p_from, "UTF-8")
+        + "&labNo="      + URLEncoder.encode(p_labNo, "UTF-8")
+        + "&labType="    + URLEncoder.encode(p_labType, "UTF-8");
+
+    request.setAttribute("patientRows",   patientRows);
+    request.setAttribute("nItems",        nItems);
+    request.setAttribute("isTruncated",   isTruncated);
+    request.setAttribute("labNo",         p_labNo);
+    request.setAttribute("labType",       p_labType);
+    request.setAttribute("from",          p_from);
+    request.setAttribute("keyword",       p_keyword);
+    request.setAttribute("searchMode",    p_searchMode);
+    request.setAttribute("addPatientUrl", addPatientUrl.toString());
+    request.setAttribute("loadMoreUrl",   loadMoreUrl);
+    request.setAttribute("hasSearch",     !p_searchMode.isEmpty());
+%>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+    <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css">
+    <script type="text/javascript" src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
+    <title><fmt:message key="oscarMDS.segmentDisplay.patientSearch.title"/></title>
+    <style>
+        body { font-size: 13px; }
+        .bg-carlos-teal { background-color: #339999; }
+        .btn-carlos-teal {
+            background-color: #339999;
+            color: #ffffff;
+            border-color: #2b8080;
+        }
+        .btn-carlos-teal:hover,
+        .btn-carlos-teal:focus {
+            background-color: #2b8080;
+            color: #ffffff;
+            border-color: #226666;
+        }
+        .dataTables_wrapper .dataTables_filter input { min-width: 180px; }
+        #patientsTable tbody tr { cursor: pointer; }
+        #patientsTable tbody tr:hover { background-color: #e8f4f8 !important; }
+    </style>
+</head>
+<body>
+    <div class="container-fluid py-2 px-3">
+
+        <%-- Page heading --%>
+        <div class="bg-carlos-teal text-white fw-bold px-3 py-2 rounded-top mb-0">
+            <fmt:message key="oscarMDS.segmentDisplay.patientSearch.title"/>
+        </div>
+
+        <%-- Search form --%>
+        <div class="card rounded-0 rounded-bottom border-top-0 mb-2">
+            <div class="card-body p-2">
+                <form method="post" id="titlesearch" name="titlesearch"
+                      action="${pageContext.request.contextPath}/oscarMDS/ViewPatientSearch">
+                    <input type="hidden" name="from"        value="${carlos:forHtmlAttribute(from)}"/>
+                    <input type="hidden" name="labNo"       value="${carlos:forHtmlAttribute(labNo)}"/>
+                    <input type="hidden" name="labType"     value="${carlos:forHtmlAttribute(labType)}"/>
+                    <input type="hidden" name="orderby"     value="last_name"/>
+                    <input type="hidden" name="dboperation" value="search_titlename"/>
+                    <input type="hidden" name="limit1"      value="0"/>
+                    <input type="hidden" name="limit2"      value="500"/>
+                    <input type="hidden" name="displaymode" value="Search"/>
+                    <div class="row g-2 align-items-center flex-wrap">
+                        <div class="col-auto">
+                            <div class="d-flex flex-wrap gap-2">
+                                <div class="form-check form-check-inline mb-0">
+                                    <input class="form-check-input" type="radio" id="search_name"
+                                           name="search_mode" value="search_name"
+                                           ${searchMode == 'search_name' || searchMode == '' ? 'checked' : ''}>
+                                    <label class="form-check-label" for="search_name">
+                                        <fmt:message key="oscarMDS.segmentDisplay.patientSearch.formName"/>
+                                    </label>
+                                </div>
+                                <div class="form-check form-check-inline mb-0">
+                                    <input class="form-check-input" type="radio" id="search_phone"
+                                           name="search_mode" value="search_phone"
+                                           ${searchMode == 'search_phone' ? 'checked' : ''}>
+                                    <label class="form-check-label" for="search_phone">
+                                        <fmt:message key="oscarMDS.segmentDisplay.patientSearch.formPhone"/>
+                                    </label>
+                                </div>
+                                <div class="form-check form-check-inline mb-0">
+                                    <input class="form-check-input" type="radio" id="search_dob"
+                                           name="search_mode" value="search_dob"
+                                           ${searchMode == 'search_dob' ? 'checked' : ''}>
+                                    <label class="form-check-label" for="search_dob">
+                                        <fmt:message key="oscarMDS.segmentDisplay.patientSearch.formDOB"/>
+                                    </label>
+                                </div>
+                                <div class="form-check form-check-inline mb-0">
+                                    <input class="form-check-input" type="radio" id="search_address"
+                                           name="search_mode" value="search_address"
+                                           ${searchMode == 'search_address' ? 'checked' : ''}>
+                                    <label class="form-check-label" for="search_address">
+                                        <fmt:message key="oscarMDS.segmentDisplay.patientSearch.formAddress"/>
+                                    </label>
+                                </div>
+                                <div class="form-check form-check-inline mb-0">
+                                    <input class="form-check-input" type="radio" id="search_hin"
+                                           name="search_mode" value="search_hin"
+                                           ${searchMode == 'search_hin' ? 'checked' : ''}>
+                                    <label class="form-check-label" for="search_hin">
+                                        <fmt:message key="oscarMDS.segmentDisplay.patientSearch.formHIN"/>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <input type="text" class="form-control form-control-sm" id="keyword" name="keyword"
+                                   value="${carlos:forHtmlAttribute(keyword)}" size="20" maxlength="100">
+                        </div>
+                        <div class="col-auto">
+                            <button type="submit" class="btn btn-sm btn-primary" name="displaymode" value="Search">
+                                <fmt:message key="oscarMDS.segmentDisplay.patientSearch.btnSearch"/>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <%-- Truncation alert: shown when 500 results were returned (limit reached) --%>
+        <c:if test="${isTruncated}">
+            <div class="alert alert-info d-flex justify-content-between align-items-center py-2" role="alert">
+                <span><fmt:message key="oscarMDS.patientSearch.msgTruncated"/></span>
+                <a href="${carlos:forHtmlAttribute(loadMoreUrl)}" class="btn btn-sm btn-outline-primary ms-3 text-nowrap">
+                    <fmt:message key="oscarMDS.patientSearch.btnLoadMore"/>
+                </a>
+            </div>
+        </c:if>
+
+        <%-- Patient results table --%>
+        <c:if test="${hasSearch}">
+            <div class="card mb-2">
+                <div class="card-body p-2">
+                    <p class="small text-muted mb-1">
+                        <em><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgResults"/></em>:
+                        <strong>${carlos:forHtmlContent(keyword)}</strong>
+                    </p>
+                    <table id="patientsTable" class="table table-sm table-bordered table-striped table-hover w-100">
+                        <thead class="table-dark">
+                            <tr>
+                                <th><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgPatientId"/></th>
+                                <th><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgLastName"/></th>
+                                <th><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgFirstName"/></th>
+                                <th><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgAge"/></th>
+                                <th><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgRosterStatus"/></th>
+                                <th><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgPatientStatus"/></th>
+                                <th><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgSex"/></th>
+                                <th><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgDOB"/></th>
+                                <th><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgDoctor"/></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <c:forEach var="row" items="${patientRows}">
+                                <tr onclick="selectPatient('${carlos:forJavaScriptAttribute(row.demoNo)}')">
+                                    <td class="text-center">
+                                        <button type="button" class="btn btn-sm btn-carlos-teal"
+                                                onclick="selectPatient('${carlos:forJavaScriptAttribute(row.demoNo)}'); event.stopPropagation();">
+                                            ${carlos:forHtmlContent(row.demoNo)}
+                                        </button>
+                                    </td>
+                                    <td>${carlos:forHtmlContent(row.lastName)}</td>
+                                    <td>${carlos:forHtmlContent(row.firstName)}</td>
+                                    <td class="text-center">${carlos:forHtmlContent(row.age)}</td>
+                                    <td>${carlos:forHtmlContent(row.rosterStatus)}</td>
+                                    <td>${carlos:forHtmlContent(row.patientStatus)}</td>
+                                    <td class="text-center">${carlos:forHtmlContent(row.sex)}</td>
+                                    <td>${carlos:forHtmlContent(row.dob)}</td>
+                                    <td>${carlos:forHtmlContent(row.providerName)}</td>
+                                </tr>
+                            </c:forEach>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </c:if>
+
+        <%-- Add as New Patient button --%>
+        <div class="text-center my-2">
+            <button type="button" class="btn btn-carlos-teal fw-bold"
+                    onclick="window.open('${carlos:forJavaScriptAttribute(addPatientUrl)}', 'addNewPatient', 'scrollbars=yes,resizable=yes,width=900,height=700')">
+                <fmt:message key="oscarMDS.patientSearch.btnAddNewPatient"/>
+            </button>
+        </div>
+
+        <%-- Select patient instruction --%>
+        <p class="text-center small text-muted mt-1">
+            <fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgSearchMessage"/>
+        </p>
+
+    </div><%-- /container-fluid --%>
+
+    <%-- Hidden form for patient selection via PatientMatch action --%>
+    <form method="post" id="addform" name="addform"
+          action="${pageContext.request.contextPath}/oscarMDS/PatientMatch">
+        <input type="hidden" name="labNo"         value="${carlos:forHtmlAttribute(labNo)}"/>
+        <input type="hidden" name="labType"       value="${carlos:forHtmlAttribute(labType)}"/>
+        <input type="hidden" name="demographicNo" id="addformDemoNo" value=""/>
     </form>
 
-    <fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgSearchMessage"/></center>
+    <fmt:message var="i18nDobFormat" key="oscarMDS.patientSearch.msgDobFormat"/>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Resize popup window to accommodate DataTables with multiple results
+            try { window.resizeTo(1200, 800); } catch (e) {}
+
+            // Focus keyword field
+            var kwField = document.getElementById('keyword');
+            if (kwField) { kwField.focus(); kwField.select(); }
+
+            // DataTables initialization
+            if (document.getElementById('patientsTable')) {
+                jQuery('#patientsTable').DataTable({
+                    language: {
+                        url: '${pageContext.request.contextPath}/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json'
+                    },
+                    pageLength: 25,
+                    order: [[1, 'asc']],
+                    columnDefs: [
+                        { orderable: false, targets: 0 } // patient ID button — not sortable
+                    ]
+                });
+            }
+        });
+
+        // DOB format validation on form submit
+        document.getElementById('titlesearch').addEventListener('submit', function (e) {
+            var radios = document.getElementsByName('search_mode');
+            for (var i = 0; i < radios.length; i++) {
+                if (radios[i].checked && radios[i].value === 'search_dob') {
+                    var dob = document.getElementById('keyword').value;
+                    if (dob.length === 8) {
+                        dob = dob.substring(0, 4) + '-' + dob.substring(4, 6) + '-' + dob.substring(6, 8);
+                        document.getElementById('keyword').value = dob;
+                    }
+                    if (document.getElementById('keyword').value.length !== 10) {
+                        alert('${carlos:forJavaScript(i18nDobFormat)}');
+                        e.preventDefault();
+                        return false;
+                    }
+                    break;
+                }
+            }
+        });
+
+        // Submit addform with the selected patient's demographic number
+        function selectPatient(demoNo) {
+            var labNo = '${carlos:forJavaScript(labNo)}';
+            if (window.opener && typeof window.opener.updateLabDemoStatus === 'function') {
+                window.opener.updateLabDemoStatus(labNo);
+            }
+            document.getElementById('addformDemoNo').value = demoNo;
+            document.getElementById('addform').submit();
+        }
+
+        // Legacy addName compatibility (used by some older callers)
+        function addName(lastname, firstname, chartno) {
+            var from = '${carlos:forJavaScript(from)}';
+            document.getElementById('addform').action = from + '?name='
+                + encodeURIComponent(lastname + ',' + firstname)
+                + '&chart_no=' + encodeURIComponent(chartno)
+                + '&bFirstDisp=false';
+            document.getElementById('addform').submit();
+        }
+    </script>
 </body>
 </html>
-<%!
-    String nbsp(String s) {
-        String ret = s;
-        if (ret == null || ret.equals("")) {
-            ret = "&nbsp;";
-        }
-        return ret;
-    }
-%>
