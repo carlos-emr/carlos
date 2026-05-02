@@ -154,6 +154,31 @@ class BillingPaymentSaveServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldThrowBillingValidationException_beforeHeaderPaidChanges_whenItemRowMissing() {
+        BillingONCHeader1 ch1 = headerWithPaidAndDemo(new BigDecimal("20.00"), 7);
+        when(bCh1Dao.find(101)).thenReturn(ch1);
+        when(bItemDao.find(11)).thenReturn(null);
+
+        BillingPaymentSaveService.Line line = new BillingPaymentSaveService.Line(
+                11, "payment", new BigDecimal("80.00"), new BigDecimal("0.00"));
+        BillingPaymentSaveService.Command cmd = new BillingPaymentSaveService.Command(
+                101, new Date(), "999998", 1, "1",
+                new BigDecimal("80.00"), BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+                null, List.of(line));
+
+        assertThatThrownBy(() -> svc.saveThirdPartyPayment(cmd))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("11");
+
+        assertThat(ch1.getPaid()).isEqualByComparingTo("20.00");
+        verify(bCh1Dao, never()).merge(any());
+        verify(thirdPartyService, never()).keyExists(anyString(), anyString());
+        verify(bPaymentDao, never()).persist(any());
+        verify(bItemPaymentDao, never()).persist(any());
+        verify(bTransactionDao, never()).persist(any());
+    }
+
+    @Test
     void shouldSkipZeroSumExtUpserts_butAlwaysUpsertPayMethod() {
         BillingONCHeader1 ch1 = headerWithPaidAndDemo(BigDecimal.ZERO, 7);
         when(bCh1Dao.find(101)).thenReturn(ch1);

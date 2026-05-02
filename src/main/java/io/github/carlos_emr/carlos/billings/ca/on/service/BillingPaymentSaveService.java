@@ -24,7 +24,9 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import org.springframework.stereotype.Service;
@@ -111,6 +113,7 @@ public class BillingPaymentSaveService {
         }
 
         String demographicNo = cheader1.getDemographicNo().toString();
+        Map<Integer, BillingONItem> billItemsById = requireExistingActionableItems(cmd);
 
         // 1. billing_on_ext: payment key (also bumps header.paid)
         if (cmd.sumPaid.compareTo(BigDecimal.ZERO) > 0) {
@@ -160,10 +163,7 @@ public class BillingPaymentSaveService {
         // 7. billing_on_item_payment + billing_on_transaction per row
         Timestamp paymentTimestamp = new Timestamp(cmd.paymentDate.getTime());
         for (Line line : cmd.items) {
-            BillingONItem billItem = bItemDao.find(line.itemId);
-            if (billItem == null) {
-                continue;
-            }
+            BillingONItem billItem = billItemsById.get(line.itemId);
             BillingOnItemPayment ip = new BillingOnItemPayment();
             ip.setBillingOnItemId(line.itemId);
             ip.setBillingOnPaymentId(billPayment.getId());
@@ -212,6 +212,34 @@ public class BillingPaymentSaveService {
                 }
             }
         }
+    }
+
+    private Map<Integer, BillingONItem> requireExistingActionableItems(Command cmd) {
+        Map<Integer, BillingONItem> billItemsById = new HashMap<>();
+        for (Line line : cmd.items) {
+            if (!isActionable(line)) {
+                continue;
+            }
+            BillingONItem billItem = billItemsById.get(line.itemId);
+            if (billItem == null) {
+                billItem = bItemDao.find(line.itemId);
+                if (billItem == null) {
+                    throw new BillingValidationException(
+                            "Billing item " + line.itemId + " no longer exists; payment not saved for bill "
+                                    + cmd.billNo);
+                }
+                billItemsById.put(line.itemId, billItem);
+            }
+        }
+        return billItemsById;
+    }
+
+    private static boolean isActionable(Line line) {
+        return switch (line.selection) {
+            case "payment" -> line.amount.signum() != 0 || line.discount.signum() != 0;
+            case "refund", "credit" -> line.amount.signum() != 0;
+            default -> false;
+        };
     }
 
     private void upsertExtKey(int billNo, String demoNo, String key, String value) {
