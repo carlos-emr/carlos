@@ -69,6 +69,11 @@ public class BatchBillingSubmissionService {
                     row.serviceCode(), row.dxCode(), clinicView, billingDate, currentUser);
 
             List<BatchBilling> batchBillingList = batchBillingDAO.find(row.demographicNo(), row.serviceCode());
+            if (batchBillingList.isEmpty()) {
+                throw new BillingValidationException(
+                        "Batch billing row disappeared for demographicNo=" + row.demographicNo()
+                                + " serviceCode=" + row.serviceCode());
+            }
             BatchBilling batchBilling = batchBillingList.get(0);
             batchBilling.setBillingAmount(total);
             batchBilling.setLastBilledDate(billingDate);

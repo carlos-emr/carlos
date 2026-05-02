@@ -127,6 +127,34 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
 
     @Test
     @Tag("read")
+    @DisplayName("should ignore payment ext rows belonging to a different payment id")
+    void shouldIgnorePaymentExtRows_whenPaymentIdDoesNotMatch() throws Exception {
+        BillingONPayment targetPayment = new BillingONPayment();
+        targetPayment.setBillingNo(parentHeader.getId());
+        targetPayment.setPaymentDate(new Date());
+        paymentDao.persist(targetPayment);
+
+        BillingONPayment otherPayment = new BillingONPayment();
+        otherPayment.setBillingNo(parentHeader.getId());
+        otherPayment.setPaymentDate(new Date());
+        paymentDao.persist(otherPayment);
+        hibernateTemplate.flush();
+
+        BillingONExt otherPaymentExt = new BillingONExt();
+        otherPaymentExt.setBillingNo(parentHeader.getId());
+        otherPaymentExt.setKeyVal("payment");
+        otherPaymentExt.setValue("99.99");
+        otherPaymentExt.setPaymentId(otherPayment.getId());
+        dao.persist(otherPaymentExt);
+        hibernateTemplate.flush();
+
+        BigDecimal payment = dao.getPayment(targetPayment);
+
+        assertThat(payment).isEqualTo(new BigDecimal("0.00"));
+    }
+
+    @Test
+    @Tag("read")
     @DisplayName("should throw BillingValidationException when payment value is corrupt")
     void shouldThrowBillingValidationException_whenPaymentValueIsInvalid() throws Exception {
         // Pre-fix the DAO silently coalesced unparseable currency to $0.00 at WARN

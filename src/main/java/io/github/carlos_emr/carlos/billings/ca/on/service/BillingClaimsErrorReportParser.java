@@ -76,7 +76,7 @@ public class BillingClaimsErrorReportParser {
      */
     private boolean init(FileInputStream file) {
         String nextline;
-        BillingClaimsErrorReportRecordDto CERBean = new BillingClaimsErrorReportRecordDto();
+        BillingClaimsErrorReportRecordDto record = new BillingClaimsErrorReportRecordDto();
 
         boolean isNewHin = false;
         try (InputStreamReader reader = new InputStreamReader(file);
@@ -93,87 +93,87 @@ public class BillingClaimsErrorReportParser {
                 }
 
                 if (headerCount.compareTo("1") == 0) {
-                    CERBean = new BillingClaimsErrorReportRecordDto();
-                    CERBean.setTechSpec(nextline.substring(3, 6));
-                    CERBean.setMOHoffice(nextline.substring(6, 7));
-                    CERBean.setProviderNumber(nextline.substring(27, 33));
-                    CERBean.setGroupNumber(nextline.substring(23, 27));
-                    CERBean.setOperatorNumber(nextline.substring(17, 23));
-                    CERBean.setSpecialtyCode(nextline.substring(33, 35));
-                    CERBean.setStationNumber(nextline.substring(35, 38));
-                    CERBean.setClaimProcessDate(nextline.substring(38, 46));
-                    claimsErrorReportRecords.add(CERBean);
+                    record = new BillingClaimsErrorReportRecordDto();
+                    record.setTechSpec(nextline.substring(3, 6));
+                    record.setMOHoffice(nextline.substring(6, 7));
+                    record.setProviderNumber(nextline.substring(27, 33));
+                    record.setGroupNumber(nextline.substring(23, 27));
+                    record.setOperatorNumber(nextline.substring(17, 23));
+                    record.setSpecialtyCode(nextline.substring(33, 35));
+                    record.setStationNumber(nextline.substring(35, 38));
+                    record.setClaimProcessDate(nextline.substring(38, 46));
+                    claimsErrorReportRecords.add(record);
                 }
 
                 if (headerCount.compareTo("H") == 0) {
                     isNewHin = true;
-                    CERBean = new BillingClaimsErrorReportRecordDto();
-                    CERBean.setHin(nextline.substring(3, 13));
-                    CERBean.setVer(nextline.substring(13, 15));
-                    CERBean.setDob(nextline.substring(15, 23));
-                    CERBean.setAccount(nextline.substring(23, 31));
-                    CERBean.setBilltype(nextline.substring(31, 34));
-                    CERBean.setPayee(nextline.substring(34, 35));
-                    CERBean.setReferNumber(nextline.substring(35, 41));
-                    CERBean.setFacilityNumber(nextline.substring(41, 45));
-                    CERBean.setAdmitDate(nextline.substring(45, 53));
-                    CERBean.setReferLab(nextline.substring(53, 57));
-                    CERBean.setLocation(nextline.substring(57, 61));
-                    CERBean.setHeCode1(nextline.substring(64, 67));
-                    CERBean.setHeCode2(nextline.substring(67, 70));
-                    CERBean.setHeCode3(nextline.substring(70, 73));
-                    CERBean.setHeCode4(nextline.substring(73, 76));
-                    CERBean.setHeCode5(nextline.substring(76, 79));
+                    record = new BillingClaimsErrorReportRecordDto();
+                    record.setHin(nextline.substring(3, 13));
+                    record.setVer(nextline.substring(13, 15));
+                    record.setDob(nextline.substring(15, 23));
+                    record.setAccount(nextline.substring(23, 31));
+                    record.setBilltype(nextline.substring(31, 34));
+                    record.setPayee(nextline.substring(34, 35));
+                    record.setReferNumber(nextline.substring(35, 41));
+                    record.setFacilityNumber(nextline.substring(41, 45));
+                    record.setAdmitDate(nextline.substring(45, 53));
+                    record.setReferLab(nextline.substring(53, 57));
+                    record.setLocation(nextline.substring(57, 61));
+                    record.setHeCode1(nextline.substring(64, 67));
+                    record.setHeCode2(nextline.substring(67, 70));
+                    record.setHeCode3(nextline.substring(70, 73));
+                    record.setHeCode4(nextline.substring(73, 76));
+                    record.setHeCode5(nextline.substring(76, 79));
                 }
 
                 if (headerCount.compareTo("R") == 0) {
-                    CERBean = new BillingClaimsErrorReportRecordDto();
-                    CERBean.setRegNumber(nextline.substring(3, 15));
-                    CERBean.setPatient_last(nextline.substring(15, 24));
-                    CERBean.setPatient_first(nextline.substring(24, 29));
-                    CERBean.setPatient_sex(nextline.substring(29, 30));
-                    CERBean.setProvince_code(nextline.substring(30, 32));
-                    CERBean.setReCode1(nextline.substring(64, 67));
-                    CERBean.setReCode2(nextline.substring(67, 70));
-                    CERBean.setReCode3(nextline.substring(70, 73));
-                    CERBean.setReCode4(nextline.substring(73, 76));
-                    CERBean.setReCode5(nextline.substring(76, 79));
-                    claimsErrorReportRecords.add(CERBean);
+                    record = new BillingClaimsErrorReportRecordDto();
+                    record.setRegNumber(nextline.substring(3, 15));
+                    record.setPatient_last(nextline.substring(15, 24));
+                    record.setPatient_first(nextline.substring(24, 29));
+                    record.setPatient_sex(nextline.substring(29, 30));
+                    record.setProvince_code(nextline.substring(30, 32));
+                    record.setReCode1(nextline.substring(64, 67));
+                    record.setReCode2(nextline.substring(67, 70));
+                    record.setReCode3(nextline.substring(70, 73));
+                    record.setReCode4(nextline.substring(73, 76));
+                    record.setReCode5(nextline.substring(76, 79));
+                    claimsErrorReportRecords.add(record);
                 }
 
                 if (headerCount.compareTo("T") == 0) {
                     if (!isNewHin) {
-                        CERBean = new BillingClaimsErrorReportRecordDto();
+                        record = new BillingClaimsErrorReportRecordDto();
                     } else {
                         isNewHin = false;
                     }
-                    CERBean.setServicecode(nextline.substring(3, 8));
-                    CERBean.setAmountsubmit(nextline.substring(10, 16));
-                    CERBean.setServiceno(nextline.substring(16, 18));
-                    CERBean.setServicedate(nextline.substring(18, 26));
-                    CERBean.setDxcode(nextline.substring(26, 30));
-                    CERBean.setCode1(nextline.substring(64, 67));
-                    CERBean.setCode2(nextline.substring(67, 70));
-                    CERBean.setCode3(nextline.substring(70, 73));
-                    CERBean.setCode4(nextline.substring(73, 76));
-                    CERBean.setCode5(nextline.substring(76, 79));
-                    claimsErrorReportRecords.add(CERBean);
+                    record.setServicecode(nextline.substring(3, 8));
+                    record.setAmountsubmit(nextline.substring(10, 16));
+                    record.setServiceno(nextline.substring(16, 18));
+                    record.setServicedate(nextline.substring(18, 26));
+                    record.setDxcode(nextline.substring(26, 30));
+                    record.setCode1(nextline.substring(64, 67));
+                    record.setCode2(nextline.substring(67, 70));
+                    record.setCode3(nextline.substring(70, 73));
+                    record.setCode4(nextline.substring(73, 76));
+                    record.setCode5(nextline.substring(76, 79));
+                    claimsErrorReportRecords.add(record);
                 }
 
                 if (headerCount.compareTo("8") == 0) {
-                    CERBean = new BillingClaimsErrorReportRecordDto();
-                    CERBean.setExplain(nextline.substring(3, 5));
-                    CERBean.setError(nextline.substring(5, 60));
-                    claimsErrorReportRecords.add(CERBean);
+                    record = new BillingClaimsErrorReportRecordDto();
+                    record.setExplain(nextline.substring(3, 5));
+                    record.setError(nextline.substring(5, 60));
+                    claimsErrorReportRecords.add(record);
                 }
 
                 if (headerCount.compareTo("9") == 0) {
-                    CERBean = new BillingClaimsErrorReportRecordDto();
-                    CERBean.setHeader1Count(nextline.substring(3, 10));
-                    CERBean.setHeader2Count(nextline.substring(10, 17));
-                    CERBean.setItemCount(nextline.substring(17, 24));
-                    CERBean.setMessageCount(nextline.substring(24, 31));
-                    claimsErrorReportRecords.add(CERBean);
+                    record = new BillingClaimsErrorReportRecordDto();
+                    record.setHeader1Count(nextline.substring(3, 10));
+                    record.setHeader2Count(nextline.substring(10, 17));
+                    record.setItemCount(nextline.substring(17, 24));
+                    record.setMessageCount(nextline.substring(24, 31));
+                    claimsErrorReportRecords.add(record);
                 }
 
             }

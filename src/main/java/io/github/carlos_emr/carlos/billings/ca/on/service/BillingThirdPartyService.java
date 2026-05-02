@@ -39,6 +39,8 @@ import io.github.carlos_emr.carlos.commn.model.BillingONExt;
 import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 // NOTE: this service is read+write — multiple methods call DAO persist/merge
 // (lines ~131, 148, 167, 183, 196). Class-level annotation MUST NOT be
@@ -152,6 +154,8 @@ public class BillingThirdPartyService {
             dao.merge(b);
             return true;
         }
+        MiscUtils.getLogger().warn("BillingThirdPartyService.update3rdAddr: address id {} not found",
+                LogSanitizer.sanitize(id));
         return false;
     }
 

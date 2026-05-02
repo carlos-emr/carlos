@@ -432,7 +432,7 @@ public final class RateLimitFilter implements Filter {
         //  - A pattern ending with "/" is a prefix match (e.g. "/mfa/" matches
         //    "/mfa/whatever").
         //  - A pattern NOT ending with "/" matches the exact path or a path
-        //    that has the pattern followed by '/', '?', or ';' (e.g. "/login"
+        //    that has the pattern followed by '/' or ';' (e.g. "/login"
         //    matches "/login", "/login/something", and "/login;jsessionid=..."
         //    but NOT "/loginfailed" or "/loginResource/foo"). The ';' boundary
         //    closes the path-parameter bypass where attackers append
@@ -447,7 +447,7 @@ public final class RateLimitFilter implements Filter {
                 matches = true;
             } else if (path.startsWith(prefix)) {
                 char nextChar = path.charAt(prefix.length());
-                matches = nextChar == '/' || nextChar == '?' || nextChar == ';';
+                matches = nextChar == '/' || nextChar == ';';
             } else {
                 matches = false;
             }
@@ -484,8 +484,8 @@ public final class RateLimitFilter implements Filter {
             }
             String pathPrefix = entry.substring(0, eqIdx).trim();
             // No warning needed for non-"/"-terminated prefixes: findMatchingPath
-            // applies a boundary-aware match (exact, or followed by '/', '?',
-            // or ';'), so '/login' will NOT match '/loginRedirect' or
+            // applies a boundary-aware match (exact, or followed by '/' or
+            // ';'), so '/login' will NOT match '/loginRedirect' or
             // '/login-recovery'. The historical warning that fired here
             // pre-dated the boundary fix and produced noisy startup logs for
             // valid configs.

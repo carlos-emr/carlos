@@ -141,14 +141,23 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
 
     @Override
     public List<BillingONCHeader1> findByDemoNoWithItems(Integer demoNo, int iOffSet, int pageSize) {
-        // DISTINCT keeps the parent count correct when LEFT JOIN FETCH produces
-        // one row per child item; the items collection is still populated
-        // correctly in each returned entity.
-        Query query = entityManager.createQuery("SELECT DISTINCT h FROM BillingONCHeader1 h LEFT JOIN FETCH h.billingItems WHERE h.demographicNo = ?1 AND h.status != 'D' ORDER BY h.billingDate DESC, h.billingTime DESC, h.id DESC");
-        query.setParameter(1, demoNo);
-        query.setFirstResult(iOffSet);
-        query.setMaxResults(pageSize);
-        return query.getResultList();
+        Query idQuery = entityManager.createQuery(
+                "SELECT h.id FROM BillingONCHeader1 h WHERE h.demographicNo = ?1 AND h.status != 'D' "
+                        + "ORDER BY h.billingDate DESC, h.billingTime DESC, h.id DESC");
+        idQuery.setParameter(1, demoNo);
+        idQuery.setFirstResult(iOffSet);
+        idQuery.setMaxResults(pageSize);
+        List<Integer> ids = idQuery.getResultList();
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+
+        Query fetchQuery = entityManager.createQuery(
+                "SELECT DISTINCT h FROM BillingONCHeader1 h LEFT JOIN FETCH h.billingItems WHERE h.id IN :ids");
+        fetchQuery.setParameter("ids", ids);
+        List<BillingONCHeader1> headers = fetchQuery.getResultList();
+        headers.sort((left, right) -> Integer.compare(ids.indexOf(left.getId()), ids.indexOf(right.getId())));
+        return headers;
     }
 
     @Override

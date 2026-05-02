@@ -98,6 +98,22 @@ class BatchBillingSubmissionServiceUnitTest {
     }
 
     @Test
+    void shouldThrowBillingValidationException_whenBatchRowDisappearsAfterValidation() {
+        when(headerCreationService.createBill("999998", 42, "A007A", "250", "clinic-a", billingDate, "999998"))
+                .thenReturn("12.34");
+        when(batchBillingDAO.find(42, "A007A")).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.submitAll(List.of(
+                new BatchBillingSubmissionService.Row("A007A", "250", 42, "999998")),
+                "clinic-a", billingDate, "999998"))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("42")
+                .hasMessageContaining("A007A");
+
+        verify(batchBillingDAO, never()).merge(any());
+    }
+
+    @Test
     void shouldRejectMissingCurrentUserBeforeAnyWrites() {
         assertThatThrownBy(() -> service.submitAll(
                 List.of(new BatchBillingSubmissionService.Row("A007A", "250", 42, "999998")),

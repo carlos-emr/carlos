@@ -47,7 +47,8 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * Composer that pre-loads the multisite + RMA / clinic-nbr context the
  * legacy {@code billingON.jsp} fetched inline via 4 separate
  * {@code SpringUtils.getBean()} calls scattered across the form body
- * (lines 1290-1410):
+ * (provider/site setup near the header and multisite blocks around
+ * the provider picker and service grid):
  *
  * <ul>
  *   <li>{@link SiteDao#getActiveSitesByProviderNo} — multisite list (only

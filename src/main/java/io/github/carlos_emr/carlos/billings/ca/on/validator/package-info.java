@@ -35,7 +35,7 @@
  * <h2>Naming</h2>
  *
  * <p>Class names end in {@code *Validator}. Methods are verb-phrase
- * imperatives (e.g. {@code validate}, {@code persistIfRequested}) and
+ * imperatives (e.g. {@code validate}, {@code validateForSave}) and
  * return value-class results — never throw on validation failure
  * (callers compose multiple validators), only on programmer-error
  * preconditions.</p>

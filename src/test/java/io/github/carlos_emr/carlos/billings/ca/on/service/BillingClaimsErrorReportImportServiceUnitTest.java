@@ -140,7 +140,7 @@ class BillingClaimsErrorReportImportServiceUnitTest {
         BillingClaimsErrorReportParser parser = svc.importStream(input, "fields.err");
 
         assertThat(parser.getClaimsErrorReportRecords()).isNotEmpty();
-        // Header "1", transaction "T", footer "9" each push a CERBean — the
+        // Header "1", transaction "T", footer "9" each push a record — the
         // claim "H" line mutates erObj but does NOT push a record. So the
         // expected count for this fixture is 3.
         assertThat(parser.getClaimsErrorReportRecords()).hasSize(3);

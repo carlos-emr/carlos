@@ -37,10 +37,10 @@
 <c:if test="${not empty model.raNo}">
 <html>
 <head>
-    <script type="text/javascript" src="<c:out value='${pageContext.request.contextPath}'/>/js/global.js"></script>
-    <script type="text/javascript" src="<c:out value='${pageContext.request.contextPath}'/>/library/jquery/jquery-3.7.1.min.js"></script>
-    <script type="text/javascript" src="<c:out value='${pageContext.request.contextPath}'/>/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
-    <link rel="stylesheet" type="text/css" href="<c:out value='${pageContext.request.contextPath}'/>/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css"/>
+    <script type="text/javascript" src="<carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/js/global.js"></script>
+    <script type="text/javascript" src="<carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/library/jquery/jquery-3.7.1.min.js"></script>
+    <script type="text/javascript" src="<carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="<carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css"/>
     <link rel="stylesheet" type="text/css" href="billingON.css"/>
     <title>Billing Reconcilliation</title>
     <style>
@@ -58,7 +58,7 @@
 <body leftmargin="0" topmargin="0" marginwidth="0" marginheight="0">
 
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
-    <form action="<c:out value='${pageContext.request.contextPath}'/>/billing/CA/ON/ViewOnGenRASummary" method="post">
+    <form action="<carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/billing/CA/ON/ViewOnGenRASummary" method="post">
         <tr class="myDarkGreen">
             <th align='LEFT'><font color="#FFFFFF"> Billing Reconcilliation - Summary Report</font></th>
             <th align='RIGHT'>

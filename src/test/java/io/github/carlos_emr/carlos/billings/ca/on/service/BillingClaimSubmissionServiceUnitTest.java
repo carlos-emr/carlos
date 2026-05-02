@@ -194,6 +194,44 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldDefaultHeaderStatusToOpen_whenSubmitParameterIsMissing() {
+        MockHttpServletRequest request = standardBillingRequest("HCP", "Save");
+        request.removeParameter("submit");
+        request.setParameter("totalItem", "0");
+
+        ArrayList claim = service.getBillingClaimObj(request);
+
+        BillingClaimHeaderDto header = (BillingClaimHeaderDto) claim.get(0);
+        assertThat(header.getStatus()).isEqualTo("O");
+    }
+
+    @Test
+    void shouldSanitizeSinglePartPatientName_whenCommaIsMissing() {
+        MockHttpServletRequest request = standardBillingRequest("HCP", "Save");
+        request.setParameter("demographic_name", "O'Neil-Jane");
+        request.setParameter("totalItem", "0");
+
+        ArrayList claim = service.getBillingClaimObj(request);
+
+        BillingClaimHeaderDto header = (BillingClaimHeaderDto) claim.get(0);
+        assertThat(header.lastName()).isEqualTo("ONeilJane");
+        assertThat(header.firstName()).isEmpty();
+    }
+
+    @Test
+    void shouldUseBlankPatientNameParts_whenDemographicNameIsMissing() {
+        MockHttpServletRequest request = standardBillingRequest("HCP", "Save");
+        request.removeParameter("demographic_name");
+        request.setParameter("totalItem", "0");
+
+        ArrayList claim = service.getBillingClaimObj(request);
+
+        BillingClaimHeaderDto header = (BillingClaimHeaderDto) claim.get(0);
+        assertThat(header.lastName()).isEmpty();
+        assertThat(header.firstName()).isEmpty();
+    }
+
+    @Test
     void shouldBuildPrivateClaimItemsAsPaidStatus() {
         MockHttpServletRequest request = standardBillingRequest("PAT", "Settle");
         request.setParameter("totalItem", "1");

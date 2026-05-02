@@ -343,17 +343,18 @@ public class BillingClaimSubmissionService {
         claim1Header = claim1Header.withBillingTime(val.getParameter("start_time"));
         claim1Header = claim1Header.withUpdateDateTime(UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss"));
         claim1Header = claim1Header.withTotal(val.getParameter("total"));
+        String submit = getDefaultSpace(val.getParameter("submit"));
         String paid = "";
-        if (val.getParameter("submit").equalsIgnoreCase("Settle")) {
+        if (submit.equalsIgnoreCase("Settle")) {
             paid = val.getParameter("total");
-        } else if (val.getParameter("submit").equalsIgnoreCase("Save & Print Invoice")
-                || val.getParameter("submit").equalsIgnoreCase("Settle & Print Invoice")
-                || val.getParameter("submit").equalsIgnoreCase("Save")
-                || val.getParameter("submit").equalsIgnoreCase("Save & Add Another Bill")) {
+        } else if (submit.equalsIgnoreCase("Save & Print Invoice")
+                || submit.equalsIgnoreCase("Settle & Print Invoice")
+                || submit.equalsIgnoreCase("Save")
+                || submit.equalsIgnoreCase("Save & Add Another Bill")) {
             paid = val.getParameter("total_payment");
         }
         claim1Header = claim1Header.withPaid(paid);
-        claim1Header = claim1Header.withStatus(getStatus(val.getParameter("submit"), val.getParameter("xml_billtype")));
+        claim1Header = claim1Header.withStatus(getStatus(submit, val.getParameter("xml_billtype")));
         claim1Header = claim1Header.withComment(val.getParameter("comment") != null ? val.getParameter("comment") : "");
         claim1Header = claim1Header.withVisitType(val.getParameter("xml_visittype").substring(0, 2));
         claim1Header = claim1Header.withProviderOhipNo(val.getParameter("xml_provider").substring(
@@ -502,11 +503,7 @@ public class BillingClaimSubmissionService {
         valsMap.put("total_discount", val.getParameter("total_discount"));
         valsMap.put("remitTo", val.getParameter("remitto"));
         valsMap.put("total", val.getParameter("gstBilledTotal"));
-        if (val.getParameter("submit").equalsIgnoreCase("Settle & Print Invoice")) {
-            valsMap.put("total_payment", val.getParameter("total_payment"));
-        } else {
-            valsMap.put("total_payment", val.getParameter("total_payment"));
-        }
+        valsMap.put("total_payment", val.getParameter("total_payment"));
         valsMap.put("refund", val.getParameter("refund"));
         valsMap.put("provider_no", val.getParameter("provider_no"));
         valsMap.put("gst", val.getParameter("gst"));
@@ -533,6 +530,8 @@ public class BillingClaimSubmissionService {
     }
 
     private String getStatus(String submit, String payProg) {
+        submit = getDefaultSpace(submit);
+        payProg = getDefaultSpace(payProg);
         String ret = "O";
         if (submit.startsWith("Settle")) {
             ret = "S";
@@ -550,16 +549,24 @@ public class BillingClaimSubmissionService {
 
     // 1-last name 9, 2-first name 5
     private String[] getPatientLF(String val) {
-        String[] ret = new String[2];
+        String[] ret = new String[] {"", ""};
+        if (val == null || val.isBlank()) {
+            return ret;
+        }
         if (val.indexOf(",") >= 0) {
-            ret = val.split(",");
-            ret[0] = ret[0].replaceAll("\\W", "");
-            ret[0] = ret[0].length() > 9 ? ret[0].substring(0, 9) : ret[0];
-            ret[1] = ret[1].replaceAll("\\W", "");
-            ret[1] = ret[1].length() > 5 ? ret[1].substring(0, 5) : ret[1];
+            String[] parts = val.split(",", 2);
+            ret[0] = cleanPatientNamePart(parts[0], 9);
+            ret[1] = parts.length > 1 ? cleanPatientNamePart(parts[1], 5) : "";
+        } else {
+            ret[0] = cleanPatientNamePart(val, 9);
         }
 
         return ret;
+    }
+
+    private String cleanPatientNamePart(String val, int maxLength) {
+        String ret = getDefaultSpace(val).replaceAll("\\W", "");
+        return ret.length() > maxLength ? ret.substring(0, maxLength) : ret;
     }
 
     // 1-default

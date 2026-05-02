@@ -31,6 +31,7 @@ import jakarta.persistence.Query;
 import jakarta.persistence.NoResultException;
 import jakarta.persistence.NonUniqueResultException;
 
+import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONExt;
@@ -103,11 +104,12 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
     @Override
     public BigDecimal getPayment(BillingONPayment paymentRecord) {
 
-        String sql = "select bExt from BillingONExt bExt where billingNo=?1 and keyVal=?2";
+        String sql = "select bExt from BillingONExt bExt where paymentId=?1 and billingNo=?2 and keyVal=?3";
         Query query = entityManager.createQuery(sql);
 
-        query.setParameter(1, paymentRecord.getBillingNo());
-        query.setParameter(2, "payment");
+        query.setParameter(1, paymentRecord.getId());
+        query.setParameter(2, paymentRecord.getBillingNo());
+        query.setParameter(3, "payment");
 
         List<BillingONExt> results = query.getResultList();
 
@@ -373,7 +375,16 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
             // Expected: no ext row for this (billingNo, key) tuple — return zeroed default below.
         }
         if (ext != null) {
-            val = new BigDecimal(ext.getValue()).setScale(2, BigDecimal.ROUND_HALF_UP);
+            try {
+                val = BillingMoney.amountStrictOrZero(ext.getValue()).setScale(2, BigDecimal.ROUND_HALF_UP);
+            } catch (NumberFormatException e) {
+                MiscUtils.getLogger().error(
+                        "billing_on_ext.{} for billingNo={} is not a valid currency amount",
+                        LogSanitizer.sanitize(key),
+                        LogSanitizer.sanitize(String.valueOf(billingNo)), e);
+                throw new BillingValidationException(
+                        "Corrupt billing_on_ext." + key + " value; see logs for billingNo", e);
+            }
         }
         return val;
     }

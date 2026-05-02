@@ -23,7 +23,8 @@ package io.github.carlos_emr.carlos.billings.ca.on.support;
 
 /**
  * Small parsing helpers shared by the Ontario billing assemblers
- * ({@link BillingOnFormViewModelAssembler}, {@link BillingOnReviewViewModelAssembler},
+ * ({@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOnFormViewModelAssembler},
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOnReviewViewModelAssembler},
  * and the shortcut variant). Extracted so the same parsing isn't
  * reimplemented inconsistently — passing the unstripped
  * {@code "providerNo|ohipNo"} pair to {@code ProviderDao.getProvider(...)}

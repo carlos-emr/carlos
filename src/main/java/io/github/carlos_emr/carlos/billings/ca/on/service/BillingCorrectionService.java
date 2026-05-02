@@ -55,8 +55,8 @@ import io.github.carlos_emr.carlos.billings.ca.on.web.BillingCorrection2Action;
 
 /**
  * Business-logic service for the Ontario billing correction workflow,
- * extracted from the legacy 753-line {@link BillingCorrection2Action} so the
- * action remains a thin Struts gate.
+ * extracted from the legacy action path now represented by
+ * {@link BillingCorrection2Action} so the action remains a thin Struts gate.
  *
  * <p>Two public entry points map 1:1 to the two HTTP-level operations the
  * legacy action exposed:</p>

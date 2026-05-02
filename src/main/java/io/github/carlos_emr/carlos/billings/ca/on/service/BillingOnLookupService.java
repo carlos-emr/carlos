@@ -52,6 +52,7 @@ import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderSite;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
@@ -470,6 +471,8 @@ public class BillingOnLookupService {
             appointmentDao.merge(appt);
             return true;
         }
+        _logger.warn("BillingOnLookupService.updateApptStatus: appointment {} not found; status {} not applied",
+                LogSanitizer.sanitize(apptNo), LogSanitizer.sanitize(status));
         return false;
     }
 

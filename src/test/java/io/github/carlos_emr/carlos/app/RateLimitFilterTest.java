@@ -415,6 +415,26 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
 
             verify(response, never()).sendError(eq(429), anyString());
         }
+
+        @Test
+        @DisplayName("should NOT treat question mark as a path boundary")
+        void shouldNotMatchLoginRate_whenRequestUriContainsQuestionMark() throws Exception {
+            when(mockProperties.isPropertyActive("WAF_RATE_LIMIT_ENABLED")).thenReturn(true);
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_MODE")).thenReturn("enforce");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_REQUESTS")).thenReturn("5");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_WINDOW_SECONDS")).thenReturn("60");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_PATHS")).thenReturn("/login=1/60");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_EXEMPT_IPS")).thenReturn("127.0.0.1,::1");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_CLEANUP_INTERVAL_SECONDS")).thenReturn("300");
+            filter.init(mock(FilterConfig.class));
+
+            when(request.getRequestURI()).thenReturn("/carlos/login?next=/billing");
+
+            filter.doFilter(request, response, chain);
+            filter.doFilter(request, response, chain);
+
+            verify(response, never()).sendError(eq(429), anyString());
+        }
     }
 
     // -------------------------------------------------------------------------

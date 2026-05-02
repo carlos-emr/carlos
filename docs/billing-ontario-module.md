@@ -147,7 +147,8 @@ Forbidden in new code (and currently absent from this module): `*Prep`,
 - Constructor injection is used in the `service/` and `assembler/` layers.
   The `web/` (Struts2 action) layer still has 28 `= SpringUtils.getBean(...)`
   field-init patterns; there are 52 `SpringUtils.getBean(...)` references in
-  total when method-local lookups are included. New 2Actions should prefer
+  `web/` when method-local lookups are included, and 80 across the ON billing
+  module as a whole. New 2Actions should prefer
   constructor injection where the Struts2 wiring permits; treat new field-init
   `getBean` calls as a regression.
 - `@Lazy` is **not** used anywhere in `billings/ca/on`. It was carried
@@ -422,9 +423,9 @@ known operation.
   one. Annotate with `@Transactional`.
 - **Adding pure arithmetic?** First check if it fits on the entity (rich-
   domain). If it needs cross-aggregate state but no DAO writes and no
-  cross-DAO reads, create a `*Calculator` (no `*Calculator` exists in the
-  ON module today — see the table above). If it does cross DAOs, fall
-  back to `*Service`.
+  cross-DAO reads, create or reuse a `*Calculator` such as
+  `BillingOnHistoryBalanceCalculator`. If it does cross DAOs, fall back to
+  `*Service`.
 - **Adding a multi-step lifecycle?** That's a `*Service` — put it on the
   most relevant existing one if it's small, else create a new service.
 
@@ -472,6 +473,11 @@ public class ViewBillingOnReview2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
+        String userNo = loggedInInfo.getLoggedInProviderNo();
+        if (userNo == null || userNo.isEmpty()) {
+            throw new SecurityException("missing provider in session");
+        }
+        dxPersister.persistIfRequested(request, userNo);
         BillingOnReviewViewModel model = assembler.assemble(request, loggedInInfo);
         request.setAttribute("reviewModel", model);
         return SUCCESS;
