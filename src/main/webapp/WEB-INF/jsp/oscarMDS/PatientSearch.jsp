@@ -520,14 +520,35 @@
             }
         });
 
-        // Submit addform with the selected patient's demographic number
+        // Match patient: POST to PatientMatch, notify lab display and inboxhub, then close popup
         function selectPatient(demoNo) {
             var labNo = '${carlos:forJavaScript(labNo)}';
-            if (window.opener && typeof window.opener.updateLabDemoStatus === 'function') {
-                window.opener.updateLabDemoStatus(labNo);
-            }
-            document.getElementById('addformDemoNo').value = demoNo;
-            document.getElementById('addform').submit();
+            var labType = '${carlos:forJavaScript(labType)}';
+            var csrfToken = document.querySelector('input[name="CSRF-TOKEN"]');
+            var token = csrfToken ? csrfToken.value : '';
+            var body = 'labNo=' + encodeURIComponent(labNo)
+                     + '&labType=' + encodeURIComponent(labType)
+                     + '&demographicNo=' + encodeURIComponent(demoNo)
+                     + '&CSRF-TOKEN=' + encodeURIComponent(token);
+            fetch('${pageContext.request.contextPath}/oscarMDS/PatientMatch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: body
+            }).then(function() {
+                // Notify lab display row (may be null due to COOP on action-served pages)
+                if (window.opener && typeof window.opener.updateLabDemoStatus === 'function') {
+                    try { window.opener.updateLabDemoStatus(labNo); } catch (e) {}
+                }
+                // Notify inboxhub list to refresh (BroadcastChannel is unaffected by COOP)
+                try {
+                    var bc = new BroadcastChannel('inboxhub-refresh');
+                    bc.postMessage('refresh');
+                    bc.close();
+                } catch (e) {}
+                window.close();
+            }).catch(function() {
+                window.close();
+            });
         }
 
         // Legacy addName compatibility (used by some older callers)
