@@ -208,13 +208,13 @@ class BillingDatesUnitTest {
     }
 
     @Test
-    void shouldRoundTrip_parseIsoDate_andFormatIsoDate() {
+    void shouldRoundTripParseIsoDate_whenFormattingIsoDate() {
         java.util.Date d = BillingDates.parseIsoDate("2026-04-30");
         assertThat(BillingDates.formatIsoDate(d)).isEqualTo("2026-04-30");
     }
 
     @Test
-    void shouldRoundTrip_parseIsoTime_andFormatIsoTime() {
+    void shouldRoundTripParseIsoTime_whenFormattingIsoTime() {
         java.util.Date d = BillingDates.parseIsoTime("12:34:56");
         assertThat(BillingDates.formatIsoTime(d)).isEqualTo("12:34:56");
     }

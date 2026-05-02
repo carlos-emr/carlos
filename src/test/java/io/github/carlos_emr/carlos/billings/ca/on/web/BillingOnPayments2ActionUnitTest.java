@@ -309,7 +309,7 @@ class BillingOnPayments2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldWriteJsonRejection_andSkipPersist_whenSingleItemPaymentMalformed() throws Exception {
+    void shouldWriteJsonRejectionAndSkipPersist_whenSingleItemPaymentMalformed() throws Exception {
         MockHttpServletRequest request = savePaymentRequestWithItem("not-a-number", "0.00");
         BillingONPaymentDao paymentDao = mock(BillingONPaymentDao.class);
         BillingOnItemPaymentDao itemPaymentDao = mock(BillingOnItemPaymentDao.class);
@@ -397,7 +397,7 @@ class BillingOnPayments2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldWriteJsonRejection_andSkipPersist_whenSingleItemDiscountMalformed() throws Exception {
+    void shouldWriteJsonRejectionAndSkipPersist_whenSingleItemDiscountMalformed() throws Exception {
         MockHttpServletRequest request = savePaymentRequestWithItem("10.00", "abc");
         BillingONPaymentDao paymentDao = mock(BillingONPaymentDao.class);
         registerMock(BillingONPaymentDao.class, paymentDao);
@@ -411,7 +411,7 @@ class BillingOnPayments2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldRejectFirstMalformedRow_andNotProcessLaterRows_whenMultipleItems() throws Exception {
+    void shouldRejectFirstMalformedRowAndNotProcessLaterRows_whenMultipleItems() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setMethod("POST");
         request.setParameter("size", "3");

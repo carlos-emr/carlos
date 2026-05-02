@@ -96,7 +96,7 @@ class BillingOnFormBillFormResolverUnitTest {
     }
 
     @Test
-    void shouldReturnCurBillForm_whenRequestParamIsPresent_priority1() {
+    void shouldReturnCurBillFormPriority1_whenRequestParamIsPresent() {
         MockHttpServletRequest request = emptyRequest();
         request.setParameter("curBillForm", "USER-PICKED-FORM");
 
@@ -108,7 +108,7 @@ class BillingOnFormBillFormResolverUnitTest {
     }
 
     @Test
-    void shouldReturnRosterBillForm_whenRosterStatusHasMatch_priority2() {
+    void shouldReturnRosterBillFormPriority2_whenRosterStatusHasMatch() {
         CtlBillingService rosterService = new CtlBillingService();
         rosterService.setServiceType("ROSTER-FORM");
         when(ctlBillingServiceDao.findByServiceTypeId("RO")).thenReturn(List.of(rosterService));
@@ -123,7 +123,7 @@ class BillingOnFormBillFormResolverUnitTest {
     }
 
     @Test
-    void shouldReturnProviderPreference_whenNoRosterMatch_priority3() {
+    void shouldReturnProviderPreferencePriority3_whenNoRosterMatch() {
         ProviderPreference pref = new ProviderPreference();
         pref.setDefaultServiceType("PREF-FORM");
         when(providerPreferenceDao.find("999998")).thenReturn(pref);
@@ -158,7 +158,7 @@ class BillingOnFormBillFormResolverUnitTest {
     }
 
     @Test
-    void shouldReturnGroupDefault_whenProviderPrefMissing_priority4() {
+    void shouldReturnGroupDefaultPriority4_whenProviderPrefMissing() {
         MyGroup group = new MyGroup();
         group.setDefaultBillingForm("GROUP-FORM");
         when(myGroupDao.getProviderGroups("999998")).thenReturn(List.of(group));
@@ -173,7 +173,7 @@ class BillingOnFormBillFormResolverUnitTest {
     }
 
     @Test
-    void shouldFallBackToCarlosPropertyDefaultView_whenNoOtherSourceProvides_priority5() {
+    void shouldFallBackToCarlosPropertyDefaultViewPriority5_whenNoOtherSourceProvides() {
         // No roster, no provider pref, no group default → reads CarlosProperties.
         try (MockedStatic<CarlosProperties> propsMock = mockStatic(CarlosProperties.class)) {
             CarlosProperties props = mock(CarlosProperties.class);

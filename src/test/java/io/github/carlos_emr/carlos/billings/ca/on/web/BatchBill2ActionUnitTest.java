@@ -189,7 +189,7 @@ class BatchBill2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldNotPersistAnyBills_whenLaterRowFailsPreValidation_inDoBatchBill() {
+    void shouldNotPersistAnyBillsInDoBatchBill_whenLaterRowFailsPreValidation() {
         // Atomicity contract: if row N is malformed (non-numeric demo no
         // here), rows 0..N-1 must NOT be persisted. The pre-validate loop
         // at BatchBill2Action.java:192-201 runs the parse on every row
@@ -228,7 +228,7 @@ class BatchBill2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldNotPersistAnyBills_whenLaterRowFailsPreValidation_inExecute() {
+    void shouldNotPersistAnyBillsInExecute_whenLaterRowFailsPreValidation() {
         // Same atomicity contract on the execute() path (different
         // pre-validate block at BatchBill2Action.java:119-135).
         request.setMethod("POST");

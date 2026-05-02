@@ -53,6 +53,7 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("BillingONPayment Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
+@Tag("billing")
 @Transactional
 public class BillingONPaymentDaoIntegrationTest extends CarlosTestBase {
 

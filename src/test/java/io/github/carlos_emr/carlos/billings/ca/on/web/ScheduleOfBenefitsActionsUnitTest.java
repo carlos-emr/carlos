@@ -106,7 +106,7 @@ class ScheduleOfBenefitsActionsUnitTest {
     }
 
     @Test
-    void shouldPreviewFeeSchedule_withInjectedService_onUpload() throws Exception {
+    void shouldPreviewFeeScheduleWithInjectedService_whenUpload() throws Exception {
         uploadFile = Files.createTempFile("schedule-of-benefits", ".txt");
         Files.writeString(uploadFile,
                 "A001" + "20260428" + "99999999"
@@ -138,7 +138,7 @@ class ScheduleOfBenefitsActionsUnitTest {
     }
 
     @Test
-    void shouldApplySelectedChanges_withInjectedService_onUpdate() throws Exception {
+    void shouldApplySelectedChangesWithInjectedService_whenUpdate() throws Exception {
         request.setParameter("change", "A001A|33.70|20260428|99999999|Minor assessment");
         when(feeScheduleImportService.applySelected(any()))
                 .thenReturn(new FeeScheduleApplyResult(
@@ -157,7 +157,7 @@ class ScheduleOfBenefitsActionsUnitTest {
     // -- Security tier --------------------------------------------------
 
     @Test
-    void shouldThrowSecurityException_onUpload_whenAdminBillingPrivilegeMissing() {
+    void shouldThrowSecurityExceptionOnUpload_whenAdminBillingPrivilegeMissing() {
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_admin.billing"), eq("w"), isNull()))
                 .thenReturn(false);
 
@@ -170,7 +170,7 @@ class ScheduleOfBenefitsActionsUnitTest {
     }
 
     @Test
-    void shouldThrowSecurityException_onUpdate_whenAdminBillingPrivilegeMissing() {
+    void shouldThrowSecurityExceptionOnUpdate_whenAdminBillingPrivilegeMissing() {
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_admin.billing"), eq("w"), isNull()))
                 .thenReturn(false);
 
@@ -239,7 +239,7 @@ class ScheduleOfBenefitsActionsUnitTest {
     }
 
     @Test
-    void shouldReturn405WithAllowHeader_onUpload_whenGet() throws Exception {
+    void shouldReturn405WithAllowHeaderOnUpload_whenGet() throws Exception {
         // The fee-schedule upload mutates billingservice rows. A forged GET
         // would have bypassed the multipart-aware preview entirely; pin the
         // 405 + Allow contract so a future regression that drops the gate
@@ -256,7 +256,7 @@ class ScheduleOfBenefitsActionsUnitTest {
     }
 
     @Test
-    void shouldReturn405WithAllowHeader_onUpdate_whenGet() throws Exception {
+    void shouldReturn405WithAllowHeaderOnUpdate_whenGet() throws Exception {
         request.setMethod("GET");
         request.setParameter("change", "A001A|33.70|20260428|99999999|Minor assessment");
 

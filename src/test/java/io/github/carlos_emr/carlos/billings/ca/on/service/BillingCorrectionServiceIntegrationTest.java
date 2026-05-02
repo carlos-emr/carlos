@@ -213,7 +213,7 @@ public class BillingCorrectionServiceIntegrationTest extends CarlosTestBase {
      */
     @Test
     @DisplayName("should persist refund payment and decrement bill paid total")
-    void shouldPersistRefundPayment_andDecrementBillPaidTotal_whenPayTypeIsRefund() {
+    void shouldPersistRefundPaymentAndDecrementBillPaidTotal_whenPayTypeIsRefund() {
         request.setParameter("billing_no", String.valueOf(persistedHeader.getId()));
         request.setParameter("amtPaid", "10.00");
         request.setParameter("payMethod", String.valueOf(persistedPaymentType.getId()));
@@ -239,7 +239,7 @@ public class BillingCorrectionServiceIntegrationTest extends CarlosTestBase {
 
     @Test
     @DisplayName("should reject when billing_no is missing")
-    void shouldThrow_andNotPersist_whenBillingNoIsMissing() {
+    void shouldThrowAndNotPersist_whenBillingNoIsMissing() {
         request.setParameter("amtPaid", "25.00");
         request.setParameter("payMethod", String.valueOf(persistedPaymentType.getId()));
         request.setParameter("payType", "P");
@@ -254,7 +254,7 @@ public class BillingCorrectionServiceIntegrationTest extends CarlosTestBase {
 
     @Test
     @DisplayName("should reject when billing_no resolves to no row (404)")
-    void shouldThrow_andNotPersist_whenBillNotFound() {
+    void shouldThrowAndNotPersist_whenBillNotFound() {
         request.setParameter("billing_no", "99999999");  // no header exists with this id
         request.setParameter("amtPaid", "25.00");
         request.setParameter("payMethod", String.valueOf(persistedPaymentType.getId()));
@@ -269,7 +269,7 @@ public class BillingCorrectionServiceIntegrationTest extends CarlosTestBase {
 
     @Test
     @DisplayName("should reject when amtPaid is missing")
-    void shouldThrow_andNotPersist_whenAmtPaidMissing() {
+    void shouldThrowAndNotPersist_whenAmtPaidMissing() {
         request.setParameter("billing_no", String.valueOf(persistedHeader.getId()));
         request.setParameter("payMethod", String.valueOf(persistedPaymentType.getId()));
         request.setParameter("payType", "P");
@@ -285,7 +285,7 @@ public class BillingCorrectionServiceIntegrationTest extends CarlosTestBase {
 
     @Test
     @DisplayName("should reject when payMethod is not configured")
-    void shouldThrow_andNotPersist_whenPayMethodInvalid() {
+    void shouldThrowAndNotPersist_whenPayMethodInvalid() {
         request.setParameter("billing_no", String.valueOf(persistedHeader.getId()));
         request.setParameter("amtPaid", "25.00");
         request.setParameter("payMethod", "99999");  // no BillingPaymentType row with this id
@@ -300,7 +300,7 @@ public class BillingCorrectionServiceIntegrationTest extends CarlosTestBase {
 
     @Test
     @DisplayName("should reject when payType is neither P nor R")
-    void shouldThrow_andNotPersist_whenPayTypeInvalid() {
+    void shouldThrowAndNotPersist_whenPayTypeInvalid() {
         request.setParameter("billing_no", String.valueOf(persistedHeader.getId()));
         request.setParameter("amtPaid", "25.00");
         request.setParameter("payMethod", String.valueOf(persistedPaymentType.getId()));

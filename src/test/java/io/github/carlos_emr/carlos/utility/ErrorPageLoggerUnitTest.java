@@ -60,6 +60,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
  */
 @DisplayName("ErrorPageLogger")
 @Tag("unit")
+@Tag("billing")
 class ErrorPageLoggerUnitTest extends CarlosUnitTestBase {
 
     private static final String LOGGER_NAME =

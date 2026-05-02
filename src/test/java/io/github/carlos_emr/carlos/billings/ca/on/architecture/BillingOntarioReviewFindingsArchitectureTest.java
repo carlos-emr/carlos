@@ -6,6 +6,18 @@
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.billings.ca.on.architecture;
 
@@ -31,7 +43,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class BillingOntarioReviewFindingsArchitectureTest {
 
     @Test
-    void sharedDaoInterfacesShouldNotExposeOntarioDtoTypes() throws Exception {
+    void shouldKeepSharedDaoInterfacesFreeOfOntarioDtoTypes() throws Exception {
         List<Path> files = List.of(
                 Path.of("src/main/java/io/github/carlos_emr/carlos/commn/dao/OscarAppointmentDao.java"),
                 Path.of("src/main/java/io/github/carlos_emr/carlos/commn/dao/RaDetailDao.java"),
@@ -46,7 +58,7 @@ class BillingOntarioReviewFindingsArchitectureTest {
     }
 
     @Test
-    void billingStrutsPackageShouldNotExposeOntarioGlobalMappingsToBcActions() throws Exception {
+    void shouldKeepBillingStrutsPackageFromExposingOntarioGlobalMappingsToBcActions() throws Exception {
         String struts = Files.readString(Path.of("src/main/webapp/WEB-INF/classes/struts-billing.xml"));
 
         int billingPackage = struts.indexOf("<package name=\"billing\"");
@@ -68,7 +80,7 @@ class BillingOntarioReviewFindingsArchitectureTest {
     }
 
     @Test
-    void peripheralCopyrightProseShouldRemainIntact() throws Exception {
+    void shouldKeepPeripheralCopyrightProseIntact() throws Exception {
         assertThat(Files.readString(Path.of(
                 "src/main/java/io/github/carlos_emr/carlos/commn/dao/DemographicDaoImpl.java")))
                 .contains("This software was written for")
@@ -86,7 +98,7 @@ class BillingOntarioReviewFindingsArchitectureTest {
     }
 
     @Test
-    void claimDtosShouldBeCamelCaseRecords() throws Exception {
+    void shouldKeepClaimDtosAsCamelCaseRecords() throws Exception {
         String header = Files.readString(Path.of(
                 "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/dto/BillingClaimHeaderDto.java"));
         String item = Files.readString(Path.of(
@@ -103,7 +115,7 @@ class BillingOntarioReviewFindingsArchitectureTest {
     }
 
     @Test
-    void legacyOntarioDtosShouldUseCamelCaseFieldsWithCompatibilityAccessors() {
+    void shouldKeepLegacyOntarioDtosUsingCamelCaseFieldsWithCompatibilityAccessors() {
         assertThat(Arrays.stream(BillingProviderDto.class.getDeclaredFields())
                 .map(Field::getName))
                 .doesNotContain("hso_no")

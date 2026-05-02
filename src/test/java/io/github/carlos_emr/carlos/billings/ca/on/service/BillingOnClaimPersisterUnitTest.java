@@ -409,7 +409,7 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
          * billingONPaymentDao.persist call slipped through.
          */
         @Test
-        void shouldThrow_andPersistNoRows_whenPayDateIsMalformed() {
+        void shouldThrowAndPersistNoRows_whenPayDateIsMalformed() {
             BillingClaimHeaderDto header = headerDto();
             ArrayList<Object> claimEnvelope = new ArrayList<>();
             claimEnvelope.add(header);
@@ -443,7 +443,7 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
          * Pins the post-fix completeness contract.
          */
         @Test
-        void shouldPersistAllNineExtRows_andOnePayment_whenInputsAreWellFormed() {
+        void shouldPersistAllNineExtRowsAndOnePayment_whenInputsAreWellFormed() {
             BillingClaimHeaderDto header = headerDto();
             ArrayList<Object> claimEnvelope = new ArrayList<>();
             claimEnvelope.add(header);

@@ -354,7 +354,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
     }
 
     @Test
-    void failedProviderShouldCoalesceNullsForJspRendering() {
+    void shouldCoalesceNullsForJspRendering_whenProviderFailed() {
         OhipReportGenerationService.FailedProvider failed =
                 new OhipReportGenerationService.FailedProvider(null, null, null, null);
 
