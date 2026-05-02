@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.dto;
 
+import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
+
 import java.math.BigDecimal;
 
 /**
@@ -33,4 +35,16 @@ public record FeeScheduleImportRequest(
         boolean forceUpdate,
         BigDecimal updateAssistantFeesValue,
         BigDecimal updateAnaesthetistFeesValue) {
+
+    public FeeScheduleImportRequest {
+        updateAssistantFeesValue = normalizeOptionalMoney(updateAssistantFeesValue);
+        updateAnaesthetistFeesValue = normalizeOptionalMoney(updateAnaesthetistFeesValue);
+    }
+
+    private static BigDecimal normalizeOptionalMoney(BigDecimal value) {
+        if (value == null) {
+            return BillingMoney.zeroAmount();
+        }
+        return BillingMoney.amount(value.toPlainString());
+    }
 }

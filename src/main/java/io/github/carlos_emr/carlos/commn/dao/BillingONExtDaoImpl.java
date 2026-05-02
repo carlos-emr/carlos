@@ -177,7 +177,7 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
     public BillingONExt getRemitTo(BillingONCHeader1 bCh1) {
         BillingONExt bExt = null;
 
-        String sql = "select bExt from BillingONExt bExt where billingNo=?1 and status=?2 and keyVal=?3";
+        String sql = "select bExt from BillingONExt bExt where billingNo=?1 and status=?2 and keyVal=?3 order by bExt.id DESC";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, bCh1.getId());
         query.setParameter(2, '1');
@@ -186,7 +186,8 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
         List<BillingONExt> results = query.getResultList();
 
         if (results.size() > 1) {
-            MiscUtils.getLogger().warn("More than one active remit to result for invoice number: " + bCh1.getId());
+            MiscUtils.getLogger().error("More than one active remitTo result for invoice number: {}",
+                    LogSanitizer.sanitize(String.valueOf(bCh1.getId())));
         }
 
         if (!results.isEmpty())
@@ -198,7 +199,7 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
     public BillingONExt getBillTo(BillingONCHeader1 bCh1) {
         BillingONExt bExt = null;
 
-        String sql = "select bExt from BillingONExt bExt where billingNo=?1 and status=?2 and keyVal=?3";
+        String sql = "select bExt from BillingONExt bExt where billingNo=?1 and status=?2 and keyVal=?3 order by bExt.id DESC";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, bCh1.getId());
         query.setParameter(2, '1');
@@ -207,7 +208,8 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
         List<BillingONExt> results = query.getResultList();
 
         if (results.size() > 1) {
-            MiscUtils.getLogger().warn("More than one active bill to result for invoice number: " + bCh1.getId());
+            MiscUtils.getLogger().error("More than one active billTo result for invoice number: {}",
+                    LogSanitizer.sanitize(String.valueOf(bCh1.getId())));
         }
 
         if (!results.isEmpty())
@@ -219,7 +221,7 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
     public BillingONExt getBillToInactive(BillingONCHeader1 bCh1) {
         BillingONExt bExt = null;
 
-        String sql = "select bExt from BillingONExt bExt where billingNo=?1 and status=?2 and keyVal=?3";
+        String sql = "select bExt from BillingONExt bExt where billingNo=?1 and status=?2 and keyVal=?3 order by bExt.id DESC";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, bCh1.getId());
         query.setParameter(2, '0');
@@ -228,7 +230,8 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
         List<BillingONExt> results = query.getResultList();
 
         if (results.size() > 1) {
-            MiscUtils.getLogger().warn("More than one inactive bill to result for invoice number: " + bCh1.getId());
+            MiscUtils.getLogger().error("More than one inactive billTo result for invoice number: {}",
+                    LogSanitizer.sanitize(String.valueOf(bCh1.getId())));
         }
 
         if (!results.isEmpty())
@@ -240,7 +243,7 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
     public BillingONExt getDueDate(BillingONCHeader1 bCh1) {
         BillingONExt bExt = null;
 
-        String sql = "select bExt from BillingONExt bExt where billingNo=?1 and status=?2 and keyVal=?3";
+        String sql = "select bExt from BillingONExt bExt where billingNo=?1 and status=?2 and keyVal=?3 order by bExt.id DESC";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, bCh1.getId());
         query.setParameter(2, '1');
@@ -249,7 +252,8 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
         List<BillingONExt> results = query.getResultList();
 
         if (results.size() > 1) {
-            MiscUtils.getLogger().warn("More than one active dueDate result for invoice number: " + bCh1.getId());
+            MiscUtils.getLogger().error("More than one active dueDate result for invoice number: {}",
+                    LogSanitizer.sanitize(String.valueOf(bCh1.getId())));
         }
 
         if (!results.isEmpty()) {
@@ -263,7 +267,7 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
     public BillingONExt getUseBillTo(BillingONCHeader1 bCh1) {
         BillingONExt bExt = null;
 
-        String sql = "select bExt from BillingONExt bExt where billingNo=?1 and status=?2 and keyVal=?3";
+        String sql = "select bExt from BillingONExt bExt where billingNo=?1 and status=?2 and keyVal=?3 order by bExt.id DESC";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, bCh1.getId());
         query.setParameter(2, '1');
@@ -272,7 +276,8 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
         List<BillingONExt> results = query.getResultList();
 
         if (results.size() > 1) {
-            MiscUtils.getLogger().warn("More than one active useBillTo result for invoice number: " + bCh1.getId());
+            MiscUtils.getLogger().error("More than one active useBillTo result for invoice number: {}",
+                    LogSanitizer.sanitize(String.valueOf(bCh1.getId())));
         }
 
         if (!results.isEmpty()) {

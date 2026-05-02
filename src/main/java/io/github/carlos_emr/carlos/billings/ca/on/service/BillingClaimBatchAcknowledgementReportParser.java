@@ -50,11 +50,10 @@ public class BillingClaimBatchAcknowledgementReportParser {
     public boolean init(FileInputStream file) {
 
 
-        InputStreamReader reader = new InputStreamReader(file);
-        BufferedReader input = new BufferedReader(reader);
         String nextline;
 
-        try {
+        try (InputStreamReader reader = new InputStreamReader(file);
+             BufferedReader input = new BufferedReader(reader)) {
             while ((nextline = input.readLine()) != null) {
                 String headerCount = nextline.substring(2, 3);
                 if (headerCount.compareTo("1") == 0) {
@@ -95,9 +94,11 @@ public class BillingClaimBatchAcknowledgementReportParser {
             // surfacing a clean-parse outcome.
             MiscUtils.getLogger().error("Batch ack parse failed (IOException)", ioe);
             verdict = false;
+            batchAcknowledgementRecords.clear();
         } catch (StringIndexOutOfBoundsException ioe) {
             MiscUtils.getLogger().error("Batch ack parse failed (malformed record layout)", ioe);
             verdict = false;
+            batchAcknowledgementRecords.clear();
         }
         return verdict;
     }

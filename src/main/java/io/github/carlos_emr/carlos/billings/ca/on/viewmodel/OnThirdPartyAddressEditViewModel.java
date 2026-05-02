@@ -38,7 +38,7 @@ import java.util.Properties;
  */
 public final class OnThirdPartyAddressEditViewModel {
 
-    /** Banner message — may be HTML (color tags etc.). */
+    /** Banner message; JSP owns all markup and escaping. */
     private final String message;
     /** Hidden-input "action" value: "search", "edit&lt;name&gt;", or "add&lt;name&gt;". */
     private final String action;

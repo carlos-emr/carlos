@@ -175,8 +175,8 @@ public final class BillingDates {
             return "";
         }
         // java.sql.Date.toInstant() throws UnsupportedOperationException;
-        // route through getTime() to support both sql.Date (returned by
-        // parseIsoDate) and util.Date.
+        // route through getTime() to support both sql.Date and the util.Date
+        // returned by parseIsoDate.
         return java.time.Instant.ofEpochMilli(date.getTime())
                 .atZone(billingZone()).toLocalDate().format(SERVICE_DATE);
     }

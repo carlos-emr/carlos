@@ -75,8 +75,9 @@ public final class ErrorPageLogger {
             }
             // Strip the query string AND any path parameters (`;jsessionid=...`,
             // etc.) off the captured request_uri before logging:
-            //  - billing flows pass `demographic_no`, `claim_no`, and
-            //    `billing_no` in the query, all PHI-correlated per CLAUDE.md
+            //  - billing flows pass mixed identifiers in the query; some are
+            //    clinical/accounting identifiers even though demographic_no
+            //    itself is not PHI per CLAUDE.md
             //  - Tomcat can include `;jsessionid=...` as a path parameter on
             //    cookieless requests, which is sensitive and would let an
             //    operator with log access hijack the session.

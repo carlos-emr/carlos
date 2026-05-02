@@ -26,12 +26,18 @@ import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * One fee-schedule change that was actually persisted during an import apply
  * step.
  */
 public record FeeScheduleAppliedChange(String code, BigDecimal value) {
+
+    public FeeScheduleAppliedChange {
+        Objects.requireNonNull(code, "code must not be null");
+        value = BillingMoney.amount(Objects.requireNonNull(value, "value must not be null").toPlainString());
+    }
 
     /** Convert the applied row into the map shape expected by the legacy review JSP. */
     public Map<String, Object> toViewMap() {

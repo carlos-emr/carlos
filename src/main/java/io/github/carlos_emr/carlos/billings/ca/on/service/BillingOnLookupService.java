@@ -59,10 +59,9 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.SxmlMisc;
 
 /**
- * Lookup-and-mutation service used by ten ON billing assemblers and
- * three pageUtil prep classes. Mostly read-side helpers (provider lists,
- * provider OHIP/name maps, appointment-status lookup, current
- * billing-demographic-id resolution) plus one mutation
+ * Lookup-and-mutation service used by ON billing actions and assemblers.
+ * Mostly read-side helpers (provider lists, provider OHIP/name maps,
+ * appointment-status lookup, current billing-demographic-id resolution) plus one mutation
  * ({@link #updateApptStatus}). Sits in {@code service/} because the
  * mutation makes it side-effect-bearing per the package-info contract;
  * the reads stay co-located so the entire surface is one file.

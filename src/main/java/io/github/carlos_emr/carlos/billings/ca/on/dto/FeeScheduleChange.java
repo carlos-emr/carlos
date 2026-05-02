@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Preview-time representation of one Ontario fee schedule delta.
@@ -47,7 +48,7 @@ public record FeeScheduleChange(
         boolean newCode) {
 
     public FeeScheduleChange {
-        newPrice = BillingMoney.amount(newPrice.toPlainString());
+        newPrice = BillingMoney.amount(Objects.requireNonNull(newPrice, "newPrice must not be null").toPlainString());
         if (oldPrice != null) {
             oldPrice = BillingMoney.amount(oldPrice.toPlainString());
         }

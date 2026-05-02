@@ -53,8 +53,18 @@ public class BillingClaimsErrorReportParser {
     private List<BillingClaimsErrorReportRecordDto> claimsErrorReportRecords = new ArrayList<>();
     private boolean verdict = true;
 
+    private BillingClaimsErrorReportParser() {
+    }
+
     public BillingClaimsErrorReportParser(FileInputStream file) {
         init(file);
+    }
+
+    static BillingClaimsErrorReportParser successful(List<BillingClaimsErrorReportRecordDto> records) {
+        BillingClaimsErrorReportParser parser = new BillingClaimsErrorReportParser();
+        parser.setVerdict(true);
+        parser.setClaimsErrorReportRecords(records);
+        return parser;
     }
 
     /**

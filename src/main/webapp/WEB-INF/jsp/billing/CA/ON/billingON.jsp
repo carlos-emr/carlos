@@ -1274,13 +1274,13 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                                     <c:if test="${param[xmlParamKey] eq 'checked'}">checked</c:if>
                                                     <c:if test="${formModel.visit.singleClickEnabled}">onClick='onClickServiceCode(this)'</c:if> />
                                             <span id="sc${rowLoop.index}${carlos:forHtmlAttribute(entry.serviceCode)}"
-                                                  onclick="getElementById('xml_${carlos:forHtmlAttribute(carlos:forJavaScript(entry.serviceCode))}').click();"
+                                                  onclick="getElementById('xml_${carlos:forJavaScriptAttribute(entry.serviceCode)}').click();"
                                                   ondblclick="onDblClickServiceCode(this)"><carlos:encode value='${entry.serviceCode}' context='html'/></span>
                                         </td>
                                         <td style="${entry.displayStyle} ${bgcolor}"
                                                 title="${carlos:forHtmlAttribute(fn:length(entry.serviceDesc) gt 30 ? entry.serviceDesc : '')}"
                                                 class="${entry.displayStyle eq '' ? 'smallFont' : ''}">
-                                            <div onclick="getElementById('xml_${carlos:forHtmlAttribute(carlos:forJavaScript(entry.serviceCode))}').click();"><c:choose><c:when test="${fn:length(entry.serviceDesc) gt 30}"><carlos:encode value="${fn:substring(entry.serviceDesc, 0, 30)}"/>...</c:when><c:otherwise><carlos:encode value="${entry.serviceDesc}"/></c:otherwise></c:choose>
+                                            <div onclick="getElementById('xml_${carlos:forJavaScriptAttribute(entry.serviceCode)}').click();"><c:choose><c:when test="${fn:length(entry.serviceDesc) gt 30}"><carlos:encode value="${fn:substring(entry.serviceDesc, 0, 30)}"/>...</c:when><c:otherwise><carlos:encode value="${entry.serviceDesc}"/></c:otherwise></c:choose>
                                             </div>
                                         </td>
                                         <td style="text-align: right; ${entry.displayStyle} ${bgcolor}">
@@ -1326,13 +1326,13 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                                     <c:if test="${param[xmlParamKey] eq 'checked'}">checked</c:if>
                                                     <c:if test="${formModel.visit.singleClickEnabled}">onClick='onClickServiceCode(this)'</c:if> />
                                             <span id="sc${rowLoop.index}${carlos:forHtmlAttribute(entry.serviceCode)}"
-                                                  onclick="getElementById('xml_${carlos:forHtmlAttribute(carlos:forJavaScript(entry.serviceCode))}').click();"
+                                                  onclick="getElementById('xml_${carlos:forJavaScriptAttribute(entry.serviceCode)}').click();"
                                                   onDblClick="onDblClickServiceCode(this)"><carlos:encode value='${entry.serviceCode}' context='html'/></span>
                                         </td>
                                         <td style="${entry.displayStyle} ${bgcolor}"
                                                 title="${carlos:forHtmlAttribute(fn:length(entry.serviceDesc) gt 30 ? entry.serviceDesc : '')}"
                                                 class="${entry.displayStyle eq '' ? 'smallFont' : ''}">
-                                            <div onclick="getElementById('xml_${carlos:forHtmlAttribute(carlos:forJavaScript(entry.serviceCode))}').click();">
+                                            <div onclick="getElementById('xml_${carlos:forJavaScriptAttribute(entry.serviceCode)}').click();">
                                                 <c:choose><c:when test="${fn:length(entry.serviceDesc) gt 30}"><carlos:encode value="${fn:substring(entry.serviceDesc, 0, 30)}"/>...</c:when><c:otherwise><carlos:encode value="${entry.serviceDesc}"/></c:otherwise></c:choose>
                                             </div>
                                         </td>
@@ -1379,13 +1379,13 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                                     <c:if test="${param[xmlParamKey] eq 'checked'}">checked</c:if>
                                                     <c:if test="${formModel.visit.singleClickEnabled}">onClick='onClickServiceCode(this)'</c:if> />
                                             <span id="sc${rowLoop.index}${carlos:forHtmlAttribute(entry.serviceCode)}"
-                                                  onclick="getElementById('xml_${carlos:forHtmlAttribute(carlos:forJavaScript(entry.serviceCode))}').click();"
+                                                  onclick="getElementById('xml_${carlos:forJavaScriptAttribute(entry.serviceCode)}').click();"
                                                   onDblClick="onDblClickServiceCode(this)"><carlos:encode value='${entry.serviceCode}' context='html'/></span>
                                         </td>
                                         <td style="${entry.displayStyle} ${bgcolor} "
                                                 title="${carlos:forHtmlAttribute(fn:length(entry.serviceDesc) gt 30 ? entry.serviceDesc : '')}"
                                                 class="${entry.displayStyle eq '' ? 'smallFont' : ''}">
-                                            <div onclick="getElementById('xml_${carlos:forHtmlAttribute(carlos:forJavaScript(entry.serviceCode))}').click();">
+                                            <div onclick="getElementById('xml_${carlos:forJavaScriptAttribute(entry.serviceCode)}').click();">
                                                 <c:choose><c:when test="${fn:length(entry.serviceDesc) gt 30}"><carlos:encode value="${fn:substring(entry.serviceDesc, 0, 30)}"/>...</c:when><c:otherwise><carlos:encode value="${entry.serviceDesc}"/></c:otherwise></c:choose>
                                             </div>
                                         </td>

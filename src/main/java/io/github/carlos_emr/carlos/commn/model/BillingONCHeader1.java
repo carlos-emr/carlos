@@ -655,6 +655,19 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
     }
 
     /**
+     * Serialization-friendly companion for callers that must treat missing
+     * or detached line items as "not available" rather than throwing.
+     *
+     * @return unmodifiable items when loaded, otherwise an empty list
+     */
+    public List<BillingONItem> getBillingItemsOrEmpty() {
+        if (billingItems == null || !Hibernate.isInitialized(billingItems)) {
+            return Collections.emptyList();
+        }
+        return Collections.unmodifiableList(billingItems);
+    }
+
+    /**
      * Wholesale-replaces the line-items collection with a defensive copy.
      * Should only be called on transient (not yet persisted) entities —
      * production code that mutates a managed header must use

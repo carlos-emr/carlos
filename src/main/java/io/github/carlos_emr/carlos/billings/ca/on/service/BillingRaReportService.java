@@ -351,6 +351,7 @@ public class BillingRaReportService {
 
      */
 
+    @org.springframework.transaction.annotation.Transactional
     public boolean updateBillingStatus(String id, String status) {
         boolean ret = raService.updateBillingStatus(id, status);
         return ret;

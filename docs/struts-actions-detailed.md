@@ -106,7 +106,7 @@ Comprehensive billing management for various Canadian provinces.
 | billing/CA/ON/benefitScheduleUpload | io.github.carlos_emr.carlos.billings.ca.on.web.ScheduleOfBenefitsUpload2Action | Uploads OHIP benefit schedules |
 | billing/CA/ON/billingON3rdPayments | io.github.carlos_emr.carlos.billings.ca.on.web.BillingOnPayments2Action | Manages third-party payments for Ontario |
 | billing/CA/ON/BillingONCorrection | io.github.carlos_emr.carlos.billings.ca.on.web.BillingCorrection2Action | Handles billing corrections for Ontario |
-| billing/ca/on/DisplayInvoiceLogo | io.github.carlos_emr.carlos.billing.CA.ON.util.DisplayInvoiceLogo2Action | Displays invoice logos for Ontario |
+| billing/ca/on/DisplayInvoiceLogo | io.github.carlos_emr.carlos.billing.CA.ON.util.DisplayInvoiceLogo2Action | Displays invoice logos for Ontario; legacy namespace holdout pending cross-province move |
 | billing/CA/ON/endYearStatement | io.github.carlos_emr.carlos.billings.ca.on.web.PatientEndYearStatement2Action | Generates end-of-year patient statements |
 | billing/CA/ON/managePaymentType | io.github.carlos_emr.carlos.billings.ca.on.web.PaymentType2Action | Manages payment types for Ontario |
 | billing/CA/ON/moveMOHFiles | io.github.carlos_emr.carlos.billings.ca.on.web.MoveMohFiles2Action | Moves and archives MOH billing files |

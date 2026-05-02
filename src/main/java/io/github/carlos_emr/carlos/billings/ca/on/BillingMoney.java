@@ -94,7 +94,13 @@ public record BillingMoney(BigDecimal amount, Currency currency) implements Comp
 
     public BillingMoney minus(BillingMoney other) {
         requireSameCurrency(other);
-        return new BillingMoney(amount.subtract(other.amount), currency);
+        BigDecimal difference = amount.subtract(other.amount);
+        if (difference.signum() < 0) {
+            throw new BillingValidationException(
+                    "BillingMoney: subtraction result cannot be negative ["
+                            + format(amount) + " - " + format(other.amount) + " = " + format(difference) + "]");
+        }
+        return new BillingMoney(difference, currency);
     }
 
     public String format() {

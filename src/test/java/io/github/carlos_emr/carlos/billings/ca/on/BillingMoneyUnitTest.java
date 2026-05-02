@@ -188,6 +188,18 @@ class BillingMoneyUnitTest {
     }
 
     @Test
+    void shouldThrowValidationWithMinusMessage_whenSubtractWouldGoNegative() {
+        BillingMoney subtotal = BillingMoney.cad("2.50");
+        BillingMoney adjustment = BillingMoney.cad("10.00");
+
+        assertThatThrownBy(() -> subtotal.minus(adjustment))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("subtraction result cannot be negative")
+                .hasMessageContaining("2.50")
+                .hasMessageContaining("10.00");
+    }
+
+    @Test
     void shouldRoundTripStoredCentStringsThroughValueType() {
         BillingMoney amount = BillingMoney.storedCents("3000", "total");
 

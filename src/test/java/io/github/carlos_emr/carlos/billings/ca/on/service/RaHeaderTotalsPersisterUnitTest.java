@@ -33,6 +33,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.GenerateRaSummaryVie
 import io.github.carlos_emr.carlos.commn.dao.BillingONPremiumDao;
 import io.github.carlos_emr.carlos.commn.dao.RaHeaderDao;
 import io.github.carlos_emr.carlos.commn.model.RaHeader;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.AfterEach;
@@ -43,6 +44,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -169,6 +171,45 @@ class RaHeaderTotalsPersisterUnitTest {
                 .contains("<xml_ob_total>10.00</xml_ob_total>")
                 .contains("<xml_co_total>5.00</xml_co_total>");
         verify(raHeaderDao).merge(header);
+    }
+
+    @Test
+    void shouldThrowValidation_whenSummaryTotalsModelIsNull() {
+        RaHeaderTotalsPersister persister = new RaHeaderTotalsPersister(
+                mock(RaHeaderDao.class), mock(BillingONPremiumDao.class), new RaDescriptionFileParser());
+
+        assertThatThrownBy(() -> persister.mergeSummaryTotals(null))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("missing RA summary totals");
+    }
+
+    @Test
+    void shouldThrowValidation_whenSummaryTotalsRaNoIsInvalid() {
+        GenerateRaSummaryViewModel model = GenerateRaSummaryViewModel.builder()
+                .raNo("not-a-number")
+                .build();
+        RaHeaderTotalsPersister persister = new RaHeaderTotalsPersister(
+                mock(RaHeaderDao.class), mock(BillingONPremiumDao.class), new RaDescriptionFileParser());
+
+        assertThatThrownBy(() -> persister.mergeSummaryTotals(model))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("invalid RA number");
+    }
+
+    @Test
+    void shouldThrowValidation_whenSummaryTotalsRaHeaderIsMissing() {
+        RaHeaderDao raHeaderDao = mock(RaHeaderDao.class);
+        when(raHeaderDao.find((Object) 22)).thenReturn(null);
+        GenerateRaSummaryViewModel model = GenerateRaSummaryViewModel.builder()
+                .raNo("22")
+                .build();
+        RaHeaderTotalsPersister persister = new RaHeaderTotalsPersister(
+                raHeaderDao, mock(BillingONPremiumDao.class), new RaDescriptionFileParser());
+
+        assertThatThrownBy(() -> persister.mergeSummaryTotals(model))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("RA header not found")
+                .hasMessageContaining("22");
     }
 
     private static String h1LineWithRawTotal(String rawTotal) {

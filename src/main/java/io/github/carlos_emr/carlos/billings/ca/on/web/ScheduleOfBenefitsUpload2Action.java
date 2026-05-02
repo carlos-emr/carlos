@@ -126,6 +126,7 @@ public class ScheduleOfBenefitsUpload2Action extends ActionSupport implements Up
             MiscUtils.getLogger().error("Failed to preview Schedule of Benefits upload {}",
                     LogSanitizer.sanitize(importFileFileName), e);
             outcome = "exception";
+            forceUpdate = false;
         }
         MiscUtils.getLogger().debug("warnings " + warnings.size());
         request.setAttribute("warnings", warnings);

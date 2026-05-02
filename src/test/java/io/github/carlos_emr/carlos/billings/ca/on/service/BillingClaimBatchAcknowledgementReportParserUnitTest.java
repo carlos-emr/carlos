@@ -71,4 +71,39 @@ class BillingClaimBatchAcknowledgementReportParserUnitTest {
 
         assertThat(parser.verdict).isTrue();
     }
+
+    @Test
+    void shouldClearParsedRecords_whenLaterLineIsMalformed() throws Exception {
+        File f = Files.createTempFile(tempDir, "partial", ".txt").toFile();
+        Files.writeString(f.toPath(), headerLine() + System.lineSeparator() + "AB1too-short");
+
+        BillingClaimBatchAcknowledgementReportParser parser =
+                new BillingClaimBatchAcknowledgementReportParser(new FileInputStream(f));
+
+        assertThat(parser.verdict).isFalse();
+        assertThat(parser.getBatchAcknowledgementRecords()).isEmpty();
+    }
+
+    private static String headerLine() {
+        StringBuilder line = new StringBuilder(" ".repeat(111));
+        replace(line, 0, "AB1");
+        replace(line, 6, "BATCH");
+        replace(line, 11, "OPER01");
+        replace(line, 17, "20260428");
+        replace(line, 25, "0001");
+        replace(line, 29, "MICROSTART1");
+        replace(line, 40, "END01");
+        replace(line, 45, "TYPE001");
+        replace(line, 52, "GRP1");
+        replace(line, 56, "PRV001");
+        replace(line, 62, "CLM01");
+        replace(line, 67, "REC001");
+        replace(line, 73, "20260429");
+        replace(line, 81, "processed ok");
+        return line.toString();
+    }
+
+    private static void replace(StringBuilder target, int start, String value) {
+        target.replace(start, start + value.length(), value);
+    }
 }

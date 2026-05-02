@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingDiskNameDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.DiskFilenameRow;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 // NOTE: this service is read+write — addBillingDiskName/addRepoDiskName/
 // updateDiskName (lines ~135/166/177/187) write through the persister. Class-
@@ -292,6 +293,14 @@ public class BillingDiskCreationService {
     }
 
     private String getDefaultRightJust(String ch, int num, String val) {
+        if (val == null) {
+            throw new BillingValidationException(
+                    "BillingDiskCreationService: fixed-width value is null for width=" + num);
+        }
+        if (val.length() > num) {
+            throw new BillingValidationException(
+                    "BillingDiskCreationService: fixed-width value [" + val + "] does not fit width=" + num);
+        }
         String ret = "";
         for (int i = 0; i < num; i++) {
             ret += ch;

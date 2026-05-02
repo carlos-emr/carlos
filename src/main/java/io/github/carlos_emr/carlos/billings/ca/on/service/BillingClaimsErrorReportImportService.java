@@ -69,7 +69,7 @@ public class BillingClaimsErrorReportImportService {
      * {@code @Transactional} boundary and a {@link BillingFileImportException}
      * propagates to the caller.
      *
-     * @param file     input stream — owned by the caller (this method does not close it)
+     * @param file     input stream — consumed and closed by this method
      * @param filename original filename, used for audit fields on the persisted rows
      * @return parser carrying parsed records and a {@code verdict=true} flag on success
      * @throws BillingFileImportException if the file cannot be fully read/parsed
@@ -78,23 +78,19 @@ public class BillingClaimsErrorReportImportService {
         List<BillingClaimsErrorReportRecordDto> records = new ArrayList<>();
         parseAndPersist(file, filename, records);
 
-        BillingClaimsErrorReportParser parser = new BillingClaimsErrorReportParser(file);
-        parser.setVerdict(true);
-        parser.setClaimsErrorReportRecords(records);
-        return parser;
+        return BillingClaimsErrorReportParser.successful(records);
     }
 
     private void parseAndPersist(FileInputStream file, String filename,
                                  List<BillingClaimsErrorReportRecordDto> records) {
-        InputStreamReader reader = new InputStreamReader(file);
-        BufferedReader input = new BufferedReader(reader);
         String nextline;
         BillingClaimsErrorReportRecordDto CERBean = new BillingClaimsErrorReportRecordDto();
         boolean isNewHin = false;
 
         BillingErrorReportDto erObj = null;
         String claimError = "";
-        try {
+        try (InputStreamReader reader = new InputStreamReader(file);
+             BufferedReader input = new BufferedReader(reader)) {
             while ((nextline = input.readLine()) != null) {
                 String codeError = "";
 

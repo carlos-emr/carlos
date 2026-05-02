@@ -248,7 +248,7 @@ public class BillingOnNewReportViewModelAssembler {
                 + "&apptProvider_no=" + urlParam(providerView)
                 + "&appointment_date=" + urlParam(row.appointmentDate())
                 + "&start_time=" + urlParam(row.startTime())
-                + "&bNewForm=1\"); return false;'>Bill ";
+                + "&bNewForm=1\"); return false;'>Bill</a>";
     }
 
     private void runBilled(String providerView, String xmlVdate,

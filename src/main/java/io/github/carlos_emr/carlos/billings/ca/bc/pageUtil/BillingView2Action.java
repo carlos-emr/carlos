@@ -114,6 +114,12 @@ public final class BillingView2Action
         log.debug("Calling Demo");
 
         Demographic demo = demoData.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), bean.getPatientNo());
+        if (demo == null) {
+            log.warn("BillingView2Action: demographic not found for patientNo={}",
+                    LogSanitizer.sanitize(bean.getPatientNo()));
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
         bean.setPatientLastName(demo.getLastName());
         bean.setPatientFirstName(demo.getFirstName());
         bean.setPatientDoB(demo.getDateOfBirth());

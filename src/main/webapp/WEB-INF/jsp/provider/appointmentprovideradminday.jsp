@@ -1177,6 +1177,9 @@
                         </button>
                     </span>
                     <div id="quickSearchDropdown" class="quick-search-dropdown" role="listbox" aria-live="polite" aria-hidden="true" style="display:none;"></div>
+                    <form id="quickSearchCsrfForm" method="post"
+                          action="<%= request.getContextPath() %>/demographic/SearchDemographic"
+                          style="display:none;"></form>
                 </span>
                 <a class="redArrow"
                    href="<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day-7):(day-1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%= isWeekView ? "&provider_no=" + SafeEncode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(provNum)) : "" %>&viewall=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(viewall) %>' context="uriComponent"/>">

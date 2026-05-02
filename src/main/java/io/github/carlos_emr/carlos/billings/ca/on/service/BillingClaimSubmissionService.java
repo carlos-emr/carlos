@@ -472,8 +472,8 @@ public class BillingClaimSubmissionService {
 
         for (int i = 0; i < lines.size(); i++) { // recordCount
             BillingServiceLine line = lines.get(i);
-            BigDecimal bdEachPrice = BillingMoney.amount(line.price());
-            BigDecimal bdEachUnit = BillingMoney.amount(line.unit());
+            BigDecimal bdEachPrice = BillingMoney.amountStrictOrZero(line.price());
+            BigDecimal bdEachUnit = BillingMoney.amountStrictOrZero(line.unit());
             BigDecimal bdEachTotal = bdEachPrice.multiply(bdEachUnit).setScale(2, RoundingMode.HALF_UP);
 
             claimItem[i] = new BillingClaimItemDto();

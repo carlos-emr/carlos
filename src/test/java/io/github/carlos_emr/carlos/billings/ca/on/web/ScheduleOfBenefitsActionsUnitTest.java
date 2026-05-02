@@ -203,6 +203,23 @@ class ScheduleOfBenefitsActionsUnitTest {
     }
 
     @Test
+    void shouldReturnExceptionAndClearForceUpdate_whenPreviewThrowsAfterForceUpdateRequested() throws Exception {
+        uploadFile = Files.createTempFile("schedule-of-benefits-force-bad", ".txt");
+        Files.writeString(uploadFile, "garbage");
+        request.setParameter("forceUpdate", "on");
+        when(feeScheduleImportService.preview(any(), any()))
+                .thenThrow(new RuntimeException("boom"));
+
+        ScheduleOfBenefitsUpload2Action action =
+                new ScheduleOfBenefitsUpload2Action(securityInfoManager, feeScheduleImportService);
+        attachUpload(action);
+
+        assertThat(action.execute()).isEqualTo("exception");
+        assertThat(request.getAttribute("outcome")).isEqualTo("exception");
+        assertThat(request.getAttribute("forceUpdate")).isEqualTo(false);
+    }
+
+    @Test
     void shouldReturnException_whenPreviewFindsValidationErrors() throws Exception {
         uploadFile = Files.createTempFile("schedule-of-benefits-errors", ".txt");
         Files.writeString(uploadFile, "bad");

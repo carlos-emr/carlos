@@ -166,11 +166,7 @@
     <center>
         <table BORDER="1" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
             <tr class="myDarkGreen">
-                <%-- The action's assembleViewModel composes the message from
-                     static strings + SafeEncode.forHtml(companyName), so it
-                     contains pre-encoded operator input wrapped in legacy
-                     <font color> tags. Output unescaped. --%>
-                <th><font color="white"><c:out value="${addrModel.message}" escapeXml="false"/></font></th>
+                <th><font color="white"><carlos:encode value="${addrModel.message}" context="html"/></font></th>
             </tr>
         </table>
     </center>

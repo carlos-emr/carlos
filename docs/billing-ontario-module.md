@@ -145,11 +145,11 @@ Forbidden in new code (and currently absent from this module): `*Prep`,
 
 - All non-DAO components are registered with `@org.springframework.stereotype.Service`.
 - Constructor injection is used in the `service/` and `assembler/` layers.
-  The `web/` (Struts2 action) layer still has ~52 `= SpringUtils.getBean(...)`
-  field-init patterns because Struts2 instantiates actions per-request and
-  the legacy actions wire dependencies via the service locator. New 2Actions
-  should prefer constructor injection where the Struts2 wiring permits;
-  treat new field-init `getBean` calls as a regression.
+  The `web/` (Struts2 action) layer still has 28 `= SpringUtils.getBean(...)`
+  field-init patterns; there are 52 `SpringUtils.getBean(...)` references in
+  total when method-local lookups are included. New 2Actions should prefer
+  constructor injection where the Struts2 wiring permits; treat new field-init
+  `getBean` calls as a regression.
 - `@Lazy` is **not** used anywhere in `billings/ca/on`. It was carried
   forward from a long-since-resolved circular-dependency workaround and was
   stripped in 2026-04-27. If you reintroduce a real cycle, Spring will fail
@@ -500,7 +500,9 @@ Notes on this template:
   (`?method=...`) have been split into single-purpose actions over the
   course of this refactor. Don't add new method-dispatch actions; see the
   [remaining method-dispatch cleanup](#remaining-method-dispatch-cleanup)
-  follow-up for the known remainders.
+  follow-up, tracked by
+  [carlos-emr/carlos#1751](https://github.com/carlos-emr/carlos/issues/1751),
+  for the known remainders.
 - **Constructor injection.** No `field = SpringUtils.getBean(...)` shims.
 - **Privilege check first.** `_billing r` for read, `_billing w` for write.
   Throw `SecurityException` (the global Struts exception mapping renders
@@ -742,9 +744,9 @@ underscore separator. Examples in this module:
 
 ```java
 void shouldReturnON_whenBillRegionParamIsON()
-void shouldReturnBalanceOwing_givenSettledHeaderAndPayments()
+void shouldReturnSuccess_whenAuthorizedGetWithoutMutationIntent()
 void shouldThrowSecurityException_whenMissingBillingReadPrivilege()
-void shouldReturnEmpty_whenAFeeCannotBeParsed()
+void shouldReturn405WithAllowHeader_onUpload_whenGet()
 ```
 
 ### 11.3 Hibernate test traps
@@ -787,7 +789,8 @@ Things this module would benefit from but which are not yet done:
   in `BatchBill2Action`, `ManageCss2Action`, and `BillingOnPayments2Action`.
   The correction routes `BillingCorrection2Action` and
   `UpdateBillingOnCorrection2Action` also retain legacy correction-flow
-  compatibility and should be tracked with the same cleanup issue.
+  compatibility and are tracked with
+  [carlos-emr/carlos#1751](https://github.com/carlos-emr/carlos/issues/1751).
 - **JSP guardrail.** `scripts/lint/check-jsp-size.sh` fails CI on any JSP
   under `WEB-INF/jsp/billing/**` that exceeds the byte/scriptlet/getBean
   thresholds. Cheap insurance against the page-buffer workaround returning.

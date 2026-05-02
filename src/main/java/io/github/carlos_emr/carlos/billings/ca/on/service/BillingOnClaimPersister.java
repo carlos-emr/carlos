@@ -493,7 +493,7 @@ public class BillingOnClaimPersister {
 
             payment = new BillingONPayment();
             payment.setTotal_payment(BillingMoney.amount(paymentSumParam));
-            payment.setTotal_discount(BillingMoney.amount(mVal.get("total_discount")));
+            payment.setTotal_discount(BillingMoney.amountStrictOrZero(mVal.get("total_discount")));
             payment.setTotal_refund(BillingMoney.zeroAmount());
             payment.setPaymentDate(paymentDate);
             payment.setBillingOnCheader1(ch1);

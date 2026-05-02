@@ -31,7 +31,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingThirdPartyServi
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.OnThirdPartyAddressEditViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -93,49 +92,50 @@ public class OnThirdPartyAddressEdit2Action extends ActionSupport {
         if ("Save".equals(submit)) {
             String actionParam = request.getParameter("action");
             String companyName = request.getParameter("company_name");
+            String displayCompanyName = nullToEmpty(companyName);
             if (actionParam != null && actionParam.startsWith("edit")) {
                 if (companyName != null && companyName.equals(actionParam.substring("edit".length()))) {
                     Properties val = collectFormValues(request);
                     boolean updated = thirdPartyService.update3rdAddr(request.getParameter("id"), val);
                     if (updated) {
-                        message = SafeEncode.forHtml(companyName) + " is updated.<br>"
+                        message = displayCompanyName + " is updated. "
                                 + "Type in a name and search first to see if it is available.";
                         action = "search";
-                        prop.setProperty("company_name", companyName);
+                        prop.setProperty("company_name", displayCompanyName);
                     } else {
-                        message = SafeEncode.forHtml(companyName) + " is <font color='red'>NOT</font> updated. Action failed! Try edit it again.";
+                        message = displayCompanyName + " is NOT updated. Action failed! Try edit it again.";
                         action = "edit" + companyName;
                         prop = val;
                         prop.setProperty("id", request.getParameter("id"));
                     }
                 } else {
-                    message = "You can <font color='red'>NOT</font> save the name - " + SafeEncode.forHtml(companyName)
+                    message = "You can NOT save the name - " + displayCompanyName
                             + ". Please search the name first.";
                     action = "search";
-                    prop.setProperty("company_name", companyName == null ? "" : companyName);
+                    prop.setProperty("company_name", displayCompanyName);
                 }
             } else if (actionParam != null && actionParam.startsWith("add")) {
                 if (companyName != null && companyName.equals(actionParam.substring("add".length()))) {
                     Properties val = collectFormValues(request);
                     int added = thirdPartyService.addOne3rdAddrRecord(val);
                     if (added > 0) {
-                        message = SafeEncode.forHtml(companyName) + " is added.<br>"
+                        message = displayCompanyName + " is added. "
                                 + "Type in a name and search first to see if it is available.";
                         action = "search";
-                        prop.setProperty("company_name", companyName);
+                        prop.setProperty("company_name", displayCompanyName);
                     } else {
-                        message = SafeEncode.forHtml(companyName) + " is <font color='red'>NOT</font> added. Action failed! Try edit it again.";
+                        message = displayCompanyName + " is NOT added. Action failed! Try edit it again.";
                         action = "add" + companyName;
                         prop = val;
                     }
                 } else {
-                    message = "You can <font color='red'>NOT</font> save the name - " + SafeEncode.forHtml(companyName)
+                    message = "You can NOT save the name - " + displayCompanyName
                             + ". Please search the name first.";
                     action = "search";
-                    prop.setProperty("company_name", companyName == null ? "" : companyName);
+                    prop.setProperty("company_name", displayCompanyName);
                 }
             } else {
-                message = "You can <font color='red'>NOT</font> save the name. Please search the name first.";
+                message = "You can NOT save the name. Please search the name first.";
             }
         } else if ("Search".equals(submit)) {
             String companyName = request.getParameter("company_name");

@@ -21,7 +21,6 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.assembler;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -34,7 +33,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnClaimLoader;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
-import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -57,8 +55,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 @org.springframework.stereotype.Service
 public class BillingOnHistoryViewModelAssembler {
 
-    private final BillingONPaymentDao billingOnPaymentDao;
-    private final BillingONCHeader1Dao bCh1Dao;
+    private final BillingOnHistoryBalanceCalculator balanceCalculator;
     private final DemographicManager demographicManager;
     private final SecurityInfoManager securityInfoManager;
     private final BillingOnClaimLoader claimQueryService;
@@ -68,8 +65,7 @@ public class BillingOnHistoryViewModelAssembler {
                                   DemographicManager demographicManager,
                                   SecurityInfoManager securityInfoManager,
                                   BillingOnClaimLoader claimQueryService) {
-        this.billingOnPaymentDao = billingOnPaymentDao;
-        this.bCh1Dao = bCh1Dao;
+        this.balanceCalculator = new BillingOnHistoryBalanceCalculator(billingOnPaymentDao, bCh1Dao);
         this.demographicManager = demographicManager;
         this.securityInfoManager = securityInfoManager;
         this.claimQueryService = claimQueryService;
@@ -158,36 +154,11 @@ public class BillingOnHistoryViewModelAssembler {
                 }
 
                 boolean isPat = "PAT".equals(strBillType) || "PAT Settled".equals(strBillType);
-                BigDecimal balance = BigDecimal.ZERO;
+                BillingOnHistoryBalanceCalculator.Result balanceResult =
+                        BillingOnHistoryBalanceCalculator.Result.ZERO;
                 if (isPat) {
-                    try {
-                        int billingNo = Integer.parseInt(obj.getId());
-                        BillingONCHeader1 bCh1 = bCh1Dao.find(billingNo);
-                        if (bCh1 != null && bCh1.getTotal() != null) {
-                            BigDecimal total = bCh1.getTotal();
-                            BigDecimal sumOfPay = BigDecimal.ZERO;
-                            BigDecimal sumOfDiscount = BigDecimal.ZERO;
-                            BigDecimal sumOfCredit = BigDecimal.ZERO;
-                            for (BillingONPayment payment :
-                                    billingOnPaymentDao.find3rdPartyPaymentsByBillingNo(billingNo)) {
-                                sumOfPay = sumOfPay.add(payment.getTotal_payment());
-                                sumOfDiscount = sumOfDiscount.add(payment.getTotal_discount());
-                                sumOfCredit = sumOfCredit.add(payment.getTotal_credit());
-                            }
-                            balance = total.subtract(sumOfPay).subtract(sumOfDiscount).add(sumOfCredit);
-                        }
-                    } catch (NumberFormatException e) {
-                        // Bill id wasn't numeric — leave balance at zero AND
-                        // raise the partial flag so the JSP banners "data may
-                        // be incomplete". Without this, a corrupt bill id
-                        // would silently render $0 outstanding and the
-                        // operator would never collect.
-                        partial = true;
-                        MiscUtils.getLogger().warn(
-                                "BillingOnHistory: bill id [{}] is not numeric; rendering balance=0.00",
-                                io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(obj.getId()), e);
-                        balance = BigDecimal.ZERO;
-                    }
+                    balanceResult = balanceCalculator.calculate(obj.getId());
+                    partial |= balanceResult.partial();
                 }
 
                 String status = nullToEmpty(obj.getStatus());
@@ -201,7 +172,7 @@ public class BillingOnHistoryViewModelAssembler {
                         strBillType,
                         nullToEmpty(itObj.serviceCode()),
                         nullToEmpty(itObj.getDx()),
-                        balance.toString(),
+                        balanceResult.balance().toString(),
                         isPat,
                         nullToEmpty(obj.getTotal()),
                         status,

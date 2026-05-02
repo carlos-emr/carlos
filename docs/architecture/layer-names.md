@@ -45,7 +45,7 @@ Do not revive legacy compressed names such as `3rd`, `Dig`, `Db`, `Obj`,
 | `*Validator` | `@Service` / `@Component` | Pure validation → typed `Result(messages, codeValid)`. No side effects. | `BillingOnReviewValidator` |
 | `*Parser` | plain class or `@Service` | Parses fixed-format/file input into DTO records. No Struts request handling. | `BillingClaimsErrorReportParser` |
 | `*Persister` | `@Service @Transactional` | **Side-effect-only writer** split out from a sibling reader. | `BillingOnReviewDiagPersister` |
-| `*Calculator` | `@Service` or static | Pure math/derivation. Typed in, typed out. | (`BillingTotalCalculator`) |
+| `*Calculator` | `@Service` or static | Pure math/derivation. Typed in, typed out. | `BillingOnHistoryBalanceCalculator` |
 | `*Service` | `@Service` (often `@Transactional`) | **Default fallback.** Multi-step business operation no single verb captures. | `BillingOnHeaderCreationService`, `GstSettingsService` |
 | `*Dao` | `@Repository` | Data access for one entity/table. **No cross-DAO calls.** | `BillingONCHeader1Dao` |
 

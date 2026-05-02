@@ -91,12 +91,9 @@ public class BillingOnReviewDiagPersister {
         String dxCodeMatch = nullToEmpty(request.getParameter("codeMatchToPatientDx"));
         String dxCodeAdd = dxCodeMatch.isEmpty() ? dxCode : dxCodeMatch;
         if (dxCodeAdd.isEmpty()) {
-            // demographic_no kept out of the log line per CARLOS PHI policy
-            // (demographic_no correlates 1:1 to a patient via the demographic
-            // table, so it's PHI-adjacent in catalina.out). Operators
-            // correlate via the UI session, not by greping logs for IDs.
             MiscUtils.getLogger().error(
-                    "addToPatientDx requested without a dx code");
+                    "addToPatientDx requested without a dx code for demographic_no={}",
+                    LogSanitizer.sanitize(demoNo));
             throw new BillingValidationException(
                     "Add-to-patient-dx requested but no diagnostic code was supplied — "
                     + "no record was saved.");
@@ -106,11 +103,9 @@ public class BillingOnReviewDiagPersister {
         try {
             demoNoInt = Integer.valueOf(demoNo);
         } catch (NumberFormatException nfe) {
-            // Log a generic error (no demographic_no) for PHI hygiene; the
-            // user-facing BVE message includes the malformed value so the
-            // operator can see what they typed and self-correct.
             MiscUtils.getLogger().error(
-                    "addToPatientDx requested with non-numeric demographic_no");
+                    "addToPatientDx requested with non-numeric demographic_no={}",
+                    LogSanitizer.sanitize(demoNo));
             throw new BillingValidationException(
                     "addToPatientDx requested with non-numeric demographic_no: "
                     + LogSanitizer.sanitizeForDisplay(demoNo), nfe);
@@ -133,12 +128,10 @@ public class BillingOnReviewDiagPersister {
             // so the user sees the friendly "submission rejected" page rather
             // than the generic CARLOS Error 500. The save was a clinical
             // write — the operator needs to know it was rejected.
-            // demographic_no kept out of the log per CARLOS PHI policy.
-            // Operators correlate via the UI; the dx code is sufficient
-            // forensic context.
             MiscUtils.getLogger().error(
-                    "addToPatientDx: data-integrity violation persisting dx {}",
-                    LogSanitizer.sanitize(dxCodeAdd), dive);
+                    "addToPatientDx: data-integrity violation persisting dx {} for demographic_no={}",
+                    LogSanitizer.sanitize(dxCodeAdd),
+                    LogSanitizer.sanitize(demoNo), dive);
             throw new BillingValidationException(
                     "Could not save dx (" + LogSanitizer.sanitizeForDisplay(dxCodeAdd)
                     + ") for the patient: it may already be in the registry.", dive);

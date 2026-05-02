@@ -134,6 +134,23 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldTreatBlankHospitalFeeAndUnitAsZero() {
+        MockHttpServletRequest request = hospitalBillingRequest();
+
+        List<BillingServiceLine> lines = List.of(
+                new BillingServiceLine("A001", "Office visit", "", ""));
+
+        ArrayList claim = service.getBillingClaimHospObj(request, "2026-04-28", "0.00", lines);
+        List<BillingClaimItemDto> items = (List<BillingClaimItemDto>) claim.get(1);
+
+        assertThat(items).singleElement()
+                .satisfies(item -> {
+                    assertThat(item.getFee()).isEqualTo("0.00");
+                    assertThat(item.serviceNumber()).isEqualTo("1");
+                });
+    }
+
+    @Test
     void shouldBuildStandardOhipClaimHeaderAndItems_fromRequest() {
         MockHttpServletRequest request = standardBillingRequest("HCP", "Save");
         request.setParameter("totalItem", "2");

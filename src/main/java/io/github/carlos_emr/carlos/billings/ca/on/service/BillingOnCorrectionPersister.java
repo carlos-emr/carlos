@@ -475,7 +475,8 @@ public class BillingOnCorrectionPersister {
             billingHeaderDao.merge(b);
             return true;
         }
-        return false;
+        throw new BillingValidationException(
+                "BillingOnCorrectionPersister: billing header not found for id=" + id);
 
     }
 
@@ -492,7 +493,8 @@ public class BillingOnCorrectionPersister {
             billingHeaderDao.merge(b);
             return true;
         }
-        return false;
+        throw new BillingValidationException(
+                "BillingOnCorrectionPersister: billing header not found for id=" + id);
     }
 
     /**

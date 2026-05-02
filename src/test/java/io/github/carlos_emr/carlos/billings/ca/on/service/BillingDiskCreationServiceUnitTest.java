@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingBatchHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingDiskNameDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -37,6 +38,7 @@ import java.util.List;
 import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -238,6 +240,19 @@ class BillingDiskCreationServiceUnitTest {
         // The batch id ends in zero-padded "0007".
         assertThat(captor.getValue().getBatch_id()).endsWith("0007");
         assertThat(captor.getValue().getBatch_id()).hasSize(12); // yyyyMMdd + 4
+    }
+
+    @Test
+    void shouldThrowValidation_whenBatchSequenceDoesNotFitFixedWidthField() {
+        BillingProviderDto providerData = new BillingProviderDto();
+        providerData.setBillingGroupNo("");
+        providerData.setOhipNo("012345");
+        providerData.setSpecialtyCode("00");
+
+        assertThatThrownBy(() -> service.createBatchHeader(providerData, "42", "G", "10000", "999998"))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("fixed-width")
+                .hasMessageContaining("10000");
     }
 
     @Test

@@ -28,6 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.SxmlMisc;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.GenerateRaSummaryViewModel;
 import io.github.carlos_emr.carlos.commn.dao.BillingONPremiumDao;
 import io.github.carlos_emr.carlos.commn.dao.RaHeaderDao;
@@ -90,15 +91,17 @@ public class RaHeaderTotalsPersister {
 
     public void mergeSummaryTotals(GenerateRaSummaryViewModel model) {
         if (model == null) {
-            return;
+            throw new BillingValidationException("RaHeaderTotalsPersister: missing RA summary totals model");
         }
         Integer raNo = parseInt(model.getRaNo());
         if (raNo == null) {
-            return;
+            throw new BillingValidationException(
+                    "RaHeaderTotalsPersister: invalid RA number [" + model.getRaNo() + "]");
         }
         RaHeader rh = raHeaderDao.find(raNo);
         if (rh == null) {
-            return;
+            throw new BillingValidationException(
+                    "RaHeaderTotalsPersister: RA header not found for raNo=" + raNo);
         }
         String existing = nullToEmpty(rh.getContent());
         String transaction = nullToEmpty(SxmlMisc.getXmlContent(existing,

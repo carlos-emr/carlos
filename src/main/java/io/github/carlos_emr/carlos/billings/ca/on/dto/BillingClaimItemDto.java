@@ -23,6 +23,9 @@
 
 package io.github.carlos_emr.carlos.billings.ca.on.dto;
 
+import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
+
 /**
  * Immutable data transfer object for one Ontario claim item/detail row.
  * Stores the fixed-width MOH item fields in the string shape expected by
@@ -48,6 +51,14 @@ public record BillingClaimItemDto(
         String timestamp,
         String location,
         String patientName) {
+
+    public BillingClaimItemDto {
+        validateMoney("fee", fee);
+        validateMoney("paid", paid);
+        validateMoney("refund", refund);
+        validateMoney("credit", credit);
+        validateMoney("discount", discount);
+    }
 
     public BillingClaimItemDto() {
         this(null, null, null, null, null, null, null, null, null, null,
@@ -152,4 +163,16 @@ public record BillingClaimItemDto(
     public String getTimestamp() { return timestamp; }
     public String getLocation() { return location; }
     public String getPatientName() { return patientName; }
+
+    private static void validateMoney(String field, String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return;
+        }
+        try {
+            BillingMoney.amountOrThrow(value);
+        } catch (NumberFormatException | BillingValidationException e) {
+            throw new BillingValidationException(
+                    "BillingClaimItemDto: malformed " + field + " amount [" + value + "]", e);
+        }
+    }
 }

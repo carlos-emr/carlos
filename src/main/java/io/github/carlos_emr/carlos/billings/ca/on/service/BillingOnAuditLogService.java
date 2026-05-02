@@ -29,9 +29,7 @@ import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONProc;
  * Side-effect service that emits one row to the {@code billing_on_proc}
  * audit-log table per significant ON-billing state change. Replaces the
  * legacy {@code JdbcBillingLog} shim — same write, but the class now lives
- * in the {@code service/} tier per the
- * {@code service = side effects (mutation, file I/O, audit, mutation)}
- * contract documented in {@code service/package-info.java}.
+ * in the {@code service/} tier because it performs audit side effects.
  *
  * <p>This is the only audit-emission seam for the ON billing module —
  * billing-correction status flips, RA imports, error-report mutations

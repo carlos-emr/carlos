@@ -61,7 +61,7 @@
         <TD align="center" width="10%"><b> <font size="2"
             face="Arial, Helvetica, sans-serif"><a href=#
             onClick='popupPage(700,720, "${pageContext.request.contextPath}/billing/CA/ON/ViewBillingOB2?billing_no=<carlos:encode value='${row.billingId}' context='javaScript'/>&dboperation=search_bill&hotclick=0")'
-            title="<carlos:encode value='${row.reasonCode}' context='htmlAttribute'/>"> <c:out value="${row.billingId}"/></a></font></b></TD>
+            title="<carlos:encode value='${row.reasonCode}' context='htmlAttribute'/>"> <carlos:encode value="${row.billingId}" context="html"/></a></font></b></TD>
     </tr>
     </c:forEach>
 </c:otherwise>

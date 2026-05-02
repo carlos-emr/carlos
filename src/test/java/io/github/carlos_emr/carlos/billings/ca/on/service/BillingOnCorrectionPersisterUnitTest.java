@@ -156,9 +156,11 @@ class BillingOnCorrectionPersisterUnitTest {
     void shouldReturnFalseAndNotMerge_whenUpdateBillingTotalHeaderMissing() {
         when(headerDao.find(eq("42"))).thenReturn(null);
 
-        boolean ret = persister.updateBillingTotal("33.70", "42");
+        assertThatThrownBy(() -> persister.updateBillingTotal("33.70", "42"))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("billing header not found")
+                .hasMessageContaining("42");
 
-        assertThat(ret).isFalse();
         verify(headerDao, never()).merge(any(BillingONCHeader1.class));
     }
 
@@ -184,6 +186,18 @@ class BillingOnCorrectionPersisterUnitTest {
         assertThat(ret).isTrue();
         assertThat(header.getPaid()).isEqualByComparingTo("25.00");
         verify(headerDao).merge(header);
+    }
+
+    @Test
+    void shouldThrowAndNotMerge_whenUpdateBillingPaidHeaderMissing() {
+        when(headerDao.find(eq("42"))).thenReturn(null);
+
+        assertThatThrownBy(() -> persister.updateBillingPaid("25.00", "42"))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("billing header not found")
+                .hasMessageContaining("42");
+
+        verify(headerDao, never()).merge(any(BillingONCHeader1.class));
     }
 
     @Test

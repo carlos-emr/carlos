@@ -96,6 +96,7 @@ public final class RateLimitFilter implements Filter {
      * PHI-safe: logs IP, URI, and rule name only — never request parameter values.
      */
     private static final Logger logger = LoggerFactory.getLogger("waf.ratelimit");
+    private static final int DEFAULT_MAX_COUNTERS = 50_000;
 
     // --- Configuration fields (effectively final after init()) ---
 
@@ -124,6 +125,9 @@ public final class RateLimitFilter implements Filter {
     /** Set of client IP addresses that are exempt from rate limiting. */
     private Set<String> exemptIps;
 
+    /** Maximum retained per-client counter entries before overflow counters are used. */
+    private int maxCounterEntries;
+
     // --- Runtime state ---
 
     /**
@@ -134,6 +138,7 @@ public final class RateLimitFilter implements Filter {
      * </ul>
      */
     private final ConcurrentHashMap<String, FixedWindowCounter> counters = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, FixedWindowCounter> overflowCounters = new ConcurrentHashMap<>();
 
     /** Background thread for evicting stale counters to prevent unbounded memory growth. */
     private ScheduledExecutorService cleanupScheduler;
@@ -179,6 +184,7 @@ public final class RateLimitFilter implements Filter {
 
         defaultRequests = getIntProperty(props, "WAF_RATE_LIMIT_DEFAULT_REQUESTS", 100);
         defaultWindowSeconds = getIntProperty(props, "WAF_RATE_LIMIT_DEFAULT_WINDOW_SECONDS", 60);
+        maxCounterEntries = getIntProperty(props, "WAF_RATE_LIMIT_MAX_COUNTERS", DEFAULT_MAX_COUNTERS);
 
         String pathsConfig = props.getProperty("WAF_RATE_LIMIT_PATHS");
         pathRates = parsePathRates(pathsConfig != null ? pathsConfig : "");
@@ -257,23 +263,24 @@ public final class RateLimitFilter implements Filter {
                 : requestUri;
 
         // Check global counter
-        FixedWindowCounter globalCounter = counters.computeIfAbsent(
-                clientIp,
-                k -> new FixedWindowCounter(defaultRequests, defaultWindowSeconds * 1000L, clock));
+        FixedWindowCounter globalCounter =
+                counterFor(clientIp, defaultRequests, defaultWindowSeconds * 1000L, "global");
 
         boolean globalAllowed = globalCounter.tryAcquire();
 
         if (!globalAllowed) {
             long retryAfterSeconds = globalCounter.retryAfterSeconds();
             if (enforcing) {
-                logger.warn("RATE BLOCK: ip={} uri={} rule=rate-limit-global", clientIp, requestUri);
+                logger.warn("RATE BLOCK: ip={} uri={} rule=rate-limit-global",
+                        LogSanitizer.sanitize(clientIp), LogSanitizer.sanitize(requestUri));
                 if (!httpResponse.isCommitted()) {
                     httpResponse.setHeader("Retry-After", String.valueOf(retryAfterSeconds));
                     httpResponse.sendError(429, "Too Many Requests");
                 }
                 return;
             } else {
-                logger.warn("RATE DETECT: ip={} uri={} rule=rate-limit-global", clientIp, requestUri);
+                logger.warn("RATE DETECT: ip={} uri={} rule=rate-limit-global",
+                        LogSanitizer.sanitize(clientIp), LogSanitizer.sanitize(requestUri));
             }
         }
 
@@ -282,23 +289,26 @@ public final class RateLimitFilter implements Filter {
         if (matchedPath != null) {
             RateConfig pathConfig = pathRates.get(matchedPath);
             String counterKey = clientIp + "|" + matchedPath;
-            FixedWindowCounter pathCounter = counters.computeIfAbsent(
-                    counterKey,
-                    k -> new FixedWindowCounter(pathConfig.requests, pathConfig.windowSeconds * 1000L, clock));
+            FixedWindowCounter pathCounter = counterFor(
+                    counterKey, pathConfig.requests, pathConfig.windowSeconds * 1000L, "path:" + matchedPath);
 
             boolean pathAllowed = pathCounter.tryAcquire();
 
             if (!pathAllowed) {
                 long retryAfterSeconds = pathCounter.retryAfterSeconds();
                 if (enforcing) {
-                    logger.warn("RATE BLOCK: ip={} uri={} rule=rate-limit-path:{}", clientIp, requestUri, matchedPath);
+                    logger.warn("RATE BLOCK: ip={} uri={} rule=rate-limit-path:{}",
+                            LogSanitizer.sanitize(clientIp), LogSanitizer.sanitize(requestUri),
+                            LogSanitizer.sanitize(matchedPath));
                     if (!httpResponse.isCommitted()) {
                         httpResponse.setHeader("Retry-After", String.valueOf(retryAfterSeconds));
                         httpResponse.sendError(429, "Too Many Requests");
                     }
                     return;
                 } else {
-                    logger.warn("RATE DETECT: ip={} uri={} rule=rate-limit-path:{}", clientIp, requestUri, matchedPath);
+                    logger.warn("RATE DETECT: ip={} uri={} rule=rate-limit-path:{}",
+                            LogSanitizer.sanitize(clientIp), LogSanitizer.sanitize(requestUri),
+                            LogSanitizer.sanitize(matchedPath));
                 }
             }
         }
@@ -329,6 +339,7 @@ public final class RateLimitFilter implements Filter {
         if (cleanupScheduler != null) {
             cleanupScheduler.shutdownNow();
         }
+        overflowCounters.clear();
     }
 
     // --- Package-visible for testing ---
@@ -391,6 +402,24 @@ public final class RateLimitFilter implements Filter {
     }
 
     // --- Private helpers ---
+
+    private FixedWindowCounter counterFor(String key, int requests, long windowMillis, String tier) {
+        FixedWindowCounter existing = counters.get(key);
+        if (existing != null) {
+            return existing;
+        }
+        if (counters.size() >= maxCounterEntries) {
+            evictStaleCounters();
+        }
+        if (counters.size() >= maxCounterEntries) {
+            logger.warn("Rate limit: counter map at max {} entries; using shared overflow counter for tier={}",
+                    maxCounterEntries, LogSanitizer.sanitize(tier));
+            return overflowCounters.computeIfAbsent(tier,
+                    k -> new FixedWindowCounter(requests, windowMillis, clock));
+        }
+        return counters.computeIfAbsent(key,
+                k -> new FixedWindowCounter(requests, windowMillis, clock));
+    }
 
     /**
      * Finds the most specific path prefix in {@link #pathRates} that matches the given path.

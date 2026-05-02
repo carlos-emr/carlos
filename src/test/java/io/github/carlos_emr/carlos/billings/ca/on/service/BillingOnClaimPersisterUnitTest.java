@@ -353,21 +353,16 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
         void shouldThrow_whenInputsAreMalformed() {
             // The legacy code path silently zeroed malformed money fields and
             // persisted the row anyway — that masked typos and could record
-            // a $0 payment on a non-zero billing event. The current contract
-            // surfaces a typed validation failure so the Struts exception
-            // mapping can render the billing validation page and the
-            // surrounding @Transactional unit-of-work rolls back.
+            // a $0 payment on a non-zero billing event. The DTO now rejects
+            // malformed money before the persister can write anything.
             BillingClaimItemDto a = itemDto("A001A", "2026-04-28")
                     .withId("11")
-                    .withDiscount("not-a-number")
                     .withPaid("33.70")
                     .withRefund("0.00");
 
-            org.assertj.core.api.Assertions.assertThatThrownBy(() ->
-                    persister.addItemPaymentRecord(new ArrayList<>(List.of(a)), 4242, 7, 1))
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> a.withDiscount("not-a-number"))
                     .isInstanceOf(BillingValidationException.class)
                     .hasMessageContaining("malformed discount amount")
-                    .hasMessageContaining("billingNo=4242")
                     .hasRootCauseInstanceOf(NumberFormatException.class);
 
             verify(billOnItemPaymentDao, never()).persist(any(BillingOnItemPayment.class));
@@ -470,6 +465,28 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
                     .extracting(BillingONExt::getPaymentId)
                     .containsOnly(99);
             verify(billingONPaymentDao, times(1)).persist(any(BillingONPayment.class));
+        }
+
+        @Test
+        void shouldDefaultMissingTotalDiscountToZero_whenPaymentRowIsPersisted() {
+            BillingClaimHeaderDto header = headerDto();
+            ArrayList<Object> claimEnvelope = new ArrayList<>();
+            claimEnvelope.add(header);
+            claimEnvelope.add(new ArrayList<BillingClaimItemDto>());
+
+            Map<String, String> mVal = new HashMap<>();
+            mVal.put("demographic_no", "7");
+            mVal.put("total_payment", "100.00");
+            mVal.put("payMethod", "1");
+            // total_discount intentionally absent: "no discount" is common.
+
+            doAssignPaymentId(99);
+            ArgumentCaptor<BillingONPayment> captor = ArgumentCaptor.forClass(BillingONPayment.class);
+
+            persister.add3rdBillExt(mVal, 4242, claimEnvelope);
+
+            verify(billingONPaymentDao).persist(captor.capture());
+            assertThat(captor.getValue().getTotal_discount()).isEqualByComparingTo(BigDecimal.ZERO);
         }
 
         /**

@@ -43,12 +43,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 /**
- * Struts action for the {@code BillingBillingManager} request flow.
+ * Legacy BC billing form backing bean.
  *
- * <p>The action owns web-layer orchestration: privilege checks, request
- * parameter normalization, delegation to services or assemblers, and the
- * Struts result used to render the next JSP. Keep billing rules and database
- * work outside the JSP when changing this flow.</p>
+ * <p>The Struts action populates this object for JSP rendering and billing
+ * calculations. Keep request handling, privilege checks, and database work in
+ * the action/service layer when changing this flow.</p>
  */
 
 
