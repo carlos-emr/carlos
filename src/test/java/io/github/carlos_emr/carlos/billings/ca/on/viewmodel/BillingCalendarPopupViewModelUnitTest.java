@@ -35,7 +35,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class BillingCalendarPopupViewModelUnitTest {
 
     @Test
-    void shouldTreatNullWeekCellsAsEmptyImmutableList() {
+    void shouldTreatNullWeekCells_asEmptyImmutableList() {
         BillingCalendarPopupViewModel.WeekRow row =
                 new BillingCalendarPopupViewModel.WeekRow(null);
 

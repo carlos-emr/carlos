@@ -183,7 +183,7 @@ class ScheduleOfBenefitsActionsUnitTest {
     }
 
     @Test
-    void shouldRecordValidationExceptionOutcomeWhenImportServiceThrows() throws Exception {
+    void shouldRecordValidationExceptionOutcome_whenImportServiceThrows() throws Exception {
         // The action's broad catch-all must surface as outcome=exception so
         // the JSP renders the error banner. Pin the contract because a
         // future refactor that changes the catch label or removes the

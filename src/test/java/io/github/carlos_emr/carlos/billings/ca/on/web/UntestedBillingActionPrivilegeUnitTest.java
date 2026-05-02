@@ -203,7 +203,7 @@ class UntestedBillingActionPrivilegeUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest(name = "{0} throws SecurityException when session is missing")
     @MethodSource("actionFactories")
-    void shouldRejectMissingSession(String label, Callable<String> action) {
+    void shouldRejectMissingSession_forInvalidInput(String label, Callable<String> action) {
         // null session — every action must throw before reaching business logic.
         assertThatThrownBy(action::call)
                 .as("Action [%s] must enforce session gate", label)
@@ -212,7 +212,7 @@ class UntestedBillingActionPrivilegeUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest(name = "{0} throws SecurityException when privilege missing")
     @MethodSource("actionFactories")
-    void shouldRejectMissingPrivilege(String label, Callable<String> action) {
+    void shouldRejectMissingPrivilege_forInvalidInput(String label, Callable<String> action) {
         // Drive the privilege-false branch independently of the null-session
         // gate. Pre-fix the parameterized test only ran with null session, so
         // a regression that flipped the privilege check (e.g., wrong privilege

@@ -130,7 +130,7 @@ class BillingCorrectionSubmit2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldKeepCorrectionSubmitMutationsTransactional() {
+    void shouldKeepCorrectionSubmitMutationsTransactional_forArchitectureContract() {
         assertThat(BillingCorrectionSubmitService.class.getAnnotation(Transactional.class))
                 .isNotNull();
     }

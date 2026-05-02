@@ -62,6 +62,25 @@
                     </c:forEach>
                 </div>
             </c:if>
+
+            <c:if test="${not empty obecApplyResult}">
+                <div class="obec-apply-result">
+                    <p>
+                        OBEC output apply updated
+                        ${carlos:forHtml(obecApplyResult.appliedCount)}
+                        demographic record(s) and skipped
+                        ${carlos:forHtml(obecApplyResult.skippedCount)}
+                        row(s).
+                    </p>
+                    <c:if test="${not empty obecApplyResult.reasons}">
+                        <ul>
+                            <c:forEach var="reason" items="${obecApplyResult.reasons}">
+                                <li>${carlos:forHtml(reason)}</li>
+                            </c:forEach>
+                        </ul>
+                    </c:if>
+                </div>
+            </c:if>
         </div>
 
         <div class="card card-body bg-body-tertiary">

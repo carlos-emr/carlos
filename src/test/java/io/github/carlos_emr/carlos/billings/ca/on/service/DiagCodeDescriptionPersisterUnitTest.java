@@ -46,7 +46,7 @@ import static org.mockito.Mockito.when;
 class DiagCodeDescriptionPersisterUnitTest {
 
     @Test
-    void shouldUpdateDescriptionForEveryMatchingCode() {
+    void shouldUpdateDescription_forEveryMatchingCode() {
         DiagnosticCodeDao dao = mock(DiagnosticCodeDao.class);
         DiagCodeDescriptionPersister persister = new DiagCodeDescriptionPersister(dao);
         DiagnosticCode code = new DiagnosticCode();

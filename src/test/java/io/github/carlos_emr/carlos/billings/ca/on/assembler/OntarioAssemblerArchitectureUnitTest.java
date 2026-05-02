@@ -48,7 +48,7 @@ class OntarioAssemblerArchitectureUnitTest {
             ".*(\\.merge\\s*\\(|\\.persist\\s*\\(|\\w+Dao\\.remove\\s*\\(|parseAndSaveRAPremiums\\s*\\().*");
 
     @Test
-    void shouldKeepViewModelAssemblersFreeOfDaoWrites() throws IOException {
+    void shouldKeepViewModel_assemblersFreeOfDaoWrites() throws IOException {
         List<String> violations = new ArrayList<>();
         try (Stream<Path> files = Files.walk(ASSEMBLER_DIR)) {
             for (Path file : files.filter(Files::isRegularFile)

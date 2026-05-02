@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Unit coverage for {@code BillingClaimItemDto} money normalization. */
 @DisplayName("Ontario claim item DTO")
@@ -35,7 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class BillingClaimItemDtoUnitTest {
 
     @Test
-    void shouldNormalizeNonBlankMoneyFieldsToScaleTwo() {
+    void shouldNormalizeNonBlankMoneyFields_toScaleTwo() {
         BillingClaimItemDto dto = new BillingClaimItemDto()
                 .withFee(" 1 ")
                 .withPaid("2.5")
@@ -48,5 +49,28 @@ class BillingClaimItemDtoUnitTest {
         assertThat(dto.refund()).isEqualTo("0.00");
         assertThat(dto.credit()).isEqualTo("3.46");
         assertThat(dto.discount()).isEqualTo("4.45");
+    }
+
+    @Test
+    void shouldKeepNullAndBlankMoneyFields_whenNormalizing() {
+        BillingClaimItemDto dto = new BillingClaimItemDto()
+                .withFee(null)
+                .withPaid(" ")
+                .withRefund("")
+                .withCredit(null)
+                .withDiscount("\t");
+
+        assertThat(dto.fee()).isNull();
+        assertThat(dto.paid()).isEmpty();
+        assertThat(dto.refund()).isEmpty();
+        assertThat(dto.credit()).isNull();
+        assertThat(dto.discount()).isEmpty();
+    }
+
+    @Test
+    void shouldThrowBillingValidationException_whenMoneyFieldMalformed() {
+        assertThatThrownBy(() -> new BillingClaimItemDto().withFee("not-money"))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("fee");
     }
 }

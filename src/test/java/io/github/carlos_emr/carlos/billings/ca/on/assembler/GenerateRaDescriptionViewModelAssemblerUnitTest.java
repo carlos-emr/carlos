@@ -88,7 +88,7 @@ class GenerateRaDescriptionViewModelAssemblerUnitTest extends CarlosUnitTestBase
     }
 
     @Test
-    void shouldExposeRaBalanceAndTransactionsAsStructuredRows() throws Exception {
+    void shouldExposeRaBalanceAndTransactions_asStructuredRows() throws Exception {
         String filename = "ra-desc-test.txt";
         Files.writeString(tempDir.resolve(filename), String.join(System.lineSeparator(),
                 h1Line("20260428"),
@@ -136,8 +136,10 @@ class GenerateRaDescriptionViewModelAssemblerUnitTest extends CarlosUnitTestBase
         // non-numeric value. parseH1 catches the NumberFormatException and
         // leaves h1Parsed=false, so the assemble() merge MUST be skipped.
         String filename = "ra-h1-bad-total.txt";
-        Files.writeString(tempDir.resolve(filename), h1LineWithRawTotal("ABCDEFGHI") + "\n",
-                StandardCharsets.ISO_8859_1);
+        Files.writeString(tempDir.resolve(filename), String.join(System.lineSeparator(),
+                h1LineWithRawTotal("ABCDEFGHI"),
+                h6Line(),
+                h7Line("partial row must not render")), StandardCharsets.ISO_8859_1);
 
         RaHeader header = new RaHeader();
         header.setFilename(filename);
@@ -149,13 +151,22 @@ class GenerateRaDescriptionViewModelAssemblerUnitTest extends CarlosUnitTestBase
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("rano", "9");
 
-        new GenerateRaDescriptionViewModelAssembler(
+        GenerateRaDescriptionViewModel model = new GenerateRaDescriptionViewModelAssembler(
                 mockRaHeaderDao, mockBillingONPremiumDao, mockProviderDao, raDescriptionFileParser)
                 .assemble(request, null);
 
         // CRITICAL: when H1 totals can't be parsed, the merge path that would
         // overwrite RaHeader.content with a fake "$0.00" cheque must be
         // skipped entirely.
+        assertThat(model.isRaFileIncomplete()).isTrue();
+        assertThat(model.getRaFileWarning()).contains("incomplete");
+        assertThat(model.getChequeTotal()).isEmpty();
+        assertThat(model.getBalanceForwardRow().claimsAdjustment()).isEqualTo("0.000");
+        assertThat(model.getBalanceForwardRow().advances()).isEqualTo("0.000");
+        assertThat(model.getBalanceForwardRow().reductions()).isEqualTo("0.000");
+        assertThat(model.getBalanceForwardRow().deductions()).isEqualTo("0.000");
+        assertThat(model.getTransactionRows()).isEmpty();
+        assertThat(model.getMessageTxt()).isEmpty();
         verify(mockRaHeaderDao, never()).findByFilenamePaymentDate(anyString(), anyString());
         verify(mockRaHeaderDao, never()).merge(any(RaHeader.class));
     }
@@ -179,10 +190,34 @@ class GenerateRaDescriptionViewModelAssemblerUnitTest extends CarlosUnitTestBase
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("rano", "11");
 
-        new GenerateRaDescriptionViewModelAssembler(
+        GenerateRaDescriptionViewModel model = new GenerateRaDescriptionViewModelAssembler(
                 mockRaHeaderDao, mockBillingONPremiumDao, mockProviderDao, raDescriptionFileParser)
                 .assemble(request, null);
 
+        assertThat(model.isRaFileIncomplete()).isTrue();
+        assertThat(model.getRaFileWarning()).contains("could not be read");
+        verify(mockRaHeaderDao, never()).findByFilenamePaymentDate(anyString(), anyString());
+        verify(mockRaHeaderDao, never()).merge(any(RaHeader.class));
+    }
+
+    @Test
+    void shouldSurfaceWarning_whenRaFilenameRejectedByPathValidation() {
+        RaHeader header = new RaHeader();
+        header.setFilename(".outside-ra.txt");
+        header.setStatus("A");
+        header.setContent("");
+        when(mockRaHeaderDao.find((Object) 13)).thenReturn(header);
+        when(mockBillingONPremiumDao.getRAPremiumsByRaHeaderNo(13)).thenReturn(List.of());
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("rano", "13");
+
+        GenerateRaDescriptionViewModel model = new GenerateRaDescriptionViewModelAssembler(
+                mockRaHeaderDao, mockBillingONPremiumDao, mockProviderDao, raDescriptionFileParser)
+                .assemble(request, null);
+
+        assertThat(model.isRaFileIncomplete()).isTrue();
+        assertThat(model.getRaFileWarning()).contains("rejected");
         verify(mockRaHeaderDao, never()).findByFilenamePaymentDate(anyString(), anyString());
         verify(mockRaHeaderDao, never()).merge(any(RaHeader.class));
     }

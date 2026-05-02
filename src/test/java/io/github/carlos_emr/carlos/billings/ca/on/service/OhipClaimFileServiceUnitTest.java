@@ -155,7 +155,7 @@ class OhipClaimFileServiceUnitTest {
     }
 
     @Test
-    void shouldThrowBillingFileWriteException_andPreserveCause_whenWriteFileFails() {
+    void shouldThrowBillingFileWriteException_andPreserveCauseWhenWriteFileFails() {
         File asDir = new File(tempDir.toFile(), "claim.001");
         assertThat(asDir.mkdir()).isTrue();
         service.setOhipFilename("claim.001");
@@ -264,7 +264,7 @@ class OhipClaimFileServiceUnitTest {
     }
 
     @Test
-    void shouldCreateGoldenSimulationForSingleHcpClaim() throws Exception {
+    void shouldCreateGoldenSimulation_forSingleHcpClaim() throws Exception {
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         BillingONCHeader1 header = hcpHeader();
         BillingONItem item = hcpItem();
@@ -304,7 +304,7 @@ class OhipClaimFileServiceUnitTest {
     }
 
     @Test
-    void shouldKeepMutableErrorStatePrivate() throws Exception {
+    void shouldKeepMutableErrorStatePrivate_forArchitectureContract() throws Exception {
         assertThat(Modifier.isPrivate(
                 OhipClaimFileService.class.getDeclaredField("errorFatalMsg").getModifiers()))
                 .isTrue();

@@ -157,7 +157,7 @@ class BillingCodeUpdate2ActionUnitTest extends CarlosUnitTestBase {
      * ordering with {@code InOrder} so the swap fails this test loudly.
      */
     @Test
-    void shouldRunPersister_beforeAssembler_onUpdateBranch() throws Exception {
+    void shouldRunPersister_beforeAssemblerOnUpdateBranch() throws Exception {
         // The "update <5char-code>" branch reads the trailing 5 chars as
         // the service code, then reads request.getParameter(code) for the
         // new description. Both must be present for the persister to fire.

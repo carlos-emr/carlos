@@ -38,7 +38,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class BatchBillingViewModelUnitTest {
 
     @Test
-    void shouldDefensivelyCopyCallerOwnedLists() {
+    void shouldDefensivelyCopyCallerOwnedLists_forImmutableModel() {
         List<BatchBillingViewModel.ProviderOption> providers = new ArrayList<>();
         providers.add(new BatchBillingViewModel.ProviderOption("1", "A", "B"));
         List<String> serviceCodes = new ArrayList<>(List.of("A001A"));

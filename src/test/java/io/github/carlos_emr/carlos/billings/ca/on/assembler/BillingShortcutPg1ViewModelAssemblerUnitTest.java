@@ -209,7 +209,7 @@ class BillingShortcutPg1ViewModelAssemblerUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldDefaultHcType_toON_whenMissing() {
+    void shouldDefaultHcType_toONWhenMissing() {
         Demographic demo = new Demographic();
         demo.setSex("F");
         demo.setHin("9876543225");

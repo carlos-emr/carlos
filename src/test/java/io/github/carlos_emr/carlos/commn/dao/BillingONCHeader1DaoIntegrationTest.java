@@ -1125,7 +1125,7 @@ public class BillingONCHeader1DaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("getBillingItems should also throw BillingItemsNotLoadedException on uninitialized LAZY proxy")
-        void shouldThrowBillingItemsNotLoadedException_fromGetter_whenLazyProxyUninitialized() {
+        void shouldThrowBillingItemsNotLoadedException_fromGetterWhenLazyProxyUninitialized() {
             // The getter has its own Hibernate.isInitialized guard distinct
             // from recomputeTotalFromItems'. A regression that drops
             // either guard would otherwise produce a raw
@@ -1179,7 +1179,7 @@ public class BillingONCHeader1DaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("should exclude deleted headers")
-        void shouldExcludeDeletedHeaders() {
+        void shouldExcludeDeletedHeaders_forActiveRows() {
             createAndPersist(DEMO_NO, PROVIDER_NO, "D", today);
             entityManager.flush();
             entityManager.clear();

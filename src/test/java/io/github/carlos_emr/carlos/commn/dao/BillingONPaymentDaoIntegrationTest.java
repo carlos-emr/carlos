@@ -157,7 +157,7 @@ public class BillingONPaymentDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("findWithExtItems should populate billingONExtItems collection in one query")
-    void shouldPopulateExtItems_inOneQuery_whenFindWithExtItems() throws Exception {
+    void shouldPopulateExtItems_inOneQueryWhenFindWithExtItems() throws Exception {
         BillingONCHeader1 bONCHeader1 = new BillingONCHeader1();
         bONCHeader1.setHeaderId(0);
         bONCHeader1.setDemographicNo(1);

@@ -28,6 +28,7 @@ import java.sql.Timestamp;
 import java.text.ParseException;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.ArrayList;
 import jakarta.servlet.http.HttpServletRequest;
@@ -69,6 +70,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  * than silently writing zero.</p>
  *
  * <p>Web security is enforced at the action layer before invocation.</p>
+ *
+ * @since 2006-12-24
  */
 @org.springframework.stereotype.Service
 @org.springframework.transaction.annotation.Transactional
@@ -242,7 +245,7 @@ public class BillingCorrectionRecordService {
         }
 
         // 3rd party elements
-        if (payProgram.matches(BillingOnConstants.BILLINGMATCHSTRING_3RDPARTY)) {
+        if (payProgram != null && payProgram.matches(BillingOnConstants.BILLINGMATCHSTRING_3RDPARTY)) {
             if (requestData.getParameter("payment") != null) {
                 // Accumulate via `&=` so any single update3rdPartyItem failure
                 // flips ret to false. Plain `=` would overwrite each prior
@@ -501,18 +504,18 @@ public class BillingCorrectionRecordService {
         if (oldData == null || newData == null) {
             return false;
         }
-        if (!oldData.referralNumber().equals(newData.referralNumber())) return true;
-        if (!oldData.getProvince().equals(newData.getProvince())) return true;
-        if (!oldData.manualReview().equals(newData.manualReview())) return true;
-        if (!oldData.billingDate().equals(newData.billingDate())) return true;
-        if (!oldData.getStatus().equals(newData.getStatus())) return true;
-        if (!oldData.payProgram().equals(newData.payProgram())) return true;
-        if (!oldData.facilityNumber().equals(newData.facilityNumber())) return true;
-        if (!oldData.getProviderNo().equals(newData.getProviderNo())) return true;
-        if (!oldData.visitType().equals(newData.visitType())) return true;
-        if (!oldData.admissionDate().equals(newData.admissionDate())) return true;
-        if (!oldData.getLocation().equals(newData.getLocation())) return true;
-        if (!oldData.getComment().equals(newData.getComment())) return true;
+        if (!java.util.Objects.equals(oldData.referralNumber(), newData.referralNumber())) return true;
+        if (!java.util.Objects.equals(oldData.getProvince(), newData.getProvince())) return true;
+        if (!java.util.Objects.equals(oldData.manualReview(), newData.manualReview())) return true;
+        if (!java.util.Objects.equals(oldData.billingDate(), newData.billingDate())) return true;
+        if (!java.util.Objects.equals(oldData.getStatus(), newData.getStatus())) return true;
+        if (!java.util.Objects.equals(oldData.payProgram(), newData.payProgram())) return true;
+        if (!java.util.Objects.equals(oldData.facilityNumber(), newData.facilityNumber())) return true;
+        if (!java.util.Objects.equals(oldData.getProviderNo(), newData.getProviderNo())) return true;
+        if (!java.util.Objects.equals(oldData.visitType(), newData.visitType())) return true;
+        if (!java.util.Objects.equals(oldData.admissionDate(), newData.admissionDate())) return true;
+        if (!java.util.Objects.equals(oldData.getLocation(), newData.getLocation())) return true;
+        if (!java.util.Objects.equals(oldData.getComment(), newData.getComment())) return true;
         return !java.util.Objects.equals(oldData.getBillto(), newData.getBillto());
     }
 
@@ -721,7 +724,7 @@ public class BillingCorrectionRecordService {
         billOnItem.setServiceCode(serviceCode);
         billOnItem.setServiceCount(getUnit(unit));
         billOnItem.setFee(getFee(fee, getUnit(unit), serviceCode, serviceDate));
-        billOnItem.setStatus(status);
+        billOnItem.setStatusStrict(status);
         // Strict parse — silently substituting today on parse failure would
         // record an audit-incorrect service date and mislead OHIP about when
         // the service was provided. Surface the error to the caller so the
@@ -822,7 +825,7 @@ public class BillingCorrectionRecordService {
 
             List<BillingONItem> billOnItems = billOnItemDao.getBillingItemByCh1Id(Integer.parseInt(id));
             for (BillingONItem billOnItem : billOnItems) {
-                billOnItem.setStatus(BillingStatus.DELETED);
+                billOnItem.markDeleted();
                 billOnItemDao.merge(billOnItem); // this statement can update billing_on_item table
             }
         }
@@ -878,17 +881,21 @@ public class BillingCorrectionRecordService {
                           String billReferenceDate) {
         String ret = fee;
         if (fee.length() == 0 || fee.equals(" ")) {
-            fee = claimQueryService.getCodeFee(codeName, billReferenceDate);
-            // claimQueryService.getCodeFee swallows DAO/parse failures and
-            // returns null in two cases: service code unknown, or lookup
-            // threw. Either way, new BigDecimal(null) buries the real cause
-            // in an opaque NPE. Surface a typed exception so the action layer
-            // routes to the billingValidationError result instead of a
-            // generic 500 with no operator-actionable detail.
+            BillingOnClaimLoader.FeeLookupResult feeResult =
+                    claimQueryService.getCodeFeeResult(codeName, billReferenceDate);
+            if (feeResult.partial()) {
+                throw new BillingDataLoadException(
+                        "Fee lookup failed while correcting billing item",
+                        BillingDataLoadException.Phase.DAO_QUERY,
+                        Map.of(
+                                "serviceCode", String.valueOf(codeName),
+                                "billReferenceDate", String.valueOf(billReferenceDate)));
+            }
+            fee = feeResult.value();
             if (fee == null) {
                 throw new BillingValidationException(
                         String.format("Fee lookup returned no value for service code %s on %s"
-                                + " — code may be unknown or fee table read failed; check log",
+                                + " — code may be unknown; check fee table configuration",
                                 codeName, billReferenceDate));
             }
             BigDecimal bigCodeFee = new BigDecimal(fee);

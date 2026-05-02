@@ -93,6 +93,9 @@ public final class BillingBCSetup2Action extends ActionSupport {
             // If newWCBClaim == 1, this action was invoked from the WCB form,
             // so seed the form with the codes/diagnostic the WCB flow handed in.
             if ("1".equals(newWCBClaim)) {
+                // The regular BC entry path may not have created the form yet;
+                // WCB handoff still expects the same mutable form bean to exist
+                // before we seed legacy xml_* fields below.
                 if (form == null) {
                     form = new BillingCreateBilling2Form();
                 }

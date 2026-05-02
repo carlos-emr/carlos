@@ -130,7 +130,7 @@ class BillingObecOutputApplyServiceUnitTest {
     }
 
     @Test
-    void shouldSkipResponseCodeInPassThroughRange_50To59() {
+    void shouldSkipResponseCodeInPassThroughRange_whenResponseCodeIs50To59() {
         BillingEdtObecOutputSpecificationRecordDto skip = record("1111111111", "AB", "55");
 
         service.applyOutputSpec(loggedInInfo, List.of(skip));
@@ -199,7 +199,7 @@ class BillingObecOutputApplyServiceUnitTest {
     }
 
     @Test
-    void shouldFlipVerToInvalidMarker_andAppendAlertReason_whenVersionsMatch() {
+    void shouldFlipVerToInvalidMarker_andAppendAlertReasonWhenVersionsMatch() {
         BillingEdtObecOutputSpecificationRecordDto row = record("5555555555", "AB", "200");
         BatchEligibility be = mock(BatchEligibility.class);
         when(be.getMOHResponse()).thenReturn("Invalid HIN");
@@ -250,7 +250,7 @@ class BillingObecOutputApplyServiceUnitTest {
     }
 
     @Test
-    void shouldNotExposeRawHinInSkipReasons() {
+    void shouldNotExposeRawHinInSkipReasons_forSecurityContract() {
         BillingEdtObecOutputSpecificationRecordDto malformed = record("1111111111", "AB", "X");
         BillingEdtObecOutputSpecificationRecordDto passThrough = record("2222222222", "AB", "55");
         BillingEdtObecOutputSpecificationRecordDto noMatch = record("3333333333", "AB", "100");

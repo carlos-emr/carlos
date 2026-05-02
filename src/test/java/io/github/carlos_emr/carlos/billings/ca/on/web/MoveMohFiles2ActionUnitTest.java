@@ -218,7 +218,7 @@ class MoveMohFiles2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldPropagateProgrammingErrorsFromFileLocationValidation() {
+    void shouldPropagateProgrammingErrors_fromFileLocationValidation() {
         MoveMohFiles2Action action = new MoveMohFiles2Action();
 
         try (MockedStatic<PathValidationUtils> pathMock = mockStatic(PathValidationUtils.class)) {

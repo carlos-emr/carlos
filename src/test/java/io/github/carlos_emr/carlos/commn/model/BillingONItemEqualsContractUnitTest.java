@@ -115,7 +115,7 @@ class BillingONItemEqualsContractUnitTest {
     }
 
     @Test
-    void shouldHandleNullCh1IdAndNullServiceCodeWithoutThrowing() {
+    void shouldHandleNullCh1IdAndNullServiceCode_withoutThrowing() {
         // Defensive: hashCode must not NPE on bare instances.
         BillingONItem bare = new BillingONItem();
         // id is null, ch1Id is null, serviceCode is null

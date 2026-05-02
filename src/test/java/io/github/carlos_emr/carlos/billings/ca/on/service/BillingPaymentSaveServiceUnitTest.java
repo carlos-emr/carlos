@@ -154,7 +154,7 @@ class BillingPaymentSaveServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldThrowBillingValidationException_beforeHeaderPaidChanges_whenItemRowMissing() {
+    void shouldThrowBillingValidationException_beforeHeaderPaidChangesWhenItemRowMissing() {
         BillingONCHeader1 ch1 = headerWithPaidAndDemo(new BigDecimal("20.00"), 7);
         when(bCh1Dao.find(101)).thenReturn(ch1);
         when(bItemDao.find(11)).thenReturn(null);

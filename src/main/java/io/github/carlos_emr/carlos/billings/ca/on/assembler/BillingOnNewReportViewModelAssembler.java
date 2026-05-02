@@ -21,8 +21,6 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.assembler;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -286,8 +284,7 @@ public class BillingOnNewReportViewModelAssembler {
                          String xmlAppointmentDate, String contextPath,
                          ReportRows out) {
         out.headers = Arrays.asList("No", "Billing No", "HIN", "Claim", "Paid", "Billing Date");
-        BigDecimal totalClaim = BigDecimal.ZERO;
-        BigDecimal totalPaid = BigDecimal.ZERO;
+        BillingOnNewReportTotalsCalculator totalsCalculator = new BillingOnNewReportTotalsCalculator();
 
         List<Integer> billingNos = new ArrayList<>();
         Properties propTotal = new Properties();
@@ -317,11 +314,9 @@ public class BillingOnNewReportViewModelAssembler {
                 prop.setProperty("Paid", sAmountpay);
                 prop.setProperty("Billing Date", formatDateStr(row.serviceDate()));
                 out.values.add(prop);
-                totalClaim = totalClaim.add(parseMoney(row.amountClaim()));
-                totalPaid = totalPaid.add(parseMoney(row.amountPay()));
+                totalsCalculator.addPaidRow(row.amountClaim(), row.amountPay());
             } else {
-                BigDecimal amountPay = parseMoney(sAmountpay).add(parseMoney(row.amountPay()));
-                sAmountpay = formatMoney(amountPay);
+                sAmountpay = totalsCalculator.addPaidAmount(sAmountpay, row.amountPay());
                 Properties prop = new Properties();
                 prop.setProperty("No", String.valueOf(nNo));
                 prop.setProperty("Billing No", buildBillingNoLink(contextPath, billingNo));
@@ -331,15 +326,11 @@ public class BillingOnNewReportViewModelAssembler {
                 prop.setProperty("Billing Date", formatDateStr(row.serviceDate()));
                 out.values.remove(out.values.size() - 1);
                 out.values.add(prop);
-                totalClaim = totalClaim.add(parseMoney(row.amountClaim()));
-                totalPaid = totalPaid.add(parseMoney(row.amountPay()));
+                totalsCalculator.addPaidRow(row.amountClaim(), row.amountPay());
             }
         }
 
-        out.totals = Arrays.asList("Total", "", "",
-                formatMoney(totalClaim),
-                formatMoney(totalPaid),
-                "");
+        out.totals = totalsCalculator.paidTotalRow();
     }
 
     private void runUnpaid(String providerView, String xmlVdate,
@@ -347,7 +338,7 @@ public class BillingOnNewReportViewModelAssembler {
                            ReportRows out) {
         out.headers = Arrays.asList("No", "Billing No", "Patient", "Claim", "Description",
                 "Service Date", "Time");
-        BigDecimal totalClaim = BigDecimal.ZERO;
+        BillingOnNewReportTotalsCalculator totalsCalculator = new BillingOnNewReportTotalsCalculator();
 
         int nNo = 0;
         for (BillingOnNewReportUnpaidRow row :
@@ -366,24 +357,11 @@ public class BillingOnNewReportViewModelAssembler {
                     row.billingNo(), reason));
             String sAmountclaim = row.total();
             prop.setProperty("Claim", sAmountclaim);
-            totalClaim = totalClaim.add(parseMoney(row.total()));
+            totalsCalculator.addUnpaidClaim(row.total());
             out.values.add(prop);
         }
 
-        out.totals = Arrays.asList("Total", "", "",
-                formatMoney(totalClaim),
-                "", "", "");
-    }
-
-    private static BigDecimal parseMoney(String value) {
-        if (value == null || value.isBlank()) {
-            return BigDecimal.ZERO;
-        }
-        return new BigDecimal(value.trim());
-    }
-
-    private static String formatMoney(BigDecimal value) {
-        return value.setScale(2, RoundingMode.HALF_UP).toPlainString();
+        out.totals = totalsCalculator.unpaidTotalRow();
     }
 
     private static String buildBillingNoLink(String contextPath, String billingNo) {

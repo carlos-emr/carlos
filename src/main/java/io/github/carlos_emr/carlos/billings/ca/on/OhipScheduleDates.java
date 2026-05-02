@@ -26,6 +26,8 @@ import java.time.format.DateTimeFormatter;
 /**
  * OHIP Schedule of Benefits date normalizers that include file-format
  * sentinels not shared by the generic Ontario billing date utility.
+ *
+ * @since 2026-05-01
  */
 public final class OhipScheduleDates {
     private static final DateTimeFormatter SERVICE_DATE = DateTimeFormatter.ISO_LOCAL_DATE;
@@ -39,6 +41,6 @@ public final class OhipScheduleDates {
         if ("99999999".equals(raw)) {
             return "9999-12-31";
         }
-        return OhipDateParser.parse(raw, true).format(SERVICE_DATE);
+        return OhipDateParser.parse(raw, OhipDateParser.ZeroDayPolicy.NORMALIZE_ZERO_DAY_TO_FIRST).format(SERVICE_DATE);
     }
 }

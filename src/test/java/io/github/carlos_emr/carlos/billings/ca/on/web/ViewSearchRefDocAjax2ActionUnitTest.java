@@ -177,7 +177,7 @@ class ViewSearchRefDocAjax2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldResolveSpecialtyTypeViaConsultationServiceDao() throws Exception {
+    void shouldResolveSpecialtyType_viaConsultationServiceDao() throws Exception {
         ProfessionalSpecialist ps = makePs("1001", "Smith", "John", "8");
         ConsultationServices svc = new ConsultationServices();
         svc.setServiceId(8);

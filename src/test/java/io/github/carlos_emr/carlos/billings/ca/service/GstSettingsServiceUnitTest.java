@@ -62,7 +62,7 @@ class GstSettingsServiceUnitTest {
     }
 
     @Test
-    void shouldReturnPercent_fromFirstRow_whenTableHasOneRow() {
+    void shouldReturnPercent_fromFirstRowWhenTableHasOneRow() {
         GstControl row = new GstControl();
         row.setGstPercent(new BigDecimal("5.00"));
         when(dao.findAll()).thenReturn(List.of(row));
@@ -78,7 +78,7 @@ class GstSettingsServiceUnitTest {
     }
 
     @Test
-    void shouldReturnPercent_fromFirstRow_whenTableHasMultipleRows() {
+    void shouldReturnPercent_fromFirstRowWhenTableHasMultipleRows() {
         // The single-row table is the operational shape, but if the table
         // somehow holds multiple rows the read side returns the first.
         GstControl first = new GstControl();
@@ -115,7 +115,7 @@ class GstSettingsServiceUnitTest {
     }
 
     @Test
-    void shouldDeclareTransactionalBoundaryForMultiRowWrites() {
+    void shouldDeclareTransactionalBoundary_forMultiRowWrites() {
         assertThat(GstSettingsService.class.getAnnotation(Transactional.class)).isNotNull();
     }
 }

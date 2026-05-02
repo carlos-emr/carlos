@@ -30,15 +30,18 @@ import java.util.Map;
 import java.util.ArrayList;
 import jakarta.servlet.http.HttpServletRequest;
 
+import io.github.carlos_emr.carlos.billings.ca.on.BillingDates;
 import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingServiceLine;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 /**
  * Orchestrates the save side of OHIP claim entry: turns a request payload into
@@ -51,6 +54,8 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  *
  * <p>Web security is enforced at the action layer before invocation; this
  * service trusts the caller to have run {@code SecurityInfoManager.hasPrivilege}.
+ *
+ * @since 2006-12-24
  */
 @org.springframework.stereotype.Service
 @org.springframework.transaction.annotation.Transactional
@@ -146,11 +151,10 @@ public class BillingClaimSubmissionService {
         if (val.size() > 1) {
             claimPersister.addItemRecord((List) val.get(1), billingNo);
             return new SaveResult(true, billingNo);
-        } else {
-            _logger.error("No billing item for billing # " + billingNo);
         }
 
-        return new SaveResult(false, billingNo);
+        throw new BillingValidationException(
+                "No billing item envelope for billing # " + billingNo);
     }
 
     /**
@@ -284,9 +288,10 @@ public class BillingClaimSubmissionService {
     ArrayList getBillingClaimHospObj(HttpServletRequest requestData, String service_date, String total,
                                      List<BillingServiceLine> lines) {
         ArrayList ret = new ArrayList();
-        BillingClaimHeaderDto claim1Header = getClaimHeader1HospObj(requestData, service_date, total);
+        String normalizedServiceDate = normalizeRequiredDateParam(service_date, "service_date");
+        BillingClaimHeaderDto claim1Header = getClaimHeader1HospObj(requestData, normalizedServiceDate, total);
         ret.add(claim1Header);
-        BillingClaimItemDto[] itemData = getItemHospObj(requestData, lines, service_date);
+        BillingClaimItemDto[] itemData = getItemHospObj(requestData, lines, normalizedServiceDate);
 
         List aL = new ArrayList();
         for (int i = 0; i < itemData.length; i++) {
@@ -335,7 +340,8 @@ public class BillingClaimSubmissionService {
         claim1Header = claim1Header.withReferralNumber(val.getParameter("referralCode"));
 
         claim1Header = claim1Header.withFacilityNumber(val.getParameter("xml_location").substring(0, 4));
-        claim1Header = claim1Header.withAdmissionDate(val.getParameter("xml_vdate"));
+        claim1Header = claim1Header.withAdmissionDate(
+                normalizeOptionalDateParam(val.getParameter("xml_vdate"), "xml_vdate"));
 
         claim1Header = claim1Header.withReferringLabNumber("");
         claim1Header = claim1Header.withManualReview(val.getParameter("m_review") != null ? val.getParameter("m_review") : "");
@@ -348,8 +354,10 @@ public class BillingClaimSubmissionService {
         claim1Header = claim1Header.withProviderNo(val.getParameter("xml_provider").substring(0,
                 val.getParameter("xml_provider").indexOf("|")));
 
-        claim1Header = claim1Header.withBillingDate(val.getParameter("service_date"));
-        claim1Header = claim1Header.withBillingTime(val.getParameter("start_time"));
+        String serviceDate = normalizeRequiredDateParam(val.getParameter("service_date"), "service_date");
+        claim1Header = claim1Header.withBillingDate(serviceDate);
+        claim1Header = claim1Header.withBillingTime(
+                normalizeOptionalTimeParam(val.getParameter("start_time"), "start_time"));
         claim1Header = claim1Header.withUpdateDateTime(UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss"));
         claim1Header = claim1Header.withTotal(val.getParameter("total"));
         String submit = getDefaultSpace(val.getParameter("submit"));
@@ -381,6 +389,7 @@ public class BillingClaimSubmissionService {
     private BillingClaimItemDto[] getItemObj(HttpServletRequest val) {
         int itemNum = Integer.parseInt(val.getParameter("totalItem"));
         BillingClaimItemDto[] claimItem = new BillingClaimItemDto[itemNum];
+        String serviceDate = normalizeRequiredDateParam(val.getParameter("service_date"), "service_date");
         // _logger.info("No billing item for billing # " + itemNum);
 
         for (int i = 0; i < itemNum; i++) {
@@ -393,7 +402,7 @@ public class BillingClaimSubmissionService {
             }
             claimItem[i] = claimItem[i].withFee(val.getParameter("percCodeSubtotal_" + i));
             claimItem[i] = claimItem[i].withServiceNumber(getDefaultUnit(val.getParameter("xserviceUnit_" + i)));
-            claimItem[i] = claimItem[i].withServiceDate(val.getParameter("service_date"));
+            claimItem[i] = claimItem[i].withServiceDate(serviceDate);
             claimItem[i] = claimItem[i].withDx(val.getParameter("dxCode"));
             claimItem[i] = claimItem[i].withDx1(val.getParameter("dxCode1"));
             claimItem[i] = claimItem[i].withDx2(val.getParameter("dxCode2"));
@@ -436,7 +445,8 @@ public class BillingClaimSubmissionService {
         claim1Header = claim1Header.withReferralNumber(val.getParameter("referralCode"));
 
         claim1Header = claim1Header.withFacilityNumber(val.getParameter("xml_location").substring(0, 4));
-        claim1Header = claim1Header.withAdmissionDate(val.getParameter("xml_vdate"));
+        claim1Header = claim1Header.withAdmissionDate(
+                normalizeOptionalDateParam(val.getParameter("xml_vdate"), "xml_vdate"));
 
         claim1Header = claim1Header.withReferringLabNumber("");
         claim1Header = claim1Header.withManualReview("");
@@ -459,7 +469,8 @@ public class BillingClaimSubmissionService {
         claim1Header = claim1Header.withProvince(val.getParameter("hc_type"));
 
         claim1Header = claim1Header.withBillingDate(service_date);
-        claim1Header = claim1Header.withBillingTime(val.getParameter("start_time"));
+        claim1Header = claim1Header.withBillingTime(
+                normalizeOptionalTimeParam(val.getParameter("start_time"), "start_time"));
         claim1Header = claim1Header.withUpdateDateTime(UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss"));
         claim1Header = claim1Header.withTotal(total);
         claim1Header = claim1Header.withPaid("");
@@ -523,6 +534,36 @@ public class BillingClaimSubmissionService {
             valsMap.put("payMethod", "1");
         }
         return valsMap;
+    }
+
+    private String normalizeRequiredDateParam(String raw, String fieldName) {
+        try {
+            return BillingDates.normalizeIsoDateText(raw, fieldName);
+        } catch (IllegalArgumentException e) {
+            throw new BillingValidationException(
+                    "Billing claim submission: malformed " + fieldName + " ["
+                            + LogSanitizer.sanitize(raw) + "]", e);
+        }
+    }
+
+    private String normalizeOptionalDateParam(String raw, String fieldName) {
+        try {
+            return BillingDates.normalizeOptionalIsoDateText(raw, fieldName);
+        } catch (IllegalArgumentException e) {
+            throw new BillingValidationException(
+                    "Billing claim submission: malformed " + fieldName + " ["
+                            + LogSanitizer.sanitize(raw) + "]", e);
+        }
+    }
+
+    private String normalizeOptionalTimeParam(String raw, String fieldName) {
+        try {
+            return BillingDates.normalizeOptionalIsoTimeText(raw, fieldName);
+        } catch (IllegalArgumentException e) {
+            throw new BillingValidationException(
+                    "Billing claim submission: malformed " + fieldName + " ["
+                            + LogSanitizer.sanitize(raw) + "]", e);
+        }
     }
 
     // HCP/WCB/RMB/NOT/PAT/...

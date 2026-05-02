@@ -88,7 +88,8 @@ class BillingOnHistoryViewModelAssemblerUnitTest {
 
     private BillingOnHistoryViewModelAssembler newAssembler() {
         return new BillingOnHistoryViewModelAssembler(
-                paymentDao, headerDao, demographicManager, securityInfoManager, claimLoader);
+                new BillingOnHistoryBalanceService(paymentDao, headerDao),
+                demographicManager, securityInfoManager, claimLoader);
     }
 
     @Test
@@ -137,11 +138,11 @@ class BillingOnHistoryViewModelAssemblerUnitTest {
         // Row is still emitted with balance=0 so the operator sees the row;
         // the banner clarifies that 0 may not be the real balance.
         assertThat(vm.getRows()).hasSize(1);
-        assertThat(vm.getRows().get(0).balance()).isEqualTo("0");
+        assertThat(vm.getRows().get(0).balance()).isEqualTo("0.00");
     }
 
     @Test
-    void shouldNotRaisePartial_whenPatBillIdIsNumeric_andHeaderMissing() {
+    void shouldNotRaisePartial_whenPatBillIdIsNumericAndHeaderMissing() {
         BillingClaimHeaderDto header = mock(BillingClaimHeaderDto.class);
         when(header.getId()).thenReturn("999"); // numeric, but headerDao returns null
         when(header.payProgram()).thenReturn("PAT"); // PAT path with numeric id

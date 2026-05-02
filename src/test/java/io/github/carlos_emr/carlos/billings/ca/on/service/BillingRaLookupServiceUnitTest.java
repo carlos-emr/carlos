@@ -40,7 +40,7 @@ import io.github.carlos_emr.carlos.commn.dao.RaDetailDao;
 class BillingRaLookupServiceUnitTest {
 
     @Test
-    void shouldSumPaidAmountsWithBillingMoneyRounding() {
+    void shouldSumPaidAmounts_withBillingMoneyRounding() {
         BillingRaLookupService raData = new BillingRaLookupService(mock(RaDetailDao.class));
         ArrayList<HashMap<String, String>> rows = new ArrayList<>();
         rows.add(row("100", "A001", "1.005"));
@@ -50,7 +50,7 @@ class BillingRaLookupServiceUnitTest {
     }
 
     @Test
-    void shouldSumOnlyMatchingBillingAndServiceCodePaidAmounts() {
+    void shouldSumOnlyMatchingBillingAndServiceCodePaidAmounts_withExactArithmetic() {
         BillingRaLookupService raData = new BillingRaLookupService(mock(RaDetailDao.class));
         ArrayList<HashMap<String, String>> rows = new ArrayList<>();
         rows.add(row("100", "A001", "1.005"));

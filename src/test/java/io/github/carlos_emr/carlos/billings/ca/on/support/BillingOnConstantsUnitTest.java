@@ -77,19 +77,19 @@ class BillingOnConstantsUnitTest {
     }
 
     @Test
-    void shouldRejectClear() {
+    void shouldRejectClear_forInvalidInput() {
         assertThatThrownBy(() -> BillingOnConstants.propMonthCode.clear())
                 .isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test
-    void shouldRejectRemove() {
+    void shouldRejectRemove_forInvalidInput() {
         assertThatThrownBy(() -> BillingOnConstants.propBillingCenter.remove("N"))
                 .isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test
-    void shouldRejectMapMutators() {
+    void shouldRejectMapMutators_forInvalidInput() {
         assertThatThrownBy(() -> BillingOnConstants.propMonthCode.put("13", "M"))
                 .isInstanceOf(UnsupportedOperationException.class);
         assertThatThrownBy(() -> BillingOnConstants.propMonthCode.putIfAbsent("13", "M"))
@@ -113,7 +113,7 @@ class BillingOnConstantsUnitTest {
     }
 
     @Test
-    void shouldRejectCollectionViewMutation() {
+    void shouldRejectCollectionViewMutation_forInvalidInput() {
         Map.Entry<Object, Object> entry =
                 BillingOnConstants.propMonthCode.entrySet().iterator().next();
 

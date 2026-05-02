@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 import org.hibernate.Hibernate;
@@ -425,6 +426,7 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
         // Keep the permissive setter for old Struts/request-driven paths that
         // still round-trip raw status tokens from legacy pages or imports.
         if (value != null && !KNOWN_STATUSES.contains(value)) {
+            BillingStatus.recordUnknownStatusWarning();
             logger.warn("Accepting unknown BillingONCHeader1 status value during deprecation: {} (allowed: {})",
                     value, KNOWN_STATUSES);
         }
@@ -770,13 +772,47 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
 
         BillingONCHeader1 bill = (BillingONCHeader1) o;
 
-        if (id != null ? !id.equals(bill.id) : bill.id != null) return false;
+        if (id != null && bill.id != null) {
+            return id.equals(bill.id);
+        }
+        if (id != null || bill.id != null) {
+            return false;
+        }
+        if (!hasCompleteNaturalKey() || !bill.hasCompleteNaturalKey()) {
+            return false;
+        }
 
-        return true;
+        return Objects.equals(headerId, bill.headerId)
+                && Objects.equals(demographicNo, bill.demographicNo)
+                && Objects.equals(providerNo, bill.providerNo)
+                && Objects.equals(appointmentNo, bill.appointmentNo)
+                && Objects.equals(billingDate, bill.billingDate)
+                && Objects.equals(billingTime, bill.billingTime);
     }
 
     @Override
     public int hashCode() {
-        return (id != null ? id.hashCode() : 0);
+        if (id != null) {
+            return id.hashCode();
+        }
+        if (!hasCompleteNaturalKey()) {
+            return System.identityHashCode(this);
+        }
+        return Objects.hash(headerId, demographicNo, providerNo, appointmentNo,
+                billingDate, billingTime);
+    }
+
+    private boolean hasCompleteNaturalKey() {
+        return headerId != null
+                && demographicNo != null
+                && demographicNo != 0
+                && hasText(providerNo)
+                && appointmentNo != null
+                && hasText(billingDate)
+                && hasText(billingTime);
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 }

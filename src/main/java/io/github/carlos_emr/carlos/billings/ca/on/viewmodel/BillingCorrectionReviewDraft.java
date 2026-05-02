@@ -113,6 +113,6 @@ public record BillingCorrectionReviewDraft(boolean dataLoaded,
                 + "referralCheckedLabel=" + referralCheckedLabel + ", "
                 + "rosterStatus=" + rosterStatus + ", "
                 + "diagCode=" + diagCode + ", "
-                + "items=" + items + "]";
+                + "items=<" + items.size() + " redacted items>]";
     }
 }

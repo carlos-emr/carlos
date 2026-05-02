@@ -116,7 +116,7 @@ class ManageBillingFormService2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldSendBadRequest_andAbortReplaceServiceCodes_whenAnyOrderParamIsNonNumeric() throws Exception {
+    void shouldSendBadRequest_andAbortReplaceServiceCodesWhenAnyOrderParamIsNonNumeric() throws Exception {
         // Two service codes in group1: one with a clean order, one with
         // a non-numeric (fat-fingered comma) order. Pre-fix the bad row
         // silently defaulted to 0 and persisted; post-fix the entire

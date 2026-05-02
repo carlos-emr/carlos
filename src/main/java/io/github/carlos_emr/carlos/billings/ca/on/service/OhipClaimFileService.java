@@ -986,7 +986,7 @@ public class OhipClaimFileService {
     public void updateHeader1BilledBatchId(String newInvNo, String batchId) {
         BillingONCHeader1 header = cheaderDao.find(Integer.parseInt(newInvNo));
         if (header != null) {
-            header.setStatus(BillingStatus.BILLED);
+            header.setStatusStrict(BillingStatus.BILLED);
             header.setHeaderId(Integer.parseInt(batchId));
             cheaderDao.merge(header);
         }

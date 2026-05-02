@@ -95,7 +95,7 @@ class BillingStatusLoaderUnitTest {
     }
 
     @Test
-    void shouldUppercaseConcreteServiceCodeBeforeMerging() {
+    void shouldUppercaseConcreteServiceCode_beforeMerging() {
         List<String> mergedCodes = List.of("A001A");
         when(claimLoader.mergeServiceCodes("A001A", "FORM")).thenReturn(mergedCodes);
         when(claimLoader.getBillWithSorting(null, "O", "999998", "2026-05-01", "2026-05-02",

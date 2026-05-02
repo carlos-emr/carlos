@@ -36,7 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ViewGenSimulation2ActionUnitTest {
 
     @Test
-    void shouldEncodeErrorMessageBeforeEmbeddingInSimulationHtml() {
+    void shouldEncodeErrorMessage_beforeEmbeddingInSimulationHtml() {
         OhipReportGenerationService.SimulationResult result =
                 new OhipReportGenerationService.SimulationResult(
                         "<table><tr><td>preview</td></tr></table>",

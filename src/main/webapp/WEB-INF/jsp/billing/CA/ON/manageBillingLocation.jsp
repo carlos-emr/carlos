@@ -156,7 +156,7 @@
                                     <tr>
                                         <form name="serviceform" method="post"
                                               action="${pageContext.request.contextPath}/billing/CA/ON/ManageBillingLocation"
-                                              onsubmit="return confirmthis(<carlos:encode value='${clinicLocation.clinicLocationNo}' context='javaScript'/>);">
+                                              onsubmit="return confirmthis(<carlos:encode value='${clinicLocation.clinicLocationNo}' context='javaScriptAttribute'/>);">
                                             <td align="center"><carlos:encode value="${clinicLocation.clinicLocationNo}" context="html"/>
                                             </td>
                                             <td><carlos:encode value="${clinicLocation.clinicLocationName}" context="html"/>

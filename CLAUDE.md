@@ -297,9 +297,9 @@ mvn test -Dgroups="create,update"  # Specific operations
 
 ### BDD Test Naming Convention
 
-Tests use BDD (Behavior-Driven Development) naming for clarity. Choose ONE style and use it consistently:
+Tests use BDD (Behavior-Driven Development) naming for clarity. Use one project-wide Java style:
 
-**Pattern: `should<Action>_<preposition><Condition>()` (RECOMMENDED for Java)**
+**Pattern: `should<Action>_<prepositionOrContext><Condition>()`**
 ```java
 void shouldReturnTickler_whenValidIdProvided()
 void shouldThrowException_whenTicklerNotFound()
@@ -309,8 +309,10 @@ void shouldConvertExtensionList_toMapKeyedByExtKey()
 void shouldReturnTrue_forOMedsCppCode()
 ```
 
-**Rules**: ONE underscore separator, camelCase throughout, `should` prefix required.
-The preposition after the underscore (`when`, `by`, `for`, `with`, `to`, `from`, etc.) should be whichever reads most naturally for the test scenario.
+**Rules**: exactly ONE underscore separator, camelCase throughout, `should` prefix required, and the segment after the underscore starts lowercase.
+The preposition/context after the underscore (`when`, `by`, `for`, `with`, `to`, `from`, etc.) should be whichever reads most naturally for the test scenario.
+There is no zero-underscore exception for "simple" tests; use a short context such as `_forDefaultCase`, `_forTypeContract`, or `_withValidInput`.
+Do not use pure camelCase (`shouldReturnTicklerWhenValidIdProvided`), snake_case (`should_return_tickler_when_valid_id_provided`), or multi-underscore names (`shouldReturnFoo_whenBar_andBaz`).
 
 **Benefits**: Self-documenting, clear failure messages, searchable
 
@@ -1152,7 +1154,7 @@ docs/test/test-writing-guide.md                       # Test writing patterns an
    - Integration tests: Extend `CarlosTestBase` (Spring context + H2 database)
    - Unit tests: Extend `CarlosUnitTestBase` (mocked SpringUtils, no database)
    - Domain unit tests: Extend domain-specific bases like `DemographicUnitTestBase`
-5. **Follow BDD naming strictly**: `should<Action>_<preposition><Condition>` (camelCase, ONE underscore, e.g. `_when`, `_by`, `_for`, `_with`)
+5. **Follow BDD naming strictly**: `should<Action>_<prepositionOrContext><Condition>` (camelCase, exactly ONE underscore, suffix starts lowercase; e.g. `_when`, `_by`, `_for`, `_with`). Do not use zero-underscore or multi-underscore variants.
 6. **Check DAO interfaces** - Look at `*Dao.java` files to see available methods before writing tests
 7. **For Manager unit tests with static classes** (LogAction, etc.):
    - Register SpringUtils mocks FIRST, THEN create static mocks

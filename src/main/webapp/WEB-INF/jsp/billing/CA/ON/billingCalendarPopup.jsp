@@ -43,14 +43,19 @@
     <script language="JavaScript">
         <!--
 
+        function twoDigit(value) {
+            value = String(value);
+            return value.length < 2 ? "0" + value : value;
+        }
+
         function typeInDate(year1, month1, day1) {
             self.close();
-            opener.document.serviceform.xml_vdate.value = year1 + "-" + month1 + "-" + day1;
+            opener.document.serviceform.xml_vdate.value = year1 + "-" + twoDigit(month1) + "-" + twoDigit(day1);
         }
 
         function typeSrvDate(year1, month1, day1) {
             self.close();
-            opener.document.serviceform.xml_appointment_date.value = year1 + "-" + month1 + "-" + day1;
+            opener.document.serviceform.xml_appointment_date.value = year1 + "-" + twoDigit(month1) + "-" + twoDigit(day1);
         }
 
         //-->

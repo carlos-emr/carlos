@@ -43,7 +43,7 @@ import static org.mockito.Mockito.when;
 class BillingRaReportServiceUnitTest {
 
     @Test
-    void shouldCalculateRASummaryTotalsWithoutBinaryFloatingPointRounding() {
+    void shouldCalculateRASummaryTotals_withoutBinaryFloatingPointRounding() {
         BillingOnRaService remittanceAdviceService = mock(BillingOnRaService.class);
         Properties row = new Properties();
         row.setProperty("servicedate", "20260428");

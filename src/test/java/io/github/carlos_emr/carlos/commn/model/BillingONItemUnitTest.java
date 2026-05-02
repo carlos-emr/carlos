@@ -47,7 +47,7 @@ class BillingONItemUnitTest {
     class SetStatusWhitelist {
 
         @Test
-        void shouldAcceptNull() {
+        void shouldAcceptNull_forValidInput() {
             BillingONItem item = new BillingONItem();
             item.setStatus(null);
             assertThat(item.getStatus()).isNull();
@@ -56,12 +56,15 @@ class BillingONItemUnitTest {
         @Test
         void shouldAcceptUnknownValueAndLogWarning_whenSetStatusUnknown() {
             BillingONItem item = new BillingONItem();
+            long before = BillingStatus.unknownStatusWarningCount();
             // "Z" is not in KNOWN_STATUSES = {O,S,D,B,P,N,I,W,A}. During the
             // post-refactor deprecation window the lenient setter accepts the
             // value (matching BillingONCHeader1.setStatus) so operator-driven
             // correction cascades do not crash on legacy/unrecognised codes.
             item.setStatus("Z");
+
             assertThat(item.getStatus()).isEqualTo("Z");
+            assertThat(BillingStatus.unknownStatusWarningCount()).isEqualTo(before + 1);
         }
 
         @Test
@@ -82,7 +85,7 @@ class BillingONItemUnitTest {
         }
 
         @Test
-        void shouldAcceptAllNineKnownStatusConstants() {
+        void shouldAcceptAllNineKnownStatusConstants_forValidInput() {
             BillingONItem item = new BillingONItem();
             item.setStatus(BillingONItem.OPEN);
             item.setStatus(BillingONItem.SETTLED);
@@ -154,21 +157,21 @@ class BillingONItemUnitTest {
     class SetFeeInvariant {
 
         @Test
-        void shouldAcceptNull() {
+        void shouldAcceptNull_forValidInput() {
             BillingONItem item = new BillingONItem();
             item.setFee(null);
             assertThat(item.getFee()).isNull();
         }
 
         @Test
-        void shouldAcceptParseableBigDecimalString() {
+        void shouldAcceptParseableBigDecimalString_forValidInput() {
             BillingONItem item = new BillingONItem();
             item.setFee("123.45");
             assertThat(item.getFee()).isEqualTo("123.45");
         }
 
         @Test
-        void shouldAcceptZeroAndNegative() {
+        void shouldAcceptZeroAndNegative_forValidInput() {
             BillingONItem item = new BillingONItem();
             item.setFee("0.00");
             assertThat(item.getFee()).isEqualTo("0.00");

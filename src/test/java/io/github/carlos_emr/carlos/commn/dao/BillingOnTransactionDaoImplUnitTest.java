@@ -115,7 +115,7 @@ class BillingOnTransactionDaoImplUnitTest {
     }
 
     @Test
-    void shouldStoreNullAdmissionDate_whenMalformed_butNotThrow() {
+    void shouldStoreNullAdmissionDate_whenMalformedButNotThrow() {
         BillingClaimHeaderDto dto = wellFormedDto();
         dto = dto.withAdmissionDate("not-a-date");
 

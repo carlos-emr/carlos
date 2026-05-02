@@ -178,7 +178,7 @@ class BillingOnReviewValidatorUnitTest {
 
     @Test
     @DisplayName("checks dxCode + dxCode1 + dxCode2 (3 dx slots)")
-    void shouldCheckAllThreeDxSlots() {
+    void shouldCheckAllThreeDxSlots_forValidationContract() {
         request.setParameter("dxCode", "401");
         request.setParameter("dxCode1", "402");
         request.setParameter("dxCode2", "BOGUS");
@@ -322,7 +322,7 @@ class BillingOnReviewValidatorUnitTest {
 
     @Test
     @DisplayName("messages list is immutable (defensive copy)")
-    void shouldReturnImmutableMessageList() {
+    void shouldReturnImmutableMessageList_forDefaultInput() {
         request.setParameter("dxCode", "BOGUS");
         when(diagnosticCodeDao.findByDiagnosticCode("BOGUS"))
                 .thenReturn(Collections.emptyList());

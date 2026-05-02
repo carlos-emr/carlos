@@ -38,7 +38,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class GenerateRaDescriptionViewModelUnitTest {
 
     @Test
-    void shouldDefensivelyCopyTransactionRows() {
+    void shouldDefensivelyCopyTransactionRows_forImmutableModel() {
         ArrayList<GenerateRaDescriptionViewModel.TransactionRow> rows = new ArrayList<>();
         rows.add(new GenerateRaDescriptionViewModel.TransactionRow(
                 "Accounting adjustment", "20260428", "Computer Cheque issued", "000123.450", "message"));
@@ -57,7 +57,7 @@ class GenerateRaDescriptionViewModelUnitTest {
     }
 
     @Test
-    void shouldDefaultNullStructuredRowsToSafeValues() {
+    void shouldDefaultNullStructuredRows_toSafeValues() {
         GenerateRaDescriptionViewModel model = GenerateRaDescriptionViewModel.builder()
                 .balanceForwardRow(null)
                 .transactionRows(null)

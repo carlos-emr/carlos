@@ -52,4 +52,19 @@ public record BillingOnPatientPresentation(
         billingHistory = billingHistory == null ? Collections.emptyList() : List.copyOf(billingHistory);
         billingHistoryRows = billingHistoryRows == null ? Collections.emptyList() : List.copyOf(billingHistoryRows);
     }
+
+    @Override
+    public String toString() {
+        return "BillingOnPatientPresentation["
+                + "demoDobInvalid=" + demoDobInvalid + ", "
+                + "familyDoctor=" + familyDoctor + ", "
+                + "rosterStatus=" + rosterStatus + ", "
+                + "age=" + age + ", "
+                + "patientDx=<" + patientDx.size() + " redacted values>, "
+                + "patientDxAddCode=<redacted>, "
+                + "patientDxMatchCode=<redacted>, "
+                + "billingRecommendations=<redacted>, "
+                + "billingHistory=<" + billingHistory.size() + " redacted entries>, "
+                + "billingHistoryRows=<" + billingHistoryRows.size() + " redacted rows>]";
+    }
 }

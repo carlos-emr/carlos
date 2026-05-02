@@ -44,7 +44,7 @@ import static org.mockito.Mockito.when;
 class BillingCodeSearchViewModelAssemblerUnitTest {
 
     @Test
-    void shouldBuildServiceDescriptionPatternsFromRawInputs() {
+    void shouldBuildServiceDescriptionPatterns_fromRawInputs() {
         BillingServiceDao billingServiceDao = mock(BillingServiceDao.class);
         IchppccodeDao ichppccodeDao = mock(IchppccodeDao.class);
         when(billingServiceDao.search_service_code(anyString(), anyString(), anyString(),
@@ -73,7 +73,7 @@ class BillingCodeSearchViewModelAssemblerUnitTest {
     }
 
     @Test
-    void shouldBuildResearchDescriptionPatternsFromRawInputs() {
+    void shouldBuildResearchDescriptionPatterns_fromRawInputs() {
         BillingServiceDao billingServiceDao = mock(BillingServiceDao.class);
         IchppccodeDao ichppccodeDao = mock(IchppccodeDao.class);
         when(ichppccodeDao.search_research_code(anyString(), anyString(), anyString(),

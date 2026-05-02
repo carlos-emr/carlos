@@ -75,7 +75,7 @@ class BillingCorrectionSubmissionServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldPersistCorrectionFromTypedCommandWithoutLegacyBeans() {
+    void shouldPersistCorrectionFromTypedCommand_withoutLegacyBeans() {
         Billing existing = new Billing();
         BillingDetail oldDetail = new BillingDetail();
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
@@ -164,6 +164,8 @@ class BillingCorrectionSubmissionServiceUnitTest extends CarlosUnitTestBase {
 
     private static BillingCorrectionSubmitCommand command(
             String billingNo, List<BillingCorrectionSubmitItemCommand> items) {
+        // Keep one canonical command fixture so behavior-focused tests vary
+        // only the field under discussion (billing number or item list).
         return new BillingCorrectionSubmitCommand(
                 billingNo,
                 "<rd>Ref Doctor</rd>",

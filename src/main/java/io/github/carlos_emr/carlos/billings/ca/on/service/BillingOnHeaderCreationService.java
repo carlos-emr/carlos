@@ -173,7 +173,7 @@ public class BillingOnHeaderCreationService {
         header1.setBillingDate(serviceDate);
         header1.setBillingTime(serviceDate);
         header1.setPaid(new BigDecimal("0.00"));
-        header1.setStatus("O");
+        header1.setStatusStrict("O");
         header1.setComment("");
         header1.setVisitType("00");
         header1.setProviderOhipNo(prov.getOhipNo());
@@ -206,10 +206,10 @@ public class BillingOnHeaderCreationService {
             item.setServiceCode(code);
 
             BillingService billingService = billingServiceDao.searchBillingCode(code, "ON", serviceDate);
-            item.setFee(billingService.getValue());
+            item.setFee(cleanMoney(billingService.getValue()));
             item.setServiceCount("1");
             item.setServiceDate(serviceDate);
-            item.setStatus("O");
+            item.setStatusStrict("O");
 
             // Up to 3 dx codes spread across dx / dx1 / dx2; remaining slots blank.
             item.setDx(dxcodes.size() >= 1 ? dxcodes.get(0) : "");
@@ -241,12 +241,13 @@ public class BillingOnHeaderCreationService {
             }
 
             if (bs.getGstFlag()) {
+                BigDecimal value = BillingMoney.amount(cleanMoney(bs.getValue()));
                 BigDecimal gst = gstControl.getGstPercent()
                         .divide(new BigDecimal("100"), 8, RoundingMode.HALF_UP)
-                        .multiply(BillingMoney.amount(bs.getValue()));
+                        .multiply(value);
                 total = total.add(gst).setScale(2, RoundingMode.HALF_UP);
             }
-            total = total.add(BillingMoney.amount(bs.getValue()));
+            total = total.add(BillingMoney.amount(cleanMoney(bs.getValue())));
         }
 
         BigDecimal percBase = total;
@@ -261,5 +262,9 @@ public class BillingOnHeaderCreationService {
             total = total.add(percentCalc);
         }
         return total.toString();
+    }
+
+    private static String cleanMoney(String raw) {
+        return raw == null || raw.trim().isEmpty() ? "0.00" : raw.trim();
     }
 }

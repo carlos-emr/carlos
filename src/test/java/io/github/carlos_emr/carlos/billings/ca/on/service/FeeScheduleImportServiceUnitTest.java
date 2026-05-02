@@ -57,7 +57,7 @@ import static org.mockito.Mockito.when;
 class FeeScheduleImportServiceUnitTest {
 
     @Test
-    void shouldPreviewNewCodeWithTypedChangeAndExactMoneyParsing() {
+    void shouldPreviewNewCode_withTypedChangeAndExactMoneyParsing() {
         BillingServiceDao billingServiceDao = mock(BillingServiceDao.class);
         when(billingServiceDao.findMostRecentByServiceCode("A001A")).thenReturn(Collections.emptyList());
         when(billingServiceDao.searchDescBillingCode("A001", "ON")).thenReturn("Minor assessment");
@@ -82,7 +82,7 @@ class FeeScheduleImportServiceUnitTest {
     }
 
     @Test
-    void shouldPreviewChangedCodeWithStoredDecimalHalfUpRounding() {
+    void shouldPreviewChangedCode_withStoredDecimalHalfUpRounding() {
         BillingServiceDao billingServiceDao = mock(BillingServiceDao.class);
         BillingService existing = new BillingService();
         existing.setServiceCode("A001A");
@@ -105,7 +105,7 @@ class FeeScheduleImportServiceUnitTest {
     }
 
     @Test
-    void shouldReportMalformedExistingValueInsteadOfPreviewingFictionalDelta() {
+    void shouldReportMalformedExistingValue_insteadOfPreviewingFictionalDelta() {
         BillingServiceDao billingServiceDao = mock(BillingServiceDao.class);
         BillingService existing = new BillingService();
         existing.setServiceCode("A001A");
@@ -128,7 +128,7 @@ class FeeScheduleImportServiceUnitTest {
     }
 
     @Test
-    void shouldPreviewExistingCodeWithMissingStoredServiceDate() {
+    void shouldPreviewExistingCode_withMissingStoredServiceDate() {
         BillingServiceDao billingServiceDao = mock(BillingServiceDao.class);
         BillingService existing = new BillingService();
         existing.setServiceCode("A001A");
@@ -147,7 +147,7 @@ class FeeScheduleImportServiceUnitTest {
     }
 
     @Test
-    void shouldReportMalformedLinesAsValidationErrors() {
+    void shouldReportMalformedLines_asValidationErrors() {
         FeeScheduleImportService service = newService(mock(BillingServiceDao.class));
 
         FeeScheduleImportResult result = service.preview(stream("bad-line\n"),
@@ -161,7 +161,7 @@ class FeeScheduleImportServiceUnitTest {
     }
 
     @Test
-    void shouldPersistSelectedChangesWithNormalizedDates() throws Exception {
+    void shouldPersistSelectedChanges_withNormalizedDates() throws Exception {
         BillingServiceDao billingServiceDao = mock(BillingServiceDao.class);
         FeeScheduleImportService service = newService(billingServiceDao);
 

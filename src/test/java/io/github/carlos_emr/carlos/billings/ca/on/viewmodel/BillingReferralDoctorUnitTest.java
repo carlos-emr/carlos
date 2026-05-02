@@ -71,7 +71,7 @@ class BillingReferralDoctorUnitTest {
 
         @Test
         @DisplayName("should treat empty blob string as no XML content rather than null placeholder")
-        void shouldDistinguishEmptyBlobFromNull() {
+        void shouldDistinguishEmptyBlob_fromNull() {
             BillingReferralDoctor r = BillingReferralDoctor.fromFamilyDoctor("");
             assertThat(r.name()).isEmpty();
             assertThat(r.ohip()).isEmpty();

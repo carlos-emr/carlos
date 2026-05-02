@@ -374,6 +374,8 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
     }
 
     private BillingONExt ext(String key, char status) {
+        // Helper intentionally sets only the fields needed to provoke the
+        // duplicate-row guard under the current parent header.
         BillingONExt ext = new BillingONExt();
         ext.setBillingNo(parentHeader.getId());
         ext.setStatus(status);

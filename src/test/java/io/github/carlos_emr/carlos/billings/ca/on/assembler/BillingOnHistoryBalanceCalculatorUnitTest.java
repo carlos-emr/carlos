@@ -47,10 +47,22 @@ class BillingOnHistoryBalanceCalculatorUnitTest {
     }
 
     @Test
-    void shouldTreatNullInputsAsZero() {
+    void shouldTreatNullInputs_asZero() {
         BigDecimal balance = BillingOnHistoryBalanceCalculator.balance(
                 null, null, null, new BigDecimal("5.00"));
 
         assertThat(balance).isEqualByComparingTo("5.00");
+    }
+
+    @Test
+    void shouldNormalizeBalanceToScaleTwo_withHalfUpRounding() {
+        BigDecimal balance = BillingOnHistoryBalanceCalculator.balance(
+                new BigDecimal("10.005"),
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO);
+
+        assertThat(balance).isEqualByComparingTo("10.01");
+        assertThat(balance.scale()).isEqualTo(2);
     }
 }

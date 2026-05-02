@@ -28,6 +28,7 @@ import java.util.List;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingServiceLine;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,6 +40,7 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -108,6 +110,22 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldThrowBillingValidationException_whenItemsEnvelopeMissingAfterHeaderPersist() {
+        BillingClaimHeaderDto header = new BillingClaimHeaderDto();
+        ArrayList<Object> claim = new ArrayList<>();
+        claim.add(header);
+
+        when(mockPersister.addOneClaimHeaderRecord(header)).thenReturn(1234);
+
+        assertThatThrownBy(() -> service.addABillingRecord(claim))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("No billing item")
+                .hasMessageContaining("1234");
+
+        verify(mockPersister, never()).addItemRecord(org.mockito.ArgumentMatchers.anyList(), eq(1234));
+    }
+
+    @Test
     void shouldPassExplicitBillingId_toPrivateBillExtPersist() {
         ArrayList<Object> claim = new ArrayList<>();
         when(mockRequest.getParameter("submit")).thenReturn("Save");
@@ -120,7 +138,7 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldBuildHospitalItemTotalsWithoutBinaryFloatingPointRounding() {
+    void shouldBuildHospitalItemTotals_withoutBinaryFloatingPointRounding() {
         MockHttpServletRequest request = hospitalBillingRequest();
 
         List<BillingServiceLine> lines = List.of(
@@ -134,7 +152,7 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldTreatBlankHospitalFeeAndUnitAsZero() {
+    void shouldTreatBlankHospitalFeeAndUnit_asZero() {
         MockHttpServletRequest request = hospitalBillingRequest();
 
         List<BillingServiceLine> lines = List.of(
@@ -194,6 +212,28 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldNormalizeAppointmentPreloadedDateAndTime_whenSingleDigitValuesSubmitted() {
+        MockHttpServletRequest request = standardBillingRequest("HCP", "Save");
+        request.setParameter("service_date", "2026-4-7");
+        request.setParameter("xml_vdate", "2026-4-7");
+        request.setParameter("start_time", "0:00:00");
+        request.setParameter("totalItem", "1");
+        request.setParameter("xserviceCode_0", "A001A");
+        request.setParameter("percCodeSubtotal_0", "33.70");
+        request.setParameter("xserviceUnit_0", "1");
+
+        ArrayList claim = service.getBillingClaimObj(request);
+
+        BillingClaimHeaderDto header = (BillingClaimHeaderDto) claim.get(0);
+        List<BillingClaimItemDto> items = (List<BillingClaimItemDto>) claim.get(1);
+        assertThat(header.billingDate()).isEqualTo("2026-04-07");
+        assertThat(header.admissionDate()).isEqualTo("2026-04-07");
+        assertThat(header.billingTime()).isEqualTo("00:00:00");
+        assertThat(items).singleElement()
+                .satisfies(item -> assertThat(item.serviceDate()).isEqualTo("2026-04-07"));
+    }
+
+    @Test
     void shouldDefaultHeaderStatusToOpen_whenSubmitParameterIsMissing() {
         MockHttpServletRequest request = standardBillingRequest("HCP", "Save");
         request.removeParameter("submit");
@@ -232,7 +272,7 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldBuildPrivateClaimItemsAsPaidStatus() {
+    void shouldBuildPrivateClaimItems_asPaidStatus() {
         MockHttpServletRequest request = standardBillingRequest("PAT", "Settle");
         request.setParameter("totalItem", "1");
         request.setParameter("xserviceCode_0", "P001");
@@ -251,7 +291,7 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldBuildBonClaimWithoutPatientIdentityFields() {
+    void shouldBuildBonClaim_withoutPatientIdentityFields() {
         MockHttpServletRequest request = standardBillingRequest("BON", "Save");
         request.setParameter("totalItem", "1");
         request.setParameter("xserviceCode_0", "B001");
@@ -295,7 +335,7 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldDelegateAppointmentStatusUpdateToLookupService() {
+    void shouldDelegateAppointmentStatusUpdate_toLookupService() {
         when(mockLookupService.updateApptStatus("456", "B", "999998")).thenReturn(true);
 
         boolean updated = service.updateApptStatus("456", "B", "999998");
@@ -305,7 +345,7 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldNotExposePublicRawArrayListClaimApis() {
+    void shouldNotExposePublicRawArrayListClaimApis_forSecurityContract() {
         assertThat(BillingClaimSubmissionService.class.getMethods())
                 .filteredOn(method -> method.getDeclaringClass().equals(BillingClaimSubmissionService.class))
                 .allSatisfy(this::assertDoesNotExposeArrayList);

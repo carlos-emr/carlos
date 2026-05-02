@@ -38,4 +38,15 @@ public record BillingCorrectionReviewItemDraft(String serviceCode,
         percentage = BillingViewStrings.nullToEmpty(percentage);
         diagCode = BillingViewStrings.nullToEmpty(diagCode);
     }
+
+    @Override
+    public String toString() {
+        return "BillingCorrectionReviewItemDraft["
+                + "serviceCode=" + serviceCode + ", "
+                + "description=<redacted>, "
+                + "quantity=" + quantity + ", "
+                + "storedFee=" + storedFee + ", "
+                + "percentage=" + percentage + ", "
+                + "diagCode=<redacted>]";
+    }
 }

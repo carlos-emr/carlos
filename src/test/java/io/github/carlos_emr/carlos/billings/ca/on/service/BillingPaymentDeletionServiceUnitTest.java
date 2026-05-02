@@ -127,7 +127,7 @@ class BillingPaymentDeletionServiceUnitTest {
     }
 
     @Test
-    void shouldThrowPaymentNotFoundException_andNotWrite_whenPaymentMissing() {
+    void shouldThrowPaymentNotFoundException_andNotWriteWhenPaymentMissing() {
         when(paymentDao.find(99)).thenReturn(null);
 
         assertThatThrownBy(() -> service.deletePayment(99))

@@ -21,18 +21,33 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on;
 
+import java.time.DateTimeException;
 import java.time.LocalDate;
 
 /**
  * Package-private parser for OHIP {@code yyyyMMdd} date tokens shared by
  * Ontario billing date utilities and Schedule of Benefits import logic.
+ *
+ * <p>Zero-day tokens are policy-controlled. Live billing dates reject day
+ * {@code 00} because there is no valid service date to submit. Schedule of
+ * Benefits extracts may use day {@code 00} as a month-level effective marker;
+ * that import path normalizes it to the first day of the month so fee lookups
+ * have a concrete lower bound.</p>
+ *
+ * @since 2026-05-01
  */
 final class OhipDateParser {
+
+    /** Controls whether OHIP {@code yyyyMM00} values are rejected or normalized. */
+    enum ZeroDayPolicy {
+        REJECT_ZERO_DAY,
+        NORMALIZE_ZERO_DAY_TO_FIRST
+    }
 
     private OhipDateParser() {
     }
 
-    static LocalDate parse(String raw, boolean normalizeZeroDay) {
+    static LocalDate parse(String raw, ZeroDayPolicy zeroDayPolicy) {
         String value = raw == null ? "" : raw.trim();
         if (!value.matches("\\d{8}")) {
             throw new IllegalArgumentException("Expected OHIP date in yyyyMMdd format: " + raw);
@@ -41,9 +56,13 @@ final class OhipDateParser {
         int year = Integer.parseInt(value.substring(0, 4));
         int month = Integer.parseInt(value.substring(4, 6));
         int day = Integer.parseInt(value.substring(6, 8));
-        if (normalizeZeroDay && day == 0) {
+        if (zeroDayPolicy == ZeroDayPolicy.NORMALIZE_ZERO_DAY_TO_FIRST && day == 0) {
             day = 1;
         }
-        return LocalDate.of(year, month, day);
+        try {
+            return LocalDate.of(year, month, day);
+        } catch (DateTimeException e) {
+            throw new IllegalArgumentException("Invalid OHIP date in yyyyMMdd format: " + raw, e);
+        }
     }
 }

@@ -69,7 +69,7 @@ class BillingOnClaimLoaderComparatorUnitTest {
     }
 
     @Test
-    void shouldSortValidDatesAscending_andNotThrow_whenListContainsCorruptRow() {
+    void shouldSortValidDatesAscending_andNotThrowWhenListContainsCorruptRow() {
         // The load-bearing contract: a single corrupt row must not crash
         // Collections.sort. This whole test is the regression — a return-0
         // implementation throws IllegalArgumentException here.
@@ -90,7 +90,7 @@ class BillingOnClaimLoaderComparatorUnitTest {
     }
 
     @Test
-    void shouldSortValidDemoNosAscending_andNotThrow_whenListContainsCorruptRow() {
+    void shouldSortValidDemoNosAscending_andNotThrowWhenListContainsCorruptRow() {
         List<BillingClaimHeaderDto> list = new ArrayList<>(List.of(
                 withDemoNo("100"),
                 withDemoNo("not-a-number"),

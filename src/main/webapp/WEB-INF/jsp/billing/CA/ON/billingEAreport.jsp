@@ -222,11 +222,18 @@
         </c:if>
 
 
-        <c:if test="${not empty obecApplyResult and obecApplyResult.skippedCount gt 0}">
+        <c:if test="${not empty obecApplyResult and (obecApplyResult.skippedCount gt 0 or not empty obecApplyResult.reasons)}">
             <tr>
                 <td colspan="11" class="alert">
                     OBEC output apply skipped ${carlos:forHtml(obecApplyResult.skippedCount)} row(s);
                     ${carlos:forHtml(obecApplyResult.appliedCount)} demographic record(s) were updated.
+                    <c:if test="${not empty obecApplyResult.reasons}">
+                        <ul>
+                            <c:forEach var="reason" items="${obecApplyResult.reasons}">
+                                <li>${carlos:forHtml(reason)}</li>
+                            </c:forEach>
+                        </ul>
+                    </c:if>
                 </td>
             </tr>
         </c:if>
@@ -245,7 +252,7 @@
                 <td class="fieldName" width="10%">Second Name</td>
                 <td class="fieldName" width="16%">Reserved for MOH</td>
             </tr>
-            <c:forEach var="outputSpec" items="${outputSpecs.EDTOBECOutputSecifiationBeanVector}">
+            <c:forEach var="outputSpec" items="${outputSpecs.edtObecOutputSpecificationRecords}">
                 <tr>
                     <td class="dataTable" width="8%">${carlos:forHtml(outputSpec.healthNo)}</td>
                     <td class="dataTable" width="3%">${carlos:forHtml(outputSpec.version)}</td>

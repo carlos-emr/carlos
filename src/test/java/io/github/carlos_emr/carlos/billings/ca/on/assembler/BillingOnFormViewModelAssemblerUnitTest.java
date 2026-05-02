@@ -235,7 +235,7 @@ class BillingOnFormViewModelAssemblerUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldDefaultDemoHcType_toON_whenDemographicMissing() {
+    void shouldDefaultDemoHcType_toONWhenDemographicMissing() {
         request.setParameter("demographic_no", "1");
         request.setParameter("appointment_no", "0");
         request.setParameter("service_date", "2026-04-24");
@@ -382,7 +382,7 @@ class BillingOnFormViewModelAssemblerUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldNotInstantiateSpringServicesDirectly() throws Exception {
+    void shouldNotInstantiateSpringServicesDirectly_forSpringContract() throws Exception {
         String source = Files.readString(Path.of(
                 "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOnFormViewModelAssembler.java"));
 

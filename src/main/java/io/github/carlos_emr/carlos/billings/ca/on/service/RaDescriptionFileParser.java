@@ -45,9 +45,18 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 @Service
 public class RaDescriptionFileParser {
 
+    public enum ParseFailureReason {
+        NONE,
+        MISSING_FILENAME,
+        SECURITY_REJECTED,
+        IO_ERROR,
+        INCOMPLETE_HEADER
+    }
+
     public ParsedFile parse(String filename) {
         ParsedFile out = new ParsedFile();
         if (filename == null || filename.isEmpty()) {
+            out.parseFailureReason = ParseFailureReason.MISSING_FILENAME;
             return out;
         }
 
@@ -59,6 +68,7 @@ public class RaDescriptionFileParser {
             raFile = PathValidationUtils.validatePath(filename, new File(docDir));
         } catch (SecurityException se) {
             MiscUtils.getLogger().error("Rejected RA filename outside DOCUMENT_DIR", se);
+            out.parseFailureReason = ParseFailureReason.SECURITY_REJECTED;
             return out;
         }
 
@@ -86,14 +96,21 @@ public class RaDescriptionFileParser {
             out.fileReadComplete = true;
         } catch (IOException e) {
             MiscUtils.getLogger().error("Failed to parse RA file '{}'", filename, e);
+            out.parseFailureReason = ParseFailureReason.IO_ERROR;
         }
 
+        if (out.fileReadComplete && !out.h1Parsed) {
+            out.parseFailureReason = ParseFailureReason.INCOMPLETE_HEADER;
+        }
         out.messageTxt = messages.toString();
         return out;
     }
 
     public String mergedContent(ParsedFile parsed, String existingContent) {
         String safeExisting = nullToEmpty(existingContent);
+        // Preserve non-file totals already stored on RaHeader.content; the RA
+        // description file only owns cheque/balance-forward/transaction data
+        // and must not blank local/other/OB/colposcopy totals on refresh.
         String localTotal = nullToEmpty(SxmlMisc.getXmlContent(safeExisting, "<xml_local>", "</xml_local>"));
         String otherTotal = nullToEmpty(SxmlMisc.getXmlContent(safeExisting, "<xml_other_total>", "</xml_other_total>"));
         String obTotal = nullToEmpty(SxmlMisc.getXmlContent(safeExisting, "<xml_ob_total>", "</xml_ob_total>"));
@@ -228,6 +245,7 @@ public class RaDescriptionFileParser {
         private String messageTxt = "";
         private boolean h1Parsed = false;
         private boolean fileReadComplete = false;
+        private ParseFailureReason parseFailureReason = ParseFailureReason.NONE;
 
         public String paymentDate() { return paymentDate; }
         public String cheque() { return cheque; }
@@ -238,6 +256,7 @@ public class RaDescriptionFileParser {
         public String messageTxt() { return messageTxt; }
         public boolean h1Parsed() { return h1Parsed; }
         public boolean fileReadComplete() { return fileReadComplete; }
+        public ParseFailureReason parseFailureReason() { return parseFailureReason; }
         public boolean isCompleteForHeaderMerge() { return fileReadComplete && h1Parsed; }
     }
 }

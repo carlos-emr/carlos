@@ -41,13 +41,77 @@ class BillingCorrectionReviewDraftUnitTest {
                 true, "content", "42", "1234567890", "19800407",
                 "00", "20260401", "O", "clinic", "999998",
                 "20260401", "20260402", "12.34", "Jane Doe",
-                "123 Main St", "ON", "Hamilton", "A1A1A1", "F",
-                "Dr Ref", "123456", "ON", "Manual", "Checked",
+                "123 Main St", "ProvinceSecret", "Hamilton", "A1A1A1", "F",
+                "Dr Ref", "123456", "HCP", "Manual", "Checked",
                 "ROSTERED", "401", List.of());
 
         String value = draft.toString();
 
-        assertThat(value).contains("hin=<redacted>", "dob=<redacted>", "demoName=<redacted>");
-        assertThat(value).doesNotContain("1234567890", "19800407", "Jane Doe", "123 Main St", "A1A1A1");
+        assertThat(value).contains(
+                "hin=<redacted>",
+                "dob=<redacted>",
+                "demoName=<redacted>",
+                "demoAddress=<redacted>",
+                "demoProvince=<redacted>",
+                "demoCity=<redacted>",
+                "demoPostal=<redacted>",
+                "demoSex=<redacted>",
+                "referralDoctor=<redacted>",
+                "referralDoctorOhip=<redacted>");
+        assertThat(value).doesNotContain(
+                "1234567890",
+                "19800407",
+                "Jane Doe",
+                "123 Main St",
+                "ProvinceSecret",
+                "Hamilton",
+                "A1A1A1",
+                "F",
+                "Dr Ref",
+                "123456");
+    }
+
+    @Test
+    void shouldRedactItemSensitiveFields_fromToString() {
+        BillingCorrectionReviewItemDraft item = new BillingCorrectionReviewItemDraft(
+                "A001", "Sensitive service description", "2", "42.00", "75", "DX-SECRET");
+
+        String value = item.toString();
+
+        assertThat(value).contains(
+                "serviceCode=A001",
+                "description=<redacted>",
+                "quantity=2",
+                "storedFee=42.00",
+                "percentage=75",
+                "diagCode=<redacted>");
+        assertThat(value).doesNotContain("Sensitive service description", "DX-SECRET");
+    }
+
+    @Test
+    void shouldRedactItemContents_fromDraftToString() {
+        BillingCorrectionReviewDraft draft = new BillingCorrectionReviewDraft(
+                true, "content", "42", "1234567890", "19800407",
+                "00", "20260401", "O", "clinic", "999998",
+                "20260401", "20260402", "12.34", "Jane Doe",
+                "123 Main St", "ProvinceSecret", "Hamilton", "A1A1A1", "F",
+                "Dr Ref", "123456", "HCP", "Manual", "Checked",
+                "ROSTERED", "401", List.of(
+                        new BillingCorrectionReviewItemDraft(
+                                "A001", "Sensitive service description", "2", "42.00", "75", "DX-SECRET"),
+                        new BillingCorrectionReviewItemDraft(
+                                "K013", "Second sensitive description", "1", "67.00", "100", "SECOND-DX")));
+
+        String value = draft.toString();
+
+        assertThat(value).contains("items=<2 redacted items>");
+        assertThat(value).doesNotContain(
+                "BillingCorrectionReviewItemDraft",
+                "serviceCode=A001",
+                "Sensitive service description",
+                "DX-SECRET",
+                "K013",
+                "Second sensitive description",
+                "SECOND-DX");
     }
 }

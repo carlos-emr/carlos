@@ -235,7 +235,7 @@ class BillingOnSave2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldAcceptSafeRelativeUrlBack() {
+    void shouldAcceptSafeRelativeUrlBack_forValidInput() {
         mockRequest.setParameter("submit", "");
         mockRequest.setParameter("url_back", "/billing/CA/ON/billingON");
 
@@ -257,7 +257,7 @@ class BillingOnSave2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldReturnSuccess_andSkipSave_whenSubmitParameterIsUnknown() {
+    void shouldReturnSuccess_andSkipSaveWhenSubmitParameterIsUnknown() {
         // Empty/unknown submit value → action renders the form again
         // without saving. Pins the contract that a stray POST without a
         // recognized submit-button value never persists.

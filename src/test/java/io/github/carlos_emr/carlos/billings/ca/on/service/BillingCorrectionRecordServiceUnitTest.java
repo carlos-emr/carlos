@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONItemDao;
@@ -43,6 +44,8 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -181,7 +184,7 @@ class BillingCorrectionRecordServiceUnitTest {
     }
 
     @Test
-    void shouldDelegateGetFacilityNumToLookupService() {
+    void shouldDelegateGetFacilityNum_toLookupService() {
         @SuppressWarnings("rawtypes")
         List stubbed = List.of("FAC1", "FAC2");
         when(lookupService.getFacilty_num()).thenReturn(stubbed);
@@ -192,7 +195,7 @@ class BillingCorrectionRecordServiceUnitTest {
     // ---- deleteBilling: cascade status to items ------------------------
 
     @Test
-    void shouldCascadeStatusD_toItems_whenDeleteBillingWithDeleteStatus() {
+    void shouldCascadeStatusD_toItemsWhenDeleteBillingWithDeleteStatus() {
         when(correctionPersister.updateBillingStatus("42", "D", "999998")).thenReturn(true);
         BillingONItem item1 = new BillingONItem();
         item1.setStatus("O");
@@ -284,6 +287,22 @@ class BillingCorrectionRecordServiceUnitTest {
     }
 
     @Test
+    void shouldReturnTrue_whenPayProgramMissingFromHeaderAndRequest() {
+        BillingClaimHeaderDto header = baseHeader().withPayProgram(null);
+        BillingProviderDto provider = new BillingProviderDto();
+        provider.setOhipNo("OHIP2");
+        provider.setRmaNo("RMA2");
+        when(lookupService.getProviderObj("111")).thenReturn(provider);
+
+        MockHttpServletRequest request = baseHeaderRequest();
+        request.removeParameter("payProgram");
+
+        assertThat(service.updateBillingClaimHeader(header, request)).isTrue();
+
+        verify(correctionPersister, never()).updateBillingClaimHeader(any(BillingClaimHeaderDto.class));
+    }
+
+    @Test
     void shouldCascadeDeletedStatusToItems_whenHeaderStatusChangesToDeleted() {
         BillingClaimHeaderDto header = baseHeader();
         BillingProviderDto provider = new BillingProviderDto();
@@ -307,6 +326,113 @@ class BillingCorrectionRecordServiceUnitTest {
         verify(billOnItemDao).merge(item);
     }
 
+    @Test
+    void shouldUpdatePayDateExt_whenStatusChangesToSettled() {
+        BillingClaimHeaderDto header = baseHeader();
+        BillingProviderDto provider = new BillingProviderDto();
+        provider.setOhipNo("OHIP2");
+        provider.setRmaNo("RMA2");
+        when(lookupService.getProviderObj("111")).thenReturn(provider);
+        when(correctionPersister.updateBillingClaimHeader(any(BillingClaimHeaderDto.class))).thenReturn(true);
+        when(billOnExtDao.isNumberKey(BillingONExtDao.KEY_PAY_DATE)).thenReturn(false);
+        when(thirdPartyService.keyExists("42", BillingONExtDao.KEY_PAY_DATE)).thenReturn(true);
+        when(thirdPartyService.updateKeyValue("42", BillingONExtDao.KEY_PAY_DATE, "2026-05-02"))
+                .thenReturn(true);
+        when(billOnTransDao.getUpdateCheader1TransTemplate(
+                any(BillingClaimHeaderDto.class), org.mockito.ArgumentMatchers.isNull()))
+                .thenReturn(new BillingOnTransaction());
+
+        MockHttpServletRequest request = baseHeaderRequest();
+        request.setParameter("status", "S");
+        request.setParameter(BillingONExtDao.KEY_PAY_DATE, "2026-05-02");
+
+        assertThat(service.updateBillingClaimHeader(header, request)).isTrue();
+
+        verify(thirdPartyService)
+                .updateKeyValue("42", BillingONExtDao.KEY_PAY_DATE, "2026-05-02");
+    }
+
+    @Test
+    void shouldDeactivateThirdPartyKeys_whenSwitchingBackToOhip() {
+        BillingClaimHeaderDto header = baseHeader().withPayProgram("PAT");
+        BillingProviderDto provider = new BillingProviderDto();
+        provider.setOhipNo("OHIP2");
+        provider.setRmaNo("RMA2");
+        when(lookupService.getProviderObj("111")).thenReturn(provider);
+        when(correctionPersister.updateBillingClaimHeader(any(BillingClaimHeaderDto.class))).thenReturn(true);
+        when(billOnTransDao.getUpdateCheader1TransTemplate(
+                any(BillingClaimHeaderDto.class), org.mockito.ArgumentMatchers.isNull()))
+                .thenReturn(new BillingOnTransaction());
+        MockHttpServletRequest request = baseHeaderRequest();
+        request.setParameter("oldStatus", "thirdParty");
+        request.setParameter("payProgram", "HCP");
+
+        assertThat(service.updateBillingClaimHeader(header, request)).isTrue();
+
+        verify(thirdPartyService).updateKeyStatus("42", BillingONExtDao.KEY_PAYMENT, BillingThirdPartyService.INACTIVE);
+        verify(thirdPartyService).updateKeyStatus("42", BillingONExtDao.KEY_TOTAL, BillingThirdPartyService.INACTIVE);
+        verify(thirdPartyService).updateKeyStatus("42", BillingONExtDao.KEY_DISCOUNT, BillingThirdPartyService.INACTIVE);
+        verify(thirdPartyService).updateKeyStatus("42", BillingONExtDao.KEY_REFUND, BillingThirdPartyService.INACTIVE);
+        verify(thirdPartyService).updateKeyStatus("42", BillingONExtDao.KEY_PAY_DATE, BillingThirdPartyService.INACTIVE);
+        verify(thirdPartyService).updateKeyStatus("42", BillingONExtDao.KEY_CREDIT, BillingThirdPartyService.INACTIVE);
+        verify(thirdPartyService).updateKeyStatus("42", "billTo", BillingThirdPartyService.INACTIVE);
+    }
+
+    @Test
+    void shouldReturnFalse_whenAnyThirdPartyPaymentKeyUpdateFails() {
+        BillingClaimHeaderDto header = baseHeader();
+        BillingProviderDto provider = new BillingProviderDto();
+        provider.setOhipNo("OHIP2");
+        provider.setRmaNo("RMA2");
+        when(lookupService.getProviderObj("111")).thenReturn(provider);
+        when(correctionPersister.updateBillingClaimHeader(any(BillingClaimHeaderDto.class))).thenReturn(true);
+        when(billOnExtDao.isNumberKey(anyString())).thenReturn(true);
+        when(thirdPartyService.keyExists(org.mockito.ArgumentMatchers.eq("42"), anyString()))
+                .thenReturn(true);
+        when(thirdPartyService.updateKeyValue(org.mockito.ArgumentMatchers.eq("42"), anyString(), anyString()))
+                .thenReturn(true);
+        when(thirdPartyService.updateKeyValue("42", BillingONExtDao.KEY_REFUND, "2.00"))
+                .thenReturn(false);
+        when(billOnTransDao.getUpdateCheader1TransTemplate(
+                any(BillingClaimHeaderDto.class), org.mockito.ArgumentMatchers.isNull()))
+                .thenReturn(new BillingOnTransaction());
+
+        MockHttpServletRequest request = baseHeaderRequest();
+        request.setParameter("payProgram", "PAT");
+        request.setParameter(BillingONExtDao.KEY_PAYMENT, "10.00");
+        request.setParameter(BillingONExtDao.KEY_DISCOUNT, "1.00");
+        request.setParameter(BillingONExtDao.KEY_TOTAL, "13.00");
+        request.setParameter(BillingONExtDao.KEY_REFUND, "2.00");
+        request.setParameter(BillingONExtDao.KEY_PAY_DATE, "2026-05-02");
+        request.setParameter(BillingONExtDao.KEY_CREDIT, "0.00");
+
+        assertThat(service.updateBillingClaimHeader(header, request)).isFalse();
+    }
+
+    @Test
+    void shouldUpdateBillTo_whenThirdPartyBillToSubmitted() {
+        BillingClaimHeaderDto header = baseHeader();
+        BillingProviderDto provider = new BillingProviderDto();
+        provider.setOhipNo("OHIP2");
+        provider.setRmaNo("RMA2");
+        when(lookupService.getProviderObj("111")).thenReturn(provider);
+        when(correctionPersister.updateBillingClaimHeader(any(BillingClaimHeaderDto.class))).thenReturn(true);
+        when(thirdPartyService.keyExists("42", "billTo")).thenReturn(false);
+        when(thirdPartyService.add3rdBillExt("42", "123", "billTo", "Acme"))
+                .thenReturn(true);
+        when(billOnTransDao.getUpdateCheader1TransTemplate(
+                any(BillingClaimHeaderDto.class), org.mockito.ArgumentMatchers.isNull()))
+                .thenReturn(new BillingOnTransaction());
+
+        MockHttpServletRequest request = baseHeaderRequest();
+        request.setParameter("payProgram", "PAT");
+        request.setParameter("billTo", "Acme");
+
+        assertThat(service.updateBillingClaimHeader(header, request)).isTrue();
+
+        verify(thirdPartyService).add3rdBillExt("42", "123", "billTo", "Acme");
+    }
+
     // ---- updateBillingItem strict-date contract ------------------------
     //
     // A malformed xml_appointment_date must abort the @Transactional
@@ -317,7 +443,7 @@ class BillingCorrectionRecordServiceUnitTest {
     // canary.
 
     @Test
-    void shouldThrow_whenServiceDateMalformed_andNotPersistNewItem_onUpdateBillingItem() throws Exception {
+    void shouldThrow_whenServiceDateMalformedAndNotPersistNewItemOnUpdateBillingItem() throws Exception {
         BillingClaimHeaderDto ch1Obj = new BillingClaimHeaderDto();
         ch1Obj = ch1Obj.withStatus("O");
         BillingClaimItemDto existingItem = new BillingClaimItemDto();
@@ -369,6 +495,63 @@ class BillingCorrectionRecordServiceUnitTest {
         // persisted a row with today's date.
         verify(claimPersister, never()).addOneItemRecord(any(BillingClaimItemDto.class));
         verify(billOnItemDao, never()).persist(any(BillingONItem.class));
+    }
+
+    @Test
+    void shouldMultiplyLookupFeeByUnit_whenSubmittedFeeIsBlank() throws Exception {
+        when(claimLoader.getCodeFeeResult("A001A", "2026-04-28"))
+                .thenReturn(BillingOnClaimLoader.FeeLookupResult.found("33.70"));
+
+        String fee = invokeGetFee("", "2", "A001A", "2026-04-28");
+
+        assertThat(fee).isEqualTo("67.40");
+        verify(claimLoader).getCodeFeeResult("A001A", "2026-04-28");
+    }
+
+    @Test
+    void shouldThrowBillingDataLoadException_whenFeeLookupIsPartial() {
+        when(claimLoader.getCodeFeeResult("A001A", "2026-04-28"))
+                .thenReturn(BillingOnClaimLoader.FeeLookupResult.partial("fee DAO failed"));
+
+        Throwable thrown = thrownByGetFee("", "2", "A001A", "2026-04-28");
+
+        assertThat(thrown).isInstanceOf(BillingDataLoadException.class);
+        BillingDataLoadException loadException = (BillingDataLoadException) thrown;
+        assertThat(loadException.phase()).isEqualTo(BillingDataLoadException.Phase.DAO_QUERY);
+        assertThat(loadException.context())
+                .containsEntry("serviceCode", "A001A")
+                .containsEntry("billReferenceDate", "2026-04-28");
+    }
+
+    @Test
+    void shouldThrowBillingValidationException_whenFeeLookupReturnsNoValue() {
+        when(claimLoader.getCodeFeeResult("UNKNOWN", "2026-04-28"))
+                .thenReturn(BillingOnClaimLoader.FeeLookupResult.found(null));
+
+        Throwable thrown = thrownByGetFee("", "1", "UNKNOWN", "2026-04-28");
+
+        assertThat(thrown).isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("UNKNOWN");
+    }
+
+    private String invokeGetFee(String fee, String unit, String codeName,
+                                String billReferenceDate) throws Exception {
+        Method method = BillingCorrectionRecordService.class.getDeclaredMethod(
+                "getFee", String.class, String.class, String.class, String.class);
+        method.setAccessible(true);
+        return (String) method.invoke(service, fee, unit, codeName, billReferenceDate);
+    }
+
+    private Throwable thrownByGetFee(String fee, String unit, String codeName,
+                                     String billReferenceDate) {
+        try {
+            invokeGetFee(fee, unit, codeName, billReferenceDate);
+            throw new AssertionError("Expected getFee to throw");
+        } catch (InvocationTargetException e) {
+            return e.getCause();
+        } catch (Exception e) {
+            return e;
+        }
     }
 
     private static BillingClaimHeaderDto baseHeader() {

@@ -76,7 +76,7 @@ class BillingDemographicSummaryUnitTest {
 
         @Test
         @DisplayName("should default HC type to ON when null")
-        void shouldDefaultHcType_toOn_whenNull() {
+        void shouldDefaultHcType_toOnWhenNull() {
             Demographic d = new Demographic();
             d.setHcType(null);
             assertThat(BillingDemographicSummary.fromDemographic(d).hcType()).isEqualTo("ON");
@@ -84,7 +84,7 @@ class BillingDemographicSummaryUnitTest {
 
         @Test
         @DisplayName("should default HC type to ON when shorter than 2 characters")
-        void shouldDefaultHcType_toOn_whenSingleChar() {
+        void shouldDefaultHcType_toOnWhenSingleChar() {
             Demographic d = new Demographic();
             d.setHcType("A");
             assertThat(BillingDemographicSummary.fromDemographic(d).hcType()).isEqualTo("ON");

@@ -50,21 +50,21 @@ class BillingItemsNotLoadedExceptionUnitTest {
     }
 
     @Test
-    void shouldRejectNullHeaderId() {
+    void shouldRejectNullHeaderId_forInvalidInput() {
         assertThatThrownBy(() -> new BillingItemsNotLoadedException("LAZY proxy", null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("positive header id");
     }
 
     @Test
-    void shouldRejectZeroHeaderId() {
+    void shouldRejectZeroHeaderId_forInvalidInput() {
         assertThatThrownBy(() -> new BillingItemsNotLoadedException("LAZY proxy", 0))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("positive header id");
     }
 
     @Test
-    void shouldRejectNegativeHeaderId() {
+    void shouldRejectNegativeHeaderId_forInvalidInput() {
         assertThatThrownBy(() -> new BillingItemsNotLoadedException("LAZY proxy", -1))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("positive header id");

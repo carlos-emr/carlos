@@ -57,14 +57,14 @@ import io.github.carlos_emr.carlos.commn.model.Billing;
 class OhipClaimExtractServiceUnitTest {
 
     @Test
-    void shouldMarkSetAsBilledTransactional() throws Exception {
+    void shouldMarkSet_asBilledTransactional() throws Exception {
         assertThat(OhipClaimExtractService.class
                 .getMethod("setAsBilled", String.class)
                 .getAnnotation(Transactional.class)).isNotNull();
     }
 
     @Test
-    void shouldCalculateTotalsWithoutBinaryFloatingPointRounding() {
+    void shouldCalculateTotals_withoutBinaryFloatingPointRounding() {
         BillingDao billingDao = mock(BillingDao.class);
         BillingDetailDao billingDetailDao = mock(BillingDetailDao.class);
         Billing billing = mock(Billing.class);

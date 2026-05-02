@@ -79,7 +79,7 @@ class RaHeaderTotalsPersisterUnitTest {
     }
 
     @Test
-    void shouldMergeParsedDescriptionHeaderAndPopulatePremiums() throws Exception {
+    void shouldMergeParsedDescriptionHeaderAndPopulatePremiums_withParsedInput() throws Exception {
         String filename = "ra-desc-test.txt";
         Files.writeString(tempDir.resolve(filename), String.join(System.lineSeparator(),
                 h1Line("20260428"),
@@ -140,7 +140,7 @@ class RaHeaderTotalsPersisterUnitTest {
     }
 
     @Test
-    void shouldMergeSummaryTotalsPreservingTransactionAndBalanceForwardXml() {
+    void shouldMergeSummaryTotalsPreservingTransactionAndBalance_forwardXml() {
         RaHeaderDao raHeaderDao = mock(RaHeaderDao.class);
         BillingONPremiumDao premiumDao = mock(BillingONPremiumDao.class);
         RaHeader header = new RaHeader();

@@ -111,6 +111,9 @@ public class ManageBillingFormViewModelAssembler {
 
         // service-code tab: 3 groups of 20 slots each.
         if ("servicecode".equals(reportAction)) {
+            // The legacy JSP is laid out as three fixed-width columns of 20
+            // service codes; keep the grouping in Java so the page stays a
+            // pure renderer instead of reimplementing bucket math.
             ServiceGroupResult sg = buildServiceGroups(clinicView);
             b.serviceGroups(sg.groups);
             b.currentServiceTypeName(sg.lastSeenServiceTypeName);

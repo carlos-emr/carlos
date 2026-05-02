@@ -25,7 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class BillingOnMriJspEncodingUnitTest {
 
     @Test
-    void shouldEncodeDiskIdForJavaScriptAttributeContext() throws Exception {
+    void shouldEncodeDiskId_forJavaScriptAttributeContext() throws Exception {
         String jsp = Files.readString(Path.of(
                 "src/main/webapp/WEB-INF/jsp/billing/CA/ON/billingONMRI.jsp"));
 

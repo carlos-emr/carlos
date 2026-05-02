@@ -97,7 +97,7 @@ class BillingReportFragmentFormatUnitTest {
     }
 
     @Test
-    void shouldReturnNonNumericString_forNonNumericInput_drivingTheNarrowedCatch() throws Exception {
+    void shouldReturnNonNumericString_forNonNumericInputDrivingTheNarrowedCatch() throws Exception {
         // The running-total accumulator narrows its catch to NFE; a non-numeric
         // value flows through the formatter unchanged (when it has a dot) and
         // trips NFE downstream where the warn log captures it. Pin that the

@@ -69,6 +69,12 @@ OB Total :
 Colposcopy Total :
 <carlos:encode value="${raDescModel.coTotal}" context="html"/><br>
 
+<c:if test="${raDescModel.raFileIncomplete}">
+    <div class="alert alert-danger">
+        <carlos:encode value="${raDescModel.raFileWarning}" context="html"/>
+    </div>
+</c:if>
+
 <br>
 <br>
 <table bgcolor="#EEEEEE" bordercolor="#666666" border="1">
@@ -103,6 +109,8 @@ Colposcopy Total :
 <form action="${pageContext.request.contextPath}/billing/CA/ON/ApplyPractitionerPremium" method="post">
     <input type="hidden" name="rano" value="<carlos:encode value="${raDescModel.raNo}" context="htmlAttribute"/>"/>
     <input type="hidden" name="method" value="applyPremium"/>
+    <%-- Checkbox/select input names are keyed by premiumId so the apply action
+         can update only the practitioner-premium rows the operator selected. --%>
     <h3><fmt:message key="oscar.billing.on.genRADesc.premiumTitle"/></h3>
     <table>
         <thead>

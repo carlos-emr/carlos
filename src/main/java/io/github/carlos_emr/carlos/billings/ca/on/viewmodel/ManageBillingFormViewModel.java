@@ -122,6 +122,7 @@ public final class ManageBillingFormViewModel {
     public List<UniqueServiceTypeRow> getUniqueServiceTypes() { return uniqueServiceTypes; }
     /** True when the unique service-type lookup completed and rows can be rendered. */
     public boolean isUniqueServiceTypesLoaded() { return uniqueServiceTypesLoaded; }
+    /** Request echoes support JSP hidden fields / banners without scriptlet reads from the raw request. */
     public Map<String, String> getRequestParamEchoes() { return requestParamEchoes; }
 
     public static final class Builder {

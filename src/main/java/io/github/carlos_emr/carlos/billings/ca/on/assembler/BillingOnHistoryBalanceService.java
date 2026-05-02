@@ -31,15 +31,20 @@ import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * DAO-backed balance loader for the billing-history view.
+ * DAO-backed balance service for the billing-history view.
+ *
+ * <p>Coordinates the claim header and payment DAOs, returning a balance
+ * {@link BillingOnHistoryBalanceCalculator.Result} so callers can surface
+ * partial-load warnings when one row cannot be calculated reliably.</p>
  */
-final class BillingOnHistoryBalanceLoader {
+@org.springframework.stereotype.Service
+final class BillingOnHistoryBalanceService {
 
     private final BillingONPaymentDao billingOnPaymentDao;
     private final BillingONCHeader1Dao bCh1Dao;
 
-    BillingOnHistoryBalanceLoader(BillingONPaymentDao billingOnPaymentDao,
-                                  BillingONCHeader1Dao bCh1Dao) {
+    BillingOnHistoryBalanceService(BillingONPaymentDao billingOnPaymentDao,
+                                   BillingONCHeader1Dao bCh1Dao) {
         this.billingOnPaymentDao = billingOnPaymentDao;
         this.bCh1Dao = bCh1Dao;
     }
@@ -67,7 +72,7 @@ final class BillingOnHistoryBalanceLoader {
             MiscUtils.getLogger().warn(
                     "BillingOnHistory: bill id [{}] is not numeric; rendering balance=0.00",
                     LogSanitizer.sanitize(billingId), e);
-            return new BillingOnHistoryBalanceCalculator.Result(BigDecimal.ZERO, true);
+            return new BillingOnHistoryBalanceCalculator.Result(BigDecimal.ZERO.setScale(2), true);
         }
     }
 

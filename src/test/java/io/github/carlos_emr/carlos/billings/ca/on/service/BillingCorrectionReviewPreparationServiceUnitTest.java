@@ -44,7 +44,7 @@ import static org.mockito.Mockito.when;
 class BillingCorrectionReviewPreparationServiceUnitTest extends CarlosUnitTestBase {
 
     @Test
-    void shouldPrepareReviewModelWithPremiumCodesWithoutLegacySessionBeans() {
+    void shouldPrepareReviewModelWithPremiumCodes_withoutLegacySessionBeans() {
         ServiceCodeLoader serviceCodeLoader = Mockito.mock(ServiceCodeLoader.class);
         BillingCorrectionReviewPreparationService service =
                 new BillingCorrectionReviewPreparationService(serviceCodeLoader, new BillingCorrectionReviewViewModelAssembler());

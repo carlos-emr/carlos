@@ -223,7 +223,7 @@ class ViewInrBillingGeneration2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldIgnoreNonInrParams() throws Exception {
+    void shouldIgnoreNonInrParams_forIrrelevantInput() throws Exception {
         mockRequest.setParameter("clinic_no", "12");
         mockRequest.setParameter("not_inr_at_all", "x");
 

@@ -37,7 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class GenerateRaDescriptionJspEncodingUnitTest {
 
     @Test
-    void shouldRenderRaRowsWithEncodingInsteadOfRawHtmlModelFields() throws Exception {
+    void shouldRenderRaRowsWithEncoding_insteadOfRawHtmlModelFields() throws Exception {
         String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/ON/genRADesc.jsp"));
 
         assertThat(jsp)

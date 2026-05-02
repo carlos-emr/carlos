@@ -494,7 +494,7 @@ public class BillingOnPayments2Action extends ActionSupport {
             // the status change. Keep this single merge in the action — it's
             // a one-shot write with a single failure mode.
             if (statusChanges) {
-                cheader1.setStatus(status);
+                cheader1.setStatusStrict(status);
                 billingClaimDAO.merge(cheader1);
                 ret.put("ret", 0);
             } else {

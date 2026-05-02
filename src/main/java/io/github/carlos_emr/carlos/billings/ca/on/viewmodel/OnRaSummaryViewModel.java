@@ -87,6 +87,8 @@ public final class OnRaSummaryViewModel {
     public static Builder builder() { return new Builder(); }
 
     private static BigDecimal money(BigDecimal value) {
+        // Keep all RA summary totals on a stable 2-decimal scale before they
+        // reach JSP rendering or RaHeader.content merge logic.
         return (value == null ? BigDecimal.ZERO : value).setScale(2, RoundingMode.HALF_UP);
     }
 

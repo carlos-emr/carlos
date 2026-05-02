@@ -97,7 +97,7 @@ class PatientEndYearStatementInvoiceUnitTest {
     }
 
     @Test
-    void shouldExposeBothLegacyAndRecordAccessorsForJspEl() {
+    void shouldExposeBothLegacyAndRecordAccessors_forJspEl() {
         // The legacy getInvoiceNo() accessor exists alongside the record
         // accessor invoiceNo() so JSP EL ${row.invoiceNo} resolves either way.
         Date d = new Date();

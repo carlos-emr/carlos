@@ -22,14 +22,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 class BillingONPaymentDaoImplUnitTest {
 
     @Test
-    void shouldNotInjectOtherDaos() {
+    void shouldNotInjectOtherDaos_forDefaultCase() {
         assertThat(Arrays.stream(BillingONPaymentDaoImpl.class.getDeclaredFields())
                 .map(Field::getType))
                 .doesNotContain(BillingONExtDao.class, BillingONCHeader1Dao.class);
     }
 
     @Test
-    void shouldNotExposeCrossDaoSettersOrGetters() {
+    void shouldNotExposeCrossDaoSettersOrGetters_forSecurityContract() {
         assertThat(Arrays.stream(BillingONPaymentDaoImpl.class.getDeclaredMethods())
                 .map(Method::getName))
                 .doesNotContain(

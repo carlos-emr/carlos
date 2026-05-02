@@ -29,6 +29,10 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.ResolverStyle;
+import java.time.format.SignStyle;
+import java.time.temporal.ChronoField;
 import java.util.Date;
 
 /**
@@ -45,6 +49,8 @@ import java.util.Date;
  * server-default timezone behavior. The resolved zone is cached with a single
  * volatile key/value snapshot so concurrent readers cannot observe a stale key
  * paired with a new zone.</p>
+ *
+ * @since 2026-04-28
  */
 public final class BillingDates {
     private static final String BILLING_TIMEZONE_PROPERTY = "billing_on_timezone";
@@ -52,6 +58,25 @@ public final class BillingDates {
     private static final DateTimeFormatter OHIP_DATE = DateTimeFormatter.BASIC_ISO_DATE;
     private static final DateTimeFormatter ISO_TIME = DateTimeFormatter.ofPattern("HH:mm:ss");
     private static final DateTimeFormatter ISO_TIMESTAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final DateTimeFormatter FLEXIBLE_SERVICE_DATE = new DateTimeFormatterBuilder()
+            .appendValue(ChronoField.YEAR, 4)
+            .appendLiteral('-')
+            .appendValue(ChronoField.MONTH_OF_YEAR, 1, 2, SignStyle.NOT_NEGATIVE)
+            .appendLiteral('-')
+            .appendValue(ChronoField.DAY_OF_MONTH, 1, 2, SignStyle.NOT_NEGATIVE)
+            .toFormatter()
+            .withResolverStyle(ResolverStyle.STRICT);
+    private static final DateTimeFormatter FLEXIBLE_ISO_TIME = new DateTimeFormatterBuilder()
+            .appendValue(ChronoField.HOUR_OF_DAY, 1, 2, SignStyle.NOT_NEGATIVE)
+            .appendLiteral(':')
+            .appendValue(ChronoField.MINUTE_OF_HOUR, 2)
+            .optionalStart()
+            .appendLiteral(':')
+            .appendValue(ChronoField.SECOND_OF_MINUTE, 2)
+            .optionalEnd()
+            .parseDefaulting(ChronoField.SECOND_OF_MINUTE, 0)
+            .toFormatter()
+            .withResolverStyle(ResolverStyle.STRICT);
     // Cache the lookup key and resolved zone together so callers never see a
     // stale property key paired with a freshly-resolved ZoneId.
     private static volatile ZoneCache cachedBillingZone;
@@ -63,7 +88,7 @@ public final class BillingDates {
         if (raw == null || raw.trim().isEmpty() || "null".equalsIgnoreCase(raw.trim())) {
             return fallbackDate.format(SERVICE_DATE);
         }
-        return OhipDateParser.parse(raw, false).format(SERVICE_DATE);
+        return OhipDateParser.parse(raw, OhipDateParser.ZeroDayPolicy.REJECT_ZERO_DAY).format(SERVICE_DATE);
     }
 
     public static Date serviceDate(String serviceDate) {
@@ -127,6 +152,53 @@ public final class BillingDates {
     }
 
     /**
+     * Normalize a legacy web-form ISO date to canonical {@code yyyy-MM-dd}.
+     * Accepts the historic appointment-calendar shape where month/day may be
+     * one digit (for example {@code 2026-4-7}) and returns the strict shape
+     * consumed by the persistence layer.
+     */
+    public static String normalizeIsoDateText(String raw, String fieldName) {
+        if (raw == null || raw.trim().isEmpty()) {
+            throw new IllegalArgumentException("BillingDates.normalizeIsoDateText: " + fieldName + " is null or blank");
+        }
+        try {
+            return LocalDate.parse(raw.trim(), FLEXIBLE_SERVICE_DATE).format(SERVICE_DATE);
+        } catch (DateTimeException e) {
+            throw new IllegalArgumentException(
+                    "BillingDates.normalizeIsoDateText: malformed " + fieldName + " [" + raw + "]", e);
+        }
+    }
+
+    /**
+     * Normalize an optional legacy web-form ISO date. Blank input preserves
+     * the legacy absent-field convention; non-blank input is canonicalized.
+     */
+    public static String normalizeOptionalIsoDateText(String raw, String fieldName) {
+        if (raw == null || raw.trim().isEmpty()) {
+            return "";
+        }
+        return normalizeIsoDateText(raw, fieldName);
+    }
+
+    /**
+     * Normalize an optional legacy form time to {@code HH:mm:ss}. The
+     * appointment billing shortcut historically sent {@code 0:00:00}, and
+     * other form paths still send {@code HH:mm}; the persistence layer expects
+     * canonical seconds-bearing text.
+     */
+    public static String normalizeOptionalIsoTimeText(String raw, String fieldName) {
+        if (raw == null || raw.trim().isEmpty()) {
+            return "";
+        }
+        try {
+            return LocalTime.parse(raw.trim(), FLEXIBLE_ISO_TIME).format(ISO_TIME);
+        } catch (DateTimeException e) {
+            throw new IllegalArgumentException(
+                    "BillingDates.normalizeOptionalIsoTimeText: malformed " + fieldName + " [" + raw + "]", e);
+        }
+    }
+
+    /**
      * Parse an {@code HH:mm:ss} ISO time that may legitimately be missing.
      * Mirrors the contract of {@link #parseOptionalIsoDate(String, String)}:
      * null/blank yields {@code null} (legacy "no value" tolerated), non-blank
@@ -166,7 +238,15 @@ public final class BillingDates {
      * Parse an {@code HH:mm:ss} ISO time strictly. Mirrors the contract of
      * {@link #parseIsoDate(String)}: throws on null, blank, or unparseable
      * input. Use this on billing-mutating paths where silently substituting
-     * a default time would record audit-incorrect timestamps.
+     * a default time would record audit-incorrect timestamps. The returned
+     * legacy {@link Date} uses the JVM-zone epoch day with the parsed
+     * time-of-day because callers only persist or format the clock value.
+     *
+     * @param raw String the {@code HH:mm:ss} time
+     * @return Date a {@link java.util.Date} on the JVM-zone epoch day at the
+     *         parsed time-of-day
+     * @throws IllegalArgumentException when {@code raw} is null, blank, or
+     *         unparseable
      */
     public static Date parseIsoTime(String raw) {
         if (raw == null || raw.trim().isEmpty()) {

@@ -105,7 +105,7 @@ class BillingClaimsErrorReportImportServiceUnitTest {
     }
 
     @Test
-    void shouldSkipShortLines_andContinueParsing_whenHeaderCountUnreadable() throws IOException {
+    void shouldSkipShortLines_andContinueParsingWhenHeaderCountUnreadable() throws IOException {
         // Lines under 3 chars cannot yield a headerCount substring — the
         // parser logs and continues. The remaining valid lines must still
         // produce records.
@@ -134,7 +134,7 @@ class BillingClaimsErrorReportImportServiceUnitTest {
     }
 
     @Test
-    void shouldRecordExtractedFieldsOnTransactionLine() throws IOException {
+    void shouldRecordExtractedFieldsOnTransactionLine_whenInputValid() throws IOException {
         String content = headerLine("1") + "\n" + claimLine() + "\n"
                 + transactionLine() + "\n" + footerLine() + "\n";
         FileInputStream input = writeAndOpen(content);

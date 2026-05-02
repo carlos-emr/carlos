@@ -116,6 +116,9 @@ public class GstReportViewModelAssembler {
             gstTotal = gstTotal.add(gst);
             earnedTotal = earnedTotal.add(earned);
 
+            // Preserve the legacy report contract: totals are computed over the
+            // full query result, but the visible table only includes rows with
+            // positive GST.
             if (gst.signum() > 0) {
                 rows.add(new GstReportViewModel.Row(
                         nullToEmpty(row.getProperty("date")),

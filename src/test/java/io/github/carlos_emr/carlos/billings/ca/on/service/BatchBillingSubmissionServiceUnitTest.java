@@ -46,7 +46,7 @@ class BatchBillingSubmissionServiceUnitTest {
     }
 
     @Test
-    void shouldSubmitEveryRowAndUpdateBatchBillingAmounts() {
+    void shouldSubmitEveryRowAndUpdateBatchBillingAmounts_withBatchRows() {
         BatchBilling first = new BatchBilling();
         first.setId(1);
         BatchBilling second = new BatchBilling();
@@ -74,7 +74,7 @@ class BatchBillingSubmissionServiceUnitTest {
     }
 
     @Test
-    void shouldPropagateFailureAndStopProcessingLaterRows() {
+    void shouldPropagateFailureAndStopProcessingLaterRows_whenCollaboratorFails() {
         BatchBilling first = new BatchBilling();
         first.setId(1);
         when(headerCreationService.createBill("999998", 42, "A007A", "250", "clinic-a", billingDate, "999998"))
@@ -114,7 +114,7 @@ class BatchBillingSubmissionServiceUnitTest {
     }
 
     @Test
-    void shouldRejectMissingCurrentUserBeforeAnyWrites() {
+    void shouldRejectMissingCurrentUser_beforeAnyWrites() {
         assertThatThrownBy(() -> service.submitAll(
                 List.of(new BatchBillingSubmissionService.Row("A007A", "250", 42, "999998")),
                 "clinic-a", billingDate, null))

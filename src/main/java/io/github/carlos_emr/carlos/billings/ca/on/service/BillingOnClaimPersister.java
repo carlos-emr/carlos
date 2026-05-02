@@ -229,7 +229,7 @@ public class BillingOnClaimPersister {
         b.setPaid(io.github.carlos_emr.carlos.billings.ca.on.BillingMoney
                 .parseNonNegativeAmount(paidRaw, "paid"));
 
-        b.setStatus(val.getStatus());
+        b.setStatusStrict(val.getStatus());
         b.setComment(val.getComment());
         b.setVisitType(val.visitType());
         b.setProviderOhipNo(val.providerOhipNo());
@@ -269,7 +269,7 @@ public class BillingOnClaimPersister {
             b.setDx(val.getDx());
             b.setDx1(val.getDx1());
             b.setDx2(val.getDx2());
-            b.setStatus(val.getStatus());
+            b.setStatusStrict(val.getStatus());
 
             itemDao.persist(b);
             lVal.set(i, val.withId(b.getId().toString()));
@@ -553,7 +553,7 @@ public class BillingOnClaimPersister {
         item.setDx(val.getDx());
         item.setDx1(val.getDx1());
         item.setDx2(val.getDx2());
-        item.setStatus(val.getStatus());
+        item.setStatusStrict(val.getStatus());
         BillingONItem returnItem = itemDao.saveEntity(item);
         return returnItem.getId(); //return ID
 

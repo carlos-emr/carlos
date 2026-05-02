@@ -52,7 +52,7 @@ class BillingCalendarPopupViewModelAssemblerUnitTest {
     }
 
     @Test
-    void shouldRejectMalformedYear() {
+    void shouldRejectMalformedYear_forInvalidInput() {
         assertThatThrownBy(() -> new BillingCalendarPopupViewModelAssembler()
                 .assemble("bad-year", "4", "0", ""))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -60,7 +60,7 @@ class BillingCalendarPopupViewModelAssemblerUnitTest {
     }
 
     @Test
-    void shouldRejectMalformedDelta() {
+    void shouldRejectMalformedDelta_forInvalidInput() {
         assertThatThrownBy(() -> new BillingCalendarPopupViewModelAssembler()
                 .assemble("2026", "4", "next", ""))
                 .isInstanceOf(IllegalArgumentException.class)

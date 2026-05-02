@@ -252,6 +252,9 @@ class BillingOnPaymentViewModelAssemblerUnitTest {
     }
 
     private RaDetailRowFixture arrangeRaDetailWithPaidAmount(String amountPay) {
+        // The assembler stitches one RA detail row together with its matching
+        // header/item lookups; keep the fixture minimal so failures point at
+        // payment parsing rather than unrelated report state.
         RaDetail rad = new RaDetail();
         rad.setBillingNo(42);
         rad.setServiceCode("A001A");

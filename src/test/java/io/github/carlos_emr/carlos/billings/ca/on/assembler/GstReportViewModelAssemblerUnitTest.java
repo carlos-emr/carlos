@@ -51,7 +51,7 @@ import static org.mockito.Mockito.when;
 class GstReportViewModelAssemblerUnitTest {
 
     @Test
-    void shouldTreatNullProviderLookupAsEmptyList() {
+    void shouldTreatNullProviderLookup_asEmptyList() {
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
         GstReportService gstReport = mock(GstReportService.class);
         BillingOnLookupService lookupService = mock(BillingOnLookupService.class);

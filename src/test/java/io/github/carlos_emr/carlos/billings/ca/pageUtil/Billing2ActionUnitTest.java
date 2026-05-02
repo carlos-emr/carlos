@@ -169,7 +169,7 @@ class Billing2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldTreatUnknownRegionAsBC() {
+    void shouldTreatUnknownRegion_asBC() {
         mockRequest.setParameter("billRegion", "AB");
 
         assertThat(new Billing2Action().execute()).isEqualTo("BC");

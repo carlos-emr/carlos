@@ -38,7 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class BillingReviewPresentationItemUnitTest {
 
     @Test
-    void shouldUseImmutableRecordsForBillingReviewItems() {
+    void shouldUseImmutableRecords_forBillingReviewItems() {
         assertThat(BillingReviewCodeItem.class.isRecord()).isTrue();
         assertThat(BillingReviewPercentageItem.class.isRecord()).isTrue();
         assertThat(hasSetter(BillingReviewCodeItem.class)).isFalse();
@@ -46,7 +46,7 @@ class BillingReviewPresentationItemUnitTest {
     }
 
     @Test
-    void shouldTypePercentageFeeListsAsStringLists() {
+    void shouldTypePercentageFeeLists_asStringLists() {
         RecordComponent feeComponent = recordComponent(BillingReviewPercentageItem.class, "codeFees");
         RecordComponent totalComponent = recordComponent(BillingReviewPercentageItem.class, "codeTotals");
 

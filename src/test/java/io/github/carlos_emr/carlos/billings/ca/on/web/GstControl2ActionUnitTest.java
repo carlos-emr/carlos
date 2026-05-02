@@ -50,7 +50,7 @@ import static org.mockito.Mockito.when;
 class GstControl2ActionUnitTest {
 
     @Test
-    void shouldReturnValidationErrorInsteadOfThrowingForInvalidGstPercent() {
+    void shouldReturnValidationError_insteadOfThrowingForInvalidGstPercent() {
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
         GstSettingsService gstSettingsService = mock(GstSettingsService.class);
         when(securityInfoManager.hasPrivilege(nullable(LoggedInInfo.class), eq("_admin.billing"), eq("w"), isNull()))

@@ -423,7 +423,7 @@ public class BillingCorrectionService {
 
             Provider provider = providerDao.getProvider(bCh1.getProviderNo());
 
-            bCh1.setStatus(status);
+            bCh1.setStatusStrict(status);
 
             if (!(was3rdPartyPayProgram || nowMohPayProgram)) {
                 // From Ministry-of-Health → 3rd-party: default payee to first.
@@ -593,7 +593,7 @@ public class BillingCorrectionService {
                 bItem.setFee(fee);
                 bItem.setServiceDate(serviceDate);
                 bItem.setDx(dx);
-                bItem.setStatus(itemStatus);
+                bItem.setStatusStrict(itemStatus);
                 bItem.setCh1Id(bCh1.getId());
                 bItem.setTranscId(bCh1.getTranscId());
                 bItem.setRecId(BillingOnConstants.ITEM_REORDIDENTIFICATION);
@@ -640,7 +640,7 @@ public class BillingCorrectionService {
                 bItemExisting.setFee(fee);
                 bItemExisting.setServiceDate(bItemCurrent.getServiceDate());
                 bItemExisting.setDx(dx);
-                bItemExisting.setStatus(bItemCurrent.getStatus());
+                bItemExisting.setStatusStrict(bItemCurrent.getStatus());
             } else {
                 // New billing item — append.
                 bCh1.addBillingItem(bItemCurrent);

@@ -272,6 +272,7 @@ public class BillingONItem extends AbstractModel<Integer> implements Serializabl
      */
     public void setStatus(String status) {
         if (status != null && !KNOWN_STATUSES.contains(status)) {
+            BillingStatus.recordUnknownStatusWarning();
             logger.warn("Accepting unknown BillingONItem status value during deprecation: {} (allowed: {})",
                     status, KNOWN_STATUSES);
         }

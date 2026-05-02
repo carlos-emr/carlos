@@ -130,12 +130,12 @@
 						<tr>
 							<td width="30%" valign="top" class="black">
 								<a href="#"
-									onClick='manageType("<carlos:encode value="${serviceRow.typeId}" context="javaScript"/>","<carlos:encode value="${serviceRow.typeName}" context="javaScript"/>");return false;'
+										onClick='manageType("<carlos:encode value="${serviceRow.typeId}" context="javaScriptAttribute"/>","<carlos:encode value="${serviceRow.typeName}" context="javaScriptAttribute"/>");return false;'
 									title="Manage Billing Form"><carlos:encode value="${serviceRow.typeId}" context="html"/></a>
 							</td>
 							<td class="black">
 								<a href="#"
-									onClick='manageType("<carlos:encode value="${serviceRow.typeId}" context="javaScript"/>","<carlos:encode value="${serviceRow.typeName}" context="javaScript"/>");return false;'
+										onClick='manageType("<carlos:encode value="${serviceRow.typeId}" context="javaScriptAttribute"/>","<carlos:encode value="${serviceRow.typeName}" context="javaScriptAttribute"/>");return false;'
 									title="Manage Billing Form"><carlos:encode value="${serviceRow.typeName}" context="html"/></a>
 							</td>
 						</tr>

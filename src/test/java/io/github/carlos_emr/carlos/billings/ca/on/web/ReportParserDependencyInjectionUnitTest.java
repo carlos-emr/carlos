@@ -51,7 +51,7 @@ class ReportParserDependencyInjectionUnitTest {
     private Path tempDir;
 
     @Test
-    void shouldCreateClaimsErrorImportServiceWithInjectedService() throws Exception {
+    void shouldCreateClaimsErrorImportService_withInjectedService() throws Exception {
         Path report = Files.createFile(tempDir.resolve("E-empty.txt"));
 
         try (FileInputStream input = new FileInputStream(report.toFile())) {
@@ -65,7 +65,7 @@ class ReportParserDependencyInjectionUnitTest {
     }
 
     @Test
-    void shouldCreateObecOutputParserWithInjectedRepositories() throws Exception {
+    void shouldCreateObecOutputParser_withInjectedRepositories() throws Exception {
         Path report = Files.createFile(tempDir.resolve("R-empty.txt"));
 
         try (FileInputStream input = new FileInputStream(report.toFile())) {

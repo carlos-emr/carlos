@@ -95,6 +95,10 @@ public class GenerateRaDescriptionViewModelAssembler {
         }
 
         RaDescriptionFileParser.ParsedFile parsed = raDescriptionFileParser.parse(rh.getFilename());
+        if (!parsed.isCompleteForHeaderMerge()) {
+            b.raFileIncomplete(true)
+                    .raFileWarning(parseWarning(parsed.parseFailureReason()));
+        }
 
         // Existing RaHeader content carries non-file totals populated by
         // upstream pipelines; expose them alongside the parsed file rows.
@@ -104,14 +108,16 @@ public class GenerateRaDescriptionViewModelAssembler {
         String obTotal = nullToEmpty(SxmlMisc.getXmlContent(existingContent, "<xml_ob_total>", "</xml_ob_total>"));
         String coTotal = nullToEmpty(SxmlMisc.getXmlContent(existingContent, "<xml_co_total>", "</xml_co_total>"));
 
-        b.chequeTotal(parsed.cheque())
-                .localTotal(localTotal)
+        b.localTotal(localTotal)
                 .otherTotal(otherTotal)
                 .obTotal(obTotal)
-                .coTotal(coTotal)
-                .balanceForwardRow(parsed.balanceForwardRow())
-                .transactionRows(parsed.transactionRows())
-                .messageTxt(parsed.messageTxt());
+                .coTotal(coTotal);
+        if (parsed.isCompleteForHeaderMerge()) {
+            b.chequeTotal(parsed.cheque())
+                    .balanceForwardRow(parsed.balanceForwardRow())
+                    .transactionRows(parsed.transactionRows())
+                    .messageTxt(parsed.messageTxt());
+        }
 
         // Practitioner premiums: load each row's OHIP-mapped provider dropdown
         // options. Lazy population happens in the action's persister.
@@ -120,11 +126,24 @@ public class GenerateRaDescriptionViewModelAssembler {
         return b.build();
     }
 
+    private static String parseWarning(RaDescriptionFileParser.ParseFailureReason reason) {
+        return switch (reason) {
+            case MISSING_FILENAME -> "RA description file is missing.";
+            case SECURITY_REJECTED -> "RA description file path was rejected.";
+            case IO_ERROR -> "RA description file could not be read.";
+            case INCOMPLETE_HEADER -> "RA description file is incomplete; H1 header totals could not be parsed.";
+            case NONE -> "RA description file could not be fully parsed.";
+        };
+    }
+
     private List<GenerateRaDescriptionViewModel.PremiumRow> loadPremiumRows(Integer raNo, Locale locale) {
         List<GenerateRaDescriptionViewModel.PremiumRow> rows = new ArrayList<>();
         for (BillingONPremium premium : billingONPremiumDao.getRAPremiumsByRaHeaderNo(raNo)) {
             List<Provider> providers = providerDao.getBillableProvidersByOHIPNo(premium.getProviderOHIPNo());
             if (providers == null || providers.isEmpty()) {
+                // Do not render an unbound dropdown row; if no current provider
+                // matches the premium's OHIP number, the operator needs the
+                // upstream provider mapping fixed rather than a blank select.
                 continue;
             }
             List<GenerateRaDescriptionViewModel.ProviderOption> options = new ArrayList<>();

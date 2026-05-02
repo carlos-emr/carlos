@@ -35,7 +35,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class BillingOnNewReportViewModelUnitTest {
 
     @Test
-    void shouldTreatNullBuilderListsAsEmptyImmutableLists() {
+    void shouldTreatNullBuilderLists_asEmptyImmutableLists() {
         BillingOnNewReportViewModel model = BillingOnNewReportViewModel.builder()
                 .columnHeaders(null)
                 .rows(null)
@@ -54,7 +54,7 @@ class BillingOnNewReportViewModelUnitTest {
     }
 
     @Test
-    void shouldTreatNullSiteProvidersAsEmptyImmutableList() {
+    void shouldTreatNullSiteProviders_asEmptyImmutableList() {
         BillingOnNewReportViewModel.SiteOption site =
                 new BillingOnNewReportViewModel.SiteOption("site", "red", null);
 

@@ -59,7 +59,7 @@ class BillingFileWriteExceptionUnitTest {
     }
 
     @Test
-    void shouldPreserveMessage() {
+    void shouldPreserveMessage_forExceptionContract() {
         BillingFileWriteException ex = new BillingFileWriteException(
                 "Failed to write OHIP claim file: claim123.txt", null);
         assertThat(ex.getMessage())
@@ -67,7 +67,7 @@ class BillingFileWriteExceptionUnitTest {
     }
 
     @Test
-    void shouldPreserveCause() {
+    void shouldPreserveCause_forExceptionContract() {
         IOException cause = new IOException("Disk full");
         BillingFileWriteException ex = new BillingFileWriteException(
                 "Failed to write OHIP claim file: claim123.txt", cause);
@@ -75,7 +75,7 @@ class BillingFileWriteExceptionUnitTest {
     }
 
     @Test
-    void shouldAllowNullCause() {
+    void shouldAllowNullCause_forInputContract() {
         // Some throw sites (e.g. createBillingFileStr) wrap a generic Exception
         // and pass it as cause; others (validation pre-checks) may throw with
         // null cause. Both call shapes must work.

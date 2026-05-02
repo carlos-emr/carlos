@@ -127,6 +127,14 @@ class BillingDatesUnitTest {
                 .hasMessageContaining("not-a-date");
     }
 
+    @Test
+    void shouldNormalizeLegacyDateText_whenMonthOrDayIsSingleDigit() {
+        assertThat(BillingDates.normalizeIsoDateText("2026-4-7", "service_date"))
+                .isEqualTo("2026-04-07");
+        assertThat(BillingDates.normalizeOptionalIsoDateText("", "admission_date"))
+                .isEmpty();
+    }
+
     // ---- parseOptionalIsoTime: HH:mm:ss companion to parseOptionalIsoDate ----
 
     @Test
@@ -157,6 +165,16 @@ class BillingDatesUnitTest {
         assertThatThrownBy(() -> BillingDates.parseOptionalIsoTime("12-34-56", "billing_time"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("billing_time");
+    }
+
+    @Test
+    void shouldNormalizeLegacyTimeText_whenHourOrSecondsAreMissing() {
+        assertThat(BillingDates.normalizeOptionalIsoTimeText("0:00:00", "billing_time"))
+                .isEqualTo("00:00:00");
+        assertThat(BillingDates.normalizeOptionalIsoTimeText("09:00", "billing_time"))
+                .isEqualTo("09:00:00");
+        assertThat(BillingDates.normalizeOptionalIsoTimeText("", "billing_time"))
+                .isEmpty();
     }
 
     // ---- parseIsoTime (strict variant — used by BillingOnCorrectionPersister

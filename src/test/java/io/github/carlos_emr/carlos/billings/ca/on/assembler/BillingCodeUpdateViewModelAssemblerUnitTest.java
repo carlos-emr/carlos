@@ -37,7 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class BillingCodeUpdateViewModelAssemblerUnitTest {
 
     @Test
-    void shouldOnlySelectParametersWithCodePrefix() {
+    void shouldOnlySelectParameters_withCodePrefix() {
         BillingCodeUpdateViewModelAssembler assembler = new BillingCodeUpdateViewModelAssembler();
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("update", "Confirm");

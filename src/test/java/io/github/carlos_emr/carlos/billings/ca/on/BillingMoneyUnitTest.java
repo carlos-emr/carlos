@@ -178,7 +178,7 @@ class BillingMoneyUnitTest {
     }
 
     @Test
-    void shouldAddSubtractAndCompareCadValues() {
+    void shouldAddSubtractAndCompareCadValues_withValueType() {
         BillingMoney subtotal = BillingMoney.cad("10.00");
         BillingMoney adjustment = BillingMoney.cad("2.50");
 
@@ -200,7 +200,7 @@ class BillingMoneyUnitTest {
     }
 
     @Test
-    void shouldRoundTripStoredCentStringsThroughValueType() {
+    void shouldRoundTripStoredCentStrings_throughValueType() {
         BillingMoney amount = BillingMoney.storedCents("3000", "total");
 
         assertThat(amount.amount()).isEqualByComparingTo("30.00");
@@ -208,7 +208,7 @@ class BillingMoneyUnitTest {
     }
 
     @Test
-    void shouldExposeExplicitBigDecimalZeroFactoryName() {
+    void shouldExposeExplicitBigDecimalZeroFactoryName_forJspContract() {
         assertThat(BillingMoney.zeroAmount()).isEqualByComparingTo("0.00");
         assertThat(java.util.Arrays.stream(BillingMoney.class.getDeclaredMethods())
                 .noneMatch(method -> method.getName().equals("zero")))
@@ -216,14 +216,14 @@ class BillingMoneyUnitTest {
     }
 
     @Test
-    void shouldRejectNegativeValueTypeAmounts() {
+    void shouldRejectNegativeValueTypeAmounts_forInvalidInput() {
         assertThatThrownBy(() -> BillingMoney.cad(new java.math.BigDecimal("-0.01")))
                 .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
                 .hasMessageContaining("cannot be negative");
     }
 
     @Test
-    void shouldRejectNegativeStoredCentStrings() {
+    void shouldRejectNegativeStoredCentStrings_forInvalidInput() {
         assertThatThrownBy(() -> BillingMoney.storedCents("-1", "total"))
                 .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
                 .hasMessageContaining("total")

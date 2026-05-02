@@ -108,7 +108,7 @@ public class BillingPaymentSaveService {
 
         boolean toUpdateChl = false;
         if (cmd.newStatus != null && !cmd.newStatus.equals(cheader1.getStatus())) {
-            cheader1.setStatus(cmd.newStatus);
+            cheader1.setStatusStrict(cmd.newStatus);
             toUpdateChl = true;
         }
 

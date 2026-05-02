@@ -52,7 +52,16 @@ public final class BillingOnFormViewModel {
             String visitDate,
             String visitType,
             String clinicRefCode,
-            String diagnosticCode) { }
+            String diagnosticCode) {
+        @Override
+        public String toString() {
+            return "BillingHistoryEntry["
+                    + "visitDate=" + visitDate + ", "
+                    + "visitType=" + visitType + ", "
+                    + "clinicRefCode=" + clinicRefCode + ", "
+                    + "diagnosticCode=<redacted>]";
+        }
+    }
 
     /** Provider option rendered in the billing form's provider picker. */
     public record ProviderOption(
@@ -81,7 +90,15 @@ public final class BillingOnFormViewModel {
     public record DxCodeEntry(
             String serviceType,
             String diagnosticCode,
-            String description) { }
+            String description) {
+        @Override
+        public String toString() {
+            return "DxCodeEntry["
+                    + "serviceType=" + serviceType + ", "
+                    + "diagnosticCode=<redacted>, "
+                    + "description=<redacted>]";
+        }
+    }
 
     /**
      * One row in the recent-billing history table at the bottom of the form.
@@ -92,7 +109,18 @@ public final class BillingOnFormViewModel {
             String serviceDate,
             String serviceCode,
             String dx,
-            String updateDate) { }
+            String updateDate) {
+        @Override
+        public String toString() {
+            return "BillingHistoryRow["
+                    + "id=" + id + ", "
+                    + "billingDate=" + billingDate + ", "
+                    + "serviceDate=" + serviceDate + ", "
+                    + "serviceCode=" + serviceCode + ", "
+                    + "dx=<redacted>, "
+                    + "updateDate=" + updateDate + "]";
+        }
+    }
 
     /** One entry in the visit-location dropdown ({@code xml_location}). */
     public record FacilityNumOption(String code, String label) { }

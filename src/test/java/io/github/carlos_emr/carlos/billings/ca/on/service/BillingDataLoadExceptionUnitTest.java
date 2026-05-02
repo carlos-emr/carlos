@@ -61,7 +61,7 @@ class BillingDataLoadExceptionUnitTest {
     }
 
     @Test
-    void shouldCarryStructuredPhaseAndContext() {
+    void shouldCarryStructuredPhaseAndContext_forExceptionContract() {
         BillingDataLoadException ex = new BillingDataLoadException(
                 "missing batch_header",
                 BillingDataLoadException.Phase.BATCH_HEADER_LOOKUP,
@@ -72,7 +72,7 @@ class BillingDataLoadExceptionUnitTest {
     }
 
     @Test
-    void shouldReturnUnmodifiableContext() {
+    void shouldReturnUnmodifiableContext_forDefaultInput() {
         BillingDataLoadException ex = new BillingDataLoadException(
                 "loader failed",
                 BillingDataLoadException.Phase.DAO_QUERY,

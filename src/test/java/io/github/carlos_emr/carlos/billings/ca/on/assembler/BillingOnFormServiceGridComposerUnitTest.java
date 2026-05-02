@@ -52,7 +52,7 @@ import static org.mockito.Mockito.when;
 class BillingOnFormServiceGridComposerUnitTest {
 
     @Test
-    void shouldAcceptSimpleInlineStyleDeclarations() {
+    void shouldAcceptSimpleInlineStyleDeclarations_forValidInput() {
         assertThat(BillingOnFormServiceGridComposer.isSafeInlineStyle("color:red;"))
                 .isTrue();
         assertThat(BillingOnFormServiceGridComposer.isSafeInlineStyle("font-weight: bold; background-color:#fff"))
@@ -62,7 +62,7 @@ class BillingOnFormServiceGridComposerUnitTest {
     }
 
     @Test
-    void shouldRejectMalformedOrDangerousInlineStylesWithoutRegexBacktracking() {
+    void shouldRejectMalformedOrDangerousInlineStyles_withoutRegexBacktracking() {
         assertThat(BillingOnFormServiceGridComposer.isSafeInlineStyle("color"))
                 .isFalse();
         assertThat(BillingOnFormServiceGridComposer.isSafeInlineStyle("color:"))

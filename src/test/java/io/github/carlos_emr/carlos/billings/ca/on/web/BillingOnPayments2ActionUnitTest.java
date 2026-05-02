@@ -210,7 +210,7 @@ class BillingOnPayments2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldNotDoublePrefixNegativeItemCurrencyValues() {
+    void shouldNotDoublePrefixNegativeItemCurrencyValues_forCurrencyRendering() {
         BillingClaimItemDto item = new BillingClaimItemDto();
         item = item.withId("1");
         item = item.withServiceCode("A001A");

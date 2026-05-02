@@ -89,7 +89,7 @@ class BillingOnAuditLogServiceUnitTest {
 
     @Test
     @DisplayName("each call produces a fresh persisted entity (no instance reuse)")
-    void shouldEmitOneEntityPerCall() {
+    void shouldEmitOneEntityPerCall_forEachCall() {
         service.addBillingLog("p1", "a1", "c1", "o1");
         service.addBillingLog("p2", "a2", "c2", "o2");
 

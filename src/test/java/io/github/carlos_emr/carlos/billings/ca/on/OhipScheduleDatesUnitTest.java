@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Unit coverage for {@code OhipScheduleDates} effective/termination date translation rules. */
 @DisplayName("OHIP Schedule of Benefits date parsing")
@@ -34,8 +35,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 class OhipScheduleDatesUnitTest {
 
     @Test
-    void shouldNormalizeTerminationDateSentinels() {
+    void shouldNormalizeTerminationDateSentinels_toCanonicalForm() {
         assertThat(OhipScheduleDates.terminationDate("99999999")).isEqualTo("9999-12-31");
         assertThat(OhipScheduleDates.terminationDate("20260400")).isEqualTo("2026-04-01");
+    }
+
+    @Test
+    void shouldThrowIllegalArgumentException_whenTerminationDateHasInvalidCalendarDay() {
+        assertThatThrownBy(() -> OhipScheduleDates.terminationDate("20260230"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid OHIP date");
     }
 }

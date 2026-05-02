@@ -44,7 +44,47 @@ class BillingThirdPartyRecordServiceUnitTest {
             new BillingThirdPartyRecordService(thirdPartyService);
 
     @Test
-    void shouldDelegateGstLookupToThirdPartyService() {
+    void shouldDelegateActiveThirdPartyProperties_toThirdPartyService() {
+        Properties expected = new Properties();
+        expected.setProperty("payment", "10.00");
+        when(thirdPartyService.get3rdPartBillProp("42")).thenReturn(expected);
+
+        assertThat(service.get3rdPartBillProp("42")).isSameAs(expected);
+        verify(thirdPartyService).get3rdPartBillProp("42");
+    }
+
+    @Test
+    void shouldDelegateInactiveThirdPartyProperties_toThirdPartyService() {
+        Properties expected = new Properties();
+        expected.setProperty("status", "D");
+        when(thirdPartyService.get3rdPartBillPropInactive("42")).thenReturn(expected);
+
+        assertThat(service.get3rdPartBillPropInactive("42")).isSameAs(expected);
+        verify(thirdPartyService).get3rdPartBillPropInactive("42");
+    }
+
+    @Test
+    void shouldDelegateLocalClinicAddress_toThirdPartyService() {
+        Properties expected = new Properties();
+        expected.setProperty("clinic", "main");
+        when(thirdPartyService.getLocalClinicAddr()).thenReturn(expected);
+
+        assertThat(service.getLocalClinicAddr()).isSameAs(expected);
+        verify(thirdPartyService).getLocalClinicAddr();
+    }
+
+    @Test
+    void shouldDelegatePaymentMethods_toThirdPartyService() {
+        Properties expected = new Properties();
+        expected.setProperty("1", "Cash");
+        when(thirdPartyService.get3rdPayMethod()).thenReturn(expected);
+
+        assertThat(service.get3rdPayMethod()).isSameAs(expected);
+        verify(thirdPartyService).get3rdPayMethod();
+    }
+
+    @Test
+    void shouldDelegateGstLookup_toThirdPartyService() {
         Properties expected = new Properties();
         expected.setProperty("gst", "13.00");
         when(thirdPartyService.getGstTotal("42")).thenReturn(expected);
@@ -56,7 +96,7 @@ class BillingThirdPartyRecordServiceUnitTest {
     }
 
     @Test
-    void shouldDelegateKeyUpdateIgnoringLegacyDemoNoParameter() {
+    void shouldDelegateKeyUpdateIgnoringLegacyDemoNoParameter_toCollaborator() {
         when(thirdPartyService.updateKeyValue("42", "payment", "10.00")).thenReturn(true);
 
         boolean updated = service.updateKeyValue("42", "123", "payment", "10.00");

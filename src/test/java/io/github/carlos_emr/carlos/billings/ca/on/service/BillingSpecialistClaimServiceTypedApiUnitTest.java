@@ -44,7 +44,7 @@ import static org.mockito.Mockito.when;
 class BillingSpecialistClaimServiceTypedApiUnitTest extends CarlosUnitTestBase {
 
     @Test
-    void shouldBuildClaimFromTypedRequestInsteadOfHttpServletRequest() {
+    void shouldBuildClaimFromTypedRequest_insteadOfHttpServletRequest() {
         BillingOnClaimPersister persister = Mockito.mock(BillingOnClaimPersister.class);
         ServiceCodeLoader serviceCodeLoader = Mockito.mock(ServiceCodeLoader.class);
         BillingSpecialistClaimService service = new BillingSpecialistClaimService(persister, serviceCodeLoader);
@@ -86,7 +86,7 @@ class BillingSpecialistClaimServiceTypedApiUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldNotExposeServletOrRawCarrierApi() throws Exception {
+    void shouldNotExposeServletOrRawCarrierApi_forSecurityContract() throws Exception {
         String source = Files.readString(Path.of(
                 "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingSpecialistClaimService.java"));
 

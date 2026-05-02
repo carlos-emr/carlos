@@ -46,8 +46,10 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
+import org.springframework.context.annotation.Scope;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.stereotype.Component;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -127,6 +129,15 @@ class BillingDocumentErrorReportUpload2ActionUnitTest extends CarlosUnitTestBase
     }
 
     @Test
+    void shouldBePrototypeSpringComponent_forStrutsSpringObjectFactory() {
+        assertThat(BillingDocumentErrorReportUpload2Action.class.getAnnotation(Component.class))
+                .isNotNull();
+        Scope scope = BillingDocumentErrorReportUpload2Action.class.getAnnotation(Scope.class);
+        assertThat(scope).isNotNull();
+        assertThat(scope.value()).isEqualTo("prototype");
+    }
+
+    @Test
     void shouldThrowSecurityException_whenPrivilegeMissing() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(false);
@@ -143,7 +154,7 @@ class BillingDocumentErrorReportUpload2ActionUnitTest extends CarlosUnitTestBase
     }
 
     @Test
-    void shouldThrowSecurityException_whenPrivilegeMissing_evenWithBlankFilename() {
+    void shouldThrowSecurityException_whenPrivilegeMissingEvenWithBlankFilename() {
         // Even the upload branch (blank filename → falls into saveFile path)
         // must hit the security gate first.
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
@@ -322,6 +333,17 @@ class BillingDocumentErrorReportUpload2ActionUnitTest extends CarlosUnitTestBase
             assertThat(applyResult.getReasons()).anySatisfy(reason ->
                     assertThat(reason).contains("rolled back"));
         }
+    }
+
+    @Test
+    void shouldRenderObecApplyResult_whenWholeFileRejectedWithoutAttemptedRows() throws Exception {
+        String jsp = Files.readString(Path.of(
+                "src/main/webapp/WEB-INF/jsp/billing/CA/ON/billingEAreport.jsp"));
+
+        assertThat(jsp).contains("not empty obecApplyResult");
+        assertThat(jsp).contains("not empty obecApplyResult.reasons");
+        assertThat(jsp)
+                .doesNotContain("not empty obecApplyResult and obecApplyResult.skippedCount gt 0");
     }
 
     private static String fixedWidthLine(String hin, String version, String response,

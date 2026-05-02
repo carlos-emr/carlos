@@ -294,7 +294,7 @@ class BillingCorrectionServiceValidationThrowsUnitTest {
     }
 
     @Test
-    void shouldMergeHeaderAfterCreatingThirdPartyPayment() {
+    void shouldMergeHeader_afterCreatingThirdPartyPayment() {
         BillingCorrectionService service = newService();
         mockRequest.setParameter("billing_no", "12345");
         mockRequest.setParameter("amtPaid", "100.00");

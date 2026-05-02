@@ -38,7 +38,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class BillingReportCenterViewModelUnitTest {
 
     @Test
-    void shouldDefensivelyCopyProviderRows() {
+    void shouldDefensivelyCopyProviderRows_forImmutableModel() {
         List<BillingReportCenterViewModel.ProviderRow> rows = new ArrayList<>();
         rows.add(new BillingReportCenterViewModel.ProviderRow("ohip", "First", "Last"));
 

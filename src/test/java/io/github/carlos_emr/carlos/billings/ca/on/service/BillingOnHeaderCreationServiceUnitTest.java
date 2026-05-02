@@ -124,6 +124,23 @@ class BillingOnHeaderCreationServiceUnitTest {
     }
 
     @Test
+    void shouldPersistZeroFee_whenLegacyServiceValueIsWhitespaceOnly() {
+        when(providerDao.getProvider("999998")).thenReturn(provider("999998"));
+        when(demographicDao.getDemographicById(1)).thenReturn(demographic(1, "ON"));
+        BillingService bs = stubServiceCode("A007A", "   ", false, "");
+        when(billingServiceDao.searchBillingCode(eq("A007A"), eq("ON"), any())).thenReturn(bs);
+        when(gstControlDao.find(any(Integer.class))).thenReturn(gstControl("0"));
+
+        String total = service.createBill("999998", 1, "A007A", "00001", new Date(), "999998");
+
+        assertThat(total).isEqualTo("0.00");
+        ArgumentCaptor<BillingONCHeader1> captor = ArgumentCaptor.forClass(BillingONCHeader1.class);
+        verify(headerDao).persist(captor.capture());
+        assertThat(captor.getValue().getBillingItems()).singleElement()
+                .satisfies(item -> assertThat(new BigDecimal(item.getFee())).isEqualByComparingTo("0.00"));
+    }
+
+    @Test
     void shouldUseRmbPayProgram_forNonOntarioHcType() {
         when(providerDao.getProvider("999998")).thenReturn(provider("999998"));
         when(demographicDao.getDemographicById(1)).thenReturn(demographic(1, "BC"));

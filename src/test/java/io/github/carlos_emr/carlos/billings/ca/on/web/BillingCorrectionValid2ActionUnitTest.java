@@ -95,7 +95,7 @@ class BillingCorrectionValid2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldForwardReviewModelWithoutLegacySessionCarrierBeans() throws Exception {
+    void shouldForwardReviewModel_withoutLegacySessionCarrierBeans() throws Exception {
         request.setParameter("xml_billing_no", "42");
         request.setParameter("dob", "1980-01-01");
         request.setParameter("xml_vdate", "2026-04-28");
@@ -122,7 +122,7 @@ class BillingCorrectionValid2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldBindDobFromXmlDobPostedByCorrectionForm() throws Exception {
+    void shouldBindDob_fromXmlDobPostedByCorrectionForm() throws Exception {
         request.setParameter("xml_billing_no", "42");
         request.setParameter("xml_dob", "19800101");
         request.setParameter("xml_vdate", "20260428");

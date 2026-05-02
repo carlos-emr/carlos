@@ -256,6 +256,18 @@ class BillingDiskCreationServiceUnitTest {
     }
 
     @Test
+    void shouldThrowValidation_whenFixedWidthValueIsNull() throws Exception {
+        java.lang.reflect.Method method = BillingDiskCreationService.class.getDeclaredMethod(
+                "getDefaultRightJust", String.class, int.class, String.class);
+        method.setAccessible(true);
+
+        assertThatThrownBy(() -> method.invoke(service, "0", 4, null))
+                .isInstanceOf(java.lang.reflect.InvocationTargetException.class)
+                .hasCauseInstanceOf(BillingValidationException.class)
+                .hasRootCauseMessage("BillingDiskCreationService: fixed-width value is null for width=4");
+    }
+
+    @Test
     void shouldReturnEmpty_whenGetCurSoloProviderListIsEmpty() {
         when(lookupService.getCurSoloProvider()).thenReturn(Collections.emptyList());
 

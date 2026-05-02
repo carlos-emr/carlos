@@ -53,14 +53,14 @@ class BillingValidationExceptionUnitTest {
 
     @Test
     @DisplayName("is a RuntimeException — engages Spring's default rollback")
-    void shouldBeRuntimeException() {
+    void shouldBeRuntimeException_forTypeContract() {
         BillingValidationException ex = new BillingValidationException("anything");
         assertThat(ex).isInstanceOf(RuntimeException.class);
     }
 
     @Test
     @DisplayName("is NOT an IllegalArgumentException — Struts routes them differently")
-    void shouldNotBeIllegalArgumentException() {
+    void shouldNotBeIllegalArgumentException_forTypeContract() {
         BillingValidationException ex = new BillingValidationException("anything");
         assertThat(ex).isNotInstanceOf(IllegalArgumentException.class);
     }
@@ -85,7 +85,7 @@ class BillingValidationExceptionUnitTest {
 
     @Test
     @DisplayName("is throwable across method boundaries (smoke)")
-    void shouldBeThrowable() {
+    void shouldBeThrowable_forTypeContract() {
         org.junit.jupiter.api.Assertions.assertThrows(
                 BillingValidationException.class,
                 () -> { throw new BillingValidationException("simulate"); });

@@ -159,7 +159,7 @@ class ViewBillingOnStatus2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldDefaultStatusType_toCapitalO_whenParamMissing() throws Exception {
+    void shouldDefaultStatusType_toCapitalOWhenParamMissing() throws Exception {
         ViewBillingOnStatus2Action action = new ViewBillingOnStatus2Action(mockSecurityInfoManager, statusAssembler());
         action.execute();
         assertThat(action.getStatusModel().getStatusType()).isEqualTo("O");

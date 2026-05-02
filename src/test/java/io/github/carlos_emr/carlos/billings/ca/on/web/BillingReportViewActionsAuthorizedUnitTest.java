@@ -92,7 +92,7 @@ class BillingReportViewActionsAuthorizedUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void gstReportAuthorizedPath_stashesAssemblerModel() {
+    void shouldStashAssemblerModel_forGstReportAuthorizedPath() {
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_admin.billing"), eq("w"), isNull()))
                 .thenReturn(true);
         GstReportViewModelAssembler assembler = mock(GstReportViewModelAssembler.class);
@@ -109,7 +109,7 @@ class BillingReportViewActionsAuthorizedUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void viewInrReportAuthorizedPath_stashesAssemblerModel() throws Exception {
+    void shouldStashAssemblerModel_forViewInrReportAuthorizedPath() throws Exception {
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("r"), isNull()))
                 .thenReturn(true);
         BillingInrReportViewModelAssembler assembler = mock(BillingInrReportViewModelAssembler.class);
@@ -127,7 +127,7 @@ class BillingReportViewActionsAuthorizedUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void viewBillingOhipReportRejectsMissingSessionBeforePrivilegeCheck() {
+    void shouldRejectMissingSession_beforePrivilegeCheckForViewBillingOhipReport() {
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(null);
 
@@ -139,7 +139,7 @@ class BillingReportViewActionsAuthorizedUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void viewBillingOhipReportRejectsMissingBillingPrivilege() {
+    void shouldRejectMissingBillingPrivilege_forViewBillingOhipReport() {
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("r"), isNull()))
                 .thenReturn(false);
 
@@ -149,7 +149,7 @@ class BillingReportViewActionsAuthorizedUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void viewBillingOhipReportAuthorizedPathReturnsSuccessWithoutSideEffects() throws Exception {
+    void shouldReturnSuccessWithoutSideEffects_forViewBillingOhipReportAuthorizedPath() throws Exception {
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("r"), isNull()))
                 .thenReturn(true);
 

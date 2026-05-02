@@ -35,7 +35,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class BillingCorrectionCommandUnitTest {
 
     @Test
-    void shouldParseValidationCommandDatesAndLineAmounts() {
+    void shouldParseValidationCommandDatesAndLineAmounts_withValidInput() {
         BillingCorrectionValidationCommand command = new BillingCorrectionValidationCommand(
                 "250|Diabetes",
                 "Ref Doctor",
@@ -72,7 +72,7 @@ class BillingCorrectionCommandUnitTest {
     }
 
     @Test
-    void shouldParseSubmitCommandStoredCentsAndQuantity() {
+    void shouldParseSubmitCommandStoredCentsAndQuantity_withValidInput() {
         BillingCorrectionSubmitCommand command = new BillingCorrectionSubmitCommand(
                 "42",
                 "<rd>Ref Doctor</rd>",
@@ -96,7 +96,7 @@ class BillingCorrectionCommandUnitTest {
     }
 
     @Test
-    void shouldRejectMalformedDateAtCommandBoundary() {
+    void shouldRejectMalformedDateAtCommandBoundary_forInvalidInput() {
         assertThatThrownBy(() -> new BillingCorrectionSubmitCommand(
                 "42",
                 "<rd>Ref Doctor</rd>",
@@ -220,7 +220,7 @@ class BillingCorrectionCommandUnitTest {
     }
 
     @Test
-    void shouldParseBasicIsoDatesFromCorrectionForms() {
+    void shouldParseBasicIsoDates_fromCorrectionForms() {
         BillingCorrectionValidationCommand command = new BillingCorrectionValidationCommand(
                 "250|Diabetes",
                 "Ref Doctor",

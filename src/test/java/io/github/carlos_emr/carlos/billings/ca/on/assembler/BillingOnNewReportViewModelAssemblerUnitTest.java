@@ -55,14 +55,14 @@ import static org.mockito.Mockito.when;
 class BillingOnNewReportViewModelAssemblerUnitTest {
 
     @Test
-    void shouldEncodePlainReportCellsBeforeRawJspRendering() {
+    void shouldEncodePlainReportCells_beforeRawJspRendering() {
         String cell = BillingOnNewReportViewModelAssembler.htmlCell("<img src=x onerror=alert(1)>");
 
         assertThat(cell).isEqualTo("&lt;img src=x onerror=alert(1)&gt;");
     }
 
     @Test
-    void shouldEncodeBillingNoLinkTextAndUrlParameter() {
+    void shouldEncodeBillingNoLinkTextAndUrlParameter_forXssSafety() {
         String html = BillingOnNewReportViewModelAssembler.buildBillingNoLinkWithTitle(
                 "/ctx",
                 "123\" onclick=\"alert(1)",
@@ -75,7 +75,7 @@ class BillingOnNewReportViewModelAssemblerUnitTest {
     }
 
     @Test
-    void shouldRenderUnbilledRowsFromAppointmentDaoProjection() {
+    void shouldRenderUnbilledRows_fromAppointmentDaoProjection() {
         ReportProviderDao reportProviderDao = mock(ReportProviderDao.class);
         SiteDao siteDao = mock(SiteDao.class);
         OscarAppointmentDao appointmentDao = mock(OscarAppointmentDao.class);
@@ -105,7 +105,7 @@ class BillingOnNewReportViewModelAssemblerUnitTest {
     }
 
     @Test
-    void shouldRenderPaidRowsFromBillingAndRaDetailDaoProjections() {
+    void shouldRenderPaidRows_fromBillingAndRaDetailDaoProjections() {
         ReportProviderDao reportProviderDao = mock(ReportProviderDao.class);
         SiteDao siteDao = mock(SiteDao.class);
         OscarAppointmentDao appointmentDao = mock(OscarAppointmentDao.class);
@@ -157,6 +157,36 @@ class BillingOnNewReportViewModelAssemblerUnitTest {
 
         assertThat(model.getRows()).hasSize(1);
         assertThat(model.getTotalRow()).contains("0.00");
+    }
+
+    @Test
+    void shouldThrowBillingDataLoadException_whenPaidAmountIsMalformed() {
+        ReportProviderDao reportProviderDao = mock(ReportProviderDao.class);
+        SiteDao siteDao = mock(SiteDao.class);
+        OscarAppointmentDao appointmentDao = mock(OscarAppointmentDao.class);
+        BillingONCHeader1Dao headerDao = mock(BillingONCHeader1Dao.class);
+        BillingDao billingDao = mock(BillingDao.class);
+        RaDetailDao raDetailDao = mock(RaDetailDao.class);
+        when(reportProviderDao.search_reportprovider("billingreport")).thenReturn(Collections.emptyList());
+        when(billingDao.findBillingOnNewReportPaidBillings("999", "2026-04-01", "2026-04-30"))
+                .thenReturn(List.of(new BillingOnNewReportPaidBillingRow("42", "100.00")));
+        when(raDetailDao.findBillingOnNewReportPaidRaDetails(anyList()))
+                .thenReturn(List.of(new BillingOnNewReportPaidRaDetailRow(
+                        "42", "not-money", "30.00", "HIN1", "20260401")));
+
+        BillingOnNewReportViewModelAssembler assembler = new BillingOnNewReportViewModelAssembler(
+                reportProviderDao, siteDao, appointmentDao, headerDao, billingDao, raDetailDao);
+
+        assertThatThrownBy(() -> assembler.assemble(reportRequest("paid"), null))
+                .isInstanceOf(BillingDataLoadException.class)
+                .hasCauseInstanceOf(NumberFormatException.class)
+                .satisfies(ex -> {
+                    BillingDataLoadException dataLoad = (BillingDataLoadException) ex;
+                    assertThat(dataLoad.phase()).isEqualTo(BillingDataLoadException.Phase.DAO_QUERY);
+                    assertThat(dataLoad.context())
+                            .containsEntry("reportAction", "paid")
+                            .containsEntry("providerview", "999");
+                });
     }
 
     @Test

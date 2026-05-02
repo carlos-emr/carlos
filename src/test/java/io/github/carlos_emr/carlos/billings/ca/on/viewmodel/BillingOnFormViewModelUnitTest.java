@@ -209,6 +209,45 @@ class BillingOnFormViewModelUnitTest {
     }
 
     @Test
+    void shouldRedactDiagnosticFields_fromNestedRecordToString() {
+        BillingOnFormViewModel.BillingHistoryEntry historyEntry =
+                new BillingOnFormViewModel.BillingHistoryEntry(
+                        "2026-04-20", "03", "0000", "HISTORY-DX-SECRET");
+        BillingOnFormViewModel.DxCodeEntry dxCodeEntry =
+                new BillingOnFormViewModel.DxCodeEntry(
+                        "OFC", "PANEL-DX-SECRET", "Sensitive diagnosis description");
+        BillingOnFormViewModel.BillingHistoryRow historyRow =
+                new BillingOnFormViewModel.BillingHistoryRow(
+                        "row-1", "2026-04-01", "2026-04-01",
+                        "A001", "ROW-DX-SECRET", "2026-04-02");
+
+        String historyEntryValue = historyEntry.toString();
+        String dxCodeEntryValue = dxCodeEntry.toString();
+        String historyRowValue = historyRow.toString();
+
+        assertThat(historyEntryValue).contains(
+                "visitDate=2026-04-20",
+                "visitType=03",
+                "clinicRefCode=0000",
+                "diagnosticCode=<redacted>");
+        assertThat(dxCodeEntryValue).contains(
+                "serviceType=OFC",
+                "diagnosticCode=<redacted>",
+                "description=<redacted>");
+        assertThat(historyRowValue).contains(
+                "id=row-1",
+                "billingDate=2026-04-01",
+                "serviceDate=2026-04-01",
+                "serviceCode=A001",
+                "dx=<redacted>",
+                "updateDate=2026-04-02");
+        assertThat(historyEntryValue).doesNotContain("HISTORY-DX-SECRET");
+        assertThat(dxCodeEntryValue).doesNotContain(
+                "PANEL-DX-SECRET", "Sensitive diagnosis description");
+        assertThat(historyRowValue).doesNotContain("ROW-DX-SECRET");
+    }
+
+    @Test
     void shouldStoreServiceCodeGrid_asMapOfRecordLists() {
         BillingOnFormViewModel.ServiceCodeEntry code = new BillingOnFormViewModel.ServiceCodeEntry(
                 "A001", "Consultation", "75.00", "100",
@@ -584,7 +623,7 @@ class BillingOnFormViewModelUnitTest {
 
     @Test
     @DisplayName("billingON.jsp consumes presentation slices instead of flat form fields")
-    void shouldUseComposedPresentationSlicesForMigratedBillingOnJspFields() throws Exception {
+    void shouldUseComposedPresentationSlices_forMigratedBillingOnJspFields() throws Exception {
         String jsp = Files.readString(Path.of(
                 "src/main/webapp/WEB-INF/jsp/billing/CA/ON/billingON.jsp"));
 

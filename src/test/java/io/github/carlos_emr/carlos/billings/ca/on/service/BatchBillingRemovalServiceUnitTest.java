@@ -77,7 +77,7 @@ class BatchBillingRemovalServiceUnitTest {
     }
 
     @Test
-    void shouldRemoveEachMatchedRow() {
+    void shouldRemoveEachMatchedRow_withMatchedRows() {
         when(dao.find(1, "A007")).thenReturn(List.of(row(11)));
         when(dao.find(2, "A008")).thenReturn(List.of(row(22)));
 

@@ -650,7 +650,7 @@ public class BillingOnRaService {
         BillingONCHeader1 h = cheader1Dao.find(Integer.parseInt(id));
         if (h != null) {
             if (h.isActive()) {
-                h.setStatus(status);
+                h.setStatusStrict(status);
                 cheader1Dao.merge(h);
             }
         }

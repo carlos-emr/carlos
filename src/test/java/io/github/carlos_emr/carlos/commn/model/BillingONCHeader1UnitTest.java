@@ -22,9 +22,12 @@
 package io.github.carlos_emr.carlos.commn.model;
 
 import java.math.BigDecimal;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -52,28 +55,28 @@ class BillingONCHeader1UnitTest {
     class SetTotal {
 
         @Test
-        void shouldAcceptZero() {
+        void shouldAcceptZero_forValidInput() {
             BillingONCHeader1 header = new BillingONCHeader1();
             header.setTotal(BigDecimal.ZERO);
             assertThat(header.getTotal()).isEqualByComparingTo("0");
         }
 
         @Test
-        void shouldAcceptPositiveValues() {
+        void shouldAcceptPositiveValues_forValidInput() {
             BillingONCHeader1 header = new BillingONCHeader1();
             header.setTotal(new BigDecimal("125.50"));
             assertThat(header.getTotal()).isEqualByComparingTo("125.50");
         }
 
         @Test
-        void shouldAcceptNull() {
+        void shouldAcceptNull_forValidInput() {
             BillingONCHeader1 header = new BillingONCHeader1();
             header.setTotal(null);
             assertThat(header.getTotal()).isNull();
         }
 
         @Test
-        void shouldRejectNegativeValues() {
+        void shouldRejectNegativeValues_forInvalidInput() {
             BillingONCHeader1 header = new BillingONCHeader1();
 
             assertThatThrownBy(() -> header.setTotal(new BigDecimal("-0.01")))
@@ -171,8 +174,12 @@ class BillingONCHeader1UnitTest {
         @Test
         void shouldAcceptUnknownStatusDuringDeprecation_whenSetStatusUnknownValue() {
             BillingONCHeader1 header = new BillingONCHeader1();
+            long before = BillingStatus.unknownStatusWarningCount();
+
             header.setStatus("Z");
+
             assertThat(header.getStatus()).isEqualTo("Z");
+            assertThat(BillingStatus.unknownStatusWarningCount()).isEqualTo(before + 1);
         }
 
         @Test
@@ -185,7 +192,7 @@ class BillingONCHeader1UnitTest {
         }
 
         @Test
-        void shouldAcceptAllNineKnownStatusConstants() {
+        void shouldAcceptAllNineKnownStatusConstants_forValidInput() {
             BillingONCHeader1 header = new BillingONCHeader1();
             // Each constant is whitelisted; setStatus must accept all without throwing.
             header.setStatus(BillingONCHeader1.OPEN);
@@ -261,6 +268,62 @@ class BillingONCHeader1UnitTest {
             i.setStatus(BillingONItem.OPEN);
             i.setFee(fee);
             return i;
+        }
+    }
+
+    @Nested
+    @DisplayName("equals/hashCode")
+    class EqualsHashCode {
+
+        @Test
+        void shouldCompareByPersistedId_whenBothHeadersHaveIds() throws Exception {
+            BillingONCHeader1 first = completeNaturalKeyHeader();
+            BillingONCHeader1 second = completeNaturalKeyHeader();
+            second.setHeaderId(99);
+            setId(first, 42);
+            setId(second, 42);
+
+            assertThat(first).isEqualTo(second);
+            assertThat(first.hashCode()).isEqualTo(second.hashCode());
+        }
+
+        @Test
+        void shouldUseNaturalKeyFallback_whenTransientHeadersHaveCompleteSameKey() throws Exception {
+            BillingONCHeader1 first = completeNaturalKeyHeader();
+            BillingONCHeader1 second = completeNaturalKeyHeader();
+
+            assertThat(first).isEqualTo(second);
+            assertThat(first.hashCode()).isEqualTo(second.hashCode());
+        }
+
+        @Test
+        void shouldNotCollapseBlankTransientHeaders_whenNaturalKeyIncomplete() {
+            BillingONCHeader1 first = new BillingONCHeader1();
+            BillingONCHeader1 second = new BillingONCHeader1();
+            Set<BillingONCHeader1> headers = new HashSet<>();
+
+            headers.add(first);
+            headers.add(second);
+
+            assertThat(first).isNotEqualTo(second);
+            assertThat(headers).hasSize(2);
+        }
+
+        private BillingONCHeader1 completeNaturalKeyHeader() throws Exception {
+            BillingONCHeader1 header = new BillingONCHeader1();
+            header.setHeaderId(1);
+            header.setDemographicNo(123);
+            header.setProviderNo("999998");
+            header.setAppointmentNo(456);
+            header.setBillingDate(java.sql.Date.valueOf("2026-05-01"));
+            header.setBillingTime(new java.text.SimpleDateFormat("HH:mm:ss").parse("10:15:00"));
+            return header;
+        }
+
+        private void setId(BillingONCHeader1 header, Integer id) throws Exception {
+            Field idField = BillingONCHeader1.class.getDeclaredField("id");
+            idField.setAccessible(true);
+            idField.set(header, id);
         }
     }
 

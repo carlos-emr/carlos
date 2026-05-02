@@ -35,7 +35,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class BillingClaimHeaderDtoUnitTest {
 
     @Test
-    void shouldCoalesceNullCashAndDebitTotalsToScaleTwoZero() {
+    void shouldCoalesceNullCashAndDebit_totalsToScaleTwoZero() {
         BillingClaimHeaderDto dto = new BillingClaimHeaderDto()
                 .withCashTotal(null)
                 .withDebitTotal(null);
@@ -47,7 +47,7 @@ class BillingClaimHeaderDtoUnitTest {
     }
 
     @Test
-    void shouldNormalizeNonBlankStringMoneyFieldsToScaleTwo() {
+    void shouldNormalizeNonBlankStringMoneyFields_toScaleTwo() {
         BillingClaimHeaderDto dto = new BillingClaimHeaderDto()
                 .withTotal(" 12.3 ")
                 .withPaid("4.456");

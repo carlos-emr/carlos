@@ -62,6 +62,8 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  * {@link BillingEdtObecOutputSpecificationParser}) and renders the
  * resulting summary HTML. Requires {@code _billing w}.
  */
+@org.springframework.stereotype.Component
+@org.springframework.context.annotation.Scope("prototype")
 public class BillingDocumentErrorReportUpload2Action extends ActionSupport implements UploadedFilesAware {
     private static final String CONFIG_ERROR_MESSAGE = "MOH report directory is not configured.";
     private static final String FILE_ACCESS_ERROR_MESSAGE = "MOH report file could not be read.";
@@ -512,6 +514,9 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
                         batchEligibilityDao, demographicManager, providerDao);
 
         if (!hd.verdict) {
+            // Parsing is all-or-nothing from the operator's perspective: do
+            // not apply a partial file, but still report how many candidate
+            // records were encountered before the parser failed.
             request.setAttribute("obecApplyResult",
                     new io.github.carlos_emr.carlos.billings.ca.on.service.BillingObecOutputApplyService.ApplyResult(
                             0, hd.getAttemptedRecordCount(),

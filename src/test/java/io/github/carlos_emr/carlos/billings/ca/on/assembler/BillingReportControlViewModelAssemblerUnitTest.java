@@ -40,7 +40,7 @@ import static org.mockito.Mockito.when;
 class BillingReportControlViewModelAssemblerUnitTest {
 
     @Test
-    void shouldTreatNullProviderDaoResultAsEmptyOptions() {
+    void shouldTreatNullProviderDaoResult_asEmptyOptions() {
         ReportProviderDao reportProviderDao = mock(ReportProviderDao.class);
         when(reportProviderDao.search_reportprovider("billingreport")).thenReturn(null);
 

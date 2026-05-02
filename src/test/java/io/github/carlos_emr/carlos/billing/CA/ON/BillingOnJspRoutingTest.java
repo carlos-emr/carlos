@@ -99,7 +99,7 @@ class BillingOnJspRoutingTest {
     }
 
     @Test
-    void shouldRenderReviewAlertsInJspMarkupInsteadOfEscapedViewModelHtml() throws IOException {
+    void shouldRenderReviewAlertsInJspMarkup_insteadOfEscapedViewModelHtml() throws IOException {
         String billingOnReview = readJspContent(BILLING_ON_JSP_DIR.resolve("billingONReview.jsp"));
 
         assertThat(billingOnReview).contains("reviewModel.reviewAlerts");

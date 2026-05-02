@@ -46,11 +46,10 @@ import static org.mockito.Mockito.when;
 /**
  * Pins the round-7 M1 contract on
  * {@link BillingCorrectionRecordService}'s private {@code getFee}: when
- * the upstream {@code claimQueryService.getCodeFee} returns {@code null}
- * (DAO swallow on outage / unknown service code), {@code getFee} must
- * throw {@link BillingValidationException} with the offending code +
- * date on the message — replacing the buried {@code new BigDecimal(null)}
- * NPE that the legacy code surfaced as an opaque 500.
+ * the upstream {@code claimQueryService.getCodeFeeResult} returns no
+ * value or marks the lookup partial, {@code getFee} must throw a typed
+ * exception with service-code/date context instead of surfacing an
+ * opaque money-parse failure.
  *
  * <p>Reflection-driven so the test pins the private contract directly.
  * The public callers ({@code addItem}, {@code updateBillingClaimHeader})
@@ -99,17 +98,26 @@ class BillingCorrectionRecordServiceGetFeeUnitTest {
     }
 
     @Test
-    void shouldThrowBillingValidationException_whenCodeFeeLookupReturnsNull() throws Exception {
-        // Simulate a DAO outage / unknown-code scenario where getCodeFee
-        // swallows and returns null. Pre-fix this NPE'd in BigDecimal.<init>;
-        // post-fix it must throw the typed exception with code+date context.
-        when(claimQueryService.getCodeFee(anyString(), anyString())).thenReturn(null);
+    void shouldThrowBillingValidationException_whenCodeFeeLookupReturnsNoValue() throws Exception {
+        when(claimQueryService.getCodeFeeResult(anyString(), anyString()))
+                .thenReturn(BillingOnClaimLoader.FeeLookupResult.found(null));
 
         assertThatThrownBy(() -> invokeGetFee("", "1", "A007A", "2026-04-29"))
                 .isInstanceOf(BillingValidationException.class)
                 .hasMessageContaining("A007A")
                 .hasMessageContaining("2026-04-29")
-                .hasMessageContaining("check log");
+                .hasMessageContaining("fee table configuration");
+    }
+
+    @Test
+    void shouldThrowBillingDataLoadException_whenCodeFeeLookupIsPartial() throws Exception {
+        when(claimQueryService.getCodeFeeResult(anyString(), anyString()))
+                .thenReturn(BillingOnClaimLoader.FeeLookupResult.partial("lookup failed"));
+
+        assertThatThrownBy(() -> invokeGetFee("", "1", "A007A", "2026-04-29"))
+                .isInstanceOf(BillingDataLoadException.class)
+                .hasMessageContaining("Fee lookup failed")
+                .hasMessageContaining("correcting billing item");
     }
 
     @Test
@@ -123,7 +131,8 @@ class BillingCorrectionRecordServiceGetFeeUnitTest {
     @Test
     void shouldComputeFee_whenIncomingFeeIsBlankAndCodeFeeResolves() throws Exception {
         // Happy path: blank fee + lookup resolves → unit-multiplied result.
-        when(claimQueryService.getCodeFee(any(), any())).thenReturn("10.00");
+        when(claimQueryService.getCodeFeeResult(any(), any()))
+                .thenReturn(BillingOnClaimLoader.FeeLookupResult.found("10.00"));
 
         Object result = invokeGetFee("", "2", "A007A", "2026-04-29");
         assertThat(result).isEqualTo("20.00");

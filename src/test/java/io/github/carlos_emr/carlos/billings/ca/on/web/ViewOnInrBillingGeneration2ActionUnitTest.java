@@ -252,7 +252,7 @@ class ViewOnInrBillingGeneration2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldIgnoreNonInrParams() {
+    void shouldIgnoreNonInrParams_forIrrelevantInput() {
         mockRequest.setParameter("clinic_no", "C1");
         mockRequest.setParameter("not_inr_at_all", "x");
         mockRequest.setParameter("xml_appointment_date", "2026-04-26");

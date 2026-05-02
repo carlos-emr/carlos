@@ -135,7 +135,7 @@ public class CtlBillingServiceDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return all service types grouped by type")
-        void shouldReturnAllServiceTypes() {
+        void shouldReturnAllServiceTypes_forDefaultInput() {
             List<Object[]> serviceTypes = dao.getAllServiceTypes();
 
             assertThat(serviceTypes).isNotEmpty();
@@ -273,7 +273,7 @@ public class CtlBillingServiceDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find all services")
-        void shouldReturnAllServices() {
+        void shouldReturnAllServices_forDefaultInput() {
             List<CtlBillingService> all = dao.findAll();
 
             assertThat(all).hasSize(4);

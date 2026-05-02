@@ -215,7 +215,7 @@ See `/workspace/docs/Testing_Exclusion_of_MCEDT_and_HinValidator_tests.md` for f
 | **Execution Speed** | 5-15 minutes | < 4 seconds |
 | **Assertions** | JUnit assert methods | AssertJ fluent |
 | **Organization** | Package/class hierarchy | @Nested classes + files |
-| **Naming** | testMethodName() | should_action_when_condition() |
+| **Naming** | testMethodName() | shouldAction_whenCondition() |
 | **Spring Context** | Full applicationContextTest.xml | Optimized test contexts |
 | **Base Classes** | DaoTestFixtures | CarlosTestBase family |
 

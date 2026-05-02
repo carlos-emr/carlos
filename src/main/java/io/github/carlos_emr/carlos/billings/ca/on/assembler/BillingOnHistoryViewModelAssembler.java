@@ -30,8 +30,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnHistoryViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnClaimLoader;
-import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
-import io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
@@ -44,7 +42,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * the patient billing-history popup.
  *
  * <p>Uses constructor-injected collaborators for the lookups the legacy JSP
- * performed inline: {@link BillingONPaymentDao}, {@link BillingONCHeader1Dao},
+ * performed inline: {@link BillingOnHistoryBalanceService},
  * {@link DemographicManager} (for patient name display), and
  * {@link SecurityInfoManager} (for the per-row {@code _billing w} edit-link
  * gate). Also computes the balance column for {@code PAT}-status bills,
@@ -55,17 +53,16 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 @org.springframework.stereotype.Service
 public class BillingOnHistoryViewModelAssembler {
 
-    private final BillingOnHistoryBalanceLoader balanceLoader;
+    private final BillingOnHistoryBalanceService balanceService;
     private final DemographicManager demographicManager;
     private final SecurityInfoManager securityInfoManager;
     private final BillingOnClaimLoader claimQueryService;
 
-    public BillingOnHistoryViewModelAssembler(BillingONPaymentDao billingOnPaymentDao,
-                                  BillingONCHeader1Dao bCh1Dao,
+    public BillingOnHistoryViewModelAssembler(BillingOnHistoryBalanceService balanceService,
                                   DemographicManager demographicManager,
                                   SecurityInfoManager securityInfoManager,
                                   BillingOnClaimLoader claimQueryService) {
-        this.balanceLoader = new BillingOnHistoryBalanceLoader(billingOnPaymentDao, bCh1Dao);
+        this.balanceService = balanceService;
         this.demographicManager = demographicManager;
         this.securityInfoManager = securityInfoManager;
         this.claimQueryService = claimQueryService;
@@ -160,7 +157,7 @@ public class BillingOnHistoryViewModelAssembler {
                     // Patient-bill balances are the only rows where operators
                     // expect running payment/discount/credit math in-history;
                     // OHIP and third-party rows surface status only.
-                    balanceResult = balanceLoader.calculate(obj.getId());
+                    balanceResult = balanceService.calculate(obj.getId());
                     partial |= balanceResult.partial();
                 }
 

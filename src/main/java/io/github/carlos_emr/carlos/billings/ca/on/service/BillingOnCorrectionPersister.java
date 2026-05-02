@@ -139,7 +139,7 @@ public class BillingOnCorrectionPersister {
                 .parseNonNegativeAmount(ch1Obj.getTotal(), "total"));
         c.setPaid(io.github.carlos_emr.carlos.billings.ca.on.BillingMoney
                 .parseNonNegativeAmount(ch1Obj.getPaid(), "paid"));
-        c.setStatus(ch1Obj.getStatus());
+        c.setStatusStrict(ch1Obj.getStatus());
         c.setComment(ch1Obj.getComment());
         c.setVisitType(ch1Obj.visitType());
         c.setProviderOhipNo(ch1Obj.providerOhipNo());
@@ -175,7 +175,7 @@ public class BillingOnCorrectionPersister {
             b.setDx(val.getDx());
             b.setDx1(val.getDx1());
             b.setDx2(val.getDx2());
-            b.setStatus(val.getStatus());
+            b.setStatusStrict(val.getStatus());
 
             billingItemDao.merge(b);
         }
@@ -194,7 +194,7 @@ public class BillingOnCorrectionPersister {
     public boolean updateBillingStatus(String id, String status, String providerNo) {
         BillingONCHeader1 h = billingHeaderDao.find(Integer.valueOf(id));
         if (h != null) {
-            h.setStatus(status);
+            h.setStatusStrict(status);
             billingHeaderDao.merge(h);
 
             List<BillingONItem> items = billingItemDao.getBillingItemByCh1Id(Integer.valueOf(id));
@@ -202,7 +202,7 @@ public class BillingOnCorrectionPersister {
                 // Keep header/item status transitions in lockstep so later
                 // history, review, and invoice totals do not mix active header
                 // state with stale line-item state.
-                i.setStatus(status);
+                i.setStatusStrict(status);
                 billingItemDao.merge(i);
             }
             auditLog.addBillingLog(providerNo, "updateBillingStatus", "", id);

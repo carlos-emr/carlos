@@ -43,7 +43,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class BillingOntarioReviewFindingsArchitectureTest {
 
     @Test
-    void shouldKeepSharedDaoInterfacesFreeOfOntarioDtoTypes() throws Exception {
+    void shouldKeepSharedDaoInterfacesFreeOfOntarioDtoTypes_forArchitectureContract() throws Exception {
         List<Path> files = List.of(
                 Path.of("src/main/java/io/github/carlos_emr/carlos/commn/dao/OscarAppointmentDao.java"),
                 Path.of("src/main/java/io/github/carlos_emr/carlos/commn/dao/RaDetailDao.java"),
@@ -58,7 +58,7 @@ class BillingOntarioReviewFindingsArchitectureTest {
     }
 
     @Test
-    void shouldKeepBillingStrutsPackageFromExposingOntarioGlobalMappingsToBcActions() throws Exception {
+    void shouldKeepBillingStrutsPackage_fromExposingOntarioGlobalMappingsToBcActions() throws Exception {
         String struts = Files.readString(Path.of("src/main/webapp/WEB-INF/classes/struts-billing.xml"));
 
         int billingPackage = struts.indexOf("<package name=\"billing\"");
@@ -80,7 +80,7 @@ class BillingOntarioReviewFindingsArchitectureTest {
     }
 
     @Test
-    void shouldKeepPeripheralCopyrightProseIntact() throws Exception {
+    void shouldKeepPeripheralCopyrightProseIntact_forArchitectureContract() throws Exception {
         assertThat(Files.readString(Path.of(
                 "src/main/java/io/github/carlos_emr/carlos/commn/dao/DemographicDaoImpl.java")))
                 .contains("This software was written for")
@@ -98,7 +98,7 @@ class BillingOntarioReviewFindingsArchitectureTest {
     }
 
     @Test
-    void shouldKeepClaimDtosAsCamelCaseRecords() throws Exception {
+    void shouldKeepClaimDtos_asCamelCaseRecords() throws Exception {
         String header = Files.readString(Path.of(
                 "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/dto/BillingClaimHeaderDto.java"));
         String item = Files.readString(Path.of(
@@ -115,7 +115,7 @@ class BillingOntarioReviewFindingsArchitectureTest {
     }
 
     @Test
-    void shouldKeepLegacyOntarioDtosUsingCamelCaseFieldsWithCompatibilityAccessors() {
+    void shouldKeepLegacyOntarioDtosUsingCamelCaseFields_withCompatibilityAccessors() {
         assertThat(Arrays.stream(BillingProviderDto.class.getDeclaredFields())
                 .map(Field::getName))
                 .doesNotContain("hso_no")

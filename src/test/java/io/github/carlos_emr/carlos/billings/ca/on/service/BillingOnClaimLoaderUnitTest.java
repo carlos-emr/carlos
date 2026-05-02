@@ -246,7 +246,7 @@ class BillingOnClaimLoaderUnitTest {
     }
 
     @Test
-    void shouldPassTypedBillingReportFilterToDaoInsteadOfSqlConditionString() {
+    void shouldPassTypedBillingReportFilterToDao_insteadOfSqlConditionString() {
         when(dao.findBillingData(any(BillingClaimReportFilter.class)))
                 .thenReturn(java.util.Collections.emptyList());
 

@@ -156,7 +156,7 @@ class BillingClaimsErrorReportParserUnitTest {
     }
 
     @Test
-    void shouldFlipVerdictFalse_andSkipPartialParse_whenLineTruncated() throws Exception {
+    void shouldFlipVerdictFalse_andSkipPartialParseWhenLineTruncated() throws Exception {
         // A header2 ("H") record requires 79 chars; supplying ~30 triggers
         // StringIndexOutOfBoundsException inside the substring chain. The
         // parser catches it and flips verdict=false so the importer can
@@ -185,7 +185,7 @@ class BillingClaimsErrorReportParserUnitTest {
     }
 
     @Test
-    void shouldSkipShortLineAtHeaderCheck_andContinue_whenSubThreeChars() throws Exception {
+    void shouldSkipShortLineAtHeaderCheck_andContinueWhenSubThreeChars() throws Exception {
         // Lines under 3 chars are too short even to peek the headerCount;
         // the parser logs a warning and falls through every record-type
         // branch (because headerCount stays "" — no branch matches "").
@@ -257,7 +257,7 @@ class BillingClaimsErrorReportParserUnitTest {
     }
 
     @Test
-    void shouldCloseInputStreamAfterParsing() throws Exception {
+    void shouldCloseInputStream_afterParsing() throws Exception {
         java.io.File f = Files.createTempFile(tempDir, "close", ".txt").toFile();
         Files.writeString(f.toPath(), "  9" + "0000001" + "0000002" + "0000003" + "0000004" + "\n");
         CloseTrackingFileInputStream input = new CloseTrackingFileInputStream(f);

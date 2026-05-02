@@ -86,7 +86,7 @@ class ReportActionDependencyInjectionUnitTest {
     }
 
     @Test
-    void shouldGenerateNewDiskThroughInjectedService() throws Exception {
+    void shouldGenerateNewDisk_throughInjectedService() throws Exception {
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(true);
         BillingOnDiskService service = mock(BillingOnDiskService.class);
@@ -98,7 +98,7 @@ class ReportActionDependencyInjectionUnitTest {
     }
 
     @Test
-    void shouldRegenerateDiskThroughInjectedService() throws Exception {
+    void shouldRegenerateDisk_throughInjectedService() throws Exception {
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(true);
         BillingOnDiskService service = mock(BillingOnDiskService.class);
@@ -110,7 +110,7 @@ class ReportActionDependencyInjectionUnitTest {
     }
 
     @Test
-    void shouldGenerateSimulationThroughInjectedService() throws Exception {
+    void shouldGenerateSimulation_throughInjectedService() throws Exception {
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("r"), isNull()))
                 .thenReturn(true);
         OhipReportGenerationService service = mock(OhipReportGenerationService.class);
@@ -125,7 +125,7 @@ class ReportActionDependencyInjectionUnitTest {
     }
 
     @Test
-    void shouldGenerateGroupReportThroughInjectedService() throws Exception {
+    void shouldGenerateGroupReport_throughInjectedService() throws Exception {
         request.setParameter("monthCode", "APR2026");
         request.setParameter("providers", "all");
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
@@ -139,7 +139,7 @@ class ReportActionDependencyInjectionUnitTest {
     }
 
     @Test
-    void shouldSettleStandardRAThroughInjectedService() throws Exception {
+    void shouldSettleStandardRA_throughInjectedService() throws Exception {
         request.setParameter("rano", "123");
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(true);
@@ -152,7 +152,7 @@ class ReportActionDependencyInjectionUnitTest {
     }
 
     @Test
-    void shouldSettleI235RAThroughInjectedService() throws Exception {
+    void shouldSettleI235RA_throughInjectedService() throws Exception {
         request.setParameter("rano", "123");
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(true);

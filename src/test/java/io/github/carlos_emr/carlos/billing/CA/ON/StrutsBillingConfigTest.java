@@ -54,7 +54,7 @@ class StrutsBillingConfigTest {
             Path.of("src/main/webapp/WEB-INF/classes/struts-billing.xml");
 
     @Test
-    void shouldResolveEveryConfiguredExceptionMappingClass() throws Exception {
+    void shouldResolveEveryConfiguredExceptionMappingClass_viaCollaborator() throws Exception {
         Map<String, String> mappings = collectExceptionMappings();
 
         assertThat(mappings)

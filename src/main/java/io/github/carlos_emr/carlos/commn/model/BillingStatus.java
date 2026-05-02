@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.commn.model;
 
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Single source of truth for the closed set of billing-status string codes
@@ -40,6 +41,8 @@ import java.util.Set;
  * @since 2026-04-30
  */
 public final class BillingStatus {
+
+    private static final AtomicLong UNKNOWN_STATUS_WARNING_COUNT = new AtomicLong();
 
     private BillingStatus() {
         // Utility class — prevent instantiation.
@@ -74,4 +77,20 @@ public final class BillingStatus {
     public static final Set<String> KNOWN = Set.of(
             OPEN, SETTLED, DELETED, BILLED, PATIENT_BILLED,
             NOT_BILLED, INDEPENDENT, WCB, ACKNOWLEDGED);
+
+    /**
+     * Record one lenient-setter acceptance of an unknown status during the
+     * migration window. This gives tests and future metrics plumbing a single
+     * hook without changing legacy setter return types.
+     */
+    public static void recordUnknownStatusWarning() {
+        UNKNOWN_STATUS_WARNING_COUNT.incrementAndGet();
+    }
+
+    /**
+     * @return count of unknown statuses accepted by lenient setters in this JVM
+     */
+    public static long unknownStatusWarningCount() {
+        return UNKNOWN_STATUS_WARNING_COUNT.get();
+    }
 }

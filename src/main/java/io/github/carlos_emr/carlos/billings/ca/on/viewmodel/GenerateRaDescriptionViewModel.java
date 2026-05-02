@@ -59,6 +59,8 @@ public final class GenerateRaDescriptionViewModel {
     /** Concatenated RA message text (RA file H8 header lines). */
     private final String messageTxt;
     private final List<PremiumRow> premiumRows;
+    private final boolean raFileIncomplete;
+    private final String raFileWarning;
 
     public record BalanceForwardRow(String claimsAdjustment,
                                     String advances,
@@ -123,6 +125,8 @@ public final class GenerateRaDescriptionViewModel {
         this.messageTxt = BillingViewStrings.nullToEmpty(b.messageTxt);
         this.premiumRows = b.premiumRows == null
                 ? Collections.emptyList() : List.copyOf(b.premiumRows);
+        this.raFileIncomplete = b.raFileIncomplete;
+        this.raFileWarning = BillingViewStrings.nullToEmpty(b.raFileWarning);
     }
 
     public static Builder builder() { return new Builder(); }
@@ -137,6 +141,8 @@ public final class GenerateRaDescriptionViewModel {
     public List<TransactionRow> getTransactionRows() { return transactionRows; }
     public String getMessageTxt() { return messageTxt; }
     public List<PremiumRow> getPremiumRows() { return premiumRows; }
+    public boolean isRaFileIncomplete() { return raFileIncomplete; }
+    public String getRaFileWarning() { return raFileWarning; }
 
     public static final class Builder {
         private String raNo;
@@ -149,6 +155,8 @@ public final class GenerateRaDescriptionViewModel {
         private List<TransactionRow> transactionRows;
         private String messageTxt;
         private List<PremiumRow> premiumRows;
+        private boolean raFileIncomplete;
+        private String raFileWarning;
 
         public Builder raNo(String v) { this.raNo = v; return this; }
         public Builder chequeTotal(String v) { this.chequeTotal = v; return this; }
@@ -161,6 +169,8 @@ public final class GenerateRaDescriptionViewModel {
         public Builder messageTxt(String v) { this.messageTxt = v; return this; }
         // Defensive copy at the setter — mirrors BillingOnFormViewModel pattern.
         public Builder premiumRows(List<PremiumRow> v) { this.premiumRows = v == null ? null : List.copyOf(v); return this; }
+        public Builder raFileIncomplete(boolean v) { this.raFileIncomplete = v; return this; }
+        public Builder raFileWarning(String v) { this.raFileWarning = v; return this; }
 
         public GenerateRaDescriptionViewModel build() { return new GenerateRaDescriptionViewModel(this); }
     }

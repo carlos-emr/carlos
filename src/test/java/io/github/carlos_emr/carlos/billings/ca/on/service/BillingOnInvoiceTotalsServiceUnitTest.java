@@ -125,7 +125,7 @@ class BillingOnInvoiceTotalsServiceUnitTest {
     }
 
     @Test
-    void shouldSumAcrossMultiplePayments() {
+    void shouldSumAcrossMultiplePayments_withExactArithmetic() {
         // total=200, three partial payments + one refund.
         stubInvoice(new BigDecimal("200.00"),
                 payment("50.00", "0.00"),
@@ -150,7 +150,7 @@ class BillingOnInvoiceTotalsServiceUnitTest {
     }
 
     @Test
-    void shouldBeReadOnlyTransactional() {
+    void shouldBeReadOnlyTransactional_forTypeContract() {
         Transactional tx = BillingOnInvoiceTotalsService.class.getAnnotation(Transactional.class);
 
         assertThat(tx).isNotNull();

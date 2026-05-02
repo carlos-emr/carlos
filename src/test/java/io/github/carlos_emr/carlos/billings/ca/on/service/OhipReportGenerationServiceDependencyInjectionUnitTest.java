@@ -102,7 +102,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
     }
 
     @Test
-    void shouldNoOp_whenMonthCodeMissing_onGenerateReport() {
+    void shouldNoOp_whenMonthCodeMissingOnGenerateReport() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("providers", "999998");
         // monthCode absent
@@ -113,7 +113,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
     }
 
     @Test
-    void shouldNoOp_whenProvidersParamBlank_onGenerateReport() {
+    void shouldNoOp_whenProvidersParamBlankOnGenerateReport() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("monthCode", "OB");
         request.setParameter("providers", "   ");

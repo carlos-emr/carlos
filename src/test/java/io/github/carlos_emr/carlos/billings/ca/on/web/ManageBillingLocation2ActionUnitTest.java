@@ -121,7 +121,7 @@ class ManageBillingLocation2ActionUnitTest {
     }
 
     @Test
-    void shouldExposeClinicLocationRowsInsteadOfJpaEntities() throws Exception {
+    void shouldExposeClinicLocationRows_insteadOfJpaEntities() throws Exception {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.billing"), eq("w"), isNull()))
                 .thenReturn(true);
         ClinicLocation location = new ClinicLocation();
