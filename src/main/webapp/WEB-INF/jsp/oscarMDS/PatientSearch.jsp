@@ -113,7 +113,7 @@
     // === Add as New Patient URL ===
     StringBuilder addPatientUrl = new StringBuilder(request.getContextPath()).append("/demographic/DemographicAdd");
     boolean hasSearch = !p_searchMode.isEmpty() && !p_keyword.isEmpty();
-    if (hasSearch) {
+    if (hasSearch && !p_labNo.isEmpty()) {
         addPatientUrl
             .append("?prefill_last_name=")     .append(URLEncoder.encode(labPatientLastName,  "UTF-8"))
             .append("&prefill_first_name=")    .append(URLEncoder.encode(labPatientFirstName, "UTF-8"))
@@ -258,7 +258,10 @@
                     patientRows.add(row);
                 }
             }
-        } catch (Exception e) { /* query failed — show empty results */ }
+        } catch (Exception e) { 
+          /* query failed — show empty results */ 
+           request.setAttribute("searchUnavailable", true);
+        }
     }
 
     boolean isTruncated = (nItems == parsedLimit2 && parsedLimit2 == 500);
