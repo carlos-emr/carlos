@@ -175,7 +175,6 @@
             jQuery("#test_" + id).remove();
             var count = Math.max(0, Number(jQuery("#test_num").val() || 0) - 1);
             jQuery("#test_num").val(count);
-            jQuery("#test_num").val(total);
             if (count < 1) {
                 jQuery('form[name="testForm"] :submit').prop('disabled', true);
             }
