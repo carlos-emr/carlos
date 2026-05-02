@@ -78,7 +78,7 @@
     if (request.getParameter("limit2") != null) {
         try {
             int tmp = Integer.parseInt(request.getParameter("limit2"));
-            if (tmp > 0) parsedLimit2 = tmp;
+            if (tmp > 0) parsedLimit2 = Math.min(tmp, 500);
         } catch (NumberFormatException e) {}
     }
 
@@ -112,7 +112,8 @@
 
     // === Add as New Patient URL ===
     StringBuilder addPatientUrl = new StringBuilder(request.getContextPath()).append("/demographic/DemographicAdd");
-    if (!p_labNo.isEmpty()) {
+    boolean hasSearch = !p_searchMode.isEmpty() && !p_keyword.isEmpty();
+    if (hasSearch) {
         addPatientUrl
             .append("?prefill_last_name=")     .append(URLEncoder.encode(labPatientLastName,  "UTF-8"))
             .append("&prefill_first_name=")    .append(URLEncoder.encode(labPatientFirstName, "UTF-8"))
@@ -284,7 +285,7 @@
     request.setAttribute("searchMode",    p_searchMode);
     request.setAttribute("addPatientUrl", addPatientUrl.toString());
     request.setAttribute("loadMoreUrl",   loadMoreUrl);
-    request.setAttribute("hasSearch",     !p_searchMode.isEmpty());
+    request.setAttribute("hasSearch",     hasSearch);
 %>
 <!DOCTYPE html>
 <html lang="en">
@@ -532,7 +533,10 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: body
-            }).then(function() {
+            }).then(function(response) {
+                if (!response.ok) {
+                    throw new Error('PatientMatch failed');
+                }
                 // Notify lab display row (may be null due to COOP on action-served pages)
                 if (window.opener && typeof window.opener.updateLabDemoStatus === 'function') {
                     try { window.opener.updateLabDemoStatus(labNo); } catch (e) {}
@@ -545,7 +549,7 @@
                 } catch (e) {}
                 window.close();
             }).catch(function() {
-                window.close();
+                // Leave the popup open so the user can retry after a failed match.
             });
         }
 
