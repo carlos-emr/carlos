@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingDiagCodeViewModelAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.service.DiagDescriptionUpdateException;
 import io.github.carlos_emr.carlos.billings.ca.on.service.DiagCodeDescriptionPersister;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingDiagCodeUpdateViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -161,6 +162,41 @@ class BillingDiagUpdate2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(405);
         verify(mockPersister, never()).updateDescription(anyString(), any());
+        verify(mockAssembler, never()).assembleUpdate(anyBoolean());
+    }
+
+    @Test
+    void shouldRenderFailureModel_whenNoDiagnosticRowsUpdated() throws Exception {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        BillingDiagCodeUpdateViewModel vm = mock(BillingDiagCodeUpdateViewModel.class);
+        when(mockPersister.updateDescription(anyString(), any())).thenReturn(false);
+        when(mockAssembler.assembleUpdate(true)).thenReturn(vm);
+        mockRequest.setParameter("update", "update999");
+        mockRequest.setParameter("999", "Unknown");
+
+        BillingDiagUpdate2Action action = new BillingDiagUpdate2Action(
+                mockSecurityInfoManager, mockAssembler, mockPersister);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(mockRequest.getAttribute("digUpdateModel")).isSameAs(vm);
+        verify(mockAssembler).assembleUpdate(true);
+    }
+
+    @Test
+    void shouldPropagateTypedException_whenDiagnosticPersistenceFails() {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        DiagDescriptionUpdateException failure =
+                new DiagDescriptionUpdateException("001", new RuntimeException("deadlock"));
+        when(mockPersister.updateDescription(anyString(), any())).thenThrow(failure);
+        mockRequest.setParameter("update", "update001");
+        mockRequest.setParameter("001", "Acute infection");
+
+        BillingDiagUpdate2Action action = new BillingDiagUpdate2Action(
+                mockSecurityInfoManager, mockAssembler, mockPersister);
+
+        assertThatThrownBy(action::execute).isSameAs(failure);
         verify(mockAssembler, never()).assembleUpdate(anyBoolean());
     }
 }

@@ -27,10 +27,8 @@ import java.util.Locale;
 
 /**
  * Immutable demographic snapshot shared across the ON billing view models.
- * Replaces the {@code (demoFirst, demoLast, demoHin, demoVer, demoSex,
- * demoHcType, demoDob, demoDobYy, demoDobMm, demoDobDd)} field cluster that
- * was duplicated in 4 of the 5 page view models (Form, Review,
- * ShortcutPg1, Correction's bill-loaded path).
+ * Includes name, HIN/version, sex, health-card type, full DOB, and split DOB
+ * components used by form, review, shortcut, and correction pages.
  *
  * <p>The view models retain their individual String getters for JSP-EL
  * back-compatibility ({@code ${reviewModel.demoFirst}} etc.) and additionally
@@ -82,12 +80,7 @@ public record BillingDemographicSummary(
     }
 
     /**
-     * Canonical projection from a {@link Demographic} model — replaces the
-     * five separate inline projections that previously lived in
-     * {@code BillingOnFormDemographicLoader}, {@code BillingOnReviewViewModelAssembler},
-     * {@code BillingShortcutPg1ViewModelAssembler},
-     * {@code BillingCorrectionReviewViewModelAssembler}, and the legacy JSP
-     * scriptlets that drove them.
+     * Canonical projection from a {@link Demographic} model.
      *
      * <p>Conventions encoded here:</p>
      * <ul>

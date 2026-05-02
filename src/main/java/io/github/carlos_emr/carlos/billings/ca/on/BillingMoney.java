@@ -30,7 +30,9 @@ import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationExc
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * Central money parsing for Ontario billing.
+ * Immutable Ontario billing money value with CAD currency invariants,
+ * non-negative scale-2 storage, arithmetic helpers, and legacy
+ * {@link BigDecimal}-based parser/formatter bridges.
  *
  * @since 2026-04-28
  */
@@ -118,7 +120,7 @@ public record BillingMoney(BigDecimal amount, Currency currency) implements Comp
         }
     }
 
-    public static BigDecimal zero() {
+    public static BigDecimal zeroAmount() {
         return ZERO;
     }
 

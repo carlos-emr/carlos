@@ -33,7 +33,7 @@ public class BillingProviderDto {
     private String ohipNo;
     private String rmaNo;
     private String billingNo;
-    private String hso_no;
+    private String hsoNo;
     private String status;
     private String billingGroupNo;
 
@@ -61,12 +61,24 @@ public class BillingProviderDto {
         this.firstName = firstName;
     }
 
-    public String getHso_no() {
-        return hso_no;
+    public String getHsoNo() {
+        return hsoNo;
     }
 
-    public void setHso_no(String hso_no) {
-        this.hso_no = hso_no;
+    public void setHsoNo(String hsoNo) {
+        this.hsoNo = hsoNo;
+    }
+
+    /** @deprecated use {@link #getHsoNo()} */
+    @Deprecated
+    public String getHso_no() {
+        return getHsoNo();
+    }
+
+    /** @deprecated use {@link #setHsoNo(String)} */
+    @Deprecated
+    public void setHso_no(String hsoNo) {
+        setHsoNo(hsoNo);
     }
 
     public String getLastName() {

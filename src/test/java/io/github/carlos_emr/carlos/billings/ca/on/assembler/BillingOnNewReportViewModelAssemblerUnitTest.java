@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.assembler;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportPaidBillingRow;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadException;
 import io.github.carlos_emr.carlos.commn.dao.projection.BillingOnNewReportPaidRaDetailRow;
 import io.github.carlos_emr.carlos.commn.dao.projection.BillingOnNewReportUnbilledRow;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnNewReportViewModel;
@@ -40,6 +41,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -130,6 +132,36 @@ class BillingOnNewReportViewModelAssemblerUnitTest {
         assertThat(model.getTotalRow()).containsExactly("Total", "", "", "100.0", "35.0", "");
         verify(billingDao).findBillingOnNewReportPaidBillings("999", "2026-04-01", "2026-04-30");
         verify(raDetailDao).findBillingOnNewReportPaidRaDetails(List.of(42));
+    }
+
+    @Test
+    void shouldThrowBillingDataLoadExceptionWithContext_whenReportDaoFails() {
+        ReportProviderDao reportProviderDao = mock(ReportProviderDao.class);
+        SiteDao siteDao = mock(SiteDao.class);
+        OscarAppointmentDao appointmentDao = mock(OscarAppointmentDao.class);
+        BillingONCHeader1Dao headerDao = mock(BillingONCHeader1Dao.class);
+        BillingDao billingDao = mock(BillingDao.class);
+        RaDetailDao raDetailDao = mock(RaDetailDao.class);
+        when(reportProviderDao.search_reportprovider("billingreport")).thenReturn(Collections.emptyList());
+        when(appointmentDao.findBillingOnNewReportUnbilledRows("999", "2026-04-01", "2026-04-30"))
+                .thenThrow(new RuntimeException("database unavailable"));
+
+        BillingOnNewReportViewModelAssembler assembler = new BillingOnNewReportViewModelAssembler(
+                reportProviderDao, siteDao, appointmentDao, headerDao, billingDao, raDetailDao);
+
+        assertThatThrownBy(() -> assembler.assemble(reportRequest("unbilled"), null))
+                .isInstanceOf(BillingDataLoadException.class)
+                .hasMessageContaining("billingONNewReport")
+                .satisfies(ex -> {
+                    BillingDataLoadException dataLoad = (BillingDataLoadException) ex;
+                    assertThat(dataLoad.phase()).isEqualTo(BillingDataLoadException.Phase.DAO_QUERY);
+                    assertThat(dataLoad.context())
+                            .containsEntry("reportAction", "unbilled")
+                            .containsEntry("providerview", "999")
+                            .containsEntry("xml_vdate", "2026-04-01")
+                            .containsEntry("xml_appointment_date", "2026-04-30")
+                            .containsEntry("site", "");
+                });
     }
 
     private static HttpServletRequest reportRequest(String action) {

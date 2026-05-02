@@ -25,10 +25,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Immutable bill-form selection state for {@code billingON.jsp}. Replaces
- * the five-field cluster ({@code defaultBillFormName}, {@code defaultBillType},
- * {@code defaultServiceType}, {@code billingForms}, {@code selectedBillType})
- * the form view model previously carried as flat fields.
+ * Immutable bill-form selection state for {@code billingON.jsp}.
  *
  * <p>{@link #defaultFormName} is the resolved default per the legacy
  * roster/preference/group/properties fallback chain.

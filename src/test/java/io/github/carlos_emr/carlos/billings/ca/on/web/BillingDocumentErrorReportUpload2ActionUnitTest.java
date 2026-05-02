@@ -21,8 +21,11 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.BatchEligibilityDao;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingClaimsErrorReportImportService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFileImportException;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnErrorReportService;
 import io.github.carlos_emr.carlos.commn.dao.DemographicCustDao;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
@@ -38,17 +41,22 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -78,6 +86,9 @@ class BillingDocumentErrorReportUpload2ActionUnitTest extends CarlosUnitTestBase
     @Mock private LoggedInInfo mockLoggedInInfo;
 
     private MockHttpServletRequest mockRequest;
+
+    @TempDir
+    Path tempDir;
 
     @BeforeEach
     void setUp() {
@@ -150,5 +161,85 @@ class BillingDocumentErrorReportUpload2ActionUnitTest extends CarlosUnitTestBase
 
         assertThat(action.execute()).isEqualTo("error");
         assertThat(action.getActionErrors()).isNotEmpty();
+    }
+
+    @Test
+    void shouldShowConfigurationError_whenMohReportDirectoryMissing() throws Exception {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        mockRequest.setParameter("filename", "B12345.txt");
+
+        CarlosProperties props = mock(CarlosProperties.class);
+        when(props.getProperty("ONEDT_INBOX")).thenReturn("");
+        when(props.getProperty("ONEDT_ARCHIVE")).thenReturn(null);
+        when(props.getProperty("isNewONbilling", "")).thenReturn("");
+
+        try (MockedStatic<CarlosProperties> propsMock = mockStatic(CarlosProperties.class)) {
+            propsMock.when(CarlosProperties::getInstance).thenReturn(props);
+
+            BillingDocumentErrorReportUpload2Action action = newAction();
+
+            assertThat(action.execute()).isEqualTo("error");
+            assertThat(action.getActionErrors())
+                    .anySatisfy(error -> assertThat(error).contains("directory is not configured"));
+        }
+    }
+
+    @Test
+    void shouldShowFileAccessError_whenMohReportMissingFromInboxAndArchive() throws Exception {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        mockRequest.setParameter("filename", "Bmissing.txt");
+
+        Path inbox = Files.createDirectory(tempDir.resolve("inbox"));
+        Path archive = Files.createDirectory(tempDir.resolve("archive"));
+        CarlosProperties props = mock(CarlosProperties.class);
+        when(props.getProperty("ONEDT_INBOX")).thenReturn(inbox.toString());
+        when(props.getProperty("ONEDT_ARCHIVE")).thenReturn(archive.toString());
+        when(props.getProperty("isNewONbilling", "")).thenReturn("");
+
+        try (MockedStatic<CarlosProperties> propsMock = mockStatic(CarlosProperties.class)) {
+            propsMock.when(CarlosProperties::getInstance).thenReturn(props);
+
+            BillingDocumentErrorReportUpload2Action action = newAction();
+
+            assertThat(action.execute()).isEqualTo("error");
+            assertThat(action.getActionErrors())
+                    .anySatisfy(error -> assertThat(error).contains("could not be read"));
+        }
+    }
+
+    @Test
+    void shouldShowImportError_whenClaimsErrorReportImportFails() throws Exception {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        mockRequest.setParameter("filename", "Eclaims.err");
+
+        Path inbox = Files.createDirectory(tempDir.resolve("inbox"));
+        Path archive = Files.createDirectory(tempDir.resolve("archive"));
+        Files.writeString(inbox.resolve("Eclaims.err"), "E malformed fixed-width report");
+
+        CarlosProperties props = mock(CarlosProperties.class);
+        when(props.getProperty("ONEDT_INBOX")).thenReturn(inbox.toString());
+        when(props.getProperty("ONEDT_ARCHIVE")).thenReturn(archive.toString());
+        when(props.getProperty("isNewONbilling", "")).thenReturn("true");
+
+        BillingClaimsErrorReportImportService importService = mock(BillingClaimsErrorReportImportService.class);
+        when(importService.importStream(any(), eq("Eclaims.err")))
+                .thenThrow(new BillingFileImportException("malformed Eclaims.err", new RuntimeException("bad row")));
+
+        registerMock(BillingClaimsErrorReportImportService.class, importService);
+
+        try (MockedStatic<CarlosProperties> propsMock = mockStatic(CarlosProperties.class)) {
+            propsMock.when(CarlosProperties::getInstance).thenReturn(props);
+
+            BillingDocumentErrorReportUpload2Action action = newAction();
+
+            assertThat(action.execute()).isEqualTo("error");
+            assertThat(action.getActionErrors())
+                    .anySatisfy(error -> assertThat(error).contains("import failed"));
+            assertThat(action.getActionErrors())
+                    .noneSatisfy(error -> assertThat(error).contains("incorrect"));
+        }
     }
 }

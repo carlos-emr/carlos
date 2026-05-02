@@ -31,7 +31,9 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -65,5 +67,43 @@ class DiagCodeDescriptionPersisterUnitTest {
 
         assertThat(updated).isFalse();
         verify(dao, never()).merge(any(DiagnosticCode.class));
+    }
+
+    @Test
+    void shouldReturnFalseAndNotMerge_whenDiagnosticCodeDoesNotExist() {
+        DiagnosticCodeDao dao = mock(DiagnosticCodeDao.class);
+        DiagCodeDescriptionPersister persister = new DiagCodeDescriptionPersister(dao);
+        when(dao.findByDiagnosticCode("999")).thenReturn(List.of());
+
+        boolean updated = persister.updateDescription("update999", "ignored");
+
+        assertThat(updated).isFalse();
+        verify(dao, never()).merge(any(DiagnosticCode.class));
+    }
+
+    @Test
+    void shouldThrowTypedException_whenDaoLookupFails() {
+        DiagnosticCodeDao dao = mock(DiagnosticCodeDao.class);
+        DiagCodeDescriptionPersister persister = new DiagCodeDescriptionPersister(dao);
+        when(dao.findByDiagnosticCode("001")).thenThrow(new RuntimeException("lock timeout"));
+
+        assertThatThrownBy(() -> persister.updateDescription("update001", "Acute infection"))
+                .isInstanceOf(DiagDescriptionUpdateException.class)
+                .hasMessageContaining("001")
+                .hasCauseInstanceOf(RuntimeException.class);
+    }
+
+    @Test
+    void shouldThrowTypedException_whenMergeFails() {
+        DiagnosticCodeDao dao = mock(DiagnosticCodeDao.class);
+        DiagCodeDescriptionPersister persister = new DiagCodeDescriptionPersister(dao);
+        DiagnosticCode code = new DiagnosticCode();
+        when(dao.findByDiagnosticCode("001")).thenReturn(List.of(code));
+        doThrow(new RuntimeException("deadlock")).when(dao).merge(code);
+
+        assertThatThrownBy(() -> persister.updateDescription("update001", "Acute infection"))
+                .isInstanceOf(DiagDescriptionUpdateException.class)
+                .hasMessageContaining("001")
+                .hasCauseInstanceOf(RuntimeException.class);
     }
 }

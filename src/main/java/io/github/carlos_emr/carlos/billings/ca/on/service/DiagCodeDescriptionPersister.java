@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
+import java.util.List;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,14 +50,18 @@ public class DiagCodeDescriptionPersister {
         }
         String code = submitValue.substring(submitValue.length() - 3);
         try {
-            for (DiagnosticCode dcode : diagnosticCodeDao.findByDiagnosticCode(code)) {
+            List<DiagnosticCode> matches = diagnosticCodeDao.findByDiagnosticCode(code);
+            if (matches == null || matches.isEmpty()) {
+                return false;
+            }
+            for (DiagnosticCode dcode : matches) {
                 dcode.setDescription(newDescription);
                 diagnosticCodeDao.merge(dcode);
             }
             return true;
         } catch (RuntimeException ex) {
             MiscUtils.getLogger().error("Diagnostic code update failed for {}", code, ex);
-            return false;
+            throw new DiagDescriptionUpdateException(code, ex);
         }
     }
 }

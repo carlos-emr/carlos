@@ -113,4 +113,104 @@ class BillingCorrectionCommandUnitTest {
                 .hasMessageContaining("dob")
                 .hasMessageContaining("not-a-date");
     }
+
+    @Test
+    void shouldAllowBlankOptionalDates_forValidationCommand() {
+        BillingCorrectionValidationCommand command = new BillingCorrectionValidationCommand(
+                "250|Diabetes",
+                "Ref Doctor",
+                "ROSTERED",
+                false,
+                "123456",
+                false,
+                "ON",
+                "F",
+                "00",
+                Map.of(),
+                List.of(),
+                "42",
+                "1234567890",
+                " ",
+                "00",
+                "",
+                "O",
+                "0000",
+                "999998",
+                null,
+                "",
+                "Doe,Jane",
+                "123 Main",
+                "ON",
+                "Toronto",
+                "M1M1M1",
+                "F");
+
+        assertThat(command.dob()).isNull();
+        assertThat(command.visitDate()).isNull();
+        assertThat(command.billingDate()).isNull();
+        assertThat(command.updateDate()).isNull();
+        assertThat(command.dobText()).isEmpty();
+        assertThat(command.visitDateText()).isEmpty();
+    }
+
+    @Test
+    void shouldAllowBlankOptionalDates_forSubmitCommand() {
+        BillingCorrectionSubmitCommand command = new BillingCorrectionSubmitCommand(
+                "42",
+                "<rd>Ref Doctor</rd>",
+                "3000",
+                "1234567890",
+                "",
+                "00",
+                " ",
+                "O",
+                "0000",
+                "999998",
+                null,
+                List.of());
+
+        assertThat(command.dob()).isNull();
+        assertThat(command.visitDate()).isNull();
+        assertThat(command.billingDate()).isNull();
+        assertThat(command.dobText()).isEmpty();
+        assertThat(command.visitDateText()).isEmpty();
+        assertThat(command.billingDateText()).isEmpty();
+    }
+
+    @Test
+    void shouldParseBasicIsoDatesFromCorrectionForms() {
+        BillingCorrectionValidationCommand command = new BillingCorrectionValidationCommand(
+                "250|Diabetes",
+                "Ref Doctor",
+                "ROSTERED",
+                false,
+                "123456",
+                false,
+                "ON",
+                "F",
+                "00",
+                Map.of(),
+                List.of(),
+                "42",
+                "1234567890",
+                "19800101",
+                "00",
+                "20260428",
+                "O",
+                "0000",
+                "999998",
+                "20260429",
+                "20260430",
+                "Doe,Jane",
+                "123 Main",
+                "ON",
+                "Toronto",
+                "M1M1M1",
+                "F");
+
+        assertThat(command.dobText()).isEqualTo("1980-01-01");
+        assertThat(command.visitDateText()).isEqualTo("2026-04-28");
+        assertThat(command.billingDateText()).isEqualTo("2026-04-29");
+        assertThat(command.updateDateText()).isEqualTo("2026-04-30");
+    }
 }

@@ -21,7 +21,7 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Page role: Renders `genSimulation.jsp` for the Ontario billing workflow.
+  Purpose: Supports genSimulation in the Ontario billing workflow.
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.
 --%>

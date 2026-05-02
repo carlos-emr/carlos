@@ -228,9 +228,7 @@ public class BillingOnClaimLoader {
                 ch1Obj = ch1Obj.withProviderOhipNo(b.providerOhipNo());
                 ch1Obj = ch1Obj.withUpdateDateTime(b.updateDatetime());
                 ch1Obj = ch1Obj.withTotal(b.total());
-                //ch1Obj = ch1Obj.withPaid(b[11]);
                 ch1Obj = ch1Obj.withClinic(b.clinic());
-                //ch1Obj = ch1Obj.withTotal(b[13]);//fee is not total?
                 ch1Obj = ch1Obj.withServiceNumber(b.serviceCount());
                 ch1Obj = ch1Obj.withBillingOnItemId(b.billingOnItemId());
 

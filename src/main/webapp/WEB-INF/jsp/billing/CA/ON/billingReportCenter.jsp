@@ -21,7 +21,7 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Page role: Renders `billingReportCenter.jsp` for the Ontario billing workflow.
+  Purpose: Supports billingReportCenter in the Ontario billing workflow.
   Expected request model data includes: reportCenterModel.
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.

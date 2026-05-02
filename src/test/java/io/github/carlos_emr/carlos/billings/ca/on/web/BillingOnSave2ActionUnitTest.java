@@ -157,9 +157,6 @@ class BillingOnSave2ActionUnitTest extends CarlosUnitTestBase {
         // Single transactional call now drives header + items + ext + payee.
         verify(mockSaveService).saveBillingWithExtAndPayee(any(BillingClaimSubmissionService.BillingClaimSubmission.class),
                 eq(mockRequest), eq("PAT"), eq("Acme Payee"));
-        verify(mockSaveService, never()).addABillingRecord(any());
-        verify(mockSaveService, never()).addPrivateBillExtRecord(any(), any(), org.mockito.ArgumentMatchers.anyInt());
-        verify(mockSaveService, never()).addOhipInvoiceTrans(any());
     }
 
     @Test

@@ -21,7 +21,7 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Page role: Renders `billingONReview.jsp` for the Ontario billing workflow.
+  Purpose: Supports billingONReview in the Ontario billing workflow.
   Expected request model data includes: reviewModel.
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.

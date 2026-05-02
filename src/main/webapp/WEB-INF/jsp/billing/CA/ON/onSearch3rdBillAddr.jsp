@@ -21,7 +21,7 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Page role: Renders `onSearch3rdBillAddr.jsp` for the Ontario billing workflow.
+  Purpose: Supports onSearch3rdBillAddr in the Ontario billing workflow.
   Expected request model data includes: searchAddrModel.
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.

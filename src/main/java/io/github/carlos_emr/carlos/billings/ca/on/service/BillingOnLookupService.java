@@ -63,9 +63,6 @@ import io.github.carlos_emr.SxmlMisc;
  * mutation makes it side-effect-bearing per the package-info contract;
  * the reads stay co-located so the entire surface is one file.
  *
- * <p>Replaces the legacy {@code JdbcBillingPageUtil} shim in
- * {@code data/}.</p>
- *
  * @since 2026-04-26
  */
 @org.springframework.stereotype.Service

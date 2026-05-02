@@ -22,12 +22,9 @@ package io.github.carlos_emr.carlos.billings.ca.on.dto;
  * the service code, its description, fee value, percentage, effective date,
  * and GST flag.
  *
- * <p>Replaces a raw {@code List} that interleaved six fields per row and
- * forced every consumer to read {@code list.get(0..5)} positionally. The
- * record makes the producer's contract explicit and lets consumers ignore
- * fields they don't care about (e.g. the fee-only path on
- * {@code BillingSpecialistClaimService.feeForCode} reads only
- * {@link #value()}).</p>
+ * <p>Consumers can read only the attributes they need. For example, the
+ * fee-only path in {@code BillingSpecialistClaimService.feeForCode} reads
+ * only {@link #value()}.</p>
  *
  * @since 2026-05-01
  */

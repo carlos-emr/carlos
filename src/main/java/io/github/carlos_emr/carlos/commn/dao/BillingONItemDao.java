@@ -46,6 +46,8 @@ public interface BillingONItemDao extends AbstractDao<BillingONItem> {
 
     List<BillingONItem> findByCh1Id(Integer id);
 
+    List<BillingONItem> findByCh1IdsExcludingDeletedAndSettled(List<Integer> ch1Ids);
+
     List<BillingONItem> findByCh1IdAndStatusNotEqual(Integer chId, String string);
 
     List<BillingONCHeader1> getCh1ByDemographicNoSince(Integer demographic_no, Date lastUpdateDate);

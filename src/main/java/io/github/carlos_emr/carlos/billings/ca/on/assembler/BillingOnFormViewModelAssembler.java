@@ -67,14 +67,10 @@ import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnRequestParame
  *       priority chain (curBillForm → roster → preference → group →
  *       default)</li>
  *   <li>{@link BillingOnFormServiceGridComposer} — service-code grid +
- *       billing-form menu + dx codes by type (the ~120-line block in
- *       the legacy implementation)</li>
+ *       billing-form menu + dx codes by type</li>
  * </ul>
  *
- * <p>Pre-refactor, every concern lived inline in a 600-line
- * {@code assemble} method. The split brings the orchestrator to ~250
- * lines and lets each concern be unit-tested independently. The
- * dependency-free helpers (DOB age math, id-token sanitisation) live in
+ * <p>The dependency-free helpers (DOB age math, id-token sanitisation) live in
  * {@link io.github.carlos_emr.carlos.billings.ca.on.support.BillingDateOfBirths}
  * and {@link io.github.carlos_emr.carlos.billings.ca.on.support.BillingDomIdTokens}
  * respectively.</p>
@@ -128,7 +124,7 @@ public class BillingOnFormViewModelAssembler {
     /**
      * Builds the view model for the main Ontario billing form. Matches the
      * scriptlet ordering in the original JSP so the resulting state is
-     * equivalent to the pre-refactor page.
+     * equivalent to the expected page contract.
      */
     @SuppressWarnings("deprecation")
     public BillingOnFormViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
@@ -455,7 +451,7 @@ public class BillingOnFormViewModelAssembler {
         // selection into the model so the JSP renders a single
         // ${formModel.defaultXmlVdate} instead of an inline ternary on
         // ${param.xml_vdate}, which the encoder-validator hook flags as
-        // potential XSS even inside <c:choose><c:when>.
+        // XSS-sensitive even inside <c:choose><c:when>.
         String xmlVdateReq = request.getParameter("xml_vdate");
         b.defaultXmlVdate(xmlVdateReq != null && !xmlVdateReq.isEmpty()
                 ? xmlVdateReq : admDate);

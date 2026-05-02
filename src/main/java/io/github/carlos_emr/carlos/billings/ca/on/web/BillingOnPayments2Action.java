@@ -97,19 +97,46 @@ public class BillingOnPayments2Action extends ActionSupport {
     public String execute() throws Exception {
         requireBillingWritePrivilege();
 
-        String method = request.getParameter("method");
-        if ("listPayments".equals(method)) {
-            return listPayments();
-        } else if ("savePayment".equals(method)) {
-            return savePayment();
-        } else if ("deletePayment".equals(method)) {
-            return deletePayment();
-        } else if ("viewPayment".equals(method)) {
-            return viewPayment();
-        } else if ("viewPayment_ext".equals(method)) {
-            return viewPayment_ext();
+        PaymentCommand command = PaymentCommand.from(request.getParameter("method"));
+        if (command.requiresPost() && !BillingRequestGuards.requirePost(request, response)) {
+            return NONE;
         }
-        return listPayments();
+        return switch (command) {
+            case LIST -> listPayments();
+            case SAVE -> savePayment();
+            case DELETE -> deletePayment();
+            case VIEW -> viewPayment();
+            case VIEW_EXT -> viewPayment_ext();
+        };
+    }
+
+    private enum PaymentCommand {
+        LIST("listPayments", false),
+        SAVE("savePayment", true),
+        DELETE("deletePayment", true),
+        VIEW("viewPayment", false),
+        VIEW_EXT("viewPayment_ext", false);
+
+        private final String method;
+        private final boolean requiresPost;
+
+        PaymentCommand(String method, boolean requiresPost) {
+            this.method = method;
+            this.requiresPost = requiresPost;
+        }
+
+        private boolean requiresPost() {
+            return requiresPost;
+        }
+
+        private static PaymentCommand from(String method) {
+            for (PaymentCommand command : values()) {
+                if (command.method.equals(method)) {
+                    return command;
+                }
+            }
+            return LIST;
+        }
     }
 
     private void requireBillingWritePrivilege() {
@@ -560,7 +587,7 @@ public class BillingOnPayments2Action extends ActionSupport {
             if (paymentId == 0) {
                 return "failure";
             }
-        } catch (Exception e) {
+        } catch (NumberFormatException e) {
             logger.error("Invalid paymentId parameter {}", LogSanitizer.sanitize(id), e);
             return "failure";
         }

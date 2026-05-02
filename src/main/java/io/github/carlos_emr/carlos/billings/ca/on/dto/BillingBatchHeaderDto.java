@@ -25,20 +25,20 @@ package io.github.carlos_emr.carlos.billings.ca.on.dto;
 
 public class BillingBatchHeaderDto {
     String id;
-    String disk_id;
-    String transc_id;
-    String rec_id;
-    String spec_id;
-    String moh_office;
-    String batch_id;
+    String diskId;
+    String transcId;
+    String recId;
+    String specId;
+    String mohOffice;
+    String batchId;
     String operator;
-    String group_num;
-    String provider_reg_num;
+    String groupNum;
+    String providerRegNum;
     String specialty;
-    String h_count;
-    String r_count;
-    String t_count;
-    String batch_date;
+    String hCount;
+    String rCount;
+    String tCount;
+    String batchDate;
 
     String createdatetime;
     String updatedatetime;
@@ -46,44 +46,104 @@ public class BillingBatchHeaderDto {
     String action;
     String comment;
 
+    public String getBatchDate() {
+        return batchDate;
+    }
+
+    public void setBatchDate(String batchDate) {
+        this.batchDate = batchDate;
+    }
+
+    /** @deprecated use {@link #getBatchDate()} */
+    @Deprecated
     public String getBatch_date() {
-        return batch_date;
+        return getBatchDate();
     }
 
-    public void setBatch_date(String batch_date) {
-        this.batch_date = batch_date;
+    /** @deprecated use {@link #setBatchDate(String)} */
+    @Deprecated
+    public void setBatch_date(String batchDate) {
+        setBatchDate(batchDate);
     }
 
+    public String getBatchId() {
+        return batchId;
+    }
+
+    public void setBatchId(String batchId) {
+        this.batchId = batchId;
+    }
+
+    /** @deprecated use {@link #getBatchId()} */
+    @Deprecated
     public String getBatch_id() {
-        return batch_id;
+        return getBatchId();
     }
 
-    public void setBatch_id(String batch_id) {
-        this.batch_id = batch_id;
+    /** @deprecated use {@link #setBatchId(String)} */
+    @Deprecated
+    public void setBatch_id(String batchId) {
+        setBatchId(batchId);
     }
 
+    public String getDiskId() {
+        return diskId;
+    }
+
+    public void setDiskId(String diskId) {
+        this.diskId = diskId;
+    }
+
+    /** @deprecated use {@link #getDiskId()} */
+    @Deprecated
     public String getDisk_id() {
-        return disk_id;
+        return getDiskId();
     }
 
-    public void setDisk_id(String disk_id) {
-        this.disk_id = disk_id;
+    /** @deprecated use {@link #setDiskId(String)} */
+    @Deprecated
+    public void setDisk_id(String diskId) {
+        setDiskId(diskId);
     }
 
+    public String getGroupNum() {
+        return groupNum;
+    }
+
+    public void setGroupNum(String groupNum) {
+        this.groupNum = groupNum;
+    }
+
+    /** @deprecated use {@link #getGroupNum()} */
+    @Deprecated
     public String getGroup_num() {
-        return group_num;
+        return getGroupNum();
     }
 
-    public void setGroup_num(String group_num) {
-        this.group_num = group_num;
+    /** @deprecated use {@link #setGroupNum(String)} */
+    @Deprecated
+    public void setGroup_num(String groupNum) {
+        setGroupNum(groupNum);
     }
 
+    public String getHCount() {
+        return hCount;
+    }
+
+    public void setHCount(String hCount) {
+        this.hCount = hCount;
+    }
+
+    /** @deprecated use {@link #getHCount()} */
+    @Deprecated
     public String getH_count() {
-        return h_count;
+        return getHCount();
     }
 
-    public void setH_count(String h_count) {
-        this.h_count = h_count;
+    /** @deprecated use {@link #setHCount(String)} */
+    @Deprecated
+    public void setH_count(String hCount) {
+        setHCount(hCount);
     }
 
     public String getId() {
@@ -94,12 +154,24 @@ public class BillingBatchHeaderDto {
         this.id = id;
     }
 
-    public String getMoh_office() {
-        return moh_office;
+    public String getMohOffice() {
+        return mohOffice;
     }
 
-    public void setMoh_office(String moh_office) {
-        this.moh_office = moh_office;
+    public void setMohOffice(String mohOffice) {
+        this.mohOffice = mohOffice;
+    }
+
+    /** @deprecated use {@link #getMohOffice()} */
+    @Deprecated
+    public String getMoh_office() {
+        return getMohOffice();
+    }
+
+    /** @deprecated use {@link #setMohOffice(String)} */
+    @Deprecated
+    public void setMoh_office(String mohOffice) {
+        setMohOffice(mohOffice);
     }
 
     public String getOperator() {
@@ -110,36 +182,84 @@ public class BillingBatchHeaderDto {
         this.operator = operator;
     }
 
+    public String getProviderRegNum() {
+        return providerRegNum;
+    }
+
+    public void setProviderRegNum(String providerRegNum) {
+        this.providerRegNum = providerRegNum;
+    }
+
+    /** @deprecated use {@link #getProviderRegNum()} */
+    @Deprecated
     public String getProvider_reg_num() {
-        return provider_reg_num;
+        return getProviderRegNum();
     }
 
-    public void setProvider_reg_num(String provider_reg_num) {
-        this.provider_reg_num = provider_reg_num;
+    /** @deprecated use {@link #setProviderRegNum(String)} */
+    @Deprecated
+    public void setProvider_reg_num(String providerRegNum) {
+        setProviderRegNum(providerRegNum);
     }
 
+    public String getRCount() {
+        return rCount;
+    }
+
+    public void setRCount(String rCount) {
+        this.rCount = rCount;
+    }
+
+    /** @deprecated use {@link #getRCount()} */
+    @Deprecated
     public String getR_count() {
-        return r_count;
+        return getRCount();
     }
 
-    public void setR_count(String r_count) {
-        this.r_count = r_count;
+    /** @deprecated use {@link #setRCount(String)} */
+    @Deprecated
+    public void setR_count(String rCount) {
+        setRCount(rCount);
     }
 
+    public String getRecId() {
+        return recId;
+    }
+
+    public void setRecId(String recId) {
+        this.recId = recId;
+    }
+
+    /** @deprecated use {@link #getRecId()} */
+    @Deprecated
     public String getRec_id() {
-        return rec_id;
+        return getRecId();
     }
 
-    public void setRec_id(String rec_id) {
-        this.rec_id = rec_id;
+    /** @deprecated use {@link #setRecId(String)} */
+    @Deprecated
+    public void setRec_id(String recId) {
+        setRecId(recId);
     }
 
+    public String getSpecId() {
+        return specId;
+    }
+
+    public void setSpecId(String specId) {
+        this.specId = specId;
+    }
+
+    /** @deprecated use {@link #getSpecId()} */
+    @Deprecated
     public String getSpec_id() {
-        return spec_id;
+        return getSpecId();
     }
 
-    public void setSpec_id(String spec_id) {
-        this.spec_id = spec_id;
+    /** @deprecated use {@link #setSpecId(String)} */
+    @Deprecated
+    public void setSpec_id(String specId) {
+        setSpecId(specId);
     }
 
     public String getSpecialty() {
@@ -150,20 +270,44 @@ public class BillingBatchHeaderDto {
         this.specialty = specialty;
     }
 
+    public String getTCount() {
+        return tCount;
+    }
+
+    public void setTCount(String tCount) {
+        this.tCount = tCount;
+    }
+
+    /** @deprecated use {@link #getTCount()} */
+    @Deprecated
     public String getT_count() {
-        return t_count;
+        return getTCount();
     }
 
-    public void setT_count(String t_count) {
-        this.t_count = t_count;
+    /** @deprecated use {@link #setTCount(String)} */
+    @Deprecated
+    public void setT_count(String tCount) {
+        setTCount(tCount);
     }
 
+    public String getTranscId() {
+        return transcId;
+    }
+
+    public void setTranscId(String transcId) {
+        this.transcId = transcId;
+    }
+
+    /** @deprecated use {@link #getTranscId()} */
+    @Deprecated
     public String getTransc_id() {
-        return transc_id;
+        return getTranscId();
     }
 
-    public void setTransc_id(String transc_id) {
-        this.transc_id = transc_id;
+    /** @deprecated use {@link #setTranscId(String)} */
+    @Deprecated
+    public void setTransc_id(String transcId) {
+        setTranscId(transcId);
     }
 
     public String getAction() {

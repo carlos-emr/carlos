@@ -58,6 +58,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import java.util.concurrent.Callable;
 import java.util.stream.Stream;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -115,6 +116,9 @@ class MissingBillingActionPrivilegeUnitTest extends CarlosUnitTestBase {
                 Arguments.of("BillingLegacyReport2Action", "_admin.billing",
                         (ActionHarnessFactory) security -> harness(
                                 () -> new BillingLegacyReport2Action(security).execute())),
+                Arguments.of("ViewBenefitScheduleUpload2Action", "_admin.billing",
+                        (ActionHarnessFactory) security -> harness(
+                                () -> new ViewBenefitScheduleUpload2Action(security).execute())),
                 Arguments.of("BillingOB2View2Action", "_billing",
                         (ActionHarnessFactory) security -> {
                             BillingOhipBillingHistoryViewModelAssembler assembler =
@@ -304,6 +308,12 @@ class MissingBillingActionPrivilegeUnitTest extends CarlosUnitTestBase {
                             return harness(() -> new ViewSearchRefDoc2Action(security, dao).execute(), dao);
                         })
         );
+    }
+
+    @org.junit.jupiter.api.Test
+    void shouldIncludeBenefitScheduleViewActionInPrivilegeCoverage() {
+        assertThat(actionFactories().map(arguments -> (String) arguments.get()[0]))
+                .contains("ViewBenefitScheduleUpload2Action");
     }
 
     @ParameterizedTest(name = "{0} rejects denied {1} privilege")

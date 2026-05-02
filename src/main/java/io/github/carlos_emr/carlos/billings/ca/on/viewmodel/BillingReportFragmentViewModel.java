@@ -30,11 +30,9 @@ import java.util.List;
  * {@code billingReport_billob.jspf}, {@code billingReport_flu.jspf}).
  *
  * <p>The fragments are included from the parent
- * {@code billingReportControl.jsp}; they previously read parent-scope locals
- * ({@code billingDao}, {@code billingDetailDao}, {@code curYear}, etc.) and
- * iterated DAO results inline. The view model captures the per-fragment row
- * lists plus the totals (billob {@code BigOBTotal}; flu {@code Total1} +
- * {@code Total2}) so each JSPF body becomes pure EL.</p>
+ * {@code billingReportControl.jsp}. The view model captures the per-fragment
+ * row lists plus the totals (billob {@code BigOBTotal}; flu {@code Total1} +
+ * {@code Total2}) so each JSPF body receives a complete render model.</p>
  *
  * <p>Each fragment uses only the subset of fields its template renders
  * ({@code billedRows}, {@code unsettledRows}, {@code billobRows} +

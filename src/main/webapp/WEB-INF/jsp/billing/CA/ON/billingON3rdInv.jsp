@@ -21,7 +21,7 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Page role: Renders `billingON3rdInv.jsp` for the Ontario billing workflow.
+  Purpose: Supports billingON3rdInv in the Ontario billing workflow.
   Expected request model data includes: invoiceModel.
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.

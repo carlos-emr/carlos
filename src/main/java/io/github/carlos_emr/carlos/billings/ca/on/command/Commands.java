@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationExc
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 
 final class Commands {
@@ -75,6 +76,29 @@ final class Commands {
         }
         try {
             return LocalDate.parse(value.trim());
+        } catch (DateTimeParseException e) {
+            throw new BillingValidationException(
+                    "Billing command: malformed " + fieldName + " [" + value + "]", e);
+        }
+    }
+
+    static LocalDate optionalIsoDate(String value, String fieldName) {
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+        return isoDate(value, fieldName);
+    }
+
+    static LocalDate optionalCorrectionDate(String value, String fieldName) {
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+        String trimmed = value.trim();
+        try {
+            if (trimmed.length() == 8 && trimmed.chars().allMatch(Character::isDigit)) {
+                return LocalDate.parse(trimmed, DateTimeFormatter.BASIC_ISO_DATE);
+            }
+            return LocalDate.parse(trimmed);
         } catch (DateTimeParseException e) {
             throw new BillingValidationException(
                     "Billing command: malformed " + fieldName + " [" + value + "]", e);

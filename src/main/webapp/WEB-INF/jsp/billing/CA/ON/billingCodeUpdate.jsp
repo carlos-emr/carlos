@@ -21,7 +21,7 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Page role: Renders `billingCodeUpdate.jsp` for the Ontario billing workflow.
+  Purpose: Supports billingCodeUpdate in the Ontario billing workflow.
   Expected request model data includes: codeUpdateModel.
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.

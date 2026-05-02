@@ -248,4 +248,29 @@ class BillingObecOutputApplyServiceUnitTest {
                 .updateDemographic(any(LoggedInInfo.class), any(Demographic.class));
         verify(demographicCustDao, times(1)).merge(any(DemographicCust.class));
     }
+
+    @Test
+    void shouldNotExposeRawHinInSkipReasons() {
+        BillingEdtObecOutputSpecificationRecordDto malformed = record("1111111111", "AB", "X");
+        BillingEdtObecOutputSpecificationRecordDto passThrough = record("2222222222", "AB", "55");
+        BillingEdtObecOutputSpecificationRecordDto noMatch = record("3333333333", "AB", "100");
+        BillingEdtObecOutputSpecificationRecordDto mismatch = record("4444444444", "ZZ", "101");
+
+        when(batchEligibilityDao.find(100)).thenReturn(mock(BatchEligibility.class));
+        when(batchEligibilityDao.find(101)).thenReturn(mock(BatchEligibility.class));
+        when(demographicManager.searchByHealthCard(eq(loggedInInfo), eq("3333333333")))
+                .thenReturn(List.of());
+        when(demographicManager.searchByHealthCard(eq(loggedInInfo), eq("4444444444")))
+                .thenReturn(List.of(demographic(9, "AB")));
+
+        BillingObecOutputApplyService.ApplyResult result = service.applyOutputSpec(loggedInInfo,
+                List.of(malformed, passThrough, noMatch, mismatch));
+
+        assertThat(result.reasons()).hasSize(4);
+        assertThat(String.join("\n", result.reasons()))
+                .doesNotContain("1111111111")
+                .doesNotContain("2222222222")
+                .doesNotContain("3333333333")
+                .doesNotContain("4444444444");
+    }
 }

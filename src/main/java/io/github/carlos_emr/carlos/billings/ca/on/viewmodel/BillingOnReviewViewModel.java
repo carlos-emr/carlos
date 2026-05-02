@@ -29,11 +29,9 @@ package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;
  * pre-rendered service-code / percent-code rows, the validation messages, and
  * all derived flags / request-param echoes the JSP needs. Built by
  * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOnReviewViewModelAssembler}
- * and exposed to the JSP as request attribute {@code reviewModel}. Replaces
- * the legacy multi-block scriptlet that previously ran inline in the JSP.</p>
+ * and exposed to the JSP as request attribute {@code reviewModel}.</p>
  *
  * @since 2026-04-24
- *        2026-04-25 (full body-scriptlet drain)
  */
 public final class BillingOnReviewViewModel {
 

@@ -116,19 +116,19 @@ public class BillingOnClaimPersister {
      */
     public int addOneBatchHeaderRecord(BillingBatchHeaderDto val) {
         BillingONHeader b = new BillingONHeader();
-        b.setDiskId(Integer.parseInt(val.getDisk_id()));
-        b.setTransactionId(val.getTransc_id());
-        b.setRecordId(val.getRec_id());
-        b.setSpecId(val.getSpec_id());
-        b.setMohOffice(val.getMoh_office());
-        b.setBatchId(val.getBatch_id());
+        b.setDiskId(Integer.parseInt(val.getDiskId()));
+        b.setTransactionId(val.getTranscId());
+        b.setRecordId(val.getRecId());
+        b.setSpecId(val.getSpecId());
+        b.setMohOffice(val.getMohOffice());
+        b.setBatchId(val.getBatchId());
         b.setOperator(val.getOperator());
-        b.setGroupNum(val.getGroup_num());
-        b.setProviderRegNum(val.getProvider_reg_num());
+        b.setGroupNum(val.getGroupNum());
+        b.setProviderRegNum(val.getProviderRegNum());
         b.setSpecialty(val.getSpecialty());
-        b.sethCount(val.getH_count());
-        b.setrCount(val.getR_count());
-        b.settCount(val.getT_count());
+        b.sethCount(val.getHCount());
+        b.setrCount(val.getRCount());
+        b.settCount(val.getTCount());
         b.setBatchDate(new Date());
         b.setCreateDateTime(new Date());
         b.setUpdateDateTime(new Date());
@@ -485,7 +485,7 @@ public class BillingOnClaimPersister {
             payment = new BillingONPayment();
             payment.setTotal_payment(BillingMoney.amount(paymentSumParam));
             payment.setTotal_discount(BillingMoney.amount(mVal.get("total_discount")));
-            payment.setTotal_refund(BillingMoney.zero());
+            payment.setTotal_refund(BillingMoney.zeroAmount());
             payment.setPaymentDate(paymentDate);
             payment.setBillingOnCheader1(ch1);
             payment.setBillingNo(id);
@@ -730,9 +730,9 @@ public class BillingOnClaimPersister {
         BillingONRepo b = new BillingONRepo();
         b.sethId(Integer.parseInt(val.getId()));
         b.setCategory("billing_on_header");
-        b.setContent(val.getDisk_id() + "|" + val.getTransc_id() + "|" + val.getRec_id() + "|" + val.getSpec_id() + "|" + val.getMoh_office() + "|"
-                + val.getBatch_id() + "|" + val.getOperator() + "|" + val.getGroup_num() + "|" + val.getProvider_reg_num() + "|"
-                + val.getSpecialty() + "|" + val.getH_count() + "|" + val.getR_count() + "|" + val.getT_count() + "|" + val.getBatch_date()
+        b.setContent(val.getDiskId() + "|" + val.getTranscId() + "|" + val.getRecId() + "|" + val.getSpecId() + "|" + val.getMohOffice() + "|"
+                + val.getBatchId() + "|" + val.getOperator() + "|" + val.getGroupNum() + "|" + val.getProviderRegNum() + "|"
+                + val.getSpecialty() + "|" + val.getHCount() + "|" + val.getRCount() + "|" + val.getTCount() + "|" + val.getBatchDate()
                 + "|" + val.getCreatedatetime() + "|" + val.getUpdatedatetime() + "|" + val.getCreator() + "|" + val.getAction() + "|"
                 + val.getComment());
         b.setCreateDateTime(new Date());
@@ -752,8 +752,8 @@ public class BillingOnClaimPersister {
     public boolean updateBatchHeaderRecord(BillingBatchHeaderDto val) {
         BillingONHeader b = dao.find(Integer.parseInt(val.getId()));
         if (b != null) {
-            b.setMohOffice(val.getMoh_office());
-            b.setBatchId(val.getBatch_id());
+            b.setMohOffice(val.getMohOffice());
+            b.setBatchId(val.getBatchId());
             b.setSpecialty(val.getSpecialty());
             b.setCreator(val.getCreator());
             b.setUpdateDateTime(new Date());

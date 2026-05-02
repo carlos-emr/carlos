@@ -35,7 +35,7 @@ import io.github.carlos_emr.carlos.appt.JdbcApptImpl;
 @org.springframework.stereotype.Service
 public class BillingSiteIdService {
     private final String NO_SITE = "NONE";
-    private JdbcApptImpl dbObj;
+    private volatile JdbcApptImpl dbObj;
 
     // JdbcApptImpl resolves DAOs through SpringUtils.getBean() in its field
     // initialisers, which fails during Spring's eager singleton phase
@@ -43,10 +43,17 @@ public class BillingSiteIdService {
     // Defer the instantiation until first use, by which time Spring has
     // finished refreshing.
     private JdbcApptImpl dbObj() {
-        if (dbObj == null) {
-            dbObj = new JdbcApptImpl();
+        JdbcApptImpl local = dbObj;
+        if (local == null) {
+            synchronized (this) {
+                local = dbObj;
+                if (local == null) {
+                    local = new JdbcApptImpl();
+                    dbObj = local;
+                }
+            }
         }
-        return dbObj;
+        return local;
     }
 
     public String[] getSiteList() {

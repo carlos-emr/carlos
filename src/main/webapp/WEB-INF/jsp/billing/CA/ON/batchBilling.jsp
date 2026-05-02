@@ -21,7 +21,7 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Page role: Renders `batchBilling.jsp` for the Ontario billing workflow.
+  Purpose: Supports batchBilling in the Ontario billing workflow.
   Expected request model data includes: batchModel.
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.

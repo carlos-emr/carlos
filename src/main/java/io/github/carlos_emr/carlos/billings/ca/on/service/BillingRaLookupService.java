@@ -220,11 +220,11 @@ public class BillingRaLookupService {
      * "rows excluded" count instead of silently understating the total.
      */
     public AmountPaidResult getAmountPaidWithCount(ArrayList<HashMap<String, String>> a) {
-        BigDecimal total = BillingMoney.zero();
+        BigDecimal total = BillingMoney.zeroAmount();
         int unreadable = 0;
         for (int i = 0; i < a.size(); i++) {
             HashMap<String, String> h = a.get(i);
-            BigDecimal valueToAdd = BillingMoney.zero();
+            BigDecimal valueToAdd = BillingMoney.zeroAmount();
             try {
                 valueToAdd = BillingMoney.amount(h.get("amountpay"));
             } catch (Exception badValueException) {
@@ -272,7 +272,7 @@ public class BillingRaLookupService {
     /** Counted variant of {@link #getAmountPaid(ArrayList, String, String)}. */
     public AmountPaidResult getAmountPaidWithCount(ArrayList<HashMap<String, String>> a,
                                                    String billingNo, String serviceCode) {
-        BigDecimal total = BillingMoney.zero();
+        BigDecimal total = BillingMoney.zeroAmount();
         int unreadable = 0;
         for (int i = 0; i < a.size(); i++) {
             HashMap<String, String> h = a.get(i);
@@ -280,7 +280,7 @@ public class BillingRaLookupService {
                 continue;
             }
 
-            BigDecimal valueToAdd = BillingMoney.zero();
+            BigDecimal valueToAdd = BillingMoney.zeroAmount();
             try {
                 valueToAdd = BillingMoney.amount(h.get("amountpay"));
             } catch (Exception badValueException) {

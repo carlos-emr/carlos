@@ -147,6 +147,7 @@ public class BillingOnDiskService {
                     resolvedMoh, false, false);
             objFile.writeFile(objFile.getValue());
             objFile.writeHtml(objFile.getHtmlCode());
+            objFile.finalizeGeneratedDisk();
             objFile.updateDisknameSum(Integer.parseInt(diskId));
         } else if (lProvider != null && !lProvider.isEmpty()) {
             regenerateGroupDisk(prep, lProvider, loggedInInfo, request, dateRange, mohOffice,
@@ -190,6 +191,7 @@ public class BillingOnDiskService {
                     mohOffice, false, "on".equals(useProviderMOH));
             objFile.writeFile(objFile.getValue());
             objFile.writeHtml(objFile.getHtmlCode());
+            objFile.finalizeGeneratedDisk();
             objFile.updateDisknameSum(diskId);
         }
     }
@@ -224,25 +226,33 @@ public class BillingOnDiskService {
             MiscUtils.getLogger().info("creating group disk for =" + groupNo);
             int diskId = prep.createNewGrpDiskName(providerNoCopy, ohipNoCopy, groupNo,
                     currentUser);
-            String aggregatedClaim = writeGroupMembers(prep, grpProviders, groupNo, diskId,
+            GroupDiskGeneration generation = writeGroupMembers(prep, grpProviders, groupNo, diskId,
                     loggedInInfo, request, dateRange, mohOffice, useProviderMOH, currentUser,
                     oriBillCenter);
-            if (aggregatedClaim != null) {
+            if (generation != null) {
                 OhipClaimFileService finalize = ohipClaimFileFactory.getObject();
                 finalize.setContextPath(request.getContextPath());
                 finalize.setOhipFilename(prep.getOhipfilename(diskId));
-                finalize.writeFile(aggregatedClaim);
+                finalize.writeFile(generation.claimBody());
+                for (OhipClaimFileService writer : generation.writers()) {
+                    writer.finalizeGeneratedDisk();
+                    writer.updateDisknameSum(diskId);
+                }
             }
         }
     }
 
-    private String writeGroupMembers(BillingDiskCreationService prep,
-                                      List<BillingProviderDto> grpProviders, String groupNo,
-                                      int diskId, LoggedInInfo loggedInInfo,
-                                      HttpServletRequest request, DateRange dateRange,
-                                      String mohOffice, String useProviderMOH, String currentUser,
-                                      ProviderBillCenter oriBillCenter) {
+    private GroupDiskGeneration writeGroupMembers(BillingDiskCreationService prep,
+                                                   List<BillingProviderDto> grpProviders,
+                                                   String groupNo, int diskId,
+                                                   LoggedInInfo loggedInInfo,
+                                                   HttpServletRequest request,
+                                                   DateRange dateRange,
+                                                   String mohOffice, String useProviderMOH,
+                                                   String currentUser,
+                                                   ProviderBillCenter oriBillCenter) {
         StringBuilder value = new StringBuilder();
+        List<OhipClaimFileService> writers = new ArrayList<>();
         boolean wroteAny = false;
         for (int i = 0; i < grpProviders.size(); i++) {
             BillingProviderDto dataProvider = grpProviders.get(i);
@@ -258,10 +268,10 @@ public class BillingOnDiskService {
             if (objFile.getBigTotal().compareTo(BigDecimal.ZERO) == 0) continue;
             value.append(objFile.getValue());
             objFile.writeHtml(objFile.getHtmlCode());
-            objFile.updateDisknameSum(diskId);
+            writers.add(objFile);
             wroteAny = true;
         }
-        return wroteAny ? value.toString() : null;
+        return wroteAny ? new GroupDiskGeneration(value.toString(), writers) : null;
     }
 
     private void writeSingleSoloDisk(BillingDiskCreationService prep, BillingProviderDto dataProvider,
@@ -279,6 +289,7 @@ public class BillingOnDiskService {
                 mohOffice, false, "on".equals(useProviderMOH));
         objFile.writeFile(objFile.getValue());
         objFile.writeHtml(objFile.getHtmlCode());
+        objFile.finalizeGeneratedDisk();
         objFile.updateDisknameSum(diskId);
     }
 
@@ -289,6 +300,7 @@ public class BillingOnDiskService {
                                       String currentUser) {
         StringBuilder value = new StringBuilder();
         OhipClaimFileService lastWriter = null;
+        List<OhipClaimFileService> writers = new ArrayList<>();
         for (int i = 0; i < lProvider.size(); i++) {
             BillingProviderDto dataProvider = lProvider.get(i);
             OhipClaimFileService objFile = newFileWriter(request, dateRange,
@@ -302,13 +314,20 @@ public class BillingOnDiskService {
                     mohOffice, false, false);
             value.append(objFile.getValue()).append('\n');
             objFile.writeHtml(objFile.getHtmlCode());
-            objFile.updateDisknameSum(Integer.parseInt(diskId));
+            writers.add(objFile);
             lastWriter = objFile;
         }
         if (lastWriter != null) {
             lastWriter.renameFile();
             lastWriter.writeFile(value.toString());
+            for (OhipClaimFileService writer : writers) {
+                writer.finalizeGeneratedDisk();
+                writer.updateDisknameSum(Integer.parseInt(diskId));
+            }
         }
+    }
+
+    private record GroupDiskGeneration(String claimBody, List<OhipClaimFileService> writers) {
     }
 
     private static int createSoloHeader(BillingDiskCreationService prep, BillingProviderDto dataProvider,

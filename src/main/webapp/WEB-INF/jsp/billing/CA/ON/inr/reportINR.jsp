@@ -21,7 +21,7 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Page role: Renders `reportINR.jsp` for the Ontario billing workflow.
+  Purpose: Supports reportINR in the Ontario billing workflow.
   Expected request model data includes: reportInrModel.
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.

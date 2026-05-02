@@ -76,6 +76,10 @@ gh pr create                 # GitHub pull request creation
 - PHI (Patient Health Information) must NEVER be logged or exposed
 - **Use `PathValidationUtils` for ALL file path operations** (see below)
 
+**What counts as PHI vs. internal identifiers:**
+- **PHI** (treat as sensitive): HIN/health card number, patient name, DOB, address, phone, diagnosis text, clinical notes, lab values, medication details — anything that identifies a real person or their care.
+- **NOT PHI** (safe in logs and operator-facing error context): `demographic_no` / `demoNo`, appointment IDs, billing IDs, provider numbers, internal surrogate keys. These are internal indexes scoped to this CARLOS instance — they do not identify a person outside the system and have no meaning without DB access (which is already gated by `SecurityInfoManager`). Including them in error context, exception payloads, and log messages is encouraged because they make incidents debuggable.
+
 ### OWASP Encoding — XSS Prevention
 
 CARLOS provides null-safe wrappers around OWASP Encoder. **Use the CARLOS wrappers for all new code.**

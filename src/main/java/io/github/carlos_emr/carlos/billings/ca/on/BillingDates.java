@@ -40,6 +40,8 @@ public final class BillingDates {
     private static final DateTimeFormatter OHIP_DATE = DateTimeFormatter.BASIC_ISO_DATE;
     private static final DateTimeFormatter ISO_TIME = DateTimeFormatter.ofPattern("HH:mm:ss");
     private static final DateTimeFormatter ISO_TIMESTAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static volatile String cachedBillingZoneKey;
+    private static volatile ZoneId cachedBillingZone;
 
     private BillingDates() {
     }
@@ -49,13 +51,6 @@ public final class BillingDates {
             return fallbackDate.format(SERVICE_DATE);
         }
         return parseOhipDate(raw, false).format(SERVICE_DATE);
-    }
-
-    public static String ohipTerminationDate(String raw) {
-        if ("99999999".equals(raw)) {
-            return "9999-12-31";
-        }
-        return parseOhipDate(raw, true).format(SERVICE_DATE);
     }
 
     public static Date serviceDate(String serviceDate) {
@@ -209,14 +204,28 @@ public final class BillingDates {
     private static ZoneId billingZone() {
         Object configuredZone = CarlosProperties.getInstance().get(BILLING_TIMEZONE_PROPERTY);
         String zoneId = configuredZone == null ? "" : configuredZone.toString().trim();
+        ZoneId systemDefault = ZoneId.systemDefault();
+        String cacheKey = zoneId.isEmpty() ? "system:" + systemDefault.getId() : "configured:" + zoneId;
+        ZoneId cached = cachedBillingZone;
+        if (cached != null && cacheKey.equals(cachedBillingZoneKey)) {
+            return cached;
+        }
+
+        ZoneId resolved;
         if (zoneId.isEmpty()) {
-            return ZoneId.systemDefault();
+            resolved = systemDefault;
+        } else {
+            try {
+                resolved = ZoneId.of(zoneId);
+            } catch (DateTimeException e) {
+                throw new IllegalArgumentException("Invalid " + BILLING_TIMEZONE_PROPERTY + " value: " + zoneId, e);
+            }
         }
-        try {
-            return ZoneId.of(zoneId);
-        } catch (DateTimeException e) {
-            throw new IllegalArgumentException("Invalid " + BILLING_TIMEZONE_PROPERTY + " value: " + zoneId, e);
+        synchronized (BillingDates.class) {
+            cachedBillingZoneKey = cacheKey;
+            cachedBillingZone = resolved;
         }
+        return resolved;
     }
 
     private static LocalDate parseOhipDate(String raw, boolean normalizeZeroDay) {

@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;
 
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -34,9 +35,7 @@ import java.util.Set;
  * via {@link io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingOn2Action}
  * and exposed to the JSP as request attribute {@code formModel}. Carries the
  * provider/demographic context, dx/service-code grids, billing history, and
- * validation banner state the form needs to render — replacing ~24 DAO
- * lookups that previously ran inline in the JSP and pushed the rendered
- * response past the 1 MB page buffer.</p>
+ * validation banner state the form needs to render.</p>
  *
  * <p>Internally the cross-cutting clusters are stored as composed records so
  * the page model is a small set of structured slices rather than a flat
@@ -48,7 +47,7 @@ import java.util.Set;
  */
 public final class BillingOnFormViewModel {
 
-    /** Billing history entry extracted from the top scriptlet block. */
+    /** Recent billing visit context used for form defaults. */
     public record BillingHistoryEntry(
             String visitDate,
             String visitType,
@@ -86,8 +85,6 @@ public final class BillingOnFormViewModel {
 
     /**
      * One row in the recent-billing history table at the bottom of the form.
-     * Replaces the inline {@code aL.get(i)/aL.get(i+1)} cast pairs the legacy
-     * JSP used to iterate {@code BillingOnClaimLoader.getBillingHist}.
      */
     public record BillingHistoryRow(
             String id,
@@ -110,6 +107,13 @@ public final class BillingOnFormViewModel {
      */
     public record LegacySiteOption(String name, boolean suggested) { }
 
+    /** Degraded lookup surfaces that should render operator-visible banners. */
+    public enum DegradationFlag {
+        RECOMMENDATIONS_UNAVAILABLE,
+        SITE_CONTEXT_DEGRADED,
+        ADMISSION_DATE_UNAVAILABLE
+    }
+
     // ---- Primary composed records ----
     private final BillingDemographicSummary demographic;
     private final BillingReferralDoctor referral;
@@ -124,14 +128,12 @@ public final class BillingOnFormViewModel {
     private final BillingOnLookupPresentation lookupData;
     private final BillingOnDisplayPresentation display;
     private final BillingOnReferralDefaults referralDefaults;
-    private final boolean recommendationsUnavailable;
-    private final boolean siteContextDegraded;
-    private final boolean admissionDateUnavailable;
+    private final Set<DegradationFlag> degradationFlags;
 
     private BillingOnFormViewModel(Builder b) {
-        this.recommendationsUnavailable = b.recommendationsUnavailable;
-        this.siteContextDegraded = b.siteContextDegraded;
-        this.admissionDateUnavailable = b.admissionDateUnavailable;
+        this.degradationFlags = b.degradationFlags.isEmpty()
+                ? Collections.emptySet()
+                : Collections.unmodifiableSet(EnumSet.copyOf(b.degradationFlags));
         // Resolve composed records first — either the composed-setter wins or
         // we synthesize from the legacy flat-field accumulators.
         this.demographic = (b.demographic != null)
@@ -395,9 +397,16 @@ public final class BillingOnFormViewModel {
     public String getDefaultView() { return display.defaultView(); }
     public String getDemoNameUrlEncoded() { return requestContext.demoNameUrlEncoded(); }
     public Map<String, String> getRequestParamEchoes() { return requestContext.requestParamEchoes(); }
-    public boolean isRecommendationsUnavailable() { return recommendationsUnavailable; }
-    public boolean isSiteContextDegraded() { return siteContextDegraded; }
-    public boolean isAdmissionDateUnavailable() { return admissionDateUnavailable; }
+    public Set<DegradationFlag> getDegradationFlags() { return degradationFlags; }
+    public boolean isRecommendationsUnavailable() {
+        return degradationFlags.contains(DegradationFlag.RECOMMENDATIONS_UNAVAILABLE);
+    }
+    public boolean isSiteContextDegraded() {
+        return degradationFlags.contains(DegradationFlag.SITE_CONTEXT_DEGRADED);
+    }
+    public boolean isAdmissionDateUnavailable() {
+        return degradationFlags.contains(DegradationFlag.ADMISSION_DATE_UNAVAILABLE);
+    }
 
     public static final class Builder {
         // ---- Composed-record setters (preferred) ----
@@ -414,9 +423,7 @@ public final class BillingOnFormViewModel {
         private BillingOnLookupPresentation lookupData;
         private BillingOnDisplayPresentation display;
         private BillingOnReferralDefaults referralDefaults;
-        private boolean recommendationsUnavailable;
-        private boolean siteContextDegraded;
-        private boolean admissionDateUnavailable;
+        private final EnumSet<DegradationFlag> degradationFlags = EnumSet.noneOf(DegradationFlag.class);
 
         // ---- Legacy flat-field accumulators ----
         private String userNo;
@@ -523,9 +530,34 @@ public final class BillingOnFormViewModel {
         public Builder lookupData(BillingOnLookupPresentation v) { this.lookupData = v; return this; }
         public Builder display(BillingOnDisplayPresentation v) { this.display = v; return this; }
         public Builder referralDefaults(BillingOnReferralDefaults v) { this.referralDefaults = v; return this; }
-        public Builder recommendationsUnavailable(boolean v) { this.recommendationsUnavailable = v; return this; }
-        public Builder siteContextDegraded(boolean v) { this.siteContextDegraded = v; return this; }
-        public Builder admissionDateUnavailable(boolean v) { this.admissionDateUnavailable = v; return this; }
+        public Builder degradationFlags(Set<DegradationFlag> flags) {
+            this.degradationFlags.clear();
+            if (flags != null) {
+                this.degradationFlags.addAll(flags);
+            }
+            return this;
+        }
+
+        public Builder recommendationsUnavailable(boolean v) {
+            return degradationFlag(DegradationFlag.RECOMMENDATIONS_UNAVAILABLE, v);
+        }
+
+        public Builder siteContextDegraded(boolean v) {
+            return degradationFlag(DegradationFlag.SITE_CONTEXT_DEGRADED, v);
+        }
+
+        public Builder admissionDateUnavailable(boolean v) {
+            return degradationFlag(DegradationFlag.ADMISSION_DATE_UNAVAILABLE, v);
+        }
+
+        private Builder degradationFlag(DegradationFlag flag, boolean enabled) {
+            if (enabled) {
+                degradationFlags.add(flag);
+            } else {
+                degradationFlags.remove(flag);
+            }
+            return this;
+        }
 
         // ---- Legacy flat setters (back-compat — accumulate for build()) ----
 

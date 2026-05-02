@@ -57,13 +57,13 @@ public record BillingCorrectionSubmitCommand(String billingNo,
                 content,
                 Commands.requiredStoredCents(total == null || total.isEmpty() ? "0" : total, "total"),
                 hin,
-                Commands.isoDate(dob, "dob"),
+                Commands.optionalCorrectionDate(dob, "dob"),
                 visitType,
-                Commands.isoDate(visitDate, "visitDate"),
+                Commands.optionalCorrectionDate(visitDate, "visitDate"),
                 status,
                 clinicRefCode,
                 providerNo,
-                Commands.isoDate(billingDate, "billingDate"),
+                Commands.optionalCorrectionDate(billingDate, "billingDate"),
                 items);
     }
 

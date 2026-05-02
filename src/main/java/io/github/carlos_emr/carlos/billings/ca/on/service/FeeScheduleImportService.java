@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import io.github.carlos_emr.carlos.billings.ca.on.BillingDates;
 import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
+import io.github.carlos_emr.carlos.billings.ca.on.OhipScheduleDates;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.FeeScheduleAppliedChange;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.FeeScheduleApplyResult;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.FeeScheduleChange;
@@ -191,7 +192,7 @@ public class FeeScheduleImportService {
                                     String description) {
         LocalDate today = LocalDate.now(clock);
         String serviceDate = BillingDates.ohipEffectiveDate(effectiveDate, today);
-        String termDate = BillingDates.ohipTerminationDate(terminationDate);
+        String termDate = OhipScheduleDates.terminationDate(terminationDate);
 
         BillingService billingService = new BillingService();
         billingService.setServiceCompositecode("");

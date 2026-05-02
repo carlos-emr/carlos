@@ -320,4 +320,47 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
                 .as("null exception message must default to placeholder, not literal 'null'")
                 .contains("check server log");
     }
+
+    @Test
+    void shouldSkipProvidersWithoutOhipNumber_withoutCreatingExtract() {
+        @SuppressWarnings("unchecked")
+        org.springframework.beans.factory.ObjectFactory<OhipClaimExtractService> trackingFactory =
+                mock(org.springframework.beans.factory.ObjectFactory.class);
+        org.springframework.transaction.PlatformTransactionManager txManager =
+                mock(org.springframework.transaction.PlatformTransactionManager.class);
+        OhipReportGenerationService oneProviderService = new OhipReportGenerationService(
+                billActivityDao, providerDao, billingDao, billingDetailDao, trackingFactory, txManager);
+
+        Provider p = mock(Provider.class);
+        when(p.getOhipNo()).thenReturn("");
+        when(providerDao.getActiveProviders()).thenReturn(java.util.List.of(p));
+
+        java.util.List<OhipReportGenerationService.FailedProvider> skipped;
+        try (MockedStatic<CarlosProperties> propsMock = mockStatic(CarlosProperties.class)) {
+            CarlosProperties props = mock(CarlosProperties.class);
+            when(props.getProperty("hybrid_billing", "")).thenReturn("");
+            propsMock.when(CarlosProperties::getInstance).thenReturn(props);
+
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            request.setParameter("monthCode", "OB");
+            request.setParameter("providers", "all");
+
+            skipped = oneProviderService.generateReport(request,
+                    OhipReportGenerationService.Mode.SOLO_REPORT);
+        }
+
+        assertThat(skipped).isEmpty();
+        verifyNoInteractions(trackingFactory);
+    }
+
+    @Test
+    void failedProviderShouldCoalesceNullsForJspRendering() {
+        OhipReportGenerationService.FailedProvider failed =
+                new OhipReportGenerationService.FailedProvider(null, null, null, null);
+
+        assertThat(failed.providerNo()).isEmpty();
+        assertThat(failed.ohipNo()).isEmpty();
+        assertThat(failed.causeClass()).isEqualTo("Unknown");
+        assertThat(failed.causeMessage()).contains("check server log");
+    }
 }

@@ -196,7 +196,7 @@ public class BillingSpecialistClaimService {
     }
 
     private String totalForCsvCodes(String svcCode) {
-        BigDecimal runningTotal = BillingMoney.zero();
+        BigDecimal runningTotal = BillingMoney.zeroAmount();
         for (String code : svcCode.split(",")) {
             runningTotal = runningTotal.add(BillingMoney.amount(feeForCode(code.trim())));
         }

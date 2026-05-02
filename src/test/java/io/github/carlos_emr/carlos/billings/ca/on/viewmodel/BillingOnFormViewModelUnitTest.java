@@ -347,14 +347,22 @@ class BillingOnFormViewModelUnitTest {
         BillingOnFormViewModel defaultModel = BillingOnFormViewModel.builder().build();
         assertThat(defaultModel.isRecommendationsUnavailable()).isFalse();
         assertThat(defaultModel.isSiteContextDegraded()).isFalse();
+        assertThat(defaultModel.isAdmissionDateUnavailable()).isFalse();
+        assertThat(defaultModel.getDegradationFlags()).isEmpty();
 
         BillingOnFormViewModel flagged = BillingOnFormViewModel.builder()
                 .recommendationsUnavailable(true)
                 .siteContextDegraded(true)
+                .admissionDateUnavailable(true)
                 .build();
 
         assertThat(flagged.isRecommendationsUnavailable()).isTrue();
         assertThat(flagged.isSiteContextDegraded()).isTrue();
+        assertThat(flagged.isAdmissionDateUnavailable()).isTrue();
+        assertThat(flagged.getDegradationFlags()).containsExactlyInAnyOrder(
+                BillingOnFormViewModel.DegradationFlag.RECOMMENDATIONS_UNAVAILABLE,
+                BillingOnFormViewModel.DegradationFlag.SITE_CONTEXT_DEGRADED,
+                BillingOnFormViewModel.DegradationFlag.ADMISSION_DATE_UNAVAILABLE);
     }
 
     /**

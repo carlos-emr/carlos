@@ -27,6 +27,11 @@ import java.math.BigDecimal;
 
 import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 
+/**
+ * Immutable data transfer object for a single Ontario claim header row.
+ * Carries the fixed-width MOH export fields plus UI/reporting totals while
+ * keeping the string-shaped accessors used by JSP and service code.
+ */
 public record BillingClaimHeaderDto(
         String id,
         String batchHeaderId,
@@ -76,8 +81,8 @@ public record BillingClaimHeaderDto(
         int numItems) {
 
     public BillingClaimHeaderDto {
-        cashTotal = cashTotal == null ? BillingMoney.zero() : cashTotal;
-        debitTotal = debitTotal == null ? BillingMoney.zero() : debitTotal;
+        cashTotal = cashTotal == null ? BillingMoney.zeroAmount() : cashTotal;
+        debitTotal = debitTotal == null ? BillingMoney.zeroAmount() : debitTotal;
     }
 
     public BillingClaimHeaderDto() {
@@ -85,7 +90,7 @@ public record BillingClaimHeaderDto(
                 null, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null, null,
-                null, null, BillingMoney.zero(), BillingMoney.zero(), null, 0);
+                null, null, BillingMoney.zeroAmount(), BillingMoney.zeroAmount(), null, 0);
     }
 
     public BillingClaimHeaderDto(BillingClaimHeaderDto copy) {

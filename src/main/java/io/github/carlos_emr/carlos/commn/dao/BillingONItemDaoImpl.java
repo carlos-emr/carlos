@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.Date;
 import java.util.List;
+
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
@@ -72,6 +73,15 @@ public class BillingONItemDaoImpl extends AbstractDaoImpl<BillingONItem> impleme
     public List<BillingONItem> findByCh1Id(Integer id) {
         Query query = createQuery("bi", "bi.ch1Id = ?1 AND bi.status <> 'D' AND bi.status <> 'S'");
         query.setParameter(1, id);
+        return query.getResultList();
+    }
+
+    public List<BillingONItem> findByCh1IdsExcludingDeletedAndSettled(List<Integer> ch1Ids) {
+        if (ch1Ids == null || ch1Ids.isEmpty()) {
+            return List.of();
+        }
+        Query query = createQuery("bi", "bi.ch1Id IN (?1) AND bi.status <> 'D' AND bi.status <> 'S' ORDER BY bi.ch1Id, bi.id");
+        query.setParameter(1, ch1Ids);
         return query.getResultList();
     }
 

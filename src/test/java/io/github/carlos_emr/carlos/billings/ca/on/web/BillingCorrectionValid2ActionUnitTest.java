@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCorrectionReviewViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionValidationCommand;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionReviewPreparationService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -44,9 +45,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentCaptor.forClass;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.mockito.ArgumentCaptor;
 
 @DisplayName("BillingCorrectionValid2Action")
 @Tag("unit")
@@ -115,5 +118,54 @@ class BillingCorrectionValid2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(request.getSession().getAttribute("billingDataBean")).isNull();
         assertThat(request.getSession().getAttribute("billingPatientDataBean")).isNull();
         verify(preparationService).prepareReview(any());
+    }
+
+    @Test
+    void shouldBindDobFromXmlDobPostedByCorrectionForm() throws Exception {
+        request.setParameter("xml_billing_no", "42");
+        request.setParameter("xml_dob", "19800101");
+        request.setParameter("xml_vdate", "20260428");
+        request.setParameter("xml_appointment_date", "20260429");
+        request.setParameter("update_date", "20260430");
+        request.setParameter("servicecode0", "A001A");
+        request.setParameter("billingunit0", "1");
+
+        when(preparationService.prepareReview(any())).thenReturn(BillingCorrectionReviewViewModel.builder().build());
+
+        new BillingCorrectionValid2Action(securityInfoManager, preparationService).execute();
+
+        ArgumentCaptor<BillingCorrectionValidationCommand> captor =
+                forClass(BillingCorrectionValidationCommand.class);
+        verify(preparationService).prepareReview(captor.capture());
+        assertThat(captor.getValue().dobText()).isEqualTo("1980-01-01");
+        assertThat(captor.getValue().visitDateText()).isEqualTo("2026-04-28");
+        assertThat(captor.getValue().billingDateText()).isEqualTo("2026-04-29");
+        assertThat(captor.getValue().updateDateText()).isEqualTo("2026-04-30");
+    }
+
+    @Test
+    void shouldOrderServiceLinesByNumericSuffix_whenRequestEnumeratesParametersOutOfOrder() throws Exception {
+        request.setParameter("xml_billing_no", "42");
+        request.setParameter("xml_dob", "19800101");
+        request.setParameter("servicecode2", "C003A");
+        request.setParameter("billingunit2", "3");
+        request.setParameter("billingamount2", "30.00");
+        request.setParameter("servicecode0", "A001A");
+        request.setParameter("billingunit0", "1");
+        request.setParameter("billingamount0", "10.00");
+        request.setParameter("servicecode1", "");
+        request.setParameter("billingunit1", "");
+        request.setParameter("billingamount1", "");
+
+        when(preparationService.prepareReview(any())).thenReturn(BillingCorrectionReviewViewModel.builder().build());
+
+        new BillingCorrectionValid2Action(securityInfoManager, preparationService).execute();
+
+        ArgumentCaptor<BillingCorrectionValidationCommand> captor =
+                forClass(BillingCorrectionValidationCommand.class);
+        verify(preparationService).prepareReview(captor.capture());
+        assertThat(captor.getValue().serviceLines())
+                .extracting("serviceCode")
+                .containsExactly("A001A", "C003A");
     }
 }

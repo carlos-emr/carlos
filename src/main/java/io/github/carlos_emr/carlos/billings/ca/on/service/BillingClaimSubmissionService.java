@@ -45,7 +45,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  * a {@code BillingONCHeader1} + {@code BillingONItem} graph, persists it via
  * {@link BillingOnClaimPersister}, optionally creates a private-bill
  * {@code BillingONExt} payment record, and updates the source appointment's
- * billing status. {@code addABillingRecord(...)} is the canonical entry point
+ * billing status. {@link #addBillingRecord(BillingClaimSubmission)} is the typed entry point
  * and returns {@link SaveResult} so the caller can distinguish "saved with id"
  * from "rejected".
  *
@@ -107,9 +107,31 @@ public class BillingClaimSubmissionService {
         return BillingClaimSubmission.fromLegacy(getBillingClaimObj(requestData));
     }
 
-    // save a billing record
+    /** Typed-record alternative to {@link #getBillingClaimHospObj}; preferred for new code. */
+    public BillingClaimSubmission getHospitalSubmission(HttpServletRequest requestData,
+                                                        String serviceDate,
+                                                        String total,
+                                                        List<BillingServiceLine> lines) {
+        return BillingClaimSubmission.fromLegacy(
+                getBillingClaimHospObj(requestData, serviceDate, total, lines));
+    }
+
+    /**
+     * Persists one typed claim header and its item rows.
+     */
+    public SaveResult addBillingRecord(BillingClaimSubmission submission) {
+        return addABillingRecord(submission.toLegacyArrayList());
+    }
+
+    /**
+     * Persists one claim header and its item rows.
+     *
+     * @param val legacy envelope containing {@link BillingClaimHeaderDto} at
+     *            index 0 and a {@code List<BillingClaimItemDto>} at index 1
+     * @return save status and generated billing id
+     */
     @SuppressWarnings("rawtypes")
-    public SaveResult addABillingRecord(ArrayList val) {
+    SaveResult addABillingRecord(ArrayList val) {
         BillingClaimHeaderDto claim1Obj = (BillingClaimHeaderDto) val.get(0);
         int billingNo = claimPersister.addOneClaimHeaderRecord(claim1Obj);
         if (billingNo == 0)
@@ -126,6 +148,10 @@ public class BillingClaimSubmissionService {
         return new SaveResult(false, billingNo);
     }
 
+    /**
+     * Persists the third-party/private-bill extension row for an existing
+     * billing record using request parameters as the source.
+     */
     public boolean addPrivateBillExtRecord(HttpServletRequest requestData, int billingId) {
         boolean ret = false;
         Map<String, String> val = getPrivateBillExtObj(requestData);
@@ -136,8 +162,12 @@ public class BillingClaimSubmissionService {
         return ret;
     }
 
-
-    public boolean addPrivateBillExtRecord(HttpServletRequest requestData, ArrayList claimEnvelope, int billingId) {
+    /**
+     * Persists the third-party/private-bill extension row and updates the
+     * claim envelope with private billing values required by downstream
+     * callers.
+     */
+    boolean addPrivateBillExtRecord(HttpServletRequest requestData, ArrayList claimEnvelope, int billingId) {
         boolean ret = false;
 
         Map<String, String> val = getPrivateBillExtObj(requestData);
@@ -149,13 +179,28 @@ public class BillingClaimSubmissionService {
     }
 
 
+    /** Creates the OHIP invoice transaction row for a saved claim envelope. */
     @SuppressWarnings("unchecked")
-    public void addOhipInvoiceTrans(ArrayList claimEnvelope) {
+    void addOhipInvoiceTrans(ArrayList claimEnvelope) {
         claimPersister.addCreateOhipInvoiceTrans((BillingClaimHeaderDto) claimEnvelope.get(0), (List<BillingClaimItemDto>) claimEnvelope.get(1));
     }
 
     /**
-     * Atomic save of header + items + 3rd-party-or-OHIP-trans + payee ext.
+     * Record-typed atomic save of header, items, third-party/OHIP transaction,
+     * and payee extension data. Preferred for new callers because it defends
+     * the header/items envelope invariants before delegating to the legacy
+     * envelope overload.
+     */
+    public SaveResult saveBillingWithExtAndPayee(BillingClaimSubmission submission,
+                                                 HttpServletRequest requestData,
+                                                 String xmlBillType,
+                                                 String payeeValue) {
+        return saveBillingWithExtAndPayee(submission.toLegacyArrayList(),
+                requestData, xmlBillType, payeeValue);
+    }
+
+    /**
+     * Atomic save of header, items, third-party/OHIP transaction, and payee ext.
      * All four writes run inside one Spring transaction; any throw rolls
      * the entire save back, preventing orphan {@code billing_on_cheader1}
      * rows with missing payee keys.
@@ -167,21 +212,11 @@ public class BillingClaimSubmissionService {
      * @return SaveResult mirroring {@link #addABillingRecord}'s contract
      * @throws BillingValidationException if any sub-write fails — entire tx rolls back
      */
-    /** Record-typed entry point. Preferred for new callers — defends the
-     *  [header, items] invariants the {@code ArrayList} variant did not. */
-    public SaveResult saveBillingWithExtAndPayee(BillingClaimSubmission submission,
-                                                 HttpServletRequest requestData,
-                                                 String xmlBillType,
-                                                 String payeeValue) {
-        return saveBillingWithExtAndPayee(submission.toLegacyArrayList(),
-                requestData, xmlBillType, payeeValue);
-    }
-
     @SuppressWarnings("rawtypes")
-    public SaveResult saveBillingWithExtAndPayee(ArrayList claimEnvelope,
-                                                 HttpServletRequest requestData,
-                                                 String xmlBillType,
-                                                 String payeeValue) {
+    SaveResult saveBillingWithExtAndPayee(ArrayList claimEnvelope,
+                                          HttpServletRequest requestData,
+                                          String xmlBillType,
+                                          String payeeValue) {
         SaveResult headerResult = addABillingRecord(claimEnvelope);
         if (!headerResult.saved()) {
             return headerResult;
@@ -211,7 +246,7 @@ public class BillingClaimSubmissionService {
         return headerResult;
     }
 
-    // set appt to B
+    /** Updates the source appointment's billing status after claim save/delete work. */
     public boolean updateApptStatus(String apptNo, String status, String userNo) {
         return lookupService.updateApptStatus(apptNo, status, userNo);
     }
@@ -222,7 +257,7 @@ public class BillingClaimSubmissionService {
     }
 
     // ret - ArrayList claimheader1data, itemdata
-    public ArrayList getBillingClaimObj(HttpServletRequest requestData) {
+    ArrayList getBillingClaimObj(HttpServletRequest requestData) {
         ArrayList ret = new ArrayList();
         BillingClaimHeaderDto claim1Header = getClaimHeader1Obj(requestData);
         ret.add(claim1Header);
@@ -237,8 +272,8 @@ public class BillingClaimSubmissionService {
     }
 
     // ret - ArrayList claimheader1data, itemdata
-    public ArrayList getBillingClaimHospObj(HttpServletRequest requestData, String service_date, String total,
-                                         List<BillingServiceLine> lines) {
+    ArrayList getBillingClaimHospObj(HttpServletRequest requestData, String service_date, String total,
+                                     List<BillingServiceLine> lines) {
         ArrayList ret = new ArrayList();
         BillingClaimHeaderDto claim1Header = getClaimHeader1HospObj(requestData, service_date, total);
         ret.add(claim1Header);
@@ -265,7 +300,7 @@ public class BillingClaimSubmissionService {
             claim1Header = claim1Header.withHin(val.getParameter("hin"));
             claim1Header = claim1Header.withVer(val.getParameter("ver"));
             claim1Header = claim1Header.withDob(val.getParameter("demographic_dob"));
-            claim1Header = claim1Header.withAppointmentNo(val.getParameter("appointment_no")); // appointment_no;
+            claim1Header = claim1Header.withAppointmentNo(val.getParameter("appointment_no"));
             claim1Header = claim1Header.withDemographicName(val.getParameter("demographic_name"));
             String temp[] = getPatientLF(val.getParameter("demographic_name"));
             claim1Header = claim1Header.withLastName(temp[0]);
@@ -276,7 +311,7 @@ public class BillingClaimSubmissionService {
             claim1Header = claim1Header.withHin("");
             claim1Header = claim1Header.withVer("");
             claim1Header = claim1Header.withDob("");
-            claim1Header = claim1Header.withAppointmentNo(""); // appointment_no;
+            claim1Header = claim1Header.withAppointmentNo("");
             claim1Header = claim1Header.withDemographicName("");
             claim1Header = claim1Header.withLastName("");
             claim1Header = claim1Header.withFirstName("");

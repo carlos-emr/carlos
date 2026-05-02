@@ -21,7 +21,7 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Page role: Renders `onGenRAError.jsp` for the Ontario billing workflow.
+  Purpose: Supports onGenRAError in the Ontario billing workflow.
   Expected request model data includes: onGenRAErrorModel.
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.

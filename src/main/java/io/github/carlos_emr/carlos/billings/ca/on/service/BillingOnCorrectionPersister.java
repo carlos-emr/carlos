@@ -150,31 +150,6 @@ public class BillingOnCorrectionPersister {
         c.setClinic(ch1Obj.getClinic() == null ? "" : ch1Obj.getClinic());
 
         billingHeaderDao.merge(c);
-		
-		
-	/*	String sql = "update billing_on_cheader1 set transc_id='" + ch1Obj.transactionId() + "'," + " rec_id='"
-				+ ch1Obj.recordId() + "'," + " hin='" + ch1Obj.getHin() + "'," + " ver='" + ch1Obj.getVer() + "',"
-				+ " dob='" + ch1Obj.getDob() + "'," + " pay_program='" + ch1Obj.payProgram() + "'," + " payee='"
-				+ ch1Obj.getPayee() + "'," + " ref_num='" + ch1Obj.referralNumber() + "'," + " facilty_num='"
-				+ ch1Obj.facilityNumber() + "'," + " admission_date='" + ch1Obj.admissionDate() + "',"
-				+ " ref_lab_num='" + ch1Obj.referringLabNumber() + "'," + " man_review='" + ch1Obj.manualReview() + "',"
-				+ " location='" + ch1Obj.getLocation()
-
-				+ "'," + " demographic_no='" + ch1Obj.demographicNo() + "'," + " provider_no='"
-				+ ch1Obj.getProviderNo() + "'," + " appointment_no='" + ch1Obj.appointmentNo() + "',"
-				+ " demographic_name='" + StringEscapeUtilsch1Obj.demographicName() + "'," + " sex='"
-				+ ch1Obj.getSex() + "'," + " province='" + ch1Obj.getProvince() + "'," + " billing_date='"
-				+ ch1Obj.billingDate() + "'," + " billing_time='" + ch1Obj.billingTime() + "'," + " total='"
-				+ ch1Obj.getTotal() + "'," + " paid='" + ch1Obj.getPaid() + "'," + " status='" + ch1Obj.getStatus()
-				+ "'," + " comment1='" + ch1Obj.getComment() + "'," + " visittype='" + ch1Obj.visitType() + "',"
-				+ " provider_ohip_no='" + ch1Obj.providerOhipNo() + "'," + " provider_rma_no='"
-				+ ch1Obj.providerRmaNo() + "'," + " apptProvider_no='" + ch1Obj.appointmentProviderNo() + "',"
-				+ " asstProvider_no='" + ch1Obj.assistantProviderNo() + "'," + " creator='" + ch1Obj.getCreator()
-
-				+ "', clinic=" + (ch1Obj.getClinic()==null?"null":"'"+ch1Obj.getClinic()+"'")
-
-				+ " where id=" + ch1Obj.getId();
-				*/
 
         return true;
     }

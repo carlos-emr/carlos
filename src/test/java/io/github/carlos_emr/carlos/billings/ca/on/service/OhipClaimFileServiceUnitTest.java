@@ -23,15 +23,21 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.lang.reflect.Modifier;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
+import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +47,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.billings.ca.on.BillingDates;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONDiskNameDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONFilenameDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONHeaderDao;
@@ -48,7 +55,12 @@ import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONItemDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
+import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
+import io.github.carlos_emr.carlos.commn.model.BillingONItem;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.utility.DateRange;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 /**
  * Pins the {@code BillingFileWriteException} contract on the
@@ -73,19 +85,24 @@ class OhipClaimFileServiceUnitTest {
 
     private OhipClaimFileService service;
     private BillingONHeaderDao headerDao;
+    private DemographicManager demographicManager;
+    private BillingONCHeader1Dao cheaderDao;
+    private BillingONItemDao itemDao;
+    private BillingServiceDao billingServiceDao;
+    private BillingOnLookupService lookupService;
     private Object homeDirBefore;
 
     @BeforeEach
     void setUp() {
-        DemographicManager demographicManager = mock(DemographicManager.class);
-        BillingONCHeader1Dao cheaderDao = mock(BillingONCHeader1Dao.class);
+        demographicManager = mock(DemographicManager.class);
+        cheaderDao = mock(BillingONCHeader1Dao.class);
         headerDao = mock(BillingONHeaderDao.class);
         BillingONFilenameDao filenameDao = mock(BillingONFilenameDao.class);
         SiteDao siteDao = mock(SiteDao.class);
-        BillingONItemDao itemDao = mock(BillingONItemDao.class);
-        BillingServiceDao billingServiceDao = mock(BillingServiceDao.class);
+        itemDao = mock(BillingONItemDao.class);
+        billingServiceDao = mock(BillingServiceDao.class);
         BillingONDiskNameDao diskNameDao = mock(BillingONDiskNameDao.class);
-        BillingOnLookupService lookupService = mock(BillingOnLookupService.class);
+        lookupService = mock(BillingOnLookupService.class);
 
         // The constructor pre-caches site short names; an empty list keeps
         // the constructor work to a minimum without touching the database.
@@ -247,6 +264,46 @@ class OhipClaimFileServiceUnitTest {
     }
 
     @Test
+    void shouldCreateGoldenSimulationForSingleHcpClaim() throws Exception {
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        BillingONCHeader1 header = hcpHeader();
+        BillingONItem item = hcpItem();
+        Demographic demographic = mock(Demographic.class);
+        when(demographic.getRosterStatus()).thenReturn("RO");
+        when(demographic.getBirthDayAsString()).thenReturn("1980-01-01");
+        when(demographic.getSex()).thenReturn("F");
+        when(demographicManager.getDemographic(loggedInInfo, "123")).thenReturn(demographic);
+        when(lookupService.getPatientCurBillingDemo(loggedInInfo, "123"))
+                .thenReturn(List.of("DOE", "JANE", "19800101", "1234567890", "AB", "ON", "F"));
+        when(cheaderDao.findByProviderStatusAndDateRange(eq("999998"), eq(List.of("O")), any(DateRange.class)))
+                .thenReturn(List.of(header));
+        when(itemDao.findByCh1IdsExcludingDeletedAndSettled(List.of(12345678)))
+                .thenReturn(List.of(item));
+        when(billingServiceDao.codeRequiresSLI("A001A")).thenReturn(false);
+
+        service.setProviderNo("999998");
+        service.setDateRange(new DateRange(
+                BillingDates.parseIsoDate("2026-04-01"),
+                BillingDates.parseIsoDate("2026-04-30")));
+        service.setEFlag("0");
+        service.setContextPath("");
+
+        service.createBillingFileStr(loggedInInfo, "0", new String[] {"O"}, true, "P", false);
+
+        assertThat(service.getValue())
+                .contains("\nHEH1234567890AB1980010112345678HCPP")
+                .contains("\nHETA001A  0012340120260402401");
+        assertThat(service.getRecordCount()).isEqualTo(1);
+        assertThat(service.getOhipClaim()).isEqualTo("1");
+        assertThat(service.getOhipRecord()).isEqualTo("1");
+        assertThat(service.getTotalAmount()).isEqualTo("12.34");
+        assertThat(service.getBigTotal()).isEqualByComparingTo("12.34");
+        assertThat(service.getHtmlValue()).contains("Pass").contains("A001A");
+        verify(itemDao).findByCh1IdsExcludingDeletedAndSettled(List.of(12345678));
+        verify(itemDao, never()).findByCh1Id(12345678);
+    }
+
+    @Test
     void shouldKeepMutableErrorStatePrivate() throws Exception {
         assertThat(Modifier.isPrivate(
                 OhipClaimFileService.class.getDeclaredField("errorFatalMsg").getModifiers()))
@@ -258,5 +315,81 @@ class OhipClaimFileServiceUnitTest {
                 OhipClaimFileService.class.getDeclaredField("errorPartMsg").getModifiers()))
                 .isTrue();
         assertThat(OhipClaimFileService.class.getDeclaredField("errorParams")).isNotNull();
+    }
+
+    @Test
+    void shouldNotAdvertiseThreadSafety_onPrototypeErrorAccessors() throws Exception {
+        assertThat(Modifier.isSynchronized(
+                OhipClaimFileService.class.getMethod("setErrorMsg", String.class).getModifiers()))
+                .isFalse();
+        assertThat(Modifier.isSynchronized(
+                OhipClaimFileService.class.getMethod("getErrorMsg").getModifiers()))
+                .isFalse();
+        assertThat(Modifier.isSynchronized(
+                OhipClaimFileService.class.getMethod("setErrorParams", String[].class).getModifiers()))
+                .isFalse();
+        assertThat(Modifier.isSynchronized(
+                OhipClaimFileService.class.getMethod("setProviderNo", String.class).getModifiers()))
+                .isFalse();
+    }
+
+    private static BillingONCHeader1 hcpHeader() throws Exception {
+        BillingONCHeader1 header = new BillingONCHeader1();
+        setEntityId(header, 12345678);
+        header.setTranscId("HE");
+        header.setRecId("H");
+        header.setHin("1234567890");
+        header.setVer("AB");
+        header.setDob("19800101");
+        header.setPayProgram("HCP");
+        header.setPayee("P");
+        header.setRefNum("");
+        header.setFaciltyNum("0000");
+        header.setAdmissionDate(null);
+        header.setRefLabNum("");
+        header.setManReview("");
+        header.setLocation("0000");
+        header.setDemographicNo(123);
+        header.setProviderNo("999998");
+        header.setAppointmentNo(0);
+        header.setDemographicName("DOE,JANE");
+        header.setSex("F");
+        header.setProvince("ON");
+        header.setBillingDate(BillingDates.parseIsoDate("2026-04-02"));
+        header.setBillingTime(BillingDates.parseIsoTime("00:00:00"));
+        header.setTotal(new BigDecimal("12.34"));
+        header.setPaid(BigDecimal.ZERO);
+        header.setStatus("O");
+        header.setComment("");
+        header.setVisitType("00");
+        header.setProviderOhipNo("123456");
+        header.setProviderRmaNo("");
+        header.setApptProviderNo("999998");
+        header.setAsstProviderNo("");
+        header.setCreator("999998");
+        header.setClinic("");
+        return header;
+    }
+
+    private static BillingONItem hcpItem() {
+        BillingONItem item = new BillingONItem();
+        item.setCh1Id(12345678);
+        item.setTranscId("HE");
+        item.setRecId("T");
+        item.setServiceCode("A001A");
+        item.setFee("12.34");
+        item.setServiceCount("1");
+        item.setServiceDate(BillingDates.parseIsoDate("2026-04-02"));
+        item.setDx("401");
+        item.setDx1("");
+        item.setDx2("");
+        item.setStatus("O");
+        return item;
+    }
+
+    private static void setEntityId(Object entity, Integer id) throws Exception {
+        java.lang.reflect.Field field = entity.getClass().getDeclaredField("id");
+        field.setAccessible(true);
+        field.set(entity, id);
     }
 }

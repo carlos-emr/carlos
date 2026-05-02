@@ -9,9 +9,14 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.architecture;
 
+import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
+
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingBatchHeaderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -94,5 +99,37 @@ class BillingOntarioReviewFindingsArchitectureTest {
                 .contains("public record BillingClaimItemDto")
                 .doesNotContain("getTransc_id")
                 .doesNotContain("getService_date");
+    }
+
+    @Test
+    void legacyOntarioDtosShouldUseCamelCaseFieldsWithCompatibilityAccessors() {
+        assertThat(Arrays.stream(BillingProviderDto.class.getDeclaredFields())
+                .map(Field::getName))
+                .doesNotContain("hso_no")
+                .contains("hsoNo");
+        assertThat(Arrays.stream(BillingBatchHeaderDto.class.getDeclaredFields())
+                .map(Field::getName))
+                .doesNotContain("disk_id", "transc_id", "rec_id", "spec_id",
+                        "moh_office", "batch_id", "group_num", "provider_reg_num",
+                        "h_count", "r_count", "t_count", "batch_date")
+                .contains("diskId", "transcId", "recId", "specId", "mohOffice",
+                        "batchId", "groupNum", "providerRegNum", "hCount",
+                        "rCount", "tCount", "batchDate");
+
+        BillingProviderDto provider = new BillingProviderDto();
+        provider.setHsoNo("HSO");
+        assertThat(provider.getHso_no()).isEqualTo("HSO");
+        provider.setHso_no("LEGACY");
+        assertThat(provider.getHsoNo()).isEqualTo("LEGACY");
+
+        BillingBatchHeaderDto header = new BillingBatchHeaderDto();
+        header.setDiskId("42");
+        header.setTransc_id("BH");
+        header.setMohOffice("G");
+        header.setBatch_date("2026-05-01");
+        assertThat(header.getDisk_id()).isEqualTo("42");
+        assertThat(header.getTranscId()).isEqualTo("BH");
+        assertThat(header.getMoh_office()).isEqualTo("G");
+        assertThat(header.getBatchDate()).isEqualTo("2026-05-01");
     }
 }

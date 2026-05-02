@@ -200,22 +200,22 @@ public class BillingDiskCreationService {
                                  String creator) {
         int ret = 0;
         BillingBatchHeaderDto obj = new BillingBatchHeaderDto();
-        obj.setDisk_id(disk_id);
-        obj.setTransc_id(BillingOnConstants.BATCHHEADER_TRANSACTIONIDENTIFIER);
-        obj.setRec_id(BillingOnConstants.BATCHHEADER_REORDIDENTIFICATION);
-        obj.setSpec_id(BillingOnConstants.BATCHHEADER_SPECID);
-        obj.setMoh_office(moh_office);
+        obj.setDiskId(disk_id);
+        obj.setTranscId(BillingOnConstants.BATCHHEADER_TRANSACTIONIDENTIFIER);
+        obj.setRecId(BillingOnConstants.BATCHHEADER_REORDIDENTIFICATION);
+        obj.setSpecId(BillingOnConstants.BATCHHEADER_SPECID);
+        obj.setMohOffice(moh_office);
 
         String batchid = UtilDateUtilities.getToday("yyyyMMdd") + getDefaultRightJust("0", 4, seqNum);
-        obj.setBatch_id(batchid);
+        obj.setBatchId(batchid);
         obj.setOperator("");
-        obj.setGroup_num(providerData.getBillingGroupNo());
-        obj.setProvider_reg_num(providerData.getOhipNo());
+        obj.setGroupNum(providerData.getBillingGroupNo());
+        obj.setProviderRegNum(providerData.getOhipNo());
         obj.setSpecialty(providerData.getSpecialtyCode());
-        obj.setH_count("");
-        obj.setR_count("");
-        obj.setT_count("");
-        obj.setBatch_date(UtilDateUtilities.getToday("yyyy-MM-dd"));
+        obj.setHCount("");
+        obj.setRCount("");
+        obj.setTCount("");
+        obj.setBatchDate(UtilDateUtilities.getToday("yyyy-MM-dd"));
 
         String strDateTime = UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss");
         obj.setCreatedatetime(strDateTime);
@@ -232,22 +232,22 @@ public class BillingDiskCreationService {
         boolean ret = false;
         BillingBatchHeaderDto obj = diskQuery.getBatchHeaderObj(providerData, disk_id);
         claimPersister.addRepoBatchHeader(obj);
-        obj.setDisk_id(disk_id);
-        obj.setTransc_id(BillingOnConstants.BATCHHEADER_TRANSACTIONIDENTIFIER);
-        obj.setRec_id(BillingOnConstants.BATCHHEADER_REORDIDENTIFICATION);
-        obj.setSpec_id(BillingOnConstants.BATCHHEADER_SPECID);
-        obj.setMoh_office(moh_office);
+        obj.setDiskId(disk_id);
+        obj.setTranscId(BillingOnConstants.BATCHHEADER_TRANSACTIONIDENTIFIER);
+        obj.setRecId(BillingOnConstants.BATCHHEADER_REORDIDENTIFICATION);
+        obj.setSpecId(BillingOnConstants.BATCHHEADER_SPECID);
+        obj.setMohOffice(moh_office);
 
         String batchid = UtilDateUtilities.getToday("yyyyMMdd") + getDefaultRightJust("0", 4, seqNum);
-        obj.setBatch_id(batchid);
+        obj.setBatchId(batchid);
         obj.setOperator("");
-        obj.setGroup_num(providerData.getBillingGroupNo());
-        obj.setProvider_reg_num(providerData.getOhipNo());
+        obj.setGroupNum(providerData.getBillingGroupNo());
+        obj.setProviderRegNum(providerData.getOhipNo());
         obj.setSpecialty(providerData.getSpecialtyCode());
-        obj.setH_count("");
-        obj.setR_count("");
-        obj.setT_count("");
-        obj.setBatch_date(UtilDateUtilities.getToday("yyyy-MM-dd"));
+        obj.setHCount("");
+        obj.setRCount("");
+        obj.setTCount("");
+        obj.setBatchDate(UtilDateUtilities.getToday("yyyy-MM-dd"));
 
         String strDateTime = UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss");
         // obj.setCreatedatetime(strDateTime);

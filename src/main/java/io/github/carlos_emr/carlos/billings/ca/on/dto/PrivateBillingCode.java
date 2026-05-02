@@ -20,9 +20,8 @@ package io.github.carlos_emr.carlos.billings.ca.on.dto;
 /**
  * A private (clinic-defined) billing code paired with its description.
  *
- * <p>Replaces a flat {@code List<String>} that interleaved
- * {@code (serviceCode, description)} pairs and forced every consumer to
- * iterate by twos with positional offsets.</p>
+ * <p>Used by private-code lookup flows that need a stable code/description
+ * pair without positional offsets.</p>
  *
  * @param serviceCode the OHIP-style code with the leading {@code "_"} marker
  *                    that identifies it as private; never null

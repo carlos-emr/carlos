@@ -22,12 +22,9 @@ import java.util.Date;
 /**
  * One row from the flu (G590A / G591A) billing report query.
  *
- * <p>Replaces the {@code List<Object[]>} return of
- * {@code BillingDao.search_billflu} via JPA constructor projection.
- * Note that {@code content} is the first projected field because the legacy
- * JPQL ordering puts {@code b.content} before the other Billing columns —
- * the consumer reads {@code <specialty>} XML out of it to bucket rows into
- * walk-in vs clinic totals.</p>
+ * <p>{@code content} is the first projected field because the report reads
+ * {@code <specialty>} XML out of it to bucket rows into walk-in vs clinic
+ * totals.</p>
  *
  * @since 2026-05-01
  */

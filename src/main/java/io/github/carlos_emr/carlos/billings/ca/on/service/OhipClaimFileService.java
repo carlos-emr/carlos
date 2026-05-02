@@ -31,11 +31,13 @@ import java.math.RoundingMode;
 import java.text.NumberFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Properties;
 
 import org.apache.logging.log4j.Logger;
@@ -79,8 +81,7 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
  *
  * <p>Side-effect heavy by nature: file I/O, multiple DAO writes,
  * audit-trail emission. Strictly belongs in {@code service/} per the
- * package-info contract — replaces the legacy
- * {@code JdbcBillingCreateBillingFile} that lived in {@code data/}.</p>
+ * package-info contract.</p>
  *
  * <p>Used by:</p>
  * <ul>
@@ -104,12 +105,10 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
  * {@code factory.getObject()} call yields a fresh instance (see
  * {@link BillingOnDiskService}).</p>
  *
- * <p><strong>{@code @Transactional} note:</strong> the two write methods
- * ({@link #updateHeader1BilledBatchId}, {@link #updateDisknameSum}) each
- * make a single DAO {@code merge} — they are already individually
- * transactional via {@code AbstractDaoImpl}. The class-level
- * {@code @Transactional} is kept for forward-compatibility (so a future
- * multi-DAO write inherits an outer transaction by default).</p>
+ * <p><strong>{@code @Transactional} note:</strong> {@link #finalizeGeneratedDisk()}
+ * applies the DB state transition after the caller has durably written the
+ * OHIP/HTML files. {@link #updateDisknameSum} remains a separate disk-log
+ * update after that finalization step.</p>
  *
  * @since 2026-04-26
  */
@@ -170,8 +169,8 @@ public class OhipClaimFileService {
     }
 
     private String batchHeader;
-    private BigDecimal bdFee = BillingMoney.zero();
-    private BigDecimal BigTotal = BillingMoney.zero();
+    private BigDecimal bdFee = BillingMoney.zeroAmount();
+    private BigDecimal BigTotal = BillingMoney.zeroAmount();
     private DateRange dateRange;
     private String[] errorParams;
     private String diagcode;
@@ -212,6 +211,11 @@ public class OhipClaimFileService {
     private HashMap<String, String> clinicShortName;
     private boolean summaryView;
     private String contextPath = "";
+    private final List<String> pendingBilledClaimHeaderIds = new ArrayList<>();
+    private String pendingBatchHeaderId;
+    private int pendingHealthcardCount;
+    private int pendingPatientCount;
+    private int pendingRecordCount;
     // APOS (U+0027) is used instead of a literal ' to avoid the pre-commit
     // SQL-injection scanner's quote-sandwich false positive on '" + var + "'.
     private static final String APOS = "\u0027";
@@ -236,22 +240,22 @@ public class OhipClaimFileService {
     private String buildBatchHeader() {
         String ret = "";
         errorFatalMsg = "";
-        ret = currentBatchHeader.getTransc_id() + currentBatchHeader.getRec_id() + currentBatchHeader.getSpec_id() + currentBatchHeader.getMoh_office() + currentBatchHeader.getBatch_id() + space(6) + currentBatchHeader.getGroup_num() + currentBatchHeader.getProvider_reg_num() + currentBatchHeader.getSpecialty() + space(42) + "\r";
-        if (ret.length() != 80) errorFatalMsg += "Batch Header length wrong! - " + currentBatchHeader.getProvider_reg_num() + "<br>";
+        ret = currentBatchHeader.getTranscId() + currentBatchHeader.getRecId() + currentBatchHeader.getSpecId() + currentBatchHeader.getMohOffice() + currentBatchHeader.getBatchId() + space(6) + currentBatchHeader.getGroupNum() + currentBatchHeader.getProviderRegNum() + currentBatchHeader.getSpecialty() + space(42) + "\r";
+        if (ret.length() != 80) errorFatalMsg += "Batch Header length wrong! - " + currentBatchHeader.getProviderRegNum() + "<br>";
         return ret;
     }
 
     private void checkBatchHeader() {
-        if (currentBatchHeader.getSpec_id().length() != 3) {
-            errorPartMsg = "Batch Header: Version code wrong! - " + currentBatchHeader.getProvider_reg_num() + "<br>";
+        if (currentBatchHeader.getSpecId().length() != 3) {
+            errorPartMsg = "Batch Header: Version code wrong! - " + currentBatchHeader.getProviderRegNum() + "<br>";
         }
-        if (currentBatchHeader.getMoh_office().length() != 1) {
+        if (currentBatchHeader.getMohOffice().length() != 1) {
             errorPartMsg += "Batch Header: Health Office Code wrong!<br>";
         }
-        if (currentBatchHeader.getGroup_num().length() != 4) {
+        if (currentBatchHeader.getGroupNum().length() != 4) {
             errorPartMsg += "Batch Header: GroupNo. wrong!<br>";
         }
-        if (currentBatchHeader.getProvider_reg_num().length() != 6) {
+        if (currentBatchHeader.getProviderRegNum().length() != 6) {
             errorPartMsg += "Batch Header: Provider OHIP No. wrong!<br>";
         }
         if (currentBatchHeader.getSpecialty().length() != 2) {
@@ -412,7 +416,7 @@ public class OhipClaimFileService {
         ret += "    popup.focus();\n";
         ret += "  }\n";
         ret += "}\n//-->\n</script>\n";
-        ret += "\n<table width='100%' border='0' cellspacing='0' cellpadding='2' class='myDarkGreen'>\n" + "<tr><td colspan='4' class='myGreen'>OHIP Invoice for OHIP No." + currentBatchHeader.getProvider_reg_num() + "</td><td colspan='4' class='myGreen'>Payment date of " + output + "\n</td></tr>";
+        ret += "\n<table width='100%' border='0' cellspacing='0' cellpadding='2' class='myDarkGreen'>\n" + "<tr><td colspan='4' class='myGreen'>OHIP Invoice for OHIP No." + currentBatchHeader.getProviderRegNum() + "</td><td colspan='4' class='myGreen'>Payment date of " + output + "\n</td></tr>";
         ret += "\n<tr><td class='myGreen'>ACCT NO</td>" + "<td width='25%' class='myGreen'>NAME</td><td class='myGreen'>RO</td><td class='myGreen'>DOB</td><td class='myGreen'>Sex</td><td class='myGreen'>HEALTH #</td>" + "<td class='myGreen'>BILLDATE</td><td class='myGreen'>CODE</td>" + "<td align='right' class='myGreen'>BILLED</td>" + "<td align='right' class='myGreen'>DX</td><td align='right' class='myGreen'>Comment</td></tr>";
         return ret;
     }
@@ -429,7 +433,7 @@ public class OhipClaimFileService {
         ret += "    popup.focus();\n";
         ret += "  }\n";
         ret += "}\n//-->\n</script>\n";
-        ret += "\n<table width='100%' border='0' cellspacing='0' cellpadding='2' class='myIvory'>\n" + "<tr><td colspan='4' class='myGreen'>OHIP Invoice for OHIP No." + currentBatchHeader.getProvider_reg_num() + "</td><td colspan='5' class='myGreen'>Payment date of " + output + "\n</td></tr>";
+        ret += "\n<table width='100%' border='0' cellspacing='0' cellpadding='2' class='myIvory'>\n" + "<tr><td colspan='4' class='myGreen'>OHIP Invoice for OHIP No." + currentBatchHeader.getProviderRegNum() + "</td><td colspan='5' class='myGreen'>Payment date of " + output + "\n</td></tr>";
         ret += "\n<tr><td class='myGreen'>ACCT NO</td>" + "<td width='25%' class='myGreen'>NAME</td><td class='myGreen'>HEALTH #</td>" + "<td class='myGreen'>BILLDATE</td><td class='myGreen'>CODE</td>" + "<td align='right' class='myGreen'>BILLED</td>" + "<td align='right' class='myGreen'>DX</td><td align='right' class='myGreen'>Comment</td>" + "<td align='centre' class='myGreen'>SITE</td></tr>";
         return ret;
     }
@@ -492,7 +496,7 @@ public class OhipClaimFileService {
 
     private String buildHTMLContentTrailer(boolean simulation) {
         if (!simulation) {
-            htmlContent += "\n<tr><td colspan='11' class='myIvory'>&nbsp;</td></tr><tr><td colspan='7' class='myIvory'>OHIP No: " + currentBatchHeader.getProvider_reg_num() + ": " + pCount + " RECORDS PROCESSED</td><td colspan='4' class='myIvory'>TOTAL: " + BigTotal.toString() + "\n</td></tr>" + "\n</table>";
+            htmlContent += "\n<tr><td colspan='11' class='myIvory'>&nbsp;</td></tr><tr><td colspan='7' class='myIvory'>OHIP No: " + currentBatchHeader.getProviderRegNum() + ": " + pCount + " RECORDS PROCESSED</td><td colspan='4' class='myIvory'>TOTAL: " + BigTotal.toString() + "\n</td></tr>" + "\n</table>";
         }
 
         String checkSummary = "";
@@ -530,7 +534,7 @@ public class OhipClaimFileService {
     }
 
     private String buildSiteHTMLContentTrailer() {
-        htmlContent += "\n<tr><td colspan='9' class='myIvory'>&nbsp;</td></tr><tr><td colspan='4' class='myIvory'>OHIP No: " + currentBatchHeader.getProvider_reg_num() + ": " + pCount + " RECORDS PROCESSED</td><td colspan='5' class='myIvory'>TOTAL: " + BigTotal.toString() + "\n</td></tr>" + "\n</table>";
+        htmlContent += "\n<tr><td colspan='9' class='myIvory'>&nbsp;</td></tr><tr><td colspan='4' class='myIvory'>OHIP No: " + currentBatchHeader.getProviderRegNum() + ": " + pCount + " RECORDS PROCESSED</td><td colspan='5' class='myIvory'>TOTAL: " + BigTotal.toString() + "\n</td></tr>" + "\n</table>";
         // writeFile(value);
         String checkSummary = errorMsg.equals("") ? "\n<table border='0' width='100%' bgcolor='green'><tr><td>Pass</td></tr></table>" : "\n<table border='0' width='100%' bgcolor='orange'><tr><td>Please correct the errors and run this simulation again!</td></tr></table>";
         htmlValue += htmlContent + checkSummary;
@@ -607,12 +611,25 @@ public class OhipClaimFileService {
         return ret;
     }
 
+    /**
+     * Builds the batch claim export state for a provider using the default
+     * MOH office selection path.
+     *
+     * @see #createBillingFileStr(LoggedInInfo, String, String[], boolean, String, boolean, boolean)
+     */
     public void createBillingFileStr(LoggedInInfo loggedInInfo, String bid, String[] status, boolean simulation, String mohOffice, boolean summaryView) {
         createBillingFileStr(loggedInInfo, bid, status, simulation, mohOffice, summaryView, false);
     }
 
+    /**
+     * Builds the fixed-width OHIP claim file body and companion HTML preview in
+     * this prototype instance. When {@code simulation} is false and
+     * {@code eFlag} is {@code "1"}, this also marks included claim headers as
+     * billed and updates the batch summary counts.
+     */
     public void createBillingFileStr(LoggedInInfo loggedInInfo, String bid, String[] status, boolean simulation, String mohOffice, boolean summaryView, boolean useProviderMOH) {
         this.summaryView = summaryView;
+        resetGeneratedDiskFinalization();
         try {
             if (!"0".equals(bid)) { // for simulation only
                 getBatchHeaderObj(bid);
@@ -620,12 +637,12 @@ public class OhipClaimFileService {
                     ProviderBillCenter pbc = new ProviderBillCenter();
                     String billCenter = pbc.getBillCenter(providerNo);
                     if (billCenter != null && billCenter.length() == 1) {
-                        currentBatchHeader.setMoh_office(billCenter);
+                        currentBatchHeader.setMohOffice(billCenter);
                     } else {
-                        currentBatchHeader.setMoh_office(mohOffice);
+                        currentBatchHeader.setMohOffice(mohOffice);
                     }
                 } else if (mohOffice != null) {
-                    currentBatchHeader.setMoh_office(mohOffice);
+                    currentBatchHeader.setMohOffice(mohOffice);
                 }
             }
 
@@ -634,27 +651,31 @@ public class OhipClaimFileService {
                 batchHeader = buildBatchHeader();
                 htmlValue = buildHTMLContentHeader();
             }
-            // start here
+            // Initialize the fixed-width file body with the batch header.
             value = batchHeader;
+            StringBuilder valueBuilder = new StringBuilder(String.valueOf(value));
+            StringBuilder htmlContentBuilder = new StringBuilder(htmlContent == null ? "" : htmlContent);
 
-            BigDecimal proTotal = BillingMoney.zero();
+            BigDecimal proTotal = BillingMoney.zeroAmount();
             int proItem = 0;
             String ohipNo = "";
 
-            for (BillingONCHeader1 h : cheaderDao.findByProviderStatusAndDateRange(providerNo, Arrays.asList(status), dateRange)) {
-                // recreate judge
+            List<BillingONCHeader1> claimHeaders = cheaderDao.findByProviderStatusAndDateRange(providerNo, Arrays.asList(status), dateRange)
+                    .stream()
+                    .filter(this::shouldIncludeClaimHeader)
+                    .toList();
+            Map<Integer, List<BillingONItem>> itemsByHeaderId = claimItemsByHeaderId(claimHeaders);
+
+            for (BillingONCHeader1 h : claimHeaders) {
                 String bNo = "" + h.getId();
-                if (propBillingNo != null && !propBillingNo.containsKey(bNo)) {
-                    continue;
-                }
 
                 patientCount++;
                 currentClaimHeader = buildClaimHeaderDto(h, bNo, false);
                 ohipNo = currentClaimHeader.providerOhipNo();
 
-                value += buildHeader1(loggedInInfo);
+                valueBuilder.append(buildHeader1(loggedInInfo));
                 if (!simulation) {
-                    htmlContent += printErrorPartMsg();
+                    htmlContentBuilder.append(printErrorPartMsg());
                 } else {
                     errorPartMsg = "";
                 }
@@ -663,7 +684,7 @@ public class OhipClaimFileService {
                 invCount = 0;
 
                 boolean hasSliCode = currentClaimHeader.getLocation().trim().length() == 3;
-                for (BillingONItem boi : itemDao.findByCh1Id(ConversionUtils.fromIntString(currentClaimHeader.getId()))) {
+                for (BillingONItem boi : itemsByHeaderId.getOrDefault(h.getId(), List.of())) {
                     currentItem = buildClaimItemDto(boi);
                     recordCount++;
                     diagcode = currentItem.getDx();
@@ -680,14 +701,14 @@ public class OhipClaimFileService {
                     BigTotal = BigTotal.add(bdFee);
                     _logger.debug("createBillingFileStr(BigTotal = {})", BigTotal);
                     checkItem();
-                    value += buildItem();
+                    valueBuilder.append(buildItem());
                     // The MOH claim record concatenated into `value` embeds the
                     // patient HIN (10 chars) and DOB (8 chars) — see buildHeader1
                     // above. Logging the running `value` is a HIPAA/PIPEDA leak;
                     // do NOT reinstate.
-                    htmlContent += buildHTMLContentRecord(loggedInInfo, invCount, simulation);
+                    htmlContentBuilder.append(buildHTMLContentRecord(loggedInInfo, invCount, simulation));
                     if (!simulation) {
-                        htmlContent += printErrorPartMsg();
+                        htmlContentBuilder.append(printErrorPartMsg());
                     } else {
                         errorPartMsg = "";
                     }
@@ -696,12 +717,12 @@ public class OhipClaimFileService {
                 }
                 checkNoDetailRecord(invCount);
                 if (!simulation) {
-                    htmlContent += printErrorPartMsg();
+                    htmlContentBuilder.append(printErrorPartMsg());
                 } else {
                     errorPartMsg = "";
                 }
                 if (eFlag.compareTo("1") == 0) {
-                    updateHeader1BilledBatchId(currentClaimHeader.getId(), currentBatchHeader.getId());
+                    stageHeaderBilledBatchId(currentClaimHeader.getId(), currentBatchHeader.getId());
                 }
             }
             hcCount = hcCount + healthcardCount;
@@ -710,16 +731,41 @@ public class OhipClaimFileService {
             // Historical total multiplier was removed; totals are already stored in dollars.
 
             if (summaryView) {
-                String items = htmlContent;
-                htmlContent = "<tr><td class='myIvory'>" + ohipNo + "</td><td class='myIvory'>" + proItem + "</td><td class='myIvory'>" + proTotal.toString() + "</td><td class='myIvory' colspan='6'><button id='recordShowButton" + providerNo + "' onclick='jQuery(\".record" + providerNo + "\").show();jQuery(this).hide();jQuery(\"#recordHideButton" + providerNo + "\").show();return false;'>Show record details.</button><button id='recordHideButton" + providerNo
-                        + "' style='display:none;' onclick='jQuery(\".record" + providerNo + "\").hide();jQuery(this).hide();jQuery(\"#recordShowButton" + providerNo + "\").show();return false;'>Hide record details.</button></td></tr>";
-                htmlContent += "\n<tr style='display:none;' class='record" + providerNo + "'><td class='myGreen'>OHIP NO</td><td class='myGreen'>ACCT NO</td>" + "<td width='25%' class='myGreen'>NAME</td><td class='myGreen'>RO</td><td class='myGreen'>DOB</td><td class='myGreen'>Sex</td><td class='myGreen'>HEALTH #</td>" + "<td class='myGreen'>BILLDATE</td><td class='myGreen'>CODE</td>" + "<td align='right' class='myGreen'>BILLED</td>"
-                        + "<td align='right' class='myGreen'>DX</td><td align='right' class='myGreen'>Comment</td></tr>";
-                htmlContent += items;
+                String items = htmlContentBuilder.toString();
+                htmlContentBuilder.setLength(0);
+                htmlContentBuilder.append("<tr><td class='myIvory'>")
+                        .append(ohipNo)
+                        .append("</td><td class='myIvory'>")
+                        .append(proItem)
+                        .append("</td><td class='myIvory'>")
+                        .append(proTotal)
+                        .append("</td><td class='myIvory' colspan='6'><button id='recordShowButton")
+                        .append(providerNo)
+                        .append("' onclick='jQuery(\".record")
+                        .append(providerNo)
+                        .append("\").show();jQuery(this).hide();jQuery(\"#recordHideButton")
+                        .append(providerNo)
+                        .append("\").show();return false;'>Show record details.</button><button id='recordHideButton")
+                        .append(providerNo)
+                        .append("' style='display:none;' onclick='jQuery(\".record")
+                        .append(providerNo)
+                        .append("\").hide();jQuery(this).hide();jQuery(\"#recordShowButton")
+                        .append(providerNo)
+                        .append("\").show();return false;'>Hide record details.</button></td></tr>")
+                        .append("\n<tr style='display:none;' class='record")
+                        .append(providerNo)
+                        .append("'><td class='myGreen'>OHIP NO</td><td class='myGreen'>ACCT NO</td>")
+                        .append("<td width='25%' class='myGreen'>NAME</td><td class='myGreen'>RO</td><td class='myGreen'>DOB</td><td class='myGreen'>Sex</td><td class='myGreen'>HEALTH #</td>")
+                        .append("<td class='myGreen'>BILLDATE</td><td class='myGreen'>CODE</td>")
+                        .append("<td align='right' class='myGreen'>BILLED</td>")
+                        .append("<td align='right' class='myGreen'>DX</td><td align='right' class='myGreen'>Comment</td></tr>")
+                        .append(items);
             }
 
             BigTotal = BigTotal.setScale(2, RoundingMode.HALF_UP);
-            value += buildTrailer();
+            valueBuilder.append(buildTrailer());
+            value = valueBuilder.toString();
+            htmlContent = htmlContentBuilder.toString();
 
             htmlCode = buildHTMLContentTrailer(simulation);
             // writeHtml(htmlCode);
@@ -728,7 +774,8 @@ public class OhipClaimFileService {
             ohipClaim = String.valueOf(pCount);
             totalAmount = BigTotal.toString();
             if (eFlag.compareTo("1") == 0) {
-                updateBatchHeaderSum(currentBatchHeader.getId(), "" + healthcardCount, "" + patientCount, "" + recordCount);
+                stageBatchHeaderSum(currentBatchHeader.getId(),
+                        healthcardCount, patientCount, recordCount);
             }
         } catch (BillingFileWriteException | BillingDataLoadException domain) {
             // Already a typed domain exception — let it through so the
@@ -749,7 +796,13 @@ public class OhipClaimFileService {
         }
     }
 
+    /**
+     * Builds a site-grouped OHIP claim file body and companion HTML preview in
+     * this prototype instance, marking included claim headers as billed when
+     * {@code eFlag} is {@code "1"}.
+     */
     public void createSiteBillingFileStr(LoggedInInfo loggedInInfo, String bid, String[] statuses) {
+        resetGeneratedDiskFinalization();
 
         try {
             if (!"0".equals(bid)) { // for simulation only
@@ -758,15 +811,19 @@ public class OhipClaimFileService {
             checkBatchHeader();
             batchHeader = buildBatchHeader();
             htmlValue = buildSiteHTMLContentHeader();
-            // start here
+            // Initialize the fixed-width file body with the batch header.
             value = batchHeader;
+            StringBuilder valueBuilder = new StringBuilder(String.valueOf(value));
+            StringBuilder htmlContentBuilder = new StringBuilder(htmlContent == null ? "" : htmlContent);
 
-            for (BillingONCHeader1 b : cheaderDao.findByProviderStatusAndDateRange(providerNo, Arrays.asList(statuses), dateRange)) {
-                // recreate judge
+            List<BillingONCHeader1> claimHeaders = cheaderDao.findByProviderStatusAndDateRange(providerNo, Arrays.asList(statuses), dateRange)
+                    .stream()
+                    .filter(this::shouldIncludeClaimHeader)
+                    .toList();
+            Map<Integer, List<BillingONItem>> itemsByHeaderId = claimItemsByHeaderId(claimHeaders);
+
+            for (BillingONCHeader1 b : claimHeaders) {
                 String bNo = "" + b.getId();
-                if (propBillingNo != null && !propBillingNo.containsKey(bNo)) {
-                    continue;
-                }
 
                 patientCount++;
                 currentClaimHeader = buildClaimHeaderDto(b, bNo, true);
@@ -778,12 +835,12 @@ public class OhipClaimFileService {
                     clinicBgColor = (clinicBgColor == null || clinicBgColor.equalsIgnoreCase("null") ? "FFFFFF" : clinicBgColor);
                 }
 
-                value += buildHeader1(loggedInInfo);
-                htmlContent += printSiteErrorPartMsg();
+                valueBuilder.append(buildHeader1(loggedInInfo));
+                htmlContentBuilder.append(printSiteErrorPartMsg());
                 // build billing detail
                 invCount = 0;
 
-                for (BillingONItem i : itemDao.findByCh1Id(ConversionUtils.fromIntString(currentClaimHeader.getId()))) {
+                for (BillingONItem i : itemsByHeaderId.getOrDefault(b.getId(), List.of())) {
                     currentItem = buildClaimItemDto(i);
                     recordCount++;
                     diagcode = currentItem.getDx();
@@ -792,17 +849,17 @@ public class OhipClaimFileService {
                     BigTotal = BigTotal.add(bdFee);
                     _logger.debug("createBillingFileStr(BigTotal = {})", BigTotal);
                     checkItem();
-                    value += buildItem();
+                    valueBuilder.append(buildItem());
                     // PHI-leak guard — see the matching note in the per-provider
                     // branch above. Do not log `value`; it embeds HIN + DOB.
-                    htmlContent += buildSiteHTMLContentRecord(invCount);
-                    htmlContent += printSiteErrorPartMsg();
+                    htmlContentBuilder.append(buildSiteHTMLContentRecord(invCount));
+                    htmlContentBuilder.append(printSiteErrorPartMsg());
                     invCount++;
                 }
                 checkNoDetailRecord(invCount);
-                htmlContent += printSiteErrorPartMsg();
+                htmlContentBuilder.append(printSiteErrorPartMsg());
                 if (eFlag.compareTo("1") == 0) {
-                    updateHeader1BilledBatchId(currentClaimHeader.getId(), currentBatchHeader.getId());
+                    stageHeaderBilledBatchId(currentClaimHeader.getId(), currentBatchHeader.getId());
                 }
             }
             hcCount = hcCount + healthcardCount;
@@ -810,7 +867,9 @@ public class OhipClaimFileService {
             rCount = rCount + recordCount;
             // Historical total multiplier was removed; totals are already stored in dollars.
             BigTotal = BigTotal.setScale(2, RoundingMode.HALF_UP);
-            value += buildTrailer();
+            valueBuilder.append(buildTrailer());
+            value = valueBuilder.toString();
+            htmlContent = htmlContentBuilder.toString();
 
             htmlCode = buildSiteHTMLContentTrailer();
             // writeHtml(htmlCode);
@@ -819,7 +878,8 @@ public class OhipClaimFileService {
             ohipClaim = String.valueOf(pCount);
             totalAmount = BigTotal.toString();
             if (eFlag.compareTo("1") == 0) {
-                updateBatchHeaderSum(currentBatchHeader.getId(), "" + healthcardCount, "" + patientCount, "" + recordCount);
+                stageBatchHeaderSum(currentBatchHeader.getId(),
+                        healthcardCount, patientCount, recordCount);
             }
         } catch (BillingFileWriteException | BillingDataLoadException domain) {
             throw domain;
@@ -829,6 +889,21 @@ public class OhipClaimFileService {
             throw new BillingFileWriteException(
                     "OHIP site claim file generation failed", e);
         }
+    }
+
+    private boolean shouldIncludeClaimHeader(BillingONCHeader1 header) {
+        return propBillingNo == null || propBillingNo.containsKey(String.valueOf(header.getId()));
+    }
+
+    private Map<Integer, List<BillingONItem>> claimItemsByHeaderId(List<BillingONCHeader1> claimHeaders) {
+        List<Integer> headerIds = claimHeaders.stream()
+                .map(BillingONCHeader1::getId)
+                .toList();
+        Map<Integer, List<BillingONItem>> itemsByHeaderId = new HashMap<>();
+        for (BillingONItem item : itemDao.findByCh1IdsExcludingDeletedAndSettled(headerIds)) {
+            itemsByHeaderId.computeIfAbsent(item.getCh1Id(), ignored -> new ArrayList<>()).add(item);
+        }
+        return itemsByHeaderId;
     }
 
     public String getHtmlCode() {
@@ -863,6 +938,51 @@ public class OhipClaimFileService {
         return value;
     }
 
+    /**
+     * Applies the generated-disk DB state transitions after the caller has
+     * successfully written the OHIP text file and HTML companion file.
+     */
+    public void finalizeGeneratedDisk() {
+        if (!"1".equals(eFlag) || pendingBatchHeaderId == null) {
+            return;
+        }
+        for (String claimHeaderId : pendingBilledClaimHeaderIds) {
+            updateHeader1BilledBatchId(claimHeaderId, pendingBatchHeaderId);
+        }
+        updateBatchHeaderSum(pendingBatchHeaderId,
+                String.valueOf(pendingHealthcardCount),
+                String.valueOf(pendingPatientCount),
+                String.valueOf(pendingRecordCount));
+        resetGeneratedDiskFinalization();
+    }
+
+    private void resetGeneratedDiskFinalization() {
+        pendingBilledClaimHeaderIds.clear();
+        pendingBatchHeaderId = null;
+        pendingHealthcardCount = 0;
+        pendingPatientCount = 0;
+        pendingRecordCount = 0;
+    }
+
+    private void stageHeaderBilledBatchId(String claimHeaderId, String batchHeaderId) {
+        pendingBilledClaimHeaderIds.add(claimHeaderId);
+        pendingBatchHeaderId = batchHeaderId;
+    }
+
+    private void stageBatchHeaderSum(String batchHeaderId,
+                                     int healthcardCount,
+                                     int patientCount,
+                                     int recordCount) {
+        pendingBatchHeaderId = batchHeaderId;
+        pendingHealthcardCount = healthcardCount;
+        pendingPatientCount = patientCount;
+        pendingRecordCount = recordCount;
+    }
+
+    /**
+     * Marks one Ontario claim header as billed and links it to the generated
+     * batch header.
+     */
     public void updateHeader1BilledBatchId(String newInvNo, String batchId) {
         BillingONCHeader1 header = cheaderDao.find(Integer.parseInt(newInvNo));
         if (header != null) {
@@ -882,6 +1002,9 @@ public class OhipClaimFileService {
         }
     }
 
+    /**
+     * Updates the generated disk-name row with final claim counts and total.
+     */
     public void updateDisknameSum(int bid) {
         for (BillingONFilename f : filenameDao.findByDiskIdAndProvider(bid, providerNo)) {
             f.setClaimRecord((healthcardCount + patientCount) + "/" + recordCount);
@@ -915,6 +1038,10 @@ public class OhipClaimFileService {
         if (!"ON".equals(currentClaimHeader.getProvince()) && !"".equals(currentClaimHeader.getProvince())) currentClaimHeader = currentClaimHeader.withPayProgram("RMB");
     }
 
+    /**
+     * Loads the batch header DTO into this instance and resolves its OHIP
+     * filename from the disk-name table.
+     */
     public void getBatchHeaderObj(String bid) {
         BillingONHeader h = headerDao.find(ConversionUtils.fromIntString(bid));
         if (h == null) {
@@ -931,28 +1058,29 @@ public class OhipClaimFileService {
         }
         currentBatchHeader = new BillingBatchHeaderDto();
         currentBatchHeader.setId(bid);
-        currentBatchHeader.setDisk_id("" + h.getDiskId());
-        currentBatchHeader.setTransc_id(h.getTransactionId());
-        currentBatchHeader.setRec_id(h.getRecordId());
-        currentBatchHeader.setSpec_id(h.getSpecId());
-        currentBatchHeader.setMoh_office(h.getMohOffice());
+        currentBatchHeader.setDiskId("" + h.getDiskId());
+        currentBatchHeader.setTranscId(h.getTransactionId());
+        currentBatchHeader.setRecId(h.getRecordId());
+        currentBatchHeader.setSpecId(h.getSpecId());
+        currentBatchHeader.setMohOffice(h.getMohOffice());
 
-        currentBatchHeader.setBatch_id(h.getBatchId());
+        currentBatchHeader.setBatchId(h.getBatchId());
         currentBatchHeader.setOperator(h.getOperator());
-        currentBatchHeader.setGroup_num(h.getGroupNum());
-        currentBatchHeader.setProvider_reg_num(h.getProviderRegNum());
+        currentBatchHeader.setGroupNum(h.getGroupNum());
+        currentBatchHeader.setProviderRegNum(h.getProviderRegNum());
         currentBatchHeader.setSpecialty(h.getSpecialty());
-        currentBatchHeader.setH_count(h.gethCount());
-        currentBatchHeader.setR_count(h.getrCount());
-        currentBatchHeader.setT_count(h.gettCount());
-        currentBatchHeader.setBatch_date(ConversionUtils.toDateString(h.getBatchDate()));
+        currentBatchHeader.setHCount(h.gethCount());
+        currentBatchHeader.setRCount(h.getrCount());
+        currentBatchHeader.setTCount(h.gettCount());
+        currentBatchHeader.setBatchDate(ConversionUtils.toDateString(h.getBatchDate()));
 
-        setOhipFilename(getOhipFilename(currentBatchHeader.getDisk_id()));
+        setOhipFilename(getOhipFilename(currentBatchHeader.getDiskId()));
     }
 
+    /** Replaces this instance's current batch header and refreshes its filename. */
     public void setBatchHeaderObj(BillingBatchHeaderDto value) {
         currentBatchHeader = value;
-        setOhipFilename(getOhipFilename(currentBatchHeader.getDisk_id()));
+        setOhipFilename(getOhipFilename(currentBatchHeader.getDiskId()));
     }
 
     public String getOhipFilename(String id) {
@@ -963,28 +1091,29 @@ public class OhipClaimFileService {
         return null;
     }
 
-    public synchronized void setDateRange(DateRange newDateRange) {
+    /** Sets the claim date range used by subsequent file generation. */
+    public void setDateRange(DateRange newDateRange) {
         dateRange = newDateRange;
     }
 
-    // flag 0 - nothing ??? 1 - set as billed.
-    public synchronized void setEFlag(String neweFlag) {
+    /** Sets whether generated claims remain unchanged ({@code "0"}) or are marked billed ({@code "1"}). */
+    public void setEFlag(String neweFlag) {
         eFlag = neweFlag;
     }
 
-    public synchronized void setHtmlFilename(String newHtmlFilename) {
+    public void setHtmlFilename(String newHtmlFilename) {
         htmlFilename = newHtmlFilename;
     }
 
-    public synchronized void setOhipFilename(String newOhipFilename) {
+    public void setOhipFilename(String newOhipFilename) {
         ohipFilename = newOhipFilename;
     }
 
-    public synchronized void setOhipVer(String newOhipVer) {
+    public void setOhipVer(String newOhipVer) {
         ohipVer = newOhipVer;
     }
 
-    public synchronized void setProviderNo(String newProviderNo) {
+    public void setProviderNo(String newProviderNo) {
         providerNo = newProviderNo;
     }
 
@@ -997,7 +1126,10 @@ public class OhipClaimFileService {
         return returnValue;
     }
 
-    // readin billingNo
+    /**
+     * Reads billing numbers from the current OHIP file into the regeneration
+     * de-duplication set used by later claim-file generation.
+     */
     public void readInBillingNo() {
         String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
         propBillingNo = new Properties();
@@ -1047,7 +1179,7 @@ public class OhipClaimFileService {
         }
     }
 
-    // rename OHIP file
+    /** Renames the current OHIP file to a timestamp-suffixed backup name. */
     public void renameFile() {
         String home_dir;
         home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
@@ -1089,7 +1221,12 @@ public class OhipClaimFileService {
         }
     }
 
-    // write OHIP file to it
+    /**
+     * Writes the fixed-width OHIP claim file to the configured output path.
+     *
+     * @param value1 complete MOH fixed-width claim payload to write.
+     * @throws BillingFileWriteException when path validation or disk I/O fails.
+     */
     public void writeFile(String value1) {
         String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
         File safeOut = io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath(
@@ -1115,8 +1252,12 @@ public class OhipClaimFileService {
         }
     }
 
-    // get path from the property file, e.g.
-    // OscarDocument/.../billing/download/, and then write to it
+    /**
+     * Writes the companion HTML claim preview to the configured output path.
+     *
+     * @param htmlvalue1 complete HTML preview payload to write.
+     * @throws BillingFileWriteException when path validation or disk I/O fails.
+     */
     public void writeHtml(String htmlvalue1) {
         String home_dir1 = CarlosProperties.getInstance().getProperty("HOME_DIR");
         File safeHtml = io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath(
@@ -1217,47 +1358,47 @@ public class OhipClaimFileService {
         this.currentClaimHeader = currentClaimHeader;
     }
 
-    public synchronized String getErrorFatalMsg() {
+    public String getErrorFatalMsg() {
         return errorFatalMsg;
     }
 
-    public synchronized void setErrorFatalMsg(String errorFatalMsg) {
+    public void setErrorFatalMsg(String errorFatalMsg) {
         this.errorFatalMsg = errorFatalMsg == null ? "" : errorFatalMsg;
     }
 
-    public synchronized void appendErrorFatalMsg(String value) {
+    public void appendErrorFatalMsg(String value) {
         this.errorFatalMsg += value == null ? "" : value;
     }
 
-    public synchronized String getErrorMsg() {
+    public String getErrorMsg() {
         return errorMsg;
     }
 
-    public synchronized void setErrorMsg(String errorMsg) {
+    public void setErrorMsg(String errorMsg) {
         this.errorMsg = errorMsg == null ? "" : errorMsg;
     }
 
-    public synchronized void appendErrorMsg(String value) {
+    public void appendErrorMsg(String value) {
         this.errorMsg += value == null ? "" : value;
     }
 
-    public synchronized String getErrorPartMsg() {
+    public String getErrorPartMsg() {
         return errorPartMsg;
     }
 
-    public synchronized void setErrorPartMsg(String errorPartMsg) {
+    public void setErrorPartMsg(String errorPartMsg) {
         this.errorPartMsg = errorPartMsg == null ? "" : errorPartMsg;
     }
 
-    public synchronized void appendErrorPartMsg(String value) {
+    public void appendErrorPartMsg(String value) {
         this.errorPartMsg += value == null ? "" : value;
     }
 
-    public synchronized String[] getErrorParams() {
+    public String[] getErrorParams() {
         return errorParams == null ? null : errorParams.clone();
     }
 
-    public synchronized void setErrorParams(String[] errorParams) {
+    public void setErrorParams(String[] errorParams) {
         this.errorParams = errorParams == null ? null : errorParams.clone();
     }
 

@@ -46,8 +46,8 @@ public final class BillingCodeSearchViewModel {
     private final String nameFRaw;
 
     /** One row in the code-search results table. {@code preChecked}
-     *  reflects whether the row's code matches one of the previously
-     *  selected codes (name/name1/name2 request params). */
+     *  reflects whether the row's code matches one of the selected
+     *  codes (name/name1/name2 request params). */
     public record CodeRow(String code, String description, boolean preChecked) {}
 
     private BillingCodeSearchViewModel(Builder b) {

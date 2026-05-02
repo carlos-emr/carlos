@@ -37,6 +37,7 @@ import java.util.Enumeration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Struts boundary for preparing the ON billing correction review.
@@ -88,7 +89,7 @@ public class BillingCorrectionValid2Action extends ActionSupport {
                 serviceLines(request),
                 request.getParameter("xml_billing_no"),
                 request.getParameter("hin"),
-                request.getParameter("dob"),
+                firstNonBlank(request.getParameter("xml_dob"), request.getParameter("dob")),
                 request.getParameter("visittype"),
                 request.getParameter("xml_vdate"),
                 request.getParameter("status"),
@@ -117,7 +118,7 @@ public class BillingCorrectionValid2Action extends ActionSupport {
     }
 
     private static List<BillingCorrectionLineCommand> serviceLines(HttpServletRequest request) {
-        List<BillingCorrectionLineCommand> lines = new ArrayList<>();
+        Map<Integer, String> serviceCodeParams = new TreeMap<>();
         Enumeration<String> names = request.getParameterNames();
         while (names.hasMoreElements()) {
             String name = names.nextElement();
@@ -125,15 +126,34 @@ public class BillingCorrectionValid2Action extends ActionSupport {
                 continue;
             }
             String suffix = name.substring("servicecode".length());
-            lines.add(new BillingCorrectionLineCommand(
-                    request.getParameter(name),
-                    request.getParameter("billingunit" + suffix),
-                    request.getParameter("billingamount" + suffix)));
+            try {
+                serviceCodeParams.put(Integer.parseInt(suffix), suffix);
+            } catch (NumberFormatException ignored) {
+                // Ignore non-indexed helper params; the JSP emits numeric suffixes.
+            }
+        }
+        List<BillingCorrectionLineCommand> lines = new ArrayList<>();
+        for (String suffix : serviceCodeParams.values()) {
+            String serviceCode = request.getParameter("servicecode" + suffix);
+            String billingUnit = request.getParameter("billingunit" + suffix);
+            String billingAmount = request.getParameter("billingamount" + suffix);
+            if (isBlank(serviceCode) && isBlank(billingUnit) && isBlank(billingAmount)) {
+                continue;
+            }
+            lines.add(new BillingCorrectionLineCommand(serviceCode, billingUnit, billingAmount));
         }
         return lines;
     }
 
     private static String nullToEmpty(String value) {
         return value == null ? "" : value;
+    }
+
+    private static String firstNonBlank(String primary, String fallback) {
+        return isBlank(primary) ? fallback : primary;
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 }

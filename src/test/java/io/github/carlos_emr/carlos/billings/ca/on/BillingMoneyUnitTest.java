@@ -171,6 +171,14 @@ class BillingMoneyUnitTest {
     }
 
     @Test
+    void shouldExposeExplicitBigDecimalZeroFactoryName() {
+        assertThat(BillingMoney.zeroAmount()).isEqualByComparingTo("0.00");
+        assertThat(java.util.Arrays.stream(BillingMoney.class.getDeclaredMethods())
+                .noneMatch(method -> method.getName().equals("zero")))
+                .isTrue();
+    }
+
+    @Test
     void shouldRejectNegativeValueTypeAmounts() {
         assertThatThrownBy(() -> BillingMoney.cad(new java.math.BigDecimal("-0.01")))
                 .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)

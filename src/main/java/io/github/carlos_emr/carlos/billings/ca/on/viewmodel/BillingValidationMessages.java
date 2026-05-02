@@ -23,8 +23,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;
 
 /**
  * Immutable triple of validation banner state shared across the ON billing
- * view models. Replaces the {@code (errorFlag, errorMessage, warningMessage)}
- * field cluster that was duplicated in 4 of the 5 page view models.
+ * view models.
  *
  * <p>Field semantics:</p>
  * <ul>

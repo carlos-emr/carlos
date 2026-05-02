@@ -326,21 +326,21 @@ public class BillingOnDiskLoader {
 
         for (BillingONHeader b : bs) {
             obj.setId("" + b.getId());
-            obj.setDisk_id(disk_id);
-            obj.setTransc_id(b.getTransactionId());
-            obj.setRec_id(b.getRecordId());
-            obj.setSpec_id(b.getSpecId());
-            obj.setMoh_office(b.getMohOffice());
+            obj.setDiskId(disk_id);
+            obj.setTranscId(b.getTransactionId());
+            obj.setRecId(b.getRecordId());
+            obj.setSpecId(b.getSpecId());
+            obj.setMohOffice(b.getMohOffice());
 
-            obj.setBatch_id(b.getBatchId());
+            obj.setBatchId(b.getBatchId());
             obj.setOperator(b.getOperator());
-            obj.setGroup_num(b.getGroupNum());
-            obj.setProvider_reg_num(b.getProviderRegNum());
+            obj.setGroupNum(b.getGroupNum());
+            obj.setProviderRegNum(b.getProviderRegNum());
             obj.setSpecialty(b.getSpecialty());
-            obj.setH_count(b.gethCount());
-            obj.setR_count(b.getrCount());
-            obj.setT_count(b.gettCount());
-            obj.setBatch_date(dateformatter.format(b.getBatchDate()));
+            obj.setHCount(b.gethCount());
+            obj.setRCount(b.getrCount());
+            obj.setTCount(b.gettCount());
+            obj.setBatchDate(dateformatter.format(b.getBatchDate()));
 
             obj.setCreatedatetime(tsFormatter.format(b.getCreateDateTime()));
             obj.setUpdatedatetime(tsFormatter.format(b.getUpdateDateTime()));

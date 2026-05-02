@@ -28,10 +28,8 @@ import java.util.List;
  * Immutable view model for {@code manageBillingLocation.jsp}, the Ontario
  * billing clinic-location admin page.
  *
- * <p>Replaces the legacy inline {@code ClinicLocationDao.findByClinicNo(1)}
- * lookup the JSP body used to perform. {@link #isEmpty} mirrors the
- * legacy "failed!!!" banner for the empty-list case (kept for parity even
- * though it is unusual UX).</p>
+ * <p>{@link #isEmpty} controls the empty-list banner shown when no clinic
+ * locations are available.</p>
  *
  * @since 2026-04-25
  */
@@ -58,9 +56,7 @@ public final class ManageBillingLocationViewModel {
     public String getReportAction() { return reportAction; }
     public String getSelectedClinicView() { return selectedClinicView; }
 
-    /** True when the location list is empty (mirrors the legacy
-     *  {@code clinicLocations.size() == 0} branch that printed
-     *  "failed!!!"). */
+    /** True when the location list is empty. */
     public boolean isEmpty() { return locations.isEmpty(); }
 
     public record ClinicLocationRow(String clinicLocationNo, String clinicLocationName) {

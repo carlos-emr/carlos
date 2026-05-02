@@ -237,6 +237,72 @@ class ScheduleOfBenefitsActionsUnitTest {
         verify(feeScheduleImportService, org.mockito.Mockito.never()).preview(any(), any());
     }
 
+    @Test
+    void shouldReturn405WithAllowHeader_onUpdate_whenGet() throws Exception {
+        request.setMethod("GET");
+        request.setParameter("change", "A001A|33.70|20260428|99999999|Minor assessment");
+
+        ScheduleOfBenefitsUpdate2Action action =
+                new ScheduleOfBenefitsUpdate2Action(securityInfoManager, feeScheduleImportService);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(jakarta.servlet.http.HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        verify(feeScheduleImportService, org.mockito.Mockito.never()).applySelected(any());
+        verify(feeScheduleImportService, org.mockito.Mockito.never()).applyAll(any());
+    }
+
+    @Test
+    void shouldApplyAllTypedFeeScheduleChanges_whenForceUpdateRequested() throws Exception {
+        FeeScheduleChange change = new FeeScheduleChange("A001A", null, new BigDecimal("33.70"), null,
+                "prices", "20260428", "99999999", "Minor assessment", 0, true);
+        request.setParameter("forceUpdate", "true");
+        request.setAttribute("feeScheduleChanges", List.of(change));
+        when(feeScheduleImportService.applyAll(any()))
+                .thenReturn(new FeeScheduleApplyResult(
+                        List.of(new FeeScheduleAppliedChange("A001A", new BigDecimal("33.70"))),
+                        Collections.emptyList()));
+
+        ScheduleOfBenefitsUpdate2Action action =
+                new ScheduleOfBenefitsUpdate2Action(securityInfoManager, feeScheduleImportService);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat((List) request.getAttribute("changes")).singleElement()
+                .satisfies(applied -> assertThat((java.util.Map) applied).containsEntry("code", "A001A"));
+        verify(feeScheduleImportService).applyAll(List.of(change));
+        verify(feeScheduleImportService, org.mockito.Mockito.never()).applySelected(any());
+    }
+
+    @Test
+    void shouldIgnoreMalformedSelectedChange_andApplyOnlyValidSelections() throws Exception {
+        request.setParameter("change",
+                "not-a-valid-submitted-value",
+                "A001A|33.70|20260428|99999999|Minor assessment");
+        when(feeScheduleImportService.applySelected(any()))
+                .thenReturn(new FeeScheduleApplyResult(Collections.emptyList(), Collections.emptyList()));
+
+        ScheduleOfBenefitsUpdate2Action action =
+                new ScheduleOfBenefitsUpdate2Action(securityInfoManager, feeScheduleImportService);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        @SuppressWarnings("unchecked")
+        org.mockito.ArgumentCaptor<List<io.github.carlos_emr.carlos.billings.ca.on.dto.FeeScheduleSelectedChange>>
+                captor = org.mockito.ArgumentCaptor.forClass(List.class);
+        verify(feeScheduleImportService).applySelected(captor.capture());
+        assertThat(captor.getValue()).hasSize(1);
+        assertThat(captor.getValue().get(0).feeCode()).isEqualTo("A001A");
+    }
+
+    @Test
+    void shouldNotCallApplyService_whenNoChangesSubmitted() throws Exception {
+        ScheduleOfBenefitsUpdate2Action action =
+                new ScheduleOfBenefitsUpdate2Action(securityInfoManager, feeScheduleImportService);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(feeScheduleImportService, org.mockito.Mockito.never()).applySelected(any());
+        verify(feeScheduleImportService, org.mockito.Mockito.never()).applyAll(any());
+    }
+
     private void attachUpload(ScheduleOfBenefitsUpload2Action action) {
         action.withUploadedFiles(List.of(StrutsUploadedFile.Builder.create(uploadFile.toFile())
                 .withOriginalName(uploadFile.getFileName().toString())

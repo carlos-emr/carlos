@@ -21,7 +21,7 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Page role: Renders `genRASummary.jsp` for the Ontario billing workflow.
+  Purpose: Supports genRASummary in the Ontario billing workflow.
   Expected request model data includes: raSummaryModel.
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.

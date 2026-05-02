@@ -27,8 +27,7 @@ import java.util.Map;
 
 /**
  * Immutable multisite + RMA + clinic-nbr context shared across the ON billing
- * page view models. Replaces the parallel field clusters that the form,
- * correction, and status view models each carried separately:
+ * page view models:
  *
  * <ul>
  *   <li>{@code multisiteEnabled} / {@code multisiteSites} / {@code defaultSelectedSite}

@@ -25,10 +25,6 @@ import io.github.carlos_emr.SxmlMisc;
 
 /**
  * Immutable referral-doctor triple shared across the ON billing view models.
- * Replaces the {@code (referralDoctor / referralDoctorName,
- * referralDoctorOhip, referralSpecialty)} field cluster that recurs in
- * {@link BillingOnFormViewModel}, {@link BillingOnReviewViewModel}, and
- * {@link BillingShortcutPg1ViewModel}.
  *
  * <p>Each component is null-coalesced to empty so EL output via
  * {@code <carlos:encode>} doesn't render the literal {@code "null"} string.
@@ -55,9 +51,7 @@ public record BillingReferralDoctor(
 
     /**
      * Canonical projection from a demographic's {@code FamilyDoctor} XML
-     * blob — replaces the duplicated extraction in
-     * {@code BillingOnReviewViewModelAssembler.populateDemographicAndValidation}
-     * and {@code BillingShortcutPg1ViewModelAssembler.loadDemographic}.
+     * blob.
      *
      * <p>The legacy convention: a {@code null} blob means "no family doctor
      * on file", which the Review/Shortcut JSPs render as the literal

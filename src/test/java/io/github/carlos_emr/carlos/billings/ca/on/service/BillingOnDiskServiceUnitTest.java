@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import org.mockito.MockedStatic;
 import org.springframework.beans.factory.ObjectFactory;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -27,6 +28,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.AdditionalMatchers.aryEq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -94,7 +96,27 @@ class BillingOnDiskServiceUnitTest {
                 aryEq(new String[]{"O", "W", "I"}), eq(false), eq("4"), eq(false), eq(false));
         verify(claimFileService).writeFile("claim-body");
         verify(claimFileService).writeHtml("<html>claim</html>");
+        verify(claimFileService).finalizeGeneratedDisk();
         verify(claimFileService).updateDisknameSum(12);
+    }
+
+    @Test
+    void shouldFinalizeClaimHeaderUpdates_afterBothDiskFilesAreWritten() {
+        MockHttpServletRequest request = newDiskRequest("999998");
+        BillingProviderDto provider = provider("999998", "0000");
+        when(diskCreationService.getProviderObj("999998")).thenReturn(provider);
+        when(diskCreationService.createNewSoloDiskName("999998", "999998")).thenReturn(12);
+        when(diskCreationService.createBatchHeader(provider, "12", "4", "1", "999998")).thenReturn(34);
+        when(diskCreationService.getOhipfilename(12)).thenReturn("ohip.txt");
+        when(diskCreationService.getHtmlfilename(12, "999998")).thenReturn("ohip.html");
+
+        service.generateNewDisk(request);
+
+        InOrder order = inOrder(claimFileService);
+        order.verify(claimFileService).writeFile("claim-body");
+        order.verify(claimFileService).writeHtml("<html>claim</html>");
+        order.verify(claimFileService).finalizeGeneratedDisk();
+        order.verify(claimFileService).updateDisknameSum(12);
     }
 
     @Test
@@ -114,6 +136,7 @@ class BillingOnDiskServiceUnitTest {
                 .hasMessageContaining("disk full");
 
         verify(claimFileService, never()).writeHtml(anyString());
+        verify(claimFileService, never()).finalizeGeneratedDisk();
         verify(claimFileService, never()).updateDisknameSum(12);
     }
 
@@ -137,6 +160,7 @@ class BillingOnDiskServiceUnitTest {
         verify(claimFileService).renameFile();
         verify(claimFileService).createBillingFileStr(eq(loggedInInfo), eq("78"),
                 aryEq(new String[]{"B"}), eq(false), eq("4"), eq(false), eq(false));
+        verify(claimFileService, never()).finalizeGeneratedDisk();
         verify(claimFileService, never()).updateDisknameSum(55);
     }
 

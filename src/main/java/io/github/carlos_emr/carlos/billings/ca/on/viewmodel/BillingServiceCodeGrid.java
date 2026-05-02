@@ -27,11 +27,9 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Immutable service-code grid for {@code billingON.jsp}. Replaces the
- * five-field cluster ({@code billingServiceCodesMap},
- * {@code listServiceType}, {@code titleMap}, {@code premiumCodes},
- * {@code dxCodesByServiceType}) the form view model previously carried as
- * flat fields.
+ * Immutable service-code grid for {@code billingON.jsp}. It carries service
+ * types, per-type service code columns, per-type titles, premium-code flags,
+ * and diagnostic-code rows.
  *
  * <p>The grid renders 3 columns of service codes per service type. Each
  * column is a {@code List<ServiceCodeEntry>} keyed by the service-type

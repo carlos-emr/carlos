@@ -23,12 +23,6 @@ package io.github.carlos_emr.carlos.billings.ca.on.dto;
  * provider OHIP / billing numbers, and the per-row claim-record / status /
  * total carried alongside.
  *
- * <p>Replaces seven parallel {@code ArrayList<String>} columns the loader
- * and creator used to populate in lockstep. Consumers
- * ({@code BillingOnClaimPersister}, {@code BillingOnMriViewModelAssembler})
- * read by row index instead of by column index across seven separate
- * lists.</p>
- *
  * <p>{@code claimRecord}, {@code status}, {@code total} carry per-row data
  * because {@code OhipClaimFileService} updates each filename row with
  * record-count and total values during OHIP file generation, and the MRI

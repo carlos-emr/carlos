@@ -146,15 +146,15 @@ public class BillingRaReportService {
     public List getRASummary(String raNo, String providerOhipNo, List OBbilling_no, List CObilling_no, Map map) {
         List rett = new ArrayList();
         List ret = raService.getRASummary(raNo, providerOhipNo);
-        BigDecimal BigCTotal = BillingMoney.zero();
-        BigDecimal BigPTotal = BillingMoney.zero();
-        BigDecimal BigOBTotal = BillingMoney.zero();
-        BigDecimal BigCOTotal = BillingMoney.zero();
-        BigDecimal BigHTotal = BillingMoney.zero();
-        BigDecimal BigLocalHTotal = BillingMoney.zero();
-        BigDecimal BigTotal = BillingMoney.zero();
-        BigDecimal BigOTotal = BillingMoney.zero();
-        BigDecimal BigLTotal = BillingMoney.zero();
+        BigDecimal BigCTotal = BillingMoney.zeroAmount();
+        BigDecimal BigPTotal = BillingMoney.zeroAmount();
+        BigDecimal BigOBTotal = BillingMoney.zeroAmount();
+        BigDecimal BigCOTotal = BillingMoney.zeroAmount();
+        BigDecimal BigHTotal = BillingMoney.zeroAmount();
+        BigDecimal BigLocalHTotal = BillingMoney.zeroAmount();
+        BigDecimal BigTotal = BillingMoney.zeroAmount();
+        BigDecimal BigOTotal = BillingMoney.zeroAmount();
+        BigDecimal BigLTotal = BillingMoney.zeroAmount();
         // Count of rows whose amountPay was flagged amountUnreadable upstream
         // (BillingOnRaService.getRASummary). Excluded from running totals AND
         // surfaced via map["xml_partial_count"] so

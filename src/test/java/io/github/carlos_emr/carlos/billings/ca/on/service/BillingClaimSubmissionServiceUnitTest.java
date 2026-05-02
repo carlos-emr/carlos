@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -69,7 +70,7 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldReturnGeneratedBillingIdFromAddABillingRecord() {
+    void shouldReturnGeneratedBillingId_fromAddABillingRecord() {
         BillingClaimHeaderDto header = new BillingClaimHeaderDto();
         List<BillingClaimItemDto> items = List.of(new BillingClaimItemDto());
         ArrayList<Object> claim = new ArrayList<>();
@@ -106,7 +107,7 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldPassExplicitBillingIdToPrivateBillExtPersist() {
+    void shouldPassExplicitBillingId_toPrivateBillExtPersist() {
         ArrayList<Object> claim = new ArrayList<>();
         when(mockRequest.getParameter("submit")).thenReturn("Save");
         when(mockPersister.add3rdBillExt(anyMap(), eq(4321), same(claim))).thenReturn(true);
@@ -132,7 +133,7 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldBuildStandardOhipClaimHeaderAndItemsFromRequest() {
+    void shouldBuildStandardOhipClaimHeaderAndItems_fromRequest() {
         MockHttpServletRequest request = standardBillingRequest("HCP", "Save");
         request.setParameter("totalItem", "2");
         request.setParameter("xserviceCode_0", "A001A");
@@ -212,7 +213,7 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldBuildHospitalClaimHeaderAndItemsFromLines() {
+    void shouldBuildHospitalClaimHeaderAndItems_fromLines() {
         MockHttpServletRequest request = hospitalBillingRequest();
         List<BillingServiceLine> lines = List.of(
                 new BillingServiceLine("A001", "Visit", "2", "10.00"),
@@ -245,6 +246,22 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
 
         assertThat(updated).isTrue();
         verify(mockLookupService).updateApptStatus("456", "B", "999998");
+    }
+
+    @Test
+    void shouldNotExposePublicRawArrayListClaimApis() {
+        assertThat(BillingClaimSubmissionService.class.getMethods())
+                .filteredOn(method -> method.getDeclaringClass().equals(BillingClaimSubmissionService.class))
+                .allSatisfy(this::assertDoesNotExposeArrayList);
+    }
+
+    private void assertDoesNotExposeArrayList(Method method) {
+        assertThat(method.getReturnType())
+                .as(method.getName() + " return type")
+                .isNotEqualTo(ArrayList.class);
+        assertThat(method.getParameterTypes())
+                .as(method.getName() + " parameter types")
+                .doesNotContain(ArrayList.class);
     }
 
     private MockHttpServletRequest standardBillingRequest(String billType, String submit) {

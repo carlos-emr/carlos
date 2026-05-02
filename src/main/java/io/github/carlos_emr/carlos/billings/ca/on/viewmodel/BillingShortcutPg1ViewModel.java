@@ -36,8 +36,7 @@ import java.util.Properties;
  * {@link io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingShortcutPg1View2Action}
  * and exposed to the JSP as request attribute {@code shortcutPg1Model}. Captures
  * the demographic + provider lookups, the billing-history rows, the
- * service-code grid, and the validation messages that previously lived in the
- * 350-line top scriptlet of the legacy JSP.</p>
+ * service-code grid, and the validation messages needed by the page.</p>
  *
  * <p>{@link Properties} elements are kept inside the lists because the JSP iterates
  * each row via {@code Properties.getProperty(key)}; converting to typed records
@@ -93,17 +92,14 @@ public final class BillingShortcutPg1ViewModel {
     private final String headerTitle3;
     private final Map<String, String> propPremium;
 
-    // data formerly loaded inline by billingShortcutPg1.jsp via
-    // SpringUtils.getBean (CtlBillingServiceDao, DiagnosticCodeDao,
-    // ClinicNbrDao, ProviderDao for comments XML). Pre-loaded here so the
-    // JSP can iterate via EL/JSTL without any DAO lookups in body code.
+    // Supporting lookup data pre-loaded so the JSP can iterate via EL/JSTL
+    // without DAO lookups in body code.
     // (rmaEnabled + clinicNbrs are now under {@link #multisite}.)
     private final String selectedXmlPSli;
     private final List<ServiceTypeEntry> serviceTypes;
     private final List<DxCodeEntry> dxCodes;
 
-    // drain residual scriptlets — pre-resolved values the JSP
-    // previously computed inline in scriptlet code.
+    // Pre-resolved values consumed directly by the JSP.
     private final Map<String, String> requestParamEchoes;
     private final String currentFormName;
     private final String assgProviderDisplay;

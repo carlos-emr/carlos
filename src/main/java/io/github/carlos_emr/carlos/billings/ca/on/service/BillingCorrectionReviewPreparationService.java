@@ -59,9 +59,9 @@ public class BillingCorrectionReviewPreparationService {
     }
 
     BillingCorrectionReviewDraft prepareDraft(BillingCorrectionValidationCommand command) {
-        BigDecimal billingunit = BillingMoney.zero();
-        BigDecimal percentPremium = BillingMoney.zero();
-        BigDecimal bigTotal = BillingMoney.zero();
+        BigDecimal billingunit = BillingMoney.zeroAmount();
+        BigDecimal percentPremium = BillingMoney.zeroAmount();
+        BigDecimal bigTotal = BillingMoney.zeroAmount();
 
         String diagnosticCode = command.diagnosticDetail();
         String diagcode;
@@ -96,7 +96,7 @@ public class BillingCorrectionReviewPreparationService {
         String xUnit = "";
         boolean eFlag = false;
         boolean xFlag = false;
-        BigDecimal pValue1 = BillingMoney.zero();
+        BigDecimal pValue1 = BillingMoney.zeroAmount();
         List<BillingCorrectionReviewItemDraft> items = new ArrayList<>();
 
         for (BillingCorrectionLineCommand line : command.serviceLines()) {

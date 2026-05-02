@@ -28,6 +28,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
@@ -36,6 +37,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportBilledRow;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportPaidBillingRow;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadException;
 import io.github.carlos_emr.carlos.commn.dao.projection.BillingOnNewReportPaidRaDetailRow;
 import io.github.carlos_emr.carlos.commn.dao.projection.BillingOnNewReportUnbilledRow;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportUnpaidRow;
@@ -193,8 +195,20 @@ public class BillingOnNewReportViewModelAssembler {
                             LogSanitizer.sanitize(action));
                     break;
             }
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to assemble billingONNewReport rows", e);
+        } catch (RuntimeException e) {
+            if (e instanceof BillingDataLoadException) {
+                throw e;
+            }
+            throw new BillingDataLoadException(
+                    "Failed to assemble billingONNewReport rows",
+                    e,
+                    BillingDataLoadException.Phase.DAO_QUERY,
+                    Map.of(
+                            "reportAction", action,
+                            "providerview", providerView,
+                            "xml_vdate", xmlVdate,
+                            "xml_appointment_date", xmlAppointmentDate,
+                            "site", selectedSite));
         }
         return out;
     }

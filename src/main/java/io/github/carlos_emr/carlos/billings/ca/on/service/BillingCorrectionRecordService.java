@@ -513,12 +513,6 @@ public class BillingCorrectionRecordService {
         boolean ret = false;
         if (existObj == null)
             return ret;
-        // _logger.info("isChangedBillingClaimHeader(old value = " +
-        // existObj.getStatus() + "|" + existObj.referralNumber()
-        // + "|" + existObj.admissionDate() + "|" +
-        // existObj.facilityNumber() + "|" + existObj.manualReview()
-        // + "|" + existObj.billingDate() + "|" + existObj.getProviderNo()
-        // + "|" + existObj.payProgram());
         String temp = request.getParameter("m_review") == null ? "" : "Y";
         if (existObj.getStatus() != null
                 && request.getParameter("status") != null
@@ -603,9 +597,7 @@ public class BillingCorrectionRecordService {
                                      String status) throws ParseException {
         boolean ret = true;
         if (oldObj.serviceCode().equals(serviceCode)) {
-            // change to settle or not
             boolean bStatusChange = false;
-            // String cStatus = (String) oldObj.getStatus();
             String cStatus = status;
             // Status crossed the SETTLED boundary in either direction.
             if ((!BillingONItem.SETTLED.equals(oldObj.getStatus()) && BillingONItem.SETTLED.equals(cStatus))
@@ -618,12 +610,6 @@ public class BillingCorrectionRecordService {
                     || !oldObj.getDx().equals(sDx)
                     || !oldObj.serviceDate().equals(serviceDate)
                     || bStatusChange) {
-                /*
-                 * int j = correctionPersister.addRepoOneItem(oldObj);
-                 * if (j == 0) {
-                 * return null;
-                 * }
-                 */
                 oldObj = oldObj.withServiceNumber(getUnit(unit));
                 oldObj = oldObj.withFee(getFee(fee, getUnit(unit), serviceCode, serviceDate));
                 oldObj = oldObj.withServiceDate(serviceDate);

@@ -191,10 +191,10 @@ public class BillingOhipSimulationViewModelAssembler {
         dbObj.setDateRange(dateRange);
         dbObj.setProviderNo(pro);
         BillingBatchHeaderDto bhObj = new BillingBatchHeaderDto();
-        bhObj.setSpec_id("   ");
-        bhObj.setMoh_office(" ");
-        bhObj.setGroup_num(groupNo);
-        bhObj.setProvider_reg_num(proOHIP);
+        bhObj.setSpecId("   ");
+        bhObj.setMohOffice(" ");
+        bhObj.setGroupNum(groupNo);
+        bhObj.setProviderRegNum(proOHIP);
         bhObj.setSpecialty(specialty);
         dbObj.setBatchHeaderObj(bhObj);
         dbObj.createSiteBillingFileStr(loggedInInfo, "0", new String[]{"O", "W", "I"});
@@ -227,7 +227,7 @@ public class BillingOhipSimulationViewModelAssembler {
             providerList.add(pro);
         }
 
-        BigDecimal bigTotal = BillingMoney.zero();
+        BigDecimal bigTotal = BillingMoney.zeroAmount();
         int recordCount = 0;
         int errorCount = 0;
         StringBuilder htmlValue = new StringBuilder();
@@ -261,10 +261,10 @@ public class BillingOhipSimulationViewModelAssembler {
             dbObj.setDateRange(dateRange);
             dbObj.setProviderNo(provider);
             BillingBatchHeaderDto bhObj = new BillingBatchHeaderDto();
-            bhObj.setSpec_id("   ");
-            bhObj.setMoh_office(" ");
-            bhObj.setGroup_num(groupNo);
-            bhObj.setProvider_reg_num(proOHIP);
+            bhObj.setSpecId("   ");
+            bhObj.setMohOffice(" ");
+            bhObj.setGroupNum(groupNo);
+            bhObj.setProviderRegNum(proOHIP);
             bhObj.setSpecialty(specialty);
             dbObj.setBatchHeaderObj(bhObj);
             dbObj.appendErrorMsg(errorMsg.toString());

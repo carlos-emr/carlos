@@ -23,6 +23,11 @@
 
 package io.github.carlos_emr.carlos.billings.ca.on.dto;
 
+/**
+ * Immutable data transfer object for one Ontario claim item/detail row.
+ * Stores the fixed-width MOH item fields in the string shape expected by
+ * billing assemblers, export services, and JSP compatibility getters.
+ */
 public record BillingClaimItemDto(
         String id,
         String claimHeaderId,

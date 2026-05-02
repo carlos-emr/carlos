@@ -21,7 +21,7 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Page role: Renders `billingON_dx_desc.jsp` for the Ontario billing workflow.
+  Purpose: Supports billingON_dx_desc in the Ontario billing workflow.
   Expected request model data includes: dxDescModel.
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.

@@ -25,11 +25,9 @@ import java.util.Date;
  * (P006A, P011A, P009A, P020A, P022A, P028A, P023A, P007A, P008B, P018B,
  * E502A, C989A, E409A, E410A, E411A, H001A).
  *
- * <p>Replaces the {@code List<Object[]>} return of
- * {@code BillingDao.search_billob} via JPA constructor projection
- * ({@code SELECT NEW ...}). Eliminates the per-iteration
- * {@code (Integer) row[0] / (String) row[1]} positional cast in
- * {@code BillingReportFragmentViewModelAssembler}.</p>
+ * <p>Loaded through a JPA constructor projection for
+ * {@code BillingReportFragmentViewModelAssembler} so the report receives
+ * typed billing id, total, status, date, and demographic-name values.</p>
  *
  * @since 2026-05-01
  */

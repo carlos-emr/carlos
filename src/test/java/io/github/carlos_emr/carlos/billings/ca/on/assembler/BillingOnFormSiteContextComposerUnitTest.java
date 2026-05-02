@@ -27,27 +27,17 @@ import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnFormViewMod
 import io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 
-import java.util.List;
+import java.util.Collections;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-/**
- * Smoke unit test for {@link BillingOnFormSiteContextComposer}. Pins the
- * constructor wiring so a future refactor that adds or removes a DAO
- * dependency surfaces here. Deeper behavioral tests for
- * {@code populate(...)} require a heavyweight HttpServletRequest +
- * IsPropertiesOn setup and are tracked as a separate scope.
- *
- * @since 2026-04-29
- */
 @DisplayName("BillingOnFormSiteContextComposer")
 @Tag("unit")
 @Tag("billing")
@@ -55,63 +45,67 @@ class BillingOnFormSiteContextComposerUnitTest {
 
     @Test
     void shouldNotThrow_whenPopulateCalledWithMockedDependencies() {
-        // populate() reads multisite + rma_enabled flags from CarlosProperties
-        // (static, hard to mock in pure unit context). Pin only that calling
-        // populate() with all-mock DAOs doesn't throw — exercising real branch
-        // coverage requires a CarlosProperties test fixture not currently
-        // available; tracked as a separate test-infra task.
-        SiteDao siteDao = mock(SiteDao.class);
-        OscarAppointmentDao oscarAppointmentDao = mock(OscarAppointmentDao.class);
-        ClinicNbrDao clinicNbrDao = mock(ClinicNbrDao.class);
-        ProviderDao providerDao = mock(ProviderDao.class);
-        when(clinicNbrDao.findAll()).thenReturn(new java.util.ArrayList<>());
+        Object originalMultisites = CarlosProperties.getInstance().get("multisites");
+        Object originalRma = CarlosProperties.getInstance().get("rma_enabled");
+        try {
+            CarlosProperties.getInstance().setProperty("multisites", "false");
+            CarlosProperties.getInstance().setProperty("rma_enabled", "false");
 
-        BillingOnFormSiteContextComposer composer = new BillingOnFormSiteContextComposer(
-                siteDao, oscarAppointmentDao, clinicNbrDao, providerDao);
+            BillingOnFormViewModel.Builder builder = BillingOnFormViewModel.builder();
+            new BillingOnFormSiteContextComposer(
+                    mock(SiteDao.class),
+                    mock(OscarAppointmentDao.class),
+                    mock(ClinicNbrDao.class),
+                    mock(ProviderDao.class))
+                    .populate(builder, new MockHttpServletRequest(), "999998", null, null);
 
-        BillingOnFormViewModel.Builder b = BillingOnFormViewModel.builder();
-        composer.populate(b, new MockHttpServletRequest(), "999998", null, null);
-
-        // Assert builder produced a usable VM (smoke-level branch coverage).
-        BillingOnFormViewModel vm = b.build();
-        assertThat(vm).isNotNull();
-        assertThat(vm.getClinicNbrs()).isNotNull();
+            BillingOnFormViewModel model = builder.build();
+            assertThat(model).isNotNull();
+            assertThat(model.getClinicNbrs()).isNotNull();
+        } finally {
+            restore("multisites", originalMultisites);
+            restore("rma_enabled", originalRma);
+        }
     }
 
     @Test
     void shouldFlagSiteContextDegraded_whenAppointmentDefaultLookupFails() {
         Object originalMultisites = CarlosProperties.getInstance().get("multisites");
-        Object originalRmaEnabled = CarlosProperties.getInstance().get("rma_enabled");
+        Object originalRma = CarlosProperties.getInstance().get("rma_enabled");
         try {
-            CarlosProperties.getInstance().setProperty("multisites", "true");
+            CarlosProperties.getInstance().setProperty("multisites", "yes");
             CarlosProperties.getInstance().setProperty("rma_enabled", "false");
 
             SiteDao siteDao = mock(SiteDao.class);
-            OscarAppointmentDao oscarAppointmentDao = mock(OscarAppointmentDao.class);
-            ClinicNbrDao clinicNbrDao = mock(ClinicNbrDao.class);
-            ProviderDao providerDao = mock(ProviderDao.class);
-            when(siteDao.getActiveSitesByProviderNo("999998")).thenReturn(List.of());
-            when(oscarAppointmentDao.findAppointmentAndProviderByAppointmentNo(123))
-                    .thenThrow(new RuntimeException("appointment lookup unavailable"));
+            OscarAppointmentDao appointmentDao = mock(OscarAppointmentDao.class);
+            when(siteDao.getActiveSitesByProviderNo("999998")).thenReturn(Collections.emptyList());
+            when(appointmentDao.findAppointmentAndProviderByAppointmentNo(123))
+                    .thenThrow(new RuntimeException("appointment unavailable"));
 
-            BillingOnFormSiteContextComposer composer = new BillingOnFormSiteContextComposer(
-                    siteDao, oscarAppointmentDao, clinicNbrDao, providerDao);
+            BillingOnFormViewModel.Builder builder = BillingOnFormViewModel.builder();
+            new BillingOnFormSiteContextComposer(
+                    siteDao,
+                    appointmentDao,
+                    mock(ClinicNbrDao.class),
+                    mock(ProviderDao.class))
+                    .populate(builder, new MockHttpServletRequest(), "999998", "999998", "123");
 
-            BillingOnFormViewModel.Builder b = BillingOnFormViewModel.builder();
-            composer.populate(b, new MockHttpServletRequest(), "999998", null, "123");
+            BillingOnFormViewModel model = builder.build();
 
-            assertThat(b.build().isSiteContextDegraded()).isTrue();
+            assertThat(model.isSiteContextDegraded()).isTrue();
+            assertThat(model.getDegradationFlags()).contains(
+                    BillingOnFormViewModel.DegradationFlag.SITE_CONTEXT_DEGRADED);
         } finally {
-            restoreProperty("multisites", originalMultisites);
-            restoreProperty("rma_enabled", originalRmaEnabled);
+            restore("multisites", originalMultisites);
+            restore("rma_enabled", originalRma);
         }
     }
 
-    private static void restoreProperty(String key, Object value) {
-        if (value == null) {
+    private static void restore(String key, Object original) {
+        if (original == null) {
             CarlosProperties.getInstance().remove(key);
         } else {
-            CarlosProperties.getInstance().put(key, value);
+            CarlosProperties.getInstance().put(key, original);
         }
     }
 }

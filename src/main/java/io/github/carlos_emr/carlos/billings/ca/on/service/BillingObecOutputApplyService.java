@@ -96,7 +96,9 @@ public class BillingObecOutputApplyService {
         int appliedCount = 0;
         int skippedCount = 0;
         List<String> reasons = new ArrayList<>();
-        for (BillingEdtObecOutputSpecificationRecordDto bean : outputSpecVector) {
+        for (int rowIndex = 0; rowIndex < outputSpecVector.size(); rowIndex++) {
+            BillingEdtObecOutputSpecificationRecordDto bean = outputSpecVector.get(rowIndex);
+            String rowLabel = rowLabel(rowIndex);
             String hin = bean.getHealthNo();
             String responseCode = bean.getResponseCode();
             int responseCodeNum;
@@ -109,11 +111,11 @@ public class BillingObecOutputApplyService {
                 // rest of the file intact; the operator sees the malformed
                 // row in the server log.
                 MiscUtils.getLogger().warn(
-                        "Skipping OBEC output-spec row with unparseable response code {} for hin {}",
-                        LogSanitizer.sanitize(responseCode),
-                        LogSanitizer.sanitize(hin), e);
+                        "Skipping OBEC output-spec {} with unparseable response code {}",
+                        rowLabel,
+                        LogSanitizer.sanitize(responseCode), e);
                 skippedCount++;
-                reasons.add("Skipped HIN " + safeValue(hin) + ": unparseable response code " + safeValue(responseCode));
+                reasons.add("Skipped " + rowLabel + ": unparseable response code " + safeValue(responseCode));
                 continue;
             }
 
@@ -132,11 +134,11 @@ public class BillingObecOutputApplyService {
                     String beanVer = bean.getVersion();
                     if (dVer == null || beanVer == null) {
                         MiscUtils.getLogger().warn(
-                                "BillingObecOutputApplyService: skipping row with null ver (hin={}, demographicNo={})",
-                                LogSanitizer.sanitize(hin),
+                                "BillingObecOutputApplyService: skipping {} with null ver (demographicNo={})",
+                                rowLabel,
                                 d.getDemographicNo());
                         skippedCount++;
-                        reasons.add("Skipped HIN " + safeValue(hin) + ": missing version");
+                        reasons.add("Skipped " + rowLabel + ": missing version");
                         continue;
                     }
                     if (dVer.trim().compareTo(beanVer.trim()) == 0) {
@@ -155,19 +157,23 @@ public class BillingObecOutputApplyService {
                         }
                     } else {
                         skippedCount++;
-                        reasons.add("Skipped HIN " + safeValue(hin) + ": version mismatch");
+                        reasons.add("Skipped " + rowLabel + ": version mismatch");
                     }
                 } else {
                     skippedCount++;
-                    reasons.add("Skipped HIN " + safeValue(hin) + ": no demographic match");
+                    reasons.add("Skipped " + rowLabel + ": no demographic match");
                 }
             } else {
                 skippedCount++;
-                reasons.add("Skipped HIN " + safeValue(hin) + ": response code " + responseCodeNum
+                reasons.add("Skipped " + rowLabel + ": response code " + responseCodeNum
                         + " does not require an update");
             }
         }
         return new ApplyResult(appliedCount, skippedCount, reasons);
+    }
+
+    private static String rowLabel(int zeroBasedIndex) {
+        return "row " + (zeroBasedIndex + 1);
     }
 
     private static String safeValue(String value) {

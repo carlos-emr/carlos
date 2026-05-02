@@ -77,16 +77,23 @@ public class BatchBill2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
-        String method = request.getParameter("method");
-        if (isMutationRequest(method) && rejectNonPostMutation()) {
+        BatchCommand command = BatchCommand.from(request.getParameter("method"));
+        boolean requestWillMutate = command.requiresPost()
+                || request.getParameterValues("bill") != null;
+        if (requestWillMutate && rejectNonPostMutation()) {
             return NONE;
         }
-        if ("doBatchBill".equals(method)) {
-            return doBatchBill();
-        } else if ("remove".equals(method)) {
-            return remove();
-        } else if ("add".equals(method)) {
-            return add();
+        switch (command) {
+            case DO_BATCH_BILL:
+                return doBatchBill();
+            case REMOVE:
+                return remove();
+            case ADD:
+                return add();
+            case DEFAULT:
+                break;
+            default:
+                break;
         }
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "w", null)) {
@@ -153,6 +160,34 @@ public class BatchBill2Action extends ActionSupport {
         // Render the batch-billing form view. Saves return through the same path.
         return SUCCESS;
 
+    }
+
+    private enum BatchCommand {
+        DEFAULT("", false),
+        DO_BATCH_BILL("doBatchBill", true),
+        REMOVE("remove", true),
+        ADD("add", true);
+
+        private final String method;
+        private final boolean requiresPost;
+
+        BatchCommand(String method, boolean requiresPost) {
+            this.method = method;
+            this.requiresPost = requiresPost;
+        }
+
+        private boolean requiresPost() {
+            return requiresPost;
+        }
+
+        private static BatchCommand from(String method) {
+            for (BatchCommand command : values()) {
+                if (command.method.equals(method)) {
+                    return command;
+                }
+            }
+            return DEFAULT;
+        }
     }
 
     public String doBatchBill() {
@@ -375,13 +410,6 @@ public class BatchBill2Action extends ActionSupport {
 
         return "saved";
 
-    }
-
-    private boolean isMutationRequest(String method) {
-        return "doBatchBill".equals(method)
-                || "remove".equals(method)
-                || "add".equals(method)
-                || request.getParameterValues("bill") != null;
     }
 
     private boolean rejectNonPostMutation() {

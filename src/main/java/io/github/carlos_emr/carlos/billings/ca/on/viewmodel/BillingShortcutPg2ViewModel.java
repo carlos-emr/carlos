@@ -49,10 +49,8 @@ import java.util.Map;
 public final class BillingShortcutPg2ViewModel {
 
     /**
-     * Post-save navigation directive. The JSP previously emitted a
-     * {@code <script>self.close()</script>} or {@code window.location=...}
-     * inline depending on the submit button. The action layer now decides
-     * the navigation; the JSP renders the matching client-side hook.
+     * Post-save navigation directive. The action layer decides the
+     * navigation; the JSP renders the matching client-side hook.
      */
     public enum PostSaveAction {
         /** No navigation — initial page render or "Back to Edit" routed away. */

@@ -30,6 +30,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import io.github.carlos_emr.OscarDocumentCreator;
 import io.github.carlos_emr.carlos.PMmodule.utility.Utility;
@@ -161,13 +163,22 @@ public class PatientEndYearStatementService {
         try {
             List<Object[]> rows = headerDao.findBillingsAndDemographicsByDemoIdAndDates(
                     demographic.getDemographicNo(), PAT_BILLING_TYPE, fromDate, toDate);
+            List<BillingONCHeader1> headers = rows.stream()
+                    .map(row -> (BillingONCHeader1) row[0])
+                    .toList();
+            List<Integer> invoiceIds = headers.stream()
+                    .map(BillingONCHeader1::getId)
+                    .toList();
+            Map<Integer, List<BillingONItem>> itemsByInvoice = itemDao.findByCh1IdsExcludingDeletedAndSettled(invoiceIds)
+                    .stream()
+                    .collect(Collectors.groupingBy(BillingONItem::getCh1Id));
             for (Object[] row : rows) {
                 BillingONCHeader1 header = (BillingONCHeader1) row[0];
                 double paid = header.getPaid().doubleValue();
                 double invoiced = header.getTotal().doubleValue();
 
                 List<PatientEndYearStatementServiceLine> services = new ArrayList<>();
-                for (BillingONItem item : itemDao.findByCh1Id(header.getId())) {
+                for (BillingONItem item : itemsByInvoice.getOrDefault(header.getId(), List.of())) {
                     services.add(new PatientEndYearStatementServiceLine(
                             item.getServiceCode(), Utility.toCurrency(item.getFee())));
                 }

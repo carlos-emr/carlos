@@ -21,7 +21,7 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Page role: Renders `billingEditWithApptNo.jsp` for the Ontario billing workflow.
+  Purpose: Supports billingEditWithApptNo in the Ontario billing workflow.
   Expected request model data includes: editApptModel.
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.

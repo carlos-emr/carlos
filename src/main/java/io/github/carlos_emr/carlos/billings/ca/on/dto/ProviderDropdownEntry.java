@@ -21,11 +21,9 @@ package io.github.carlos_emr.carlos.billings.ca.on.dto;
  * One provider dropdown entry — identifying ids plus the billing-group
  * context the OHIP submission flow needs.
  *
- * <p>Replaces a {@code List<String>} of pipe-delimited 6-tuples that
- * {@link io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnLookupService}
- * used to emit (e.g. {@code "999998|Smith|Jane|012345|0000|00"}). Every
- * consumer had to {@code split("\\|")} and read positional offsets; the
- * record makes the contract explicit and removes one stringly-typed hop.</p>
+ * <p>The fields mirror the six values used by provider-picklist rendering:
+ * provider number, last name, first name, OHIP number, billing group, and
+ * specialty code.</p>
  *
  * @since 2026-05-01
  */

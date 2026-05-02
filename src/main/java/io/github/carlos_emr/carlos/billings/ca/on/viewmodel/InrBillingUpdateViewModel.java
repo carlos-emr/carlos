@@ -28,9 +28,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;
  * and exposed as request attribute {@code inrUpdateModel}.
  *
  * <p>Captures the demographic-display fields and pre-filled service/dx
- * codes the JSP previously pulled out of {@link
- * io.github.carlos_emr.carlos.commn.dao.DemographicDao} via a
- * scriptlet-local {@code SpringUtils.getBean} lookup.</p>
+ * codes needed by the edit form.</p>
  *
  * @since 2026-04-26
  */

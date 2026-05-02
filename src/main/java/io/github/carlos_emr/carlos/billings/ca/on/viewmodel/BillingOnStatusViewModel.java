@@ -32,10 +32,10 @@ import java.util.Map;
  * <p>Populated by
  * {@link io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingOnStatus2Action}
  * and exposed as request attribute {@code statusModel}. Captures the request
- * parameter echoes + default-value resolution that previously lived in the top
- * scriptlet of the JSP, together with all rendering data (provider list,
- * multisite site/provider HTML, billing forms, visit locations, rejected-bill
- * rows, and aggregated bill rows with computed totals).</p>
+ * parameter echoes + default-value resolution together with all rendering data
+ * (provider list, multisite site/provider HTML, billing forms, visit
+ * locations, rejected-bill rows, and aggregated bill rows with computed
+ * totals).</p>
  *
  * @since 2026-04-25
  */

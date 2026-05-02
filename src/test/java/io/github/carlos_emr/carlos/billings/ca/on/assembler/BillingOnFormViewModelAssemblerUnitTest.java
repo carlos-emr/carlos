@@ -25,7 +25,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.billings.ca.bc.decisionSupport.BillingGuidelines;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingAdmissionDateLoader;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnFormViewModel;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONFavouriteDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONFilenameDao;
@@ -54,15 +57,18 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 /**
@@ -86,6 +92,9 @@ class BillingOnFormViewModelAssemblerUnitTest extends CarlosUnitTestBase {
     private MockHttpServletRequest request;
     private LoggedInInfo loggedInInfo;
     private BillingOnFormViewModelAssembler assembler;
+    private BillingAdmissionDateLoader admissionDateLoader;
+    private MockedStatic<BillingGuidelines> billingGuidelinesMock;
+    private BillingGuidelines billingGuidelines;
 
     @BeforeEach
     void setUp() {
@@ -174,6 +183,13 @@ class BillingOnFormViewModelAssemblerUnitTest extends CarlosUnitTestBase {
         request = new MockHttpServletRequest();
         request.getSession(true).setAttribute("user", "999998");
         loggedInInfo = Mockito.mock(LoggedInInfo.class);
+        billingGuidelines = Mockito.mock(BillingGuidelines.class);
+        billingGuidelinesMock = Mockito.mockStatic(BillingGuidelines.class);
+        billingGuidelinesMock.when(BillingGuidelines::getInstance).thenReturn(billingGuidelines);
+        when(billingGuidelines.evaluateAndGetConsequences(any(), anyString(), anyString()))
+                .thenReturn(Collections.emptyList());
+
+        admissionDateLoader = Mockito.mock(BillingAdmissionDateLoader.class);
 
         assembler = new BillingOnFormViewModelAssembler(
                 dxresearchDAO,
@@ -189,7 +205,14 @@ class BillingOnFormViewModelAssemblerUnitTest extends CarlosUnitTestBase {
                 new BillingOnFormSiteContextComposer(
                         siteDao, oscarAppointmentDao, clinicNbrDao, providerDao),
                 Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingSiteIdService.class),
-                Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingAdmissionDateLoader.class));
+                admissionDateLoader);
+    }
+
+    @AfterEach
+    void tearDown() {
+        if (billingGuidelinesMock != null) {
+            billingGuidelinesMock.close();
+        }
     }
 
     @Test
@@ -313,6 +336,49 @@ class BillingOnFormViewModelAssemblerUnitTest extends CarlosUnitTestBase {
         assertThat(source).doesNotContain("Drools billing-guidelines evaluation failed for demo={}");
         assertThat(source).doesNotContain("LogSanitizer.sanitize(demoNo), userNo, e");
         assertThat(source).doesNotContain("OutOfMemoryError-adjacent");
+    }
+
+    @Test
+    void shouldFlagRecommendationsUnavailable_whenDroolsEvaluationFails() throws Exception {
+        request.setParameter("demographic_no", "1");
+        request.setParameter("appointment_no", "0");
+        request.setParameter("service_date", "2026-04-24");
+        request.setParameter("billForm", "GP");
+
+        when(billingGuidelines.evaluateAndGetConsequences(any(), eq("1"), eq("999998")))
+                .thenThrow(new RuntimeException("rules unavailable"));
+
+        BillingOnFormViewModel model = assembler.assemble(request, loggedInInfo);
+
+        assertThat(model.isRecommendationsUnavailable()).isTrue();
+        assertThat(model.getDegradationFlags()).contains(
+                BillingOnFormViewModel.DegradationFlag.RECOMMENDATIONS_UNAVAILABLE);
+    }
+
+    @Test
+    void shouldFlagAdmissionDateUnavailable_whenInpatientAdmissionLookupFails() {
+        Object original = CarlosProperties.getInstance().get("inPatient");
+        try {
+            CarlosProperties.getInstance().setProperty("inPatient", "yes");
+            request.setParameter("demographic_no", "1");
+            request.setParameter("appointment_no", "0");
+            request.setParameter("service_date", "2026-04-24");
+            request.setParameter("billForm", "GP");
+            when(admissionDateLoader.getAdmissionDate(any(), eq("1")))
+                    .thenThrow(new RuntimeException("admission lookup failed"));
+
+            BillingOnFormViewModel model = assembler.assemble(request, loggedInInfo);
+
+            assertThat(model.isAdmissionDateUnavailable()).isTrue();
+            assertThat(model.getDegradationFlags()).contains(
+                    BillingOnFormViewModel.DegradationFlag.ADMISSION_DATE_UNAVAILABLE);
+        } finally {
+            if (original == null) {
+                CarlosProperties.getInstance().remove("inPatient");
+            } else {
+                CarlosProperties.getInstance().put("inPatient", original);
+            }
+        }
     }
 
     @Test

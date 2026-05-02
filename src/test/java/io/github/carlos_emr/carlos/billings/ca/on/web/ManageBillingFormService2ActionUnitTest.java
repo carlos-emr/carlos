@@ -116,7 +116,7 @@ class ManageBillingFormService2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldReturnError_andAbortReplaceServiceCodes_whenAnyOrderParamIsNonNumeric() throws Exception {
+    void shouldSendBadRequest_andAbortReplaceServiceCodes_whenAnyOrderParamIsNonNumeric() throws Exception {
         // Two service codes in group1: one with a clean order, one with
         // a non-numeric (fat-fingered comma) order. Pre-fix the bad row
         // silently defaulted to 0 and persisted; post-fix the entire
@@ -127,16 +127,12 @@ class ManageBillingFormService2ActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("group1_service1", "K005A");
         request.setParameter("group1_service1_order", "1,2");  // non-numeric
 
-        ManageBillingFormService2Action action = org.mockito.Mockito.spy(new ManageBillingFormService2Action());
-        org.mockito.Mockito.doReturn("Order parse failed: group1_service1=1,2")
-                .when(action).getText(org.mockito.ArgumentMatchers.anyString(),
-                        org.mockito.ArgumentMatchers.any(String[].class));
+        ManageBillingFormService2Action action = new ManageBillingFormService2Action();
         String result = action.execute();
 
-        assertThat(result).isEqualTo(ActionSupport.ERROR);
-        assertThat(action.getActionErrors())
-                .as("operator must see a banner naming the offending field")
-                .isNotEmpty();
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getErrorMessage()).contains("Invalid service order");
         verify(billingFormConfigurationService, never())
                 .replaceServiceCodes(any(), any());
     }

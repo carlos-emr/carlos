@@ -127,9 +127,9 @@ public class ManageBillingFormService2Action extends ActionSupport {
             // Fail before replaceServiceCodes is called: persisting half
             // the form (the parseable rows) would corrupt the group's
             // ordering as silently as the prior zero-default did.
-            addActionError(getText("manageBillingForm.orderParseFailures",
-                    new String[] {String.join(", ", orderParseFailures)}));
-            return ERROR;
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST,
+                    "Invalid service order: " + String.join(", ", orderParseFailures));
+            return NONE;
         }
 
         try {

@@ -21,7 +21,7 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Page role: Renders `billingONHistory.jsp` for the Ontario billing workflow.
+  Purpose: Supports billingONHistory in the Ontario billing workflow.
   Expected request model data includes: historyModel.
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.

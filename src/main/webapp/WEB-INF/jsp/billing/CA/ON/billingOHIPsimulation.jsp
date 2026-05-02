@@ -21,7 +21,7 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Page role: Renders `billingOHIPsimulation.jsp` for the Ontario billing workflow.
+  Purpose: Supports billingOHIPsimulation in the Ontario billing workflow.
   Expected request model data includes: simulationModel.
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.

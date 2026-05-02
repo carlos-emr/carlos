@@ -48,10 +48,9 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 /**
- * CARLOS EMR component for {@code OhipClaimExtractService}.
- *
- * <p>Keep this class focused on its Java-layer responsibility and avoid moving
- * request or rendering behavior back into JSP scriptlets.</p>
+ * Builds fixed-width OHIP claim extracts and companion HTML previews from
+ * Ontario billing rows. The prototype instance holds the current provider,
+ * date range, output filenames, running totals, and generated file content.
  */
 
 @org.springframework.stereotype.Service
@@ -68,8 +67,8 @@ public class OhipClaimExtractService implements Serializable {
     private String batchCount = "";
     private String batchHeader;
     private int batchOrder = 0;
-    private BigDecimal bdFee = BillingMoney.zero();
-    private BigDecimal BigTotal = BillingMoney.zero();
+    private BigDecimal bdFee = BillingMoney.zeroAmount();
+    private BigDecimal BigTotal = BillingMoney.zeroAmount();
     private String billingUnit;
     private String content;
     private int count = 0;
@@ -119,7 +118,7 @@ public class OhipClaimExtractService implements Serializable {
     private String patientHeader;
     private String patientHeader2;
     private String pCount = "";
-    private BigDecimal percent = BillingMoney.zero();
+    private BigDecimal percent = BillingMoney.zeroAmount();
     private String providerNo;
     private String rCount = "";
     private int recordCount = 0;
@@ -356,6 +355,11 @@ public class OhipClaimExtractService implements Serializable {
         return ret;
     }
 
+    /**
+     * Loads eligible claims for the configured provider/date range, builds the
+     * extract content in this instance, and marks claims billed when
+     * {@code eFlag} is {@code "1"}.
+     */
     public void dbQuery() {
         try {
             batchOrder = 4 - batchCount.length();
@@ -363,7 +367,7 @@ public class OhipClaimExtractService implements Serializable {
             checkBatchHeader();
             batchHeader = buildBatchHeader();
             htmlValue = buildHTMLContentHeader();
-            // start here
+            // Initialize the fixed-width file body with the batch header.
             value = batchHeader;
 
             for (Billing b : billingDao.findByProviderStatusAndDates(providerNo, Arrays.asList(new String[]{"O", "W"}), dateRange)) {
@@ -485,6 +489,12 @@ public class OhipClaimExtractService implements Serializable {
         return value;
     }
 
+    /**
+     * Marks the billing row identified by invoice number as billed.
+     *
+     * @param newInvNo billing invoice number that resolves to a {@link Billing} row.
+     * @throws NumberFormatException when {@code newInvNo} is not numeric.
+     */
     public void setAsBilled(String newInvNo) {
         Billing b = billingDao.find(Integer.parseInt(newInvNo));
         if (b != null) {
@@ -493,7 +503,7 @@ public class OhipClaimExtractService implements Serializable {
         }
     }
 
-    // batchCount 1 ???
+    /** Sets the four-character batch sequence suffix used in the extract header. */
     public synchronized void setBatchCount(String newBatchCount) {
         batchCount = newBatchCount;
     }
@@ -502,7 +512,7 @@ public class OhipClaimExtractService implements Serializable {
         dateRange = newDateRange;
     }
 
-    // flag 0 - nothing ??? 1 - set as billed.
+    /** Sets whether extracted claims remain unchanged ({@code "0"}) or are marked billed ({@code "1"}). */
     public synchronized void seteFlag(String neweFlag) {
         eFlag = neweFlag;
     }
@@ -527,8 +537,8 @@ public class OhipClaimExtractService implements Serializable {
         ohipVer = newOhipVer;
     }
 
+    /** Retained for older callers; output paths are resolved from configured filenames. */
     public synchronized void setOscarHome(String oscarHOME) {
-        //empty.potential problem here.
     }
 
     public synchronized void setProviderNo(String newProviderNo) {
@@ -548,7 +558,7 @@ public class OhipClaimExtractService implements Serializable {
         return returnValue;
     }
 
-    // write OHIP file to it
+    /** Writes the fixed-width OHIP claim extract to the configured output path. */
     public void writeFile(String value1) {
         String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
         File safeFile;
@@ -575,8 +585,7 @@ public class OhipClaimExtractService implements Serializable {
         }
     }
 
-    // get path from the property file, e.g.
-    // OscarDocument/.../billing/download/, and then write to it
+    /** Writes the companion HTML claim preview to the configured output path. */
     public void writeHtml(String htmlvalue1) {
         String home_dir1 = CarlosProperties.getInstance().getProperty("HOME_DIR");
         File safeFile;

@@ -21,7 +21,7 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Page role: Renders `billingOB2.jsp` for the Ontario billing workflow.
+  Purpose: Supports billingOB2 in the Ontario billing workflow.
   Expected request model data includes: ob2Model.
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.

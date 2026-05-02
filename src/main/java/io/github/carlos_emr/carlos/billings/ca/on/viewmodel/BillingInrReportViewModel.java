@@ -31,10 +31,8 @@ import java.util.List;
  * <p>Populated by
  * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingInrReportViewModelAssembler}
  * and exposed as request attribute {@code reportInrModel}. Carries the
- * provider dropdown, clinic-location dropdown, and current-billing rows the
- * legacy JSP previously assembled inline via raw {@code BillingInrDao} +
- * {@code ProviderDao} + {@code ClinicLocationDao} scriptlets — including the
- * dead {@code ResultSet rsclinic} placeholder.</p>
+ * provider dropdown, clinic-location dropdown, and current-billing rows used
+ * by the report table.</p>
  *
  * @since 2026-04-26
  */
@@ -50,9 +48,7 @@ public final class BillingInrReportViewModel {
      * One bill row in the report table. {@code lastBillDateLabel} is
      * pre-resolved to either the truncated {@code yyyy-MM-dd} of the
      * billing date when the bill is "active" (status code {@code "A"}) or
-     * the literal string {@code "Not Available"} otherwise — replacing the
-     * inline {@code <%if(billstatus.compareTo("A") == 0){%>...<%}else{%>...} }
-     * scriptlet pair that appeared twice in the legacy JSP.
+     * the literal string {@code "Not Available"} otherwise.
      */
     public record BillRow(
             String billingInrNo,

@@ -161,7 +161,7 @@ class BillingDiskCreationServiceUnitTest {
     }
 
     @Test
-    void shouldResolveSoloDiskProviderOhipFromLiveLookupSnapshot() {
+    void shouldResolveSoloDiskProviderOhip_fromLiveLookupSnapshot() {
         Properties startup = new Properties();
         startup.setProperty("999998", "012345");
         Properties refreshed = new Properties();

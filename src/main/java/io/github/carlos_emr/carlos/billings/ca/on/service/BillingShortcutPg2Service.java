@@ -491,10 +491,9 @@ public class BillingShortcutPg2Service {
                                 row.code(), row.description(), row.unit(), "" + calc.bdPercs[idx4]));
                     }
                 }
-                @SuppressWarnings("unchecked")
-                ArrayList<Object> claimEnvelope = saveObj.getBillingClaimHospObj(
-                        request, dateStr, calc.total, calc.lines);
-                saveObj.addABillingRecord(claimEnvelope);
+                BillingClaimSubmissionService.BillingClaimSubmission submission =
+                        saveObj.getHospitalSubmission(request, dateStr, calc.total, calc.lines);
+                saveObj.addBillingRecord(submission);
             } else {
                 persistLegacyBillingRecord(request, dateStr, calc, demo, provider, userNo);
             }

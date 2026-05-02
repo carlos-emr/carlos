@@ -34,6 +34,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @DisplayName("BillingSpecialistClaimService typed API")
@@ -92,5 +93,82 @@ class BillingSpecialistClaimServiceTypedApiUnitTest extends CarlosUnitTestBase {
         assertThat(source).doesNotContain("getBillingClaimObj(");
         assertThat(source).doesNotContain("getBillingClaimInrObj(");
         assertThat(source).doesNotContain("addABillingRecord(ArrayList");
+    }
+
+    @Test
+    void shouldBuildMultiCodeClaim_totalingLoadedFees() {
+        BillingOnClaimPersister persister = Mockito.mock(BillingOnClaimPersister.class);
+        ServiceCodeLoader serviceCodeLoader = Mockito.mock(ServiceCodeLoader.class);
+        BillingSpecialistClaimService service = new BillingSpecialistClaimService(persister, serviceCodeLoader);
+        when(serviceCodeLoader.getBillingCodeAttr("A001A"))
+                .thenReturn(List.of(new io.github.carlos_emr.carlos.billings.ca.on.dto.BillingCodeAttribute(
+                        "A001A", "Minor assessment", "10.00", "0.00", "", "false")));
+        when(serviceCodeLoader.getBillingCodeAttr("K013A"))
+                .thenReturn(List.of(new io.github.carlos_emr.carlos.billings.ca.on.dto.BillingCodeAttribute(
+                        "K013A", "Counselling", "15.50", "0.00", "", "false")));
+
+        BillingSpecialistClaim claim = service.buildBillingClaim(command("A001A, K013A"));
+
+        assertThat(claim.header().getTotal()).isEqualTo("25.50");
+        assertThat(claim.items()).extracting("serviceCode")
+                .containsExactly("A001A", "K013A");
+        assertThat(claim.items()).extracting("fee")
+                .containsExactly("10.00", "15.50");
+    }
+
+    @Test
+    void shouldPersistHeaderAndItems_whenClaimHasItems() {
+        BillingOnClaimPersister persister = Mockito.mock(BillingOnClaimPersister.class);
+        ServiceCodeLoader serviceCodeLoader = Mockito.mock(ServiceCodeLoader.class);
+        BillingSpecialistClaimService service = new BillingSpecialistClaimService(persister, serviceCodeLoader);
+        when(serviceCodeLoader.getBillingCodeAttr("A001A"))
+                .thenReturn(List.of(new io.github.carlos_emr.carlos.billings.ca.on.dto.BillingCodeAttribute(
+                        "A001A", "Minor assessment", "10.00", "0.00", "", "false")));
+        when(persister.addOneClaimHeaderRecord(any())).thenReturn(12345);
+
+        BillingSpecialistClaim claim = service.buildBillingClaim(command("A001A"));
+
+        assertThat(service.addBillingRecord(claim)).isTrue();
+        Mockito.verify(persister).addOneClaimHeaderRecord(claim.header());
+        Mockito.verify(persister).addItemRecord(claim.items(), 12345);
+    }
+
+    @Test
+    void shouldNotPersistItems_whenHeaderInsertFails() {
+        BillingOnClaimPersister persister = Mockito.mock(BillingOnClaimPersister.class);
+        ServiceCodeLoader serviceCodeLoader = Mockito.mock(ServiceCodeLoader.class);
+        BillingSpecialistClaimService service = new BillingSpecialistClaimService(persister, serviceCodeLoader);
+        when(serviceCodeLoader.getBillingCodeAttr("A001A"))
+                .thenReturn(List.of(new io.github.carlos_emr.carlos.billings.ca.on.dto.BillingCodeAttribute(
+                        "A001A", "Minor assessment", "10.00", "0.00", "", "false")));
+        when(persister.addOneClaimHeaderRecord(any())).thenReturn(0);
+
+        BillingSpecialistClaim claim = service.buildBillingClaim(command("A001A"));
+
+        assertThat(service.addBillingRecord(claim)).isFalse();
+        Mockito.verify(persister).addOneClaimHeaderRecord(claim.header());
+        Mockito.verify(persister, Mockito.never()).addItemRecord(any(), Mockito.anyInt());
+    }
+
+    private BillingSpecialistClaimCommand command(String serviceCodes) {
+        return new BillingSpecialistClaimCommand(
+                "1234567890AB",
+                "1980-01-01",
+                "ON",
+                "HCP",
+                "P",
+                "0000",
+                "clinic1",
+                "123",
+                "123456|999998",
+                "456",
+                "Doe,Jane",
+                "F",
+                "2026-04-28",
+                serviceCodes,
+                "00",
+                "250",
+                "999998",
+                "999998");
     }
 }
