@@ -192,6 +192,9 @@
 <body bgcolor="ivory" text="#000000" topmargin="0" leftmargin="0" rightmargin="0">
 
 <c:if test="${not empty paymentTypeList}">
+    <%-- The save action expects one payment/discount pair per rendered item row,
+         indexed by varStatus in the original page order. Keep the hidden/input
+         naming convention aligned with the assembler and action parser. --%>
     <form name="editPayment" id="editPayment" method="POST" action="${pageContext.request.contextPath}/billing/CA/ON/billingON3rdPayments">
         <input type="hidden" name="method" value="savePayment"/>
         <input type="hidden" name="billingNo" value="<carlos:encode value='${paymentsViewModel.billingNo}' context='htmlAttribute'/>"/>

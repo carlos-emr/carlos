@@ -422,6 +422,8 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
      *              null status)
      */
     public void setStatus(String value) {
+        // Keep the permissive setter for old Struts/request-driven paths that
+        // still round-trip raw status tokens from legacy pages or imports.
         if (value != null && !KNOWN_STATUSES.contains(value)) {
             logger.warn("Accepting unknown BillingONCHeader1 status value during deprecation: {} (allowed: {})",
                     value, KNOWN_STATUSES);
@@ -438,6 +440,8 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
      *                                  in {@link #KNOWN_STATUSES}
      */
     public void setStatusStrict(String value) {
+        // New typed service flows should call this variant so status drift is
+        // rejected at the boundary instead of being re-persisted indefinitely.
         if (value != null && !KNOWN_STATUSES.contains(value)) {
             logger.warn("Rejecting unknown BillingONCHeader1 status value {} (allowed: {})",
                     value, KNOWN_STATUSES);

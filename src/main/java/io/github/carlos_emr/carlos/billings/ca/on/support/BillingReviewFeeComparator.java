@@ -68,6 +68,9 @@ public class BillingReviewFeeComparator implements Comparator<BillingReviewServi
     private String feeFor(BillingReviewServiceParam param) {
         BillingOnClaimLoader.FeeLookupResult result =
                 dbObj.getCodeFeeResult(param.code(), billReferenceDate);
+        // Sorting the grid with silently-partial fee data reshuffles rows in a
+        // way operators cannot explain, so a partial lookup is treated as a
+        // load failure instead of degrading into an arbitrary sort order.
         if (result.partial()) {
             throw new BillingDataLoadException(
                     result.message(),

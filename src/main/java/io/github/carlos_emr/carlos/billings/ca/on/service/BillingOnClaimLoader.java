@@ -134,6 +134,9 @@ public class BillingOnClaimLoader {
 
                 DateFormat df = new SimpleDateFormat("yyyy-MM-dd");
                 Date serviceDate = df.parse(billReferalDate);
+                // The historical UI expects terminated codes to remain visible
+                // but flagged as defunct, rather than disappearing from review
+                // and correction screens as though the code never existed.
                 if (bs.getTerminationDate().before(serviceDate)) {
                     retval = BillingONItem.DEFUNCT_FEE;
                 }

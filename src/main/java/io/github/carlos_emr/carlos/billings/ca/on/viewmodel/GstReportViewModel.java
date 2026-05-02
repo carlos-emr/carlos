@@ -100,6 +100,8 @@ public record GstReportViewModel(
     }
 
     private static BigDecimal money(BigDecimal value) {
+        // Normalize every monetary cell to scale 2 here so the JSP and total
+        // assertions do not each need to encode their own null/rounding rules.
         return (value == null ? BigDecimal.ZERO : value).setScale(2, RoundingMode.HALF_UP);
     }
 }

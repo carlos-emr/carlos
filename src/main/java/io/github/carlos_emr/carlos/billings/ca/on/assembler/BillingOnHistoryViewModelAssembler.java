@@ -157,6 +157,9 @@ public class BillingOnHistoryViewModelAssembler {
                 BillingOnHistoryBalanceCalculator.Result balanceResult =
                         BillingOnHistoryBalanceCalculator.Result.ZERO;
                 if (isPat) {
+                    // Patient-bill balances are the only rows where operators
+                    // expect running payment/discount/credit math in-history;
+                    // OHIP and third-party rows surface status only.
                     balanceResult = balanceLoader.calculate(obj.getId());
                     partial |= balanceResult.partial();
                 }

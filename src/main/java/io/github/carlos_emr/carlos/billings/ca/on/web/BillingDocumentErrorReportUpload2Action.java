@@ -110,6 +110,8 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
                 if (readResult.success()) {
                     // Use FilenameUtils to safely extract just the filename for report type check
                     String baseName = org.apache.commons.io.FilenameUtils.getName(file1FileName);
+                    // Ministry "L*" files are the outside-use report variant
+                    // and keep their own JSP path for historical rendering.
                     return (baseName != null && baseName.startsWith("L")) ? "outside" : SUCCESS;
                 }
                 else {
@@ -121,6 +123,9 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
             MohReportReadResult inboxResult = getData(loggedInInfo, filename, "ONEDT_INBOX", request);
             if (inboxResult.success()) {
                 String baseName = org.apache.commons.io.FilenameUtils.getName(filename);
+                // Existing inbox/archive browsing uses the same filename-prefix
+                // convention as uploaded files, so keep the view dispatch rule
+                // in sync across both entry paths.
                 return (baseName != null && baseName.startsWith("L")) ? "outside" : SUCCESS;
             }
             MohReportReadResult archiveResult = getData(loggedInInfo, filename, "ONEDT_ARCHIVE", request);

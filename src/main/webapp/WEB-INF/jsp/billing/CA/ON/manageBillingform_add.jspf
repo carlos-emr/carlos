@@ -123,6 +123,9 @@
 						<tr><td colspan="2">Unable to load billing service types.</td></tr>
 				</c:when>
 				<c:otherwise>
+					<%-- manageType(...) receives the service-type id/name pair exactly as
+					     rendered here; the right-hand list is a navigation aid into the
+					     left-hand form, not an independent data source. --%>
 					<c:forEach var="serviceRow" items="${manageBillingformModel.uniqueServiceTypes}">
 						<tr>
 							<td width="30%" valign="top" class="black">

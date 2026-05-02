@@ -138,6 +138,9 @@ public class BillingClaimSubmissionService {
             _logger.error("addABillingRecord failed: claim header persist returned billingNo=0");
             return new SaveResult(false, 0);
         }
+        // Downstream transaction/ext writers still read the generated id back
+        // out of the legacy envelope, so the header object at index 0 must be
+        // replaced before any later save step runs.
         claim1Obj = claim1Obj.withId(Integer.toString(billingNo));
         val.set(0, claim1Obj);
         if (val.size() > 1) {

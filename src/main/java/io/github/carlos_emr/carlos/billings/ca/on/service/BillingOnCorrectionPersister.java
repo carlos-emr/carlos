@@ -199,6 +199,9 @@ public class BillingOnCorrectionPersister {
 
             List<BillingONItem> items = billingItemDao.getBillingItemByCh1Id(Integer.valueOf(id));
             for (BillingONItem i : items) {
+                // Keep header/item status transitions in lockstep so later
+                // history, review, and invoice totals do not mix active header
+                // state with stale line-item state.
                 i.setStatus(status);
                 billingItemDao.merge(i);
             }

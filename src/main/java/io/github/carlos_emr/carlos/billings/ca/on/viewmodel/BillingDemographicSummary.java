@@ -141,6 +141,9 @@ public record BillingDemographicSummary(
 
     @Override
     public String toString() {
+        // This summary object often appears in assertion failures and debug
+        // logging; preserve the shape for diagnostics without leaking patient
+        // identifiers into logs or test snapshots.
         return "BillingDemographicSummary["
                 + "firstName=<redacted>, "
                 + "lastName=<redacted>, "

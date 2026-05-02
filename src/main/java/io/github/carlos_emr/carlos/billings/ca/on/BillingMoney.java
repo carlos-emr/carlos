@@ -214,6 +214,9 @@ public record BillingMoney(BigDecimal amount, Currency currency) implements Comp
      */
     @Deprecated(forRemoval = false)
     public static BigDecimal amountStrictOrZero(String raw, int scale) {
+        // Blank amount fields are still common in legacy billing forms and
+        // Ministry extracts; "strict" here means "reject malformed tokens",
+        // not "require the field to be populated".
         if (raw == null || raw.trim().isEmpty()) {
             return BigDecimal.ZERO.setScale(scale);
         }
