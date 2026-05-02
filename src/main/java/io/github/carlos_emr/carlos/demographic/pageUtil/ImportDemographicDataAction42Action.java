@@ -579,6 +579,12 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         return filteredFileList;
     }
 
+    private void flushAndClearPersistenceContext() {
+        // Flush and clear L1 cache to prevent heap exhaustion during large imports
+        contactDao.flush();
+        contactDao.clear();
+    }
+
 //    private void saveParts(String tmpDir, String ifile) throws Exception {
 //    	int len = 0;
 //    	byte[] buf = new byte[1024];
@@ -1703,6 +1709,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                 }
             }
 
+            flushAndClearPersistenceContext();
+
             //PAST HEALTH
             PastHealth[] pHealth = patientRec.getPastHealthArray();
             for (int i = 0; i < pHealth.length; i++) {
@@ -1881,6 +1889,10 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                     caseManagementManager.saveNoteExt(cme);
                 }
             }
+
+            // Flush and clear L1 cache to prevent heap exhaustion during large imports
+            contactDao.flush();
+            contactDao.clear();
 
             //RISK FACTORS
             RiskFactors[] rFactors = patientRec.getRiskFactorsArray();
@@ -2101,6 +2113,10 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                 }
             }
 
+
+            // Flush and clear L1 cache to prevent heap exhaustion during large imports
+            contactDao.flush();
+            contactDao.clear();
 
             //MEDICATIONS & TREATMENTS
             MedicationsAndTreatments[] medArray = patientRec.getMedicationsAndTreatmentsArray();
@@ -2478,6 +2494,10 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                 }
             }
 
+            // Flush and clear L1 cache to prevent heap exhaustion during large imports
+            contactDao.flush();
+            contactDao.clear();
+
             //LABORATORY RESULTS
             LaboratoryResults[] labResultArr = patientRec.getLaboratoryResultsArray();
             importLabs(loggedInInfo, labResultArr);
@@ -2582,6 +2602,10 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                 }
 
             }
+
+            // Flush and clear L1 cache to prevent heap exhaustion during large imports
+            contactDao.flush();
+            contactDao.clear();
 
             //REPORTS RECEIVED
 
@@ -2891,6 +2915,10 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                     }
                 }
             }
+
+            // Flush and clear L1 cache to prevent heap exhaustion during large imports
+            contactDao.flush();
+            contactDao.clear();
 
             //CARE ELEMENTS
             CareElements[] careElems = patientRec.getCareElementsArray();

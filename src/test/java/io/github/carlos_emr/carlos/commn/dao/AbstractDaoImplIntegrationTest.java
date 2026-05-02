@@ -409,6 +409,52 @@ public class AbstractDaoImplIntegrationTest extends CarlosTestBase {
         }
     }
 
+    /** Tests for {@link AbstractDaoImpl#clear()} */
+    @Nested
+    @DisplayName("clear()")
+    class Clear {
+
+        @Test
+        @Tag("create")
+        @DisplayName("should detach all managed entities from persistence context")
+        void shouldDetachAllManagedEntities_fromPersistenceContext() {
+            // Given
+            Facility newFacility = new Facility();
+            newFacility.setName("Clear Test");
+            newFacility.setDescription("Testing clear");
+            facilityDao.persist(newFacility);
+            facilityDao.flush();
+            assertThat(facilityDao.contains(newFacility)).isTrue();
+
+            // When
+            facilityDao.clear();
+
+            // Then — entity should no longer be managed
+            assertThat(facilityDao.contains(newFacility)).isFalse();
+        }
+
+        @Test
+        @Tag("create")
+        @DisplayName("should allow re-fetching entity after clear")
+        void shouldAllowRefetchingEntity_afterClear() {
+            // Given
+            Facility newFacility = new Facility();
+            newFacility.setName("Clear Refetch Test");
+            newFacility.setDescription("Testing clear then refetch");
+            facilityDao.persist(newFacility);
+            facilityDao.flush();
+            Integer savedId = newFacility.getId();
+
+            // When
+            facilityDao.clear();
+
+            // Then — entity should be re-fetchable from database
+            Facility refetched = facilityDao.find(savedId);
+            assertThat(refetched).isNotNull();
+            assertThat(refetched.getName()).isEqualTo("Clear Refetch Test");
+        }
+    }
+
     /** Tests for {@link AbstractDaoImpl#findAll(Integer, Integer)} */
     @Nested
     @DisplayName("findAll()")

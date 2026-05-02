@@ -79,4 +79,6 @@ public interface AbstractDao<T extends AbstractModel<?>> {
 
     void flush();
 
+    void clear();
+
 }
