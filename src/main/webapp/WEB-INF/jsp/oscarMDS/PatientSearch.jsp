@@ -81,7 +81,7 @@
         // Validate YYYY-MM-DD format with strict range checks
         if (!p_keyword.matches("^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$")) {
             request.setAttribute("searchUnavailable", true);
-            request.setAttribute("searchErrorMessage", "Invalid date format. Please use YYYY-MM-DD (e.g., 1990-01-15).");
+            request.setAttribute("searchErrorMessage", "oscarMDS.patientSearch.errorInvalidDate");
             p_searchMode = ""; // Disable search to prevent query execution
         }
     }
@@ -277,11 +277,11 @@
         } catch (SQLException e) {
             logger.error("Database error during patient search", e);
             request.setAttribute("searchUnavailable", true);
-            request.setAttribute("searchErrorMessage", "Search temporarily unavailable due to database error.");
+            request.setAttribute("searchErrorMessage", "oscarMDS.patientSearch.errorDatabase");
         } catch (NumberFormatException e) {
             logger.error("Invalid numeric parameter during patient search", e);
             request.setAttribute("searchUnavailable", true);
-            request.setAttribute("searchErrorMessage", "Search temporarily unavailable due to invalid parameters.");
+            request.setAttribute("searchErrorMessage", "oscarMDS.patientSearch.errorInvalidParams");
         }
     }
 
@@ -414,14 +414,19 @@
                 <strong>Search Error:</strong>
                 <c:choose>
                     <c:when test="${not empty searchErrorMessage}">
-                        ${carlos:forHtmlContent(searchErrorMessage)}
+                        <fmt:message key="${searchErrorMessage}"/>
                     </c:when>
                     <c:otherwise>
-                        Search temporarily unavailable. Please try again later.
+                        <fmt:message key="oscarMDS.patientSearch.errorGeneric"/>
                     </c:otherwise>
                 </c:choose>
             </div>
         </c:if>
+
+        <%-- Patient match error alert: shown when patient match operation fails --%>
+        <div id="patientMatchError" class="alert alert-danger py-2" role="alert" style="display:none;">
+            <strong>Error:</strong> <span id="patientMatchErrorMessage"></span>
+        </div>
 
         <%-- Truncation alert: shown when 500 results were returned (limit reached) --%>
         <c:if test="${isTruncated}">
@@ -519,6 +524,7 @@
     </form>
 
     <fmt:message var="i18nDobFormat" key="oscarMDS.patientSearch.msgDobFormat"/>
+    <fmt:message var="i18nPatientMatchError" key="oscarMDS.patientSearch.errorPatientMatch"/>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             // Resize popup window to accommodate DataTables with multiple results
@@ -620,8 +626,17 @@
                     bc.close();
                 } catch (e) {}
                 window.close();
-            }).catch(function() {
-                // Leave the popup open so the user can retry after a failed match.
+            }).catch(function(error) {
+                // Display error message and keep popup open for retry
+                console.error('Patient match error:', error);
+                var errorDiv = document.getElementById('patientMatchError');
+                var errorMsg = document.getElementById('patientMatchErrorMessage');
+                if (errorDiv && errorMsg) {
+                    errorMsg.textContent = '${carlos:forJavaScript(i18nPatientMatchError)}';
+                    errorDiv.style.display = 'block';
+                    // Scroll to error message
+                    errorDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
             });
         }
 
