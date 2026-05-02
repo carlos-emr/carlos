@@ -138,10 +138,10 @@ public class BillingDiskNameDto {
     }
 
     public List<DiskFilenameRow> getFilenames() {
-        return filenames;
+        return filenames == null ? List.of() : filenames;
     }
 
     public void setFilenames(List<DiskFilenameRow> filenames) {
-        this.filenames = filenames;
+        this.filenames = filenames == null ? List.of() : List.copyOf(filenames);
     }
 }

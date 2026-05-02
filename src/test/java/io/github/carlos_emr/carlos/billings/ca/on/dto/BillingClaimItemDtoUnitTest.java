@@ -28,31 +28,25 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Unit coverage for {@code BillingClaimHeaderDto} compatibility accessors and normalization helpers. */
-@DisplayName("Ontario claim header DTO")
+/** Unit coverage for {@code BillingClaimItemDto} money normalization. */
+@DisplayName("Ontario claim item DTO")
 @Tag("unit")
 @Tag("billing")
-class BillingClaimHeaderDtoUnitTest {
+class BillingClaimItemDtoUnitTest {
 
     @Test
-    void shouldCoalesceNullCashAndDebitTotalsToScaleTwoZero() {
-        BillingClaimHeaderDto dto = new BillingClaimHeaderDto()
-                .withCashTotal(null)
-                .withDebitTotal(null);
+    void shouldNormalizeNonBlankMoneyFieldsToScaleTwo() {
+        BillingClaimItemDto dto = new BillingClaimItemDto()
+                .withFee(" 1 ")
+                .withPaid("2.5")
+                .withRefund("0")
+                .withCredit("3.456")
+                .withDiscount("4.454");
 
-        assertThat(dto.cashTotal()).isEqualByComparingTo("0.00");
-        assertThat(dto.debitTotal()).isEqualByComparingTo("0.00");
-        assertThat(dto.cashTotal().scale()).isEqualTo(2);
-        assertThat(dto.debitTotal().scale()).isEqualTo(2);
-    }
-
-    @Test
-    void shouldNormalizeNonBlankStringMoneyFieldsToScaleTwo() {
-        BillingClaimHeaderDto dto = new BillingClaimHeaderDto()
-                .withTotal(" 12.3 ")
-                .withPaid("4.456");
-
-        assertThat(dto.total()).isEqualTo("12.30");
-        assertThat(dto.paid()).isEqualTo("4.46");
+        assertThat(dto.fee()).isEqualTo("1.00");
+        assertThat(dto.paid()).isEqualTo("2.50");
+        assertThat(dto.refund()).isEqualTo("0.00");
+        assertThat(dto.credit()).isEqualTo("3.46");
+        assertThat(dto.discount()).isEqualTo("4.45");
     }
 }

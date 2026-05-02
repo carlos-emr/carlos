@@ -26,6 +26,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.dto;
 import java.math.BigDecimal;
 
 import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 
 /**
  * Immutable data transfer object for a single Ontario claim header row.
@@ -81,6 +82,8 @@ public record BillingClaimHeaderDto(
         int numItems) {
 
     public BillingClaimHeaderDto {
+        total = normalizeMoney("total", total);
+        paid = normalizeMoney("paid", paid);
         cashTotal = cashTotal == null ? BillingMoney.zeroAmount() : cashTotal;
         debitTotal = debitTotal == null ? BillingMoney.zeroAmount() : debitTotal;
     }
@@ -315,4 +318,19 @@ public record BillingClaimHeaderDto(
     public BigDecimal getDebitTotal() { return debitTotal; }
     public String getProviderName() { return providerName; }
     public int getNumItems() { return numItems; }
+
+    private static String normalizeMoney(String field, String value) {
+        if (value == null) {
+            return null;
+        }
+        if (value.trim().isEmpty()) {
+            return "";
+        }
+        try {
+            return BillingMoney.format(BillingMoney.amountOrThrow(value));
+        } catch (NumberFormatException | BillingValidationException e) {
+            throw new BillingValidationException(
+                    "BillingClaimHeaderDto: malformed " + field + " amount [" + value + "]", e);
+        }
+    }
 }

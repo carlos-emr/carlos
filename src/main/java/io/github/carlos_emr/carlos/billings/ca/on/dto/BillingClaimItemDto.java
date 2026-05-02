@@ -53,11 +53,11 @@ public record BillingClaimItemDto(
         String patientName) {
 
     public BillingClaimItemDto {
-        validateMoney("fee", fee);
-        validateMoney("paid", paid);
-        validateMoney("refund", refund);
-        validateMoney("credit", credit);
-        validateMoney("discount", discount);
+        fee = normalizeMoney("fee", fee);
+        paid = normalizeMoney("paid", paid);
+        refund = normalizeMoney("refund", refund);
+        credit = normalizeMoney("credit", credit);
+        discount = normalizeMoney("discount", discount);
     }
 
     public BillingClaimItemDto() {
@@ -164,12 +164,15 @@ public record BillingClaimItemDto(
     public String getLocation() { return location; }
     public String getPatientName() { return patientName; }
 
-    private static void validateMoney(String field, String value) {
-        if (value == null || value.trim().isEmpty()) {
-            return;
+    private static String normalizeMoney(String field, String value) {
+        if (value == null) {
+            return null;
+        }
+        if (value.trim().isEmpty()) {
+            return "";
         }
         try {
-            BillingMoney.amountOrThrow(value);
+            return BillingMoney.format(BillingMoney.amountOrThrow(value));
         } catch (NumberFormatException | BillingValidationException e) {
             throw new BillingValidationException(
                     "BillingClaimItemDto: malformed " + field + " amount [" + value + "]", e);

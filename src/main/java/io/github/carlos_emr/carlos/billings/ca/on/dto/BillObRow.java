@@ -40,6 +40,12 @@ public record BillObRow(
     public BillObRow {
         total = total == null ? "" : total;
         status = status == null ? "" : status;
+        billingDate = billingDate == null ? null : new Date(billingDate.getTime());
         demographicName = demographicName == null ? "" : demographicName;
+    }
+
+    @Override
+    public Date billingDate() {
+        return billingDate == null ? null : new Date(billingDate.getTime());
     }
 }

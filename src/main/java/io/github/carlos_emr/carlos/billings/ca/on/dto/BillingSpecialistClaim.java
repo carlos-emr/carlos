@@ -23,6 +23,8 @@ package io.github.carlos_emr.carlos.billings.ca.on.dto;
 
 import java.util.List;
 
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
+
 /**
  * Typed BillingSpec claim payload: one header and its item rows.
  */
@@ -30,5 +32,25 @@ public record BillingSpecialistClaim(BillingClaimHeaderDto header,
                                List<BillingClaimItemDto> items) {
     public BillingSpecialistClaim {
         items = items == null ? List.of() : List.copyOf(items);
+        validateItemHeaders(header, items);
+    }
+
+    private static void validateItemHeaders(BillingClaimHeaderDto header, List<BillingClaimItemDto> items) {
+        String headerId = header == null ? "" : normalize(header.id());
+        if (headerId.isEmpty()) {
+            return;
+        }
+        for (BillingClaimItemDto item : items) {
+            String itemHeaderId = item == null ? "" : normalize(item.claimHeaderId());
+            if (!itemHeaderId.isEmpty() && !headerId.equals(itemHeaderId)) {
+                throw new BillingValidationException(
+                        "BillingSpecialistClaim: item claimHeaderId [" + itemHeaderId
+                                + "] does not match header id [" + headerId + "]");
+            }
+        }
+    }
+
+    private static String normalize(String value) {
+        return value == null ? "" : value.trim();
     }
 }
