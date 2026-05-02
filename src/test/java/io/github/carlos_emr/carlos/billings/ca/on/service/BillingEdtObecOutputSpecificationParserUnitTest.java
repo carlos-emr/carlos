@@ -124,6 +124,32 @@ class BillingEdtObecOutputSpecificationParserUnitTest {
         assertThat(parser.getEdtObecOutputSpecificationRecords()).isEmpty();
     }
 
+    @Test
+    void shouldClearPreviouslyParsedRows_whenLaterRecordLayoutIsMalformed() throws Exception {
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        BatchEligibilityDao batchEligibilityDao = mock(BatchEligibilityDao.class);
+        DemographicManager demographicManager = mock(DemographicManager.class);
+        ProviderDao providerDao = mock(ProviderDao.class);
+        when(demographicManager.searchByHealthCard(loggedInInfo, "1234567890"))
+                .thenReturn(List.of());
+        when(demographicManager.searchByHealthCard(loggedInInfo, "9999999999"))
+                .thenReturn(List.of());
+
+        Path report = tempDir.resolve("R-partial.txt");
+        Files.writeString(report,
+                fixedWidthLine("1234567890", "AB", "05", "20261231", "Second") + "\n"
+                        + "9999999999AB05too-short\n");
+
+        BillingEdtObecOutputSpecificationParser parser;
+        try (FileInputStream input = new FileInputStream(report.toFile())) {
+            parser = new BillingEdtObecOutputSpecificationParser(
+                    loggedInInfo, input, batchEligibilityDao, demographicManager, providerDao);
+        }
+
+        assertThat(parser.verdict).isFalse();
+        assertThat(parser.getEdtObecOutputSpecificationRecords()).isEmpty();
+    }
+
     private static String fixedWidthLine(String hin, String version, String response,
                                          String expiry, String secondName) {
         // Pin the ministry file offsets the parser depends on so regressions

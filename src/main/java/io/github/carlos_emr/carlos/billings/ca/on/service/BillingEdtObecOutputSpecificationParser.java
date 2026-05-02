@@ -67,11 +67,9 @@ public class BillingEdtObecOutputSpecificationParser {
 
     public boolean init(LoggedInInfo loggedInInfo, FileInputStream file) {
 
-        InputStreamReader reader = new InputStreamReader(file);
-        BufferedReader input = new BufferedReader(reader);
         String nextline;
 
-        try {
+        try (BufferedReader input = new BufferedReader(new InputStreamReader(file))) {
 
             while ((nextline = input.readLine()) != null) {
 
@@ -120,9 +118,11 @@ public class BillingEdtObecOutputSpecificationParser {
             // Symmetric closure with the other batch parsers — IOException
             // now flips verdict false AND SIOOBE branch logs.
             verdict = false;
+            edtObecOutputSpecificationRecords.clear();
             MiscUtils.getLogger().error("EDT/OBEC parse failed (IOException), verdict=false", ioe);
         } catch (StringIndexOutOfBoundsException ioe) {
             verdict = false;
+            edtObecOutputSpecificationRecords.clear();
             MiscUtils.getLogger().error("EDT/OBEC parse failed (malformed record layout), verdict=false", ioe);
         }
         return verdict;

@@ -25,6 +25,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.BatchEligibilityDao;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingClaimsErrorReportImportService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingObecOutputApplyService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFileImportException;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnErrorReportService;
 import io.github.carlos_emr.carlos.commn.dao.DemographicCustDao;
@@ -54,10 +55,16 @@ import java.nio.file.Path;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -241,5 +248,94 @@ class BillingDocumentErrorReportUpload2ActionUnitTest extends CarlosUnitTestBase
             assertThat(action.getActionErrors())
                     .noneSatisfy(error -> assertThat(error).contains("incorrect"));
         }
+    }
+
+    @Test
+    void shouldNotApplyObecOutputSpec_whenRReportParseVerdictIsFalse() throws Exception {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        when(mockDemographicManager.searchByHealthCard(any(LoggedInInfo.class), any()))
+                .thenReturn(java.util.List.of());
+        mockRequest.setParameter("filename", "Rpartial.txt");
+
+        Path inbox = Files.createDirectory(tempDir.resolve("inbox"));
+        Path archive = Files.createDirectory(tempDir.resolve("archive"));
+        Files.writeString(inbox.resolve("Rpartial.txt"),
+                fixedWidthLine("1234567890", "AB", "05", "20261231", "Second") + "\n"
+                        + "9999999999AB05too-short\n");
+
+        BillingObecOutputApplyService applyService = mock(BillingObecOutputApplyService.class);
+        registerMock(BillingObecOutputApplyService.class, applyService);
+
+        CarlosProperties props = mock(CarlosProperties.class);
+        when(props.getProperty("ONEDT_INBOX")).thenReturn(inbox.toString());
+        when(props.getProperty("ONEDT_ARCHIVE")).thenReturn(archive.toString());
+        when(props.getProperty("isNewONbilling", "")).thenReturn("");
+
+        try (MockedStatic<CarlosProperties> propsMock = mockStatic(CarlosProperties.class)) {
+            propsMock.when(CarlosProperties::getInstance).thenReturn(props);
+
+            BillingDocumentErrorReportUpload2Action action = spy(newAction());
+            doReturn("errors.incorrectFileFormat").when(action).getText("errors.incorrectFileFormat");
+
+            assertThat(action.execute()).isEqualTo("error");
+            verify(applyService, never()).applyOutputSpec(any(LoggedInInfo.class), anyList());
+        }
+    }
+
+    @Test
+    void shouldExposeObecApplyResult_whenApplyRollsBack() throws Exception {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        when(mockDemographicManager.searchByHealthCard(any(LoggedInInfo.class), any()))
+                .thenReturn(java.util.List.of());
+        mockRequest.setParameter("filename", "Rvalid.txt");
+
+        Path inbox = Files.createDirectory(tempDir.resolve("inbox"));
+        Path archive = Files.createDirectory(tempDir.resolve("archive"));
+        Files.writeString(inbox.resolve("Rvalid.txt"),
+                fixedWidthLine("1234567890", "AB", "05", "20261231", "Second") + "\n");
+
+        BillingObecOutputApplyService applyService = mock(BillingObecOutputApplyService.class);
+        doThrow(new RuntimeException("db failed"))
+                .when(applyService).applyOutputSpec(any(LoggedInInfo.class), anyList());
+        registerMock(BillingObecOutputApplyService.class, applyService);
+
+        CarlosProperties props = mock(CarlosProperties.class);
+        when(props.getProperty("ONEDT_INBOX")).thenReturn(inbox.toString());
+        when(props.getProperty("ONEDT_ARCHIVE")).thenReturn(archive.toString());
+        when(props.getProperty("isNewONbilling", "")).thenReturn("");
+
+        try (MockedStatic<CarlosProperties> propsMock = mockStatic(CarlosProperties.class)) {
+            propsMock.when(CarlosProperties::getInstance).thenReturn(props);
+
+            BillingDocumentErrorReportUpload2Action action = spy(newAction());
+            doReturn("errors.incorrectFileFormat").when(action).getText("errors.incorrectFileFormat");
+
+            assertThat(action.execute()).isEqualTo("error");
+            Object result = mockRequest.getAttribute("obecApplyResult");
+            assertThat(result).isInstanceOf(BillingObecOutputApplyService.ApplyResult.class);
+            BillingObecOutputApplyService.ApplyResult applyResult =
+                    (BillingObecOutputApplyService.ApplyResult) result;
+            assertThat(applyResult.getAppliedCount()).isZero();
+            assertThat(applyResult.getSkippedCount()).isEqualTo(1);
+            assertThat(applyResult.getReasons()).anySatisfy(reason ->
+                    assertThat(reason).contains("rolled back"));
+        }
+    }
+
+    private static String fixedWidthLine(String hin, String version, String response,
+                                         String expiry, String secondName) {
+        StringBuilder line = new StringBuilder(" ".repeat(110));
+        replace(line, 0, hin);
+        replace(line, 10, version);
+        replace(line, 12, response);
+        replace(line, 27, expiry);
+        replace(line, 85, String.format("%-20s", secondName));
+        return line.toString();
+    }
+
+    private static void replace(StringBuilder target, int start, String value) {
+        target.replace(start, start + value.length(), value);
     }
 }

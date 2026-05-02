@@ -506,6 +506,14 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
                 new BillingEdtObecOutputSpecificationParser(loggedInInfo, file,
                         batchEligibilityDao, demographicManager, providerDao);
 
+        if (!hd.verdict) {
+            request.setAttribute("obecApplyResult",
+                    new io.github.carlos_emr.carlos.billings.ca.on.service.BillingObecOutputApplyService.ApplyResult(
+                            0, hd.getEdtObecOutputSpecificationRecords().size(),
+                            java.util.List.of("Output specification was not applied because the file could not be fully parsed")));
+            return hd;
+        }
+
         // Atomic apply: any per-row failure rolls back every prior
         // ver="##" (HIN-flagged-invalid) mark in this file. Fetch via
         // SpringUtils so the @Transactional proxy applies (direct
@@ -518,6 +526,10 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
             request.setAttribute("obecApplyResult", applyResult);
         } catch (RuntimeException e) {
             MiscUtils.getLogger().error("OBEC output-spec apply rolled back; demographic graph unchanged", e);
+            request.setAttribute("obecApplyResult",
+                    new io.github.carlos_emr.carlos.billings.ca.on.service.BillingObecOutputApplyService.ApplyResult(
+                            0, hd.getEdtObecOutputSpecificationRecords().size(),
+                            java.util.List.of("Output specification apply rolled back; demographic graph unchanged")));
             hd.verdict = false;
         }
 
