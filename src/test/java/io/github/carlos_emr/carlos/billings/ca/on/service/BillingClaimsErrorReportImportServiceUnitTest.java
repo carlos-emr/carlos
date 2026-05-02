@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingErrorReportDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimsErrorReportRecordDto;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -41,6 +42,7 @@ import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import org.mockito.ArgumentCaptor;
 
 /**
  * Behavioral tests for {@link BillingClaimsErrorReportImportService}, the
@@ -146,6 +148,29 @@ class BillingClaimsErrorReportImportServiceUnitTest {
         assertThat(parser.getClaimsErrorReportRecords()).hasSize(3);
     }
 
+    @Test
+    void shouldParseRegistrationAndExplanationRows_andStripFcBillingNumberPrefix() throws IOException {
+        String content = headerLine("1") + "\n" + claimLine("FC123456") + "\n"
+                + registrationLine() + "\n" + transactionLine() + "\n"
+                + explanationLine() + "\n" + footerLine() + "\n";
+        FileInputStream input = writeAndOpen(content);
+
+        BillingClaimsErrorReportParser parser = svc.importStream(input, "branches.err");
+
+        assertThat(parser.getClaimsErrorReportRecords())
+                .extracting(BillingClaimsErrorReportRecordDto::getRegNumber)
+                .contains("REG000000001");
+        assertThat(parser.getClaimsErrorReportRecords())
+                .extracting(BillingClaimsErrorReportRecordDto::getExplain)
+                .contains("01");
+        ArgumentCaptor<BillingErrorReportDto> persisted =
+                ArgumentCaptor.forClass(BillingErrorReportDto.class);
+        verify(erRepObj).addErrorReportRecord(persisted.capture());
+        assertThat(persisted.getValue().getBilling_no()).isEqualTo("123456");
+        assertThat(persisted.getValue().getClaim_error()).contains("R01");
+        assertThat(persisted.getValue().getExp()).startsWith("01|");
+    }
+
     // ---- fixtures --------------------------------------------------------
 
     /** A "1" header line padded to 79 chars (parser substrings up to index 46). */
@@ -169,6 +194,10 @@ class BillingClaimsErrorReportImportServiceUnitTest {
     }
 
     private static String claimLine() {
+        return claimLine("00012345");
+    }
+
+    private static String claimLine(String account) {
         // Layout — substrings used: [3,13) HIN, [13,15) ver, [15,23) DOB,
         // [23,31) account, [31,34) billtype, [34,35) payee, [35,41) referNumber,
         // [41,45) facilityNumber, [45,53) admitDate, [53,57) referLab,
@@ -179,7 +208,7 @@ class BillingClaimsErrorReportImportServiceUnitTest {
         sb.append("9999999990");                   // 3..13: HIN
         sb.append("AB");                           // 13..15: ver
         sb.append("19800101");                     // 15..23: DOB
-        sb.append("00012345");                     // 23..31: account
+        sb.append(account);                         // 23..31: account
         sb.append("HCP");                          // 31..34: billtype
         sb.append("P");                            // 34..35: payee
         sb.append("REF001");                       // 35..41: referNumber
@@ -193,6 +222,23 @@ class BillingClaimsErrorReportImportServiceUnitTest {
         sb.append("E03");                          // 70..73: heCode3
         sb.append("E04");                          // 73..76: heCode4
         sb.append("E05");                          // 76..79: heCode5
+        return sb.toString();
+    }
+
+    private static String registrationLine() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("HER");                          // 0..3: HE marker + R
+        sb.append("REG000000001");                 // 3..15: reg number
+        sb.append("LASTNAME1");                     // 15..24: patient last
+        sb.append("FIRST");                        // 24..29: patient first
+        sb.append("F");                            // 29..30: sex
+        sb.append("ON");                           // 30..32: province
+        sb.append(repeat(' ', 32));                 // 32..64
+        sb.append("R01");                          // 64..67
+        sb.append("R02");                          // 67..70
+        sb.append("R03");                          // 70..73
+        sb.append("R04");                          // 73..76
+        sb.append("R05");                          // 76..79
         return sb.toString();
     }
 
@@ -215,6 +261,16 @@ class BillingClaimsErrorReportImportServiceUnitTest {
         sb.append("E13");                          // 70..73
         sb.append("E14");                          // 73..76
         sb.append("E15");                          // 76..79
+        return sb.toString();
+    }
+
+    private static String explanationLine() {
+        String message = "Explanation row text";
+        StringBuilder sb = new StringBuilder();
+        sb.append("HE8");
+        sb.append("01");
+        sb.append(message);
+        sb.append(repeat(' ', 60 - sb.length()));
         return sb.toString();
     }
 

@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONItemDao;
@@ -30,6 +31,7 @@ import io.github.carlos_emr.carlos.commn.dao.BillingOnItemPaymentDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingOnTransactionDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
+import io.github.carlos_emr.carlos.commn.model.BillingOnTransaction;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -231,6 +233,32 @@ class BillingCorrectionRecordServiceUnitTest {
         assertThat(ret).isFalse();
     }
 
+    // ---- updateBillingClaimHeader: direct coverage --------------------
+
+    @Test
+    void shouldUpdateChangedHeader_whenOldStatusParameterIsMissing() {
+        BillingClaimHeaderDto header = baseHeader();
+        BillingProviderDto provider = new BillingProviderDto();
+        provider.setOhipNo("OHIP2");
+        provider.setRmaNo("RMA2");
+        when(lookupService.getProviderObj("222")).thenReturn(provider);
+        when(correctionPersister.updateBillingClaimHeader(any(BillingClaimHeaderDto.class))).thenReturn(true);
+        when(billOnTransDao.getUpdateCheader1TransTemplate(
+                any(BillingClaimHeaderDto.class), org.mockito.ArgumentMatchers.isNull()))
+                .thenReturn(new BillingOnTransaction());
+
+        MockHttpServletRequest request = baseHeaderRequest();
+        request.setParameter("provider_no", "222");
+        // No oldStatus parameter: replayed/non-legacy clients should still
+        // update a non-third-party header instead of NPEing after the write.
+
+        boolean updated = service.updateBillingClaimHeader(header, request);
+
+        assertThat(updated).isTrue();
+        verify(correctionPersister).updateBillingClaimHeader(any(BillingClaimHeaderDto.class));
+        verify(billOnTransDao).persist(any(BillingOnTransaction.class));
+    }
+
     // ---- updateBillingItem strict-date contract ------------------------
     //
     // A malformed xml_appointment_date must abort the @Transactional
@@ -293,5 +321,45 @@ class BillingCorrectionRecordServiceUnitTest {
         // persisted a row with today's date.
         verify(claimPersister, never()).addOneItemRecord(any(BillingClaimItemDto.class));
         verify(billOnItemDao, never()).persist(any(BillingONItem.class));
+    }
+
+    private static BillingClaimHeaderDto baseHeader() {
+        return new BillingClaimHeaderDto()
+                .withId("42")
+                .withStatus("O")
+                .withPayProgram("HCP")
+                .withReferralNumber("REF001")
+                .withVisitType("00")
+                .withAdmissionDate("2026-01-01")
+                .withFacilityNumber("FAC1")
+                .withManualReview("")
+                .withBillingDate("2026-04-28")
+                .withProviderNo("111")
+                .withProviderOhipNo("OHIP1")
+                .withProviderRmaNo("RMA1")
+                .withComment("old")
+                .withClinic("SITE1")
+                .withProvince("ON")
+                .withLocation("LOC1")
+                .withBillto("");
+    }
+
+    private static MockHttpServletRequest baseHeaderRequest() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("status", "O");
+        request.setParameter("payProgram", "HCP");
+        request.setParameter("rdohip", "REF001");
+        request.setParameter("visittype", "00");
+        request.setParameter("xml_vdate", "2026-01-01");
+        request.setParameter("clinic_ref_code", "FAC1");
+        request.setParameter("xml_appointment_date", "2026-04-28");
+        request.setParameter("provider_no", "111");
+        request.setParameter("comment", "old");
+        request.setParameter("site", "SITE1");
+        request.setParameter("hc_type", "ON");
+        request.setParameter("xml_slicode", "LOC1");
+        request.setParameter("xml_billing_no", "42");
+        request.setParameter("demoNo", "123");
+        return request;
     }
 }

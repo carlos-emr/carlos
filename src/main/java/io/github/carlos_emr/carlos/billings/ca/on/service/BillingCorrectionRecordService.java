@@ -220,7 +220,7 @@ public class BillingCorrectionRecordService {
         // set inactive 3rd party payment record if user switched from 3rd party
         // to some other pay program
         String payProgram = requestData.getParameter("payProgram");
-        if (requestData.getParameter("oldStatus").equals("thirdParty")
+        if ("thirdParty".equals(requestData.getParameter("oldStatus"))
                 && ("HCP".equals(payProgram) || "RMB".equals(payProgram) || "WCB"
                 .equals(payProgram))) {
             setInactive(BillingONExtDao.KEY_PAYMENT, requestData);
