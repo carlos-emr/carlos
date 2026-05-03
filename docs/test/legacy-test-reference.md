@@ -180,7 +180,6 @@ The following tests are excluded from regular Maven test runs via Surefire plugi
 - **MCEDT Tests** (`**/*EDTTest.java`) - Medical Certificate Electronic Data Transfer
 - **AR2005 Tests** (`**/AR2005*.java`) - Annual Report 2005 related
 - **OntarioMDSpec4DataTest** - Ontario MD specification tests
-- **ONAREnhancedBornConnectorTest** - BORN integration tests
 - **E2E Tests** (`org/oscarehr/e2e/**/*.java`) - End-to-end tests
 
 These tests are compiled but not executed during normal `mvn test` runs. They can be run explicitly when needed.
