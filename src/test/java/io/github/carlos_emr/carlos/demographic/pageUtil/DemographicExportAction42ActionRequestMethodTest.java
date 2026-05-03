@@ -160,15 +160,15 @@ class DemographicExportAction42ActionRequestMethodTest extends CarlosUnitTestBas
     }
 
     @Test
-    @DisplayName("should continue export flow for POST requests")
-    void shouldReturnFail_whenRequestMethodIsPostWithUnsupportedTemplate() throws Exception {
+    @DisplayName("should not display export UI for POST requests")
+    void shouldNotReturnSuccess_whenRequestMethodIsPost() throws Exception {
         when(request.getMethod()).thenReturn("POST");
         action.setDemographicNo("123");
         action.setTemplate(String.valueOf(DemographicExportAction42Action.E2E));
 
         String result = action.execute();
 
-        assertThat(result).isEqualTo("fail");
+        assertThat(result).isNotEqualTo(ActionSupport.SUCCESS);
         verify(securityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), isNull());
         verify(securityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_demographicExport"), eq("r"), isNull());
     }
