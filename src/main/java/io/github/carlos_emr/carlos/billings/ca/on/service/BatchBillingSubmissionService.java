@@ -65,16 +65,15 @@ public class BatchBillingSubmissionService {
         }
         int submitted = 0;
         for (Row row : rows) {
-            String total = headerCreationService.createBill(row.providerNo(), row.demographicNo(),
-                    row.serviceCode(), row.dxCode(), clinicView, billingDate, currentUser);
-
-            List<BatchBilling> batchBillingList = batchBillingDAO.find(row.demographicNo(), row.serviceCode());
+            List<BatchBilling> batchBillingList = batchBillingDAO.findForUpdate(row.demographicNo(), row.serviceCode());
             if (batchBillingList.isEmpty()) {
                 throw new BillingValidationException(
                         "Batch billing row disappeared for demographicNo=" + row.demographicNo()
                                 + " serviceCode=" + row.serviceCode());
             }
             BatchBilling batchBilling = batchBillingList.get(0);
+            String total = headerCreationService.createBill(row.providerNo(), row.demographicNo(),
+                    row.serviceCode(), row.dxCode(), clinicView, billingDate, currentUser);
             batchBilling.setBillingAmount(total);
             batchBilling.setLastBilledDate(billingDate);
             batchBillingDAO.merge(batchBilling);

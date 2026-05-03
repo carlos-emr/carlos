@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;
 
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingViewStrings;
+
 /**
  * Visit, clinic, and default-input presentation data for {@code billingON.jsp}.
  */

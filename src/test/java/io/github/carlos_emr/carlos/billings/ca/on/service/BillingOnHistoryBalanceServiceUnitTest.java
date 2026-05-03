@@ -73,8 +73,8 @@ class BillingOnHistoryBalanceServiceUnitTest {
 
         BillingOnHistoryBalanceCalculator.Result result = service.calculate("43");
 
-        assertThat(result).isEqualTo(BillingOnHistoryBalanceCalculator.Result.ZERO);
         assertThat(result.balance()).isEqualTo(new BigDecimal("0.00"));
+        assertThat(result.partial()).isTrue();
         verify(paymentDao, never()).find3rdPartyPaymentsByBillingNo(43);
     }
 
@@ -84,8 +84,8 @@ class BillingOnHistoryBalanceServiceUnitTest {
 
         BillingOnHistoryBalanceCalculator.Result result = service.calculate("44");
 
-        assertThat(result).isEqualTo(BillingOnHistoryBalanceCalculator.Result.ZERO);
         assertThat(result.balance()).isEqualTo(new BigDecimal("0.00"));
+        assertThat(result.partial()).isTrue();
         verify(paymentDao, never()).find3rdPartyPaymentsByBillingNo(44);
     }
 

@@ -534,8 +534,9 @@ public class BillingOnReviewViewModelAssembler {
                         .paymentTypeLookupFailed(true);
             }
 
-            String clinicAddress = resolveClinicAddress(request, bMultisites, loggedInUserNo);
-            b.clinicAddress(clinicAddress);
+            ResolvedClinicAddress clinicAddress = resolveClinicAddress(request, bMultisites, loggedInUserNo);
+            b.clinicAddress(clinicAddress.value())
+                    .clinicAddressUnavailable(clinicAddress.unavailable());
 
             String providerNo = request.getParameter("xml_provider");
             if (providerNo != null) {
@@ -561,7 +562,10 @@ public class BillingOnReviewViewModelAssembler {
         }
     }
 
-    private String resolveClinicAddress(HttpServletRequest request, boolean bMultisites, String loggedInUserNo) {
+    private record ResolvedClinicAddress(String value, boolean unavailable) {
+    }
+
+    private ResolvedClinicAddress resolveClinicAddress(HttpServletRequest request, boolean bMultisites, String loggedInUserNo) {
         try {
             String userNo = loggedInUserNo == null || loggedInUserNo.isEmpty() ? null : loggedInUserNo;
             RxProviderData.Provider provider = userNo == null ? null
@@ -582,10 +586,10 @@ public class BillingOnReviewViewModelAssembler {
                 String siteName = request.getParameter("site");
                 List<Site> sites = siteDao.getActiveSitesByProviderNo(userNo);
                 Site s = ApptUtil.getSiteFromName(sites, siteName);
-                if (s == null) return strClinicAddr;
-                return s.getName() + "\n" + s.getAddress() + "\n"
+                if (s == null) return new ResolvedClinicAddress(strClinicAddr, false);
+                return new ResolvedClinicAddress(s.getName() + "\n" + s.getAddress() + "\n"
                         + s.getCity() + ", " + s.getProvince() + " " + s.getPostal()
-                        + "\nTel: " + s.getPhone() + "\nFax: " + s.getFax();
+                        + "\nTel: " + s.getPhone() + "\nFax: " + s.getFax(), false);
             }
 
             String siteID = request.getParameter("siteId");
@@ -603,23 +607,23 @@ public class BillingOnReviewViewModelAssembler {
                 String[] temp5 = props2.getProperty("clinicSatellitePhone", "").split("\\|");
                 String[] temp6 = props2.getProperty("clinicSatelliteFax", "").split("\\|");
                 if (siteFlag < clinicCity.length && siteFlag < temp0.length) {
-                    return temp0[siteFlag] + "\n"
+                    return new ResolvedClinicAddress(temp0[siteFlag] + "\n"
                             + (siteFlag < temp1.length ? temp1[siteFlag] : "") + "\n"
                             + clinicCity[siteFlag] + ", "
                             + (siteFlag < temp3.length ? temp3[siteFlag] : "") + " "
                             + (siteFlag < temp4.length ? temp4[siteFlag] : "")
                             + "\nTel: " + (siteFlag < temp5.length ? temp5[siteFlag] : "")
-                            + "\nFax: " + (siteFlag < temp6.length ? temp6[siteFlag] : "");
+                            + "\nFax: " + (siteFlag < temp6.length ? temp6[siteFlag] : ""), false);
                 }
             }
-            return strClinicAddr;
+            return new ResolvedClinicAddress(strClinicAddr, false);
         } catch (RuntimeException e) {
             // ERROR (not WARN): clinic address is a required field on
             // private-payer printed receipts. Empty string here renders a
             // headerless receipt that operators may not notice until the
             // patient queries.
             MiscUtils.getLogger().error("BillingOnReviewViewModelAssembler: clinicAddress resolution failed; printed receipt will lack clinic header", e);
-            return "";
+            return new ResolvedClinicAddress("", true);
         }
     }
 

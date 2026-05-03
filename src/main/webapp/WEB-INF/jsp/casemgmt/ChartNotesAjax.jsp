@@ -608,7 +608,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             <div class="view-links"
                  style="<%=(note.isDocument()||note.isCpp()||note.isEformData()||note.isEncounterForm()||note.isInvoice())?(bgColour):""%>">
                 <a class="links" title="<fmt:message key="encounter.view.eformView"/>" id="view<%=globalNoteId%>"
-                   href="javascript:void(0)" onclick="<carlos:encode value='<%= url %>' context="html"/>"><fmt:message key="encounter.view"/></a>
+                   href="javascript:void(0)" onclick="<carlos:encode value='<%= url %>' context="javaScriptAttribute"/>"><fmt:message key="encounter.view"/></a>
             </div>
             <%
             } else if (note.isEmailNote()) {

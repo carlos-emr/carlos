@@ -99,9 +99,12 @@ public class BillingClaimsErrorReportImportService {
                 if (nextline.length() >= 3) {
                     headerCount = nextline.substring(2, 3);
                 } else {
-                    // Handle unexpected short line gracefully, e.g. skip and log warning
-                    MiscUtils.getLogger().warn("Skipping short or malformed claims-error-report line: {}",
-                            LogSanitizer.sanitize(nextline));
+                    MiscUtils.getLogger().warn(
+                            "Rejecting short claims-error-report line in file [{}]; length={}",
+                            LogSanitizer.sanitize(filename), nextline.length());
+                    throw new BillingFileImportException(
+                            IMPORT_FAILURE_MSG_PREFIX + filename + " (malformed short line)",
+                            new IllegalArgumentException("claims-error-report line shorter than 3 characters"));
                 }
                 if (headerCount.compareTo("1") == 0) {
                     erObj = new BillingErrorReportDto();

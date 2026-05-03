@@ -726,11 +726,16 @@ public class BillingOnRaService {
 
     public boolean updateBillingStatus(String id, String status) {
         BillingONCHeader1 h = cheader1Dao.find(Integer.parseInt(id));
-        if (h != null) {
-            if (h.isActive()) {
-                h.setStatusStrict(status);
-                cheader1Dao.merge(h);
-            }
+        if (h == null) {
+            MiscUtils.getLogger().warn(
+                    "RA settlement: billing header [{}] not found; status [{}] was not applied",
+                    io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(id),
+                    io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(status));
+            return false;
+        }
+        if (h.isActive()) {
+            h.setStatusStrict(status);
+            cheader1Dao.merge(h);
         }
 
         return true;

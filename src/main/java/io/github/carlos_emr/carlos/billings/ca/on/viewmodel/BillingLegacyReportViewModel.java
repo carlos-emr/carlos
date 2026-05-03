@@ -22,6 +22,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;
 
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingViewStrings;
+
 /**
  * Immutable view model for {@code billingLreport.jsp}, the Ontario MOH
  * report renderer that XSL-transforms an EDT response file into HTML.

@@ -213,6 +213,8 @@ class BillingMoneyUnitTest {
 
         assertThat(subtotal.plus(adjustment).format()).isEqualTo("12.50");
         assertThat(subtotal.minus(adjustment).format()).isEqualTo("7.50");
+        assertThat(subtotal.minusExact(adjustment).format()).isEqualTo("7.50");
+        assertThat(subtotal.tryMinus(adjustment)).contains(BillingMoney.cad("7.50"));
         assertThat(subtotal.compareTo(adjustment)).isPositive();
     }
 
@@ -221,11 +223,20 @@ class BillingMoneyUnitTest {
         BillingMoney subtotal = BillingMoney.cad("2.50");
         BillingMoney adjustment = BillingMoney.cad("10.00");
 
-        assertThatThrownBy(() -> subtotal.minus(adjustment))
+        assertThat(subtotal.tryMinus(adjustment)).isEmpty();
+        assertThatThrownBy(() -> subtotal.minusExact(adjustment))
                 .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
                 .hasMessageContaining("subtraction result cannot be negative")
                 .hasMessageContaining("2.50")
                 .hasMessageContaining("10.00");
+    }
+
+    @Test
+    void shouldDelegateLegacyParserHelpers_throughBillingAmounts() {
+        assertThat(BillingAmounts.amount("1.005")).isEqualByComparingTo("1.01");
+        assertThat(BillingAmounts.amountOrZero("bad")).isEqualByComparingTo("0.00");
+        assertThat(BillingAmounts.ohipFeeAmount("00000010050")).isEqualByComparingTo("1.01");
+        assertThat(BillingAmounts.isPositive("0.01")).isTrue();
     }
 
     @Test

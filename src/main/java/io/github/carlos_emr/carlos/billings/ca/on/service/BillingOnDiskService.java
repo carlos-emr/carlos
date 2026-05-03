@@ -32,11 +32,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.providers.data.ProviderBillCenter;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.DateRange;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.beans.factory.ObjectFactory;
 /**
@@ -143,11 +145,8 @@ public class BillingOnDiskService {
                     dataProvider.getProviderNo(),
                     prep.getOhipfilename(Integer.parseInt(diskId)),
                     prep.getHtmlfilename(Integer.parseInt(diskId), dataProvider.getProviderNo()));
-            objFile.readInBillingNo();
-            objFile.renameFile();
-            objFile.createBillingFileStr(loggedInInfo, "" + headerId, BILLING_STATUS_REGEN, false,
-                    resolvedMoh, false, false);
-            writeRegeneratedDiskFilesAndFinalize(objFile, Integer.parseInt(diskId));
+            regenerateSoloDiskFilesAndFinalize(objFile, loggedInInfo, "" + headerId,
+                    resolvedMoh, Integer.parseInt(diskId));
         } else if (lProvider != null && !lProvider.isEmpty()) {
             regenerateGroupDisk(prep, lProvider, loggedInInfo, request, dateRange, mohOffice,
                     diskId, currentUser);
@@ -214,7 +213,7 @@ public class BillingOnDiskService {
             ArrayList<String> ohipNoCopy = new ArrayList<>();
             for (int copyi = 0; copyi < providerNos.size(); copyi++) {
                 BillingProviderDto bpd = findByProviderNo(grpProviders, providerNos.get(copyi));
-                if (bpd != null && groupNo.equals(bpd.getBillingGroupNo())) {
+                if (groupNo.equals(bpd.getBillingGroupNo())) {
                     providerNoCopy.add(providerNos.get(copyi));
                     ohipNoCopy.add(bpd.getOhipNo());
                 }
@@ -334,6 +333,29 @@ public class BillingOnDiskService {
         }
     }
 
+    private void regenerateSoloDiskFilesAndFinalize(OhipClaimFileService writer,
+                                                     LoggedInInfo loggedInInfo,
+                                                     String headerId,
+                                                     String mohOffice,
+                                                     int diskId) {
+        writer.readInBillingNo();
+        boolean renamed = false;
+        try {
+            writer.renameFile();
+            renamed = true;
+            writer.createBillingFileStr(loggedInInfo, headerId, BILLING_STATUS_REGEN, false,
+                    mohOffice, false, false);
+            writer.writeFile(writer.getValue());
+            writer.writeHtml(writer.getHtmlCode());
+            transactionService.finalizeGeneratedDisk(writer, diskId);
+        } catch (RuntimeException e) {
+            if (renamed) {
+                cleanupWrittenFiles(List.of(writer), writer, true);
+            }
+            throw e;
+        }
+    }
+
     private void writeNewGroupDiskFileAndFinalize(GroupDiskGeneration generation,
                                                    OhipClaimFileService ohipWriter,
                                                    int diskId) {
@@ -422,7 +444,9 @@ public class BillingOnDiskService {
         for (BillingProviderDto bpd : providers) {
             if (bpd.getProviderNo().equals(providerNo)) return bpd;
         }
-        return null;
+        throw new BillingValidationException(
+                "Billing disk generation could not resolve provider ["
+                        + LogSanitizer.sanitizeForDisplay(providerNo) + "]");
     }
 
     private static boolean isSoloGroupNo(String groupNo) {

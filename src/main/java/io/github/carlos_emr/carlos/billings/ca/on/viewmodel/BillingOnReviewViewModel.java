@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;
 
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingViewStrings;
+
 
 /**
  * Immutable view model for {@code billingONReview.jsp}.
@@ -92,6 +94,7 @@ public final class BillingOnReviewViewModel {
     private final boolean privatePayer;
     private final String billingNotes;
     private final String clinicAddress;
+    private final boolean clinicAddressUnavailable;
     private final String payeeProviderNo;
     private final String payeeName;
     private final String payeeFromConfig;
@@ -233,6 +236,7 @@ public final class BillingOnReviewViewModel {
         this.privatePayer = b.privatePayer;
         this.billingNotes = BillingViewStrings.nullToEmpty(b.billingNotes);
         this.clinicAddress = BillingViewStrings.nullToEmpty(b.clinicAddress);
+        this.clinicAddressUnavailable = b.clinicAddressUnavailable;
         this.payeeProviderNo = BillingViewStrings.nullToEmpty(b.payeeProviderNo);
         this.payeeName = BillingViewStrings.nullToEmpty(b.payeeName);
         this.payeeFromConfig = BillingViewStrings.nullToEmpty(b.payeeFromConfig);
@@ -332,6 +336,7 @@ public final class BillingOnReviewViewModel {
     public boolean isPrivatePayer() { return privatePayer; }
     public String getBillingNotes() { return billingNotes; }
     public String getClinicAddress() { return clinicAddress; }
+    public boolean isClinicAddressUnavailable() { return clinicAddressUnavailable; }
     public String getPayeeProviderNo() { return payeeProviderNo; }
     public String getPayeeName() { return payeeName; }
     public String getPayeeFromConfig() { return payeeFromConfig; }
@@ -413,6 +418,7 @@ public final class BillingOnReviewViewModel {
         private boolean privatePayer = false;
         private String billingNotes = "";
         private String clinicAddress = "";
+        private boolean clinicAddressUnavailable = false;
         private String payeeProviderNo = "";
         private String payeeName = "";
         private String payeeFromConfig = "";
@@ -486,6 +492,7 @@ public final class BillingOnReviewViewModel {
         public Builder privatePayer(boolean v) { this.privatePayer = v; return this; }
         public Builder billingNotes(String v) { this.billingNotes = v; return this; }
         public Builder clinicAddress(String v) { this.clinicAddress = v; return this; }
+        public Builder clinicAddressUnavailable(boolean v) { this.clinicAddressUnavailable = v; return this; }
         public Builder payeeProviderNo(String v) { this.payeeProviderNo = v; return this; }
         public Builder payeeName(String v) { this.payeeName = v; return this; }
         public Builder payeeFromConfig(String v) { this.payeeFromConfig = v; return this; }

@@ -153,6 +153,7 @@ public final class RateLimitFilter implements Filter {
      * deterministic timing control without wall-clock delays.
      */
     private LongSupplier clock = System::currentTimeMillis;
+    private static final int MAX_EVICTION_SAMPLE_SIZE = 64;
 
     /**
      * Initialises the filter by loading all configuration from {@link CarlosProperties}.
@@ -446,29 +447,42 @@ public final class RateLimitFilter implements Filter {
         if (existing != null) {
             return existing;
         }
+        return createCounterForMissingKey(key, requests, windowMillis);
+    }
+
+    private synchronized FixedWindowCounter createCounterForMissingKey(String key, int requests, long windowMillis) {
+        FixedWindowCounter existing = counters.get(key);
+        if (existing != null) {
+            return existing;
+        }
         if (counters.size() >= maxCounterEntries) {
             evictStaleCounters();
         }
         if (counters.size() >= maxCounterEntries) {
-            evictLeastRecentlySeenCounter();
+            evictSampledLeastRecentlySeenCounter();
         }
         return counters.computeIfAbsent(key,
                 k -> new FixedWindowCounter(requests, windowMillis, clock));
     }
 
-    private void evictLeastRecentlySeenCounter() {
+    private void evictSampledLeastRecentlySeenCounter() {
         String evictKey = null;
         long oldestSeen = Long.MAX_VALUE;
+        int sampled = 0;
         for (Map.Entry<String, FixedWindowCounter> entry : counters.entrySet()) {
             long lastSeen = entry.getValue().lastSeenMillis();
             if (lastSeen < oldestSeen) {
                 oldestSeen = lastSeen;
                 evictKey = entry.getKey();
             }
+            sampled++;
+            if (sampled >= MAX_EVICTION_SAMPLE_SIZE) {
+                break;
+            }
         }
         if (evictKey != null) {
             counters.remove(evictKey);
-            logger.warn("Rate limit: counter map at max {} entries; evicted least-recently-seen counter",
+            logger.warn("Rate limit: counter map at max {} entries; evicted sampled least-recently-seen counter",
                     maxCounterEntries);
         }
     }

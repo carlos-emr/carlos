@@ -54,7 +54,10 @@ public final class BillingOnHistoryBalanceService {
             int billingNo = Integer.parseInt(billingId);
             BillingONCHeader1 bCh1 = bCh1Dao.find(billingNo);
             if (bCh1 == null || bCh1.getTotal() == null) {
-                return BillingOnHistoryBalanceCalculator.Result.ZERO;
+                MiscUtils.getLogger().warn(
+                        "BillingOnHistory: bill id [{}] has no claim header total; rendering partial balance=0.00",
+                        LogSanitizer.sanitize(billingId));
+                return new BillingOnHistoryBalanceCalculator.Result(BigDecimal.ZERO.setScale(2), true);
             }
             BigDecimal sumOfPay = BigDecimal.ZERO;
             BigDecimal sumOfDiscount = BigDecimal.ZERO;

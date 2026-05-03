@@ -247,9 +247,9 @@ default for new code.
 **Suffix == role + lifecycle.** Pick the most specific verb-suffix that fits; fall back to `*Service` only when nothing more specific applies. **Never** combine two role-suffixes (no `*LoaderService`, `*ServiceManager`).
 
 Sanctioned suffixes for new code:
-`*Action`, `*ViewModelAssembler`, `*ViewModel`, `*Loader`, `*Resolver`, `*Composer`, `*Validator`, `*Persister`, `*Calculator`, `*Parser`, `*Service`, `*Dao`, `*Dto`, `*Command`. Static-utility classes use a domain noun with no suffix.
+`*Action`, `*ViewModelAssembler`, `*ViewModel`, `*Loader`, `*Resolver`, `*Composer`, `*Validator`, `*Persister`, `*Calculator`, `*Parser`, `*ImportService`, `*Service`, `*Dao`, `*Dto`, `*Command`. Static-utility classes use a domain noun with no suffix.
 
-Forbidden in new code: `*Prep`, `*Manager`, `*Helper`, `*Utils`, compound suffixes. DAOs may not inject other DAOs (cross-DAO orchestration goes in a `*Service`).
+Forbidden in new code: `*Prep`, `*Manager`, `*Helper`, `*Utils`, compound suffixes except the sanctioned `*ImportService` file-import workflow suffix. DAOs may not inject other DAOs (cross-DAO orchestration goes in a `*Service`).
 
 Full policy + decision rules + retired-suffix migration guidance: **`docs/architecture/layer-names.md`**.
 

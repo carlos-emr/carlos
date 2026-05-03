@@ -500,6 +500,9 @@
                                     </select></td>
                                     <td nowrap width="30%" align="center"><b><fmt:message key="billing.hospitalBilling.frmAssgnPhysician"/></b></td>
                                     <td width="20%"><carlos:encode value="${shortcutPg1Model.assgProviderDisplay}" context="html"/>
+                                        <c:if test="${shortcutPg1Model.assignedProviderUnavailable}">
+                                            <div class="alert">Assigned physician name is temporarily unavailable. Verify the assigned provider before saving.</div>
+                                        </c:if>
                                     </td>
                                 </tr>
                                 <tr>
@@ -652,7 +655,7 @@
                                             ${'checked' eq shortcutPg1Model.requestParamEchoes[__codeKey] ? 'checked' : ''}>
                                             <b><font size="-1"
                                                      color="${__premium eq 'A' ? '#993333' : 'black'}"><span
-                                                    id="sc${__svc1Status.index}<carlos:encode value='${__sc}' context='html'/>"
+                                                    id="sc${__svc1Status.index}<carlos:encode value='${__sc}' context='htmlAttribute'/>"
                                                     onDblClick="onDblClickServiceCode(this)"><carlos:encode value="${__sc}" context="html"/></span></font></b>
                                             <input type="text" name="unit_xml_<carlos:encode value='${__sc}' context='htmlAttribute'/>"
                                                    value="<carlos:encode value='${shortcutPg1Model.requestParamEchoes[__unitKey]}' context="htmlAttribute"/>"
@@ -697,7 +700,7 @@
                                                 ${'checked' eq shortcutPg1Model.requestParamEchoes[__codeKey] ? 'checked' : ''} />
                                             <b><font size="-1"
                                                      color="${__premium eq 'A' ? '#993333' : 'black'}"><span
-                                                    id="sc${__svc2Status.index}<carlos:encode value='${__sc}' context='html'/>"
+                                                    id="sc${__svc2Status.index}<carlos:encode value='${__sc}' context='htmlAttribute'/>"
                                                     onDblClick="onDblClickServiceCode(this)"><carlos:encode value="${__sc}" context="html"/></span></font></b>
                                             <input type="text" name="unit_xml_<carlos:encode value='${__sc}' context='htmlAttribute'/>"
                                                    value="<carlos:encode value='${shortcutPg1Model.requestParamEchoes[__unitKey]}' context="htmlAttribute"/>"
@@ -741,7 +744,7 @@
                                                 ${'checked' eq shortcutPg1Model.requestParamEchoes[__codeKey] ? 'checked' : ''} />
                                             <b><font size="-1"
                                                      color="${__premium eq 'A' ? '#993333' : 'black'}"><span
-                                                    id="sc${__svc3Status.index}<carlos:encode value='${__sc}' context='html'/>"
+                                                    id="sc${__svc3Status.index}<carlos:encode value='${__sc}' context='htmlAttribute'/>"
                                                     onDblClick="onDblClickServiceCode(this)"><carlos:encode value="${__sc}" context="html"/></span></font></b>
                                             <input type="text" name="unit_xml_<carlos:encode value='${__sc}' context='htmlAttribute'/>"
                                                    value="<carlos:encode value='${shortcutPg1Model.requestParamEchoes[__unitKey]}' context="htmlAttribute"/>"

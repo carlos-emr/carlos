@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;
 
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingViewStrings;
+
 
 import java.util.Collections;
 import java.util.List;
@@ -103,6 +105,7 @@ public final class BillingShortcutPg1ViewModel {
     private final Map<String, String> requestParamEchoes;
     private final String currentFormName;
     private final String assgProviderDisplay;
+    private final boolean assignedProviderUnavailable;
     private final boolean newOnBilling;
     private final String admissionDate;
 
@@ -177,6 +180,7 @@ public final class BillingShortcutPg1ViewModel {
                 ? Collections.emptyMap() : Map.copyOf(b.requestParamEchoes);
         this.currentFormName = BillingViewStrings.nullToEmpty(b.currentFormName);
         this.assgProviderDisplay = BillingViewStrings.nullToEmpty(b.assgProviderDisplay);
+        this.assignedProviderUnavailable = b.assignedProviderUnavailable;
         this.newOnBilling = b.newOnBilling;
         this.admissionDate = BillingViewStrings.nullToEmpty(b.admissionDate);
         this.historyUnavailable = b.historyUnavailable;
@@ -269,6 +273,7 @@ public final class BillingShortcutPg1ViewModel {
     public String getCurrentFormName() { return currentFormName; }
     /** Pre-resolved providerBean session-map lookup for the assigned billing physician. */
     public String getAssgProviderDisplay() { return assgProviderDisplay; }
+    public boolean isAssignedProviderUnavailable() { return assignedProviderUnavailable; }
     /** {@code isNewONbilling} property — drives the legacy/new history-table branch. */
     public boolean isNewOnBilling() { return newOnBilling; }
     /**
@@ -427,6 +432,7 @@ public final class BillingShortcutPg1ViewModel {
         private Map<String, String> requestParamEchoes;
         private String currentFormName;
         private String assgProviderDisplay;
+        private boolean assignedProviderUnavailable;
         private boolean newOnBilling;
         private String admissionDate;
 
@@ -435,6 +441,7 @@ public final class BillingShortcutPg1ViewModel {
         }
         public Builder currentFormName(String v) { this.currentFormName = v; return this; }
         public Builder assgProviderDisplay(String v) { this.assgProviderDisplay = v; return this; }
+        public Builder assignedProviderUnavailable(boolean v) { this.assignedProviderUnavailable = v; return this; }
         public Builder newOnBilling(boolean v) { this.newOnBilling = v; return this; }
         public Builder admissionDate(String v) { this.admissionDate = v; return this; }
 

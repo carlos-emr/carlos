@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;
 
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingViewStrings;
+
 /**
  * Prepared correction line item shared by the review page and submit command.
  */

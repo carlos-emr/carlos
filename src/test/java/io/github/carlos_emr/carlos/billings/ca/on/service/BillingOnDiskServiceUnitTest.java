@@ -214,6 +214,53 @@ class BillingOnDiskServiceUnitTest {
         verify(claimFileService).restoreLastRenameQuietly();
     }
 
+    @Test
+    void shouldRestoreOriginalFile_whenRegeneratedClaimGenerationFailsAfterRename() {
+        MockHttpServletRequest request = regenerateRequest("55");
+        BillingProviderDto provider = provider("999998", "0000");
+        when(diskLoader.getDiskCreateDate("55")).thenReturn("2026-04-30");
+        when(diskCreationService.getProvider("55")).thenReturn(List.of(provider));
+        when(diskCreationService.updateBatchHeader(provider, "55", "4", "1", "999998")).thenReturn(78);
+        when(diskCreationService.getOhipfilename(55)).thenReturn("regen.txt");
+        when(diskCreationService.getHtmlfilename(55, "999998")).thenReturn("regen.html");
+        doThrow(new IllegalStateException("claim body failed"))
+                .when(claimFileService).createBillingFileStr(eq(loggedInInfo), eq("78"),
+                        aryEq(new String[]{"B"}), eq(false), eq("4"), eq(false), eq(false));
+
+        assertThatThrownBy(() -> service.regenerateDisk(request))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("claim body failed");
+
+        verify(claimFileService).renameFile();
+        verify(claimFileService).restoreLastRenameQuietly();
+        verify(claimFileService, never()).writeFile(anyString());
+        verify(transactionService, never()).finalizeGeneratedDisk(claimFileService, 55);
+    }
+
+    @Test
+    void shouldNotDeleteOriginalFile_whenRegeneratedRenameFailsBeforeBackupExists() {
+        MockHttpServletRequest request = regenerateRequest("55");
+        BillingProviderDto provider = provider("999998", "0000");
+        when(diskLoader.getDiskCreateDate("55")).thenReturn("2026-04-30");
+        when(diskCreationService.getProvider("55")).thenReturn(List.of(provider));
+        when(diskCreationService.updateBatchHeader(provider, "55", "4", "1", "999998")).thenReturn(78);
+        when(diskCreationService.getOhipfilename(55)).thenReturn("regen.txt");
+        when(diskCreationService.getHtmlfilename(55, "999998")).thenReturn("regen.html");
+        doThrow(new BillingFileWriteException("rename failed"))
+                .when(claimFileService).renameFile();
+
+        assertThatThrownBy(() -> service.regenerateDisk(request))
+                .isInstanceOf(BillingFileWriteException.class)
+                .hasMessageContaining("rename failed");
+
+        verify(claimFileService).renameFile();
+        verify(claimFileService, never()).deleteOhipFileQuietly();
+        verify(claimFileService, never()).deleteHtmlFileQuietly();
+        verify(claimFileService, never()).restoreLastRenameQuietly();
+        verify(claimFileService, never()).writeFile(anyString());
+        verify(transactionService, never()).finalizeGeneratedDisk(claimFileService, 55);
+    }
+
     private static MockHttpServletRequest newDiskRequest(String providerNo) {
         MockHttpServletRequest request = baseRequest();
         request.setParameter("providers", providerNo);

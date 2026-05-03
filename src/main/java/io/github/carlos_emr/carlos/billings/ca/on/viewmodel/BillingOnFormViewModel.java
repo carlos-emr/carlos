@@ -140,7 +140,8 @@ public final class BillingOnFormViewModel {
         RECOMMENDATIONS_UNAVAILABLE,
         SITE_CONTEXT_DEGRADED,
         ADMISSION_DATE_UNAVAILABLE,
-        HISTORY_UNAVAILABLE
+        HISTORY_UNAVAILABLE,
+        ASSIGNED_PROVIDER_UNAVAILABLE
     }
 
     // ---- Primary composed records ----
@@ -437,6 +438,9 @@ public final class BillingOnFormViewModel {
     public boolean isHistoryUnavailable() {
         return degradationFlags.contains(DegradationFlag.HISTORY_UNAVAILABLE);
     }
+    public boolean isAssignedProviderUnavailable() {
+        return degradationFlags.contains(DegradationFlag.ASSIGNED_PROVIDER_UNAVAILABLE);
+    }
 
     public static final class Builder {
         // ---- Composed-record setters (preferred) ----
@@ -581,6 +585,10 @@ public final class BillingOnFormViewModel {
 
         public Builder historyUnavailable(boolean v) {
             return degradationFlag(DegradationFlag.HISTORY_UNAVAILABLE, v);
+        }
+
+        public Builder assignedProviderUnavailable(boolean v) {
+            return degradationFlag(DegradationFlag.ASSIGNED_PROVIDER_UNAVAILABLE, v);
         }
 
         private Builder degradationFlag(DegradationFlag flag, boolean enabled) {

@@ -139,7 +139,7 @@ public class BillingOnSave2Action extends ActionSupport {
             // the request so the failure JSP can render it next to "Save
             // Failed!" rather than a generic banner with no operator-
             // actionable detail.
-            MiscUtils.getLogger().error("Bill save rolled back: {}", e.getMessage());
+            MiscUtils.getLogger().error("Bill save rolled back: {}", e.getMessage(), e);
             request.setAttribute("billingFailureReason", e.getMessage());
             ret = false;
             billingNo = 0;

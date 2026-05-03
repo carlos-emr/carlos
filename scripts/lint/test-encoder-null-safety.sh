@@ -9,6 +9,7 @@
 #
 # Tests two fixtures:
 #   - encoder-class-c-positive.jsp  : MUST be flagged (lint exits non-zero)
+#   - encoder-class-c-tag-positive.jsp : MUST be flagged (lint exits non-zero)
 #   - encoder-class-c-negative.jsp  : MUST NOT be flagged (lint exits zero)
 #
 # Each fixture is staged into a fresh temp `src/main/webapp/WEB-INF/...`
@@ -97,6 +98,12 @@ stage_and_run \
   "1" \
   "Class C — forHtmlContent in attribute context" \
   "positive Class-C fixture flagged"
+
+stage_and_run \
+  "encoder-class-c-tag-positive.jsp" \
+  "1" \
+  "Class C — forHtmlContent in attribute context" \
+  "positive Class-C tag fixture flagged"
 
 stage_and_run \
   "encoder-class-c-negative.jsp" \

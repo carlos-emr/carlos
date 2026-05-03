@@ -4,13 +4,13 @@
 --
 --   SELECT ohipfilename, COUNT(*)
 --   FROM billing_on_diskname
---   WHERE ohipfilename IS NOT NULL AND ohipfilename <> ''
+--   WHERE ohipfilename IS NOT NULL
 --   GROUP BY ohipfilename
 --   HAVING COUNT(*) > 1;
 --
 --   SELECT htmlfilename, COUNT(*)
 --   FROM billing_on_filename
---   WHERE htmlfilename IS NOT NULL AND htmlfilename <> ''
+--   WHERE htmlfilename IS NOT NULL
 --   GROUP BY htmlfilename
 --   HAVING COUNT(*) > 1;
 
@@ -22,7 +22,7 @@ BEGIN
     SELECT 1 FROM (
       SELECT ohipfilename
       FROM billing_on_diskname
-      WHERE ohipfilename IS NOT NULL AND ohipfilename <> ''
+      WHERE ohipfilename IS NOT NULL
       GROUP BY ohipfilename
       HAVING COUNT(*) > 1
     ) duplicate_ohip_filenames
@@ -35,7 +35,7 @@ BEGIN
     SELECT 1 FROM (
       SELECT htmlfilename
       FROM billing_on_filename
-      WHERE htmlfilename IS NOT NULL AND htmlfilename <> ''
+      WHERE htmlfilename IS NOT NULL
       GROUP BY htmlfilename
       HAVING COUNT(*) > 1
     ) duplicate_html_filenames

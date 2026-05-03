@@ -32,6 +32,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.List;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.BatchBilling;
@@ -49,6 +50,16 @@ public class BatchBillingDaoImpl extends AbstractDaoImpl<BatchBilling> implement
         Query query = entityManager.createQuery("select b from BatchBilling b where b.demographicNo = :demo and b.serviceCode = :service_code");
         query.setParameter("demo", demographicNo);
         query.setParameter("service_code", service_code);
+
+        return query.getResultList();
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<BatchBilling> findForUpdate(Integer demographicNo, String service_code) {
+        Query query = entityManager.createQuery("select b from BatchBilling b where b.demographicNo = :demo and b.serviceCode = :service_code");
+        query.setParameter("demo", demographicNo);
+        query.setParameter("service_code", service_code);
+        query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
 
         return query.getResultList();
     }

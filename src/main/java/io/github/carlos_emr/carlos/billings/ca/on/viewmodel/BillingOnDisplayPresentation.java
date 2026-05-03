@@ -22,6 +22,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;
 
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingViewStrings;
+
 /**
  * Pre-rendered display strings and form-switch routing defaults.
  */

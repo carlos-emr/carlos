@@ -23,6 +23,8 @@
 
 package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;
 
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingViewStrings;
+
 /**
  * Presentation row for one billing code on the Ontario review screen.
  *

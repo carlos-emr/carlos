@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.Set;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.billings.ca.on.BillingAmounts;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingErrorReportDto;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingMultisiteContext;
@@ -377,14 +378,14 @@ public class BillingOnStatusViewModelAssembler {
                 String rowClass = nC ? "success" : "";
                 String formattedFee;
                 try {
-                    formattedFee = String.valueOf(Integer.parseInt(bObj.getFee()));
-                } catch (NumberFormatException nfe) {
+                    formattedFee = BillingAmounts.format(BillingAmounts.amount(bObj.getFee()));
+                } catch (RuntimeException nfe) {
                     MiscUtils.getLogger().warn("Rejected-bill fee is not numeric for billingNo={} fee={}",
                             LogSanitizer.sanitize(bObj.getBilling_no()),
                             LogSanitizer.sanitize(bObj.getFee()), nfe);
                     formattedFee = "N/A";
                 }
-                String stdCurr = "N/A".equals(formattedFee) ? "N/A" : ch2StdCurrFromNoDot(formattedFee);
+                String stdCurr = formattedFee;
                 boolean checked = !BillingONCHeader1.NOT_BILLED.equals(bObj.getStatus());
                 rows.add(new BillingOnStatusViewModel.RejectedBillRow(
                         bObj.getId(),

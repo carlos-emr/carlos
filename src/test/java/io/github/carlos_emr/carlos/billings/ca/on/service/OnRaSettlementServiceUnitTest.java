@@ -44,6 +44,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Behavioral tests for {@link OnRaSettlementService}, the mutation path
@@ -67,6 +68,7 @@ class OnRaSettlementServiceUnitTest {
         raDetailDao = mock(RaDetailDao.class);
         billingRaReportService = mock(BillingRaReportService.class);
         service = new OnRaSettlementService(raHeaderDao, raDetailDao, billingRaReportService);
+        when(billingRaReportService.updateBillingStatus(anyString(), anyString())).thenReturn(true);
     }
 
     @Test
@@ -235,5 +237,23 @@ class OnRaSettlementServiceUnitTest {
         ArgumentCaptor<String> status = ArgumentCaptor.forClass(String.class);
         verify(billingRaReportService).updateBillingStatus(eq("101"), status.capture());
         assertThat(status.getValue()).isEqualTo("S");
+    }
+
+    @Test
+    void shouldThrowBillingValidationException_whenAnyStatusUpdateFails() {
+        when(raDetailDao.search_raerror35(eq(42), anyString(), anyString(), anyString()))
+                .thenReturn(Collections.emptyList());
+        when(raDetailDao.search_ranoerror35(eq(42), anyString(), anyString(), anyString()))
+                .thenReturn(List.of(101, 102));
+        when(billingRaReportService.updateBillingStatus("101", "S")).thenReturn(true);
+        when(billingRaReportService.updateBillingStatus("102", "S")).thenReturn(false);
+        when(raHeaderDao.find(Integer.valueOf(42))).thenReturn(new RaHeader());
+
+        assertThatThrownBy(() -> service.settle("42", OnRaSettlementService.Mode.STANDARD))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("1 bill")
+                .hasMessageContaining("102");
+
+        verify(raHeaderDao, never()).merge(org.mockito.ArgumentMatchers.any(RaHeader.class));
     }
 }

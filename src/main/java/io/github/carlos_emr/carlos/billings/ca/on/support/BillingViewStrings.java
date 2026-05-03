@@ -19,19 +19,19 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;
+package io.github.carlos_emr.carlos.billings.ca.on.support;
 
 /**
  * Shared string normalization for Ontario billing presentation records.
  *
  * @since 2026-05-01
  */
-final class BillingViewStrings {
+public final class BillingViewStrings {
 
     private BillingViewStrings() {
     }
 
-    static String nullToEmpty(String value) {
+    public static String nullToEmpty(String value) {
         return value == null ? "" : value;
     }
 }

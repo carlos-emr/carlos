@@ -25,10 +25,10 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Currency;
 import java.util.Objects;
+import java.util.Optional;
 
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * Immutable Ontario billing money value with CAD currency invariants,
@@ -94,7 +94,17 @@ public record BillingMoney(BigDecimal amount, Currency currency) implements Comp
         return new BillingMoney(amount.add(other.amount), currency);
     }
 
+    /**
+     * @deprecated use {@link #minusExact(BillingMoney)} for throwing
+     * behavior, or {@link #tryMinus(BillingMoney)} when overpayment is an
+     * expected branch.
+     */
+    @Deprecated(forRemoval = false)
     public BillingMoney minus(BillingMoney other) {
+        return minusExact(other);
+    }
+
+    public BillingMoney minusExact(BillingMoney other) {
         requireSameCurrency(other);
         BigDecimal difference = amount.subtract(other.amount);
         if (difference.signum() < 0) {
@@ -103,6 +113,15 @@ public record BillingMoney(BigDecimal amount, Currency currency) implements Comp
                             + format(amount) + " - " + format(other.amount) + " = " + format(difference) + "]");
         }
         return new BillingMoney(difference, currency);
+    }
+
+    public Optional<BillingMoney> tryMinus(BillingMoney other) {
+        requireSameCurrency(other);
+        BigDecimal difference = amount.subtract(other.amount);
+        if (difference.signum() < 0) {
+            return Optional.empty();
+        }
+        return Optional.of(new BillingMoney(difference, currency));
     }
 
     public String format() {
@@ -133,11 +152,11 @@ public record BillingMoney(BigDecimal amount, Currency currency) implements Comp
     }
 
     public static BigDecimal amount(String raw) {
-        return amount(raw, MONEY_SCALE);
+        return BillingAmounts.amount(raw);
     }
 
     public static BigDecimal amount(String raw, int scale) {
-        return decimal(raw).setScale(scale, RoundingMode.HALF_UP);
+        return BillingAmounts.amount(raw, scale);
     }
 
     /**
@@ -160,22 +179,12 @@ public record BillingMoney(BigDecimal amount, Currency currency) implements Comp
 
     /** Legacy BigDecimal bridge for report/import paths that still need zero-on-malformed behavior. */
     public static BigDecimal amountOrZeroLegacyBigDecimal(String raw) {
-        return amountOrZeroLegacyBigDecimal(raw, MONEY_SCALE);
+        return BillingAmounts.amountOrZero(raw);
     }
 
     /** Legacy BigDecimal bridge for report/import paths that still need zero-on-malformed behavior. */
     public static BigDecimal amountOrZeroLegacyBigDecimal(String raw, int scale) {
-        if (raw == null || raw.trim().isEmpty()) {
-            return BigDecimal.ZERO.setScale(scale);
-        }
-        try {
-            return amount(raw, scale);
-        } catch (NumberFormatException e) {
-            MiscUtils.getLogger().error(
-                    "BillingMoney.amountOrZero: malformed amount=\"{}\", returning ZERO",
-                    LogSanitizer.sanitize(raw), e);
-            return BigDecimal.ZERO.setScale(scale);
-        }
+        return BillingAmounts.amountOrZero(raw, scale);
     }
 
     /**
@@ -189,7 +198,7 @@ public record BillingMoney(BigDecimal amount, Currency currency) implements Comp
 
     /** Legacy BigDecimal bridge for fixed-width OHIP fee amounts. */
     public static BigDecimal ohipFeeAmountLegacyBigDecimal(String raw) {
-        return decimal(raw).movePointLeft(OHIP_FEE_SCALE).setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+        return BillingAmounts.ohipFeeAmount(raw);
     }
 
     public static boolean isNonZero(BigDecimal amount) {
@@ -197,7 +206,7 @@ public record BillingMoney(BigDecimal amount, Currency currency) implements Comp
     }
 
     public static boolean isPositive(String raw) {
-        return decimal(raw).compareTo(BigDecimal.ZERO) > 0;
+        return BillingAmounts.isPositive(raw);
     }
 
     public static String format(BigDecimal amount) {

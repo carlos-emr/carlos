@@ -479,7 +479,10 @@ public class BillingOnFormViewModelAssembler {
         // The "providerBean" session attribute stores Provider.getFormattedName()
         // keyed by providerNo. Falls back to a fresh Provider lookup when the
         // session attribute hasn't been seeded yet.
-        b.assgProviderDisplay(resolveAssgProviderDisplay(request, apptProviderNo));
+        ResolvedAssgProviderDisplay assgProviderDisplay =
+                resolveAssgProviderDisplay(request, apptProviderNo);
+        b.assgProviderDisplay(assgProviderDisplay.value())
+                .assignedProviderUnavailable(assgProviderDisplay.unavailable());
 
         // ---- referral checkbox + name/no defaults ----
         String rfCheckParam = request.getParameter("rfcheck");
@@ -568,8 +571,11 @@ public class BillingOnFormViewModelAssembler {
      * direct {@link ProviderDao} lookup for the truncate-or-full pattern when
      * the session map is empty (e.g., test / fresh-login paths).
      */
-    private String resolveAssgProviderDisplay(HttpServletRequest request, String apptProviderNo) {
-        if (apptProviderNo == null || apptProviderNo.isEmpty()) return "";
+    private record ResolvedAssgProviderDisplay(String value, boolean unavailable) {
+    }
+
+    private ResolvedAssgProviderDisplay resolveAssgProviderDisplay(HttpServletRequest request, String apptProviderNo) {
+        if (apptProviderNo == null || apptProviderNo.isEmpty()) return new ResolvedAssgProviderDisplay("", false);
         Object sessionBean = request.getSession().getAttribute("providerBean");
         String name = "";
         if (sessionBean instanceof java.util.Properties props) {
@@ -585,10 +591,12 @@ public class BillingOnFormViewModelAssembler {
                 MiscUtils.getLogger().warn(
                         "assgProvider display lookup failed for provider={}; rendering blank",
                         LogSanitizer.sanitize(apptProviderNo), e);
+                return new ResolvedAssgProviderDisplay("", true);
             }
         }
-        if (name == null) return "";
-        return name.length() > 15 ? name.substring(0, 14) : name;
+        if (name == null) return new ResolvedAssgProviderDisplay("", false);
+        return new ResolvedAssgProviderDisplay(
+                name.length() > 15 ? name.substring(0, 14) : name, false);
     }
 
     /**

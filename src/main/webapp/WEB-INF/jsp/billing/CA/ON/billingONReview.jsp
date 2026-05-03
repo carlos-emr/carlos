@@ -681,6 +681,9 @@
                                     <textarea name="billto" id="billTo" cols="30" rows="6">${carlos:forHtmlContent(reviewModel.patientAddress)}</textarea>
                                 </td>
                                 <td>Remit To [<a href="#" onclick="scriptAttach('remitTo'); return false;">Search</a>]<br>
+                                    <c:if test="${reviewModel.clinicAddressUnavailable}">
+                                        <div class="alert alert-danger" role="alert">Clinic address is temporarily unavailable. Verify the remit-to address before printing or saving.</div>
+                                    </c:if>
                                     <textarea name="remitto" id="remitTo" value="" cols="30"
                                               rows="6">${carlos:forHtmlContent(reviewModel.clinicAddress)}</textarea></td>
                                 <td>Payee<br>

@@ -109,7 +109,7 @@ Comprehensive billing management for various Canadian provinces.
 | billing/ca/on/DisplayInvoiceLogo | io.github.carlos_emr.carlos.billing.CA.ON.util.DisplayInvoiceLogo2Action | Displays invoice logos for Ontario; legacy namespace holdout pending cross-province move |
 | billing/CA/ON/endYearStatement | io.github.carlos_emr.carlos.billings.ca.on.web.PatientEndYearStatement2Action | Generates end-of-year patient statements |
 | billing/CA/ON/managePaymentType | io.github.carlos_emr.carlos.billings.ca.on.web.PaymentType2Action | Manages payment types for Ontario |
-| billing/CA/ON/moveMOHFiles | io.github.carlos_emr.carlos.billings.ca.on.web.MoveMohFiles2Action | Moves and archives MOH billing files |
+| billing/CA/ON/moveMOHFiles | io.github.carlos_emr.carlos.billings.ca.on.web.MoveMohFiles2Action | Moves, unzips, and archives MOH billing files; legacy archive-only handling is folded into this route |
 | BillingInvoice | io.github.carlos_emr.carlos.commn.web.BillingInvoice2Action | Generates billing invoices |
 | BillingONReview | io.github.carlos_emr.carlos.commn.web.BillingONReview2Action | Reviews Ontario billing submissions |
 | billing | io.github.carlos_emr.carlos.billings.ca.pageUtil.Billing2Action | Cross-province billing entry router (BC → billing/CA/BC/billingSetup; ON → billing/CA/ON/billingView) |

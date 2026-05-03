@@ -230,15 +230,12 @@ class BillingOnRaServiceUnitTest {
     }
 
     @Test
-    void shouldReturnTrue_whenUpdateBillingStatusHeaderNotFound() {
-        // Legacy contract: returns true even when header is missing. The
-        // test pins the silent-success behavior so a future fix-closed
-        // change surfaces as a test break.
+    void shouldReturnFalse_whenUpdateBillingStatusHeaderNotFound() {
         when(cheader1Dao.find(42)).thenReturn(null);
 
         boolean ret = service.updateBillingStatus("42", "S");
 
-        assertThat(ret).isTrue();
+        assertThat(ret).isFalse();
         verify(cheader1Dao, never()).merge(any(BillingONCHeader1.class));
     }
 

@@ -55,4 +55,14 @@ class BillingClaimHeaderDtoUnitTest {
         assertThat(dto.total()).isEqualTo("12.30");
         assertThat(dto.paid()).isEqualTo("4.46");
     }
+
+    @Test
+    void shouldPreserveMalformedTotals_whenStatusAssemblerNeedsUnreadableCount() {
+        BillingClaimHeaderDto dto = new BillingClaimHeaderDto()
+                .withTotal("garbage")
+                .withPaid("bad-paid");
+
+        assertThat(dto.total()).isEqualTo("garbage");
+        assertThat(dto.paid()).isEqualTo("bad-paid");
+    }
 }

@@ -470,7 +470,8 @@ public class BillingShortcutPg1ViewModelAssembler {
         // Properties; reuse the BillingOnFormViewModelAssembler pattern but
         // without the 15-char truncation (the shortcut JSP renders the
         // raw value).
-        String assgProviderDisplay = resolveAssgProviderDisplay(request, assignedProviderNo);
+        ResolvedAssgProviderDisplay assgProviderDisplay =
+                resolveAssgProviderDisplay(request, assignedProviderNo);
 
         // isNewONbilling property: drives the legacy/new history-table
         // branch at the bottom of billingShortcutPg1.jsp.
@@ -535,7 +536,8 @@ public class BillingShortcutPg1ViewModelAssembler {
                 .dxCodes(dxCodeEntries)
                 .requestParamEchoes(echoes)
                 .currentFormName(currentFormName)
-                .assgProviderDisplay(assgProviderDisplay)
+                .assgProviderDisplay(assgProviderDisplay.value())
+                .assignedProviderUnavailable(assgProviderDisplay.unavailable())
                 .newOnBilling(isNewOnBillingFlag)
                 .admissionDate(admissionDate)
                 .build();
@@ -548,8 +550,11 @@ public class BillingShortcutPg1ViewModelAssembler {
      * {@link BillingOnFormViewModelAssembler} but does not truncate (the shortcut
      * JSP renders the raw value).
      */
-    private String resolveAssgProviderDisplay(HttpServletRequest request, String assgProviderNo) {
-        if (assgProviderNo == null || assgProviderNo.isEmpty()) return "";
+    private record ResolvedAssgProviderDisplay(String value, boolean unavailable) {
+    }
+
+    private ResolvedAssgProviderDisplay resolveAssgProviderDisplay(HttpServletRequest request, String assgProviderNo) {
+        if (assgProviderNo == null || assgProviderNo.isEmpty()) return new ResolvedAssgProviderDisplay("", false);
         Object sessionBean = request.getSession().getAttribute("providerBean");
         String name = "";
         if (sessionBean instanceof java.util.Properties props) {
@@ -565,9 +570,10 @@ public class BillingShortcutPg1ViewModelAssembler {
                 MiscUtils.getLogger().warn(
                         "Shortcut: assgProvider display lookup failed for provider={}; rendering blank",
                         LogSanitizer.sanitize(assgProviderNo), e);
+                return new ResolvedAssgProviderDisplay("", true);
             }
         }
-        return name == null ? "" : name;
+        return new ResolvedAssgProviderDisplay(name == null ? "" : name, false);
     }
 
     private static final class ServiceCodeGroup {

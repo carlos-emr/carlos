@@ -72,7 +72,7 @@ Class and member names use Java-style acronym casing:
 | RA / remittance advice | `Ra` | `BillingOnRaService` |
 | MOH | `Moh` | `MoveMohFiles2Action` |
 | INR | `Inr` | `InrBillingUpdate2Action` |
-| GST | `Gst` | `GstSettingsService` |
+| GST | `Gst` | `GstSettingsService` (shared CA service) |
 | MRI | `Mri` | `BillingOnMriViewModel` |
 | EDT / OBEC | `Edt`, `Obec` | `BillingEdtObecOutputSpecificationParser` |
 | diagnosis | `Diag` | `BillingOnReviewDiagPersister` |
@@ -435,7 +435,7 @@ known operation.
 | `FeeScheduleImportService` | Service | Schedule of Benefits preview/apply workflow |
 | `FluBillingPersistenceService` | Service | Transactional flu billing header/detail persistence |
 | `GstReportService` | Service | GST report query workflow |
-| `GstSettingsService` | Service | GST percent settings read/write workflow |
+| `GstSettingsService` | Shared CA service | Cross-province GST percent settings read/write workflow |
 | `OhipClaimExtractService` | Service | OHIP claim extract rendering/state carrier |
 | `OhipClaimFileService` | Service | OHIP fixed-width claim file generation |
 | `OhipReportGenerationService` | Service | OHIP report generation |

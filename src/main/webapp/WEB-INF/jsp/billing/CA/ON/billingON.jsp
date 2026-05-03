@@ -951,10 +951,10 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                         <input
                                                 type="text" name="referralCode" class="form-control form-control-sm d-inline-block w-auto" maxlength="6"
                                                 placeholder="<fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.referralNo"/>"
-                                                value="<carlos:encode value='${formModel.referralDefaults.noDefault}' context='html'/>"><br/>
+                                                value="<carlos:encode value='${formModel.referralDefaults.noDefault}' context='htmlAttribute'/>"><br/>
                                         <input placeholder="<fmt:message key="demographic.demographiceditdemographic.formRefDoc"/>"
                                                type="text" name="referralDocName" class="form-control" maxlength="60"
-                                               value="<carlos:encode value='${formModel.referralDefaults.nameDefault}' context='html'/>">
+                                               value="<carlos:encode value='${formModel.referralDefaults.nameDefault}' context='htmlAttribute'/>">
                                     </td>
                                 </tr>
                                 <tr>
@@ -1068,6 +1068,9 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                     </td>
                                     <td style="white-space:nowrap; width: 30%"><b><fmt:message key="oscar.billing.ca.on.billingON.assignedPhysician"/></b></td>
                                     <td style="width: 20%"><carlos:encode value='${formModel.providerPanel.assgProviderDisplay}' context='html'/>
+                                        <c:if test="${formModel.assignedProviderUnavailable}">
+                                            <div class="alert">Assigned physician name is temporarily unavailable. Verify the assigned provider before saving.</div>
+                                        </c:if>
                                     </td>
                                 </tr>
                                 <tr>

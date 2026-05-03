@@ -328,7 +328,7 @@
                 <label for="docDesc"><fmt:message key="dms.addDocument.labelDescription"/></label>
                 <input type="text"
                        class="form-control<c:if test='${ docerrors["descmissing"] != null}'> is-invalid</c:if>"
-                       id="docDesc" name="docDesc" value="<carlos:encode value='<%= formdata.getDocDesc() %>' context="html"/>"
+                       id="docDesc" name="docDesc" value="<carlos:encode value='<%= formdata.getDocDesc() %>' context="htmlAttribute"/>"
                        onfocus="checkDefaultValue(this)"/>
                 <input type="hidden" name="docCreator" value="<carlos:encode value='<%= formdata.getDocCreator() %>' context="htmlAttribute"/>"/>
             </div>
@@ -443,7 +443,7 @@
                 <label for="docDesc2"><fmt:message key="dms.addDocument.labelDescription"/></label>
                 <input type="text" name="docDesc" id="docDesc2"
                        class="form-control<c:if test="${ linkhtmlerrors['descmissing'] != null }"> is-invalid</c:if>"
-                       value="<carlos:encode value='<%= formdata.getDocDesc() %>' context="html"/>" onfocus="checkDefaultValue(this)">
+                       value="<carlos:encode value='<%= formdata.getDocDesc() %>' context="htmlAttribute"/>" onfocus="checkDefaultValue(this)">
             </div>
 
             <div class="mb-3">

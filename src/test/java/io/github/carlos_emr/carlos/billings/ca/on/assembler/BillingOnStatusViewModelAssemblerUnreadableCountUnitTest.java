@@ -22,6 +22,8 @@
 package io.github.carlos_emr.carlos.billings.ca.on.assembler;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingErrorReportDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnErrorReportService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnLookupService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingRaLookupService;
@@ -172,5 +174,28 @@ class BillingOnStatusViewModelAssemblerUnreadableCountUnitTest {
 
         assertThat(vm.getUnreadableTotalRowCount()).isZero();
         assertThat(vm.isPartialTotal()).isFalse();
+    }
+
+    @Test
+    void shouldRenderDecimalRejectedBillFee_whenErrorReportStoresDecimalAmount() {
+        MockHttpServletRequest req = new MockHttpServletRequest();
+        req.setParameter("billType", "OHIP");
+        req.setParameter("statusType", "_");
+        req.setParameter("providerview", "999998");
+        when(statusPrep.getBills(any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of());
+        BillingProviderDto provider = new BillingProviderDto();
+        provider.setProviderNo("999998");
+        when(lookupService.getProviderObj("999998")).thenReturn(provider);
+        BillingErrorReportDto rejected = new BillingErrorReportDto();
+        rejected.setBilling_no("123");
+        rejected.setFee("35.00");
+        when(errorRepImpl.getErrorRecords(any(BillingProviderDto.class), anyString(),
+                anyString(), anyString())).thenReturn(List.of(rejected));
+
+        BillingOnStatusViewModel vm = assembler.assemble(req, loggedInInfo);
+
+        assertThat(vm.getRejectedBillRows()).hasSize(1);
+        assertThat(vm.getRejectedBillRows().get(0).formattedFee()).isEqualTo("35.00");
     }
 }

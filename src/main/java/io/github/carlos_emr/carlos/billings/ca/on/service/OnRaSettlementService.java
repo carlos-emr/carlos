@@ -21,13 +21,17 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.commn.dao.RaDetailDao;
 import io.github.carlos_emr.carlos.commn.dao.RaHeaderDao;
 import io.github.carlos_emr.carlos.commn.model.RaDetail;
 import io.github.carlos_emr.carlos.commn.model.RaHeader;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 /**
  * Mutation service for the two RA settlement popups —
@@ -144,8 +148,19 @@ public class OnRaSettlementService {
             }
         }
 
+        List<String> failedStatusUpdates = new ArrayList<>();
         for (String account : noErrorBills) {
-            billingRAReportService.updateBillingStatus(account, "S");
+            if (!billingRAReportService.updateBillingStatus(account, "S")) {
+                failedStatusUpdates.add(account);
+            }
+        }
+        if (!failedStatusUpdates.isEmpty()) {
+            MiscUtils.getLogger().warn(
+                    "RA settlement: {} billing status update(s) failed for raNo={}",
+                    failedStatusUpdates.size(), raNo);
+            throw new BillingValidationException(
+                    "RA settlement failed for " + failedStatusUpdates.size()
+                            + " bill(s): " + LogSanitizer.sanitize(String.join(", ", failedStatusUpdates)));
         }
 
         RaHeader raHeader = raHeaderDao.find(raNo);

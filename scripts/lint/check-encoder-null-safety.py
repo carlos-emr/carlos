@@ -61,6 +61,11 @@ HTML_ATTR_CONTENT_MISUSE_RE = re.compile(
     r"""=\s*(["'])(?:(?!\1).)*?\$\{\s*carlos:forHtmlContent\s*\(""",
     re.DOTALL,
 )
+HTML_ATTR_CARLOS_TAG_RE = re.compile(
+    r"""=\s*(["'])(?:(?!(?:\1|>)).)*?<carlos:encode\b(?P<tag>.*?)/>""",
+    re.DOTALL,
+)
+CARLOS_TAG_CONTEXT_RE = re.compile(r"""context\s*=\s*(["'])(?P<context>[^"']+)\1""")
 TAGLIB_DECL_RE = re.compile(
     r"""<%@\s*taglib\s+[^%>]*uri\s*=\s*["']owasp\.encoder\.jakarta""",
     re.IGNORECASE,
@@ -80,6 +85,15 @@ def load_allowlist() -> list[str]:
 
 def is_allowlisted(rel: str, patterns: list[str]) -> bool:
     return any(fnmatch.fnmatch(rel, p) for p in patterns)
+
+
+def count_html_context_tag_attr_misuse(text: str) -> int:
+    hits = 0
+    for match in HTML_ATTR_CARLOS_TAG_RE.finditer(text):
+        context = CARLOS_TAG_CONTEXT_RE.search(match.group("tag"))
+        if context is None or context.group("context").lower() == "html":
+            hits += 1
+    return hits
 
 
 def main() -> int:
@@ -150,6 +164,7 @@ def main() -> int:
         # `"` or `'` breaks the markup. Use forHtmlAttribute for value="..."
         # contexts.
         attr_hits = len(HTML_ATTR_CONTENT_MISUSE_RE.findall(text))
+        attr_hits += count_html_context_tag_attr_misuse(text)
         if attr_hits:
             print(
                 f"ERROR [Class C — forHtmlContent in attribute context]: {rel} ({attr_hits} site(s))"

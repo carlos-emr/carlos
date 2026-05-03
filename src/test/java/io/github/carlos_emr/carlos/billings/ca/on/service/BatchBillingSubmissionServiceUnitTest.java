@@ -55,8 +55,8 @@ class BatchBillingSubmissionServiceUnitTest {
                 .thenReturn("12.34");
         when(headerCreationService.createBill("999999", 43, "K005A", "401", "clinic-a", billingDate, "999998"))
                 .thenReturn("56.78");
-        when(batchBillingDAO.find(42, "A007A")).thenReturn(List.of(first));
-        when(batchBillingDAO.find(43, "K005A")).thenReturn(List.of(second));
+        when(batchBillingDAO.findForUpdate(42, "A007A")).thenReturn(List.of(first));
+        when(batchBillingDAO.findForUpdate(43, "K005A")).thenReturn(List.of(second));
 
         BatchBillingSubmissionService.SubmitResult result = service.submitAll(List.of(
                 new BatchBillingSubmissionService.Row("A007A", "250", 42, "999998"),
@@ -77,9 +77,12 @@ class BatchBillingSubmissionServiceUnitTest {
     void shouldPropagateFailureAndStopProcessingLaterRows_whenCollaboratorFails() {
         BatchBilling first = new BatchBilling();
         first.setId(1);
+        BatchBilling second = new BatchBilling();
+        second.setId(2);
         when(headerCreationService.createBill("999998", 42, "A007A", "250", "clinic-a", billingDate, "999998"))
                 .thenReturn("12.34");
-        when(batchBillingDAO.find(42, "A007A")).thenReturn(List.of(first));
+        when(batchBillingDAO.findForUpdate(42, "A007A")).thenReturn(List.of(first));
+        when(batchBillingDAO.findForUpdate(43, "K005A")).thenReturn(List.of(second));
         when(headerCreationService.createBill("999999", 43, "K005A", "401", "clinic-a", billingDate, "999998"))
                 .thenThrow(new IllegalStateException("simulated create failure"));
 
@@ -92,7 +95,8 @@ class BatchBillingSubmissionServiceUnitTest {
                 .hasMessageContaining("simulated create failure");
 
         verify(batchBillingDAO).merge(first);
-        verify(batchBillingDAO, never()).find(43, "K005A");
+        verify(batchBillingDAO).findForUpdate(43, "K005A");
+        verify(batchBillingDAO, never()).findForUpdate(44, "G489A");
         verify(headerCreationService, never())
                 .createBill(eq("999997"), eq(44), eq("G489A"), eq("272"), any(), any(), any());
     }
@@ -101,7 +105,7 @@ class BatchBillingSubmissionServiceUnitTest {
     void shouldThrowBillingValidationException_whenBatchRowDisappearsAfterValidation() {
         when(headerCreationService.createBill("999998", 42, "A007A", "250", "clinic-a", billingDate, "999998"))
                 .thenReturn("12.34");
-        when(batchBillingDAO.find(42, "A007A")).thenReturn(List.of());
+        when(batchBillingDAO.findForUpdate(42, "A007A")).thenReturn(List.of());
 
         assertThatThrownBy(() -> service.submitAll(List.of(
                 new BatchBillingSubmissionService.Row("A007A", "250", 42, "999998")),
@@ -128,7 +132,7 @@ class BatchBillingSubmissionServiceUnitTest {
     void shouldReturnRowFailureAndNotMarkAnyRowsBilled_whenDemographicIsUnbillable() {
         BatchBilling first = new BatchBilling();
         first.setId(1);
-        when(batchBillingDAO.find(42, "A007A")).thenReturn(List.of(first));
+        when(batchBillingDAO.findForUpdate(42, "A007A")).thenReturn(List.of(first));
         org.mockito.Mockito.doNothing()
                 .when(headerCreationService).validateBillableDemographic(42);
         org.mockito.Mockito.doThrow(new BillingValidationException("Missing demographic for demographicNo=43"))
@@ -146,5 +150,23 @@ class BatchBillingSubmissionServiceUnitTest {
         verify(headerCreationService, never()).createBill(any(), any(), any(), any(), any(), any(), any());
         verify(batchBillingDAO, never()).merge(any());
         assertThat(first.getLastBilledDate()).isNull();
+    }
+
+    @Test
+    void shouldLockBatchRowBeforeCreatingBill_whenSubmittingRow() {
+        BatchBilling first = new BatchBilling();
+        first.setId(1);
+        when(batchBillingDAO.findForUpdate(42, "A007A")).thenReturn(List.of(first));
+        when(headerCreationService.createBill("999998", 42, "A007A", "250", "clinic-a", billingDate, "999998"))
+                .thenReturn("12.34");
+
+        service.submitAll(List.of(new BatchBillingSubmissionService.Row("A007A", "250", 42, "999998")),
+                "clinic-a", billingDate, "999998");
+
+        org.mockito.InOrder order = org.mockito.Mockito.inOrder(batchBillingDAO, headerCreationService);
+        order.verify(batchBillingDAO).findForUpdate(42, "A007A");
+        order.verify(headerCreationService)
+                .createBill("999998", 42, "A007A", "250", "clinic-a", billingDate, "999998");
+        order.verify(batchBillingDAO).merge(first);
     }
 }

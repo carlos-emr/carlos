@@ -127,10 +127,10 @@ class BillingClaimsErrorReportImportServiceUnitTest {
     }
 
     @Test
-    void shouldSkipShortLines_andContinueParsingWhenHeaderCountUnreadable() throws IOException {
-        // Lines under 3 chars cannot yield a headerCount substring — the
-        // parser logs and continues. The remaining valid lines must still
-        // produce records.
+    void shouldThrowBillingFileImportException_whenHeaderCountLineIsTooShort() throws IOException {
+        // Lines under 3 chars cannot yield a headerCount substring. Treating
+        // that as "skip and continue" can partially persist a truncated MOH
+        // report while reporting success.
         String content = "AB" + "\n"               // 2 chars - too short for headerCount
                 + headerLine("1") + "\n"
                 + claimLine() + "\n"
@@ -138,10 +138,10 @@ class BillingClaimsErrorReportImportServiceUnitTest {
                 + footerLine() + "\n";
         FileInputStream input = writeAndOpen(content);
 
-        BillingClaimsErrorReportParser parser = svc.importStream(input, "mixed.err");
-
-        assertThat(parser.isVerdict()).isTrue();
-        verify(erRepObj, atLeastOnce()).addErrorReportRecord(org.mockito.ArgumentMatchers.any(BillingErrorReportDto.class));
+        assertThatThrownBy(() -> svc.importStream(input, "mixed.err"))
+                .isInstanceOf(BillingFileImportException.class)
+                .hasMessageContaining("mixed.err");
+        verify(erRepObj, never()).addErrorReportRecord(org.mockito.ArgumentMatchers.any(BillingErrorReportDto.class));
     }
 
     @Test

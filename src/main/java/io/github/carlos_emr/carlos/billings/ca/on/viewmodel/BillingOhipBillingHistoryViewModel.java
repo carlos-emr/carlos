@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;
 
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingViewStrings;
+
 /**
  * Immutable view model for {@code billingOB2.jsp}, the read-only OB
  * billing-history popup reachable via {@code billing/CA/BC/billingView}'s
