@@ -83,7 +83,7 @@
 
             function listClients() {
                 $("#clientTable tbody").find("tr").remove();
-                jQuery.getJSON("clientManage.json", {method: "list"},
+                jQuery.getJSON("clientManage.json.jsp", {method: "list"},
                     function (data, textStatus) {
                         for (var x = 0; x < data.length; x++) {
                             var id = data[x].id;
@@ -110,7 +110,7 @@
             function listTokens() {
                 $("#tokenTable tbody").find("tr").remove();
 
-                jQuery.getJSON("clientManage.json", {method: "listTokens"},
+                jQuery.getJSON("clientManage.json.jsp", {method: "listTokens"},
                     function (data, textStatus) {
 
 
@@ -139,7 +139,7 @@
 
 
             function deleteClient(id) {
-                jQuery.post("clientManage.json", {
+                jQuery.post("clientManage.json.jsp", {
                         method: "delete",
                         id: id
                     },
@@ -166,7 +166,7 @@
                             var name = $("#clientName").val();
                             var uri = $("#clientURI").val();
                             var lifetime = $("#lifetime").val();
-                            jQuery.post("clientManage.json",
+                            jQuery.post("clientManage.json.jsp",
                                 {
                                     method: "add",
                                     name: name,

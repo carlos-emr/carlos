@@ -57,7 +57,6 @@ billregion=ON
 billcenter=G
 signature_tablet=no
 ENABLE_EDIT_APPT_STATUS=yes
-appt_intake_form=off
 new_flowsheet_enabled=true
 NEW_CONTACTS_UI=true
 enableFax=false
@@ -370,8 +369,6 @@ echo "For a new install from console so probe for some settings" >>$LOG_FILE
 	db_reset carlos-emr/eyeform || true
 	db_set carlos-emr/eyeform false || true
 	eyeform=false
-	db_set carlos-emr/appt_intake_form true || true
-	appt_intake_form="on"
 
 	db_go || true
 
@@ -469,7 +466,6 @@ else
 	-e 's/\(^billcenter =\)/#\1/' \
 	-e 's/\(^SINGLE_PAGE_CHART\)/#\1/' \
 	-e 's/\(^signature_tablet\)/#\1/' \
-	-e 's/\(^appt_intake_form\)/#\1/' \
 	-e 's/\(^new_flowsheet_enabled\)/#\1/' \
 	-e 's/\(^enableFax\)/#\1/' \
 	-e 's/\(^HL7_COMPLETED_DIR\)/#\1/' \

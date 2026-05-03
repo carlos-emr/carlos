@@ -57,7 +57,6 @@ public class Facility extends AbstractModel<Integer> implements Serializable {
     private Integer sectorId;
     private boolean enableHealthNumberRegistry = true;
     private boolean enableDigitalSignatures = false;
-    private boolean enableCbiForm = false;
     private boolean enableAnonymous = false;
 
     // OCAN columns remain in DB schema but feature is removed — mapped to satisfy NOT NULL constraints
@@ -219,14 +218,6 @@ public class Facility extends AbstractModel<Integer> implements Serializable {
 
     public Date getLastUpdated() {
         return lastUpdated;
-    }
-
-    public boolean isEnableCbiForm() {
-        return enableCbiForm;
-    }
-
-    public void setEnableCbiForm(boolean enableCbiForm) {
-        this.enableCbiForm = enableCbiForm;
     }
 
     @PreUpdate
