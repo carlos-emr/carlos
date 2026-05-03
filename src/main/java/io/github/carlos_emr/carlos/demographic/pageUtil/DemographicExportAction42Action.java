@@ -3684,6 +3684,10 @@ public class DemographicExportAction42Action extends ActionSupport {
         SchemaFactory xsdFactory;
         try {
             xsdFactory = XmlUtils.createSecureSchemaFactory(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+            xsdFactory.setResourceResolver(XmlUtils.createClasspathSchemaResolver(
+                    DemographicExportAction42Action.class,
+                    "/omdDataMigration/",
+                    Set.of("EMR_Data_Migration_Schema_DT.xsd")));
         } catch (SAXException e) {
             logger.error("Failed to create secure schema factory", e);
             return false;

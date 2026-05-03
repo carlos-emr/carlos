@@ -38,6 +38,7 @@ import javax.xml.validation.SchemaFactory;
 //Replaced old CXF FileUtils and DOM parser imports with Java NIO for simpler UTF-8 file reads
 import java.nio.file.Files;
 import java.nio.charset.StandardCharsets;
+import java.util.Set;
 
 
 import org.apache.logging.log4j.Logger;
@@ -130,6 +131,10 @@ public class HRMReportParser {
                 // Load and compile the XSD schema
                 SchemaFactory factory = XmlUtils.createSecureSchemaFactory(
                     XMLConstants.W3C_XML_SCHEMA_NS_URI);
+                factory.setResourceResolver(XmlUtils.createClasspathSchemaResolver(
+                    HRMReportParser.class,
+                    "/xsd/hrm/1.1.2/",
+                    Set.of("ontariomd_hrm_dt.xsd")));
                 File schemaFile = new ClassPathResource("/xsd/hrm/1.1.2/ontariomd_hrm.xsd").getFile();
                 Source schemaSource = new StreamSource(schemaFile);
                 Schema schema = factory.newSchema(schemaSource);
