@@ -52,7 +52,7 @@
 <%@ taglib uri="jakarta.tags.core"      prefix="c"   %>
 <%@ taglib uri="jakarta.tags.fmt"       prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn"  %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld"  prefix="oscar"    %>
 <%@ taglib uri="/WEB-INF/security.tld"   prefix="security" %>
 
@@ -114,12 +114,12 @@
                     measIdMap.put(loinc_code, idMap);
                     nameMap.put(loinc_code, name);
                 }
-            } else if (nameMap.isEmpty() && !name.equals("NULL")) {
+            } else if (nameMap.isEmpty() && !"NULL".equalsIgnoreCase(name)) {
                 nameMap.put("NULL" + i, name);
             } else if (!nameMap.isEmpty()) {
                 String[] nameMapKeys = nameMap.keySet().toArray(new String[0]);
                 String lastKey = nameMapKeys[nameMapKeys.length - 1];
-                if (lastKey.startsWith("NULL") && (name.equalsIgnoreCase("NULL") || !nameMap.get(lastKey).equalsIgnoreCase("NULL"))) {
+                if (lastKey.startsWith("NULL") && ("NULL".equalsIgnoreCase(name) || !nameMap.get(lastKey).equalsIgnoreCase("NULL"))) {
                     nameMap.remove(lastKey);
                     if (nameMapKeys.length > 1) {
                         lastKey = nameMapKeys[nameMapKeys.length - 2];
