@@ -294,6 +294,7 @@
     request.setAttribute("prefillPhone",        isLabPrefillAvailable ? labPatientPhone : "");
     request.setAttribute("prefillHin",          isLabPrefillAvailable ? labPatientHin : "");
     request.setAttribute("prefillVer",          isLabPrefillAvailable ? labPatientHinVer : "");
+    // PID-11 address province is not a health-card type; DemographicAdd applies the configured HC type default.
     request.setAttribute("prefillHcType",       "");
 %>
 <!DOCTYPE html>
@@ -630,7 +631,7 @@
                     addPatientForm.removeAttribute('target');
                 }
             }
-            if (popup) {
+            if (popup && !popup.closed) {
                 popup.focus();
             }
         }
