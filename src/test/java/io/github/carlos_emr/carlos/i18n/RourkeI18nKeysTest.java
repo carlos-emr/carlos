@@ -88,12 +88,16 @@ class RourkeI18nKeysTest {
 
             assertThat(content)
                     .as("%s should localize the About button label", jsp)
-                    .contains("encounter.formRourke1.btnAbout")
+                    .contains("key='encounter.formRourke1.btnAbout'")
                     .doesNotContain("value=\"About\"");
             assertThat(content)
                     .as("%s should localize the About popup title", jsp)
-                    .contains("encounter.formRourke1.aboutRourkeTitle")
+                    .contains("key='encounter.formRourke1.aboutRourkeTitle'")
                     .doesNotContain("'About Rourke'");
+            assertThat(content)
+                    .as("%s should not use nested double quotes in the localized About attributes", jsp)
+                    .doesNotContain("key=\"encounter.formRourke1.btnAbout\"")
+                    .doesNotContain("key=\"encounter.formRourke1.aboutRourkeTitle\"");
         }
     }
 
