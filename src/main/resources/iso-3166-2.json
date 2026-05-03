@@ -4289,28 +4289,6 @@
       "SY-TA": "Ţarţūs"
     }
   },
-  "TW": {
-    "name": "Taiwan",
-    "divisions": {
-      "TW-KHH": "Kaohsiung",
-      "TW-TPE": "Taipei",
-      "TW-CYI": "Chiayi",
-      "TW-HSZ": "Hsinchu",
-      "TW-KEE": "Keelung",
-      "TW-TXG": "Taichung",
-      "TW-TNN": "Tainan",
-      "TW-CHA": "Changhua",
-      "TW-HUA": "Hualien",
-      "TW-ILA": "Ilan",
-      "TW-MIA": "Miaoli",
-      "TW-NAN": "Nantou",
-      "TW-PEN": "Penghu",
-      "TW-PIF": "Pingtung",
-      "TW-TTT": "Taitung",
-      "TW-TAO": "Taoyuan",
-      "TW-YUN": "Yunlin"
-    }
-  },
   "TJ": {
     "name": "Tajikistan",
     "divisions": {
@@ -4612,28 +4590,23 @@
   "TW": {
     "name": "Taiwan",
     "divisions": {
-      "TW-CHA": "Changhua county",
-      "TW-CYI": "Chiayi city",
-      "TW-CYQ": "Chiayi county",
-      "TW-HSZ": "Hsinchu city",
-      "TW-HSQ": "Hsinchu county",
-      "TW-HUA": "Hualien county",
-      "TW-KHH": "Kaohsiung municipality",
-      "TW-KEE": "Keelung city",
-      "TW-KIN": "Kinmen county",
-      "TW-LIE": "Lienchiang county",
-      "TW-MIA": "Miaoli county",
-      "TW-NAN": "Nantou county",
-      "TW-NWT": "New Taipei municipality",
-      "TW-PEN": "Penghu county",
-      "TW-PIF": "Pingtung county",
-      "TW-TXG": "Taichung municipality",
-      "TW-TNN": "Tainan municipality",
-      "TW-TPE": "Taipei municipality",
-      "TW-TTT": "Taitung county",
-      "TW-TAO": "Taoyuan municipality",
-      "TW-ILA": "Yilan county",
-      "TW-YUN": "Yunlin county"
+      "TW-KHH": "Kaohsiung",
+      "TW-TPE": "Taipei",
+      "TW-CYI": "Chiayi",
+      "TW-HSZ": "Hsinchu",
+      "TW-KEE": "Keelung",
+      "TW-TXG": "Taichung",
+      "TW-TNN": "Tainan",
+      "TW-CHA": "Changhua",
+      "TW-HUA": "Hualien",
+      "TW-ILA": "Ilan",
+      "TW-MIA": "Miaoli",
+      "TW-NAN": "Nantou",
+      "TW-PEN": "Penghu",
+      "TW-PIF": "Pingtung",
+      "TW-TTT": "Taitung",
+      "TW-TAO": "Taoyuan",
+      "TW-YUN": "Yunlin"
     }
   },
   "UG": {
