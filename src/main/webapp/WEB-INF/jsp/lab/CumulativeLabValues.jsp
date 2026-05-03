@@ -214,11 +214,10 @@
                                     String prevName = Objects.toString(h.get("testName"), "");
                                     String labType = Objects.toString(h.get("labType"), "");
                                     String identCode = Objects.toString(h.get("identCode"), "");
-                                    String identCodeEsc = identCode.replaceAll("&", "_amp_");
                                     String prevNameHtmlAttr = SafeEncode.forHtmlAttribute(prevName);
                                     String prevNameJsAttr = SafeEncode.forJavaScriptAttribute(prevName);
                                     String labTypeJsAttr = SafeEncode.forJavaScriptAttribute(labType);
-                                    String identCodeJsAttr = SafeEncode.forJavaScriptAttribute(identCodeEsc);
+                                    String identCodeJsAttr = SafeEncode.forJavaScriptAttribute(identCode);
                                     String displayNameHtml = SafeEncode.forHtmlContent(StringUtils.maxLenString(prevName, 13, 8, "..."));
                             %>
                             <li class="list-group-item py-1 px-2"><%-- a title="fade=[on] header=[<%=prevName%>] body=[]"      href="javascript: function myFunction() {return false; }"  onclick="javascript:addLabToProfile2('<%=h.get("labType")%>','<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>');" --%>
