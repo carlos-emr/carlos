@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <jasperReport name="label" pageWidth="229" pageHeight="210" columnWidth="200" leftMargin="15" rightMargin="0" topMargin="0" bottomMargin="4">
-	<reportFont name="sansserif" isDefault="false" fontName="sansserif" size="10" isBold="false" isItalic="false" isUnderline="false" isStrikeThrough="false" pdfFontName="Helvetica" pdfEncoding="Cp1252" isPdfEmbedded="false" />
 	<parameter name="clinicName" class="java.lang.String" />
 	<parameter name="clinicAddress" class="java.lang.String" />
 	<parameter name="clinicCity" class="java.lang.String" />

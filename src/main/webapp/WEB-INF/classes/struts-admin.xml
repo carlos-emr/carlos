@@ -29,7 +29,7 @@
     <package name="admin" namespace="/" extends="struts-default">
 
         <action name="lookupListManagerAction" class="io.github.carlos_emr.carlos.admin.lookUpLists.LookupListManager2Action">
-            <result name="success">/admin/lookUpLists/</result>
+            <result name="success">/WEB-INF/jsp/admin/lookUpLists/index.jsp</result>
         </action>
         <action name="SystemMessage" class="io.github.carlos_emr.carlos.www.SystemMessage2Action" method="execute">
             <result name="view">/WEB-INF/jsp/caisicore/SystemMessage.jsp</result>
