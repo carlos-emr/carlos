@@ -207,7 +207,7 @@
                 <div class="leftBox">
                     <h3>&nbsp;<fmt:message key="lab.cumulativeLab.labs"/></h3>
                     <div style="background-color: #EEEEFF;">
-                        <ul class="list-group list-group-flush">
+                        <ul class="list-group">
                             <%
                                 for (int i = 0; i < prevList.size(); i++) {
                                     Hashtable h = (Hashtable) prevList.get(i);
@@ -222,8 +222,7 @@
                             %>
                             <li class="list-group-item py-1 px-2"><%-- a title="fade=[on] header=[<%=prevName%>] body=[]"      href="javascript: function myFunction() {return false; }"  onclick="javascript:addLabToProfile2('<%=h.get("labType")%>','<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>');" --%>
                                 <button type="button"
-                                        class="btn btn-link p-0 text-start"
-                                        title="<%=prevNameHtmlAttr%>"
+                                        class="btn btn-link p-0 text-start focus-ring"
                                         aria-label="<%=prevNameHtmlAttr%>"
                                         onclick="addLabToProfile2('<%=labTypeJsAttr%>','<%=prevNameJsAttr%>','<%= identCodeJsAttr %>');">
 
