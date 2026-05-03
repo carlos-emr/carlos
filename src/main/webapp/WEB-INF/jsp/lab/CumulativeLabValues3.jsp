@@ -221,12 +221,7 @@
     <meta charset="UTF-8">
     <title><fmt:message key="lab.cumulativeLab3.pageTitle"/></title>
     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
-    <link rel="stylesheet" type="text/css"
-          href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css">
-    <script type="text/javascript"
-            src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
-    <script type="text/javascript"
-            src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
+
     <style>
         body { padding: 0.75rem; }
         /* Prevent column text from wrapping — lab values are compact */
@@ -312,20 +307,6 @@
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        $('#cumulativeLabTable').DataTable({
-            language: {
-                url: '${e:forJavaScript(ctx)}/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json'
-            },
-            columnDefs: [
-                { orderable: false, targets: '_all' },
-                /* Sort allowed only on Test (0) and Last Done (2) */
-                { orderable: true,  targets: [0, 2]  }
-            ],
-            paging: false,
-            order: []
-        });
-    });
 
     function reportWindow(page) {
         var props = 'height=660,width=960,location=no,scrollbars=yes,menubar=no,toolbar=no,resizable=yes,top=0,left=0';
