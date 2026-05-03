@@ -911,7 +911,9 @@ $(document).ready(function(){
 			id: "myFrame",
 			name: "myFrame",
 			title: iframeTitle,
-			loading: "lazy"
+			loading: "lazy",
+			role: "region",
+			"aria-live": "polite"
 		}).css("border", "0"));
 		if (submitForm) {
 			var form = document.getElementById(submitForm);

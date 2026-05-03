@@ -38,7 +38,7 @@ class AdministrationLeftNavAgeSexReportTest {
 
     @Test
     @DisplayName("should post age sex report to Struts action")
-    void shouldPostAgeSexReport_toStrutsAction() throws Exception {
+    void shouldSubmitAgeSexReportForm_whenLinkClicked() throws Exception {
         String jsp = Files.readString(LEFT_NAV);
 
         assertThat(jsp)
@@ -59,8 +59,11 @@ class AdministrationLeftNavAgeSexReportTest {
                 .contains("form.submit();")
                 .contains("title: iframeTitle")
                 .contains("loading: \"lazy\"")
+                .contains("role: \"region\"")
+                .contains("\"aria-live\": \"polite\"")
                 .contains("}).css(\"border\", \"0\")")
                 .doesNotContain("form.target = \"myFrame\"")
+                .doesNotContain("CSRF-TOKEN")
                 .doesNotContain("frameborder");
     }
 }
