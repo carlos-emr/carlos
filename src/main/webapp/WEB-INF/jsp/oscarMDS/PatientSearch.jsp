@@ -127,7 +127,7 @@
     }
 
     boolean hasSearch = !p_searchMode.isEmpty() && !p_keyword.isEmpty();
-    boolean shouldPrefillAddPatient = hasSearch && !p_labNo.isEmpty();
+    boolean isLabPrefillAvailable = hasSearch && !p_labNo.isEmpty();
 
     // === DB query: build patient rows list ===
     List<Map<String,String>> patientRows = new ArrayList<>();
@@ -281,19 +281,20 @@
     request.setAttribute("orderby",       p_orderby.isEmpty() ? "last_name" : p_orderby);
     request.setAttribute("nextLimit1",    nextLimit1);
     request.setAttribute("hasSearch",     hasSearch);
-    request.setAttribute("prefillLastName",     shouldPrefillAddPatient ? labPatientLastName : "");
-    request.setAttribute("prefillFirstName",    shouldPrefillAddPatient ? labPatientFirstName : "");
-    request.setAttribute("prefillYearOfBirth",  shouldPrefillAddPatient ? labPatientDobYear : "");
-    request.setAttribute("prefillMonthOfBirth", shouldPrefillAddPatient ? labPatientDobMonth : "");
-    request.setAttribute("prefillDateOfBirth",  shouldPrefillAddPatient ? labPatientDobDay : "");
-    request.setAttribute("prefillSex",          shouldPrefillAddPatient ? labPatientSex : "");
-    request.setAttribute("prefillAddress",      shouldPrefillAddPatient ? labPatientAddress : "");
-    request.setAttribute("prefillCity",         shouldPrefillAddPatient ? labPatientCity : "");
-    request.setAttribute("prefillProvince",     shouldPrefillAddPatient ? labPatientProvince : "");
-    request.setAttribute("prefillPostal",       shouldPrefillAddPatient ? labPatientPostal : "");
-    request.setAttribute("prefillPhone",        shouldPrefillAddPatient ? labPatientPhone : "");
-    request.setAttribute("prefillHin",          shouldPrefillAddPatient ? labPatientHin : "");
-    request.setAttribute("prefillVer",          shouldPrefillAddPatient ? labPatientHinVer : "");
+    request.setAttribute("prefillLastName",     isLabPrefillAvailable ? labPatientLastName : "");
+    request.setAttribute("prefillFirstName",    isLabPrefillAvailable ? labPatientFirstName : "");
+    request.setAttribute("prefillYearOfBirth",  isLabPrefillAvailable ? labPatientDobYear : "");
+    request.setAttribute("prefillMonthOfBirth", isLabPrefillAvailable ? labPatientDobMonth : "");
+    request.setAttribute("prefillDateOfBirth",  isLabPrefillAvailable ? labPatientDobDay : "");
+    request.setAttribute("prefillSex",          isLabPrefillAvailable ? labPatientSex : "");
+    request.setAttribute("prefillAddress",      isLabPrefillAvailable ? labPatientAddress : "");
+    request.setAttribute("prefillCity",         isLabPrefillAvailable ? labPatientCity : "");
+    request.setAttribute("prefillProvince",     isLabPrefillAvailable ? labPatientProvince : "");
+    request.setAttribute("prefillPostal",       isLabPrefillAvailable ? labPatientPostal : "");
+    request.setAttribute("prefillPhone",        isLabPrefillAvailable ? labPatientPhone : "");
+    request.setAttribute("prefillHin",          isLabPrefillAvailable ? labPatientHin : "");
+    request.setAttribute("prefillVer",          isLabPrefillAvailable ? labPatientHinVer : "");
+    request.setAttribute("prefillHcType",       "");
 %>
 <!DOCTYPE html>
 <html lang="en">
@@ -519,7 +520,7 @@
         <input type="hidden" name="prefill_phone"          value="${carlos:forHtmlAttribute(prefillPhone)}"/>
         <input type="hidden" name="prefill_hin"            value="${carlos:forHtmlAttribute(prefillHin)}"/>
         <input type="hidden" name="prefill_ver"            value="${carlos:forHtmlAttribute(prefillVer)}"/>
-        <input type="hidden" name="prefill_hc_type"        value="${carlos:forHtmlAttribute(prefillProvince)}"/>
+        <input type="hidden" name="prefill_hc_type"        value="${carlos:forHtmlAttribute(prefillHcType)}"/>
     </form>
 
     <%-- Hidden form for Load More pagination (POST to avoid PHI in URL) --%>
@@ -613,14 +614,21 @@
 
         function openAddPatient() {
             const addPatientForm = document.getElementById('addPatientForm');
+            const originalTarget = addPatientForm.getAttribute('target');
             const popup = window.open('', 'addNewPatient', 'scrollbars=yes,resizable=yes,width=900,height=700');
-            if (!popup) {
+            if (!popup || popup.closed) {
                 addPatientForm.removeAttribute('target');
                 addPatientForm.submit();
+                if (originalTarget !== null) {
+                    addPatientForm.setAttribute('target', originalTarget);
+                }
                 return;
             }
             addPatientForm.target = 'addNewPatient';
             addPatientForm.submit();
+            if (originalTarget !== null) {
+                addPatientForm.setAttribute('target', originalTarget);
+            }
             popup.focus();
         }
 
