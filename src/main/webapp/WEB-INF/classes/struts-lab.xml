@@ -80,6 +80,9 @@
 
 
         <!-- ===== lab JSP gating actions (migration slice) ===== -->
+        <action name="oscarMDS/ViewCreateLab" class="io.github.carlos_emr.carlos.lab.gate.ViewCreateLab2Action">
+            <result name="success">/WEB-INF/jsp/oscarMDS/CreateLab.jsp</result>
+        </action>
         <action name="lab/ViewCumulativeLabValues" class="io.github.carlos_emr.carlos.lab.gate.ViewCumulativeLabValues2Action">
             <result name="success">/WEB-INF/jsp/lab/CumulativeLabValues.jsp</result>
         </action>

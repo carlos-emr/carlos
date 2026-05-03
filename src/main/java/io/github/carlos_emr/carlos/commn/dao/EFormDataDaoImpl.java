@@ -544,12 +544,13 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
     }
 
     /**
-     * This method war written for BORN Kid eConnect job to figure out which eforms
-     * don't have an eform_value present
+     * Returns demographic numbers for completions of the given eform that are missing
+     * the specified variable name in their eform_values rows.
      *
-     * @param fid
-     * @param varName
-     * @return
+     * @param fid     the eform id
+     * @param varName the eform variable name to check for
+     * @return list of demographic numbers whose completions of {@code fid} are missing
+     *         a value for {@code varName}
      */
     @Override
     public List<Integer> getDemographicNosMissingVarName(int fid, String varName) {
