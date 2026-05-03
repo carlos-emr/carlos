@@ -159,9 +159,13 @@ public class UtilDateUtilities {
      * @param pointInTime The date you would like to calculate there age at.
      * @param dlocal      The Locale to use for i18n output.
      * @return age string ( ie 2 months, 4 years .etc )
+     * @throws IllegalArgumentException if pointInTime is null
      */
     public static String calcAgeAtDate(Date DOB, Date pointInTime, Locale dlocal) {
         if (DOB == null) return (null);
+        if (pointInTime == null) {
+            throw new IllegalArgumentException("pointInTime must not be null");
+        }
         Locale resolvedLocale = dlocal != null ? dlocal : Locale.getDefault();
         ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", resolvedLocale);
         
