@@ -33,6 +33,7 @@
         import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,java.sql.Connection,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.lab.ca.on.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.lab.*,io.github.carlos_emr.carlos.lab.ca.all.util.CumulativeLabValuesComparator,org.jdom2.*,io.github.carlos_emr.carlos.db.*,org.jdom2.input.*,java.io.InputStream" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
@@ -157,8 +158,9 @@
 
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Cumulative Lab 3</title>
+        <title><fmt:message key="lab.cumulativeLab.title"/></title>
         <!--I18n-->
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
@@ -269,7 +271,7 @@
 
     <table class="MainTable" id="scrollNumber1">
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn">lab</td>
+            <td class="MainTableTopRowLeftColumn"><fmt:message key="lab.cumulativeLab.title"/></td>
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
                     <tr>
@@ -288,8 +290,8 @@
                 <table class="cumlatable table table-sm">
                     <tr>
                         <th>&nbsp;</th>
-                        <th>Latest Value</th>
-                        <th>Last Done</th>
+                        <th><fmt:message key="lab.cumulativeLab.latestValue"/></th>
+                        <th><fmt:message key="lab.cumulativeLab.lastDone"/></th>
                         <!-- Dates start here. Need to have all the dates of the different labs -->
                         <%
                             // use a custom comparator to compare the Hashtables in the array
