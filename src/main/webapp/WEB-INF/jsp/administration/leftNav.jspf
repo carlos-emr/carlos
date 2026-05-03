@@ -903,11 +903,16 @@ $(document).ready(function(){
 	});
 
 	$(".xlink").click(function(e) {
-		e.preventDefault();
 		var source = $(this).attr('rel');
 		var submitForm = $(this).data('submit-form');
+		var iframeTitle = $.trim($(this).text()) || "Administration content";
 		$("#dynamic-content").addClass("dynamic-iframe-content");
-		$("#dynamic-content").html('<iframe id="myFrame" name="myFrame" title="Administration content" frameborder="0">');
+		$("#dynamic-content").empty().append($("<iframe>", {
+			id: "myFrame",
+			name: "myFrame",
+			title: iframeTitle,
+			frameborder: 0
+		}));
 		if (submitForm) {
 			var form = document.getElementById(submitForm);
 			if (form) {

@@ -27,7 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * @since 2026-05-03
  */
-@DisplayName("administration left nav age sex report tests")
+@DisplayName("Administration Left Nav Age-Sex Report Tests")
 @Tag("unit")
 @Tag("fast")
 @Tag("admin")
@@ -54,6 +54,7 @@ class AdministrationLeftNavAgeSexReportTest {
                 .as("xlink handler should submit the hidden form into the iframe")
                 .contains("data-submit-form=\"ageSexForm\"")
                 .contains("form.submit();")
-                .contains("title=\"Administration content\"");
+                .contains("var iframeTitle = $.trim($(this).text()) || \"Administration content\"")
+                .contains("title: iframeTitle");
     }
 }
