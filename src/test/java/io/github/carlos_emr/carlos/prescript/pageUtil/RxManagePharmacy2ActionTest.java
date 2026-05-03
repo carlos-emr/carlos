@@ -114,6 +114,7 @@ class RxManagePharmacy2ActionTest extends CarlosUnitTestBase {
     @DisplayName("should return success when pharmacyAction is missing")
     void shouldReturnSuccess_whenPharmacyActionIsMissing() throws Exception {
         assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(mockSecurityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("w"), isNull());
         verifyNoInteractions(mockPharmacyInfoDao, mockDemographicPharmacyDao);
     }
 

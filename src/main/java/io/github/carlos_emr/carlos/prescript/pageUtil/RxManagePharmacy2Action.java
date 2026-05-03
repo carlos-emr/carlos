@@ -107,7 +107,6 @@ public final class RxManagePharmacy2Action extends ActionSupport {
 
         String actionType = this.getPharmacyAction();
         if (StringUtils.isNullOrEmpty(actionType)) {
-            MiscUtils.getLogger().debug("No pharmacy action specified, loading pharmacy management view");
             return SUCCESS;
         }
 
