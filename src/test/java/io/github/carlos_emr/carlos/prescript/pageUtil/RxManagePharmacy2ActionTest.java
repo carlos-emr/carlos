@@ -17,7 +17,6 @@ import io.github.carlos_emr.carlos.commn.dao.PharmacyInfoDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -40,7 +39,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -63,6 +62,12 @@ class RxManagePharmacy2ActionTest extends CarlosUnitTestBase {
     @Mock
     private LoggedInInfo mockLoggedInInfo;
 
+    @Mock
+    private PharmacyInfoDao mockPharmacyInfoDao;
+
+    @Mock
+    private DemographicPharmacyDao mockDemographicPharmacyDao;
+
     private MockHttpServletRequest mockRequest;
     private MockHttpServletResponse mockResponse;
     private RxManagePharmacy2Action action;
@@ -82,6 +87,8 @@ class RxManagePharmacy2ActionTest extends CarlosUnitTestBase {
                 .thenReturn(mockLoggedInInfo);
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
+        registerMock(PharmacyInfoDao.class, mockPharmacyInfoDao);
+        registerMock(DemographicPharmacyDao.class, mockDemographicPharmacyDao);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("w"), isNull()))
                 .thenReturn(true);
 
@@ -105,8 +112,7 @@ class RxManagePharmacy2ActionTest extends CarlosUnitTestBase {
     @DisplayName("should return success when pharmacyAction is missing")
     void shouldReturnSuccess_whenPharmacyActionMissing() throws Exception {
         assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
-        springUtilsMock.verify(() -> SpringUtils.getBean(PharmacyInfoDao.class), never());
-        springUtilsMock.verify(() -> SpringUtils.getBean(DemographicPharmacyDao.class), never());
+        verifyNoInteractions(mockPharmacyInfoDao, mockDemographicPharmacyDao);
     }
 
     @Test
