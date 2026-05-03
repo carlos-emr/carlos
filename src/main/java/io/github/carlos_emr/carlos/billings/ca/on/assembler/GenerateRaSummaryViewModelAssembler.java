@@ -217,7 +217,7 @@ public class GenerateRaSummaryViewModelAssembler {
         // would then drift below the source records. The strict variant
         // throws NumberFormatException on a malformed value so the action
         // sees the failure and skips the persister call.
-        BigDecimal paid = BillingMoney.amountStrictOrZero(paidAmount);
+        BigDecimal paid = BillingMoney.parseOptionalNonNegativeAmount(paidAmount, "paidAmount");
         totals.invoiced = totals.invoiced.add(invoiced);
         totals.paid = totals.paid.add(paid);
 

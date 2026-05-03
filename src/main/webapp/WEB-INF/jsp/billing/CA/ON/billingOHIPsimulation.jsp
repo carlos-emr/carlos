@@ -172,15 +172,47 @@
 
 </div><!--container-->
 
-<%--
-  ${simulationModel.previewHtml} contains assembler-built trusted HTML — the
-  OHIP file preview rendered as a <pre>-style code block. The producer
-  (BillingOhipSimulationViewModelAssembler) builds it from constants and
-  server-side BillingONCHeader1 / BillingItem state only; no raw request
-  parameter reaches this rendering point. Do not change this contract
-  without updating the assembler's safety invariant comment.
---%>
-${simulationModel.previewHtml}
+<c:set var="preview" value="${simulationModel.preview}"/>
+<c:if test="${preview.present}">
+    <c:if test="${not empty preview.errorMessages}">
+        <div class="text-danger">
+            <c:forEach var="message" items="${preview.errorMessages}">
+                <carlos:encode value="${message}" context="html"/><br/>
+            </c:forEach>
+        </div>
+    </c:if>
+
+    <c:choose>
+        <c:when test="${preview.multisite}">
+            <%-- Legacy OhipClaimFileService rows are encoded at source. --%>
+            ${preview.bodyMarkup}
+        </c:when>
+        <c:otherwise>
+            <table class="table table-hover table-sm">
+                <thead>
+                <c:choose>
+                    <c:when test="${preview.summaryView}">
+                        <tr><th>OHIP NO</th><th>Number of Records</th><th>Total Billed</th><th colspan="9"></th></tr>
+                    </c:when>
+                    <c:otherwise>
+                        <tr><th>OHIP NO</th><th>Acct NO</th><th>Name</th><th>RO</th><th>DOB</th><th>Sex</th>
+                            <th>Health #</th><th>Billdate</th><th>Code</th><th>Billed</th><th>DX</th>
+                            <th align="right">Comment</th></tr>
+                    </c:otherwise>
+                </c:choose>
+                </thead>
+                <tbody>
+                <%-- Legacy OhipClaimFileService rows are encoded at source. --%>
+                ${preview.bodyMarkup}
+                <tr><td colspan="12">&nbsp;</td></tr>
+                <tr><td colspan="4">
+                    ${preview.recordCount} RECORDS PROCESSED, ${preview.errorCount} ERROR<c:if test="${preview.errorCount gt 1}">S</c:if>
+                </td><td colspan="8">TOTAL: <carlos:encode value="${preview.total}" context="html"/></td></tr>
+                </tbody>
+            </table>
+        </c:otherwise>
+    </c:choose>
+</c:if>
 
 <script type="text/javascript">
 
@@ -218,4 +250,3 @@ ${simulationModel.previewHtml}
 </script>
 </body>
 </html>
-

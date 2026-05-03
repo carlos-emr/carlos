@@ -192,10 +192,22 @@
         <c:forEach var="row" items="${model.rows}">
             <tr>
                 <c:forEach var="header" items="${model.columnHeaders}">
-                    <%-- Cell values are pre-encoded HTML produced by the assembler
-                         (link markup, SafeEncode-escaped patient data). Use
-                         <c:out escapeXml='false'/> to emit them verbatim. --%>
-                    <td><c:out value="${not empty row[header] ? row[header] : '&nbsp;'}" escapeXml="false"/></td>
+                    <c:set var="cell" value="${row.cells[header]}"/>
+                    <td>
+                        <c:choose>
+                            <c:when test="${not empty cell and not empty cell.popupUrl}">
+                                <a href="#"
+                                   onclick="popupPage(${cell.popupHeight},${cell.popupWidth}, '<carlos:encode value="${cell.popupUrl}" context="javaScriptAttribute"/>'); return false;"
+                                   title="<carlos:encode value="${cell.title}" context="htmlAttribute"/>">
+                                    <carlos:encode value="${cell.text}" context="html"/>
+                                </a>
+                            </c:when>
+                            <c:when test="${not empty cell and not empty cell.text}">
+                                <carlos:encode value="${cell.text}" context="html"/>
+                            </c:when>
+                            <c:otherwise>&nbsp;</c:otherwise>
+                        </c:choose>
+                    </td>
                 </c:forEach>
             </tr>
         </c:forEach>

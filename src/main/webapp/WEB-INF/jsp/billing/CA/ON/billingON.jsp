@@ -991,19 +991,32 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                     <td style="white-space:nowrap; width: 30%"><b><fmt:message key="oscar.billing.ca.on.billingON.billingPhysician"/></b></td>
                                     <td style="width: 20%">
                                         <%-- Multisite + non-multisite provider pickers fully driven
-                                             by formModel; SiteDao + Provider iteration done in the
-                                             assembler. The pre-rendered <option> HTML for the
-                                             multisite per-site picker lives in
-                                             ${formModel.multisite.multisiteProviderHtml} keyed by site name. --%>
+                                             by structured formModel site/provider data. --%>
                                         <c:choose>
                                             <c:when test="${formModel.multisite.enabled}">
                                                 <script>
-                                                    var _providers = [];
+                                                    var _providers = {};
                                                     <c:forEach var="msite" items="${formModel.multisite.sites}">
-                                                        _providers["<carlos:encode value='${msite.name}' context='javaScript'/>"] = "<carlos:encode value='${formModel.multisite.multisiteProviderHtml[msite.name]}' context='javaScript'/>";
+                                                        _providers["<carlos:encode value='${msite.name}' context='javaScript'/>"] = [
+                                                            <c:forEach var="provider" items="${msite.providers}" varStatus="providerStatus">
+                                                            {
+                                                                value: "<carlos:encode value='${provider.providerNo}|${provider.ohipNo}' context='javaScript'/>",
+                                                                text: "<carlos:encode value='${provider.lastName}, ${provider.firstName}' context='javaScript'/>"
+                                                            }<c:if test="${not providerStatus.last}">,</c:if>
+                                                            </c:forEach>
+                                                        ];
                                                     </c:forEach>
                                                     function changeSite(sel) {
-                                                        sel.form.xml_provider.innerHTML = sel.value == "none" ? "" : _providers[sel.value];
+                                                        var providerSelect = sel.form.xml_provider;
+                                                        providerSelect.innerHTML = "";
+                                                        if (sel.value != "none") {
+                                                            (_providers[sel.value] || []).forEach(function (provider) {
+                                                                var option = document.createElement("option");
+                                                                option.value = provider.value;
+                                                                option.textContent = provider.text;
+                                                                providerSelect.appendChild(option);
+                                                            });
+                                                        }
                                                         sel.style.backgroundColor = sel.options[sel.selectedIndex].style.backgroundColor;
                                                     }
                                                 </script>

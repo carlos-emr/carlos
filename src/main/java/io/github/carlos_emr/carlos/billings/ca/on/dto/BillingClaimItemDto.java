@@ -172,8 +172,8 @@ public record BillingClaimItemDto(
             return "";
         }
         try {
-            return BillingMoney.format(BillingMoney.amountOrThrow(value));
-        } catch (NumberFormatException | BillingValidationException e) {
+            return BillingMoney.format(BillingMoney.parseNonNegativeAmount(value, field));
+        } catch (BillingValidationException e) {
             throw new BillingValidationException(
                     "BillingClaimItemDto: malformed " + field + " amount [" + value + "]", e);
         }

@@ -22,8 +22,9 @@
 package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;
 
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Properties;
+import java.util.Map;
 
 /**
  * Immutable view model for {@code billing/CA/ON/billingONNewReport.jsp}. Built
@@ -49,6 +50,35 @@ public final class BillingOnNewReportViewModel {
         }
     }
 
+    /** One report-table cell, optionally rendered as a popup link by the JSP. */
+    public record ReportCell(
+            String text,
+            String popupUrl,
+            int popupHeight,
+            int popupWidth,
+            String title) {
+        public ReportCell {
+            text = text == null ? "" : text;
+            popupUrl = popupUrl == null ? "" : popupUrl;
+            title = title == null ? "" : title;
+        }
+
+        public static ReportCell text(String text) {
+            return new ReportCell(text, "", 0, 0, "");
+        }
+
+        public static ReportCell popup(String text, String popupUrl, int height, int width, String title) {
+            return new ReportCell(text, popupUrl, height, width, title);
+        }
+    }
+
+    /** One report-table row keyed by display header. */
+    public record ReportRow(Map<String, ReportCell> cells) {
+        public ReportRow {
+            cells = cells == null ? Collections.emptyMap() : Map.copyOf(cells);
+        }
+    }
+
     private final String reportAction;
     private final String providerView;
     private final String xmlVdate;
@@ -57,7 +87,7 @@ public final class BillingOnNewReportViewModel {
     private final String defaultBillForm;
     private final boolean multisitesEnabled;
     private final List<String> columnHeaders;
-    private final List<Properties> rows;
+    private final List<ReportRow> rows;
     private final List<String> totalRow;
     private final List<ProviderOption> providerOptions;
     private final List<SiteOption> siteOptions;
@@ -89,7 +119,7 @@ public final class BillingOnNewReportViewModel {
     public String getDefaultBillForm() { return defaultBillForm; }
     public boolean isMultisitesEnabled() { return multisitesEnabled; }
     public List<String> getColumnHeaders() { return columnHeaders; }
-    public List<Properties> getRows() { return rows; }
+    public List<ReportRow> getRows() { return rows; }
     public List<String> getTotalRow() { return totalRow; }
     public List<ProviderOption> getProviderOptions() { return providerOptions; }
     public List<SiteOption> getSiteOptions() { return siteOptions; }
@@ -105,7 +135,7 @@ public final class BillingOnNewReportViewModel {
         private String defaultBillForm = "";
         private boolean multisitesEnabled;
         private List<String> columnHeaders = Collections.emptyList();
-        private List<Properties> rows = Collections.emptyList();
+        private List<ReportRow> rows = Collections.emptyList();
         private List<String> totalRow = Collections.emptyList();
         private List<ProviderOption> providerOptions = Collections.emptyList();
         private List<SiteOption> siteOptions = Collections.emptyList();
@@ -118,11 +148,15 @@ public final class BillingOnNewReportViewModel {
         public Builder defaultBillForm(String v) { this.defaultBillForm = v; return this; }
         public Builder multisitesEnabled(boolean v) { this.multisitesEnabled = v; return this; }
         public Builder columnHeaders(List<String> v) { this.columnHeaders = v; return this; }
-        public Builder rows(List<Properties> v) { this.rows = v; return this; }
+        public Builder rows(List<ReportRow> v) { this.rows = v; return this; }
         public Builder totalRow(List<String> v) { this.totalRow = v; return this; }
         public Builder providerOptions(List<ProviderOption> v) { this.providerOptions = v; return this; }
         public Builder siteOptions(List<SiteOption> v) { this.siteOptions = v; return this; }
 
         public BillingOnNewReportViewModel build() { return new BillingOnNewReportViewModel(this); }
+    }
+
+    public static ReportRow rowOf(Map<String, ReportCell> cells) {
+        return new ReportRow(new LinkedHashMap<>(cells));
     }
 }

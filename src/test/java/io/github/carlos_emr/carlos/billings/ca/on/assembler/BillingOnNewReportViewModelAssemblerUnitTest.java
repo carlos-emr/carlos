@@ -55,23 +55,24 @@ import static org.mockito.Mockito.when;
 class BillingOnNewReportViewModelAssemblerUnitTest {
 
     @Test
-    void shouldEncodePlainReportCells_beforeRawJspRendering() {
-        String cell = BillingOnNewReportViewModelAssembler.htmlCell("<img src=x onerror=alert(1)>");
+    void shouldLeavePlainReportCellTextUnencoded_forJspContextEncoding() {
+        BillingOnNewReportViewModel.ReportCell cell =
+                BillingOnNewReportViewModelAssembler.textCell("<img src=x onerror=alert(1)>");
 
-        assertThat(cell).isEqualTo("&lt;img src=x onerror=alert(1)&gt;");
+        assertThat(cell.text()).isEqualTo("<img src=x onerror=alert(1)>");
+        assertThat(cell.popupUrl()).isEmpty();
     }
 
     @Test
-    void shouldEncodeBillingNoLinkTextAndUrlParameter_forXssSafety() {
-        String html = BillingOnNewReportViewModelAssembler.buildBillingNoLinkWithTitle(
+    void shouldBuildBillingNoPopupCell_withEncodedUrlParameter() {
+        BillingOnNewReportViewModel.ReportCell cell = BillingOnNewReportViewModelAssembler.buildBillingNoLinkWithTitle(
                 "/ctx",
                 "123\" onclick=\"alert(1)",
                 "Bill <OHIP>");
 
-        assertThat(html).contains("billing_no=123%22+onclick%3D%22alert%281%29");
-        assertThat(html).contains(">123&#34; onclick=&#34;alert(1)</a>");
-        assertThat(html).contains("title='Bill &lt;OHIP>");
-        assertThat(html).doesNotContain("123\" onclick=\"alert(1)");
+        assertThat(cell.popupUrl()).contains("billing_no=123%22+onclick%3D%22alert%281%29");
+        assertThat(cell.text()).isEqualTo("123\" onclick=\"alert(1)");
+        assertThat(cell.title()).isEqualTo("Bill <OHIP>");
     }
 
     @Test
@@ -96,11 +97,11 @@ class BillingOnNewReportViewModelAssemblerUnitTest {
         assertThat(model.getColumnHeaders()).containsExactly(
                 "SERVICE DATE", "TIME", "PATIENT", "DESCRIPTION", "COMMENTS");
         assertThat(model.getRows()).hasSize(1);
-        assertThat(model.getRows().get(0).getProperty("SERVICE DATE")).isEqualTo("2026-04-01");
-        assertThat(model.getRows().get(0).getProperty("TIME")).isEqualTo("09:30");
-        assertThat(model.getRows().get(0).getProperty("PATIENT")).isEqualTo("Patient &lt;One&gt;");
-        assertThat(model.getRows().get(0).getProperty("DESCRIPTION")).isEqualTo("Needs &lt;review&gt;");
-        assertThat(model.getRows().get(0).getProperty("COMMENTS")).contains("appointment_no=77");
+        assertThat(cellText(model, 0, "SERVICE DATE")).isEqualTo("2026-04-01");
+        assertThat(cellText(model, 0, "TIME")).isEqualTo("09:30");
+        assertThat(cellText(model, 0, "PATIENT")).isEqualTo("Patient <One>");
+        assertThat(cellText(model, 0, "DESCRIPTION")).isEqualTo("Needs <review>");
+        assertThat(cell(model, 0, "COMMENTS").popupUrl()).contains("appointment_no=77");
         verify(appointmentDao).findBillingOnNewReportUnbilledRows("999", "2026-04-01", "2026-04-30");
     }
 
@@ -128,9 +129,9 @@ class BillingOnNewReportViewModelAssemblerUnitTest {
         assertThat(model.getColumnHeaders()).containsExactly(
                 "No", "Billing No", "HIN", "Claim", "Paid", "Billing Date");
         assertThat(model.getRows()).hasSize(1);
-        assertThat(model.getRows().get(0).getProperty("Billing No")).contains("billing_no=42");
-        assertThat(model.getRows().get(0).getProperty("Claim")).isEqualTo("100.00");
-        assertThat(model.getRows().get(0).getProperty("Paid")).isEqualTo("35.00");
+        assertThat(cell(model, 0, "Billing No").popupUrl()).contains("billing_no=42");
+        assertThat(cellText(model, 0, "Claim")).isEqualTo("100.00");
+        assertThat(cellText(model, 0, "Paid")).isEqualTo("35.00");
         assertThat(model.getTotalRow()).containsExactly("Total", "", "", "100.00", "35.00", "");
         verify(billingDao).findBillingOnNewReportPaidBillings("999", "2026-04-01", "2026-04-30");
         verify(raDetailDao).findBillingOnNewReportPaidRaDetails(List.of(42));
@@ -228,5 +229,14 @@ class BillingOnNewReportViewModelAssemblerUnitTest {
         when(request.getParameter("site")).thenReturn("");
         when(request.getParameter("reportAction")).thenReturn(action);
         return request;
+    }
+
+    private static BillingOnNewReportViewModel.ReportCell cell(
+            BillingOnNewReportViewModel model, int rowIndex, String header) {
+        return model.getRows().get(rowIndex).cells().get(header);
+    }
+
+    private static String cellText(BillingOnNewReportViewModel model, int rowIndex, String header) {
+        return cell(model, rowIndex, header).text();
     }
 }

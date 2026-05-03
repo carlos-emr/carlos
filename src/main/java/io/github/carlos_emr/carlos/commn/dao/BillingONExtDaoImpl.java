@@ -348,8 +348,9 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
         }
         if (ext != null) {
             try {
-                val = BillingMoney.amountStrictOrZero(ext.getValue()).setScale(2, BigDecimal.ROUND_HALF_UP);
-            } catch (NumberFormatException e) {
+                val = BillingMoney.parseOptionalNonNegativeAmount(ext.getValue(), key)
+                        .setScale(2, BigDecimal.ROUND_HALF_UP);
+            } catch (BillingValidationException e) {
                 MiscUtils.getLogger().error(
                         "billing_on_ext.{} for billingNo={} is not a valid currency amount",
                         LogSanitizer.sanitize(key),

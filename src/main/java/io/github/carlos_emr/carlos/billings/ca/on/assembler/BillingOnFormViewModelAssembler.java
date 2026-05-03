@@ -31,7 +31,6 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
-import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingMultisiteContext;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnFormViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingAdmissionDateLoader;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnClaimLoader;
@@ -520,27 +519,6 @@ public class BillingOnFormViewModelAssembler {
         String composedDefault = b.peekDefaultXmlProvider();
         b.selectedXmlProvider(reqXmlProvider != null && !reqXmlProvider.isEmpty()
                 ? reqXmlProvider : nullToEmpty(composedDefault));
-
-        // ---- multisite per-site provider <option>... HTML for the JS map ----
-        // The legacy JSP iterated SiteDao.getActiveSitesByProviderNo and built
-        // a JS associative array {siteName: "<option ...>...</option>..."}
-        // inline. We pre-render it here so the JSP renders one
-        // <c:forEach> JS-string assignment instead of a 50-line scriptlet.
-        java.util.Map<String, String> siteHtml = new java.util.LinkedHashMap<>();
-        for (BillingMultisiteContext.MultisiteSite site : b.peekMultisiteSites()) {
-            StringBuilder html = new StringBuilder();
-            for (BillingMultisiteContext.MultisiteProvider p : site.providers()) {
-                String value = p.providerNo() + "|" + p.ohipNo();
-                String label = p.lastName() + ", " + p.firstName();
-                html.append("<option value='")
-                        .append(escapeForHtmlAttr(value))
-                        .append("'>")
-                        .append(escapeForHtml(label))
-                        .append("</option>");
-            }
-            siteHtml.put(site.name(), html.toString());
-        }
-        b.multisiteProviderHtml(siteHtml);
 
         // ---- request-param echoes (form-state preservation across self-posts) ----
         java.util.Map<String, String> echoes = new java.util.HashMap<>();

@@ -111,7 +111,7 @@ public final class BillingOnCorrectionViewModel {
     // BillingONPaymentDao / BillingONEAReportDao / BillingONErrorCodeDao /
     // RaDetailDao / ClinicLocationDao / ClinicNbrDao / SecurityInfoManager).
     private final boolean thirdParty;
-    private final String htmlPaid;
+    private final PaymentBlock paymentBlock;
     private final String payer;
     private final boolean dueDateAvailable;
     private final String dueDateString;
@@ -127,7 +127,7 @@ public final class BillingOnCorrectionViewModel {
     // Multisite picker context for the JSP. The legacy scriptlet looped
     // SiteDao + Provider lists inline; the assembler now supplies the
     // pre-resolved {@link BillingMultisiteContext} record carrying the site
-    // list and the name->HTML map of <option> fragments mirroring billingON.jsp.
+    // and provider lists.
     private final BillingMultisiteContext multisite;
     // Non-multisite provider dropdown — pre-resolved triples of
     // {providerNo, firstName, lastName} from BillingOnLookupService so the JSP
@@ -154,6 +154,27 @@ public final class BillingOnCorrectionViewModel {
     public record ProviderOption(String providerNo, String firstName, String lastName) {}
     /** Pay-program code + display label for the payProgram dropdown. */
     public record PaymentTypeEntry(String code, String label) {}
+    /** Structured replacement for the legacy paid/refund HTML fragment. */
+    public record PaymentBlock(
+            boolean firstPartyInputs,
+            boolean thirdPartySummary,
+            String payment,
+            String oldPayment,
+            String payDate,
+            String refund,
+            String balance,
+            boolean paymentsListLink) {
+        public static final PaymentBlock EMPTY = new PaymentBlock(
+                false, false, "", "", "", "", "", false);
+
+        public PaymentBlock {
+            payment = BillingViewStrings.nullToEmpty(payment);
+            oldPayment = BillingViewStrings.nullToEmpty(oldPayment);
+            payDate = BillingViewStrings.nullToEmpty(payDate);
+            refund = BillingViewStrings.nullToEmpty(refund);
+            balance = BillingViewStrings.nullToEmpty(balance);
+        }
+    }
 
     private BillingOnCorrectionViewModel(Builder b) {
         this.userProviderNo = BillingViewStrings.nullToEmpty(b.userProviderNo);
@@ -201,7 +222,7 @@ public final class BillingOnCorrectionViewModel {
         this.comment = BillingViewStrings.nullToEmpty(b.comment);
         this.clinicSite = BillingViewStrings.nullToEmpty(b.clinicSite);
         this.thirdParty = b.thirdParty;
-        this.htmlPaid = BillingViewStrings.nullToEmpty(b.htmlPaid);
+        this.paymentBlock = b.paymentBlock == null ? PaymentBlock.EMPTY : b.paymentBlock;
         this.payer = BillingViewStrings.nullToEmpty(b.payer);
         this.dueDateAvailable = b.dueDateAvailable;
         this.dueDateString = BillingViewStrings.nullToEmpty(b.dueDateString);
@@ -218,7 +239,7 @@ public final class BillingOnCorrectionViewModel {
                 ? Collections.emptyList() : List.copyOf(b.billItems);
         this.errorReportEntries = b.errorReportEntries == null
                 ? Collections.emptyList() : List.copyOf(b.errorReportEntries);
-        // Correction's multisite scope is sites + multisiteProviderHtml only.
+        // Correction's multisite scope is sites only.
         // Other slices are populated as empty defaults.
         this.multisite = (b.multisite != null)
                 ? b.multisite
@@ -226,7 +247,6 @@ public final class BillingOnCorrectionViewModel {
                         b.multisites,
                         b.multisiteSites,
                         "", "", "",
-                        b.multisiteProviderHtml,
                         b.rmaEnabled,
                         Collections.emptyList(),
                         "");
@@ -286,7 +306,7 @@ public final class BillingOnCorrectionViewModel {
     public String getClinicSite() { return clinicSite; }
 
     public boolean isThirdParty() { return thirdParty; }
-    public String getHtmlPaid() { return htmlPaid; }
+    public PaymentBlock getPaymentBlock() { return paymentBlock; }
     public String getPayer() { return payer; }
     public boolean isDueDateAvailable() { return dueDateAvailable; }
     public String getDueDateString() { return dueDateString; }
@@ -302,7 +322,6 @@ public final class BillingOnCorrectionViewModel {
     /** Aggregated multisite context — primary internal storage. */
     public BillingMultisiteContext getMultisite() { return multisite; }
     public List<BillingMultisiteContext.MultisiteSite> getMultisiteSites() { return multisite.sites(); }
-    public Map<String, String> getMultisiteProviderHtml() { return multisite.multisiteProviderHtml(); }
     public List<ProviderOption> getProviderOptions() { return providerOptions; }
     public List<PaymentTypeEntry> getPaymentTypes() { return paymentTypes; }
     public Map<String, String> getRequestParamEchoes() { return requestParamEchoes; }
@@ -356,7 +375,7 @@ public final class BillingOnCorrectionViewModel {
         private String comment;
         private String clinicSite;
         private boolean thirdParty;
-        private String htmlPaid;
+        private PaymentBlock paymentBlock;
         private String payer;
         private boolean dueDateAvailable;
         private String dueDateString;
@@ -371,7 +390,6 @@ public final class BillingOnCorrectionViewModel {
         private List<ErrorReportEntry> errorReportEntries;
         private BillingMultisiteContext multisite;
         private List<BillingMultisiteContext.MultisiteSite> multisiteSites;
-        private Map<String, String> multisiteProviderHtml;
         private List<ProviderOption> providerOptions;
         private List<PaymentTypeEntry> paymentTypes;
         private Map<String, String> requestParamEchoes;
@@ -423,7 +441,7 @@ public final class BillingOnCorrectionViewModel {
         public Builder comment(String v) { this.comment = v; return this; }
         public Builder clinicSite(String v) { this.clinicSite = v; return this; }
         public Builder thirdParty(boolean v) { this.thirdParty = v; return this; }
-        public Builder htmlPaid(String v) { this.htmlPaid = v; return this; }
+        public Builder paymentBlock(PaymentBlock v) { this.paymentBlock = v; return this; }
         public Builder payer(String v) { this.payer = v; return this; }
         public Builder dueDateAvailable(boolean v) { this.dueDateAvailable = v; return this; }
         public Builder dueDateString(String v) { this.dueDateString = v; return this; }
@@ -441,7 +459,6 @@ public final class BillingOnCorrectionViewModel {
         /** Composed multisite-context setter (preferred over the slice-by-slice setters). */
         public Builder multisite(BillingMultisiteContext v) { this.multisite = v; return this; }
         public Builder multisiteSites(List<BillingMultisiteContext.MultisiteSite> v) { this.multisiteSites = v == null ? null : List.copyOf(v); return this; }
-        public Builder multisiteProviderHtml(Map<String, String> v) { this.multisiteProviderHtml = v == null ? null : Map.copyOf(v); return this; }
         public Builder providerOptions(List<ProviderOption> v) { this.providerOptions = v == null ? null : List.copyOf(v); return this; }
         public Builder paymentTypes(List<PaymentTypeEntry> v) { this.paymentTypes = v == null ? null : List.copyOf(v); return this; }
         public Builder requestParamEchoes(Map<String, String> v) { this.requestParamEchoes = v == null ? null : Map.copyOf(v); return this; }

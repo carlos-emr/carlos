@@ -140,7 +140,6 @@ public final class BillingShortcutPg1ViewModel {
                         false,
                         Collections.emptyList(),
                         "", "", "",
-                        Collections.emptyMap(),
                         b.rmaEnabled,
                         b.clinicNbrs,
                         b.selectedClinicNbrPrefix);

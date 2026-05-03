@@ -64,7 +64,7 @@ class BillingMoneyUnitTest {
     @Test
     void shouldReturnZero_whenAmountOrZeroReceivesMalformed() {
         // Behavior contract: amountOrZero must NOT throw on malformed input —
-        // it logs and returns ZERO. Mutation paths must use amountOrThrow.
+        // it logs and returns ZERO. Mutation paths must use parseNonNegativeAmount.
         assertThat(BillingMoney.amountOrZero("not-money")).isEqualByComparingTo("0.00");
     }
 
@@ -99,29 +99,35 @@ class BillingMoneyUnitTest {
     }
 
     @Test
-    void shouldReturnAmount_whenAmountOrThrowReceivesValid() {
-        assertThat(BillingMoney.amountOrThrow("12.34")).isEqualByComparingTo("12.34");
-        assertThat(BillingMoney.amountOrThrow("0.005")).isEqualByComparingTo("0.01");
+    void shouldReturnAmount_whenOptionalNonNegativeAmountReceivesValid() {
+        assertThat(BillingMoney.parseOptionalNonNegativeAmount("12.34", "fee"))
+                .isEqualByComparingTo("12.34");
+        assertThat(BillingMoney.parseOptionalNonNegativeAmount("0.005", "fee"))
+                .isEqualByComparingTo("0.01");
     }
 
     @Test
-    void shouldThrow_whenAmountOrThrowReceivesNull() {
-        assertThatThrownBy(() -> BillingMoney.amountOrThrow(null))
-                .isInstanceOf(NumberFormatException.class)
-                .hasMessageContaining("null or blank");
+    void shouldReturnZero_whenOptionalNonNegativeAmountReceivesNullOrBlank() {
+        assertThat(BillingMoney.parseOptionalNonNegativeAmount(null, "discount"))
+                .isEqualByComparingTo("0.00");
+        assertThat(BillingMoney.parseOptionalNonNegativeAmount("   ", "discount"))
+                .isEqualByComparingTo("0.00");
     }
 
     @Test
-    void shouldThrow_whenAmountOrThrowReceivesBlank() {
-        assertThatThrownBy(() -> BillingMoney.amountOrThrow("   "))
-                .isInstanceOf(NumberFormatException.class)
-                .hasMessageContaining("null or blank");
+    void shouldThrowValidation_whenOptionalNonNegativeAmountReceivesNegative() {
+        assertThatThrownBy(() -> BillingMoney.parseOptionalNonNegativeAmount("-0.01", "discount"))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("discount")
+                .hasMessageContaining("cannot be negative");
     }
 
     @Test
-    void shouldThrow_whenAmountOrThrowReceivesMalformed() {
-        assertThatThrownBy(() -> BillingMoney.amountOrThrow("1OO"))
-                .isInstanceOf(NumberFormatException.class)
+    void shouldThrowValidation_whenOptionalNonNegativeAmountReceivesMalformed() {
+        assertThatThrownBy(() -> BillingMoney.parseOptionalNonNegativeAmount("1OO", "discount"))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("discount")
+                .hasMessageContaining("malformed")
                 .hasMessageContaining("1OO");
     }
 

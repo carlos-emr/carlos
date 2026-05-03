@@ -33,7 +33,7 @@ import java.util.Map;
  * {@link io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingOnStatus2Action}
  * and exposed as request attribute {@code statusModel}. Captures the request
  * parameter echoes + default-value resolution together with all rendering data
- * (provider list, multisite site/provider HTML, billing forms, visit
+ * (provider list, multisite site/provider options, billing forms, visit
  * locations, rejected-bill rows, and aggregated bill rows with computed
  * totals).</p>
  *
@@ -136,7 +136,7 @@ public final class BillingOnStatusViewModel {
 
     // Render-only derived data (assembler-populated)
     private final List<ProviderOption> providers;
-    /** Aggregated multisite slice — Status populates sites + providerHtml only;
+    /** Aggregated multisite slice — Status populates sites only;
      *  other fields default to empty. The legacy {@code multisites} flag stays
      *  on the top-level fields for back-compat. */
     private final BillingMultisiteContext multisite;
@@ -193,14 +193,13 @@ public final class BillingOnStatusViewModel {
 
         this.providers = b.providers == null
                 ? Collections.emptyList() : List.copyOf(b.providers);
-        // Status's multisite scope is multisites flag + sites + providerHtml only.
+        // Status's multisite scope is multisites flag + sites only.
         this.multisite = (b.multisite != null)
                 ? b.multisite
                 : new BillingMultisiteContext(
                         b.multisites,
                         b.multisiteSites,
                         "", "", "",
-                        b.multisiteProviderHtml,
                         false,
                         Collections.emptyList(),
                         "");
@@ -266,7 +265,6 @@ public final class BillingOnStatusViewModel {
     /** Aggregated multisite slice — primary internal storage. */
     public BillingMultisiteContext getMultisite() { return multisite; }
     public List<BillingMultisiteContext.MultisiteSite> getMultisiteSites() { return multisite.sites(); }
-    public Map<String, String> getMultisiteProviderHtml() { return multisite.multisiteProviderHtml(); }
     public Map<String, String> getSiteBgColor() { return siteBgColor; }
     public Map<String, String> getSiteShortName() { return siteShortName; }
     public List<BillingFormOption> getBillingForms() { return billingForms; }
@@ -316,7 +314,6 @@ public final class BillingOnStatusViewModel {
         private List<ProviderOption> providers;
         private BillingMultisiteContext multisite;
         private List<BillingMultisiteContext.MultisiteSite> multisiteSites;
-        private Map<String, String> multisiteProviderHtml;
         private Map<String, String> siteBgColor;
         private Map<String, String> siteShortName;
         private List<BillingFormOption> billingForms;
@@ -377,10 +374,6 @@ public final class BillingOnStatusViewModel {
         public Builder multisite(BillingMultisiteContext v) { this.multisite = v; return this; }
         public Builder multisiteSites(List<BillingMultisiteContext.MultisiteSite> v) {
             this.multisiteSites = v == null ? null : List.copyOf(v);
-            return this;
-        }
-        public Builder multisiteProviderHtml(Map<String, String> v) {
-            this.multisiteProviderHtml = v == null ? null : Map.copyOf(v);
             return this;
         }
         public Builder siteBgColor(Map<String, String> v) {

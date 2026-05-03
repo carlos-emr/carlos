@@ -34,7 +34,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class BillingOhipSimulationViewModelAssemblerUnitTest {
 
     @Test
-    void shouldEncodeProviderErrorLines_beforeEmbeddingInPreviewHtml() {
+    void shouldEncodeProviderErrorLines_beforeAppendingToLegacyPreviewRows() {
         String html = BillingOhipSimulationViewModelAssembler.formatErrorLine(
                 "The billing code (<script>alert(1)</script>) for providers (999998) is not correct!");
 

@@ -53,8 +53,8 @@ import org.springframework.beans.factory.ObjectFactory;
  * health-office lookup) and the "Create Report" mutation branch the legacy
  * JSP performed inline. The Create Report path runs
  * {@link OhipClaimFileService} with {@code eFlag="0"} (dry run);
- * the resulting HTML preview is exposed to the JSP via the model's
- * {@code previewHtml} property.</p>
+ * the resulting preview rows and summary are exposed to the JSP via the
+ * model's {@code preview} property.</p>
  *
  * <p>Honours the per-user privacy filter trio
  * ({@code _team_billing_only}, {@code _site_access_privacy},
@@ -115,9 +115,10 @@ public class BillingOhipSimulationViewModelAssembler {
         List<BillingOhipSimulationViewModel.ProviderOption> providers = loadProviders(
                 userNo, teamBillingOnly, siteAccessPrivacy, teamAccessPrivacy);
 
-        String previewHtml = "";
+        BillingOhipSimulationViewModel.SimulationPreview preview =
+                BillingOhipSimulationViewModel.SimulationPreview.EMPTY;
         if ("Create Report".equals(request.getParameter("submit"))) {
-            previewHtml = bMultisites
+            preview = bMultisites
                     ? buildMultisitePreview(request, loggedInInfo)
                     : buildSoloPreview(request, loggedInInfo, userNo,
                             teamBillingOnly, siteAccessPrivacy, teamAccessPrivacy,
@@ -136,7 +137,7 @@ public class BillingOhipSimulationViewModelAssembler {
                 .endDate(xmlApptDate)
                 .summaryView(summaryView)
                 .providers(providers)
-                .previewHtml(previewHtml)
+                .preview(preview)
                 .build();
     }
 
@@ -164,24 +165,25 @@ public class BillingOhipSimulationViewModelAssembler {
         return out;
     }
 
-    private String buildMultisitePreview(HttpServletRequest request, LoggedInInfo loggedInInfo) {
+    private BillingOhipSimulationViewModel.SimulationPreview buildMultisitePreview(
+            HttpServletRequest request, LoggedInInfo loggedInInfo) {
         String pro = request.getParameter("providers");
-        StringBuilder errorMsg = new StringBuilder();
+        List<String> errorMessages = new ArrayList<>();
         DateRange dateRange = resolveDateRange(request);
 
         var proObj = lookupService.getProviderObj(pro);
         if (proObj.getOhipNo().length() != PROVIDER_BILLINGNO_LENGTH) {
-            errorMsg.append(formatErrorLine("The providers's billing code is not correct!"));
+            errorMessages.add("The providers's billing code is not correct!");
         }
         String proOHIP = proObj.getOhipNo();
         String groupNo = proObj.getBillingGroupNo();
         String specialty = proObj.getSpecialtyCode();
         if (specialty.length() != PROVIDER_SPECIALTYCODE_LENGTH) {
-            errorMsg.append(formatErrorLine("The providers's specialty code is not correct!"));
+            errorMessages.add("The providers's specialty code is not correct!");
             specialty = "00";
         }
         if (groupNo.length() != PROVIDER_GROUPNO_LENGTH) {
-            errorMsg.append(formatErrorLine("The providers's group no is not correct!"));
+            errorMessages.add("The providers's group no is not correct!");
             groupNo = "0000";
         }
 
@@ -199,15 +201,16 @@ public class BillingOhipSimulationViewModelAssembler {
         dbObj.setBatchHeaderObj(bhObj);
         dbObj.createSiteBillingFileStr(loggedInInfo, "0", new String[]{"O", "W", "I"});
 
-        return new StringBuilder()
-                .append("<font color='red'>").append(errorMsg).append("</font>")
-                .append(dbObj.getHtmlValue()).toString();
+        return new BillingOhipSimulationViewModel.SimulationPreview(
+                true, true, false, errorMessages, dbObj.getHtmlValue(),
+                dbObj.getRecordCount(), 0, dbObj.getBigTotal().toString());
     }
 
-    private String buildSoloPreview(HttpServletRequest request, LoggedInInfo loggedInInfo,
-                                    String userNo, boolean teamBillingOnly,
-                                    boolean siteAccessPrivacy, boolean teamAccessPrivacy,
-                                    boolean summaryView) {
+    private BillingOhipSimulationViewModel.SimulationPreview buildSoloPreview(
+            HttpServletRequest request, LoggedInInfo loggedInInfo,
+            String userNo, boolean teamBillingOnly,
+            boolean siteAccessPrivacy, boolean teamAccessPrivacy,
+            boolean summaryView) {
         String pro = request.getParameter("providers");
         List<String> providerList = new ArrayList<>();
         if ("all".equals(pro)) {
@@ -284,30 +287,9 @@ public class BillingOhipSimulationViewModelAssembler {
             dbObj.setErrorMsg("");
         }
 
-        // Wrap into the legacy results table.
-        String billingTable = htmlValue.toString();
-        StringBuilder result = new StringBuilder();
-        result.append("\n<table class='table table-hover table-sm'>\n<thead>");
-        if (summaryView) {
-            result.append("\n<tr><th >OHIP NO</th><th >Number of Records</th>")
-                    .append("<th >Total Billed</th><th colspan='9'></th></tr></thead>");
-        } else {
-            result.append("<tr><th >OHIP NO</th><th >Acct NO</th>")
-                    .append("<th >Name</th><th >RO</th><th >DOB</th><th >Sex</th>")
-                    .append("<th >Health #</th><th >Billdate</th><th >Code</th>")
-                    .append("<th >Billed</th><th >DX</th>")
-                    .append("<th align='right' >Comment</th></tr></thead>");
-        }
-        result.append("<tbody>").append(billingTable);
-        result.append("\n<tr><td colspan='12' >&nbsp;</td></tr><tr><td colspan='4'>")
-                .append(recordCount).append(" RECORDS PROCESSED, ")
-                .append(errorCount).append(" ERROR")
-                .append(errorCount > 1 ? "S" : "")
-                .append("</td><td colspan='8'>TOTAL: ")
-                .append(bigTotal.toString())
-                .append("\n</td></tr>");
-        result.append("</tbody></table>");
-        return result.toString();
+        return new BillingOhipSimulationViewModel.SimulationPreview(
+                true, false, summaryView, List.of(), htmlValue.toString(),
+                recordCount, errorCount, bigTotal.toString());
     }
 
     private DateRange resolveDateRange(HttpServletRequest request) {

@@ -192,8 +192,8 @@ public class FeeScheduleImportService {
     private BigDecimal parseExistingPrice(BillingService existing, String serviceCode, FeeScheduleLine line,
                                           List<FeeScheduleValidationError> errors) {
         try {
-            return BillingMoney.amountOrThrow(existing.getValue());
-        } catch (NumberFormatException e) {
+            return BillingMoney.parseNonNegativeAmount(existing.getValue(), "existingValue");
+        } catch (io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException e) {
             errors.add(new FeeScheduleValidationError(line.lineNumber(), line.rawLine(), "existingValue",
                     "Existing billing_service value for " + serviceCode + " is malformed"));
             return null;

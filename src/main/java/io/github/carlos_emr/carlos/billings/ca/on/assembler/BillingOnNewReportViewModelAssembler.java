@@ -27,9 +27,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Set;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -54,7 +54,6 @@ import io.github.carlos_emr.carlos.commn.dao.SiteDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Site;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -159,7 +158,7 @@ public class BillingOnNewReportViewModelAssembler {
     /** Container for the report-table results. */
     private static final class ReportRows {
         List<String> headers = Collections.emptyList();
-        List<Properties> values = new ArrayList<>();
+        List<BillingOnNewReportViewModel.ReportRow> values = new ArrayList<>();
         List<String> totals = Collections.emptyList();
     }
 
@@ -224,20 +223,22 @@ public class BillingOnNewReportViewModelAssembler {
                 String location = row.location();
                 if (StringUtils.isNotBlank(location) && !location.equals(selectedSite)) continue;
             }
-            Properties prop = new Properties();
-            prop.setProperty("SERVICE DATE", row.appointmentDate());
-            prop.setProperty("TIME", firstFive(row.startTime()));
-            prop.setProperty("PATIENT", htmlCell(row.name()));
-            prop.setProperty("DESCRIPTION", htmlCell(row.reason()));
-            prop.setProperty("COMMENTS", buildBillLink(defaultBillForm, providerView, row));
-            out.values.add(prop);
+            Map<String, BillingOnNewReportViewModel.ReportCell> cells = new LinkedHashMap<>();
+            cells.put("SERVICE DATE", textCell(row.appointmentDate()));
+            cells.put("TIME", textCell(firstFive(row.startTime())));
+            cells.put("PATIENT", textCell(row.name()));
+            cells.put("DESCRIPTION", textCell(row.reason()));
+            cells.put("COMMENTS", buildBillLink(defaultBillForm, providerView, row));
+            out.values.add(BillingOnNewReportViewModel.rowOf(cells));
         }
     }
 
-    private static String buildBillLink(String defaultBillForm, String providerView,
-                                        BillingOnNewReportUnbilledRow row) {
+    private static BillingOnNewReportViewModel.ReportCell buildBillLink(
+            String defaultBillForm, String providerView, BillingOnNewReportUnbilledRow row) {
         String name = row.name();
-        return "<a href=# onClick='popupPage(700,1000, \"/billing?billForm="
+        return BillingOnNewReportViewModel.ReportCell.popup(
+                "Bill",
+                "/billing?billForm="
                 + URLEncoder.encode(defaultBillForm, StandardCharsets.UTF_8)
                 + "&hotclick=&appointment_no=" + urlParam(row.appointmentNo())
                 + "&demographic_name=" + URLEncoder.encode(name, StandardCharsets.UTF_8)
@@ -246,7 +247,10 @@ public class BillingOnNewReportViewModelAssembler {
                 + "&apptProvider_no=" + urlParam(providerView)
                 + "&appointment_date=" + urlParam(row.appointmentDate())
                 + "&start_time=" + urlParam(row.startTime())
-                + "&bNewForm=1\"); return false;'>Bill</a>";
+                + "&bNewForm=1",
+                700,
+                1000,
+                "");
     }
 
     private void runBilled(String providerView, String xmlVdate,
@@ -260,24 +264,29 @@ public class BillingOnNewReportViewModelAssembler {
                 String clinic = row.clinic();
                 if (StringUtils.isNotBlank(clinic) && !clinic.equals(selectedSite)) continue;
             }
-            Properties prop = new Properties();
-            prop.setProperty("SERVICE DATE", row.billingDate());
-            prop.setProperty("TIME", firstFive(row.billingTime()));
-            prop.setProperty("PATIENT", htmlCell(row.demographicName()));
+            Map<String, BillingOnNewReportViewModel.ReportCell> cells = new LinkedHashMap<>();
+            cells.put("SERVICE DATE", textCell(row.billingDate()));
+            cells.put("TIME", textCell(firstFive(row.billingTime())));
+            cells.put("PATIENT", textCell(row.demographicName()));
 
             String reason = describeStatus(row.status());
             String note = describeApptDoctor(row.apptProviderNo(), row.providerNo());
-            prop.setProperty("DESCRIPTION", htmlCell(reason + "(" + note + ")"));
-            prop.setProperty("ACCOUNT", buildCorrectionLink(contextPath, row.id(), reason));
-            out.values.add(prop);
+            cells.put("DESCRIPTION", textCell(reason + "(" + note + ")"));
+            cells.put("ACCOUNT", buildCorrectionLink(contextPath, row.id(), reason));
+            out.values.add(BillingOnNewReportViewModel.rowOf(cells));
         }
     }
 
-    private static String buildCorrectionLink(String contextPath, String id, String reason) {
-        return "<a href=# onClick='popupPage(700,720, \"" + contextPath
+    private static BillingOnNewReportViewModel.ReportCell buildCorrectionLink(
+            String contextPath, String id, String reason) {
+        return BillingOnNewReportViewModel.ReportCell.popup(
+                id,
+                contextPath
                 + "/billing/CA/ON/ViewBillingCorrection?billing_no=" + urlParam(id)
-                + "&dboperation=search_bill&hotclick=0\"); return false;' title='"
-                + SafeEncode.forHtmlAttribute(reason) + "'>" + htmlCell(id) + "</a>";
+                + "&dboperation=search_bill&hotclick=0",
+                700,
+                720,
+                reason);
     }
 
     private void runPaid(String providerView, String xmlVdate,
@@ -287,12 +296,12 @@ public class BillingOnNewReportViewModelAssembler {
         BillingOnNewReportTotalsCalculator totalsCalculator = new BillingOnNewReportTotalsCalculator();
 
         List<Integer> billingNos = new ArrayList<>();
-        Properties propTotal = new Properties();
+        Map<String, String> propTotal = new LinkedHashMap<>();
         for (BillingOnNewReportPaidBillingRow row :
                 billingDao.findBillingOnNewReportPaidBillings(providerView, xmlVdate, xmlAppointmentDate)) {
             int billingNo = Integer.parseInt(row.billingNo());
             billingNos.add(billingNo);
-            propTotal.setProperty(row.billingNo(), row.total());
+            propTotal.put(row.billingNo(), row.total());
         }
 
         String prevBillingNo = "";
@@ -306,26 +315,26 @@ public class BillingOnNewReportViewModelAssembler {
                 nNo++;
                 sAmountclaim = row.amountClaim();
                 sAmountpay = row.amountPay();
-                Properties prop = new Properties();
-                prop.setProperty("No", String.valueOf(nNo));
-                prop.setProperty("Billing No", buildBillingNoLink(contextPath, billingNo));
-                prop.setProperty("HIN", htmlCell(row.hin()));
-                prop.setProperty("Claim", sAmountclaim);
-                prop.setProperty("Paid", sAmountpay);
-                prop.setProperty("Billing Date", formatDateStr(row.serviceDate()));
-                out.values.add(prop);
+                Map<String, BillingOnNewReportViewModel.ReportCell> cells = new LinkedHashMap<>();
+                cells.put("No", textCell(String.valueOf(nNo)));
+                cells.put("Billing No", buildBillingNoLink(contextPath, billingNo));
+                cells.put("HIN", textCell(row.hin()));
+                cells.put("Claim", textCell(sAmountclaim));
+                cells.put("Paid", textCell(sAmountpay));
+                cells.put("Billing Date", textCell(formatDateStr(row.serviceDate())));
+                out.values.add(BillingOnNewReportViewModel.rowOf(cells));
                 totalsCalculator.addPaidRow(row.amountClaim(), row.amountPay());
             } else {
                 sAmountpay = totalsCalculator.addPaidAmount(sAmountpay, row.amountPay());
-                Properties prop = new Properties();
-                prop.setProperty("No", String.valueOf(nNo));
-                prop.setProperty("Billing No", buildBillingNoLink(contextPath, billingNo));
-                prop.setProperty("HIN", htmlCell(row.hin()));
-                prop.setProperty("Claim", propTotal.getProperty(prevBillingNo));
-                prop.setProperty("Paid", sAmountpay);
-                prop.setProperty("Billing Date", formatDateStr(row.serviceDate()));
+                Map<String, BillingOnNewReportViewModel.ReportCell> cells = new LinkedHashMap<>();
+                cells.put("No", textCell(String.valueOf(nNo)));
+                cells.put("Billing No", buildBillingNoLink(contextPath, billingNo));
+                cells.put("HIN", textCell(row.hin()));
+                cells.put("Claim", textCell(propTotal.get(prevBillingNo)));
+                cells.put("Paid", textCell(sAmountpay));
+                cells.put("Billing Date", textCell(formatDateStr(row.serviceDate())));
                 out.values.remove(out.values.size() - 1);
-                out.values.add(prop);
+                out.values.add(BillingOnNewReportViewModel.rowOf(cells));
                 totalsCalculator.addPaidRow(row.amountClaim(), row.amountPay());
             }
         }
@@ -343,40 +352,48 @@ public class BillingOnNewReportViewModelAssembler {
         int nNo = 0;
         for (BillingOnNewReportUnpaidRow row :
                 billingDao.findBillingOnNewReportUnpaidRows(providerView, xmlVdate, xmlAppointmentDate)) {
-            Properties prop = new Properties();
             nNo++;
-            prop.setProperty("No", String.valueOf(nNo));
-            prop.setProperty("Service Date", row.billingDate());
-            prop.setProperty("Time", firstFive(row.billingTime()));
-            prop.setProperty("Patient", htmlCell(row.demographicName()));
+            Map<String, BillingOnNewReportViewModel.ReportCell> cells = new LinkedHashMap<>();
+            cells.put("No", textCell(String.valueOf(nNo)));
+            cells.put("Service Date", textCell(row.billingDate()));
+            cells.put("Time", textCell(firstFive(row.billingTime())));
+            cells.put("Patient", textCell(row.demographicName()));
 
             String reason = describeStatus(row.status());
             String note = describeApptDoctor(row.apptProviderNo(), row.providerNo());
-            prop.setProperty("Description", htmlCell(reason + "(" + note + ")"));
-            prop.setProperty("Billing No", buildBillingNoLinkWithTitle(contextPath,
-                    row.billingNo(), reason));
+            cells.put("Description", textCell(reason + "(" + note + ")"));
+            cells.put("Billing No", buildBillingNoLinkWithTitle(contextPath, row.billingNo(), reason));
             String sAmountclaim = row.total();
-            prop.setProperty("Claim", sAmountclaim);
+            cells.put("Claim", textCell(sAmountclaim));
             totalsCalculator.addUnpaidClaim(row.total());
-            out.values.add(prop);
+            out.values.add(BillingOnNewReportViewModel.rowOf(cells));
         }
 
         out.totals = totalsCalculator.unpaidTotalRow();
     }
 
-    private static String buildBillingNoLink(String contextPath, String billingNo) {
-        return "<a href=# onClick='popupPage(700,720, \"" + contextPath
+    private static BillingOnNewReportViewModel.ReportCell buildBillingNoLink(
+            String contextPath, String billingNo) {
+        return BillingOnNewReportViewModel.ReportCell.popup(
+                billingNo,
+                contextPath
                 + "/billing/CA/ON/ViewBillingOB2?billing_no=" + urlParam(billingNo)
-                + "&dboperation=search_bill&hotclick=0\"); return false;' >"
-                + htmlCell(billingNo) + "</a>";
+                + "&dboperation=search_bill&hotclick=0",
+                700,
+                720,
+                "");
     }
 
-    static String buildBillingNoLinkWithTitle(String contextPath, String billingNo,
-                                              String reason) {
-        return "<a href=# onClick='popupPage(700,720, \"" + contextPath
+    static BillingOnNewReportViewModel.ReportCell buildBillingNoLinkWithTitle(
+            String contextPath, String billingNo, String reason) {
+        return BillingOnNewReportViewModel.ReportCell.popup(
+                billingNo,
+                contextPath
                 + "/billing/CA/ON/ViewBillingOB2?billing_no=" + urlParam(billingNo)
-                + "&dboperation=search_bill&hotclick=0\"); return false;' title='"
-                + SafeEncode.forHtmlAttribute(reason) + "'>" + htmlCell(billingNo) + "</a>";
+                + "&dboperation=search_bill&hotclick=0",
+                700,
+                720,
+                reason);
     }
 
     private static String describeStatus(String status) {
@@ -406,7 +423,9 @@ public class BillingOnNewReportViewModelAssembler {
         return str;
     }
 
-    static String htmlCell(String value) { return SafeEncode.forHtml(value); }
+    static BillingOnNewReportViewModel.ReportCell textCell(String value) {
+        return BillingOnNewReportViewModel.ReportCell.text(value);
+    }
     private static String urlParam(String value) { return URLEncoder.encode(nullToEmpty(value), StandardCharsets.UTF_8); }
     private static String firstFive(String value) {
         String v = nullToEmpty(value);

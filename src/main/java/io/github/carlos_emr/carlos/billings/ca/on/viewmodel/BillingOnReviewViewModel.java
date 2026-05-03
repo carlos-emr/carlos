@@ -159,7 +159,7 @@ public final class BillingOnReviewViewModel {
         this.messages = (b.messages != null)
                 ? b.messages
                 : new BillingValidationMessages(b.errorFlag, b.errorMessage, b.warningMessage);
-        // Review only carries the multisitesEnabled flag — sites & providerHtml
+        // Review only carries the multisitesEnabled flag — site/provider lists
         // are not populated by this assembler today, so the composed record is
         // synthesized with empty collections for those slices.
         this.multisite = (b.multisite != null)
@@ -168,7 +168,6 @@ public final class BillingOnReviewViewModel {
                         b.multisitesEnabled,
                         java.util.Collections.emptyList(),
                         "", "", "",
-                        java.util.Collections.emptyMap(),
                         false,
                         java.util.Collections.emptyList(),
                         "");

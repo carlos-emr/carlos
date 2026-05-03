@@ -585,13 +585,29 @@
                         <c:choose>
                         <c:when test="${correctionModel.multisites}">
                         <script>
-                            var _providers = [];
+                            var _providers = {};
                             <c:forEach var="__msite" items="${correctionModel.multisiteSites}">
-                            _providers["${carlos:forJavaScript(__msite.name)}"] = "${carlos:forJavaScript(correctionModel.multisiteProviderHtml[__msite.name])}";
+                            _providers["${carlos:forJavaScript(__msite.name)}"] = [
+                                <c:forEach var="__provider" items="${__msite.providers}" varStatus="__providerStatus">
+                                {
+                                    value: "${carlos:forJavaScript(__provider.providerNo)}",
+                                    text: "${carlos:forJavaScript(__provider.lastName)}, ${carlos:forJavaScript(__provider.firstName)}"
+                                }<c:if test="${not __providerStatus.last}">,</c:if>
+                                </c:forEach>
+                            ];
                             </c:forEach>
 
                             function changeSite(sel) {
-                                sel.form.provider_no.innerHTML = sel.value == "none" ? "" : _providers[sel.value];
+                                var providerSelect = sel.form.provider_no;
+                                providerSelect.innerHTML = "";
+                                if (sel.value != "none") {
+                                    (_providers[sel.value] || []).forEach(function (provider) {
+                                        var option = document.createElement("option");
+                                        option.value = provider.value;
+                                        option.textContent = provider.text;
+                                        providerSelect.appendChild(option);
+                                    });
+                                }
                                 sel.style.backgroundColor = sel.options[sel.selectedIndex].style.backgroundColor;
                             }
                         </script>
@@ -867,7 +883,26 @@
             </div>
 
             <div id="thirdPartyPymnt" style="${correctionModel.thirdParty ? '' : 'display:none'}">
-                ${correctionModel.htmlPaid}
+                <c:set var="paymentBlock" value="${correctionModel.paymentBlock}"/>
+                <c:if test="${paymentBlock.firstPartyInputs}">
+                    Paid<br><input type="text" id="payment" name="payment" size="5"
+                                   value="${carlos:forHtmlAttribute(paymentBlock.payment)}"/>
+                    <input type="hidden" id="oldPayment" name="oldPayment"
+                           value="${carlos:forHtmlAttribute(paymentBlock.oldPayment)}"/>
+                    <input type="hidden" id="payDate" name="payDate"
+                           value="${carlos:forHtmlAttribute(paymentBlock.payDate)}"/><br>
+                    Refund<br><input type="text" id="refund" name="refund" size="5"
+                                      value="${carlos:forHtmlAttribute(paymentBlock.refund)}"/><br>
+                </c:if>
+                <c:if test="${paymentBlock.thirdPartySummary}">
+                    <br/>&nbsp;&nbsp;<span style="font-size:large;font-weight:bold">Paid:</span>
+                    &nbsp;&nbsp;&nbsp;<span id="payment" style="font-size:large;font-weight:bold">${carlos:forHtml(paymentBlock.payment)}</span>
+                    &nbsp;&nbsp;&nbsp;&nbsp;<span style="font-size:large;font-weight:bold">Balance:</span>
+                    &nbsp;&nbsp;&nbsp;<span id="balance" style="font-size:large;font-weight:bold">${carlos:forHtml(paymentBlock.balance)}</span>
+                    <c:if test="${paymentBlock.paymentsListLink}">
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="javascript:display3rdPartyPayments()">Payments List</a>
+                    </c:if>
+                </c:if>
             </div>
 
         </form>

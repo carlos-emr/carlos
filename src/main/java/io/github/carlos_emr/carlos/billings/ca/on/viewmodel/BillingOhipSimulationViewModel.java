@@ -56,17 +56,27 @@ public final class BillingOhipSimulationViewModel {
     private final String endDate;
     private final boolean summaryView;
     private final List<ProviderOption> providers;
-    /**
-     * Trusted-HTML preview block rendered without escape on the JSP — the
-     * OHIP file preview formatted as a {@code <pre>}-style code dump. Built
-     * ONLY by {@code BillingOhipSimulationViewModelAssembler} from compile-
-     * time constants and server-side state ({@code BillingONCHeader1}
-     * properties, {@code BillingONItem} fields, the legacy
-     * {@code dbObj.getHtmlValue()} output). No raw request parameter reaches
-     * this field. Never set this field directly from a request parameter
-     * without going through the assembler's encoding layer.
-     */
-    private final String previewHtml;
+    private final SimulationPreview preview;
+
+    /** OHIP simulation result data rendered by the JSP. */
+    public record SimulationPreview(
+            boolean present,
+            boolean multisite,
+            boolean summaryView,
+            List<String> errorMessages,
+            String bodyMarkup,
+            int recordCount,
+            int errorCount,
+            String total) {
+        public static final SimulationPreview EMPTY = new SimulationPreview(
+                false, false, false, List.of(), "", 0, 0, "");
+
+        public SimulationPreview {
+            errorMessages = errorMessages == null ? Collections.emptyList() : List.copyOf(errorMessages);
+            bodyMarkup = BillingViewStrings.nullToEmpty(bodyMarkup);
+            total = BillingViewStrings.nullToEmpty(total);
+        }
+    }
 
     private BillingOhipSimulationViewModel(Builder b) {
         this.multisites = b.multisites;
@@ -81,7 +91,7 @@ public final class BillingOhipSimulationViewModel {
         this.summaryView = b.summaryView;
         this.providers = b.providers == null
                 ? Collections.emptyList() : List.copyOf(b.providers);
-        this.previewHtml = BillingViewStrings.nullToEmpty(b.previewHtml);
+        this.preview = b.preview == null ? SimulationPreview.EMPTY : b.preview;
     }
 
     public static Builder builder() { return new Builder(); }
@@ -97,7 +107,7 @@ public final class BillingOhipSimulationViewModel {
     public String getEndDate() { return endDate; }
     public boolean isSummaryView() { return summaryView; }
     public List<ProviderOption> getProviders() { return providers; }
-    public String getPreviewHtml() { return previewHtml; }
+    public SimulationPreview getPreview() { return preview; }
 
     public static final class Builder {
         private boolean multisites;
@@ -111,7 +121,7 @@ public final class BillingOhipSimulationViewModel {
         private String endDate;
         private boolean summaryView;
         private List<ProviderOption> providers;
-        private String previewHtml;
+        private SimulationPreview preview;
 
         public Builder multisites(boolean v) { this.multisites = v; return this; }
         public Builder billCenter(String v) { this.billCenter = v; return this; }
@@ -124,7 +134,7 @@ public final class BillingOhipSimulationViewModel {
         public Builder endDate(String v) { this.endDate = v; return this; }
         public Builder summaryView(boolean v) { this.summaryView = v; return this; }
         public Builder providers(List<ProviderOption> v) { this.providers = v; return this; }
-        public Builder previewHtml(String v) { this.previewHtml = v; return this; }
+        public Builder preview(SimulationPreview v) { this.preview = v; return this; }
 
         public BillingOhipSimulationViewModel build() {
             return new BillingOhipSimulationViewModel(this);

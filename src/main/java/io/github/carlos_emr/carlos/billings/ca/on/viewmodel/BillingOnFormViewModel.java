@@ -185,7 +185,6 @@ public final class BillingOnFormViewModel {
                         b.defaultSelectedSite,
                         b.defaultXmlProvider,
                         b.selectedXmlProvider,
-                        b.multisiteProviderHtml,
                         b.rmaEnabled,
                         b.clinicNbrs,
                         b.selectedClinicNbrPrefix);
@@ -366,7 +365,6 @@ public final class BillingOnFormViewModel {
     public List<BillingMultisiteContext.ClinicNbrEntry> getClinicNbrs() { return multisite.clinicNbrs(); }
     public String getSelectedClinicNbrPrefix() { return multisite.selectedClinicNbrPrefix(); }
     public String getSelectedXmlProvider() { return multisite.selectedXmlProvider(); }
-    public Map<String, String> getMultisiteProviderHtml() { return multisite.multisiteProviderHtml(); }
 
     public String getBillingRecommendations() { return patient.billingRecommendations(); }
     public List<BillingHistoryEntry> getBillingHistory() { return patient.billingHistory(); }
@@ -542,7 +540,6 @@ public final class BillingOnFormViewModel {
         private List<BillingMultisiteContext.ClinicNbrEntry> clinicNbrs;
         private String selectedClinicNbrPrefix;
         private String selectedXmlProvider;
-        private Map<String, String> multisiteProviderHtml;
 
         // ---- Composed-record setters ----
         public Builder demographic(BillingDemographicSummary v) { this.demographic = v; return this; }
@@ -684,7 +681,6 @@ public final class BillingOnFormViewModel {
         public Builder defaultView(String v) { this.defaultView = v; return this; }
         public Builder demoNameUrlEncoded(String v) { this.demoNameUrlEncoded = v; return this; }
         public Builder selectedXmlProvider(String v) { this.selectedXmlProvider = v; return this; }
-        public Builder multisiteProviderHtml(Map<String, String> v) { this.multisiteProviderHtml = v == null ? null : Map.copyOf(v); return this; }
         public Builder requestParamEchoes(Map<String, String> v) { this.requestParamEchoes = v == null ? null : Map.copyOf(v); return this; }
 
         public BillingOnFormViewModel build() {

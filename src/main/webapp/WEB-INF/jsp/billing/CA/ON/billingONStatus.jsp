@@ -294,14 +294,33 @@
                         <c:choose>
                             <c:when test="${statusModel.multisites}">
                                 <script>
-                                    var _providers = [];
+                                    var _providers = {};
                                     <c:forEach var="msite" items="${statusModel.multisiteSites}">
-                                        _providers["<carlos:encode value='${msite.name}' context='javaScript'/>"] = "<carlos:encode value='${statusModel.multisiteProviderHtml[msite.name]}' context='javaScript'/>";
+                                        _providers["<carlos:encode value='${msite.name}' context='javaScript'/>"] = [
+                                            <c:forEach var="provider" items="${msite.providers}" varStatus="providerStatus">
+                                            {
+                                                value: "<carlos:encode value='${provider.providerNo}' context='javaScript'/>",
+                                                text: "<carlos:encode value='${provider.lastName}, ${provider.firstName}' context='javaScript'/>"
+                                            }<c:if test="${not providerStatus.last}">,</c:if>
+                                            </c:forEach>
+                                        ];
                                     </c:forEach>
 
                                     function changeSite(sel) {
-                                        var newOptions = sel.value == "none" ? "" : "<option value='none'>---select providers---</option>" + _providers[sel.value];
-                                        sel.form.providerview.innerHTML = newOptions;
+                                        var providerSelect = sel.form.providerview;
+                                        providerSelect.innerHTML = "";
+                                        if (sel.value != "none") {
+                                            var placeholder = document.createElement("option");
+                                            placeholder.value = "none";
+                                            placeholder.textContent = "---select providers---";
+                                            providerSelect.appendChild(placeholder);
+                                            (_providers[sel.value] || []).forEach(function (provider) {
+                                                var option = document.createElement("option");
+                                                option.value = provider.value;
+                                                option.textContent = provider.text;
+                                                providerSelect.appendChild(option);
+                                            });
+                                        }
                                         sel.style.backgroundColor = sel.options[sel.selectedIndex].style.backgroundColor;
                                         if (sel.value == '<carlos:encode value="${empty statusModel.requestParamEchoes['site'] ? '' : statusModel.requestParamEchoes['site']}" context="javaScriptBlock"/>') {
                                             if (document.serviceform.provider_ohipNo.value != '')

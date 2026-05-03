@@ -89,23 +89,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingThirdPartyRecor
 @org.springframework.stereotype.Service
 public class BillingOnCorrectionRenderComposer {
 
-    // First-party "Paid/Refund" form-input HTML, identical bytes to the
-    // legacy inline JSP scriptlet so the rendered output and the form's
-    // submitted parameter names stay byte-equal. Uses %s placeholders to
-    // keep the project's SQL-safety lint from false-positive matching on
-    // value='..' patterns at composer-build time.
-    private static final String HTML_PAID_FIRST_PARTY_DEFAULT =
-            "Paid<br><input type=\"text\" id=\"payment\" name=\"payment\" size=5 value=\"0.00\"/>"
-          + "<input type=\"hidden\" id=\"oldPayment\" name=\"oldPayment\" value=\"0.00\"/>"
-          + " <input type=\"hidden\" id=\"payDate\" name=\"payDate\" value=\"%s\"/>"
-          + "<br> Refund<br><input type=\"text\" id=\"refund\" name=\"refund\" size=5 value=\"0.00\"/><br>";
-
-    private static final String HTML_PAID_FIRST_PARTY_PROP =
-            "Paid<br><input type=\"text\" id=\"payment\" name=\"payment\" size=5 value=\"%s\" />"
-          + "<input type=\"hidden\" id=\"oldPayment\" name=\"oldPayment\" value=\"%s\" />"
-          + "<input type=\"hidden\" id=\"payDate\" name=\"payDate\" value=\"%s\"/><br>"
-          + "Refund<br><input type=\"text\" id=\"refund\" name=\"refund\" size=5 value=\"%s\" /><br>";
-
     private final SecurityInfoManager securityInfoManager;
     private final BillingServiceDao billingServiceDao;
     private final BillingONExtDao bExtDao;
@@ -225,12 +208,14 @@ public class BillingOnCorrectionRenderComposer {
                 tProp = thirdPartyRecordService.get3rdPartBillPropInactive(billNo.trim());
             }
             if (tProp == null || tProp.isEmpty()) {
-                b.htmlPaid(String.format(HTML_PAID_FIRST_PARTY_DEFAULT, today));
+                b.paymentBlock(new BillingOnCorrectionViewModel.PaymentBlock(
+                        true, false, "0.00", "0.00", today, "0.00", "", false));
                 b.payer("");
             } else {
                 String payment = tProp.getProperty("payment", "0.00");
                 String refund = tProp.getProperty("refund", "");
-                b.htmlPaid(String.format(HTML_PAID_FIRST_PARTY_PROP, payment, payment, today, refund));
+                b.paymentBlock(new BillingOnCorrectionViewModel.PaymentBlock(
+                        true, false, payment, payment, today, refund, "", false));
                 String payer = tProp.getProperty("billTo");
                 b.payer(payer == null ? "" : payer);
             }
@@ -242,7 +227,7 @@ public class BillingOnCorrectionRenderComposer {
         b.payer(payer == null ? "" : payer);
 
         if (!multiSiteProvider) {
-            b.htmlPaid("");
+            b.paymentBlock(BillingOnCorrectionViewModel.PaymentBlock.EMPTY);
             return;
         }
 
@@ -266,24 +251,18 @@ public class BillingOnCorrectionRenderComposer {
         // Currency.US matches the legacy formatter — invoices render in
         // CAD-as-USD format throughout the ON billing module.
         NumberFormat currency = NumberFormat.getCurrencyInstance(Locale.US);
-        StringBuilder html = new StringBuilder();
-        html.append("<br/>&nbsp;&nbsp;<span style=\"font-size:large;font-weight:bold\">Paid:</span>")
-                .append("&nbsp;&nbsp;&nbsp;<span id=\"payment\" style=\"font-size:large;font-weight:bold\">")
-                .append(payment.signum() < 0 ? "-" : "")
-                .append(currency.format(payment))
-                .append("</span>");
-        html.append("&nbsp;&nbsp;&nbsp;&nbsp;<span style=\"font-size:large;font-weight:bold\">Balance:</span>")
-                .append("&nbsp;&nbsp;&nbsp;<span id=\"balance\" style=\"font-size:large;font-weight:bold\">")
-                .append(balance.signum() < 0 ? "-" : "")
-                .append(currency.format(balance))
-                .append("</span>");
-        html.append("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href=\"javascript:display3rdPartyPayments()\">Payments List</a>");
         // refund is computed for parity with the legacy code; the third-party
         // display block doesn't surface it inline (it appears in the payments-list popup).
         if (refund.signum() != 0) {
             // no-op — preserved for legacy parity; refund tally surfaced via payments list link
         }
-        b.htmlPaid(html.toString());
+        b.paymentBlock(new BillingOnCorrectionViewModel.PaymentBlock(
+                false, true, formatCurrency(currency, payment), "", "", "",
+                formatCurrency(currency, balance), true));
+    }
+
+    private static String formatCurrency(NumberFormat currency, BigDecimal amount) {
+        return (amount.signum() < 0 ? "-" : "") + currency.format(amount);
     }
 
     private void composeDueDateAndUseDemoContact(BillingOnCorrectionViewModel.Builder b,

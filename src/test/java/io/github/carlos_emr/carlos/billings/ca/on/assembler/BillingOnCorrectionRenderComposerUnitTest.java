@@ -123,8 +123,10 @@ class BillingOnCorrectionRenderComposerUnitTest {
         assertThat(vm.isCanEditBilling()).isTrue();
         // No bill loaded → can never be a third-party invoice.
         assertThat(vm.isThirdParty()).isFalse();
-        // First-party default block: matches the legacy inline scriptlet output prefix.
-        assertThat(vm.getHtmlPaid()).startsWith("Paid<br>");
+        assertThat(vm.getPaymentBlock().firstPartyInputs()).isTrue();
+        assertThat(vm.getPaymentBlock().payment()).isEqualTo("0.00");
+        assertThat(vm.getPaymentBlock().oldPayment()).isEqualTo("0.00");
+        assertThat(vm.getPaymentBlock().refund()).isEqualTo("0.00");
         assertThat(vm.getPayer()).isEmpty();
         // No bill → no error-report DAO calls and an empty entries list.
         assertThat(vm.getErrorReportEntries()).isEmpty();

@@ -156,97 +156,6 @@ public record BillingMoney(BigDecimal amount, Currency currency) implements Comp
         }
     }
 
-    /**
-     * Strict variant of {@link #amountOrZero(String, int)} that propagates
-     * the parse failure to the caller. Use this on billing-mutating paths
-     * where silently substituting zero would persist the wrong amount.
-     *
-     * @param raw   String the user/DB-supplied numeric token (must be non-blank)
-     * @param scale int target {@link BigDecimal} scale (typically {@link #MONEY_SCALE})
-     * @return BigDecimal parsed amount, scaled and half-up rounded
-     * @throws NumberFormatException when {@code raw} is null, blank, or unparseable
-     * @deprecated since 2026-05-02. Use
-     *             {@link #parseNonNegativeAmount(String, String)} on mutating
-     *             paths so failures surface as billing validation errors with
-     *             field context. Scheduled for removal after the Ontario
-     *             billing refactor no longer has callers.
-     */
-    @Deprecated(since = "2026-05-02", forRemoval = true)
-    public static BigDecimal amountOrThrow(String raw, int scale) {
-        if (raw == null || raw.trim().isEmpty()) {
-            throw new NumberFormatException("BillingMoney.amountOrThrow: amount is null or blank");
-        }
-        try {
-            return amount(raw, scale);
-        } catch (NumberFormatException e) {
-            throw new NumberFormatException(
-                    "BillingMoney.amountOrThrow: malformed amount=\"" + raw + "\"");
-        }
-    }
-
-    /**
-     * Convenience overload of {@link #amountOrThrow(String, int)} using
-     * {@link #MONEY_SCALE}.
-     *
-     * @param raw String the user/DB-supplied numeric token
-     * @return BigDecimal parsed amount at {@link #MONEY_SCALE}
-     * @throws NumberFormatException when {@code raw} is null, blank, or unparseable
-     * @deprecated since 2026-05-02. Use
-     *             {@link #parseNonNegativeAmount(String, String)} on mutating
-     *             paths so failures surface as billing validation errors with
-     *             field context. Scheduled for removal after the Ontario
-     *             billing refactor no longer has callers.
-     */
-    @Deprecated(since = "2026-05-02", forRemoval = true)
-    public static BigDecimal amountOrThrow(String raw) {
-        return amountOrThrow(raw, MONEY_SCALE);
-    }
-
-    /**
-     * Strict-but-blank-tolerant variant. Treats null/blank as a legitimate
-     * empty cell (returns zero) but throws on any other unparseable input.
-     * Use this on billing-mutating paths where blank cells are a normal part
-     * of user input but typos must surface to the caller.
-     *
-     * @param raw   String the user/DB-supplied numeric token (null/blank → zero)
-     * @param scale int target {@link BigDecimal} scale
-     * @return BigDecimal parsed amount, or {@code ZERO} when {@code raw} is null/blank
-     * @throws NumberFormatException when {@code raw} is non-blank and unparseable
-     * @deprecated since 2026-05-02. Use
-     *             {@link #amountOrZero(String, int)} only for explicitly lossy
-     *             report display, or {@link #parseNonNegativeAmount(String, String)}
-     *             for mutating paths. Scheduled for removal after the Ontario
-     *             billing refactor no longer has callers.
-     */
-    @Deprecated(since = "2026-05-02", forRemoval = true)
-    public static BigDecimal amountStrictOrZero(String raw, int scale) {
-        // Blank amount fields are still common in legacy billing forms and
-        // Ministry extracts; "strict" here means "reject malformed tokens",
-        // not "require the field to be populated".
-        if (raw == null || raw.trim().isEmpty()) {
-            return BigDecimal.ZERO.setScale(scale);
-        }
-        return amountOrThrow(raw, scale);
-    }
-
-    /**
-     * Convenience overload of {@link #amountStrictOrZero(String, int)} using
-     * {@link #MONEY_SCALE}.
-     *
-     * @param raw String the user/DB-supplied numeric token (null/blank → zero)
-     * @return BigDecimal parsed amount at {@link #MONEY_SCALE}, or {@code ZERO} when blank
-     * @throws NumberFormatException when {@code raw} is non-blank and unparseable
-     * @deprecated since 2026-05-02. Use {@link #amountOrZero(String)} only for
-     *             explicitly lossy report display, or
-     *             {@link #parseNonNegativeAmount(String, String)} for mutating
-     *             paths. Scheduled for removal after the Ontario billing
-     *             refactor no longer has callers.
-     */
-    @Deprecated(since = "2026-05-02", forRemoval = true)
-    public static BigDecimal amountStrictOrZero(String raw) {
-        return amountStrictOrZero(raw, MONEY_SCALE);
-    }
-
     public static BigDecimal ohipFeeAmount(String raw) {
         return decimal(raw).movePointLeft(OHIP_FEE_SCALE).setScale(MONEY_SCALE, RoundingMode.HALF_UP);
     }
@@ -300,5 +209,22 @@ public record BillingMoney(BigDecimal amount, Currency currency) implements Comp
                     "BillingMoney: " + fieldName + " cannot be negative [" + raw + "]");
         }
         return value;
+    }
+
+    /**
+     * Parse an optional money amount that may be blank but, when populated,
+     * must be a non-negative money token. Null and blank inputs return scale-2
+     * zero; malformed or negative values throw {@link BillingValidationException}.
+     *
+     * @param raw       String the user/DB-supplied numeric token
+     * @param fieldName String diagnostic name embedded in the throw message
+     * @return BigDecimal parsed amount at {@link #MONEY_SCALE}, or zero when blank
+     * @throws BillingValidationException on malformed or negative input
+     */
+    public static BigDecimal parseOptionalNonNegativeAmount(String raw, String fieldName) {
+        if (raw == null || raw.trim().isEmpty()) {
+            return ZERO;
+        }
+        return parseNonNegativeAmount(raw, fieldName);
     }
 }

@@ -294,12 +294,12 @@ public class BillingOnClaimPersister {
         Timestamp ts = new Timestamp(new Date().getTime());
         for (int i = 0; i < lVal.size(); i++) {
             BillingClaimItemDto val = (BillingClaimItemDto) lVal.get(i);
-            // Pre-parse before mutating the entity. Strict variants surface a
+            // Pre-parse before mutating the entity. Optional strict parsing surfaces a
             // malformed amount BEFORE any billing_on_item_payment row is
             // persisted with a silently-zeroed value.
-            BigDecimal discount = amountStrictOrZeroForItemPayment(val.getDiscount(), "discount", id, val);
-            BigDecimal paid = amountStrictOrZeroForItemPayment(val.getPaid(), "paid", id, val);
-            BigDecimal refund = amountStrictOrZeroForItemPayment(val.getRefund(), "refund", id, val);
+            BigDecimal discount = parseOptionalPaymentAmount(val.getDiscount(), "discount", id, val);
+            BigDecimal paid = parseOptionalPaymentAmount(val.getPaid(), "paid", id, val);
+            BigDecimal refund = parseOptionalPaymentAmount(val.getRefund(), "refund", id, val);
             billOnItemPayment = new BillingOnItemPayment();
             billOnItemPayment.setBillingOnItemId(Integer.parseInt(val.getId()));
             billOnItemPayment.setBillingOnPaymentId(paymentId);
@@ -329,11 +329,11 @@ public class BillingOnClaimPersister {
             // Pre-parse the per-item amounts before mutating the entity, so a
             // mid-loop parse failure cannot leave a partially-populated
             // BillingOnTransaction in an inconsistent state.
-            BigDecimal discount = amountStrictOrZeroForItemPayment(
+            BigDecimal discount = parseOptionalPaymentAmount(
                     billItem.getDiscount(), "discount", Integer.parseInt(billHeader.getId()), billItem);
-            BigDecimal paid = amountStrictOrZeroForItemPayment(
+            BigDecimal paid = parseOptionalPaymentAmount(
                     billItem.getPaid(), "paid", Integer.parseInt(billHeader.getId()), billItem);
-            BigDecimal refund = amountStrictOrZeroForItemPayment(
+            BigDecimal refund = parseOptionalPaymentAmount(
                     billItem.getRefund(), "refund", Integer.parseInt(billHeader.getId()), billItem);
 
             billTrans = new BillingOnTransaction();
@@ -372,11 +372,11 @@ public class BillingOnClaimPersister {
         }
     }
 
-    private BigDecimal amountStrictOrZeroForItemPayment(
+    private BigDecimal parseOptionalPaymentAmount(
             String amount, String fieldName, int billingNo, BillingClaimItemDto item) {
         try {
-            return BillingMoney.amountStrictOrZero(amount);
-        } catch (NumberFormatException ex) {
+            return BillingMoney.parseOptionalNonNegativeAmount(amount, fieldName);
+        } catch (BillingValidationException ex) {
             throw new BillingValidationException(
                     "addItemPaymentRecord: malformed " + fieldName
                             + " amount for billingNo=" + billingNo
@@ -493,7 +493,8 @@ public class BillingOnClaimPersister {
 
             payment = new BillingONPayment();
             payment.setTotal_payment(BillingMoney.amount(paymentSumParam));
-            payment.setTotal_discount(BillingMoney.amountStrictOrZero(mVal.get("total_discount")));
+            payment.setTotal_discount(BillingMoney.parseOptionalNonNegativeAmount(
+                    mVal.get("total_discount"), "total_discount"));
             payment.setTotal_refund(BillingMoney.zeroAmount());
             payment.setPaymentDate(paymentDate);
             payment.setBillingOnCheader1(ch1);

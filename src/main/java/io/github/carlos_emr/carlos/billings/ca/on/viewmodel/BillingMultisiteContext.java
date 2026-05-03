@@ -23,7 +23,6 @@ package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Immutable multisite + RMA + clinic-nbr context shared across the ON billing
@@ -31,8 +30,7 @@ import java.util.Map;
  *
  * <ul>
  *   <li>{@code multisiteEnabled} / {@code multisiteSites} / {@code defaultSelectedSite}
- *       / {@code defaultXmlProvider} / {@code selectedXmlProvider} /
- *       {@code multisiteProviderHtml}</li>
+ *       / {@code defaultXmlProvider} / {@code selectedXmlProvider}</li>
  *   <li>{@code rmaEnabled} / {@code clinicNbrs} / {@code selectedClinicNbrPrefix}</li>
  * </ul>
  *
@@ -48,14 +46,13 @@ public record BillingMultisiteContext(
         String defaultSelectedSite,
         String defaultXmlProvider,
         String selectedXmlProvider,
-        Map<String, String> multisiteProviderHtml,
         boolean rmaEnabled,
         List<ClinicNbrEntry> clinicNbrs,
         String selectedClinicNbrPrefix) {
 
     /** Empty / no-multisite default. */
     public static final BillingMultisiteContext EMPTY = new BillingMultisiteContext(
-            false, List.of(), "", "", "", Map.of(), false, List.of(), "");
+            false, List.of(), "", "", "", false, List.of(), "");
 
     /** Compact constructor coalesces nulls and locks collections immutable. */
     public BillingMultisiteContext {
@@ -63,8 +60,6 @@ public record BillingMultisiteContext(
         defaultSelectedSite = defaultSelectedSite == null ? "" : defaultSelectedSite;
         defaultXmlProvider = defaultXmlProvider == null ? "" : defaultXmlProvider;
         selectedXmlProvider = selectedXmlProvider == null ? "" : selectedXmlProvider;
-        multisiteProviderHtml = multisiteProviderHtml == null
-                ? Collections.emptyMap() : Map.copyOf(multisiteProviderHtml);
         clinicNbrs = clinicNbrs == null ? Collections.emptyList() : List.copyOf(clinicNbrs);
         selectedClinicNbrPrefix = selectedClinicNbrPrefix == null ? "" : selectedClinicNbrPrefix;
     }

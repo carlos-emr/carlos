@@ -24,7 +24,6 @@ package io.github.carlos_emr.carlos.billings.ca.on.assembler;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -214,44 +213,30 @@ public class BillingOnCorrectionViewModelAssembler {
                                        boolean teamBillingOnly,
                                        boolean multisites,
                                        BillRecordContext billCtx) {
-        // ---- multisite sites + provider HTML ----
+        // ---- multisite sites + provider options ----
         if (multisites && userProviderNo != null && !userProviderNo.isEmpty()) {
             List<Site> sites = siteDao.getActiveSitesByProviderNo(userProviderNo);
             List<BillingMultisiteContext.MultisiteSite> msites = new ArrayList<>();
-            Map<String, String> siteHtml = new LinkedHashMap<>();
             for (Site site : sites) {
                 Set<Provider> siteProviderSet = site.getProviders();
                 List<Provider> siteProvidersList = new ArrayList<>(siteProviderSet);
                 Collections.sort(siteProvidersList, new Provider().ComparatorName());
                 List<BillingMultisiteContext.MultisiteProvider> mProvs = new ArrayList<>();
-                StringBuilder html = new StringBuilder();
                 for (Provider p : siteProvidersList) {
                     if ("1".equals(p.getStatus()) && StringUtils.isNotBlank(p.getOhipNo())) {
-                        // Cross-cutting record carries ohipNo too — Correction
-                        // doesn't currently use it, so we propagate the actual
-                        // provider OHIP for forward-compat.
                         mProvs.add(new BillingMultisiteContext.MultisiteProvider(
                                 nullToEmpty(p.getProviderNo()),
                                 nullToEmpty(p.getOhipNo()),
                                 nullToEmpty(p.getLastName()),
                                 nullToEmpty(p.getFirstName())));
-                        html.append("<option value='")
-                                .append(escapeForHtmlAttr(nullToEmpty(p.getProviderNo())))
-                                .append("'>")
-                                .append(escapeForHtml(nullToEmpty(p.getLastName())))
-                                .append(", ")
-                                .append(escapeForHtml(nullToEmpty(p.getFirstName())))
-                                .append("</option>");
                     }
                 }
                 msites.add(new BillingMultisiteContext.MultisiteSite(
                         nullToEmpty(site.getName()),
                         nullToEmpty(site.getBgColor()),
                         mProvs));
-                siteHtml.put(nullToEmpty(site.getName()), html.toString());
             }
             b.multisiteSites(msites);
-            b.multisiteProviderHtml(siteHtml);
         }
 
         // ---- non-multisite provider list ----
@@ -406,8 +391,8 @@ public class BillingOnCorrectionViewModelAssembler {
         if (!multiSiteProvider) {
             // Access denied — leave patient fields empty; JSP shows alert.
             // Render-context composer still gets bCh1 + payProgram so it can
-            // build the (empty) third-party totals consistent with the
-            // legacy scriptlet, which always rendered the htmlPaid block.
+            // build the empty third-party payment block consistent with the
+            // legacy scriptlet.
             return new BillRecordContext(bCh1, billNo, false,
                     bCh1.getPayProgram() == null ? "" : bCh1.getPayProgram(), clinicSite);
         }

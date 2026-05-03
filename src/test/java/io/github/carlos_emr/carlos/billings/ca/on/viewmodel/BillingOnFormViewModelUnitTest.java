@@ -485,7 +485,6 @@ class BillingOnFormViewModelUnitTest {
         BillingMultisiteContext multiComposed = new BillingMultisiteContext(
                 true, List.of(),
                 "DefaultSite", "doc|111", "doc|111",
-                Map.of("DefaultSite", "<option/>"),
                 true, List.of(),
                 "C0001");
 

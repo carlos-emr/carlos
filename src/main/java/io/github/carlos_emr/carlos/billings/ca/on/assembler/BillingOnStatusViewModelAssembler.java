@@ -31,7 +31,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -54,7 +53,6 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingStatusLoader;
 import io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingOnStatus2Action;
@@ -179,7 +177,6 @@ public class BillingOnStatusViewModelAssembler {
         Map<String, String> siteBgColorMap = new HashMap<>();
         Map<String, String> siteShortNameMap = new HashMap<>();
         List<BillingMultisiteContext.MultisiteSite> multisiteSites = new ArrayList<>();
-        Map<String, String> multisiteProviderHtml = new LinkedHashMap<>();
         if (multisitesEnabled) {
             if (siteDao != null) {
                 List<Site> allSites = siteDao.getAllSites();
@@ -224,17 +221,6 @@ public class BillingOnStatusViewModelAssembler {
                     }
                     multisiteSites.add(new BillingMultisiteContext.MultisiteSite(
                             site.getName(), site.getBgColor(), providerOpts));
-                    StringBuilder html = new StringBuilder();
-                    for (BillingMultisiteContext.MultisiteProvider mp : providerOpts) {
-                        html.append("<option value='")
-                                .append(SafeEncode.forHtmlAttribute(mp.providerNo()))
-                                .append("'>")
-                                .append(SafeEncode.forHtml(mp.lastName()))
-                                .append(", ")
-                                .append(SafeEncode.forHtml(mp.firstName()))
-                                .append("</option>");
-                    }
-                    multisiteProviderHtml.put(site.getName(), html.toString());
                 }
             }
         }
@@ -337,7 +323,6 @@ public class BillingOnStatusViewModelAssembler {
                 .endDateMinus90(DateUtils.sumDate("yyyy-MM-dd", "-90"))
                 .providers(providers)
                 .multisiteSites(multisiteSites)
-                .multisiteProviderHtml(multisiteProviderHtml)
                 .siteBgColor(siteBgColorMap)
                 .siteShortName(siteShortNameMap)
                 .billingForms(billingForms)
