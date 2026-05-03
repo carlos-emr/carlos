@@ -3684,6 +3684,7 @@ public class DemographicExportAction42Action extends ActionSupport {
         SchemaFactory xsdFactory;
         try {
             xsdFactory = XmlUtils.createSecureSchemaFactory(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+            // The OntarioMD export schema imports this bundled DT schema; all other imports remain blocked.
             xsdFactory.setResourceResolver(XmlUtils.createClasspathSchemaResolver(
                     DemographicExportAction42Action.class,
                     "/omdDataMigration/",

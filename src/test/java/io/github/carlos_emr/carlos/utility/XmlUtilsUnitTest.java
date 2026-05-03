@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.utility;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -45,7 +46,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Tag("unit")
 @Tag("security")
 @DisplayName("XmlUtils secure schema factory")
-class XmlUtilsUnitTest {
+class XmlUtilsUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should create secure schema factory for W3C XML schema")

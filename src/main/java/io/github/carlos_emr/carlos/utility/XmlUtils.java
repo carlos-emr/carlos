@@ -261,13 +261,18 @@ public final class XmlUtils {
      * @throws SAXException if the required security features or external-access properties cannot be set
      */
     public static javax.xml.validation.SchemaFactory createSecureSchemaFactory(String schemaLanguage) throws SAXException {
-        javax.xml.validation.SchemaFactory sf = XMLConstants.W3C_XML_SCHEMA_NS_URI.equals(schemaLanguage)
-                ? javax.xml.validation.SchemaFactory.newDefaultInstance()
-                : javax.xml.validation.SchemaFactory.newInstance(schemaLanguage);
+        javax.xml.validation.SchemaFactory sf = createSchemaFactoryInstance(schemaLanguage);
         sf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
         sf.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "");
         sf.setProperty(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
         return sf;
+    }
+
+    private static javax.xml.validation.SchemaFactory createSchemaFactoryInstance(String schemaLanguage) {
+        if (XMLConstants.W3C_XML_SCHEMA_NS_URI.equals(schemaLanguage)) {
+            return javax.xml.validation.SchemaFactory.newDefaultInstance();
+        }
+        return javax.xml.validation.SchemaFactory.newInstance(schemaLanguage);
     }
 
     /**
@@ -307,12 +312,7 @@ public final class XmlUtils {
             }
         }
 
-        String directory = resourceDirectory.startsWith("/") ? resourceDirectory : "/" + resourceDirectory;
-        if (!directory.endsWith("/")) {
-            directory += "/";
-        }
-
-        String resourcePrefix = directory;
+        String resourcePrefix = normalizeClasspathResourceDirectory(resourceDirectory);
         return (type, namespaceURI, publicId, systemId, baseURI) -> {
             if (systemId == null || !allowedNames.contains(systemId)) {
                 return null;
@@ -329,6 +329,11 @@ public final class XmlUtils {
 
             return new ClasspathSchemaInput(publicId, systemId, baseURI, byteStream);
         };
+    }
+
+    private static String normalizeClasspathResourceDirectory(String resourceDirectory) {
+        String leadingSlashDirectory = resourceDirectory.startsWith("/") ? resourceDirectory : "/" + resourceDirectory;
+        return leadingSlashDirectory.endsWith("/") ? leadingSlashDirectory : leadingSlashDirectory + "/";
     }
 
     /**
