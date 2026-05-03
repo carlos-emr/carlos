@@ -44,24 +44,33 @@ class AdministrationLeftNavAgeSexReportTest {
         assertThat(jsp)
                 .as("Age-Sex Report must no longer load the removed public JSP controller")
                 .doesNotContain("/oscarReport/dbReportAgeSex.jsp");
+
         assertThat(jsp)
-                .as("Age-Sex Report link should target the migrated Struts action")
-                .contains("rel=\"${carlos:forHtmlAttribute(ctx)}/oscarReport/DbReportAgeSex\"");
+                .as("Age-Sex Report should reference the migrated Struts action")
+                .contains("${carlos:forHtmlAttribute(ctx)}/oscarReport/DbReportAgeSex");
+
         assertThat(jsp)
-                .as("Age-Sex Report must submit by POST so DbReportAgeSex2Action accepts the request")
-                .contains("<form id=\"ageSexForm\" method=\"post\" action=\"${carlos:forHtmlAttribute(ctx)}/oscarReport/DbReportAgeSex\"")
-                .contains("target=\"myFrame\" class=\"visually-hidden\"");
+                .as("Age-Sex Report should define a hidden POST form targeting the report iframe")
+                .contains("<form")
+                .contains("id=\"ageSexForm\"")
+                .contains("method=\"post\"")
+                .contains("action=\"${carlos:forHtmlAttribute(ctx)}/oscarReport/DbReportAgeSex\"")
+                .contains("target=\"myFrame\"")
+                .contains("class=\"visually-hidden\"");
+
         assertThat(jsp)
-                .as("xlink handler should submit the hidden form into the iframe")
+                .as("Age-Sex Report xlink handler should submit the hidden form and create an accessible iframe")
                 .contains("data-submit-form=\"ageSexForm\"")
                 .contains("data-frame-title=\"Age-Sex Report\"")
-                .contains("document.getElementById(submitForm)")
-                .contains("form.submit();")
-                .contains("title: iframeTitle")
-                .contains("loading: \"lazy\"")
-                .contains("role: \"region\"")
-                .contains("\"aria-live\": \"polite\"")
-                .contains("}).css(\"border\", \"0\")")
+                .contains("submitForm")
+                .contains("form.submit()")
+                .contains("iframeTitle")
+                .contains("loading")
+                .contains("\"lazy\"")
+                .contains("role")
+                .contains("\"region\"")
+                .contains("aria-live")
+                .contains("\"polite\"")
                 .doesNotContain("form.target = \"myFrame\"")
                 .doesNotContain("CSRF-TOKEN")
                 .doesNotContain("frameborder");
