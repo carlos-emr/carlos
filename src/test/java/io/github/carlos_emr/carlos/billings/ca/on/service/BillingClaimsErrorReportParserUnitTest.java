@@ -185,6 +185,19 @@ class BillingClaimsErrorReportParserUnitTest {
     }
 
     @Test
+    void shouldFlipVerdictFalse_whenStoredCentAmountIsMalformed() throws Exception {
+        StringBuilder line = new StringBuilder(" ".repeat(80));
+        line.replace(2, 3, "T");
+        line.replace(3, 8, "A001A");
+        line.replace(10, 16, "12.3X ");
+
+        BillingClaimsErrorReportParser parser = new BillingClaimsErrorReportParser(fileWith(line + "\n"));
+
+        assertThat(parser.isVerdict()).isFalse();
+        assertThat(parser.getClaimsErrorReportRecords()).isEmpty();
+    }
+
+    @Test
     void shouldSkipShortLineAtHeaderCheck_andContinueWhenSubThreeChars() throws Exception {
         // Lines under 3 chars are too short even to peek the headerCount;
         // the parser logs a warning and falls through every record-type

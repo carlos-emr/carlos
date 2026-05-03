@@ -55,6 +55,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingPaymentDeletionService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingPaymentSaveService;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnThirdPartyPaymentsViewModel;
 
@@ -76,23 +77,61 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  * single-method split needs a typed command first.</p>
  */
 public class BillingOnPayments2Action extends ActionSupport {
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private SecurityInfoManager securityInfoManager;
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static Logger logger = MiscUtils.getLogger();
 
-    private BillingONItemDao billingONItemDao = SpringUtils.getBean(BillingONItemDao.class);
-    private BillingONPaymentDao billingONPaymentDao = SpringUtils.getBean(BillingONPaymentDao.class);
-    private BillingPaymentTypeDao billingPaymentTypeDao = SpringUtils.getBean(BillingPaymentTypeDao.class);
-    private BillingONCHeader1Dao billingClaimDAO = SpringUtils.getBean(BillingONCHeader1Dao.class);
-    private BillingONExtDao billingONExtDao = SpringUtils.getBean(BillingONExtDao.class);
-    private BillingOnItemPaymentDao billingOnItemPaymentDao = SpringUtils.getBean(BillingOnItemPaymentDao.class);
-    private BillingOnTransactionDao billingOnTransactionDao = SpringUtils.getBean(BillingOnTransactionDao.class);
+    private BillingONItemDao billingONItemDao;
+    private BillingONPaymentDao billingONPaymentDao;
+    private BillingPaymentTypeDao billingPaymentTypeDao;
+    private BillingONCHeader1Dao billingClaimDAO;
+    private BillingONExtDao billingONExtDao;
+    private BillingOnItemPaymentDao billingOnItemPaymentDao;
+    private BillingOnTransactionDao billingOnTransactionDao;
+    private BillingPaymentSaveService billingPaymentSaveService;
+    private BillingPaymentDeletionService billingPaymentDeletionService;
 
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
+
+    public BillingOnPayments2Action() {
+        this(
+                SpringUtils.getBean(SecurityInfoManager.class),
+                SpringUtils.getBean(BillingONItemDao.class),
+                SpringUtils.getBean(BillingONPaymentDao.class),
+                SpringUtils.getBean(BillingPaymentTypeDao.class),
+                SpringUtils.getBean(BillingONCHeader1Dao.class),
+                SpringUtils.getBean(BillingONExtDao.class),
+                SpringUtils.getBean(BillingOnItemPaymentDao.class),
+                SpringUtils.getBean(BillingOnTransactionDao.class),
+                SpringUtils.getBean(BillingPaymentSaveService.class),
+                SpringUtils.getBean(BillingPaymentDeletionService.class));
+    }
+
+    BillingOnPayments2Action(SecurityInfoManager securityInfoManager,
+                             BillingONItemDao billingONItemDao,
+                             BillingONPaymentDao billingONPaymentDao,
+                             BillingPaymentTypeDao billingPaymentTypeDao,
+                             BillingONCHeader1Dao billingClaimDAO,
+                             BillingONExtDao billingONExtDao,
+                             BillingOnItemPaymentDao billingOnItemPaymentDao,
+                             BillingOnTransactionDao billingOnTransactionDao,
+                             BillingPaymentSaveService billingPaymentSaveService,
+                             BillingPaymentDeletionService billingPaymentDeletionService) {
+        this.securityInfoManager = securityInfoManager;
+        this.billingONItemDao = billingONItemDao;
+        this.billingONPaymentDao = billingONPaymentDao;
+        this.billingPaymentTypeDao = billingPaymentTypeDao;
+        this.billingClaimDAO = billingClaimDAO;
+        this.billingONExtDao = billingONExtDao;
+        this.billingOnItemPaymentDao = billingOnItemPaymentDao;
+        this.billingOnTransactionDao = billingOnTransactionDao;
+        this.billingPaymentSaveService = billingPaymentSaveService;
+        this.billingPaymentDeletionService = billingPaymentDeletionService;
+    }
 
     public String execute() throws Exception {
         requireBillingWritePrivilege();
@@ -172,8 +211,7 @@ public class BillingOnPayments2Action extends ActionSupport {
             paymentLists = new ArrayList<BillingONPayment>();
         }
 
-        BillingONCHeader1Dao ch1Dao = SpringUtils.getBean(BillingONCHeader1Dao.class);
-        BillingONCHeader1 cheader = ch1Dao.find(billingNo);
+        BillingONCHeader1 cheader = billingClaimDAO.find(billingNo);
         if (cheader == null) {
             // Concurrent delete or otherwise-missing claim — surface a 404
             // so the popup can close cleanly. Letting cheader.getTotal()
@@ -491,11 +529,10 @@ public class BillingOnPayments2Action extends ActionSupport {
         if (sumPaid.signum() == 0 && sumDiscount.signum() == 0
                 && sumRefund.signum() == 0 && sumCredit.signum() == 0) {
             // All-zeros early-return path: nothing to persist except possibly
-            // the status change. Keep this single merge in the action — it's
-            // a one-shot write with a single failure mode.
+            // the status change. Delegate to the transactional service so the
+            // parent invoice row is locked before the header aggregate changes.
             if (statusChanges) {
-                cheader1.setStatusStrict(status);
-                billingClaimDAO.merge(cheader1);
+                billingPaymentSaveService.updateStatusOnly(billNo, status);
                 ret.put("ret", 0);
             } else {
                 ret.put("ret", 1);
@@ -515,7 +552,7 @@ public class BillingOnPayments2Action extends ActionSupport {
                 statusChanges ? status : null,
                 lines);
         try {
-            SpringUtils.getBean(BillingPaymentSaveService.class).saveThirdPartyPayment(cmd);
+            billingPaymentSaveService.saveThirdPartyPayment(cmd);
         } catch (io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException e) {
             logger.warn("savePayment rejected: {}", e.getMessage());
             return writeRejectionJson(e.getMessage());
@@ -554,9 +591,7 @@ public class BillingOnPayments2Action extends ActionSupport {
         // and ext keys in sync with the underlying payment table.
         try {
             int paymentId = Integer.parseInt(request.getParameter("id"));
-            io.github.carlos_emr.carlos.utility.SpringUtils
-                    .getBean(io.github.carlos_emr.carlos.billings.ca.on.service.BillingPaymentDeletionService.class)
-                    .deletePayment(paymentId);
+            billingPaymentDeletionService.deletePayment(paymentId);
         } catch (NumberFormatException nfe) {
             logger.warn("deletePayment: invalid id parameter: {}",
                     io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(request.getParameter("id")), nfe);

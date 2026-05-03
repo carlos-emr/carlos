@@ -296,7 +296,7 @@ class BillingOnRaServiceUnitTest {
         Files.write(file, List.of(
                 h1("20260401", "000001234", "-"),
                 h6("-", "-", "-", "-"),
-                h7("20", "C", "000123450", "-", "negative transaction")));
+                h7("20", "C", "00123450", "-", "negative transaction")));
 
         service.importRAFile(file.toString());
 
@@ -306,8 +306,8 @@ class BillingOnRaServiceUnitTest {
         assertThat(header.getTotalAmount()).isEqualTo("-12.34");
         assertThat(header.getContent())
                 .contains("<xml_cheque>-12.34</xml_cheque>")
-                .contains("<td>-0000001.111</td>")
-                .contains("<td width='13%'>-000123.450</td>");
+                .contains("<td>-0000001.11</td>")
+                .contains("<td width='13%'>-001234.50</td>");
     }
 
     @Test
@@ -422,10 +422,10 @@ class BillingOnRaServiceUnitTest {
         char[] line = fixedLine();
         line[0] = 'H';
         line[2] = '6';
-        put(line, 3, "0000001111" + claimsSign);
-        put(line, 14, "0000002222" + advanceSign);
-        put(line, 25, "0000003333" + reductionSign);
-        put(line, 36, "0000004444" + deductionSign);
+        put(line, 3, "000000111" + claimsSign);
+        put(line, 13, "000000222" + advanceSign);
+        put(line, 23, "000000333" + reductionSign);
+        put(line, 33, "000000444" + deductionSign);
         return new String(line);
     }
 
@@ -438,8 +438,8 @@ class BillingOnRaServiceUnitTest {
         put(line, 5, chequeIndicator);
         put(line, 6, "20260401");
         put(line, 14, amount);
-        put(line, 23, sign);
-        put(line, 24, message);
+        put(line, 22, sign);
+        put(line, 23, message);
         return new String(line);
     }
 

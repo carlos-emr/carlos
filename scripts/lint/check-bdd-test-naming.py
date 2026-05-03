@@ -8,7 +8,9 @@ import re
 from pathlib import Path
 
 
-TEST_ANNOTATION = re.compile(r"@(Test|ParameterizedTest|RepeatedTest|TestFactory|TestTemplate)\b")
+TEST_ANNOTATION = re.compile(
+    r"@(?:[A-Za-z_][\w]*\.)*(Test|ParameterizedTest|RepeatedTest|TestFactory|TestTemplate)\b"
+)
 METHOD = re.compile(
     r"\b(?:public|protected|private)?\s*(?:static\s+)?"
     r"(?:void|[\w<>?,\s\[\]]+)\s+(\w+)\s*\("

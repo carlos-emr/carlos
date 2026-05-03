@@ -753,6 +753,11 @@
             <result name="newReport" type="redirectAction">billing/CA/ON/ViewBillingONNewReport</result>
         </action>
 
+        <action name="billing/CA/ON/billingReportCenter.jsp" class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingReportCenter2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/ON/billingReportCenter.jsp</result>
+            <result name="newReport" type="redirectAction">billing/CA/ON/ViewBillingONNewReport</result>
+        </action>
+
         <action name="billing/CA/ON/ViewBillingReportControl" class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingReportControl2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingReportControl.jsp</result>
         </action>
@@ -802,6 +807,10 @@
             <result name="success">/WEB-INF/jsp/billing/CA/ON/onGenRA.jsp</result>
         </action>
 
+        <action name="billing/CA/ON/ImportOnRA" class="io.github.carlos_emr.carlos.billings.ca.on.web.ImportOnRa2Action">
+            <result name="success" type="chain">billing/CA/ON/ViewOnGenRA</result>
+        </action>
+
         <action name="billing/CA/ON/ViewOnGenRAError" class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewOnGenRaError2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/onGenRAError.jsp</result>
         </action>
@@ -841,7 +850,7 @@
         </action>
 
         <action name="billing/CA/ON/ViewBillingON3rdPayments" class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingOnThirdPartyPayments2Action">
-            <result name="success">/WEB-INF/jsp/billing/CA/ON/billingON3rdPayments.jsp</result>
+            <result name="success" type="chain">billing/CA/ON/billingON3rdPayments</result>
         </action>
 
         <action name="billing/CA/ON/ViewBillingCorrection" class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingCorrection2Action">

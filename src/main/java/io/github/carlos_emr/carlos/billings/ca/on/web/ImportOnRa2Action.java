@@ -22,41 +22,51 @@
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import jakarta.servlet.http.HttpServletRequest;
-
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+import io.github.carlos_emr.carlos.billings.ca.on.service.OnRaImportService;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+
 /**
- * View gate for the legacy {@code ViewBillingON3rdPayments} route. Enforces
- * {@code _billing r} privilege before the Struts mapping chains to the
- * initialized {@code billingON3rdPayments} action.
+ * POST-only RA import gate. Successful and failed imports both chain back to
+ * the read-only reconciliation view; failures are exposed as request
+ * attributes for the JSP banner.
  *
- * @since 2026-04-13
+ * @since 2026-05-03
  */
-public class ViewBillingOnThirdPartyPayments2Action extends ActionSupport {
+public class ImportOnRa2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
-    public ViewBillingOnThirdPartyPayments2Action(SecurityInfoManager securityInfoManager) {
+    private final OnRaImportService importService;
+
+    public ImportOnRa2Action(SecurityInfoManager securityInfoManager,
+                             OnRaImportService importService) {
         this.securityInfoManager = securityInfoManager;
+        this.importService = importService;
     }
 
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
+        HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
-        // Reject sessionless requests up front. SecurityInfoManagerImpl.hasPrivilege
-        // dereferences loggedInInfo and emits an internal ERROR log on null, which
-        // pollutes the log signal for real privilege denials.
-        if (loggedInInfo == null) {
-            throw new SecurityException("missing session");
-        }
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
 
+        OnRaImportService.ImportOutcome outcome = importService.importDocumentBeanFileOutcome(request);
+        if (!outcome.ok()) {
+            request.setAttribute("raImportFailed", Boolean.TRUE);
+            request.setAttribute("raImportOutcome", outcome.name());
+        }
         return SUCCESS;
     }
 }

@@ -22,7 +22,10 @@
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.DocumentBean;
+import io.github.carlos_emr.carlos.billings.ca.on.service.OnRaImportService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -40,14 +43,34 @@ import org.apache.struts2.ServletActionContext;
 public class ViewGenRa2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
+    private final OnRaImportService importService;
 
-    public ViewGenRa2Action(SecurityInfoManager securityInfoManager) {
+    public ViewGenRa2Action(SecurityInfoManager securityInfoManager,
+                            OnRaImportService importService) {
         this.securityInfoManager = securityInfoManager;
+        this.importService = importService;
     }
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (request.getAttribute("documentBean") instanceof DocumentBean) {
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+                throw new SecurityException("missing required sec object (_billing)");
+            }
+            if (!"POST".equalsIgnoreCase(request.getMethod())) {
+                HttpServletResponse response = ServletActionContext.getResponse();
+                response.setHeader("Allow", "POST");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                return NONE;
+            }
+            OnRaImportService.ImportOutcome outcome = importService.importDocumentBeanFileOutcome(request);
+            if (!outcome.ok()) {
+                request.setAttribute("raImportFailed", Boolean.TRUE);
+                request.setAttribute("raImportOutcome", outcome.name());
+            }
+            return SUCCESS;
+        }
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");

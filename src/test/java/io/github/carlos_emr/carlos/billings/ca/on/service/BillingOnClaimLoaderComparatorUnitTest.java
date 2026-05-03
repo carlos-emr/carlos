@@ -140,4 +140,39 @@ class BillingOnClaimLoaderComparatorUnitTest {
                 .isInstanceOf(BillingDataLoadException.class)
                 .hasMessageContaining("fee DAO failed");
     }
+
+    @Test
+    void shouldSortBlankOrZeroFeesLast_whenReviewFeesCompared() {
+        BillingOnClaimLoader claimLoader = mock(BillingOnClaimLoader.class);
+        when(claimLoader.getCodeFeeResult("ZERO", "2026-04-01"))
+                .thenReturn(BillingOnClaimLoader.FeeLookupResult.found(".00"));
+        when(claimLoader.getCodeFeeResult("PAID", "2026-04-01"))
+                .thenReturn(BillingOnClaimLoader.FeeLookupResult.found("15.00"));
+        BillingReviewFeeComparator comparator =
+                new BillingReviewFeeComparator(claimLoader, "2026-04-01");
+
+        BillingReviewServiceParam zero = new BillingReviewServiceParam("ZERO", "1", "");
+        BillingReviewServiceParam paid = new BillingReviewServiceParam("PAID", "1", "");
+
+        assertThat(comparator.compare(zero, paid)).isPositive();
+        assertThat(comparator.compare(paid, zero)).isNegative();
+    }
+
+    @Test
+    void shouldKeepComparatorAntiSymmetric_whenOneFeeIsNull() {
+        BillingOnClaimLoader claimLoader = mock(BillingOnClaimLoader.class);
+        when(claimLoader.getCodeFeeResult("NULL", "2026-04-01"))
+                .thenReturn(BillingOnClaimLoader.FeeLookupResult.found(null));
+        when(claimLoader.getCodeFeeResult("PAID", "2026-04-01"))
+                .thenReturn(BillingOnClaimLoader.FeeLookupResult.found("15.00"));
+        BillingReviewFeeComparator comparator =
+                new BillingReviewFeeComparator(claimLoader, "2026-04-01");
+
+        BillingReviewServiceParam nullFee = new BillingReviewServiceParam("NULL", "1", "");
+        BillingReviewServiceParam paid = new BillingReviewServiceParam("PAID", "1", "");
+
+        assertThat(comparator.compare(nullFee, paid)).isNegative();
+        assertThat(comparator.compare(paid, nullFee)).isPositive();
+        assertThat(comparator.compare(nullFee, nullFee)).isZero();
+    }
 }

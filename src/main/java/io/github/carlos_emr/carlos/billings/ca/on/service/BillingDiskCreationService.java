@@ -152,8 +152,12 @@ public class BillingDiskCreationService {
                 return diskNameAllocationTx.execute(status ->
                         claimPersister.addBillingDiskName(newSoloDiskName(providerNo, creator, ohipNo)));
             } catch (RuntimeException e) {
-                if (attempt == DISK_NAME_INSERT_RETRIES || !isDuplicateDiskNameFailure(e)) {
+                if (!isDuplicateDiskNameFailure(e)) {
                     throw e;
+                }
+                if (attempt == DISK_NAME_INSERT_RETRIES) {
+                    throw new BillingValidationException(
+                            "Unable to allocate unique solo billing disk name for provider " + providerNo, e);
                 }
             }
         }
@@ -167,8 +171,12 @@ public class BillingDiskCreationService {
                 return diskNameAllocationTx.execute(status ->
                         claimPersister.addBillingDiskName(newGroupDiskName(providerNo, ohipNo, groupNo, creator)));
             } catch (RuntimeException e) {
-                if (attempt == DISK_NAME_INSERT_RETRIES || !isDuplicateDiskNameFailure(e)) {
+                if (!isDuplicateDiskNameFailure(e)) {
                     throw e;
+                }
+                if (attempt == DISK_NAME_INSERT_RETRIES) {
+                    throw new BillingValidationException(
+                            "Unable to allocate unique group billing disk name for group " + groupNo, e);
                 }
             }
         }

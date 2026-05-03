@@ -106,9 +106,9 @@ public class OnRaImportService {
             remittanceAdviceService.importRAFile(safeFile.getPath());
             return ImportOutcome.IMPORTED;
         } catch (SecurityException e) {
-            MiscUtils.getLogger().warn(
+            MiscUtils.getLogger().error(
                     "Blocked unsafe RA import filename '{}'",
-                    LogSanitizer.sanitize(filename));
+                    LogSanitizer.sanitize(filename), e);
             return ImportOutcome.BLOCKED_PATH;
         } catch (Exception e) {
             MiscUtils.getLogger().error(

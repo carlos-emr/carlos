@@ -152,6 +152,7 @@ public class BillingEditWithApptNoViewModelAssembler {
         int serviceN = 0;
         int servicesCheckedNum = 0;
         String curBillForm = "";
+        boolean serviceFieldsLoadFailed = false;
         if (!billNo.isEmpty()) {
             try {
                 List<BillingONItem> items = itemDao.getActiveBillingItemByCh1Id(ConversionUtils.fromIntString(billNo));
@@ -190,11 +191,13 @@ public class BillingEditWithApptNoViewModelAssembler {
                 MiscUtils.getLogger().error(
                         "Failed to load billing items for bill {}; rendering form with empty service fields",
                         LogSanitizer.sanitize(billNo), e);
+                serviceFieldsLoadFailed = true;
             }
         }
         b.serviceFields(serviceFields)
                 .servicesCheckedNum(servicesCheckedNum)
                 .curBillForm(curBillForm)
+                .serviceFieldsLoadFailed(serviceFieldsLoadFailed)
                 .billForm(billForm);
 
         return b.build();

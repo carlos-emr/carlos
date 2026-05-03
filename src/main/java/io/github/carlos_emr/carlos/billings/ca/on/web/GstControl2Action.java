@@ -76,7 +76,8 @@ public class GstControl2Action extends ActionSupport implements ServletRequestAw
         if (submittedPercent != null) {
             submittedPercent = submittedPercent.trim();
         }
-        if (submittedPercent != null && !submittedPercent.isEmpty()) {
+        if (submittedPercent != null && !submittedPercent.isEmpty()
+                && "POST".equalsIgnoreCase(request.getMethod())) {
             try {
                 gstSettingsService.setCurrentPercent(new BigDecimal(submittedPercent));
             } catch (NumberFormatException e) {

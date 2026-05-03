@@ -40,6 +40,12 @@
 </c:when>
 <c:otherwise>
 
+<c:if test="${editApptModel.serviceFieldsLoadFailed}">
+    <div class="alert alert-warning" role="alert">
+        Existing billing service lines could not be loaded. Review this bill before resubmitting.
+    </div>
+</c:if>
+
 <form method="post" name="editBillingForm" action="/billing">
     <input type="hidden" name="billNo_old" id="billNo_old" value="${carlos:forHtmlAttribute(editApptModel.billNo)}"/>
     <input type="hidden" name="billStatus_old" id="billStatus_old" value="${carlos:forHtmlAttribute(editApptModel.status)}"/>

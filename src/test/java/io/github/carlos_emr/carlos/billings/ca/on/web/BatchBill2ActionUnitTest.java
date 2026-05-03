@@ -26,6 +26,7 @@ import java.util.List;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingRemovalService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnHeaderCreationService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingSubmissionService;
 import io.github.carlos_emr.carlos.commn.dao.BatchBillingDAO;
@@ -83,6 +84,9 @@ class BatchBill2ActionUnitTest extends CarlosUnitTestBase {
     private BatchBillingSubmissionService batchBillingSubmissionService;
 
     @Mock
+    private BatchBillingRemovalService batchBillingRemovalService;
+
+    @Mock
     private io.github.carlos_emr.carlos.billings.ca.on.assembler.BatchBillingViewModelAssembler batchBillingAssembler;
 
     @Mock
@@ -106,6 +110,7 @@ class BatchBill2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(BillingOnHeaderCreationService.class, headerCreationService);
         registerMock(BatchBillingDAO.class, batchBillingDAO);
         registerMock(BatchBillingSubmissionService.class, batchBillingSubmissionService);
+        registerMock(BatchBillingRemovalService.class, batchBillingRemovalService);
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
@@ -149,7 +154,7 @@ class BatchBill2ActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("method", "doBatchBill");
         request.setParameter("bill", "A007A;250;42;999998");
 
-        String result = new BatchBill2Action(headerCreationService, securityInfoManager, batchBillingAssembler).execute();
+        String result = action().execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
@@ -163,7 +168,7 @@ class BatchBill2ActionUnitTest extends CarlosUnitTestBase {
         request.setMethod("POST");
         request.setParameter("bill", "A007A;250;42;999998");
 
-        String result = new BatchBill2Action(headerCreationService, securityInfoManager, batchBillingAssembler).doBatchBill();
+        String result = action().doBatchBill();
 
         assertThat(result).isNull();
         verify(batchBillingSubmissionService)
@@ -181,7 +186,7 @@ class BatchBill2ActionUnitTest extends CarlosUnitTestBase {
         request.setMethod("POST");
         request.setParameter("bill", "A007A;42;999998");
 
-        String result = new BatchBill2Action(headerCreationService, securityInfoManager, batchBillingAssembler).doBatchBill();
+        String result = action().doBatchBill();
 
         assertThat(result).isEqualTo(ActionSupport.ERROR);
         verify(batchBillingSubmissionService, never())
@@ -203,8 +208,7 @@ class BatchBill2ActionUnitTest extends CarlosUnitTestBase {
                         "A008A;251;NOT_NUMERIC;999998"          // row 1: malformed demo no
                 });
 
-        String result = new BatchBill2Action(
-                headerCreationService, securityInfoManager, batchBillingAssembler).doBatchBill();
+        String result = action().doBatchBill();
 
         assertThat(result).isEqualTo(ActionSupport.ERROR);
         // No bills persisted — neither row 0 nor row 1.
@@ -220,8 +224,7 @@ class BatchBill2ActionUnitTest extends CarlosUnitTestBase {
                 .when(batchBillingSubmissionService)
                 .submitAll(any(), any(), any(), any());
 
-        String result = new BatchBill2Action(
-                headerCreationService, securityInfoManager, batchBillingAssembler).doBatchBill();
+        String result = action().doBatchBill();
 
         assertThat(result).isEqualTo(ActionSupport.ERROR);
         assertThat(request.getAttribute("error")).isNotNull();
@@ -244,7 +247,7 @@ class BatchBill2ActionUnitTest extends CarlosUnitTestBase {
 
         // Executing.
         try {
-            new BatchBill2Action(headerCreationService, securityInfoManager, batchBillingAssembler).execute();
+            action().execute();
         } catch (Exception ignore) {
             // Body may throw if the assembler fails to assemble; the
             // load-bearing assertion is still that no bills were persisted.
@@ -262,17 +265,12 @@ class BatchBill2ActionUnitTest extends CarlosUnitTestBase {
         // the offending Row, and (4) return ERROR. Without these the
         // operator sees the same opaque 500 the typed exception was
         // designed to replace.
-        io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingRemovalService removalService =
-                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingRemovalService.class);
-        registerMock(io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingRemovalService.class,
-                removalService);
-
-        io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingRemovalService.Row missing =
-                new io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingRemovalService.Row(
+        BatchBillingRemovalService.Row missing =
+                new BatchBillingRemovalService.Row(
                         9999, "Z999Z");
         org.mockito.Mockito.doThrow(
-                new io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingRemovalService.RemovalRowMissingException(missing))
-                .when(removalService).removeAll(org.mockito.ArgumentMatchers.anyList());
+                new BatchBillingRemovalService.RemovalRowMissingException(missing))
+                .when(batchBillingRemovalService).removeAll(org.mockito.ArgumentMatchers.anyList());
 
         request.setMethod("POST");
         request.setParameter("method", "remove");
@@ -281,7 +279,7 @@ class BatchBill2ActionUnitTest extends CarlosUnitTestBase {
         // Spy + stub getText: ActionSupport.getText needs a Struts
         // Container that isn't wired in unit context.
         BatchBill2Action action = org.mockito.Mockito.spy(
-                new BatchBill2Action(headerCreationService, securityInfoManager, batchBillingAssembler));
+                action());
         org.mockito.Mockito.doReturn("Row not found: 9999/Z999Z")
                 .when(action).getText(org.mockito.ArgumentMatchers.anyString(),
                         org.mockito.ArgumentMatchers.any(String[].class));
@@ -298,23 +296,27 @@ class BatchBill2ActionUnitTest extends CarlosUnitTestBase {
         // constraint, etc.) is rethrown so it surfaces as the existing
         // 500-with-stack-trace path. The separate RemovalRowMissingException
         // catch must NOT swallow these.
-        io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingRemovalService removalService =
-                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingRemovalService.class);
-        registerMock(io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingRemovalService.class,
-                removalService);
-
         org.mockito.Mockito.doThrow(new RuntimeException("DB outage simulation"))
-                .when(removalService).removeAll(org.mockito.ArgumentMatchers.anyList());
+                .when(batchBillingRemovalService).removeAll(org.mockito.ArgumentMatchers.anyList());
 
         request.setMethod("POST");
         request.setParameter("method", "remove");
         request.setParameter("bill", "A007A;250;42;999998");
 
-        BatchBill2Action action =
-                new BatchBill2Action(headerCreationService, securityInfoManager, batchBillingAssembler);
+        BatchBill2Action action = action();
 
         org.assertj.core.api.Assertions.assertThatThrownBy(action::execute)
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("DB outage simulation");
+    }
+
+    private BatchBill2Action action() {
+        return new BatchBill2Action(
+                headerCreationService,
+                securityInfoManager,
+                batchBillingAssembler,
+                batchBillingSubmissionService,
+                batchBillingRemovalService,
+                batchBillingDAO);
     }
 }

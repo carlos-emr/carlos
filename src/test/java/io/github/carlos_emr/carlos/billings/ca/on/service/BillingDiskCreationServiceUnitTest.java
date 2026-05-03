@@ -208,6 +208,23 @@ class BillingDiskCreationServiceUnitTest {
     }
 
     @Test
+    void shouldThrowValidation_whenSoloDiskNameCollisionsExhaustRetries() {
+        Properties refreshed = new Properties();
+        refreshed.setProperty("999998", "054321");
+        when(lookupService.getPropProviderOHIP()).thenReturn(refreshed);
+        String monthCode = currentMonthCode();
+        when(diskLoader.getLatestSoloMonthCodeBatchNum("054321"))
+                .thenReturn(null, new String[]{monthCode, "1"}, new String[]{monthCode, "2"});
+        when(claimPersister.addBillingDiskName(org.mockito.ArgumentMatchers.any(BillingDiskNameDto.class)))
+                .thenThrow(new org.springframework.dao.DataIntegrityViolationException(
+                        "billing_on_diskname_ohipfilename_uq"));
+
+        assertThatThrownBy(() -> service.createNewSoloDiskName("999998", "creator"))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("Unable to allocate unique solo billing disk name");
+    }
+
+    @Test
     void shouldRetryGroupDiskName_whenGeneratedFilenameCollides() {
         String monthCode = currentMonthCode();
         when(diskLoader.getLatestGrpMonthCodeBatchNum("1234"))

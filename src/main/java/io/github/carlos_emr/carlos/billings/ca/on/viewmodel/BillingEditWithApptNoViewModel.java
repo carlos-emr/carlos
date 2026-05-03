@@ -88,6 +88,7 @@ public final class BillingEditWithApptNoViewModel {
 
     private final List<HiddenServiceField> serviceFields;
     private final int servicesCheckedNum;
+    private final boolean serviceFieldsLoadFailed;
 
     private BillingEditWithApptNoViewModel(Builder b) {
         this.billedItemBlocked = b.billedItemBlocked;
@@ -128,6 +129,7 @@ public final class BillingEditWithApptNoViewModel {
                 ? Collections.<HiddenServiceField>emptyList()
                 : Collections.unmodifiableList(b.serviceFields);
         this.servicesCheckedNum = b.servicesCheckedNum;
+        this.serviceFieldsLoadFailed = b.serviceFieldsLoadFailed;
     }
 
     public static Builder builder() { return new Builder(); }
@@ -168,6 +170,7 @@ public final class BillingEditWithApptNoViewModel {
     public String getCurBillForm() { return curBillForm; }
     public List<HiddenServiceField> getServiceFields() { return serviceFields; }
     public int getServicesCheckedNum() { return servicesCheckedNum; }
+    public boolean isServiceFieldsLoadFailed() { return serviceFieldsLoadFailed; }
 
     /**
      * One hidden-service-field record. Mirrors the legacy if/else inside the
@@ -244,6 +247,7 @@ public final class BillingEditWithApptNoViewModel {
         private String curBillForm;
         private List<HiddenServiceField> serviceFields;
         private int servicesCheckedNum;
+        private boolean serviceFieldsLoadFailed;
 
         public Builder billedItemBlocked(boolean v) { this.billedItemBlocked = v; return this; }
         public Builder apptProviderNo(String v) { this.apptProviderNo = v; return this; }
@@ -281,6 +285,7 @@ public final class BillingEditWithApptNoViewModel {
         public Builder curBillForm(String v) { this.curBillForm = v; return this; }
         public Builder serviceFields(List<HiddenServiceField> v) { this.serviceFields = v; return this; }
         public Builder servicesCheckedNum(int v) { this.servicesCheckedNum = v; return this; }
+        public Builder serviceFieldsLoadFailed(boolean v) { this.serviceFieldsLoadFailed = v; return this; }
 
         public BillingEditWithApptNoViewModel build() { return new BillingEditWithApptNoViewModel(this); }
     }

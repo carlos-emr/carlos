@@ -70,11 +70,9 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  * 590-line service had no test partner before this refactor, so any regression
  * that demoted these throws to a swallow would otherwise pass CI silently.
  *
- * <p>Note that {@code OhipClaimFileService.writeFile} concatenates the
- * {@code HOME_DIR} property with the {@code ohipFilename} field directly via
- * {@code FileOutputStream(String)} — no {@code PathValidationUtils} on this
- * class (a should-fix follow-up). This test focuses on the exception-
- * propagation contract, not on path-traversal hardening.</p>
+ * <p>The write path also validates generated filenames with
+ * {@code PathValidationUtils}; traversal attempts must fail before opening the
+ * target stream.</p>
  */
 @DisplayName("OhipClaimFileService write-path")
 @Tag("unit")

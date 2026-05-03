@@ -258,4 +258,17 @@ class BillingMoneyUnitTest {
                 .hasMessageContaining("total")
                 .hasMessageContaining("cannot be negative");
     }
+
+    @Test
+    void shouldRejectNonDigitStoredCentStrings_forFixedWidthInputs() {
+        assertThatThrownBy(() -> BillingMoney.storedCents("12.34", "total"))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("malformed");
+        assertThatThrownBy(() -> BillingMoney.storedCents("1E3", "total"))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("malformed");
+        assertThatThrownBy(() -> BillingMoney.storedCents("+100", "total"))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("malformed");
+    }
 }

@@ -56,6 +56,7 @@ import io.github.carlos_emr.carlos.commn.model.RaDetail;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.web.BillingOnPayment2Action;
 
@@ -145,14 +146,25 @@ public class BillingOnPaymentViewModelAssembler {
         String errorMsg = "";
         Date startDate = null;
         Date endDate = null;
+        boolean dateParseFailed = false;
         try {
             startDate = DateUtils.parseDate(startDateStr, locale);
-            endDate = DateUtils.parseDate(endDateStr, locale);
-            if (DateUtils.calculateDayDifference(startDate, endDate) < 0) {
-                errorMsg = LocaleUtils.getMessage(locale, "oscar.billing.paymentReceived.errorEndDateGreater");
-            }
         } catch (ParseException e) {
+            dateParseFailed = true;
+            MiscUtils.getLogger().warn("Invalid billing payment start date [{}]",
+                    LogSanitizer.sanitize(startDateStr), e);
             errorMsg = LocaleUtils.getMessage(locale, "oscar.billing.paymentReceived.errorOnDate");
+        }
+        try {
+            endDate = DateUtils.parseDate(endDateStr, locale);
+        } catch (ParseException e) {
+            dateParseFailed = true;
+            MiscUtils.getLogger().warn("Invalid billing payment end date [{}]",
+                    LogSanitizer.sanitize(endDateStr), e);
+            errorMsg = LocaleUtils.getMessage(locale, "oscar.billing.paymentReceived.errorOnDate");
+        }
+        if (!dateParseFailed && DateUtils.calculateDayDifference(startDate, endDate) < 0) {
+            errorMsg = LocaleUtils.getMessage(locale, "oscar.billing.paymentReceived.errorEndDateGreater");
         }
 
         Provider currentProvider = providerDao.getProvider(curProviderNo);

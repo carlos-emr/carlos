@@ -95,6 +95,12 @@ public class GenerateRaSummaryViewModelAssembler {
 
         GenerateRaSummaryViewModel.Builder b = GenerateRaSummaryViewModel.builder().raNo(nullToEmpty(raNoStr));
         if (raNo == null) {
+            if (raNoStr != null && !raNoStr.trim().isEmpty()) {
+                MiscUtils.getLogger().warn("GenerateRaSummary: invalid RA number [{}]",
+                        LogSanitizer.sanitize(raNoStr));
+                b.raFileIncomplete(true)
+                        .raFileWarning("Invalid RA number; no RA summary file was loaded.");
+            }
             return b.build();
         }
 

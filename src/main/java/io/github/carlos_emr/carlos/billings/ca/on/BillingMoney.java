@@ -68,19 +68,18 @@ public record BillingMoney(BigDecimal amount, Currency currency) implements Comp
             throw new BillingValidationException(
                     "BillingMoney: " + fieldName + " is null or blank");
         }
-        BigDecimal cents;
-        try {
-            cents = new BigDecimal(raw.trim());
-        } catch (NumberFormatException e) {
-            throw new BillingValidationException(
-                    "BillingMoney: malformed " + fieldName + " ["
-                            + LogSanitizer.sanitizeForDisplay(raw) + "]", e);
-        }
-        if (cents.signum() < 0) {
+        String trimmed = raw.trim();
+        if (trimmed.startsWith("-")) {
             throw new BillingValidationException(
                     "BillingMoney: " + fieldName + " cannot be negative ["
                             + LogSanitizer.sanitizeForDisplay(raw) + "]");
         }
+        if (!trimmed.matches("\\d+")) {
+            throw new BillingValidationException(
+                    "BillingMoney: malformed " + fieldName + " ["
+                            + LogSanitizer.sanitizeForDisplay(raw) + "]");
+        }
+        BigDecimal cents = new BigDecimal(trimmed);
         return cad(cents.movePointLeft(MONEY_SCALE));
     }
 

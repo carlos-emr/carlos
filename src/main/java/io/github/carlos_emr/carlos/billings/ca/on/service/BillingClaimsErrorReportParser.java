@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Objects;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimsErrorReportRecordDto;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 /**
  * Parses fixed-format Ontario claims error report files.
@@ -186,6 +187,10 @@ public class BillingClaimsErrorReportParser {
             verdict = false;
             claimsErrorReportRecords.clear();
             MiscUtils.getLogger().error("Claims-error parse failed (malformed record layout), verdict=false", ioe);
+        } catch (BillingValidationException e) {
+            verdict = false;
+            claimsErrorReportRecords.clear();
+            MiscUtils.getLogger().error("Claims-error parse failed (malformed amount), verdict=false", e);
         }
 
         return verdict;

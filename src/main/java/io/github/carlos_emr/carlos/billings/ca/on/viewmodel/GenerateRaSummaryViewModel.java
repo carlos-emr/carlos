@@ -71,6 +71,8 @@ public final class GenerateRaSummaryViewModel {
     private final String raHeaderLocalTotal;
     private final String otherPayTotal;
     private final String coTotal;
+    private final boolean raFileIncomplete;
+    private final String raFileWarning;
 
     public record ProviderOption(String ohipNo, String displayName, boolean selected) {}
 
@@ -112,6 +114,8 @@ public final class GenerateRaSummaryViewModel {
         this.raHeaderLocalTotal = nullToZero(b.raHeaderLocalTotal);
         this.otherPayTotal = nullToZero(b.otherPayTotal);
         this.coTotal = nullToZero(b.coTotal);
+        this.raFileIncomplete = b.raFileIncomplete;
+        this.raFileWarning = BillingViewStrings.nullToEmpty(b.raFileWarning);
     }
     private static String nullToZero(String s) { return s == null ? "0.00" : s; }
 
@@ -129,6 +133,8 @@ public final class GenerateRaSummaryViewModel {
     public String getRaHeaderLocalTotal() { return raHeaderLocalTotal; }
     public String getOtherPayTotal() { return otherPayTotal; }
     public String getCoTotal() { return coTotal; }
+    public boolean isRaFileIncomplete() { return raFileIncomplete; }
+    public String getRaFileWarning() { return raFileWarning; }
 
     public static final class Builder {
         private String raNo;
@@ -143,6 +149,8 @@ public final class GenerateRaSummaryViewModel {
         private String raHeaderLocalTotal;
         private String otherPayTotal;
         private String coTotal;
+        private boolean raFileIncomplete;
+        private String raFileWarning;
 
         public Builder raNo(String v) { this.raNo = v; return this; }
         public Builder selectedProviderOhipNo(String v) { this.selectedProviderOhipNo = v; return this; }
@@ -157,6 +165,8 @@ public final class GenerateRaSummaryViewModel {
         public Builder raHeaderLocalTotal(String v) { this.raHeaderLocalTotal = v; return this; }
         public Builder otherPayTotal(String v) { this.otherPayTotal = v; return this; }
         public Builder coTotal(String v) { this.coTotal = v; return this; }
+        public Builder raFileIncomplete(boolean v) { this.raFileIncomplete = v; return this; }
+        public Builder raFileWarning(String v) { this.raFileWarning = v; return this; }
 
         public GenerateRaSummaryViewModel build() { return new GenerateRaSummaryViewModel(this); }
     }

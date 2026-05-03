@@ -89,11 +89,8 @@ public class BillingLegacyReport2Action extends ActionSupport {
             xslName = "OU";
         }
 
-        // Mirror the legacy guard: refuse names containing ".." (the
-        // pattern was {@code .matches(".*\\.\\..*")}). PathValidationUtils
-        // gives us a stronger canonicalisation check on top.
         String fileContents = "";
-        if (!filename.isEmpty() && !filename.contains("..")) {
+        if (!filename.isEmpty()) {
             try {
                 String inbox = CarlosProperties.getInstance().getProperty("ONEDT_INBOX");
                 if (inbox != null && !inbox.isEmpty()) {

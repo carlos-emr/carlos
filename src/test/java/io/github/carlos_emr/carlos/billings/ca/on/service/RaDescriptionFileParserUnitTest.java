@@ -80,7 +80,7 @@ class RaDescriptionFileParserUnitTest {
         assertThat(parsed.cheque()).isEqualTo("12.34");
         assertThat(parsed.recordCount()).isEqualTo(1);
         assertThat(parsed.claimCount()).isEqualTo(1);
-        assertThat(parsed.balanceForwardRow().claimsAdjustment()).isEqualTo("0000001.111");
+        assertThat(parsed.balanceForwardRow().claimsAdjustment()).isEqualTo("0000001.11");
         assertThat(parsed.transactionRows()).singleElement().satisfies(row -> {
             assertThat(row.transaction()).isEqualTo("Accounting adjustment");
             assertThat(row.chequeIssued()).isEqualTo("Computer Cheque issued");
@@ -95,18 +95,18 @@ class RaDescriptionFileParserUnitTest {
         Files.writeString(tempDir.resolve(filename), String.join(System.lineSeparator(),
                 h1Line("20260428", "000001234", "-"),
                 h6Line("-", "-", "-", "-"),
-                h7Line("20", "C", "000123450", "-", "negative adjustment")), StandardCharsets.ISO_8859_1);
+                h7Line("20", "C", "00123450", "-", "negative adjustment")), StandardCharsets.ISO_8859_1);
 
         RaDescriptionFileParser.ParsedFile parsed = parser.parse(filename);
 
         assertThat(parsed.isCompleteForHeaderMerge()).isTrue();
         assertThat(parsed.cheque()).isEqualTo("-12.34");
-        assertThat(parsed.balanceForwardRow().claimsAdjustment()).isEqualTo("-0000001.111");
-        assertThat(parsed.balanceForwardRow().advances()).isEqualTo("-0000002.222");
-        assertThat(parsed.balanceForwardRow().reductions()).isEqualTo("-0000003.333");
-        assertThat(parsed.balanceForwardRow().deductions()).isEqualTo("-0000004.444");
+        assertThat(parsed.balanceForwardRow().claimsAdjustment()).isEqualTo("-0000001.11");
+        assertThat(parsed.balanceForwardRow().advances()).isEqualTo("-0000002.22");
+        assertThat(parsed.balanceForwardRow().reductions()).isEqualTo("-0000003.33");
+        assertThat(parsed.balanceForwardRow().deductions()).isEqualTo("-0000004.44");
         assertThat(parsed.transactionRows()).singleElement().satisfies(row ->
-                assertThat(row.amount()).isEqualTo("-000123.450"));
+                assertThat(row.amount()).isEqualTo("-001234.50"));
     }
 
     @Test
@@ -136,6 +136,36 @@ class RaDescriptionFileParserUnitTest {
                 .isEqualTo(RaDescriptionFileParser.ParseFailureReason.MISSING_FILENAME);
     }
 
+    @Test
+    void shouldReportSecurityRejected_whenFilenameIsHidden() {
+        RaDescriptionFileParser.ParsedFile parsed = parser.parse(".ra-desc.txt");
+
+        assertThat(parsed.isCompleteForHeaderMerge()).isFalse();
+        assertThat(parsed.parseFailureReason())
+                .isEqualTo(RaDescriptionFileParser.ParseFailureReason.SECURITY_REJECTED);
+    }
+
+    @Test
+    void shouldReportIoError_whenFilenameDoesNotExist() {
+        RaDescriptionFileParser.ParsedFile parsed = parser.parse("missing-ra-desc.txt");
+
+        assertThat(parsed.isCompleteForHeaderMerge()).isFalse();
+        assertThat(parsed.parseFailureReason())
+                .isEqualTo(RaDescriptionFileParser.ParseFailureReason.IO_ERROR);
+    }
+
+    @Test
+    void shouldReportIncompleteHeader_whenH1CannotBeDecoded() throws Exception {
+        String filename = "ra-desc-short-h1.txt";
+        Files.writeString(tempDir.resolve(filename), "H01too-short", StandardCharsets.ISO_8859_1);
+
+        RaDescriptionFileParser.ParsedFile parsed = parser.parse(filename);
+
+        assertThat(parsed.isCompleteForHeaderMerge()).isFalse();
+        assertThat(parsed.parseFailureReason())
+                .isEqualTo(RaDescriptionFileParser.ParseFailureReason.INCOMPLETE_HEADER);
+    }
+
     private static String h1Line(String paymentDate, String rawTotal, String status) {
         StringBuilder line = new StringBuilder(" ".repeat(77));
         replace(line, 0, "H");
@@ -153,19 +183,20 @@ class RaDescriptionFileParserUnitTest {
     private static String h6Line(String claimsSign, String advanceSign,
                                  String reductionSign, String deductionSign) {
         return "H06"
-                + "0000001" + "111" + claimsSign
-                + "0000002" + "222" + advanceSign
-                + "0000003" + "333" + reductionSign
-                + "0000004" + "444" + deductionSign;
+                + "000000111" + claimsSign
+                + "000000222" + advanceSign
+                + "000000333" + reductionSign
+                + "000000444" + deductionSign;
     }
 
     private static String h7Line(String transactionCode, String chequeIndicator, String message) {
-        return h7Line(transactionCode, chequeIndicator, "000123450", "", message);
+        return h7Line(transactionCode, chequeIndicator, "00123450", "", message);
     }
 
     private static String h7Line(String transactionCode, String chequeIndicator,
                                  String amount, String sign, String message) {
-        return "H07" + transactionCode + chequeIndicator + "20260428" + amount + sign
+        String signField = sign.isEmpty() ? " " : sign;
+        return "H07" + transactionCode + chequeIndicator + "20260428" + amount + signField
                 + String.format("%-50s", message);
     }
 

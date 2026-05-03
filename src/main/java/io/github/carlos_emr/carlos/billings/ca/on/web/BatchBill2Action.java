@@ -38,6 +38,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.commons.lang3.time.DateUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.assembler.BatchBillingViewModelAssembler;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BatchBillingViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingRemovalService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingSubmissionService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnHeaderCreationService;
 import io.github.carlos_emr.carlos.commn.dao.BatchBillingDAO;
@@ -46,7 +47,6 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -65,13 +65,22 @@ public class BatchBill2Action extends ActionSupport {
     private final BillingOnHeaderCreationService headerCreationService;
     private final SecurityInfoManager securityInfoManager;
     private final BatchBillingViewModelAssembler batchBillingAssembler;
+    private final BatchBillingSubmissionService batchBillingSubmissionService;
+    private final BatchBillingRemovalService batchBillingRemovalService;
+    private final BatchBillingDAO batchBillingDAO;
 
     public BatchBill2Action(BillingOnHeaderCreationService headerCreationService,
                             SecurityInfoManager securityInfoManager,
-                            BatchBillingViewModelAssembler batchBillingAssembler) {
+                            BatchBillingViewModelAssembler batchBillingAssembler,
+                            BatchBillingSubmissionService batchBillingSubmissionService,
+                            BatchBillingRemovalService batchBillingRemovalService,
+                            BatchBillingDAO batchBillingDAO) {
         this.headerCreationService = headerCreationService;
         this.securityInfoManager = securityInfoManager;
         this.batchBillingAssembler = batchBillingAssembler;
+        this.batchBillingSubmissionService = batchBillingSubmissionService;
+        this.batchBillingRemovalService = batchBillingRemovalService;
+        this.batchBillingDAO = batchBillingDAO;
     }
 
 
@@ -241,8 +250,8 @@ public class BatchBill2Action extends ActionSupport {
                         row.serviceCode(), row.dxCode(), row.demographicNo(), row.providerNo()));
             }
             try {
-                BatchBillingSubmissionService.SubmitResult result = SpringUtils.getBean(BatchBillingSubmissionService.class)
-                        .submitAll(rows, clinic_view, billingDate, curUser);
+                BatchBillingSubmissionService.SubmitResult result =
+                        batchBillingSubmissionService.submitAll(rows, clinic_view, billingDate, curUser);
                 if (!result.failures().isEmpty()) {
                     MiscUtils.getLogger().warn("BatchBill doBatchBill: {} selected rows failed validation",
                             result.failures().size());
@@ -289,17 +298,16 @@ public class BatchBill2Action extends ActionSupport {
         // (stale row, FK constraint, concurrent edit) rolls back every
         // prior remove rather than silently desyncing the queue.
         if (billingInfo != null) {
-            java.util.List<io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingRemovalService.Row> rows =
+            java.util.List<BatchBillingRemovalService.Row> rows =
                     new java.util.ArrayList<>();
             for (int idx = 0; idx < billingInfo.length; ++idx) {
                 BatchBillRow row = parseBatchBillRow(billingInfo[idx]);
-                rows.add(new io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingRemovalService.Row(
+                rows.add(new BatchBillingRemovalService.Row(
                         row.demographicNo(), row.serviceCode()));
             }
             try {
-                SpringUtils.getBean(io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingRemovalService.class)
-                        .removeAll(rows);
-            } catch (io.github.carlos_emr.carlos.billings.ca.on.service.BatchBillingRemovalService.RemovalRowMissingException missing) {
+                batchBillingRemovalService.removeAll(rows);
+            } catch (BatchBillingRemovalService.RemovalRowMissingException missing) {
                 // The typed exception's whole point is its .row() field —
                 // without surfacing it the operator gets only an opaque
                 // 500 with no row identifier. Render the row id on the
@@ -346,7 +354,6 @@ public class BatchBill2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        BatchBillingDAO batchBillingDAO = (BatchBillingDAO) SpringUtils.getBean(BatchBillingDAO.class);
         String demographicNoParam = request.getParameter("demographic_no");
         if (demographicNoParam == null || demographicNoParam.trim().isEmpty()) {
             request.setAttribute("error", "Missing required parameter: demographic_no");

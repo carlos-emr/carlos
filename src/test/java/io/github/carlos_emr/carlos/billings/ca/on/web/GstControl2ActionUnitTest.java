@@ -34,8 +34,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
@@ -58,6 +58,7 @@ class GstControl2ActionUnitTest {
         when(gstSettingsService.getCurrentPercent()).thenReturn(new BigDecimal("13.00"));
         GstControl2Action action = new GstControl2Action(securityInfoManager, gstSettingsService);
         MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setMethod("POST");
         action.withServletRequest(request);
         action.setGstPercent("not-a-number");
 
@@ -67,5 +68,25 @@ class GstControl2ActionUnitTest {
         assertThat(action.getActionErrors()).contains("Invalid GST percent.");
         assertThat(request.getAttribute("gstControlModel")).isNotNull();
         verify(gstSettingsService, never()).setCurrentPercent(any(BigDecimal.class));
+    }
+
+    @Test
+    void shouldNotPersistGstPercent_whenRequestIsGet() {
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        GstSettingsService gstSettingsService = mock(GstSettingsService.class);
+        when(securityInfoManager.hasPrivilege(nullable(LoggedInInfo.class), eq("_admin.billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        when(gstSettingsService.getCurrentPercent()).thenReturn(new BigDecimal("13.00"));
+        GstControl2Action action = new GstControl2Action(securityInfoManager, gstSettingsService);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setMethod("GET");
+        action.withServletRequest(request);
+        action.setGstPercent("15.00");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        verify(gstSettingsService, never()).setCurrentPercent(any(BigDecimal.class));
+        assertThat(request.getAttribute("gstControlModel")).isNotNull();
     }
 }

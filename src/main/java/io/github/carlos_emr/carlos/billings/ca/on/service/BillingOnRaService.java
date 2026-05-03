@@ -322,10 +322,10 @@ public class BillingOnRaService {
                     // colspan='4'>Balance Forward Record - Amount Brought
                     // Forward (ABF)</td></tr><tr><td>Claims
                     // Adjustment</td><td>Advances</td><td>Reductions</td><td>Deductions</td></tr><tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr></table>";
-                    SignedRaAmount claimsAdjustment = signedRaAmount(nextline, 3, 7, 3);
-                    SignedRaAmount advances = signedRaAmount(nextline, claimsAdjustment.nextIndex(), 7, 3);
-                    SignedRaAmount reductions = signedRaAmount(nextline, advances.nextIndex(), 7, 3);
-                    SignedRaAmount deductions = signedRaAmount(nextline, reductions.nextIndex(), 7, 3);
+                    SignedRaAmount claimsAdjustment = signedRaAmount(nextline, 3, 7, 2);
+                    SignedRaAmount advances = signedRaAmount(nextline, claimsAdjustment.nextIndex(), 7, 2);
+                    SignedRaAmount reductions = signedRaAmount(nextline, advances.nextIndex(), 7, 2);
+                    SignedRaAmount deductions = signedRaAmount(nextline, reductions.nextIndex(), 7, 2);
                     abf_ca = claimsAdjustment.value();
                     abf_ad = advances.value();
                     abf_re = reductions.value();
@@ -349,11 +349,10 @@ public class BillingOnRaService {
                     trans_date = nextline.substring(6, 14);
                     String transAmountSign = "";
                     int transMessageStart = 23;
-                    if (nextline.length() > 23 && isRaSignChar(nextline.charAt(23))) {
-                        transAmountSign = nextline.substring(23, 24);
-                        transMessageStart = 24;
+                    if (nextline.length() > 22 && isRaSignChar(nextline.charAt(22))) {
+                        transAmountSign = nextline.substring(22, 23);
                     }
-                    trans_amount = formatRaSignedAmount(nextline.substring(14, 23), transAmountSign, 3, false);
+                    trans_amount = formatRaSignedAmount(nextline.substring(14, 22), transAmountSign, 2, false);
                     trans_message = nextline.substring(transMessageStart,
                             Math.min(nextline.length(), transMessageStart + 50));
 

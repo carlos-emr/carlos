@@ -53,6 +53,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingStatusLoader;
 import io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingOnStatus2Action;
@@ -378,9 +379,12 @@ public class BillingOnStatusViewModelAssembler {
                 try {
                     formattedFee = String.valueOf(Integer.parseInt(bObj.getFee()));
                 } catch (NumberFormatException nfe) {
+                    MiscUtils.getLogger().warn("Rejected-bill fee is not numeric for billingNo={} fee={}",
+                            LogSanitizer.sanitize(bObj.getBilling_no()),
+                            LogSanitizer.sanitize(bObj.getFee()), nfe);
                     formattedFee = "N/A";
                 }
-                String stdCurr = ch2StdCurrFromNoDot(formattedFee);
+                String stdCurr = "N/A".equals(formattedFee) ? "N/A" : ch2StdCurrFromNoDot(formattedFee);
                 boolean checked = !BillingONCHeader1.NOT_BILLED.equals(bObj.getStatus());
                 rows.add(new BillingOnStatusViewModel.RejectedBillRow(
                         bObj.getId(),

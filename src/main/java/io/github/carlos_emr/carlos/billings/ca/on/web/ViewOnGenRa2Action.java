@@ -30,7 +30,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.billings.ca.on.assembler.OnRaViewModelAssembler;
-import io.github.carlos_emr.carlos.billings.ca.on.service.OnRaImportService;
 
 /**
  * View gate for {@code billing/CA/ON/onGenRA.jsp}. Enforces {@code _billing}
@@ -48,14 +47,11 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.OnRaImportService;
 public class ViewOnGenRa2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
     private final OnRaViewModelAssembler assembler;
-    private final OnRaImportService importService;
 
     public ViewOnGenRa2Action(SecurityInfoManager securityInfoManager,
-                              OnRaViewModelAssembler assembler,
-                              OnRaImportService importService) {
+                              OnRaViewModelAssembler assembler) {
         this.securityInfoManager = securityInfoManager;
         this.assembler = assembler;
-        this.importService = importService;
     }
 
     @Override
@@ -71,15 +67,6 @@ public class ViewOnGenRa2Action extends ActionSupport {
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
-        }
-
-        OnRaImportService.ImportOutcome importOutcome = importService.importDocumentBeanFileOutcome(request);
-        if (!importOutcome.ok()) {
-            // Surface the failure to the JSP so the user sees an error banner
-            // rather than a clean post-import view. The page still renders so
-            // the existing RA list is still visible.
-            request.setAttribute("raImportFailed", Boolean.TRUE);
-            request.setAttribute("raImportOutcome", importOutcome.name());
         }
 
         OnRaViewModel model = assembler.assemble(request, loggedInInfo);

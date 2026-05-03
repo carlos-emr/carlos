@@ -214,6 +214,23 @@ public class BillingPaymentSaveService {
         }
     }
 
+    /**
+     * Atomically apply a header-status-only update under the same row lock used
+     * by full payment saves.
+     */
+    public void updateStatusOnly(int billNo, String newStatus) {
+        BillingONCHeader1 cheader1 = bCh1Dao.findForUpdate(billNo);
+        if (cheader1 == null) {
+            throw new BillingValidationException(
+                    "Bill " + billNo + " no longer exists; status not updated");
+        }
+        if (newStatus == null || newStatus.equals(cheader1.getStatus())) {
+            return;
+        }
+        cheader1.setStatusStrict(newStatus);
+        bCh1Dao.merge(cheader1);
+    }
+
     private Map<Integer, BillingONItem> requireExistingActionableItems(Command cmd) {
         Map<Integer, BillingONItem> billItemsById = new HashMap<>();
         for (Line line : cmd.items) {

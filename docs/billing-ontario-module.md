@@ -45,6 +45,8 @@ src/main/java/io/github/carlos_emr/carlos/billings/
 │   └── on/                                ← Ontario implementation (this doc)
 │       ├── BillingDates.java                top-level utility (date parsing / formatting)
 │       ├── BillingMoney.java                top-level utility (BigDecimal money helpers)
+│       ├── OhipDateParser.java              top-level OHIP date parser bridge
+│       ├── OhipScheduleDates.java           top-level Schedule of Benefits date normalizer
 │       ├── assembler/                       *ViewModelAssembler classes + composers/loaders
 │       ├── command/                         typed write/validation commands
 │       ├── dto/                             persistence/query transfer DTOs (incl. FeeSchedule* records)
@@ -382,12 +384,15 @@ known operation.
 | `BillingClaimsErrorReportImportService` | Import service | Claims error report upload/import workflow |
 | `BillingClaimsErrorReportParser` | Parser | Fixed-width claims error report parsing |
 | `BillingCodeLookupService` | Service | Legacy billing-code search and admin edit facade |
+| `BillingDataLoadException` | Exception | Typed read/load failure with phase and PHI-safe context |
 | `BillingCorrectionRecordService` | Service | Loads correction-record graph and applies operator edits |
 | `BillingCorrectionReviewPreparationService` | Service | Builds correction-review draft state after validation |
 | `BillingCorrectionService` | Service | `updateInvoice` + `addThirdPartyPayment` workflows |
 | `BillingCorrectionSubmissionService` | Service | Transactional correction submission persistence |
 | `BillingDiskCreationService` | Service | OHIP disk creation lifecycle |
 | `BillingEdtObecOutputSpecificationParser` | Parser | EDT OBEC output report parsing |
+| `BillingFileImportException` | Exception | Typed import failure for transactional rollback and user-facing upload errors |
+| `BillingFileWriteException` | Exception | Typed OHIP/MOH file write failure with sanitized filename context |
 | `BillingFormConfigurationService` | Service | Billing form/service/diagnosis/location configuration writes |
 | `BillingObecOutputApplyService` | Service | Applies parsed OBEC output records to batch eligibility state |
 | `BillingOnAuditLogService` | Service | Audit log writes |
@@ -403,6 +408,7 @@ known operation.
 | `BillingOnHistoryBalanceService` | Service | DAO-backed patient-bill balance lookup and partial-state reporting |
 | `BillingOnInvoiceTotalsService` | Service | `calculateBalanceOwing` — reads `BillingONCHeader1Dao` + `BillingONPaymentDao` (cross-DAO ⇒ `*Service` per layer-names rule 4) |
 | `BillingOnLookupService` | Service | Provider/team/site lookups + a few status writes (mixed) |
+| `BillingOnNewReportTotalsCalculator` | Calculator | BigDecimal totals accumulator for the new-report view model |
 | `BillingOnRaService` | Service | RA import + status updates |
 | `BillingOnReviewDiagPersister` | Persister | Diagnostic-code persistence on review save |
 | `BillingPaymentDeletionService` | Service | Transactional third-party payment deletion and balance refresh |
@@ -417,6 +423,7 @@ known operation.
 | `BillingThirdPartyService` | Service | Third-party billing workflow |
 | `BillingThirdPartyRecordService` | Service | Third-party record lifecycle |
 | `CssStyleDeletionService` | Service | Transactional CSS style deletion with billing-service cleanup |
+| `DiagDescriptionUpdateException` | Exception | Typed diagnostic-code description update failure |
 | `DiagCodeDescriptionPersister` | Persister | Diagnostic-code description update writes for `billingDigUpdate.jsp` |
 | `FeeScheduleImportService` | Service | Schedule of Benefits preview/apply workflow |
 | `FluBillingPersistenceService` | Service | Transactional flu billing header/detail persistence |

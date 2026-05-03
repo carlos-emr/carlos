@@ -144,27 +144,26 @@ public class RaDescriptionFileParser {
     }
 
     private static void parseH6(String line, ParsedFile out) {
-        if (line.length() < 43) return;
-        SignedField abfCa = signedField(line, 3, 7, 3);
-        SignedField abfAd = signedField(line, abfCa.nextIndex(), 7, 3);
-        SignedField abfRe = signedField(line, abfAd.nextIndex(), 7, 3);
-        SignedField abfDe = signedField(line, abfRe.nextIndex(), 7, 3);
+        if (line.length() < 39) return;
+        SignedField abfCa = signedField(line, 3, 7, 2);
+        SignedField abfAd = signedField(line, abfCa.nextIndex(), 7, 2);
+        SignedField abfRe = signedField(line, abfAd.nextIndex(), 7, 2);
+        SignedField abfDe = signedField(line, abfRe.nextIndex(), 7, 2);
         out.balanceForwardRow = new GenerateRaDescriptionViewModel.BalanceForwardRow(
                 abfCa.value(), abfAd.value(), abfRe.value(), abfDe.value());
     }
 
     private static void parseH7(String line, ParsedFile out) {
-        if (line.length() < 73) return;
+        if (line.length() < 72) return;
         String transCode = decodeTransCode(line.substring(3, 5));
         String chequeIndicator = decodeChequeIndicator(line.substring(5, 6));
         String transDate = line.substring(6, 14);
         String sign = "";
         int messageStart = 23;
-        if (line.length() > 23 && isSignChar(line.charAt(23))) {
-            sign = line.substring(23, 24);
-            messageStart = 24;
+        if (line.length() > 22 && isSignChar(line.charAt(22))) {
+            sign = line.substring(22, 23);
         }
-        String transAmount = formatSignedAmount(line.substring(14, 23), sign, 3, false);
+        String transAmount = formatSignedAmount(line.substring(14, 22), sign, 2, false);
         String transMessage = line.substring(messageStart, Math.min(line.length(), messageStart + 50));
         out.transactionRows.add(new GenerateRaDescriptionViewModel.TransactionRow(
                 transCode, transDate, chequeIndicator, transAmount, transMessage));

@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingPaymentDeletionService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingPaymentSaveService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.struts2.ServletActionContext;
@@ -90,6 +91,8 @@ class BillingOnPayments2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(BillingONExtDao.class, mock(BillingONExtDao.class));
         registerMock(BillingOnItemPaymentDao.class, mock(BillingOnItemPaymentDao.class));
         registerMock(BillingOnTransactionDao.class, mock(BillingOnTransactionDao.class));
+        registerMock(BillingPaymentSaveService.class, mock(BillingPaymentSaveService.class));
+        registerMock(BillingPaymentDeletionService.class, mock(BillingPaymentDeletionService.class));
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest)
                 .thenReturn(new MockHttpServletRequest());

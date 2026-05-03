@@ -37,6 +37,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -79,5 +80,24 @@ class GenerateRaSummaryViewModelAssemblerUnitTest {
                 .isInstanceOf(BillingValidationException.class)
                 .hasMessageContaining("invoicedAmount")
                 .hasMessageContaining("malformed");
+    }
+
+    @Test
+    void shouldExposeWarning_whenRaNumberIsMalformed() {
+        RaHeaderDao raHeaderDao = mock(RaHeaderDao.class);
+        RaDetailDao raDetailDao = mock(RaDetailDao.class);
+        ProviderDao providerDao = mock(ProviderDao.class);
+        BillingDao billingDao = mock(BillingDao.class);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("rano", "bad-ra");
+
+        GenerateRaSummaryViewModelAssembler assembler =
+                new GenerateRaSummaryViewModelAssembler(raHeaderDao, raDetailDao, providerDao, billingDao);
+
+        io.github.carlos_emr.carlos.billings.ca.on.viewmodel.GenerateRaSummaryViewModel model =
+                assembler.assemble(request, null);
+
+        assertThat(model.isRaFileIncomplete()).isTrue();
+        assertThat(model.getRaFileWarning()).contains("Invalid RA number");
     }
 }

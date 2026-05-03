@@ -265,9 +265,13 @@ class MissingBillingActionPrivilegeUnitTest extends CarlosUnitTestBase {
                 Arguments.of("ViewOnGenRa2Action", "_billing",
                         (ActionHarnessFactory) security -> {
                             OnRaViewModelAssembler assembler = mock(OnRaViewModelAssembler.class);
+                            return harness(() -> new ViewOnGenRa2Action(security, assembler).execute(),
+                                    assembler);
+                        }),
+                Arguments.of("ImportOnRa2Action", "_billing",
+                        (ActionHarnessFactory) security -> {
                             OnRaImportService service = mock(OnRaImportService.class);
-                            return harness(() -> new ViewOnGenRa2Action(security, assembler, service).execute(),
-                                    assembler, service);
+                            return harness(() -> new ImportOnRa2Action(security, service).execute(), service);
                         }),
                 Arguments.of("ViewOnGenRaError2Action", "_billing",
                         (ActionHarnessFactory) security -> {
@@ -315,9 +319,9 @@ class MissingBillingActionPrivilegeUnitTest extends CarlosUnitTestBase {
     }
 
     @org.junit.jupiter.api.Test
-    void should_include_benefit_schedule_view_action_in_privilege_coverage() {
+    void shouldIncludeBenefitScheduleViewAction_inPrivilegeCoverage() {
         assertThat(actionFactories().map(arguments -> (String) arguments.get()[0]))
-                .contains("ViewBenefitScheduleUpload2Action");
+                .contains("ViewBenefitScheduleUpload2Action", "ImportOnRa2Action");
     }
 
     @ParameterizedTest(name = "{0} rejects denied {1} privilege")

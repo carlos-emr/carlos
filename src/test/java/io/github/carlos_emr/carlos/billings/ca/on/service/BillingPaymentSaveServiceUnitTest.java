@@ -124,6 +124,21 @@ class BillingPaymentSaveServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldLockAndMergeHeader_whenStatusOnlyUpdateRequested() {
+        BillingONCHeader1 ch1 = headerWithPaidAndDemo(BigDecimal.ZERO, 7);
+        ch1.setStatus("O");
+        when(bCh1Dao.findForUpdate(101)).thenReturn(ch1);
+
+        svc.updateStatusOnly(101, "S");
+
+        assertThat(ch1.getStatus()).isEqualTo("S");
+        verify(bCh1Dao).findForUpdate(101);
+        verify(bCh1Dao).merge(ch1);
+        verify(bPaymentDao, never()).persist(any());
+        verify(thirdPartyService, never()).keyExists(anyString(), anyString());
+    }
+
+    @Test
     void shouldDelegateInOrder_whenAllSumsPositive() {
         BillingONCHeader1 ch1 = headerWithPaidAndDemo(new BigDecimal("0.00"), 7);
         when(bCh1Dao.findForUpdate(101)).thenReturn(ch1);

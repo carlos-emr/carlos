@@ -39,6 +39,12 @@
 <body bgcolor="#EBF4F5" text="#000000" leftmargin="0" topmargin="0"
       marginwidth="0" marginheight="0">
 
+<c:if test="${raSummaryModel.raFileIncomplete}">
+    <div class="alert alert-warning" role="alert">
+        <carlos:encode value="${raSummaryModel.raFileWarning}" context="html"/>
+    </div>
+</c:if>
+
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <tr bgcolor="#486ebd">
         <th align='LEFT'><input type='button' name='print' value='Print'

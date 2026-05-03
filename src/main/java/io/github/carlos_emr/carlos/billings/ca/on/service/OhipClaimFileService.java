@@ -439,7 +439,7 @@ public class OhipClaimFileService {
         ret += "    popup.focus();\n";
         ret += "  }\n";
         ret += "}\n//-->\n</script>\n";
-        ret += "\n<table width='100%' border='0' cellspacing='0' cellpadding='2' class='myIvory'>\n" + "<tr><td colspan='4' class='myGreen'>OHIP Invoice for OHIP No." + currentBatchHeader.getProviderRegNum() + "</td><td colspan='5' class='myGreen'>Payment date of " + output + "\n</td></tr>";
+        ret += "\n<table width='100%' border='0' cellspacing='0' cellpadding='2' class='myIvory'>\n" + "<tr><td colspan='4' class='myGreen'>OHIP Invoice for OHIP No." + html(currentBatchHeader.getProviderRegNum()) + "</td><td colspan='5' class='myGreen'>Payment date of " + html(output) + "\n</td></tr>";
         ret += "\n<tr><td class='myGreen'>ACCT NO</td>" + "<td width='25%' class='myGreen'>NAME</td><td class='myGreen'>HEALTH #</td>" + "<td class='myGreen'>BILLDATE</td><td class='myGreen'>CODE</td>" + "<td align='right' class='myGreen'>BILLED</td>" + "<td align='right' class='myGreen'>DX</td><td align='right' class='myGreen'>Comment</td>" + "<td align='centre' class='myGreen'>SITE</td></tr>";
         return ret;
     }
@@ -466,18 +466,18 @@ public class OhipClaimFileService {
                 ret += tdOpen + safeIdHtml + "</td>"
                         + tdOpen + safeDemoName + "</td>";
             }
-            ret += "<td class='" + styleClass + "'>" + (demo.getRosterStatus() == null ? "" : demo.getRosterStatus()) + "</td>"
-                    + "<td class='" + styleClass + "'>" + demo.getBirthDayAsString() + "</td>"
-                    + "<td class='" + styleClass + "'>" + demo.getSex() + "</td>"
-                    + "<td class='" + styleClass + "'>" + (currentClaimHeader.getHin() == null ? "" : currentClaimHeader.getHin()) + (currentClaimHeader.getVer() == null ? "" : currentClaimHeader.getVer()) + "</td>"
-                    + "<td class='" + styleClass + "'>" + currentClaimHeader.billingDate() + "</td>"
-                    + "<td class='" + styleClass + "'>" + currentItem.serviceCode() + "</td>"
-                    + "<td align='right' class='" + styleClass + "'>" + currentItem.getFee() + "</td>"
-                    + "<td align='right' class='" + styleClass + "'>" + currentItem.getDx() + "</td>"
+            ret += "<td class='" + styleClass + "'>" + html(demo.getRosterStatus()) + "</td>"
+                    + "<td class='" + styleClass + "'>" + html(demo.getBirthDayAsString()) + "</td>"
+                    + "<td class='" + styleClass + "'>" + html(demo.getSex()) + "</td>"
+                    + "<td class='" + styleClass + "'>" + html(currentClaimHeader.getHin(), currentClaimHeader.getVer()) + "</td>"
+                    + "<td class='" + styleClass + "'>" + html(currentClaimHeader.billingDate()) + "</td>"
+                    + "<td class='" + styleClass + "'>" + html(currentItem.serviceCode()) + "</td>"
+                    + "<td align='right' class='" + styleClass + "'>" + html(currentItem.getFee()) + "</td>"
+                    + "<td align='right' class='" + styleClass + "'>" + html(currentItem.getDx()) + "</td>"
                     + "<td class='" + styleClass + "'> &nbsp; &nbsp;" + referral + hcFlag + m_Flag + " </td></tr>";
         } else {
             ret = "\n<tr " + (summaryView ? "style='display:none;' class='record" + providerNo + "'" : "") + ">" + "<td class='" + styleClass + "'>&nbsp;</td>" + "<td class='" + styleClass + "'>&nbsp;</td> <td class='" + styleClass + "'>&nbsp;</td><td class='" + styleClass + "'>&nbsp;</td><td class='" + styleClass + "'>&nbsp;</td><td class='" + styleClass + "'>&nbsp;</td>" + "<td class='" + styleClass + "'>&nbsp;</td> <td class='" + styleClass + "'>&nbsp;</td>" + "<td class='" + styleClass + "'>"
-                    + currentItem.serviceCode() + "</td><td align='right' class='" + styleClass + "'>" + currentItem.getFee() + "</td><td align='right' class='" + styleClass + "'>" + currentItem.getDx() + "</td><td class='" + styleClass + "'>&nbsp;</td></tr>";
+                    + html(currentItem.serviceCode()) + "</td><td align='right' class='" + styleClass + "'>" + html(currentItem.getFee()) + "</td><td align='right' class='" + styleClass + "'>" + html(currentItem.getDx()) + "</td><td class='" + styleClass + "'>&nbsp;</td></tr>";
         }
         return ret;
     }
@@ -492,12 +492,24 @@ public class OhipClaimFileService {
             String billOnclick = onclickPopup(720, 740, contextPath + "/billing/CA/ON/BillingONCorrection?billing_no=" + safeBillId);
             String demoOnclick = onclickPopup(720, 740, contextPath + "/demographic/DemographicEdit?demographic_no=" + safeDemoNo);
             ret = "\n<tr><td class=\"myIvory\"><a href=\"#\" onclick=\"" + billOnclick + "\">" + safeIdHtml + "</a></td>"
-                    + "<td class=\"myIvory\"><a href=\"#\" onclick=\"" + demoOnclick + "\">" + safeDemoName + "</a></td><td class='myIvory'>" + currentClaimHeader.getHin()
-                    + currentClaimHeader.getVer() + "</td><td class='myIvory'>" + currentClaimHeader.billingDate() + "</td><td class='myIvory'>" + currentItem.serviceCode() + "</td><td align='right' class='myIvory'>" + currentItem.getFee() + "</td><td align='right' class='myIvory'>" + currentItem.getDx() + "</td><td class='myIvory'> &nbsp; &nbsp;" + referral + hcFlag + m_Flag + " </td>" + "<td bgcolor='" + clinicBgColor + "'> " + clinicShortName.get(currentClaimHeader.getClinic()) + "</td></tr>";
+                    + "<td class=\"myIvory\"><a href=\"#\" onclick=\"" + demoOnclick + "\">" + safeDemoName + "</a></td><td class='myIvory'>" + html(currentClaimHeader.getHin(), currentClaimHeader.getVer())
+                    + "</td><td class='myIvory'>" + html(currentClaimHeader.billingDate()) + "</td><td class='myIvory'>" + html(currentItem.serviceCode()) + "</td><td align='right' class='myIvory'>" + html(currentItem.getFee()) + "</td><td align='right' class='myIvory'>" + html(currentItem.getDx()) + "</td><td class='myIvory'> &nbsp; &nbsp;" + referral + hcFlag + m_Flag + " </td>" + "<td bgcolor='" + clinicBgColor + "'> " + html(clinicShortName.get(currentClaimHeader.getClinic())) + "</td></tr>";
         } else {
-            ret = "\n<tr><td class='myIvory'>&nbsp;</td> <td class='myIvory'>&nbsp;</td>" + "<td class='myIvory'>&nbsp;</td> <td class='myIvory'>&nbsp;</td>" + "<td class='myIvory'>" + currentItem.serviceCode() + "</td><td align='right' class='myIvory'>" + currentItem.getFee() + "</td><td align='right' class='myIvory'>" + currentItem.getDx() + "</td><td class='myIvory'>&nbsp;</td>" + "<td bgcolor='" + clinicBgColor + "'> " + clinicShortName.get(currentClaimHeader.getClinic()) + "</td></tr>";
+            ret = "\n<tr><td class='myIvory'>&nbsp;</td> <td class='myIvory'>&nbsp;</td>" + "<td class='myIvory'>&nbsp;</td> <td class='myIvory'>&nbsp;</td>" + "<td class='myIvory'>" + html(currentItem.serviceCode()) + "</td><td align='right' class='myIvory'>" + html(currentItem.getFee()) + "</td><td align='right' class='myIvory'>" + html(currentItem.getDx()) + "</td><td class='myIvory'>&nbsp;</td>" + "<td bgcolor='" + clinicBgColor + "'> " + html(clinicShortName.get(currentClaimHeader.getClinic())) + "</td></tr>";
         }
         return ret;
+    }
+
+    private static String html(Object... values) {
+        StringBuilder raw = new StringBuilder();
+        if (values != null) {
+            for (Object value : values) {
+                if (value != null) {
+                    raw.append(value);
+                }
+            }
+        }
+        return SafeEncode.forHtml(raw.toString());
     }
 
     private String buildHTMLContentTrailer(boolean simulation) {

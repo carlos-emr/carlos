@@ -224,7 +224,7 @@ try {
 ## Testing
 
 Tests are located at:
-`src/test-modern/java/io/github/carlos_emr/carlos/utility/PathValidationUtilsTest.java`
+`src/test/java/io/github/carlos_emr/carlos/utility/PathValidationUtilsTest.java`
 
 Run tests with:
 ```bash
