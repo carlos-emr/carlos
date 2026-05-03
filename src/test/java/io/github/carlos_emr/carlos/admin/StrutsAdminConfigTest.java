@@ -12,6 +12,7 @@
  */
 package io.github.carlos_emr.carlos.admin;
 
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -47,6 +48,13 @@ class StrutsAdminConfigTest {
     private static final Path ADMIN_CONFIG = Path.of(
             "src", "main", "webapp", "WEB-INF", "classes", "struts-admin.xml");
 
+    private static Document adminConfig;
+
+    @BeforeAll
+    static void parseAdminConfig() throws Exception {
+        adminConfig = parse(ADMIN_CONFIG);
+    }
+
     @Test
     @DisplayName("lookup list manager should render the migrated WEB-INF JSP")
     void shouldRenderMigratedWebInfJsp_forLookupListManagerAction() throws Exception {
@@ -62,9 +70,8 @@ class StrutsAdminConfigTest {
                 .isEqualTo("/WEB-INF/jsp/admin/lookUpLists/index.jsp");
     }
 
-    private Element findAction(String actionName) throws Exception {
-        Document doc = parse(ADMIN_CONFIG);
-        NodeList actions = doc.getElementsByTagName("action");
+    private Element findAction(String actionName) {
+        NodeList actions = adminConfig.getElementsByTagName("action");
         for (int i = 0; i < actions.getLength(); i++) {
             Element action = (Element) actions.item(i);
             if (actionName.equals(action.getAttribute("name"))) {
@@ -74,7 +81,7 @@ class StrutsAdminConfigTest {
         return null;
     }
 
-    private String extractSuccessResultPath(Element action) {
+    private static String extractSuccessResultPath(Element action) {
         NodeList results = action.getElementsByTagName("result");
         for (int i = 0; i < results.getLength(); i++) {
             Element result = (Element) results.item(i);
@@ -85,7 +92,7 @@ class StrutsAdminConfigTest {
         return "";
     }
 
-    private Document parse(Path configPath) throws Exception {
+    private static Document parse(Path configPath) throws Exception {
         DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
         dbf.setValidating(false);
         dbf.setNamespaceAware(false);
@@ -93,6 +100,9 @@ class StrutsAdminConfigTest {
         dbf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
         dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
         dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        // Struts config files declare a DOCTYPE; external DTD loading and all
+        // external entities stay disabled above, and the resolver below returns
+        // an empty local source so the parser never performs network access.
         dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", false);
         dbf.setXIncludeAware(false);
         dbf.setExpandEntityReferences(false);
@@ -105,7 +115,7 @@ class StrutsAdminConfigTest {
         }
     }
 
-    private Path resolveProjectPath(Path relativePath) {
+    private static Path resolveProjectPath(Path relativePath) {
         Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath();
         while (current != null) {
             Path candidate = current.resolve(relativePath);
