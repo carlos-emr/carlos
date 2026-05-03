@@ -77,6 +77,7 @@ import io.github.carlos_emr.CarlosProperties;
 public class HRMReportParser {
 
     private static Logger logger = MiscUtils.getLogger();
+    private static final Set<String> HRM_SCHEMA_IMPORTS = Set.of("ontariomd_hrm_dt.xsd");
 
     private HRMReportParser() {
     }
@@ -134,7 +135,7 @@ public class HRMReportParser {
                 factory.setResourceResolver(XmlUtils.createClasspathSchemaResolver(
                     HRMReportParser.class,
                     "/xsd/hrm/1.1.2/",
-                    Set.of("ontariomd_hrm_dt.xsd")));
+                    HRM_SCHEMA_IMPORTS));
                 File schemaFile = new ClassPathResource("/xsd/hrm/1.1.2/ontariomd_hrm.xsd").getFile();
                 Source schemaSource = new StreamSource(schemaFile);
                 Schema schema = factory.newSchema(schemaSource);

@@ -273,6 +273,9 @@ public final class XmlUtils {
      * security properties are recognized even when an older classpath Xerces
      * provider is present. Non-W3C schema languages still use the standard JAXP
      * provider lookup because the JDK default factory only supports W3C XML Schema.
+     *
+     * @param schemaLanguage the schema language URI
+     * @return SchemaFactory instance for the requested schema language
      */
     private static javax.xml.validation.SchemaFactory createSchemaFactoryInstance(String schemaLanguage) {
         if (XMLConstants.W3C_XML_SCHEMA_NS_URI.equals(schemaLanguage)) {
@@ -338,6 +341,13 @@ public final class XmlUtils {
         };
     }
 
+    /**
+     * Normalizes a classpath resource directory so class-relative resource
+     * lookups use an absolute directory path with a trailing separator.
+     *
+     * @param resourceDirectory String classpath resource directory
+     * @return String normalized classpath resource directory
+     */
     private static String normalizeClasspathResourceDirectory(String resourceDirectory) {
         String leadingSlashDirectory = resourceDirectory.startsWith("/") ? resourceDirectory : "/" + resourceDirectory;
         return leadingSlashDirectory.endsWith("/") ? leadingSlashDirectory : leadingSlashDirectory + "/";
@@ -374,7 +384,9 @@ public final class XmlUtils {
 
     /**
      * Minimal {@link LSInput} implementation for schema imports resolved from
-     * allowlisted classpath resources.
+     * allowlisted classpath resources by {@link #createClasspathSchemaResolver(Class, String, Set)}.
+     * The byte stream is populated from the classpath resource; all other
+     * fields are maintained only to satisfy the DOM Load/Save interface.
      */
     private static final class ClasspathSchemaInput implements LSInput {
         private Reader characterStream;
