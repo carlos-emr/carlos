@@ -77,6 +77,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
 
     public String execute() throws IOException, ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        // The pharmacy management view can add/edit clinic pharmacy records, so opening it requires write access.
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
             throw new SecurityException("missing required sec object (_rx)");
         }

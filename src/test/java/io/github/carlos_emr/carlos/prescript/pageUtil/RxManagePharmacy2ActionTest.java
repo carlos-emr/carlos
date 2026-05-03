@@ -39,6 +39,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -137,5 +139,7 @@ class RxManagePharmacy2ActionTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> action.execute())
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_rx");
+        verify(mockSecurityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("w"), isNull());
+        verify(mockSecurityInfoManager, never()).hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("r"), isNull());
     }
 }
