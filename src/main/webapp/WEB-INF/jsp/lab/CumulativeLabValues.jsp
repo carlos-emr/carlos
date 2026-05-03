@@ -220,19 +220,23 @@
                                     if (prevName == null) {
                                         prevName = "";
                                     }
-                                    String prevNameAttr = SafeEncode.forHtmlAttribute(prevName);
-                                    String prevNameJs = SafeEncode.forJavaScriptAttribute(prevName);
-                                    String labTypeJs = SafeEncode.forJavaScriptAttribute(labType);
-                                    String identCodeJs = SafeEncode.forJavaScriptAttribute(identCodeEsc);
-                                    String displayName = SafeEncode.forHtmlContent(StringUtils.maxLenString(prevName, 13, 8, "..."));
+                                    if (labType == null) {
+                                        labType = "";
+                                    }
+                                    String prevNameHtmlAttribute = SafeEncode.forHtmlAttribute(prevName);
+                                    String prevNameJavaScriptAttribute = SafeEncode.forJavaScriptAttribute(prevName);
+                                    String labTypeJavaScriptAttribute = SafeEncode.forJavaScriptAttribute(labType);
+                                    String identCodeJavaScriptAttribute = SafeEncode.forJavaScriptAttribute(identCodeEsc);
+                                    String displayNameHtml = SafeEncode.forHtmlContent(StringUtils.maxLenString(prevName, 13, 8, "..."));
                             %>
                             <li class="list-group-item py-1 px-2"><%-- a title="fade=[on] header=[<%=prevName%>] body=[]"      href="javascript: function myFunction() {return false; }"  onclick="javascript:addLabToProfile2('<%=h.get("labType")%>','<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>');" --%>
                                 <button type="button"
                                         class="btn btn-link p-0 text-start"
-                                        title="fade=[on] header=[<%=prevNameAttr%>] body=[]"
-                                        onclick="addLabToProfile2('<%=labTypeJs%>','<%=prevNameJs%>','<%= identCodeJs %>');">
+                                        title="fade=[on] header=[<%=prevNameHtmlAttribute%>] body=[]"
+                                        aria-label="<%=prevNameHtmlAttribute%>"
+                                        onclick="addLabToProfile2('<%=labTypeJavaScriptAttribute%>','<%=prevNameJavaScriptAttribute%>','<%= identCodeJavaScriptAttribute %>');">
 
-                                     <%=displayName%>
+                                     <%=displayNameHtml%>
                                 </button></li>
                             <%}%>
                         </ul>
