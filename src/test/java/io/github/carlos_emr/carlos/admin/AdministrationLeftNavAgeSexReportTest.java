@@ -27,7 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * @since 2026-05-03
  */
-@DisplayName("administration left nav age sex report Tests")
+@DisplayName("administration left nav age sex report tests")
 @Tag("unit")
 @Tag("fast")
 @Tag("admin")
