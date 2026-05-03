@@ -349,7 +349,7 @@ String curProvider_no = (String)session.getAttribute("user");
 
 					<li>
 					<a href="javascript:void(0);" class="xlink" rel="${carlos:forHtmlAttribute(ctx)}/oscarReport/DbReportAgeSex" data-submit-form="ageSexForm" data-frame-title="Age-Sex Report"><fmt:message key="admin.admin.btnAgeSexReport"/></a>
-					<form id="ageSexForm" method="post" action="${carlos:forHtmlAttribute(ctx)}/oscarReport/DbReportAgeSex" target="myFrame" style="display:none"></form>
+					<form id="ageSexForm" method="post" action="${carlos:forHtmlAttribute(ctx)}/oscarReport/DbReportAgeSex" target="myFrame" class="visually-hidden"></form>
 					</li>
 					
 					<li><a href="${ctx}/oscarReport/ViewOscarReportVisitControl" class="contentLink defaultvisitreport">
@@ -915,7 +915,6 @@ $(document).ready(function(){
 		if (submitForm) {
 			var form = document.getElementById(submitForm);
 			if (form) {
-				form.target = "myFrame";
 				form.submit();
 			}
 		} else {

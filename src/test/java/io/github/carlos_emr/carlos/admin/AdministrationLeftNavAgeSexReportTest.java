@@ -49,7 +49,8 @@ class AdministrationLeftNavAgeSexReportTest {
                 .contains("rel=\"${carlos:forHtmlAttribute(ctx)}/oscarReport/DbReportAgeSex\"");
         assertThat(jsp)
                 .as("Age-Sex Report must submit by POST so DbReportAgeSex2Action accepts the request")
-                .contains("method=\"post\" action=\"${carlos:forHtmlAttribute(ctx)}/oscarReport/DbReportAgeSex\"");
+                .contains("method=\"post\" action=\"${carlos:forHtmlAttribute(ctx)}/oscarReport/DbReportAgeSex\"")
+                .contains("target=\"myFrame\" class=\"visually-hidden\"");
         assertThat(jsp)
                 .as("xlink handler should submit the hidden form into the iframe")
                 .contains("data-submit-form=\"ageSexForm\"")
@@ -58,6 +59,7 @@ class AdministrationLeftNavAgeSexReportTest {
                 .contains("var iframeTitle = $(this).data('frame-title') || $.trim($(this).text()) || \"Administration page\"")
                 .contains("title: iframeTitle")
                 .contains("}).css(\"border\", \"0\")")
+                .doesNotContain("form.target = \"myFrame\"")
                 .doesNotContain("frameborder");
     }
 }
