@@ -24,8 +24,9 @@ import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
-import java.io.FileInputStream;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -43,8 +44,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("admin")
 class StrutsAdminConfigTest {
 
-    private static final String ADMIN_CONFIG =
-            "src/main/webapp/WEB-INF/classes/struts-admin.xml";
+    private static final Path ADMIN_CONFIG = Path.of(
+            "src", "main", "webapp", "WEB-INF", "classes", "struts-admin.xml");
 
     @Test
     @DisplayName("lookup list manager should render the migrated WEB-INF JSP")
@@ -84,7 +85,7 @@ class StrutsAdminConfigTest {
         return "";
     }
 
-    private Document parse(String configPath) throws Exception {
+    private Document parse(Path configPath) throws Exception {
         DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
         dbf.setValidating(false);
         dbf.setNamespaceAware(false);
@@ -99,8 +100,20 @@ class StrutsAdminConfigTest {
         db.setEntityResolver((publicId, systemId) ->
                 new InputSource(new java.io.StringReader("")));
 
-        try (InputStream in = new FileInputStream(configPath)) {
+        try (InputStream in = Files.newInputStream(resolveProjectPath(configPath))) {
             return db.parse(in);
         }
+    }
+
+    private Path resolveProjectPath(Path relativePath) {
+        Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath();
+        while (current != null) {
+            Path candidate = current.resolve(relativePath);
+            if (Files.isRegularFile(candidate)) {
+                return candidate;
+            }
+            current = current.getParent();
+        }
+        return relativePath;
     }
 }
