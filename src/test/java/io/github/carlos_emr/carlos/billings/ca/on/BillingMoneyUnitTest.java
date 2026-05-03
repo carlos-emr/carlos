@@ -166,6 +166,24 @@ class BillingMoneyUnitTest {
     }
 
     @Test
+    void shouldSanitizeRawInput_whenNonNegativeAmountIsMalformed() {
+        assertThatThrownBy(() -> BillingMoney.parseNonNegativeAmount("1.00\nWARN forged", "fee"))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("fee")
+                .hasMessageNotContaining("\n")
+                .hasMessageNotContaining("\r");
+    }
+
+    @Test
+    void shouldSanitizeRawInput_whenStoredCentsIsMalformed() {
+        assertThatThrownBy(() -> BillingMoney.storedCents("100\nWARN forged", "total"))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("total")
+                .hasMessageNotContaining("\n")
+                .hasMessageNotContaining("\r");
+    }
+
+    @Test
     void shouldThrowValidation_whenNonNegativeAmountIsNull() {
         assertThatThrownBy(() -> BillingMoney.parseNonNegativeAmount(null, "paid"))
                 .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)

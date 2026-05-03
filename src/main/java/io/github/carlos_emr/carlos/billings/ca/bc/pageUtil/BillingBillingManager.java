@@ -366,18 +366,12 @@ public class BillingBillingManager implements Serializable {
                         this.percentage = 100.00;
                     }
                 } catch (NumberFormatException eNum) {
-                    // A malformed gstPercent/getPercentage drives wrong invoice
-                    // totals downstream — surface the exact offending values
-                    // and the service code so reconciliation can find them,
-                    // then default to 100 (legacy behaviour, kept to avoid a
-                    // hot-path regression in BC billing rendering).
-                    MiscUtils.getLogger().error(
-                            "BC BillingBillingManager: invalid percentage on service {} (gstPercent={}, bsPercentage={}); defaulting to 100",
-                            LogSanitizer.sanitize(bs.getServiceCode()),
-                            LogSanitizer.sanitize(gstPercent),
-                            LogSanitizer.sanitize(bs.getPercentage()),
+                    throw new IllegalArgumentException(
+                            "BC BillingBillingManager: invalid percentage on service "
+                                    + LogSanitizer.sanitizeForDisplay(bs.getServiceCode())
+                                    + " (gstPercent=" + LogSanitizer.sanitizeForDisplay(gstPercent)
+                                    + ", bsPercentage=" + LogSanitizer.sanitizeForDisplay(bs.getPercentage()) + ")",
                             eNum);
-                    this.percentage = 100;
                 }
             }
         }

@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
  * Builds and persists Ontario billing claim headers ({@link BillingONCHeader1})
@@ -205,7 +206,7 @@ public class BillingOnHeaderCreationService {
             item.setRecId(BillingOnConstants.ITEM_REORDIDENTIFICATION);
             item.setServiceCode(code);
 
-            BillingService billingService = billingServiceDao.searchBillingCode(code, "ON", serviceDate);
+            BillingService billingService = requireBillingService(code, serviceDate);
             item.setFee(cleanMoney(billingService.getValue()));
             item.setServiceCount("1");
             item.setServiceDate(serviceDate);
@@ -266,5 +267,15 @@ public class BillingOnHeaderCreationService {
 
     private static String cleanMoney(String raw) {
         return raw == null || raw.trim().isEmpty() ? "0.00" : raw.trim();
+    }
+
+    private BillingService requireBillingService(String code, Date serviceDate) {
+        BillingService billingService = billingServiceDao.searchBillingCode(code, "ON", serviceDate);
+        if (billingService == null) {
+            throw new BillingValidationException(
+                    "Cannot create batch bill: service code not found for code="
+                            + LogSanitizer.sanitizeForDisplay(code));
+        }
+        return billingService;
     }
 }

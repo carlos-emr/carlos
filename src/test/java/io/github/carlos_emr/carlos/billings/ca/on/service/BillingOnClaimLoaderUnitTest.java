@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao;
 import io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao;
+import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -322,6 +323,27 @@ class BillingOnClaimLoaderUnitTest {
                             .containsEntry("demoNo", "100")
                             .containsEntry("pageSize", "10")
                             .containsEntry("offset", "0");
+                });
+    }
+
+    @Test
+    void shouldThrowBillingDataLoadExceptionWithProviderContext_whenBillingHistoryProviderMissing() {
+        BillingONCHeader1 header = mock(BillingONCHeader1.class);
+        when(header.getId()).thenReturn(42);
+        when(header.getProviderNo()).thenReturn("missing-provider");
+        when(header.getTotal()).thenReturn(new java.math.BigDecimal("10.00"));
+        when(dao.findByDemoNo(any(), anyInt(), anyInt())).thenReturn(List.of(header));
+        when(providerDao.getProvider("missing-provider")).thenReturn(null);
+
+        assertThatThrownBy(() -> loader.getBillingHist("100", 10, 0, null))
+                .isInstanceOf(BillingDataLoadException.class)
+                .hasMessageContaining("Failed to load billing history provider")
+                .satisfies(ex -> {
+                    BillingDataLoadException e = (BillingDataLoadException) ex;
+                    assertThat(e.context())
+                            .containsEntry("billingNo", "42")
+                            .containsEntry("providerNo", "missing-provider")
+                            .containsEntry("demoNo", "100");
                 });
     }
 

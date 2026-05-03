@@ -374,6 +374,19 @@ class BillingOnCorrectionPersisterUnitTest {
     }
 
     @Test
+    void shouldThrowValidation_whenUpdateBillingClaimHeaderMissing() {
+        when(headerDao.find("100")).thenReturn(null);
+        BillingClaimHeaderDto h = fullHeaderDto("2026-01-15", "2026-01-20", "12:34:56");
+
+        assertThatThrownBy(() -> persister.updateBillingClaimHeader(h))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("row not found")
+                .hasMessageContaining("100");
+
+        verify(headerDao, never()).merge(any(BillingONCHeader1.class));
+    }
+
+    @Test
     void shouldThrowAndNotMerge_whenUpdateBillingClaimHeaderBillingTimeMalformed() {
         BillingONCHeader1 existing = new BillingONCHeader1();
         when(headerDao.find("100")).thenReturn(existing);
@@ -401,15 +414,13 @@ class BillingOnCorrectionPersisterUnitTest {
 
     @Test
     void shouldThrowValidation_whenUpdateBillingClaimHeaderTotalIsNegative() {
-        BillingONCHeader1 existing = new BillingONCHeader1();
-        when(headerDao.find("100")).thenReturn(existing);
-        BillingClaimHeaderDto h = fullHeaderDto("2026-01-15", "2026-01-20", "12:34:56")
-                .withTotal("-50.00");
+        BillingClaimHeaderDto h = fullHeaderDto("2026-01-15", "2026-01-20", "12:34:56");
 
-        assertThatThrownBy(() -> persister.updateBillingClaimHeader(h))
+        assertThatThrownBy(() -> h.withTotal("-50.00"))
                 .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
                 .hasMessageContaining("total")
-                .hasMessageContaining("cannot be negative");
+                .hasMessageContaining("-50.00")
+                .hasRootCauseMessage("BillingMoney: total cannot be negative [-50.00]");
 
         verify(headerDao, never()).merge(any(BillingONCHeader1.class));
     }
@@ -440,6 +451,19 @@ class BillingOnCorrectionPersisterUnitTest {
 
         assertThat(ret).isTrue();
         verify(itemDao).merge(existing);
+    }
+
+    @Test
+    void shouldThrowValidation_whenUpdateBillingOneItemMissing() {
+        when(itemDao.find("1")).thenReturn(null);
+        BillingClaimItemDto i = itemDto().withServiceDate("2026-01-15");
+
+        assertThatThrownBy(() -> persister.updateBillingOneItem(i))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("row not found")
+                .hasMessageContaining("1");
+
+        verify(itemDao, never()).merge(any(BillingONItem.class));
     }
 
     @Test

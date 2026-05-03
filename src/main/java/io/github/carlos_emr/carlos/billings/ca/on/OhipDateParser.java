@@ -24,6 +24,8 @@ package io.github.carlos_emr.carlos.billings.ca.on;
 import java.time.DateTimeException;
 import java.time.LocalDate;
 
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
+
 /**
  * Package-private parser for OHIP {@code yyyyMMdd} date tokens shared by
  * Ontario billing date utilities and Schedule of Benefits import logic.
@@ -50,7 +52,8 @@ final class OhipDateParser {
     static LocalDate parse(String raw, ZeroDayPolicy zeroDayPolicy) {
         String value = raw == null ? "" : raw.trim();
         if (!value.matches("\\d{8}")) {
-            throw new IllegalArgumentException("Expected OHIP date in yyyyMMdd format: " + raw);
+            throw new IllegalArgumentException("Expected OHIP date in yyyyMMdd format: "
+                    + LogSanitizer.sanitizeForDisplay(raw));
         }
 
         int year = Integer.parseInt(value.substring(0, 4));
@@ -62,7 +65,8 @@ final class OhipDateParser {
         try {
             return LocalDate.of(year, month, day);
         } catch (DateTimeException e) {
-            throw new IllegalArgumentException("Invalid OHIP date in yyyyMMdd format: " + raw, e);
+            throw new IllegalArgumentException("Invalid OHIP date in yyyyMMdd format: "
+                    + LogSanitizer.sanitizeForDisplay(raw), e);
         }
     }
 }

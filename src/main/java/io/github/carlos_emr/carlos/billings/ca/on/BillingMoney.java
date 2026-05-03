@@ -27,6 +27,7 @@ import java.util.Currency;
 import java.util.Objects;
 
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
@@ -72,11 +73,13 @@ public record BillingMoney(BigDecimal amount, Currency currency) implements Comp
             cents = new BigDecimal(raw.trim());
         } catch (NumberFormatException e) {
             throw new BillingValidationException(
-                    "BillingMoney: malformed " + fieldName + " [" + raw + "]", e);
+                    "BillingMoney: malformed " + fieldName + " ["
+                            + LogSanitizer.sanitizeForDisplay(raw) + "]", e);
         }
         if (cents.signum() < 0) {
             throw new BillingValidationException(
-                    "BillingMoney: " + fieldName + " cannot be negative [" + raw + "]");
+                    "BillingMoney: " + fieldName + " cannot be negative ["
+                            + LogSanitizer.sanitizeForDisplay(raw) + "]");
         }
         return cad(cents.movePointLeft(MONEY_SCALE));
     }
@@ -151,7 +154,7 @@ public record BillingMoney(BigDecimal amount, Currency currency) implements Comp
         } catch (NumberFormatException e) {
             MiscUtils.getLogger().error(
                     "BillingMoney.amountOrZero: malformed amount=\"{}\", returning ZERO",
-                    raw, e);
+                    LogSanitizer.sanitize(raw), e);
             return BigDecimal.ZERO.setScale(scale);
         }
     }
@@ -202,11 +205,13 @@ public record BillingMoney(BigDecimal amount, Currency currency) implements Comp
             value = amount(raw, MONEY_SCALE);
         } catch (NumberFormatException e) {
             throw new BillingValidationException(
-                    "BillingMoney: malformed " + fieldName + " [" + raw + "]", e);
+                    "BillingMoney: malformed " + fieldName + " ["
+                            + LogSanitizer.sanitizeForDisplay(raw) + "]", e);
         }
         if (value.signum() < 0) {
             throw new BillingValidationException(
-                    "BillingMoney: " + fieldName + " cannot be negative [" + raw + "]");
+                    "BillingMoney: " + fieldName + " cannot be negative ["
+                            + LogSanitizer.sanitizeForDisplay(raw) + "]");
         }
         return value;
     }

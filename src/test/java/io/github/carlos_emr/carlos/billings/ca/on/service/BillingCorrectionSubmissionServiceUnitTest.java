@@ -136,17 +136,21 @@ class BillingCorrectionSubmissionServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldStillPersistCorrectionItems_whenBillingHeaderIsMissing() {
+    void shouldThrowAndSkipWrites_whenBillingHeaderIsMissing() {
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
-        when(billingDetailDao.findAllIncludingDeletedByBillingNo(42)).thenReturn(List.of());
         when(billingDao.find(42)).thenReturn(null);
 
-        service.submit(loggedInInfo, command("42",
-                List.of(new BillingCorrectionSubmitItemCommand(
-                        "A001A", "Minor assessment", "2000", "250", "1"))));
+        assertThatThrownBy(() -> service.submit(loggedInInfo, command("42",
+                        List.of(new BillingCorrectionSubmitItemCommand(
+                                "A001A", "Minor assessment", "2000", "250", "1")))))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("billing record not found")
+                .hasMessageContaining("42");
 
         verify(billingDao, never()).merge(any(Billing.class));
-        verify(billingDetailDao).persist(any(BillingDetail.class));
+        verify(recycleBinDao, never()).persist(any(RecycleBin.class));
+        verify(billingDetailDao, never()).findAllIncludingDeletedByBillingNo(42);
+        verify(billingDetailDao, never()).persist(any(BillingDetail.class));
     }
 
     @Test

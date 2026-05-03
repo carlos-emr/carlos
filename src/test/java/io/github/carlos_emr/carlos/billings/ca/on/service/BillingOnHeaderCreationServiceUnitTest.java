@@ -141,6 +141,21 @@ class BillingOnHeaderCreationServiceUnitTest {
     }
 
     @Test
+    void shouldThrowValidationAndNotPersist_whenServiceCodeMissingForItemCreation() {
+        when(providerDao.getProvider("999998")).thenReturn(provider("999998"));
+        when(demographicDao.getDemographicById(1)).thenReturn(demographic(1, "ON"));
+        when(billingServiceDao.searchBillingCode(eq("ZZ999"), eq("ON"), any())).thenReturn(null);
+        when(gstControlDao.find(any(Integer.class))).thenReturn(gstControl("0"));
+
+        assertThatThrownBy(() -> service.createBill("999998", 1, "ZZ999", "00001", new Date(), "999998"))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("service code not found")
+                .hasMessageContaining("ZZ999");
+
+        verify(headerDao, never()).persist(any());
+    }
+
+    @Test
     void shouldUseRmbPayProgram_forNonOntarioHcType() {
         when(providerDao.getProvider("999998")).thenReturn(provider("999998"));
         when(demographicDao.getDemographicById(1)).thenReturn(demographic(1, "BC"));

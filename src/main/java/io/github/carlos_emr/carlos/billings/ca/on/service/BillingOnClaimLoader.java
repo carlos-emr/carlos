@@ -577,6 +577,13 @@ public class BillingOnClaimLoader {
                 ch1Obj = ch1Obj.withTotal(h.getTotal().toString());
 
                 Provider provider = providerDao.getProvider(h.getProviderNo());
+                if (provider == null) {
+                    throw billingLoadFailure("Failed to load billing history provider",
+                            new IllegalStateException("Provider not found"),
+                            "billingNo", h.getId(),
+                            "providerNo", h.getProviderNo(),
+                            "demoNo", demoNo);
+                }
                 ch1Obj = ch1Obj.withLastName(provider.getLastName());
                 ch1Obj = ch1Obj.withFirstName(provider.getFirstName());
 
@@ -625,6 +632,9 @@ public class BillingOnClaimLoader {
                 retval.add(itObj);
             }
         } catch (Exception e) {
+            if (e instanceof BillingDataLoadException billingDataLoadException) {
+                throw billingDataLoadException;
+            }
             throw billingLoadFailure("Failed to load billing history", e,
                     "demoNo", demoNo,
                     "pageSize", iPageSize,

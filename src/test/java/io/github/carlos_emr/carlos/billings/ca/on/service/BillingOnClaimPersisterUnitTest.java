@@ -32,6 +32,8 @@ import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONFilenameDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONHeaderDao;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingBatchHeaderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingDiskNameDto;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONItemDao;
@@ -41,6 +43,8 @@ import io.github.carlos_emr.carlos.commn.dao.BillingOnItemPaymentDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingOnTransactionDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
+import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONDiskName;
+import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONHeader;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.commn.model.BillingONExt;
@@ -71,6 +75,7 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link BillingOnClaimPersister}, the rename of legacy
@@ -338,8 +343,9 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
             ArgumentCaptor<BillingOnItemPayment> captor =
                     ArgumentCaptor.forClass(BillingOnItemPayment.class);
 
-            persister.addItemPaymentRecord(new ArrayList<>(List.of(a)), 4242, 7, 1);
+            boolean saved = persister.addItemPaymentRecord(new ArrayList<>(List.of(a)), 4242, 7, 1);
 
+            assertThat(saved).isTrue();
             verify(billOnItemPaymentDao).persist(captor.capture());
             BillingOnItemPayment persisted = captor.getValue();
             assertThat(persisted.getCh1Id()).isEqualTo(4242);
@@ -384,13 +390,22 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
             ArgumentCaptor<BillingOnItemPayment> captor =
                     ArgumentCaptor.forClass(BillingOnItemPayment.class);
 
-            persister.addItemPaymentRecord(new ArrayList<>(List.of(a)), 4242, 7, 1);
+            boolean saved = persister.addItemPaymentRecord(new ArrayList<>(List.of(a)), 4242, 7, 1);
 
+            assertThat(saved).isTrue();
             verify(billOnItemPaymentDao).persist(captor.capture());
             BillingOnItemPayment persisted = captor.getValue();
             assertThat(persisted.getDiscount()).isEqualByComparingTo(BigDecimal.ZERO);
             assertThat(persisted.getPaid()).isEqualByComparingTo("33.70");
             assertThat(persisted.getRefund()).isEqualByComparingTo(BigDecimal.ZERO);
+        }
+
+        @Test
+        void shouldReturnFalse_whenNoItemPaymentRowsRequested() {
+            boolean saved = persister.addItemPaymentRecord(new ArrayList<>(), 4242, 7, 1);
+
+            assertThat(saved).isFalse();
+            verify(billOnItemPaymentDao, never()).persist(any(BillingOnItemPayment.class));
         }
     }
 
@@ -510,6 +525,70 @@ class BillingOnClaimPersisterUnitTest extends CarlosUnitTestBase {
 
             verify(extDao, times(9)).persist(any(BillingONExt.class));
             verify(billingONPaymentDao, never()).persist(any(BillingONPayment.class));
+        }
+
+        @Test
+        void shouldThrow_whenTwoArgVariantHeaderMissing() {
+            Map<String, String> mVal = new HashMap<>();
+            mVal.put("demographic_no", "7");
+
+            when(cheaderDao.find(4242)).thenReturn(null);
+
+            assertThatThrownBy(() -> persister.add3rdBillExt(mVal, 4242))
+                    .isInstanceOf(BillingValidationException.class)
+                    .hasMessageContaining("billing header not found")
+                    .hasMessageContaining("4242");
+
+            verify(billingONPaymentDao, never()).persist(any(BillingONPayment.class));
+        }
+
+        @Test
+        void shouldReturnTrue_whenTwoArgVariantPersistsPaymentAndExtRows() {
+            Map<String, String> mVal = new HashMap<>();
+            mVal.put("demographic_no", "7");
+            BillingONCHeader1 header = new BillingONCHeader1();
+            when(cheaderDao.find(4242)).thenReturn(header);
+
+            boolean saved = persister.add3rdBillExt(mVal, 4242);
+
+            assertThat(saved).isTrue();
+            ArgumentCaptor<BillingONPayment> captor = ArgumentCaptor.forClass(BillingONPayment.class);
+            verify(billingONPaymentDao).persist(captor.capture());
+            assertThat(captor.getValue().getBillingONCheader1()).isSameAs(header);
+            assertThat(captor.getValue().getBillingONExtItems()).hasSize(9);
+        }
+    }
+
+    @Nested
+    @DisplayName("batch metadata updates")
+    class BatchMetadataUpdates {
+
+        @Test
+        void shouldThrow_whenDiskNameMissing() {
+            BillingDiskNameDto diskName = new BillingDiskNameDto();
+            diskName.setId("55");
+            when(diskNameDao.find(55)).thenReturn(null);
+
+            assertThatThrownBy(() -> persister.updateDiskName(diskName))
+                    .isInstanceOf(BillingValidationException.class)
+                    .hasMessageContaining("row not found")
+                    .hasMessageContaining("55");
+
+            verify(diskNameDao, never()).merge(any(BillingONDiskName.class));
+        }
+
+        @Test
+        void shouldThrow_whenBatchHeaderMissing() {
+            BillingBatchHeaderDto batchHeader = new BillingBatchHeaderDto();
+            batchHeader.setId("99");
+            when(headerDao.find(99)).thenReturn(null);
+
+            assertThatThrownBy(() -> persister.updateBatchHeaderRecord(batchHeader))
+                    .isInstanceOf(BillingValidationException.class)
+                    .hasMessageContaining("row not found")
+                    .hasMessageContaining("99");
+
+            verify(headerDao, never()).merge(any(BillingONHeader.class));
         }
     }
 

@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingRaDetailDto;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.RaDetailDao;
@@ -30,6 +32,7 @@ import io.github.carlos_emr.carlos.commn.model.RaDetail;
 import io.github.carlos_emr.carlos.commn.model.RaHeader;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -72,6 +75,7 @@ class BillingOnRaServiceUnitTest {
     private RaHeaderDao raHeaderDao;
     private BillingONCHeader1Dao cheader1Dao;
     private BillingOnRaService service;
+    private String previousDocumentDir;
     @TempDir
     Path tempDir;
 
@@ -81,6 +85,17 @@ class BillingOnRaServiceUnitTest {
         raHeaderDao = mock(RaHeaderDao.class);
         cheader1Dao = mock(BillingONCHeader1Dao.class);
         service = new BillingOnRaService(raDetailDao, raHeaderDao, cheader1Dao);
+        previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", tempDir.toAbsolutePath().toString());
+    }
+
+    @AfterEach
+    void tearDown() {
+        if (previousDocumentDir == null) {
+            CarlosProperties.getInstance().remove("DOCUMENT_DIR");
+        } else {
+            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", previousDocumentDir);
+        }
     }
 
     // ---- addOneRADtRecord: write to ra_detail --------------------------
@@ -197,7 +212,7 @@ class BillingOnRaServiceUnitTest {
         boolean ret = service.updateBillingStatus("42", "S");
 
         assertThat(ret).isTrue();
-        verify(header).setStatus("S");
+        verify(header).setStatusStrict("S");
         verify(cheader1Dao).merge(header);
     }
 
@@ -263,6 +278,26 @@ class BillingOnRaServiceUnitTest {
                 .containsExactly(
                         org.assertj.core.groups.Tuple.tuple("20260401", "1", "1"),
                         org.assertj.core.groups.Tuple.tuple("20260415", "1", "1"));
+    }
+
+    @Test
+    void shouldRejectPathOutsideDocumentDir_whenImportRaFileCalledDirectly() throws Exception {
+        Path outside = Files.createTempFile("outside-ra", ".txt");
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.importRAFile(outside.toString()))
+                .isInstanceOf(SecurityException.class);
+
+        verify(raHeaderDao, never()).persist(any(RaHeader.class));
+        verify(raDetailDao, never()).persist(any(RaDetail.class));
+    }
+
+    @Test
+    void shouldRejectImport_whenDocumentDirMissing() {
+        CarlosProperties.getInstance().remove("DOCUMENT_DIR");
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.importRAFile(tempDir.resolve("missing.ra").toString()))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("DOCUMENT_DIR");
     }
 
     // ---- getRASummary: pin the silent-swallow contract -----------------

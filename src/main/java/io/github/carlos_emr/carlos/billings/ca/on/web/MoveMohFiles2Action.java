@@ -165,13 +165,14 @@ public class MoveMohFiles2Action extends ActionSupport {
         // Reuse the array fetched above for the mutation-intent gate so the
         // request parameter is read once instead of twice.
         String[] fileNames = selectedMutationFiles;
-        if (fileNames == null || fileNames.length == 0) {
+        if ((fileNames == null || fileNames.length == 0)
+                && (unzipFile == null || unzipFile.isBlank())) {
             errors.append("Please select file(s) to archive.<br/>");
             isValid = false;
             // return "Unable to get file names";
         }
 
-        if (isValid) {
+        if (isValid && hasMohFileMutationIntent) {
             String folderPath = getFolderPath(folderParam);
             if (folderPath == null || folderPath.isEmpty()) {
                 errors.append("Invalid folder selection.<br/>");
@@ -395,6 +396,10 @@ public class MoveMohFiles2Action extends ActionSupport {
             fileName = URLDecoder.decode(fileName, "UTF-8");
         } catch (UnsupportedEncodingException e) {
             logger.error("Unable to decode {}", LogSanitizer.sanitize(fileName), e);
+            return null;
+        }
+        if (fileName.contains("/") || fileName.contains("\\") || fileName.contains("..")) {
+            logger.warn("Rejected decoded file path: {}", LogSanitizer.sanitize(fileName));
             return null;
         }
 

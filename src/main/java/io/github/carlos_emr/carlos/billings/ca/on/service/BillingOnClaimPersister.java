@@ -63,6 +63,7 @@ import io.github.carlos_emr.carlos.commn.model.BillingONRepo;
 import io.github.carlos_emr.carlos.commn.model.BillingOnItemPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingOnTransaction;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
@@ -289,7 +290,7 @@ public class BillingOnClaimPersister {
      * @return boolean legacy contract — see implementation; treat as success indicator
      */
     public boolean addItemPaymentRecord(List lVal, int id, int paymentId, int paymentType) {
-        int retval = 0;
+        int persistedRows = 0;
         BillingOnItemPayment billOnItemPayment = null;
         Timestamp ts = new Timestamp(new Date().getTime());
         for (int i = 0; i < lVal.size(); i++) {
@@ -309,9 +310,10 @@ public class BillingOnClaimPersister {
             billOnItemPayment.setPaymentTimestamp(ts);
             billOnItemPayment.setRefund(refund);
             billOnItemPaymentDao.persist(billOnItemPayment);
+            persistedRows++;
             lVal.set(i, val.withId(billOnItemPayment.getId().toString()));
         }
-        return (retval != 0);
+        return persistedRows > 0 && persistedRows == lVal.size();
     }
 
     private void addCreate3rdInvoiceTrans(BillingClaimHeaderDto billHeader, List<BillingClaimItemDto> billItemList, BillingONPayment billOnPayment) {
@@ -571,21 +573,26 @@ public class BillingOnClaimPersister {
      * @return boolean {@code true} on success
      */
     public boolean add3rdBillExt(Map<String, String> mVal, int id) {
-        boolean retval = true;
         String[] temp = {"billTo", "remitTo", "total", "payment", "refund", "provider_no", "gst", "payDate", "payMethod"};
         String demoNo = mVal.get("demographic_no");
+        int demographicNo = parseDemographicNo(demoNo, id);
         String dateTime = UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss");
         mVal.put("payDate", dateTime);
 
         BillingONPayment newPayment = new BillingONPayment();
         BillingONCHeader1 ch1 = cheaderDao.find(id);
+        if (ch1 == null) {
+            throw new BillingValidationException(
+                    "Cannot add third-party billing extension: billing header not found [billingNo="
+                            + LogSanitizer.sanitize(String.valueOf(id)) + "]");
+        }
         newPayment.setBillingOnCheader1(ch1);
         newPayment.setPaymentDate(UtilDateUtilities.StringToDate(dateTime));
 
         for (int i = 0; i < temp.length; i++) {
             BillingONExt b = new BillingONExt();
             b.setBillingNo(id);
-            b.setDemographicNo(Integer.valueOf(demoNo));
+            b.setDemographicNo(demographicNo);
             b.setKeyVal(temp[i]);
             b.setValue(mVal.get(temp[i]));
             b.setDateTime(new Date());
@@ -596,7 +603,19 @@ public class BillingOnClaimPersister {
 
         billingONPaymentDao.persist(newPayment);
 
-        return retval;
+        return true;
+    }
+
+    private static int parseDemographicNo(String demoNo, int billingNo) {
+        try {
+            return Integer.parseInt(demoNo);
+        } catch (NumberFormatException e) {
+            throw new BillingValidationException(
+                    "Cannot add third-party billing extension: invalid demographic_no [billingNo="
+                            + LogSanitizer.sanitize(String.valueOf(billingNo))
+                            + ", demographic_no=" + LogSanitizer.sanitize(demoNo) + "]",
+                    e);
+        }
     }
 
     /**
@@ -722,10 +741,12 @@ public class BillingOnClaimPersister {
      */
     public boolean updateDiskName(BillingDiskNameDto val) {
         BillingONDiskName b = diskNameDao.find(Integer.parseInt(val.getId()));
-        if (b != null) {
-            b.setCreator(val.getCreator());
-            diskNameDao.merge(b);
+        if (b == null) {
+            throw new BillingValidationException("Cannot update disk name: row not found [id="
+                    + LogSanitizer.sanitize(val.getId()) + "]");
         }
+        b.setCreator(val.getCreator());
+        diskNameDao.merge(b);
         return true;
     }
 
@@ -761,16 +782,18 @@ public class BillingOnClaimPersister {
      */
     public boolean updateBatchHeaderRecord(BillingBatchHeaderDto val) {
         BillingONHeader b = dao.find(Integer.parseInt(val.getId()));
-        if (b != null) {
-            b.setMohOffice(val.getMohOffice());
-            b.setBatchId(val.getBatchId());
-            b.setSpecialty(val.getSpecialty());
-            b.setCreator(val.getCreator());
-            b.setUpdateDateTime(new Date());
-            b.setAction(val.getAction());
-            b.setComment(val.getComment());
-            dao.merge(b);
+        if (b == null) {
+            throw new BillingValidationException("Cannot update batch header: row not found [id="
+                    + LogSanitizer.sanitize(val.getId()) + "]");
         }
+        b.setMohOffice(val.getMohOffice());
+        b.setBatchId(val.getBatchId());
+        b.setSpecialty(val.getSpecialty());
+        b.setCreator(val.getCreator());
+        b.setUpdateDateTime(new Date());
+        b.setAction(val.getAction());
+        b.setComment(val.getComment());
+        dao.merge(b);
 
         return true;
     }

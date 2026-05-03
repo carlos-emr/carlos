@@ -117,9 +117,6 @@ public class BillingOnSave2Action extends ActionSupport {
             return SUCCESS;
         }
 
-        BillingClaimSubmissionService.BillingClaimSubmission submission = claimSubmissionService.getSubmission(request);
-        String xmlBillType = request.getParameter("xml_billtype");
-
         String payeeValue = request.getParameter("payeename");
         if (payeeValue == null || payeeValue.trim().isEmpty()) {
             payeeValue = request.getParameter("payeename1");
@@ -131,6 +128,8 @@ public class BillingOnSave2Action extends ActionSupport {
         boolean ret;
         int billingNo;
         try {
+            BillingClaimSubmissionService.BillingClaimSubmission submission = claimSubmissionService.getSubmission(request);
+            String xmlBillType = request.getParameter("xml_billtype");
             BillingClaimSubmissionService.SaveResult saveResult =
                     claimSubmissionService.saveBillingWithExtAndPayee(submission, request, xmlBillType, payeeValue);
             ret = saveResult.saved();

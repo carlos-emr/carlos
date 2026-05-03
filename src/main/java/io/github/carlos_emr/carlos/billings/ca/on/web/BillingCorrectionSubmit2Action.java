@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionSubmi
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -115,7 +116,8 @@ public class BillingCorrectionSubmit2Action extends ActionSupport {
         try {
             return Integer.parseInt(raw);
         } catch (NumberFormatException e) {
-            throw new BillingValidationException("Billing correction rejected: invalid item count [" + raw + "]", e);
+            throw new BillingValidationException("Billing correction rejected: invalid item count ["
+                    + LogSanitizer.sanitizeForDisplay(raw) + "]", e);
         }
     }
 }

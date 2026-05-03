@@ -138,6 +138,15 @@ class BillingDocumentErrorReportUpload2ActionUnitTest extends CarlosUnitTestBase
     }
 
     @Test
+    void shouldRejectPathNames_whenLegacyFilenameSetterIsCalled() {
+        BillingDocumentErrorReportUpload2Action action = newAction();
+
+        assertThatThrownBy(() -> action.setFilename("../Rreport.txt"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("must not include a path");
+    }
+
+    @Test
     void shouldThrowSecurityException_whenPrivilegeMissing() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(false);

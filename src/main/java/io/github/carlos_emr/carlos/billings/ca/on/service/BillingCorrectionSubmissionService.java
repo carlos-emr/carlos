@@ -33,6 +33,7 @@ import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.commn.model.RecycleBin;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -60,6 +61,11 @@ public class BillingCorrectionSubmissionService {
 
     public void submit(LoggedInInfo loggedInInfo, BillingCorrectionSubmitCommand command) {
         int billingNo = parseBillingNo(command.billingNo());
+        Billing billing = billingDao.find(billingNo);
+        if (billing == null) {
+            throw new BillingValidationException("Billing correction rejected: billing record not found [billingNo="
+                    + LogSanitizer.sanitize(command.billingNo()) + "]");
+        }
 
         GregorianCalendar now = new GregorianCalendar();
 
@@ -75,21 +81,18 @@ public class BillingCorrectionSubmissionService {
             billingDetailDao.merge(bd);
         }
 
-        Billing billing = billingDao.find(billingNo);
-        if (billing != null) {
-            billing.setHin(command.hin());
-            billing.setDob(command.dobText());
-            billing.setVisitType(command.visitType());
-            billing.setVisitDate(ConversionUtils.fromDateString(command.visitDateText()));
-            billing.setClinicRefCode(command.clinicRefCode());
-            billing.setProviderNo(command.providerNo());
-            billing.setStatus(command.status());
-            billing.setUpdateDate(ConversionUtils.fromDateString(
-                    now.get(Calendar.YEAR) + "-" + (now.get(Calendar.MONTH) + 1) + "-" + now.get(Calendar.DAY_OF_MONTH)));
-            billing.setTotal(command.total().amount().toString());
-            billing.setContent(command.content());
-            billingDao.merge(billing);
-        }
+        billing.setHin(command.hin());
+        billing.setDob(command.dobText());
+        billing.setVisitType(command.visitType());
+        billing.setVisitDate(ConversionUtils.fromDateString(command.visitDateText()));
+        billing.setClinicRefCode(command.clinicRefCode());
+        billing.setProviderNo(command.providerNo());
+        billing.setStatus(command.status());
+        billing.setUpdateDate(ConversionUtils.fromDateString(
+                now.get(Calendar.YEAR) + "-" + (now.get(Calendar.MONTH) + 1) + "-" + now.get(Calendar.DAY_OF_MONTH)));
+        billing.setTotal(command.total().amount().toString());
+        billing.setContent(command.content());
+        billingDao.merge(billing);
 
         for (BillingCorrectionSubmitItemCommand item : command.items()) {
             BillingDetail bd = new BillingDetail();
@@ -109,7 +112,8 @@ public class BillingCorrectionSubmissionService {
         try {
             return Integer.parseInt(billingNo);
         } catch (NumberFormatException e) {
-            throw new BillingValidationException("Billing correction rejected: invalid billing number [" + billingNo + "]", e);
+            throw new BillingValidationException("Billing correction rejected: invalid billing number ["
+                    + LogSanitizer.sanitize(billingNo) + "]", e);
         }
     }
 

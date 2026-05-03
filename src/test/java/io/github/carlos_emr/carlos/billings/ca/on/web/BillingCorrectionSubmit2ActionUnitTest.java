@@ -162,6 +162,24 @@ class BillingCorrectionSubmit2ActionUnitTest {
         verify(mockSubmissionService, never()).submit(any(LoggedInInfo.class), any(BillingCorrectionSubmitCommand.class));
     }
 
+    @Test
+    void shouldSanitizeItemCount_whenParserRejectsMalformedValue() {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        setValidCorrectionSubmitParameters();
+        mockRequest.setParameter("itemCount", "1\nWARN forged");
+
+        BillingCorrectionSubmit2Action action = new BillingCorrectionSubmit2Action(
+                mockSecurityInfoManager, mockSubmissionService);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.ERROR);
+        assertThat((String) mockRequest.getAttribute("correctionErrorMessage"))
+                .contains("invalid item count")
+                .doesNotContain("\n")
+                .doesNotContain("\r");
+        verify(mockSubmissionService, never()).submit(any(LoggedInInfo.class), any(BillingCorrectionSubmitCommand.class));
+    }
+
     private void setValidCorrectionSubmitParameters() {
         mockRequest.setParameter("billingNo", "42");
         mockRequest.setParameter("content", "<rd>Ref Doctor</rd>");

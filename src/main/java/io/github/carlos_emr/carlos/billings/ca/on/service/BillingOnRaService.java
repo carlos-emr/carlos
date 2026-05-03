@@ -23,6 +23,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
@@ -34,6 +35,8 @@ import java.util.Properties;
 import java.util.Set;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingRaDetailDto;
@@ -46,6 +49,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.RaDetail;
 import io.github.carlos_emr.carlos.commn.model.RaHeader;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
@@ -67,9 +71,9 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  * {@code getRAClaimNo4BillingNo}) and the per-bill status flip used during
  * settlement ({@code updateBillingStatus}).
  *
- * <p>Callers must drive imports through {@link OnRaImportService} (which
- * applies {@code PathValidationUtils}); the {@code importRAFile(String)}
- * entry point on this class trusts the caller to validate the path.</p>
+ * <p>{@code importRAFile(String)} validates the requested path against
+ * {@code DOCUMENT_DIR} before opening the file, so direct callers cannot
+ * bypass the web-layer upload/path guard.</p>
  *
  * <p>Web security is enforced at the action layer before invocation.</p>
  */
@@ -133,6 +137,13 @@ public class BillingOnRaService {
         int accountno = 0, totalsum = 0, recFlag = 0, count = 0, tCount = 0, amountPaySum = 0, amountSubmitSum = 0;
         String raNo = "";
         boolean currentHeaderStarted = false;
+        String documentDir = CarlosProperties.getInstance()
+                .getProperty("DOCUMENT_DIR", "").trim();
+        if (documentDir.isEmpty()) {
+            throw new BillingValidationException("Cannot import RA file: DOCUMENT_DIR is not configured");
+        }
+        File safeFile = PathValidationUtils.validateExistingPath(new File(filePathName), new File(documentDir));
+        filePathName = safeFile.getPath();
 
         if (filePathName.indexOf("/") >= 0) {
             filename = filePathName.substring(filePathName.lastIndexOf("/") + 1);

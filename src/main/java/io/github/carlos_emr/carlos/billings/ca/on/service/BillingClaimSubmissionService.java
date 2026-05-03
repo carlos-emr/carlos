@@ -303,14 +303,14 @@ public class BillingClaimSubmissionService {
 
 
     private BillingClaimHeaderDto getClaimHeader1Obj(HttpServletRequest val) {
-        String billtype = val.getParameter("xml_billtype");
+        String billtype = requiredParam(val, "xml_billtype");
 
         BillingClaimHeaderDto claim1Header = new BillingClaimHeaderDto();
 
         claim1Header = claim1Header.withTransactionId(BillingOnConstants.CLAIMHEADER1_TRANSACTIONIDENTIFIER);
         claim1Header = claim1Header.withRecordId(BillingOnConstants.CLAIMHEADER1_REORDIDENTIFICATION);
 
-        if (!billtype.substring(0, 3).equals("BON")) {
+        if (!prefix(billtype, "xml_billtype", 3).equals("BON")) {
             claim1Header = claim1Header.withHin(val.getParameter("hin"));
             claim1Header = claim1Header.withVer(val.getParameter("ver"));
             claim1Header = claim1Header.withDob(val.getParameter("demographic_dob"));
@@ -339,7 +339,7 @@ public class BillingClaimSubmissionService {
                 : BillingOnConstants.CLAIMHEADER1_PAYEE);
         claim1Header = claim1Header.withReferralNumber(val.getParameter("referralCode"));
 
-        claim1Header = claim1Header.withFacilityNumber(val.getParameter("xml_location").substring(0, 4));
+        claim1Header = claim1Header.withFacilityNumber(prefix(requiredParam(val, "xml_location"), "xml_location", 4));
         claim1Header = claim1Header.withAdmissionDate(
                 normalizeOptionalDateParam(val.getParameter("xml_vdate"), "xml_vdate"));
 
@@ -351,8 +351,7 @@ public class BillingClaimSubmissionService {
         }
 
         claim1Header = claim1Header.withDemographicNo(val.getParameter("demographic_no"));
-        claim1Header = claim1Header.withProviderNo(val.getParameter("xml_provider").substring(0,
-                val.getParameter("xml_provider").indexOf("|")));
+        claim1Header = claim1Header.withProviderNo(beforePipe(requiredParam(val, "xml_provider"), "xml_provider"));
 
         String serviceDate = normalizeRequiredDateParam(val.getParameter("service_date"), "service_date");
         claim1Header = claim1Header.withBillingDate(serviceDate);
@@ -373,9 +372,8 @@ public class BillingClaimSubmissionService {
         claim1Header = claim1Header.withPaid(paid);
         claim1Header = claim1Header.withStatus(getStatus(submit, val.getParameter("xml_billtype")));
         claim1Header = claim1Header.withComment(val.getParameter("comment") != null ? val.getParameter("comment") : "");
-        claim1Header = claim1Header.withVisitType(val.getParameter("xml_visittype").substring(0, 2));
-        claim1Header = claim1Header.withProviderOhipNo(val.getParameter("xml_provider").substring(
-                val.getParameter("xml_provider").indexOf("|") + 1));
+        claim1Header = claim1Header.withVisitType(prefix(requiredParam(val, "xml_visittype"), "xml_visittype", 2));
+        claim1Header = claim1Header.withProviderOhipNo(afterPipe(requiredParam(val, "xml_provider"), "xml_provider"));
         claim1Header = claim1Header.withProviderRmaNo("");
         claim1Header = claim1Header.withAppointmentProviderNo(val.getParameter("apptProvider_no"));
         claim1Header = claim1Header.withAssistantProviderNo("");
@@ -387,9 +385,10 @@ public class BillingClaimSubmissionService {
     }
 
     private BillingClaimItemDto[] getItemObj(HttpServletRequest val) {
-        int itemNum = Integer.parseInt(val.getParameter("totalItem"));
+        int itemNum = parseRequiredIntParam(val, "totalItem");
         BillingClaimItemDto[] claimItem = new BillingClaimItemDto[itemNum];
         String serviceDate = normalizeRequiredDateParam(val.getParameter("service_date"), "service_date");
+        String billtype = requiredParam(val, "xml_billtype");
         // _logger.info("No billing item for billing # " + itemNum);
 
         for (int i = 0; i < itemNum; i++) {
@@ -417,7 +416,7 @@ public class BillingClaimSubmissionService {
             } else {
                 claimItem[i] = claimItem[i].withDiscount("0.00");
             }
-            if (val.getParameter("xml_billtype").substring(0, 3).matches(BillingOnConstants.BILLINGMATCHSTRING_3RDPARTY)) {
+            if (prefix(billtype, "xml_billtype", 3).matches(BillingOnConstants.BILLINGMATCHSTRING_3RDPARTY)) {
                 claimItem[i] = claimItem[i].withStatus("P");
             } else {
                 claimItem[i] = claimItem[i].withStatus("O");
@@ -444,20 +443,20 @@ public class BillingClaimSubmissionService {
                 : BillingOnConstants.CLAIMHEADER1_PAYEE);
         claim1Header = claim1Header.withReferralNumber(val.getParameter("referralCode"));
 
-        claim1Header = claim1Header.withFacilityNumber(val.getParameter("xml_location").substring(0, 4));
+        claim1Header = claim1Header.withFacilityNumber(prefix(requiredParam(val, "xml_location"), "xml_location", 4));
         claim1Header = claim1Header.withAdmissionDate(
                 normalizeOptionalDateParam(val.getParameter("xml_vdate"), "xml_vdate"));
 
         claim1Header = claim1Header.withReferringLabNumber("");
         claim1Header = claim1Header.withManualReview("");
 
-        claim1Header = claim1Header.withLocation(val.getParameter("xml_slicode").trim());
+        claim1Header = claim1Header.withLocation(requiredParam(val, "xml_slicode").trim());
 
         claim1Header = claim1Header.withDemographicNo(val.getParameter("demographic_no"));
         if (IsPropertiesOn.isMultisitesEnable()) {
-            claim1Header = claim1Header.withProviderNo(val.getParameter("xml_provider").substring(0, val.getParameter("xml_provider").indexOf("|")));
+            claim1Header = claim1Header.withProviderNo(beforePipe(requiredParam(val, "xml_provider"), "xml_provider"));
         } else {
-            claim1Header = claim1Header.withProviderNo(val.getParameter("xml_provider"));
+            claim1Header = claim1Header.withProviderNo(requiredParam(val, "xml_provider"));
         }
 
         claim1Header = claim1Header.withAppointmentNo(val.getParameter("appointment_no"));
@@ -476,7 +475,7 @@ public class BillingClaimSubmissionService {
         claim1Header = claim1Header.withPaid("");
         claim1Header = claim1Header.withStatus(getStatus("", val.getParameter("xml_billtype")));
         claim1Header = claim1Header.withComment(val.getParameter("comment") != null ? val.getParameter("comment") : "");
-        claim1Header = claim1Header.withVisitType(val.getParameter("xml_visittype").substring(0, 2));
+        claim1Header = claim1Header.withVisitType(prefix(requiredParam(val, "xml_visittype"), "xml_visittype", 2));
         claim1Header = claim1Header.withProviderOhipNo(val.getParameter("proOHIPNO"));
         claim1Header = claim1Header.withProviderRmaNo("");
         claim1Header = claim1Header.withAppointmentProviderNo(val.getParameter("apptProvider_no"));
@@ -542,7 +541,7 @@ public class BillingClaimSubmissionService {
         } catch (IllegalArgumentException e) {
             throw new BillingValidationException(
                     "Billing claim submission: malformed " + fieldName + " ["
-                            + LogSanitizer.sanitize(raw) + "]", e);
+                            + LogSanitizer.sanitizeForDisplay(raw) + "]", e);
         }
     }
 
@@ -552,7 +551,7 @@ public class BillingClaimSubmissionService {
         } catch (IllegalArgumentException e) {
             throw new BillingValidationException(
                     "Billing claim submission: malformed " + fieldName + " ["
-                            + LogSanitizer.sanitize(raw) + "]", e);
+                            + LogSanitizer.sanitizeForDisplay(raw) + "]", e);
         }
     }
 
@@ -562,13 +561,13 @@ public class BillingClaimSubmissionService {
         } catch (IllegalArgumentException e) {
             throw new BillingValidationException(
                     "Billing claim submission: malformed " + fieldName + " ["
-                            + LogSanitizer.sanitize(raw) + "]", e);
+                            + LogSanitizer.sanitizeForDisplay(raw) + "]", e);
         }
     }
 
     // HCP/WCB/RMB/NOT/PAT/...
     private String getPayProgram(String val, String hcType) {
-        String ret = val.substring(0, 3);
+        String ret = prefix(requiredValue(val, "xml_billtype"), "xml_billtype", 3);
         if (val.startsWith("PAT")) {
             ret = BillingOnConstants.CLAIMHEADER1_PAYMENTPROGRAM_PRIVATE;
         } else if (val.startsWith("ODP")) {
@@ -621,8 +620,60 @@ public class BillingClaimSubmissionService {
 
     // 1-default
     private String getDefaultUnit(String val) {
-        String ret = "".equals(val) ? "1" : val;
+        String ret = val == null || val.isBlank() ? "1" : val;
         return ret;
+    }
+
+    private int parseRequiredIntParam(HttpServletRequest request, String fieldName) {
+        String raw = requiredParam(request, fieldName);
+        try {
+            return Integer.parseInt(raw);
+        } catch (NumberFormatException e) {
+            throw new BillingValidationException(
+                    "Billing claim submission: malformed " + fieldName + " ["
+                            + LogSanitizer.sanitizeForDisplay(raw) + "]", e);
+        }
+    }
+
+    private String requiredParam(HttpServletRequest request, String fieldName) {
+        return requiredValue(request.getParameter(fieldName), fieldName);
+    }
+
+    private String requiredValue(String raw, String fieldName) {
+        if (raw == null || raw.isBlank()) {
+            throw new BillingValidationException(
+                    "Billing claim submission: missing required field [" + fieldName + "]");
+        }
+        return raw;
+    }
+
+    private String prefix(String raw, String fieldName, int length) {
+        if (raw.length() < length) {
+            throw new BillingValidationException(
+                    "Billing claim submission: malformed " + fieldName + " ["
+                            + LogSanitizer.sanitizeForDisplay(raw) + "]");
+        }
+        return raw.substring(0, length);
+    }
+
+    private String beforePipe(String raw, String fieldName) {
+        int pipe = raw.indexOf("|");
+        if (pipe <= 0) {
+            throw new BillingValidationException(
+                    "Billing claim submission: malformed " + fieldName + " ["
+                            + LogSanitizer.sanitizeForDisplay(raw) + "]");
+        }
+        return raw.substring(0, pipe);
+    }
+
+    private String afterPipe(String raw, String fieldName) {
+        int pipe = raw.indexOf("|");
+        if (pipe < 0 || pipe == raw.length() - 1) {
+            throw new BillingValidationException(
+                    "Billing claim submission: malformed " + fieldName + " ["
+                            + LogSanitizer.sanitizeForDisplay(raw) + "]");
+        }
+        return raw.substring(pipe + 1);
     }
 
     // ""-default

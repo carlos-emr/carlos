@@ -462,8 +462,9 @@ public class BillingCorrectionService {
                 if (newProvider != null) {
                     bCh1.setProviderOhipNo(newProvider.getOhipNo());
                 } else {
-                    MiscUtils.getLogger().warn("null providers! can't do the update ({})",
-                            LogSanitizer.sanitize(request.getParameter("provider_no"))); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                    throw new BillingValidationException(
+                            "Billing correction rejected: provider not found [provider_no="
+                                    + LogSanitizer.sanitize(request.getParameter("provider_no")) + "]");
                 }
             }
         }

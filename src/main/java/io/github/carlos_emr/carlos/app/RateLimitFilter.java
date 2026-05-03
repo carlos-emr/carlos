@@ -139,6 +139,7 @@ public final class RateLimitFilter implements Filter {
      */
     private final ConcurrentHashMap<String, FixedWindowCounter> counters = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, FixedWindowCounter> overflowCounters = new ConcurrentHashMap<>();
+    private final Set<String> forwardedAddressWarningIps = ConcurrentHashMap.newKeySet();
 
     /** Background thread for evicting stale counters to prevent unbounded memory growth. */
     private ScheduledExecutorService cleanupScheduler;
@@ -316,18 +317,25 @@ public final class RateLimitFilter implements Filter {
         chain.doFilter(request, response);
     }
 
-    private static void warnIfForwardedAddressWasNotApplied(HttpServletRequest request, String clientIp) {
+    private void warnIfForwardedAddressWasNotApplied(HttpServletRequest request, String clientIp) {
         String forwardedFor = request.getHeader("X-Forwarded-For");
         if (forwardedFor == null || forwardedFor.isBlank()) {
             return;
         }
         String firstForwardedIp = forwardedFor.split(",", 2)[0].trim();
         if (!firstForwardedIp.isEmpty() && !firstForwardedIp.equals(clientIp)) {
-            logger.warn(
-                    "RATE CONFIG: X-Forwarded-For present but rate limit is using remoteAddr; "
-                            + "verify XforwardHeaderFilter ordering/trusted proxy configuration. remoteAddr={} xForwardedForFirst={}",
-                    LogSanitizer.sanitize(clientIp),
-                    LogSanitizer.sanitize(firstForwardedIp));
+            if (forwardedAddressWarningIps.add(clientIp)) {
+                logger.warn(
+                        "RATE CONFIG: X-Forwarded-For present but rate limit is using remoteAddr; "
+                                + "verify XforwardHeaderFilter ordering/trusted proxy configuration. remoteAddr={} xForwardedForFirst={}",
+                        LogSanitizer.sanitize(clientIp),
+                        LogSanitizer.sanitize(firstForwardedIp));
+            } else {
+                logger.debug(
+                        "RATE CONFIG: repeated X-Forwarded-For mismatch suppressed for remoteAddr={} xForwardedForFirst={}",
+                        LogSanitizer.sanitize(clientIp),
+                        LogSanitizer.sanitize(firstForwardedIp));
+            }
         }
     }
 
@@ -340,6 +348,7 @@ public final class RateLimitFilter implements Filter {
             cleanupScheduler.shutdownNow();
         }
         overflowCounters.clear();
+        forwardedAddressWarningIps.clear();
     }
 
     // --- Package-visible for testing ---

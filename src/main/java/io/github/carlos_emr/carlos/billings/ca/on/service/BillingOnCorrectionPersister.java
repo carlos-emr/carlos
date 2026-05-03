@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import io.github.carlos_emr.carlos.billings.ca.on.BillingDates;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
@@ -114,6 +115,10 @@ public class BillingOnCorrectionPersister {
      */
     public boolean updateBillingClaimHeader(BillingClaimHeaderDto ch1Obj) {
         BillingONCHeader1 c = billingHeaderDao.find(ch1Obj.getId());
+        if (c == null) {
+            throw new BillingValidationException("Cannot update billing claim header: row not found [id="
+                    + LogSanitizer.sanitize(ch1Obj.getId()) + "]");
+        }
         c.setTranscId(ch1Obj.transactionId());
         c.setRecId(ch1Obj.recordId());
         c.setHin(ch1Obj.getHin());
@@ -165,20 +170,22 @@ public class BillingOnCorrectionPersister {
      */
     public boolean updateBillingOneItem(BillingClaimItemDto val) {
         BillingONItem b = billingItemDao.find(val.getId());
-        if (b != null) {
-            b.setTranscId(val.transactionId());
-            b.setRecId(val.recordId());
-            b.setServiceCode(val.serviceCode());
-            b.setFee(val.getFee());
-            b.setServiceCount(val.serviceNumber());
-            b.setServiceDate(BillingDates.parseIsoDate(val.serviceDate()));
-            b.setDx(val.getDx());
-            b.setDx1(val.getDx1());
-            b.setDx2(val.getDx2());
-            b.setStatusStrict(val.getStatus());
-
-            billingItemDao.merge(b);
+        if (b == null) {
+            throw new BillingValidationException("Cannot update billing claim item: row not found [id="
+                    + LogSanitizer.sanitize(val.getId()) + "]");
         }
+        b.setTranscId(val.transactionId());
+        b.setRecId(val.recordId());
+        b.setServiceCode(val.serviceCode());
+        b.setFee(val.getFee());
+        b.setServiceCount(val.serviceNumber());
+        b.setServiceDate(BillingDates.parseIsoDate(val.serviceDate()));
+        b.setDx(val.getDx());
+        b.setDx1(val.getDx1());
+        b.setDx2(val.getDx2());
+        b.setStatusStrict(val.getStatus());
+
+        billingItemDao.merge(b);
         return true;
     }
 

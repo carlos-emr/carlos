@@ -28,7 +28,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.BatchEligibilityDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicCustDao;
@@ -565,25 +564,22 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
         return file1;
     }
 
-    @StrutsParameter
     public void setFile1(File file1) {
-        this.file1 = file1;
+        this.file1 = file1 == null ? null : PathValidationUtils.validateUpload(file1);
     }
 
     public String getFile1FileName() {
         return file1FileName;
     }
 
-    @StrutsParameter
     public void setFile1FileName(String file1FileName) {
-        this.file1FileName = file1FileName;
+        this.file1FileName = safeBasename(file1FileName);
     }
 
     public String getFile1ContentType() {
         return file1ContentType;
     }
 
-    @StrutsParameter
     public void setFile1ContentType(String file1ContentType) {
         this.file1ContentType = file1ContentType;
     }
@@ -592,8 +588,18 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
         return filename;
     }
 
-    @StrutsParameter
     public void setFilename(String filename) {
-        this.filename = filename;
+        this.filename = safeBasename(filename);
+    }
+
+    private static String safeBasename(String value) {
+        if (value == null) {
+            return null;
+        }
+        String basename = org.apache.commons.io.FilenameUtils.getName(value);
+        if (!basename.equals(value)) {
+            throw new SecurityException("MOH report filename must not include a path");
+        }
+        return basename;
     }
 }

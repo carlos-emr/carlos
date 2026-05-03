@@ -43,6 +43,10 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -226,9 +230,20 @@ class MoveMohFiles2ActionUnitTest extends CarlosUnitTestBase {
                     .thenThrow(new NullPointerException("programming error"));
 
             assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(
-                    action, "validateFileLocation", new java.io.File("claim.000")))
+                    action, "validateFileLocation", new File("claim.000")))
                     .isInstanceOf(NullPointerException.class)
                     .hasMessageContaining("programming error");
         }
+    }
+
+    @Test
+    void shouldRejectEncodedTraversal_whenResolvingMohFile() throws Exception {
+        Path folder = Files.createTempDirectory("moh-files");
+        MoveMohFiles2Action action = new MoveMohFiles2Action();
+
+        File resolved = ReflectionTestUtils.invokeMethod(
+                action, "getFile", folder.toString(), "..%2F..%2Fsecret.txt");
+
+        assertThat(resolved).isNull();
     }
 }

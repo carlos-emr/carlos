@@ -349,7 +349,7 @@ public class OhipClaimFileService {
         dto = dto.withTransactionId(item.getTranscId());
         dto = dto.withRecordId(item.getRecId());
         dto = dto.withServiceCode(item.getServiceCode());
-        dto = dto.withFee(item.getFee());
+        dto = dto.withFee(requireExportFee(item));
         dto = dto.withServiceNumber(item.getServiceCount());
         dto = dto.withServiceDate(ConversionUtils.toDateString(item.getServiceDate()));
         String diagcode = item.getDx();
@@ -359,6 +359,12 @@ public class OhipClaimFileService {
         dto = dto.withDx2(item.getDx2());
         dto = dto.withStatus(item.getStatus());
         return dto;
+    }
+
+    private static String requireExportFee(BillingONItem item) {
+        return BillingMoney.format(BillingMoney.parseNonNegativeAmount(
+                item.getFee(),
+                "fee for OHIP export item " + item.getId()));
     }
 
     private String buildHeader1(LoggedInInfo loggedInInfo) {

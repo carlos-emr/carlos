@@ -40,6 +40,7 @@ import io.github.carlos_emr.carlos.commn.dao.RecycleBinDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.commn.model.RecycleBin;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
  * Transactional write side for BC billing corrections.
@@ -67,6 +68,11 @@ public class BillingCorrectionSubmitService {
         int billingNo = Integer.parseInt(billingNoStr);
         String content = billingDataBean.getContent();
         String total = billingDataBean.getTotal();
+        Billing b = billingDao.find(billingNo);
+        if (b == null) {
+            throw new IllegalStateException("BC billing correction rejected: billing record not found [billingNo="
+                    + LogSanitizer.sanitize(billingNoStr) + "]");
+        }
 
         GregorianCalendar now = new GregorianCalendar();
 
@@ -82,21 +88,18 @@ public class BillingCorrectionSubmitService {
             billingDetailDao.merge(bd);
         }
 
-        Billing b = billingDao.find(billingNo);
-        if (b != null) {
-            b.setHin(billingDataBean.getHin());
-            b.setDob(billingDataBean.getDob());
-            b.setVisitType(billingDataBean.getVisittype());
-            b.setVisitDate(ConversionUtils.fromDateString(billingDataBean.getVisitdate()));
-            b.setClinicRefCode(billingDataBean.getClinic_ref_code());
-            b.setProviderNo(billingDataBean.getProviderNo());
-            b.setStatus(billingDataBean.getStatus());
-            b.setUpdateDate(ConversionUtils.fromDateString(
-                    now.get(Calendar.YEAR) + "-" + (now.get(Calendar.MONTH) + 1) + "-" + now.get(Calendar.DAY_OF_MONTH)));
-            b.setTotal(total);
-            b.setContent(content);
-            billingDao.merge(b);
-        }
+        b.setHin(billingDataBean.getHin());
+        b.setDob(billingDataBean.getDob());
+        b.setVisitType(billingDataBean.getVisittype());
+        b.setVisitDate(ConversionUtils.fromDateString(billingDataBean.getVisitdate()));
+        b.setClinicRefCode(billingDataBean.getClinic_ref_code());
+        b.setProviderNo(billingDataBean.getProviderNo());
+        b.setStatus(billingDataBean.getStatus());
+        b.setUpdateDate(ConversionUtils.fromDateString(
+                now.get(Calendar.YEAR) + "-" + (now.get(Calendar.MONTH) + 1) + "-" + now.get(Calendar.DAY_OF_MONTH)));
+        b.setTotal(total);
+        b.setContent(content);
+        billingDao.merge(b);
 
         ListIterator it = billingBean.getBillingItems().listIterator();
         while (it.hasNext()) {
