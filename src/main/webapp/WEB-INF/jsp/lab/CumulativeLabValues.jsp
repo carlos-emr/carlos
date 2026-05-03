@@ -210,33 +210,24 @@
                             <%
                                 for (int i = 0; i < prevList.size(); i++) {
                                     Hashtable h = (Hashtable) prevList.get(i);
-                                    String prevName = (String) h.get("testName");
-                                    String labType = (String) h.get("labType");
-                                    if (labType == null) {
-                                        labType = "";
-                                    }
-                                    String identCode = (String) h.get("identCode");
-                                    String identCodeEsc = "";
-                                    if (identCode != null)
-                                        identCodeEsc = identCode.replaceAll("&", "_amp_");
-
-                                    if (prevName == null) {
-                                        prevName = "";
-                                    }
-                                    String prevNameHtmlAttribute = SafeEncode.forHtmlAttribute(prevName);
-                                    String prevNameJavaScriptAttribute = SafeEncode.forJavaScriptAttribute(prevName);
-                                    String labTypeJavaScriptAttribute = SafeEncode.forJavaScriptAttribute(labType);
-                                    String identCodeJavaScriptAttribute = SafeEncode.forJavaScriptAttribute(identCodeEsc);
-                                    String displayNameHtml = SafeEncode.forHtmlContent(StringUtils.maxLenString(prevName, 13, 8, "..."));
+                                    String prevName = Objects.toString(h.get("testName"), "");
+                                    String labType = Objects.toString(h.get("labType"), "");
+                                    String identCode = Objects.toString(h.get("identCode"), "");
+                                    String identCodeEsc = identCode.replaceAll("&", "_amp_");
+                                    String encodedPrevNameForHtmlAttribute = SafeEncode.forHtmlAttribute(prevName);
+                                    String encodedPrevNameForJavaScriptAttribute = SafeEncode.forJavaScriptAttribute(prevName);
+                                    String encodedLabTypeForJavaScriptAttribute = SafeEncode.forJavaScriptAttribute(labType);
+                                    String encodedIdentCodeForJavaScriptAttribute = SafeEncode.forJavaScriptAttribute(identCodeEsc);
+                                    String encodedDisplayNameForHtml = SafeEncode.forHtmlContent(StringUtils.maxLenString(prevName, 13, 8, "..."));
                             %>
                             <li class="list-group-item py-1 px-2"><%-- a title="fade=[on] header=[<%=prevName%>] body=[]"      href="javascript: function myFunction() {return false; }"  onclick="javascript:addLabToProfile2('<%=h.get("labType")%>','<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>');" --%>
                                 <button type="button"
                                         class="btn btn-link p-0 text-start"
-                                        title="fade=[on] header=[<%=prevNameHtmlAttribute%>] body=[]"
-                                        aria-label="<%=prevNameHtmlAttribute%>"
-                                        onclick="addLabToProfile2('<%=labTypeJavaScriptAttribute%>','<%=prevNameJavaScriptAttribute%>','<%= identCodeJavaScriptAttribute %>');">
+                                        title="<%=encodedPrevNameForHtmlAttribute%>"
+                                        aria-label="<%=encodedPrevNameForHtmlAttribute%>"
+                                        onclick="addLabToProfile2('<%=encodedLabTypeForJavaScriptAttribute%>','<%=encodedPrevNameForJavaScriptAttribute%>','<%= encodedIdentCodeForJavaScriptAttribute %>');">
 
-                                     <%=displayNameHtml%>
+                                     <%=encodedDisplayNameForHtml%>
                                 </button></li>
                             <%}%>
                         </ul>
