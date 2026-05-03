@@ -47,6 +47,7 @@ class StrutsAdminConfigTest {
 
     private static final Path ADMIN_CONFIG = Path.of(
             "src", "main", "webapp", "WEB-INF", "classes", "struts-admin.xml");
+    private static final int MAX_PARENT_SEARCH_DEPTH = 8;
 
     private static Document adminConfig;
 
@@ -117,13 +118,17 @@ class StrutsAdminConfigTest {
 
     private static Path resolveProjectPath(Path relativePath) {
         Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath();
-        while (current != null) {
+        int checkedParents = 0;
+        while (current != null && checkedParents < MAX_PARENT_SEARCH_DEPTH) {
             Path candidate = current.resolve(relativePath);
             if (Files.isRegularFile(candidate)) {
                 return candidate;
             }
             current = current.getParent();
+            checkedParents++;
         }
-        return relativePath;
+        throw new IllegalStateException("Unable to locate " + relativePath
+                + " within " + MAX_PARENT_SEARCH_DEPTH + " parent directories from "
+                + System.getProperty("user.dir"));
     }
 }
