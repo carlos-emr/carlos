@@ -35,6 +35,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -106,5 +107,16 @@ class RxManagePharmacy2ActionTest extends CarlosUnitTestBase {
         assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
         springUtilsMock.verify(() -> SpringUtils.getBean(PharmacyInfoDao.class), never());
         springUtilsMock.verify(() -> SpringUtils.getBean(DemographicPharmacyDao.class), never());
+    }
+
+    @Test
+    @DisplayName("should throw security exception when pharmacyAction is missing and write privilege denied")
+    void shouldThrowSecurityException_whenPharmacyActionMissingAndWritePrivilegeDenied() {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("w"), isNull()))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_rx");
     }
 }
