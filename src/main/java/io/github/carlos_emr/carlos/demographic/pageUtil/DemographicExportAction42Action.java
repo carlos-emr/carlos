@@ -274,6 +274,10 @@ public class DemographicExportAction42Action extends ActionSupport {
             throw new SecurityException("missing required security object (_demographicExport)");
         }
 
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            return SUCCESS;
+        }
+
         String setName = this.getPatientSet();
         String templateOption = this.getTemplate();
 
