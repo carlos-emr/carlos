@@ -325,7 +325,7 @@
                                                                              onclick="javascript:return onSaveExit();"/> <%
                     }
                 %> <input type="submit" value="<fmt:message key='global.btnExit'/>"
-                          onclick="javascript:return onExit();"/> <input type="submit"
+                          onclick="javascript:return onExit();"/> <input type="button"
                                                                          value="<fmt:message key='global.btnPrint'/>"
                                                                          onclick="javascript:return onPrint();"/></td>
             </tr>
