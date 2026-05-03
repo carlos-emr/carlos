@@ -685,11 +685,39 @@
             if (!from.startsWith('/') || from.startsWith('//')) {
                 from = '${pageContext.request.contextPath}/oscarMDS/ViewPatientSearch';
             }
-            document.getElementById('addform').action = from + '?name='
-                + encodeURIComponent(lastname + ',' + firstname)
-                + '&chart_no=' + encodeURIComponent(chartno)
-                + '&bFirstDisp=false';
-            document.getElementById('addform').submit();
+            var addform = document.getElementById('addform');
+            addform.method = 'post';
+            addform.action = from;
+
+            // Create or update hidden inputs for POST data
+            var nameInput = addform.querySelector('input[name="name"]');
+            if (!nameInput) {
+                nameInput = document.createElement('input');
+                nameInput.type = 'hidden';
+                nameInput.name = 'name';
+                addform.appendChild(nameInput);
+            }
+            nameInput.value = lastname + ',' + firstname;
+
+            var chartNoInput = addform.querySelector('input[name="chart_no"]');
+            if (!chartNoInput) {
+                chartNoInput = document.createElement('input');
+                chartNoInput.type = 'hidden';
+                chartNoInput.name = 'chart_no';
+                addform.appendChild(chartNoInput);
+            }
+            chartNoInput.value = chartno;
+
+            var bFirstDispInput = addform.querySelector('input[name="bFirstDisp"]');
+            if (!bFirstDispInput) {
+                bFirstDispInput = document.createElement('input');
+                bFirstDispInput.type = 'hidden';
+                bFirstDispInput.name = 'bFirstDisp';
+                addform.appendChild(bFirstDispInput);
+            }
+            bFirstDispInput.value = 'false';
+
+            addform.submit();
         }
     </script>
 </body>

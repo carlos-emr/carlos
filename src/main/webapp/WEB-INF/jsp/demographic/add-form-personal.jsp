@@ -282,7 +282,7 @@
                                 <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formCity"/>:</label>
                             </div>
                             <div class="col-sm-4" id="cityCell">
-                                <input type="text" id="city" name="city" class="form-control" value="<%=defaultCity %>" value="<carlos:encode value='<%= prefillCity.isEmpty() ? defaultCity : prefillCity %>' context="htmlAttribute"/>"/>
+                                <input type="text" id="city" name="city" class="form-control" value="<carlos:encode value='<%= prefillCity.isEmpty() ? defaultCity : prefillCity %>' context="htmlAttribute"/>"/>
                             </div>
                         </div>
 
@@ -682,7 +682,7 @@
                                 <div class="d-flex gap-1 align-items-center">
                                     <input type="text" id="phone" name="phone" class="form-control"
                                            onBlur="formatPhoneNum()"
-                                           value="<carlos:encode value='<%= prefillPhone.isEmpty() ? props.getProperty("phoneprefix", "905-") : prefillPhone %>' context="htmlAttribute"/>">>
+                                           value="<carlos:encode value='<%= prefillPhone.isEmpty() ? props.getProperty("phoneprefix", "905-") : prefillPhone %>' context="htmlAttribute"/>">
                                     <span class="text-nowrap"><fmt:message key="demographic.demographicaddrecordhtm.Ext"/>:</span>
                                     <input type="text" id="hPhoneExt" name="hPhoneExt" value="" class="form-control" style="width:4em"/>
                                 </div>
@@ -820,7 +820,7 @@
                                 <div class="d-flex gap-1 align-items-center">
                                     <input type="text" name="hin" id="hin" class="form-control" onfocus="autoFillHin()" value="<carlos:encode value='<%= prefillHin %>' context="htmlAttribute"/>">
                                     <span class="text-nowrap"><fmt:message key="demographic.demographicaddrecordhtm.formVer"/>:</span>
-                                    <input type="text" id="ver" name="ver" value="" class="form-control" style="width:4em" onBlur="upCaseCtrl(this)" value="<carlos:encode value='<%= prefillVer %>' context="htmlAttribute"/>">
+                                    <input type="text" id="ver" name="ver" class="form-control" style="width:4em" onBlur="upCaseCtrl(this)" value="<carlos:encode value='<%= prefillVer %>' context="htmlAttribute"/>">
                                 </div>
                             </div>
                             <div class="col-sm-2 text-end" id="effDateLbl">
