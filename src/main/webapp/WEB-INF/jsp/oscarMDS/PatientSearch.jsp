@@ -33,7 +33,7 @@
     @see io.github.carlos_emr.carlos.mds.pageUtil.PatientMatch2Action
 
 --%>
-<%@ page import="java.util.*, java.sql.*, java.net.URLEncoder" %>
+<%@ page import="java.util.*, java.sql.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.DbConnectionFilter" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat, io.github.carlos_emr.Misc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
@@ -126,26 +126,8 @@
         } catch (Exception e) { /* lab data unavailable; button opens blank add-patient form */ }
     }
 
-    // === Add as New Patient URL ===
-    StringBuilder addPatientUrl = new StringBuilder(request.getContextPath()).append("/demographic/DemographicAdd");
     boolean hasSearch = !p_searchMode.isEmpty() && !p_keyword.isEmpty();
-    if (hasSearch && !p_labNo.isEmpty()) {
-        addPatientUrl
-            .append("?prefill_last_name=")     .append(URLEncoder.encode(labPatientLastName,  "UTF-8"))
-            .append("&prefill_first_name=")    .append(URLEncoder.encode(labPatientFirstName, "UTF-8"))
-            .append("&prefill_year_of_birth=") .append(URLEncoder.encode(labPatientDobYear,   "UTF-8"))
-            .append("&prefill_month_of_birth=").append(URLEncoder.encode(labPatientDobMonth,  "UTF-8"))
-            .append("&prefill_date_of_birth=") .append(URLEncoder.encode(labPatientDobDay,    "UTF-8"))
-            .append("&prefill_sex=")           .append(URLEncoder.encode(labPatientSex,       "UTF-8"))
-            .append("&prefill_address=")       .append(URLEncoder.encode(labPatientAddress,   "UTF-8"))
-            .append("&prefill_city=")          .append(URLEncoder.encode(labPatientCity,       "UTF-8"))
-            .append("&prefill_province=")      .append(URLEncoder.encode(labPatientProvince,  "UTF-8"))
-            .append("&prefill_postal=")        .append(URLEncoder.encode(labPatientPostal,    "UTF-8"))
-            .append("&prefill_phone=")         .append(URLEncoder.encode(labPatientPhone,     "UTF-8"))
-            .append("&prefill_hin=")           .append(URLEncoder.encode(labPatientHin,       "UTF-8"))
-            .append("&prefill_ver=")           .append(URLEncoder.encode(labPatientHinVer,    "UTF-8"))
-            .append("&prefill_hc_type=")       .append(URLEncoder.encode(labPatientProvince,  "UTF-8"));
-    }
+    boolean shouldPrefillAddPatient = hasSearch && !p_labNo.isEmpty();
 
     // === DB query: build patient rows list ===
     List<Map<String,String>> patientRows = new ArrayList<>();
@@ -298,8 +280,20 @@
     request.setAttribute("searchMode",    p_searchMode);
     request.setAttribute("orderby",       p_orderby.isEmpty() ? "last_name" : p_orderby);
     request.setAttribute("nextLimit1",    nextLimit1);
-    request.setAttribute("addPatientUrl", addPatientUrl.toString());
     request.setAttribute("hasSearch",     hasSearch);
+    request.setAttribute("prefillLastName",     shouldPrefillAddPatient ? labPatientLastName : "");
+    request.setAttribute("prefillFirstName",    shouldPrefillAddPatient ? labPatientFirstName : "");
+    request.setAttribute("prefillYearOfBirth",  shouldPrefillAddPatient ? labPatientDobYear : "");
+    request.setAttribute("prefillMonthOfBirth", shouldPrefillAddPatient ? labPatientDobMonth : "");
+    request.setAttribute("prefillDateOfBirth",  shouldPrefillAddPatient ? labPatientDobDay : "");
+    request.setAttribute("prefillSex",          shouldPrefillAddPatient ? labPatientSex : "");
+    request.setAttribute("prefillAddress",      shouldPrefillAddPatient ? labPatientAddress : "");
+    request.setAttribute("prefillCity",         shouldPrefillAddPatient ? labPatientCity : "");
+    request.setAttribute("prefillProvince",     shouldPrefillAddPatient ? labPatientProvince : "");
+    request.setAttribute("prefillPostal",       shouldPrefillAddPatient ? labPatientPostal : "");
+    request.setAttribute("prefillPhone",        shouldPrefillAddPatient ? labPatientPhone : "");
+    request.setAttribute("prefillHin",          shouldPrefillAddPatient ? labPatientHin : "");
+    request.setAttribute("prefillVer",          shouldPrefillAddPatient ? labPatientHinVer : "");
 %>
 <!DOCTYPE html>
 <html lang="en">
@@ -488,7 +482,7 @@
         <%-- Add as New Patient button --%>
         <div class="text-center my-2">
             <button type="button" class="btn btn-carlos-teal fw-bold"
-                    onclick="window.open('${carlos:forJavaScriptAttribute(addPatientUrl)}', 'addNewPatient', 'scrollbars=yes,resizable=yes,width=900,height=700')">
+                    onclick="openAddPatient()">
                 <fmt:message key="oscarMDS.patientSearch.btnAddNewPatient"/>
             </button>
         </div>
@@ -506,6 +500,26 @@
         <input type="hidden" name="labNo"         value="${carlos:forHtmlAttribute(labNo)}"/>
         <input type="hidden" name="labType"       value="${carlos:forHtmlAttribute(labType)}"/>
         <input type="hidden" name="demographicNo" id="addformDemoNo" value=""/>
+    </form>
+
+    <%-- Hidden POST form for lab pre-fill to keep PHI out of the popup URL --%>
+    <form method="post" id="addPatientForm" name="addPatientForm"
+          action="${pageContext.request.contextPath}/demographic/DemographicAdd"
+          target="addNewPatient">
+        <input type="hidden" name="prefill_last_name"      value="${carlos:forHtmlAttribute(prefillLastName)}"/>
+        <input type="hidden" name="prefill_first_name"     value="${carlos:forHtmlAttribute(prefillFirstName)}"/>
+        <input type="hidden" name="prefill_year_of_birth"  value="${carlos:forHtmlAttribute(prefillYearOfBirth)}"/>
+        <input type="hidden" name="prefill_month_of_birth" value="${carlos:forHtmlAttribute(prefillMonthOfBirth)}"/>
+        <input type="hidden" name="prefill_date_of_birth"  value="${carlos:forHtmlAttribute(prefillDateOfBirth)}"/>
+        <input type="hidden" name="prefill_sex"            value="${carlos:forHtmlAttribute(prefillSex)}"/>
+        <input type="hidden" name="prefill_address"        value="${carlos:forHtmlAttribute(prefillAddress)}"/>
+        <input type="hidden" name="prefill_city"           value="${carlos:forHtmlAttribute(prefillCity)}"/>
+        <input type="hidden" name="prefill_province"       value="${carlos:forHtmlAttribute(prefillProvince)}"/>
+        <input type="hidden" name="prefill_postal"         value="${carlos:forHtmlAttribute(prefillPostal)}"/>
+        <input type="hidden" name="prefill_phone"          value="${carlos:forHtmlAttribute(prefillPhone)}"/>
+        <input type="hidden" name="prefill_hin"            value="${carlos:forHtmlAttribute(prefillHin)}"/>
+        <input type="hidden" name="prefill_ver"            value="${carlos:forHtmlAttribute(prefillVer)}"/>
+        <input type="hidden" name="prefill_hc_type"        value="${carlos:forHtmlAttribute(prefillProvince)}"/>
     </form>
 
     <%-- Hidden form for Load More pagination (POST to avoid PHI in URL) --%>
@@ -596,6 +610,11 @@
                 }
             }
         });
+
+        function openAddPatient() {
+            window.open('', 'addNewPatient', 'scrollbars=yes,resizable=yes,width=900,height=700');
+            document.getElementById('addPatientForm').submit();
+        }
 
         // Match patient: POST to PatientMatch, notify lab display and inboxhub, then close popup
         function selectPatient(demoNo) {
