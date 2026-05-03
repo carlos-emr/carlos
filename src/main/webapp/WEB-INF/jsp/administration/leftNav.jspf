@@ -910,7 +910,8 @@ $(document).ready(function(){
 		$("#dynamic-content").empty().append($("<iframe>", {
 			id: "myFrame",
 			name: "myFrame",
-			title: iframeTitle
+			title: iframeTitle,
+			loading: "lazy"
 		}).css("border", "0"));
 		if (submitForm) {
 			var form = document.getElementById(submitForm);
