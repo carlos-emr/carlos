@@ -37,6 +37,13 @@ import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.DiskFilenameRow;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionOperations;
+import org.springframework.transaction.support.TransactionTemplate;
 // NOTE: this service is read+write — addBillingDiskName/addRepoDiskName/
 // updateDiskName (lines ~135/166/177/187) write through the persister. Class-
 // level MUST NOT be readOnly=true; Hibernate would skip the flush on those
@@ -56,19 +63,53 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  * <p>Web security is enforced at the action layer before invocation.</p>
  */
 @org.springframework.stereotype.Service
-@org.springframework.transaction.annotation.Transactional
+@Transactional
 public class BillingDiskCreationService {
+
+    private static final int DISK_NAME_INSERT_RETRIES = 3;
     private static final Logger _logger = MiscUtils.getLogger();
     private final BillingOnClaimPersister claimPersister;
     private final BillingOnDiskLoader diskQuery;
     private final BillingOnLookupService lookupService;
+    private final TransactionOperations diskNameAllocationTx;
 
     BillingDiskCreationService(BillingOnClaimPersister claimPersister,
                           BillingOnDiskLoader diskQuery,
                           BillingOnLookupService lookupService) {
+        this(claimPersister, diskQuery, lookupService, directTransactionOperations());
+    }
+
+    BillingDiskCreationService(BillingOnClaimPersister claimPersister,
+                          BillingOnDiskLoader diskQuery,
+                          BillingOnLookupService lookupService,
+                          TransactionOperations diskNameAllocationTx) {
         this.claimPersister = claimPersister;
         this.diskQuery = diskQuery;
         this.lookupService = lookupService;
+        this.diskNameAllocationTx = diskNameAllocationTx;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    BillingDiskCreationService(BillingOnClaimPersister claimPersister,
+                          BillingOnDiskLoader diskQuery,
+                          BillingOnLookupService lookupService,
+                          PlatformTransactionManager txManager) {
+        this(claimPersister, diskQuery, lookupService, requiresNewTransactions(txManager));
+    }
+
+    private static TransactionOperations requiresNewTransactions(PlatformTransactionManager txManager) {
+        TransactionTemplate txTemplate = new TransactionTemplate(txManager);
+        txTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        return txTemplate;
+    }
+
+    private static TransactionOperations directTransactionOperations() {
+        return new TransactionOperations() {
+            @Override
+            public <T> T execute(TransactionCallback<T> action) {
+                return action.doInTransaction(null);
+            }
+        };
     }
 
     public Properties getPropProviderOHIP() {
@@ -103,12 +144,40 @@ public class BillingDiskCreationService {
         return ret;
     }
 
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public int createNewSoloDiskName(String providerNo, String creator) {
-        int ret = 0;
         String ohipNo = lookupService.getPropProviderOHIP().getProperty(providerNo);
-        // set up obj
+        for (int attempt = 1; attempt <= DISK_NAME_INSERT_RETRIES; attempt++) {
+            try {
+                return diskNameAllocationTx.execute(status ->
+                        claimPersister.addBillingDiskName(newSoloDiskName(providerNo, creator, ohipNo)));
+            } catch (RuntimeException e) {
+                if (attempt == DISK_NAME_INSERT_RETRIES || !isDuplicateDiskNameFailure(e)) {
+                    throw e;
+                }
+            }
+        }
+        throw new BillingValidationException("Unable to allocate unique solo billing disk name for provider " + providerNo);
+    }
+
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public int createNewGrpDiskName(List providerNo, List ohipNo, String groupNo, String creator) {
+        for (int attempt = 1; attempt <= DISK_NAME_INSERT_RETRIES; attempt++) {
+            try {
+                return diskNameAllocationTx.execute(status ->
+                        claimPersister.addBillingDiskName(newGroupDiskName(providerNo, ohipNo, groupNo, creator)));
+            } catch (RuntimeException e) {
+                if (attempt == DISK_NAME_INSERT_RETRIES || !isDuplicateDiskNameFailure(e)) {
+                    throw e;
+                }
+            }
+        }
+        throw new BillingValidationException("Unable to allocate unique group billing disk name for group " + groupNo);
+    }
+
+    private BillingDiskNameDto newSoloDiskName(String providerNo, String creator, String ohipNo) {
         String groupNo = "";
-        String temp[] = getCurSoloMonthCodeBatchNum(ohipNo);
+        String[] temp = getCurSoloMonthCodeBatchNum(ohipNo);
         BillingDiskNameDto diskName = new BillingDiskNameDto();
         diskName.setMonthCode(temp[0]);
         diskName.setBatchcount(temp[1]);
@@ -120,10 +189,6 @@ public class BillingDiskCreationService {
         diskName.setCreatedatetime(UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss"));
         diskName.setStatus(BillingOnConstants.BILLINGFILE_STATUS_UNCERT);
         diskName.setTotal("");
-
-        // Solo disk: one filename row carrying the disk-header status across the
-        // per-row claimRecord/status/total slots, matching the legacy
-        // 1-element-list shape that consumers read at index 0.
         String htmlFilename = (String) getSoloHtmlfilename(ohipNo, temp[0], temp[1]).get(0);
         diskName.setFilenames(List.of(new DiskFilenameRow(
                 null,
@@ -133,15 +198,11 @@ public class BillingDiskCreationService {
                 "",
                 BillingOnConstants.BILLINGFILE_STATUS_UNCERT,
                 "")));
-
-        ret = claimPersister.addBillingDiskName(diskName);
-        return ret;
+        return diskName;
     }
 
-    public int createNewGrpDiskName(List providerNo, List ohipNo, String groupNo, String creator) {
-        int ret = 0;
-        // set up obj
-        String temp[] = getCurGrpMonthCodeBatchNum(groupNo);
+    private BillingDiskNameDto newGroupDiskName(List providerNo, List ohipNo, String groupNo, String creator) {
+        String[] temp = getCurGrpMonthCodeBatchNum(groupNo);
         BillingDiskNameDto diskName = new BillingDiskNameDto();
         diskName.setMonthCode(temp[0]);
         diskName.setBatchcount(temp[1]);
@@ -171,9 +232,22 @@ public class BillingDiskCreationService {
                     ""));
         }
         diskName.setFilenames(rows);
+        return diskName;
+    }
 
-        ret = claimPersister.addBillingDiskName(diskName);
-        return ret;
+    private static boolean isDuplicateDiskNameFailure(RuntimeException e) {
+        Throwable t = e;
+        while (t != null) {
+            String message = t.getMessage();
+            if (message != null) {
+                String lower = message.toLowerCase(java.util.Locale.ROOT);
+                if (lower.contains("duplicate") || lower.contains("unique")) {
+                    return true;
+                }
+            }
+            t = t.getCause();
+        }
+        return false;
     }
 
     public boolean updateSoloDiskName(String diskId, String creator) {

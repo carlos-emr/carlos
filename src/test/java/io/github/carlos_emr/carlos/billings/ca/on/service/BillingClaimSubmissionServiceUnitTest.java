@@ -212,6 +212,54 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldThrowBillingValidation_whenLocationIsTooShort() {
+        MockHttpServletRequest request = standardBillingRequest("HCP", "Save");
+        request.setParameter("xml_location", "12");
+        request.setParameter("totalItem", "0");
+
+        assertThatThrownBy(() -> service.getBillingClaimObj(request))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("xml_location")
+                .hasMessageContaining("malformed");
+    }
+
+    @Test
+    void shouldThrowBillingValidation_whenProviderIsMissingPipe() {
+        MockHttpServletRequest request = standardBillingRequest("HCP", "Save");
+        request.setParameter("xml_provider", "999998");
+        request.setParameter("totalItem", "0");
+
+        assertThatThrownBy(() -> service.getBillingClaimObj(request))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("xml_provider")
+                .hasMessageContaining("malformed");
+    }
+
+    @Test
+    void shouldThrowBillingValidation_whenVisitTypeIsTooShort() {
+        MockHttpServletRequest request = standardBillingRequest("HCP", "Save");
+        request.setParameter("xml_visittype", "0");
+        request.setParameter("totalItem", "0");
+
+        assertThatThrownBy(() -> service.getBillingClaimObj(request))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("xml_visittype")
+                .hasMessageContaining("malformed");
+    }
+
+    @Test
+    void shouldThrowBillingValidation_whenBillTypeIsMissing() {
+        MockHttpServletRequest request = standardBillingRequest("HCP", "Save");
+        request.removeParameter("xml_billtype");
+        request.setParameter("totalItem", "0");
+
+        assertThatThrownBy(() -> service.getBillingClaimObj(request))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("xml_billtype")
+                .hasMessageContaining("missing required field");
+    }
+
+    @Test
     void shouldNormalizeAppointmentPreloadedDateAndTime_whenSingleDigitValuesSubmitted() {
         MockHttpServletRequest request = standardBillingRequest("HCP", "Save");
         request.setParameter("service_date", "2026-4-7");

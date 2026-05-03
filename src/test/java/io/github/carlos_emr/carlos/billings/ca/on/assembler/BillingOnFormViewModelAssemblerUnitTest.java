@@ -93,6 +93,7 @@ class BillingOnFormViewModelAssemblerUnitTest extends CarlosUnitTestBase {
     private LoggedInInfo loggedInInfo;
     private BillingOnFormViewModelAssembler assembler;
     private BillingAdmissionDateLoader admissionDateLoader;
+    private BillingOnClaimLoader claimLoader;
     private MockedStatic<BillingGuidelines> billingGuidelinesMock;
     private BillingGuidelines billingGuidelines;
 
@@ -168,7 +169,8 @@ class BillingOnFormViewModelAssemblerUnitTest extends CarlosUnitTestBase {
         registerMock(io.github.carlos_emr.carlos.commn.dao.SiteDao.class, siteDao);
         registerMock(io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao.class, clinicNbrDao);
         registerMock(BillingOnLookupService.class, billingONLookupService);
-        registerMock(BillingOnClaimLoader.class, Mockito.mock(BillingOnClaimLoader.class));
+        claimLoader = Mockito.mock(BillingOnClaimLoader.class);
+        registerMock(BillingOnClaimLoader.class, claimLoader);
 
         when(billingONLookupService.getBillingFavouriteList()).thenReturn(Collections.emptyList());
 
@@ -196,7 +198,7 @@ class BillingOnFormViewModelAssemblerUnitTest extends CarlosUnitTestBase {
                 userPropertyDAO,
                 providerDao,
                 billingONLookupService,
-                Mockito.mock(BillingOnClaimLoader.class),
+                claimLoader,
                 new BillingOnFormDemographicLoader(demographicManager, professionalSpecialistDao),
                 new BillingOnFormBillFormResolver(ctlBillingServiceDao, providerPreferenceDao, myGroupDao),
                 new BillingOnFormServiceGridComposer(
@@ -262,6 +264,21 @@ class BillingOnFormViewModelAssemblerUnitTest extends CarlosUnitTestBase {
         assertThat(model.getMessages().errorMessage()).contains("does not have a valid DOB");
         assertThat(model.getErrorFlag()).isEqualTo(model.getMessages().errorFlag());
         assertThat(model.getErrorMsg()).isEqualTo(model.getMessages().errorMessage());
+    }
+
+    @Test
+    void shouldFlagHistoryUnavailable_whenRecentBillingHistoryLookupFails() {
+        request.setParameter("demographic_no", "1");
+        request.setParameter("appointment_no", "0");
+        request.setParameter("service_date", "2026-04-24");
+        request.setParameter("billForm", "GP");
+        when(claimLoader.getBillingHist("1", 5, 0, null))
+                .thenThrow(new RuntimeException("db down"));
+
+        BillingOnFormViewModel model = assembler.assemble(request, loggedInInfo);
+
+        assertThat(model.isHistoryUnavailable()).isTrue();
+        assertThat(model.getBillingHistory()).isEmpty();
     }
 
     @Test

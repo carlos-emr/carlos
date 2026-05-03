@@ -45,6 +45,11 @@ class BillingMoneyUnitTest {
     }
 
     @Test
+    void shouldRoundStoredAmount_halfUpNotHalfEven() {
+        assertThat(BillingMoney.amount("0.125")).isEqualByComparingTo("0.13");
+    }
+
+    @Test
     void shouldRoundStoredAmount_atRequestedScale() {
         assertThat(BillingMoney.amount("1.00005", 4)).isEqualByComparingTo("1.0001");
     }

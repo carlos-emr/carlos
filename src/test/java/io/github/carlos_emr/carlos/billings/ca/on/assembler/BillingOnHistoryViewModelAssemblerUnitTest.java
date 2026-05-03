@@ -24,9 +24,11 @@ package io.github.carlos_emr.carlos.billings.ca.on.assembler;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnClaimLoader;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnHistoryBalanceService;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnHistoryViewModel;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -112,6 +114,36 @@ class BillingOnHistoryViewModelAssemblerUnitTest {
 
         assertThat(vm.isPartial()).isFalse();
         assertThat(vm.getRows()).isEmpty();
+    }
+
+    @Test
+    void shouldRaisePatientNameUnavailable_whenDemographicLookupFails() {
+        when(demographicManager.getDemographic(any(LoggedInInfo.class), anyInt()))
+                .thenThrow(new SecurityException("scoped out"));
+        when(claimLoader.getBillingHist(anyString(), anyInt(), anyInt(), any()))
+                .thenReturn(List.of());
+
+        BillingOnHistoryViewModel vm = newAssembler().assemble(loggedInInfo, "1");
+
+        assertThat(vm.isPatientNameUnavailable()).isTrue();
+        assertThat(vm.getPatientDisplayName()).isEmpty();
+        assertThat(vm.isPartial()).isFalse();
+    }
+
+    @Test
+    void shouldResolvePatientDisplayName_whenDemographicLookupSucceeds() {
+        Demographic demographic = new Demographic();
+        demographic.setLastName("Doe");
+        demographic.setFirstName("Jane");
+        when(demographicManager.getDemographic(any(LoggedInInfo.class), anyInt()))
+                .thenReturn(demographic);
+        when(claimLoader.getBillingHist(anyString(), anyInt(), anyInt(), any()))
+                .thenReturn(List.of());
+
+        BillingOnHistoryViewModel vm = newAssembler().assemble(loggedInInfo, "1");
+
+        assertThat(vm.isPatientNameUnavailable()).isFalse();
+        assertThat(vm.getPatientDisplayName()).isEqualTo("Doe, Jane");
     }
 
     @Test

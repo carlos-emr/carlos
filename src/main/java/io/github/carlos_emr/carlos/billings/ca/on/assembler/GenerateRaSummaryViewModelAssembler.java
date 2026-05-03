@@ -210,7 +210,7 @@ public class GenerateRaSummaryViewModelAssembler {
             errorCode = "**";
         }
 
-        BigDecimal invoiced = BillingMoney.amountOrZero(invoicedAmount);
+        BigDecimal invoiced = BillingMoney.parseOptionalNonNegativeAmount(invoicedAmount, "invoicedAmount");
         // Strict on paid because totals.paid feeds RA-header persistence
         // (<xml_total> in RaHeader.content). amountOrZero would silently
         // zero-coalesce a malformed paid amount; the persisted reconciliation

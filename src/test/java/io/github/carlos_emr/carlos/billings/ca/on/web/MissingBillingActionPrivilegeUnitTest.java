@@ -315,7 +315,7 @@ class MissingBillingActionPrivilegeUnitTest extends CarlosUnitTestBase {
     }
 
     @org.junit.jupiter.api.Test
-    void shouldIncludeBenefitScheduleViewActionInPrivilegeCoverage() {
+    void should_include_benefit_schedule_view_action_in_privilege_coverage() {
         assertThat(actionFactories().map(arguments -> (String) arguments.get()[0]))
                 .contains("ViewBenefitScheduleUpload2Action");
     }

@@ -52,8 +52,15 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  */
 public final class Billing2Action extends ActionSupport {
 
-    private final SecurityInfoManager securityInfoManager =
-            SpringUtils.getBean(SecurityInfoManager.class);
+    private final SecurityInfoManager securityInfoManager;
+
+    public Billing2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
+    }
+
+    Billing2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
 
     @Override
     public String execute() {

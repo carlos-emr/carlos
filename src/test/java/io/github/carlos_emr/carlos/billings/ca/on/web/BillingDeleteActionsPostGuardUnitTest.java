@@ -22,9 +22,12 @@
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionRecordService;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
+import io.github.carlos_emr.carlos.commn.model.Appointment;
+import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -48,7 +51,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -145,9 +150,74 @@ class BillingDeleteActionsPostGuardUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(mockBillingDao, mockAppointmentArchiveDao, mockAppointmentDao, mockCorrectionRecordService);
     }
 
+    @org.junit.jupiter.api.Test
+    void shouldSoftDeleteBillingNoAppt_onPostLegacyPath() {
+        String previous = CarlosProperties.getInstance().getProperty("isNewONbilling");
+        CarlosProperties.getInstance().setProperty("isNewONbilling", "false");
+        try {
+            mockRequest.setMethod("POST");
+            mockRequest.setParameter("billCode", "A");
+            mockRequest.setParameter("billing_no", "123");
+            Billing billing = new Billing();
+            when(mockBillingDao.find(123)).thenReturn(billing);
+
+            String result = new BillingDeleteNoAppt2Action(
+                    mockSecurityInfoManager, mockBillingDao, mockCorrectionRecordService).execute();
+
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(billing.getStatus()).isEqualTo("D");
+            verify(mockBillingDao).merge(billing);
+        } finally {
+            restoreProperty("isNewONbilling", previous);
+        }
+    }
+
+    @org.junit.jupiter.api.Test
+    void shouldSoftDeleteBillingAndRestoreAppointment_onPostLegacyPath() {
+        String previous = CarlosProperties.getInstance().getProperty("isNewONbilling");
+        CarlosProperties.getInstance().setProperty("isNewONbilling", "false");
+        try {
+            mockRequest.setMethod("POST");
+            mockRequest.setParameter("appointment_no", "456");
+            mockRequest.setParameter("status", "B");
+            Billing existingBilling = mock(Billing.class);
+            when(existingBilling.getId()).thenReturn(77);
+            when(existingBilling.getStatus()).thenReturn("A");
+            Billing billing = new Billing();
+            billing.setStatus("A");
+            Appointment appointment = new Appointment();
+            when(mockBillingDao.findByAppointmentNo(456)).thenReturn(java.util.List.of(existingBilling));
+            when(mockBillingDao.find(77)).thenReturn(billing);
+            when(mockAppointmentDao.find(456)).thenReturn(appointment);
+
+            String result = new BillingDeleteWithoutNo2Action(
+                    mockSecurityInfoManager,
+                    mockBillingDao,
+                    mockAppointmentArchiveDao,
+                    mockAppointmentDao,
+                    mockCorrectionRecordService).execute();
+
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(billing.getStatus()).isEqualTo("D");
+            verify(mockBillingDao).merge(billing);
+            verify(mockAppointmentArchiveDao).archiveAppointment(appointment);
+            verify(mockAppointmentDao).merge(appointment);
+        } finally {
+            restoreProperty("isNewONbilling", previous);
+        }
+    }
+
     private void assertMethodNotAllowed(String result) {
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+    }
+
+    private static void restoreProperty(String key, String previous) {
+        if (previous == null) {
+            CarlosProperties.getInstance().remove(key);
+        } else {
+            CarlosProperties.getInstance().setProperty(key, previous);
+        }
     }
 }

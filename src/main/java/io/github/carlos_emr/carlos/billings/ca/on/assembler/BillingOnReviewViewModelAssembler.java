@@ -69,10 +69,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewLoader;
  *
  * <p>Pure read of request state into a view model. Encapsulates all the data
  * preparation that previously lived in the JSP's body scriptlets.</p>
- *
- * <p>Expanded on 2026-04-25 to drain the remaining body scriptlet prep into
- * the assembler.</p>
- *
  * @since 2026-04-24
  */
 @org.springframework.stereotype.Service
@@ -459,7 +455,7 @@ public class BillingOnReviewViewModelAssembler {
                 String codeUnit = nullToEmpty(percItem.getCodeUnit());
 
                 List<BillingOnReviewViewModel.PercSegment> segments = new ArrayList<>();
-                int unitInt = parseIntSafe(codeUnit, 0);
+                int unitInt = parseReviewInteger(codeUnit, "percentageUnit[" + codeName + "]", parseFailed);
                 for (int j = 0; j < percentageTotals.size(); j++) {
                     String pt = parseReviewMoney(
                             percentageTotals.get(j),
@@ -706,8 +702,16 @@ public class BillingOnReviewViewModelAssembler {
         return billType != null && !isPublicPayer(billType);
     }
 
-    private static int parseIntSafe(String s, int fallback) {
-        try { return Integer.parseInt(s); }
-        catch (NumberFormatException e) { return fallback; }
+    private static int parseReviewInteger(String s, String fieldName, boolean[] parseFailed) {
+        String trimmed = s == null ? "" : s.trim();
+        try {
+            return Integer.parseInt(trimmed);
+        } catch (NumberFormatException e) {
+            parseFailed[0] = true;
+            MiscUtils.getLogger().warn(
+                    "BillingOnReviewViewModel: malformed integer input on Review screen — field={}, value=\"{}\". Percentage totals will read 0; submission must be gated.",
+                    fieldName, io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(trimmed));
+            return 0;
+        }
     }
 }

@@ -184,7 +184,7 @@
         <thead>
         <tr>
             <c:forEach var="header" items="${model.columnHeaders}">
-                <th><c:out value="${header}"/></th>
+                <th><carlos:encode value="${header}" context="html"/></th>
             </c:forEach>
         </tr>
         </thead>
@@ -215,7 +215,7 @@
         <c:if test="${not empty model.totalRow}">
             <tr>
                 <c:forEach var="cell" items="${model.totalRow}">
-                    <th><c:out value="${cell}"/></th>
+                    <th><carlos:encode value="${cell}" context="html"/></th>
                 </c:forEach>
             </tr>
         </c:if>

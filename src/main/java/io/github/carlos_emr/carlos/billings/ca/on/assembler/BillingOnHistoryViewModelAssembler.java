@@ -28,8 +28,10 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
-import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnHistoryViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnClaimLoader;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnHistoryBalanceCalculator;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnHistoryBalanceService;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnHistoryViewModel;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
@@ -79,7 +81,7 @@ public class BillingOnHistoryViewModelAssembler {
      */
     public BillingOnHistoryViewModel assemble(LoggedInInfo loggedInInfo, String demographicNo) {
         String safeDemoNo = demographicNo == null ? "" : demographicNo;
-        String patientDisplayName = resolvePatientName(loggedInInfo, safeDemoNo);
+        PatientNameLookup patientName = resolvePatientName(loggedInInfo, safeDemoNo);
 
         boolean canEdit = loggedInInfo != null
                 && securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null);
@@ -91,9 +93,10 @@ public class BillingOnHistoryViewModelAssembler {
 
         return BillingOnHistoryViewModel.builder()
                 .demographicNo(safeDemoNo)
-                .patientDisplayName(patientDisplayName)
+                .patientDisplayName(patientName.displayName())
                 .warnOnDeleteBill(warnOnDelete)
                 .rows(loaded.rows)
+                .patientNameUnavailable(patientName.unavailable())
                 .partial(loaded.partial)
                 .build();
     }
@@ -101,14 +104,16 @@ public class BillingOnHistoryViewModelAssembler {
     /** Inner result so loadRows can communicate partial-load state alongside the rows. */
     private record LoadResult(List<BillingOnHistoryViewModel.HistoryRow> rows, boolean partial) {}
 
-    private String resolvePatientName(LoggedInInfo loggedInInfo, String demographicNo) {
-        if (demographicNo.isEmpty() || loggedInInfo == null) return "";
+    private record PatientNameLookup(String displayName, boolean unavailable) {}
+
+    private PatientNameLookup resolvePatientName(LoggedInInfo loggedInInfo, String demographicNo) {
+        if (demographicNo.isEmpty() || loggedInInfo == null) return new PatientNameLookup("", false);
         try {
             Demographic demo = demographicManager.getDemographic(
                     loggedInInfo, Integer.parseInt(demographicNo));
             if (demo != null) {
-                return nullToEmpty(demo.getLastName()) + ", "
-                        + nullToEmpty(demo.getFirstName());
+                return new PatientNameLookup(nullToEmpty(demo.getLastName()) + ", "
+                        + nullToEmpty(demo.getFirstName()), false);
             }
         } catch (NumberFormatException e) {
             // Non-numeric demographicNo is a programming-side invariant
@@ -117,12 +122,13 @@ public class BillingOnHistoryViewModelAssembler {
             MiscUtils.getLogger().debug(
                     "Non-numeric demographicNo [{}] in resolvePatientName; rendering blank",
                     io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(demographicNo));
-            return "";
+            return new PatientNameLookup("", false);
         } catch (RuntimeException ex) {
             MiscUtils.getLogger().warn(
                     "Could not look up demographic for billing history display", ex);
+            return new PatientNameLookup("", true);
         }
-        return "";
+        return new PatientNameLookup("", false);
     }
 
     private LoadResult loadRows(String demographicNo, boolean canEdit) {

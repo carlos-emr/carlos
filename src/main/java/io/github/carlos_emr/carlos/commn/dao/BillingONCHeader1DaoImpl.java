@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import jakarta.persistence.Query;
+import jakarta.persistence.LockModeType;
 
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.billings.dto.BillingONCListItemDTO;
@@ -126,6 +127,14 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
                 "SELECT i FROM BillingONItem i WHERE i.ch1Id IN (?1) ORDER BY i.ch1Id, i.id");
         q.setParameter(1, invoiceNos);
         return q.getResultList();
+    }
+
+    @Override
+    public BillingONCHeader1 findForUpdate(Integer id) {
+        if (id == null) {
+            return null;
+        }
+        return entityManager.find(BillingONCHeader1.class, id, LockModeType.PESSIMISTIC_WRITE);
     }
 
     @Override

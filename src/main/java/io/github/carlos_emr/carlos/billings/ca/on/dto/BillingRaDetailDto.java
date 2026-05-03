@@ -23,27 +23,31 @@
 
 package io.github.carlos_emr.carlos.billings.ca.on.dto;
 
+import java.math.BigDecimal;
+
 /**
  * Mutable carrier for one remittance-advice detail row.
  *
  * <p>The import path still loads RA files into this bean before persisting and
  * summarizing them, so the property names mirror the historic table/report
- * terminology instead of a newer domain model.</p>
+ * terminology instead of a newer domain model. Amount fields are stored as
+ * parsed {@link BigDecimal} values so malformed RA money fails at the import
+ * boundary while the legacy string getters still return normalized decimals.</p>
  */
 public class BillingRaDetailDto {
-    String radetail_no;
-    String raheader_no;
-    String providerohip_no;
-    String billing_no;
-    String service_code;
-    String service_count;
-    String hin;
-    String amountclaim;
-    String amountpay;
-    String service_date;
-    String error_code;
-    String billtype;
-    String claim_no = "";
+    private String radetail_no;
+    private String raheader_no;
+    private String providerohip_no;
+    private String billing_no;
+    private String service_code;
+    private String service_count;
+    private String hin;
+    private BigDecimal amountclaim;
+    private BigDecimal amountpay;
+    private String service_date;
+    private String error_code;
+    private String billtype;
+    private String claim_no = "";
 
     public String getClaim_no() {
         return this.claim_no;
@@ -54,18 +58,34 @@ public class BillingRaDetailDto {
     }
 
     public String getAmountclaim() {
-        return amountclaim;
+        return BillingDtoMoney.format(amountclaim);
     }
 
     public void setAmountclaim(String amountclaim) {
+        this.amountclaim = BillingDtoMoney.parseSignedDecimal(amountclaim, "amountclaim");
+    }
+
+    public BigDecimal getAmountclaimAmount() {
+        return amountclaim;
+    }
+
+    public void setAmountclaimAmount(BigDecimal amountclaim) {
         this.amountclaim = amountclaim;
     }
 
     public String getAmountpay() {
-        return amountpay;
+        return BillingDtoMoney.format(amountpay);
     }
 
     public void setAmountpay(String amountpay) {
+        this.amountpay = BillingDtoMoney.parseSignedDecimal(amountpay, "amountpay");
+    }
+
+    public BigDecimal getAmountpayAmount() {
+        return amountpay;
+    }
+
+    public void setAmountpayAmount(BigDecimal amountpay) {
         this.amountpay = amountpay;
     }
 

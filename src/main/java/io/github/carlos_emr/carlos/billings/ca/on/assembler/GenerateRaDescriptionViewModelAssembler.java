@@ -38,6 +38,8 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.RaHeader;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * Assembles {@link GenerateRaDescriptionViewModel} for {@code genRADesc.jsp}, the OHIP RA
@@ -86,6 +88,12 @@ public class GenerateRaDescriptionViewModelAssembler {
 
         GenerateRaDescriptionViewModel.Builder b = GenerateRaDescriptionViewModel.builder().raNo(nullToEmpty(raNoStr));
         if (raNo == null) {
+            if (raNoStr != null && !raNoStr.isBlank()) {
+                MiscUtils.getLogger().warn("GenerateRaDescription: invalid RA number [{}]",
+                        LogSanitizer.sanitize(raNoStr));
+                b.raFileIncomplete(true)
+                        .raFileWarning("Invalid RA number; no RA description file was loaded.");
+            }
             return b.build();
         }
 

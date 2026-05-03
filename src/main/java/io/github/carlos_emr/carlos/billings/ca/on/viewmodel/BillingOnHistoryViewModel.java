@@ -66,6 +66,13 @@ public final class BillingOnHistoryViewModel {
     private final boolean warnOnDeleteBill;
     private final List<HistoryRow> rows;
     /**
+     * Set when the demographic name lookup fails while the row query still
+     * succeeds. This is separate from {@link #partial}: the history table may
+     * be complete, but the patient label is not trustworthy enough for an
+     * operator to distinguish "not found" from "not visible".
+     */
+    private final boolean patientNameUnavailable;
+    /**
      * Set by the assembler when {@code loadRows} caught a RuntimeException
      * mid-iteration. The JSP renders a "data may be incomplete" banner so
      * operators don't conclude the patient has fewer historical bills than
@@ -78,6 +85,7 @@ public final class BillingOnHistoryViewModel {
         this.patientDisplayName = BillingViewStrings.nullToEmpty(b.patientDisplayName);
         this.warnOnDeleteBill = b.warnOnDeleteBill;
         this.rows = b.rows == null ? Collections.emptyList() : List.copyOf(b.rows);
+        this.patientNameUnavailable = b.patientNameUnavailable;
         this.partial = b.partial;
     }
 
@@ -87,6 +95,7 @@ public final class BillingOnHistoryViewModel {
     public String getPatientDisplayName() { return patientDisplayName; }
     public boolean isWarnOnDeleteBill() { return warnOnDeleteBill; }
     public List<HistoryRow> getRows() { return rows; }
+    public boolean isPatientNameUnavailable() { return patientNameUnavailable; }
     public boolean isPartial() { return partial; }
 
     public static final class Builder {
@@ -94,12 +103,14 @@ public final class BillingOnHistoryViewModel {
         private String patientDisplayName;
         private boolean warnOnDeleteBill;
         private List<HistoryRow> rows;
+        private boolean patientNameUnavailable;
         private boolean partial;
 
         public Builder demographicNo(String v) { this.demographicNo = v; return this; }
         public Builder patientDisplayName(String v) { this.patientDisplayName = v; return this; }
         public Builder warnOnDeleteBill(boolean v) { this.warnOnDeleteBill = v; return this; }
         public Builder rows(List<HistoryRow> v) { this.rows = v; return this; }
+        public Builder patientNameUnavailable(boolean v) { this.patientNameUnavailable = v; return this; }
         public Builder partial(boolean v) { this.partial = v; return this; }
 
         public BillingOnHistoryViewModel build() { return new BillingOnHistoryViewModel(this); }

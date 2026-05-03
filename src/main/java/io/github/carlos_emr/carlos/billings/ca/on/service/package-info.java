@@ -42,7 +42,7 @@
  * <h2>Naming</h2>
  *
  * <p>Class names use the most specific role suffix that fits:
- * {@code *Service}, {@code *Loader}, {@code *QueryService},
+ * {@code *Service}, {@code *Loader},
  * {@code *Persister}, {@code *Parser}, {@code *ImportService}, or
  * {@code *Calculator}. Methods are verb phrases for side effects and
  * query phrases for read-only services. Each service is stateless and

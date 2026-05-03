@@ -185,6 +185,49 @@ class BillingDiskCreationServiceUnitTest {
         assertThat(captor.getValue().getOhipfilename()).contains("054321");
     }
 
+    @Test
+    void shouldRetrySoloDiskName_whenGeneratedFilenameCollides() {
+        Properties refreshed = new Properties();
+        refreshed.setProperty("999998", "054321");
+        when(lookupService.getPropProviderOHIP()).thenReturn(refreshed);
+        String monthCode = currentMonthCode();
+        when(diskLoader.getLatestSoloMonthCodeBatchNum("054321"))
+                .thenReturn(null, new String[]{monthCode, "1"});
+        when(claimPersister.addBillingDiskName(org.mockito.ArgumentMatchers.any(BillingDiskNameDto.class)))
+                .thenThrow(new RuntimeException("Duplicate entry billing_on_diskname_ohipfilename_uq"))
+                .thenReturn(44);
+
+        int diskId = service.createNewSoloDiskName("999998", "creator");
+
+        assertThat(diskId).isEqualTo(44);
+        ArgumentCaptor<BillingDiskNameDto> captor = ArgumentCaptor.forClass(BillingDiskNameDto.class);
+        verify(claimPersister, org.mockito.Mockito.times(2)).addBillingDiskName(captor.capture());
+        assertThat(captor.getAllValues()).extracting(BillingDiskNameDto::getBatchcount)
+                .containsExactly("1", "2");
+    }
+
+    @Test
+    void shouldRetryGroupDiskName_whenGeneratedFilenameCollides() {
+        String monthCode = currentMonthCode();
+        when(diskLoader.getLatestGrpMonthCodeBatchNum("1234"))
+                .thenReturn(null, new String[]{monthCode, "1"});
+        when(claimPersister.addBillingDiskName(org.mockito.ArgumentMatchers.any(BillingDiskNameDto.class)))
+                .thenThrow(new RuntimeException("Duplicate entry billing_on_filename_htmlfilename_uq"))
+                .thenReturn(45);
+
+        int diskId = service.createNewGrpDiskName(
+                List.of("999998"),
+                List.of("054321"),
+                "1234",
+                "creator");
+
+        assertThat(diskId).isEqualTo(45);
+        ArgumentCaptor<BillingDiskNameDto> captor = ArgumentCaptor.forClass(BillingDiskNameDto.class);
+        verify(claimPersister, org.mockito.Mockito.times(2)).addBillingDiskName(captor.capture());
+        assertThat(captor.getAllValues()).extracting(BillingDiskNameDto::getBatchcount)
+                .containsExactly("1", "2");
+    }
+
     // ---- createBatchHeader: assembles the BillingBatchHeaderDto ---------
 
     @Test
@@ -272,5 +315,10 @@ class BillingDiskCreationServiceUnitTest {
         when(lookupService.getCurSoloProvider()).thenReturn(Collections.emptyList());
 
         assertThat(service.getCurSoloProvider()).isEmpty();
+    }
+
+    private static String currentMonthCode() {
+        int month = java.util.Calendar.getInstance().get(java.util.Calendar.MONTH) + 1;
+        return BillingOnConstants.propMonthCode.getProperty(String.valueOf(month));
     }
 }

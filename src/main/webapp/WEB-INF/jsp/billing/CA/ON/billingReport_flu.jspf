@@ -97,9 +97,9 @@
         <TD align="left" width="20%"><b><font size="2"
             face="Arial, Helvetica, sans-serif">Total</font></b></TD>
         <TD align="left" width="20%"><b><font size="2"
-            face="Arial, Helvetica, sans-serif">Clinic Count: <c:out value="${billingReportFragmentModel.fluClinicCount}"/></font></b></TD>
+            face="Arial, Helvetica, sans-serif">Clinic Count: <carlos:encode value="${billingReportFragmentModel.fluClinicCount}" context="html"/></font></b></TD>
         <TD align="left" width="20%"><b><font size="2"
-            face="Arial, Helvetica, sans-serif">Walk-in Count: <c:out value="${billingReportFragmentModel.fluWalkinCount}"/></font></b></TD>
+            face="Arial, Helvetica, sans-serif">Walk-in Count: <carlos:encode value="${billingReportFragmentModel.fluWalkinCount}" context="html"/></font></b></TD>
         <TD align="right" width="10%"><b> <font size="2"
             face="Arial, Helvetica, sans-serif"><carlos:encode value="${billingReportFragmentModel.fluTotal2}" context="html"/></font></b></TD>
         <TD align="right" width="10%"><b> <font size="2"

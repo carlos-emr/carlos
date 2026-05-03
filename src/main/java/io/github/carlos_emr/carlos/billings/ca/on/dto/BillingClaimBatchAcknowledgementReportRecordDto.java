@@ -34,19 +34,19 @@ package io.github.carlos_emr.carlos.billings.ca.on.dto;
  */
 public class BillingClaimBatchAcknowledgementReportRecordDto {
 
-    String batchNumber = "";
-    String operatorNumber = "";
-    String providerNumber = "";
-    String groupNumber = "";
-    String batchCreateDate = "";
-    String batchSequenceNumber = "";
-    String microStart = "";
-    String microEnd = "";
-    String microType = "";
-    String claimNumber = "";
-    String recordNumber = "";
-    String batchProcessDate = "";
-    String explain = "";
+    private String batchNumber = "";
+    private String operatorNumber = "";
+    private String providerNumber = "";
+    private String groupNumber = "";
+    private String batchCreateDate = "";
+    private String batchSequenceNumber = "";
+    private String microStart = "";
+    private String microEnd = "";
+    private String microType = "";
+    private String claimNumber = "";
+    private String recordNumber = "";
+    private String batchProcessDate = "";
+    private String explain = "";
 
     public BillingClaimBatchAcknowledgementReportRecordDto(String batchNumber,
                                                       String operatorNumber,

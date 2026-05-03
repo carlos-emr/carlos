@@ -37,7 +37,7 @@ This is a list of health care provider specialties or disciplines recognized by 
 | 20 | Obstetrics and Gynaecology |
 | 22 | Genetics |
 | 23 | Ophthalmology |
-| 24 | Otolaryngolgy |
+| 24 | Otolaryngology |
 | 26 | Paediatrics |
 | 27 | Non-Physician Lab Director |
 | 28 | Laboratory Medicine |

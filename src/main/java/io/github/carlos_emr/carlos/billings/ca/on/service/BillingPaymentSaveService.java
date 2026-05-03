@@ -100,7 +100,7 @@ public class BillingPaymentSaveService {
     public void saveThirdPartyPayment(Command cmd) {
         Objects.requireNonNull(cmd, "cmd");
 
-        BillingONCHeader1 cheader1 = bCh1Dao.find(cmd.billNo);
+        BillingONCHeader1 cheader1 = bCh1Dao.findForUpdate(cmd.billNo);
         if (cheader1 == null) {
             throw new BillingValidationException(
                     "Bill " + cmd.billNo + " no longer exists; payment not saved");

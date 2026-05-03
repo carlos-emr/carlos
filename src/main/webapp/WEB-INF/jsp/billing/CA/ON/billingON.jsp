@@ -1464,15 +1464,20 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
 
     <table style="width: 100%; border-spacing:2px;"
     >
-        <tr style="background-color: silver;">
-            <td><carlos:encode value='${formModel.requestContext.demoName}' context="html"/> - <b><fmt:message key="oscar.billing.ca.on.billingON.billingHistory"/></b> (last 5 records)</td>
-            <td style="width: 20%; text-align: right"><fmt:message key="oscar.billing.ca.on.billingON.last"/> <input type="text"
+	        <tr style="background-color: silver;">
+	            <td><carlos:encode value='${formModel.requestContext.demoName}' context="html"/> - <b><fmt:message key="oscar.billing.ca.on.billingON.billingHistory"/></b> (last 5 records)</td>
+	            <td style="width: 20%; text-align: right"><fmt:message key="oscar.billing.ca.on.billingON.last"/> <input type="text"
                                                                   name="day" value="365" class="form-control form-control-sm d-inline-block w-auto"/> <fmt:message key="oscar.billing.ca.on.billingON.days"/>
                 <input type="button"
                        name="buttonDay" value="<fmt:message key="oscar.billing.ca.on.billingON.go"/>" onClick="onHistory(); return false;"/>
             </td>
-        </tr>
-    </table>
+	        </tr>
+	        <c:if test="${formModel.historyUnavailable}">
+	            <tr>
+	                <td colspan="2"><div class="alert">Billing history is temporarily unavailable. Recent claims may be incomplete.</div></td>
+	            </tr>
+	        </c:if>
+	    </table>
 </form>
 
 <table style="width: 100%; border-spacing:2px;"

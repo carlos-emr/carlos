@@ -40,6 +40,7 @@ import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.commn.model.CssStyle;
 import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * Assembles {@link AddEditServiceCodeViewModel} for
@@ -168,6 +169,9 @@ public class AddEditServiceCodeViewModelAssembler {
         try {
             serviceNo = Integer.parseInt(billingserviceNo);
         } catch (NumberFormatException nfe) {
+            MiscUtils.getLogger().warn(
+                    "Add/Edit service-code edit requested with invalid billingservice_no [{}]; rendering search state",
+                    io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(billingserviceNo));
             return;
         }
         BillingService bs = billingServiceDao.find(serviceNo);

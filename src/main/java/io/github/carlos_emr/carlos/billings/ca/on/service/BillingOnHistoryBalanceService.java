@@ -19,7 +19,7 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.billings.ca.on.assembler;
+package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.math.BigDecimal;
 
@@ -38,18 +38,18 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * partial-load warnings when one row cannot be calculated reliably.</p>
  */
 @org.springframework.stereotype.Service
-final class BillingOnHistoryBalanceService {
+public final class BillingOnHistoryBalanceService {
 
     private final BillingONPaymentDao billingOnPaymentDao;
     private final BillingONCHeader1Dao bCh1Dao;
 
-    BillingOnHistoryBalanceService(BillingONPaymentDao billingOnPaymentDao,
-                                   BillingONCHeader1Dao bCh1Dao) {
+    public BillingOnHistoryBalanceService(BillingONPaymentDao billingOnPaymentDao,
+                                          BillingONCHeader1Dao bCh1Dao) {
         this.billingOnPaymentDao = billingOnPaymentDao;
         this.bCh1Dao = bCh1Dao;
     }
 
-    BillingOnHistoryBalanceCalculator.Result calculate(String billingId) {
+    public BillingOnHistoryBalanceCalculator.Result calculate(String billingId) {
         try {
             int billingNo = Integer.parseInt(billingId);
             BillingONCHeader1 bCh1 = bCh1Dao.find(billingNo);

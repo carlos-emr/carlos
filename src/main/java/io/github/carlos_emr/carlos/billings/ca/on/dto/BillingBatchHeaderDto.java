@@ -32,27 +32,27 @@ package io.github.carlos_emr.carlos.billings.ca.on.dto;
  * while the surrounding workflow is being typed incrementally.</p>
  */
 public class BillingBatchHeaderDto {
-    String id;
-    String diskId;
-    String transcId;
-    String recId;
-    String specId;
-    String mohOffice;
-    String batchId;
-    String operator;
-    String groupNum;
-    String providerRegNum;
-    String specialty;
-    String hCount;
-    String rCount;
-    String tCount;
-    String batchDate;
+    private String id;
+    private String diskId;
+    private String transcId;
+    private String recId;
+    private String specId;
+    private String mohOffice;
+    private String batchId;
+    private String operator;
+    private String groupNum;
+    private String providerRegNum;
+    private String specialty;
+    private String hCount;
+    private String rCount;
+    private String tCount;
+    private String batchDate;
 
-    String createdatetime;
-    String updatedatetime;
-    String creator;
-    String action;
-    String comment;
+    private String createdatetime;
+    private String updatedatetime;
+    private String creator;
+    private String action;
+    private String comment;
 
     public String getBatchDate() {
         return batchDate;

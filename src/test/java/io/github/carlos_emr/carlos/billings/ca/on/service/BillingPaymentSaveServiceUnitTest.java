@@ -110,7 +110,7 @@ class BillingPaymentSaveServiceUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldThrowBillingValidationException_whenBillRowMissing() {
-        when(bCh1Dao.find(101)).thenReturn(null);
+        when(bCh1Dao.findForUpdate(101)).thenReturn(null);
         BillingPaymentSaveService.Command cmd = sampleCommand(101, List.of());
 
         assertThatThrownBy(() -> svc.saveThirdPartyPayment(cmd))
@@ -126,7 +126,7 @@ class BillingPaymentSaveServiceUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldDelegateInOrder_whenAllSumsPositive() {
         BillingONCHeader1 ch1 = headerWithPaidAndDemo(new BigDecimal("0.00"), 7);
-        when(bCh1Dao.find(101)).thenReturn(ch1);
+        when(bCh1Dao.findForUpdate(101)).thenReturn(ch1);
         when(bExtDao.getAccountVal(eq(101), anyString())).thenReturn(BigDecimal.ZERO);
         BillingONItem item = new BillingONItem();
         when(bItemDao.find(11)).thenReturn(item);
@@ -156,7 +156,7 @@ class BillingPaymentSaveServiceUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldThrowBillingValidationException_beforeHeaderPaidChangesWhenItemRowMissing() {
         BillingONCHeader1 ch1 = headerWithPaidAndDemo(new BigDecimal("20.00"), 7);
-        when(bCh1Dao.find(101)).thenReturn(ch1);
+        when(bCh1Dao.findForUpdate(101)).thenReturn(ch1);
         when(bItemDao.find(11)).thenReturn(null);
 
         BillingPaymentSaveService.Line line = new BillingPaymentSaveService.Line(
@@ -181,7 +181,7 @@ class BillingPaymentSaveServiceUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldSkipZeroSumExtUpserts_butAlwaysUpsertPayMethod() {
         BillingONCHeader1 ch1 = headerWithPaidAndDemo(BigDecimal.ZERO, 7);
-        when(bCh1Dao.find(101)).thenReturn(ch1);
+        when(bCh1Dao.findForUpdate(101)).thenReturn(ch1);
 
         BillingPaymentSaveService.Command cmd = new BillingPaymentSaveService.Command(
                 101, new Date(), "999998", 1, "1",
@@ -206,7 +206,7 @@ class BillingPaymentSaveServiceUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldSilentlySkipUnknownSelection_andNotFailBatch() {
         BillingONCHeader1 ch1 = headerWithPaidAndDemo(BigDecimal.ZERO, 7);
-        when(bCh1Dao.find(101)).thenReturn(ch1);
+        when(bCh1Dao.findForUpdate(101)).thenReturn(ch1);
         when(bItemDao.find(11)).thenReturn(new BillingONItem());
 
         BillingPaymentSaveService.Line unknownLine = new BillingPaymentSaveService.Line(
@@ -227,7 +227,7 @@ class BillingPaymentSaveServiceUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldSkipPaymentLine_whenAmountAndDiscountBothZero() {
         BillingONCHeader1 ch1 = headerWithPaidAndDemo(BigDecimal.ZERO, 7);
-        when(bCh1Dao.find(101)).thenReturn(ch1);
+        when(bCh1Dao.findForUpdate(101)).thenReturn(ch1);
         when(bItemDao.find(11)).thenReturn(new BillingONItem());
 
         BillingPaymentSaveService.Line zeroLine = new BillingPaymentSaveService.Line(
@@ -246,7 +246,7 @@ class BillingPaymentSaveServiceUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldPropagate_whenItemPaymentDaoThrowsMidLoop() {
         BillingONCHeader1 ch1 = headerWithPaidAndDemo(BigDecimal.ZERO, 7);
-        when(bCh1Dao.find(101)).thenReturn(ch1);
+        when(bCh1Dao.findForUpdate(101)).thenReturn(ch1);
         when(bItemDao.find(11)).thenReturn(new BillingONItem());
         doThrow(new RuntimeException("ip-fail")).when(bItemPaymentDao).persist(any());
 
@@ -270,7 +270,7 @@ class BillingPaymentSaveServiceUnitTest extends CarlosUnitTestBase {
     void shouldUpdateHeaderStatus_whenNewStatusDiffers() {
         BillingONCHeader1 ch1 = headerWithPaidAndDemo(BigDecimal.ZERO, 7);
         ch1.setStatus("O");
-        when(bCh1Dao.find(101)).thenReturn(ch1);
+        when(bCh1Dao.findForUpdate(101)).thenReturn(ch1);
 
         BillingPaymentSaveService.Command cmd = new BillingPaymentSaveService.Command(
                 101, new Date(), "999998", 1, "1",

@@ -194,6 +194,25 @@ class BillingOnSave2ActionUnitTest extends CarlosUnitTestBase {
                 .contains("third-party ext write failed");
     }
 
+    @Test
+    void shouldReturnFailure_whenSubmissionBuildFailsValidation() {
+        mockRequest.setParameter("submit", "Save");
+        mockRequest.setParameter("xml_billtype", "HCP");
+        mockRequest.setParameter("curBillForm", "ON");
+        when(mockSaveService.getSubmission(mockRequest))
+                .thenThrow(new io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException(
+                        "Billing claim submission: malformed xml_provider [999998]"));
+
+        String result = newAction().execute();
+
+        assertThat(result).isEqualTo("failure");
+        assertThat(mockRequest.getAttribute("billingFailed")).isEqualTo(Boolean.TRUE);
+        assertThat(mockRequest.getAttribute("billingFailureReason"))
+                .asString()
+                .contains("xml_provider");
+        verify(mockSaveService, never()).saveBillingWithExtAndPayee(any(), any(), anyString(), anyString());
+    }
+
     // -- Security & validation -----------------------------------------
 
     @Test

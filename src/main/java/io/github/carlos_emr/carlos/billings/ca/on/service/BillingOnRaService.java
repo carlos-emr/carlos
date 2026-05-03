@@ -101,8 +101,8 @@ public class BillingOnRaService {
         r.setServiceCode(val.getService_code());
         r.setServiceCount(val.getService_count());
         r.setHin(val.getHin());
-        r.setAmountClaim(val.getAmountclaim());
-        r.setAmountPay(val.getAmountpay());
+        r.setAmountClaim(val.getAmountclaimAmount() == null ? null : BillingMoney.format(val.getAmountclaimAmount()));
+        r.setAmountPay(val.getAmountpayAmount() == null ? null : BillingMoney.format(val.getAmountpayAmount()));
         r.setServiceDate(val.getService_date());
         r.setErrorCode(val.getError_code());
         r.setBillType(val.getBilltype());

@@ -267,7 +267,7 @@ public class BatchBill2Action extends ActionSupport {
                     + "&service_code="
                     + URLEncoder.encode(serviceCodeParam == null ? "" : serviceCodeParam, StandardCharsets.UTF_8));
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("BatchBill redirect failed after batch billing submit", e);
         }
         return null;
     }
@@ -330,7 +330,7 @@ public class BatchBill2Action extends ActionSupport {
                     + "&service_code="
                     + URLEncoder.encode(serviceCodeParam == null ? "" : serviceCodeParam, StandardCharsets.UTF_8));
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("BatchBill redirect failed after batch billing removal", e);
         }
         return null;
 
@@ -425,7 +425,7 @@ public class BatchBill2Action extends ActionSupport {
         try {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("BatchBill 405 response failed", e);
         }
         return true;
     }

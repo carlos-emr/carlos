@@ -47,10 +47,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnReviewDiagPer
  * the JSP. GET requests return 405 with {@code Allow: POST}. The class name
  * retains the {@code View...} prefix for consistency with sibling gate actions
  * in this migration, even though the behavior is mutation-gate.</p>
- *
- * <p>Expanded on 2026-04-24 to add view-model assembly and diagnostic-code
- * side-effect delegation.</p>
- *
  * @since 2026-04-13
  */
 public class ViewBillingOnReview2Action extends ActionSupport {

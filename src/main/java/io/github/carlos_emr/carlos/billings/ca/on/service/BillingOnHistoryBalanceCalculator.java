@@ -19,7 +19,7 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.billings.ca.on.assembler;
+package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -29,10 +29,10 @@ import java.math.RoundingMode;
  *
  * @since 2026-05-02
  */
-final class BillingOnHistoryBalanceCalculator {
+public final class BillingOnHistoryBalanceCalculator {
 
-    record Result(BigDecimal balance, boolean partial) {
-        static final Result ZERO = new Result(BigDecimal.ZERO.setScale(2), false);
+    public record Result(BigDecimal balance, boolean partial) {
+        public static final Result ZERO = new Result(BigDecimal.ZERO.setScale(2), false);
     }
 
     private BillingOnHistoryBalanceCalculator() {
@@ -46,10 +46,10 @@ final class BillingOnHistoryBalanceCalculator {
      * reverse prior payment/discount reductions and therefore move money back
      * onto the outstanding patient balance.</p>
      */
-    static BigDecimal balance(BigDecimal total,
-                              BigDecimal sumOfPay,
-                              BigDecimal sumOfDiscount,
-                              BigDecimal sumOfCredit) {
+    public static BigDecimal balance(BigDecimal total,
+                                     BigDecimal sumOfPay,
+                                     BigDecimal sumOfDiscount,
+                                     BigDecimal sumOfCredit) {
         return nullToZero(total)
                 .subtract(nullToZero(sumOfPay))
                 .subtract(nullToZero(sumOfDiscount))

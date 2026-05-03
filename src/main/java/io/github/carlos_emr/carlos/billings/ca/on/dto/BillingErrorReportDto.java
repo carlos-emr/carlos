@@ -23,37 +23,42 @@
 
 package io.github.carlos_emr.carlos.billings.ca.on.dto;
 
+import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
+
 /**
  * Normalized Ontario billing error-report row used by import, lookup, and UI
  * reporting flows.
  *
  * <p>The bean remains mutable because older DAO and JSP paths still populate
- * and consume it field by field.</p>
+ * and consume it field by field. The fee field accepts either the six-character
+ * OHIP cents shape ({@code 003500}) or decimal strings ({@code 35.00}) and
+ * stores the parsed value as {@link BillingMoney}; {@link #getFee()} preserves
+ * the legacy string accessor by returning the normalized decimal value.</p>
  */
 public class BillingErrorReportDto {
-    String id;
-    String providerohip_no;
-    String group_no;
-    String specialty;
-    String process_date;
-    String hin;
-    String ver;
-    String dob;
-    String billing_no;
-    String ref_no;
-    String facility;
-    String admitted_date;
-    String claim_error;
-    String code;
-    String fee;
-    String unit;
-    String code_date;
-    String dx;
-    String exp;
-    String code_error;
-    String report_name;
-    String status;
-    String comment;
+    private String id;
+    private String providerohip_no;
+    private String group_no;
+    private String specialty;
+    private String process_date;
+    private String hin;
+    private String ver;
+    private String dob;
+    private String billing_no;
+    private String ref_no;
+    private String facility;
+    private String admitted_date;
+    private String claim_error;
+    private String code;
+    private BillingMoney fee;
+    private String unit;
+    private String code_date;
+    private String dx;
+    private String exp;
+    private String code_error;
+    private String report_name;
+    private String status;
+    private String comment;
 
     public String getAdmitted_date() {
         return admitted_date;
@@ -136,10 +141,18 @@ public class BillingErrorReportDto {
     }
 
     public String getFee() {
-        return fee;
+        return BillingDtoMoney.format(fee);
     }
 
     public void setFee(String fee) {
+        this.fee = BillingDtoMoney.parseNonNegativeStoredCentsOrDecimal(fee, "fee");
+    }
+
+    public BillingMoney getFeeMoney() {
+        return fee;
+    }
+
+    public void setFeeMoney(BillingMoney fee) {
         this.fee = fee;
     }
 

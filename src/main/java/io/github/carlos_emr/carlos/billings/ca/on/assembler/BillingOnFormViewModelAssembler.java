@@ -257,8 +257,10 @@ public class BillingOnFormViewModelAssembler {
         recommendBillingGuidelines(b, loggedInInfo, demoNo, userNo);
 
         // ---- billing history (drives default dx + visitType resolution below) ----
-        List<BillingOnFormViewModel.BillingHistoryEntry> history = loadBillingHistory(demoNo);
-        b.billingHistory(history);
+        LoadedBillingHistory history = loadBillingHistory(demoNo);
+        List<BillingOnFormViewModel.BillingHistoryEntry> historyEntries = history.entries();
+        b.billingHistory(history.entries())
+                .historyUnavailable(history.unavailable());
 
         // ---- provider list for the picker ----
         List<BillingOnFormViewModel.ProviderOption> providers = new ArrayList<>();
@@ -280,8 +282,8 @@ public class BillingOnFormViewModelAssembler {
         String dxCode = dxCodeParam != null && !dxCodeParam.isEmpty()
                 ? dxCodeParam
                 : (preference != null ? nullToEmpty(preference.getDefaultDxCode()) : "");
-        if ((dxCode == null || dxCode.isEmpty()) && !history.isEmpty()) {
-            dxCode = nullToEmpty(history.get(0).diagnosticCode());
+        if ((dxCode == null || dxCode.isEmpty()) && !historyEntries.isEmpty()) {
+            dxCode = nullToEmpty(historyEntries.get(0).diagnosticCode());
         }
         b.dxCode(nullToEmpty(dxCode));
 
@@ -289,7 +291,7 @@ public class BillingOnFormViewModelAssembler {
         String xmlVisitTypeParam = request.getParameter("xml_visittype");
         String xmlVisitType = xmlVisitTypeParam != null && !xmlVisitTypeParam.isEmpty()
                 ? xmlVisitTypeParam
-                : (!history.isEmpty() ? nullToEmpty(history.get(0).visitType()) : "");
+                : (!historyEntries.isEmpty() ? nullToEmpty(historyEntries.get(0).visitType()) : "");
         if (!xmlVisitType.isEmpty()) {
             visitType = xmlVisitType;
         }
@@ -381,9 +383,9 @@ public class BillingOnFormViewModelAssembler {
         String xmlLocReq = request.getParameter("xml_location");
         if (xmlLocReq != null && !xmlLocReq.isEmpty()) {
             resolvedLocation = xmlLocReq;
-        } else if (!history.isEmpty() && history.get(0).clinicRefCode() != null
-                && !history.get(0).clinicRefCode().isEmpty()) {
-            resolvedLocation = history.get(0).clinicRefCode();
+        } else if (!historyEntries.isEmpty() && historyEntries.get(0).clinicRefCode() != null
+                && !historyEntries.get(0).clinicRefCode().isEmpty()) {
+            resolvedLocation = historyEntries.get(0).clinicRefCode();
         } else {
             resolvedLocation = clinicView == null ? "" : clinicView;
         }
@@ -437,8 +439,8 @@ public class BillingOnFormViewModelAssembler {
         }
         // Legacy override: hospital / nursing-home visit types pull the
         // admission date from the latest billing history.
-        if (!history.isEmpty() && (visitType.startsWith("02") || visitType.startsWith("04"))) {
-            String histVisitDate = nullToEmpty(history.get(0).visitDate());
+        if (!historyEntries.isEmpty() && (visitType.startsWith("02") || visitType.startsWith("04"))) {
+            String histVisitDate = nullToEmpty(historyEntries.get(0).visitDate());
             if (!histVisitDate.isEmpty()) {
                 admDate = histVisitDate;
             }
@@ -698,11 +700,12 @@ public class BillingOnFormViewModelAssembler {
      * hint is high-impact for clinical workflow — provider may
      * duplicate-bill the same encounter).
      */
-    private List<BillingOnFormViewModel.BillingHistoryEntry> loadBillingHistory(String demoNo) {
+    private LoadedBillingHistory loadBillingHistory(String demoNo) {
         List<BillingOnFormViewModel.BillingHistoryEntry> history = new ArrayList<>();
         if (demoNo == null || demoNo.isEmpty()) {
-            return history;
+            return new LoadedBillingHistory(history, false);
         }
+        boolean unavailable = false;
         try {
             List<Object> raw = claimQueryService.getBillingHist(demoNo, 5, 0, null);
             if (raw.size() >= 2) {
@@ -715,15 +718,22 @@ public class BillingOnFormViewModelAssembler {
                         nullToEmpty(item.getDx())));
             }
         } catch (ClassCastException ccEx) {
+            unavailable = true;
             MiscUtils.getLogger().error(
                     "Billing history data-shape regression for demo={} — BillingOnClaimLoader returned unexpected types",
                     LogSanitizer.sanitize(demoNo), ccEx);
         } catch (RuntimeException rtEx) {
+            unavailable = true;
             MiscUtils.getLogger().error(
                     "Billing history lookup failed for demo={}; rendering with empty history",
                     LogSanitizer.sanitize(demoNo), rtEx);
         }
-        return history;
+        return new LoadedBillingHistory(history, unavailable);
+    }
+
+    private record LoadedBillingHistory(
+            List<BillingOnFormViewModel.BillingHistoryEntry> entries,
+            boolean unavailable) {
     }
 
     private static String nullToEmpty(String s) {

@@ -48,9 +48,11 @@
  * <h2>Naming</h2>
  *
  * <p>All actions end in {@code *2Action} per the BC-billing-established
- * migration convention. {@code View*2Action} = read-only render gates.
- * {@code *Save2Action} / {@code Update*2Action} = mutation gates (POST-only).
- * The bare-no-prefix {@code *2Action} (e.g. {@code BatchBill2Action}) is a
+ * migration convention. {@code View*2Action} usually means a read-only render
+ * gate, but there are explicit legacy exceptions where the URL contract kept a
+ * {@code View} prefix around a POST-gated mutation. {@code *Save2Action} /
+ * {@code Update*2Action} names are always mutation gates (POST-only). The
+ * bare-no-prefix {@code *2Action} (e.g. {@code BatchBill2Action}) is a
  * historical inconsistency.</p>
  *
  * <h2>What does <em>not</em> belong here</h2>

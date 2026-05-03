@@ -122,6 +122,14 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
         filter.init(fc);
     }
 
+    private HttpServletRequest requestForIp(String ip) {
+        HttpServletRequest r = mock(HttpServletRequest.class);
+        when(r.getContextPath()).thenReturn("/carlos");
+        when(r.getRemoteAddr()).thenReturn(ip);
+        when(r.getRequestURI()).thenReturn("/carlos/someAction");
+        return r;
+    }
+
     /**
      * Initialises the filter as disabled.
      */
@@ -654,6 +662,34 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
                 filter.doFilter(request, response, chain);
             }
 
+            assertThat(filter.getCounters()).hasSizeLessThanOrEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("should keep new clients isolated when counter cap is reached")
+        void shouldKeepNewClientsIsolated_whenCounterCapReached() throws Exception {
+            when(mockProperties.isPropertyActive("WAF_RATE_LIMIT_ENABLED")).thenReturn(true);
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_MODE")).thenReturn("enforce");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_REQUESTS")).thenReturn("1");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_WINDOW_SECONDS")).thenReturn("60");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_PATHS")).thenReturn("");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_EXEMPT_IPS")).thenReturn("127.0.0.1,::1");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_CLEANUP_INTERVAL_SECONDS")).thenReturn("300");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_MAX_COUNTERS")).thenReturn("2");
+            filter.init(mock(FilterConfig.class));
+
+            filter.doFilter(requestForIp("10.0.0.1"), response, chain);
+            filter.doFilter(requestForIp("10.0.0.2"), response, chain);
+
+            HttpServletResponse thirdResponse = mock(HttpServletResponse.class);
+            filter.doFilter(requestForIp("10.0.0.3"), thirdResponse, chain);
+            filter.doFilter(requestForIp("10.0.0.3"), thirdResponse, chain);
+            verify(thirdResponse).sendError(eq(429), anyString());
+
+            HttpServletResponse fourthResponse = mock(HttpServletResponse.class);
+            filter.doFilter(requestForIp("10.0.0.4"), fourthResponse, chain);
+
+            verify(fourthResponse, never()).sendError(eq(429), anyString());
             assertThat(filter.getCounters()).hasSizeLessThanOrEqualTo(2);
         }
     }

@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.WebUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -195,6 +196,21 @@ class MoveMohFiles2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+    }
+
+    @Test
+    void shouldAllowUnzipOnlyPost_withoutArchiveSelectionError() throws Exception {
+        mockRequest.setMethod("POST");
+        mockRequest.addParameter("folder", "inbox");
+        mockRequest.addParameter("unzipfile", "claim.zip");
+
+        MoveMohFiles2Action action = new MoveMohFiles2Action();
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        Object errors = mockRequest.getSession().getAttribute(WebUtils.ERROR_MESSAGE_SESSION_KEY);
+        assertThat(errors == null ? "" : errors.toString())
+                .doesNotContain("Please select file(s) to archive.<br/>");
     }
 
     @Test

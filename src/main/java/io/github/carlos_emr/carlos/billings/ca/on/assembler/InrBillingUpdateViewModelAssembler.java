@@ -65,18 +65,18 @@ public class InrBillingUpdateViewModelAssembler {
         String demoDob = "";
         if (demoNo != null && !demoNo.isEmpty()) {
             try {
-                Demographic d = demographicDao.getDemographicById(Integer.parseInt(demoNo));
+                int parsedDemoNo = parseInteger(demoNo, "demono");
+                Demographic d = demographicDao.getDemographicById(parsedDemoNo);
                 if (d != null) {
                     demoDob = MyDateFormat.getStandardDate(
-                            Integer.parseInt(d.getYearOfBirth()),
-                            Integer.parseInt(d.getMonthOfBirth()),
-                            Integer.parseInt(d.getDateOfBirth()));
+                            parseInteger(d.getYearOfBirth(), "yearOfBirth"),
+                            parseInteger(d.getMonthOfBirth(), "monthOfBirth"),
+                            parseInteger(d.getDateOfBirth(), "dateOfBirth"));
                     String ver = d.getVer() == null ? "" : d.getVer().toUpperCase();
                     demoHin = (d.getHin() == null ? "" : d.getHin()) + ver;
                 }
-            } catch (NumberFormatException ignore) {
-                MiscUtils.getLogger().warn("INR billing update: invalid demographic number [{}]; leaving HIN/DOB blank",
-                        LogSanitizer.sanitize(demoNo));
+            } catch (NumberFormatException nfe) {
+                MiscUtils.getLogger().warn("INR billing update: {}; leaving HIN/DOB blank", nfe.getMessage());
             }
         }
 
@@ -89,5 +89,14 @@ public class InrBillingUpdateViewModelAssembler {
                 .serviceCode(serviceCode)
                 .dxCode(dxCode)
                 .build();
+    }
+
+    private static int parseInteger(String raw, String fieldName) {
+        try {
+            return Integer.parseInt(raw);
+        } catch (NumberFormatException nfe) {
+            throw new NumberFormatException("invalid " + fieldName + " ["
+                    + LogSanitizer.sanitize(raw) + "]");
+        }
     }
 }

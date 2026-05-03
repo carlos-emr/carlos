@@ -139,7 +139,8 @@ public final class BillingOnFormViewModel {
     public enum DegradationFlag {
         RECOMMENDATIONS_UNAVAILABLE,
         SITE_CONTEXT_DEGRADED,
-        ADMISSION_DATE_UNAVAILABLE
+        ADMISSION_DATE_UNAVAILABLE,
+        HISTORY_UNAVAILABLE
     }
 
     // ---- Primary composed records ----
@@ -433,6 +434,9 @@ public final class BillingOnFormViewModel {
     public boolean isAdmissionDateUnavailable() {
         return degradationFlags.contains(DegradationFlag.ADMISSION_DATE_UNAVAILABLE);
     }
+    public boolean isHistoryUnavailable() {
+        return degradationFlags.contains(DegradationFlag.HISTORY_UNAVAILABLE);
+    }
 
     public static final class Builder {
         // ---- Composed-record setters (preferred) ----
@@ -573,6 +577,10 @@ public final class BillingOnFormViewModel {
 
         public Builder admissionDateUnavailable(boolean v) {
             return degradationFlag(DegradationFlag.ADMISSION_DATE_UNAVAILABLE, v);
+        }
+
+        public Builder historyUnavailable(boolean v) {
+            return degradationFlag(DegradationFlag.HISTORY_UNAVAILABLE, v);
         }
 
         private Builder degradationFlag(DegradationFlag flag, boolean enabled) {

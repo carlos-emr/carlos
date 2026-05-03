@@ -70,6 +70,14 @@ public interface BillingONCHeader1Dao extends AbstractDao<BillingONCHeader1> {
     public BillingONCHeader1 findWithItems(Integer id);
 
     /**
+     * Loads a claim header with a pessimistic write lock for short critical
+     * sections that update aggregate billing totals.
+     *
+     * @return the locked header, or {@code null} if the row no longer exists.
+     */
+    public BillingONCHeader1 findForUpdate(Integer id);
+
+    /**
      * Variant of {@link #findByDemoNo} that also fetches each row's
      * {@code billingItems} collection in one query — for callers that
      * post-process the items (e.g., REST {@code BillingDetailConverter})

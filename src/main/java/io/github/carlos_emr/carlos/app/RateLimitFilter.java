@@ -125,8 +125,12 @@ public final class RateLimitFilter implements Filter {
     /** Set of client IP addresses that are exempt from rate limiting. */
     private Set<String> exemptIps;
 
-    /** Maximum retained per-client counter entries before overflow counters are used. */
+    /** Maximum retained per-client counter entries before least-recently-used eviction. */
     private int maxCounterEntries;
+
+    /** Trusted reverse-proxy addresses used to decide whether X-Forwarded-For mismatch warnings are actionable. */
+    private Set<String> trustedProxyIps = Collections.emptySet();
+    private Set<XforwardHeaderFilter.CidrRange> trustedProxyCidrs = Collections.emptySet();
 
     // --- Runtime state ---
 
@@ -138,7 +142,6 @@ public final class RateLimitFilter implements Filter {
      * </ul>
      */
     private final ConcurrentHashMap<String, FixedWindowCounter> counters = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, FixedWindowCounter> overflowCounters = new ConcurrentHashMap<>();
     private final Set<String> forwardedAddressWarningIps = ConcurrentHashMap.newKeySet();
 
     /** Background thread for evicting stale counters to prevent unbounded memory growth. */
@@ -194,6 +197,10 @@ public final class RateLimitFilter implements Filter {
         // Both ::1 and 0:0:0:0:0:0:0:1 represent IPv6 loopback — both are included because
         // different JVMs/platforms may return either compressed or full form from getRemoteAddr().
         exemptIps = parseCsv(exemptConfig != null ? exemptConfig : "127.0.0.1,::1,0:0:0:0:0:0:0:1");
+        String trustedIpConfig = props.getProperty(XforwardHeaderFilter.TRUSTED_PROXY_IPS_PROPERTY);
+        String trustedCidrConfig = props.getProperty(XforwardHeaderFilter.TRUSTED_PROXY_CIDRS_PROPERTY);
+        trustedProxyIps = XforwardHeaderFilter.parseCsv(trustedIpConfig != null ? trustedIpConfig : "");
+        trustedProxyCidrs = XforwardHeaderFilter.parseCidrs(trustedCidrConfig != null ? trustedCidrConfig : "");
 
         int cleanupInterval = getIntProperty(props, "WAF_RATE_LIMIT_CLEANUP_INTERVAL_SECONDS", 300);
         cleanupScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -324,13 +331,19 @@ public final class RateLimitFilter implements Filter {
         }
         String firstForwardedIp = forwardedFor.split(",", 2)[0].trim();
         if (!firstForwardedIp.isEmpty() && !firstForwardedIp.equals(clientIp)) {
-            if (forwardedAddressWarningIps.add(clientIp)) {
+            boolean trustedProxy = XforwardHeaderFilter.isTrustedProxy(clientIp, trustedProxyIps, trustedProxyCidrs);
+            if (trustedProxy && forwardedAddressWarningIps.add(clientIp)) {
                 logger.warn(
                         "RATE CONFIG: X-Forwarded-For present but rate limit is using remoteAddr; "
                                 + "verify XforwardHeaderFilter ordering/trusted proxy configuration. remoteAddr={} xForwardedForFirst={}",
                         LogSanitizer.sanitize(clientIp),
                         LogSanitizer.sanitize(firstForwardedIp));
-            } else {
+            } else if (!trustedProxy && forwardedAddressWarningIps.add(clientIp)) {
+                logger.debug(
+                        "RATE CONFIG: untrusted remoteAddr supplied X-Forwarded-For; ignoring forwarded value. remoteAddr={} xForwardedForFirst={}",
+                        LogSanitizer.sanitize(clientIp),
+                        LogSanitizer.sanitize(firstForwardedIp));
+            } else if (trustedProxy) {
                 logger.debug(
                         "RATE CONFIG: repeated X-Forwarded-For mismatch suppressed for remoteAddr={} xForwardedForFirst={}",
                         LogSanitizer.sanitize(clientIp),
@@ -347,7 +360,6 @@ public final class RateLimitFilter implements Filter {
         if (cleanupScheduler != null) {
             cleanupScheduler.shutdownNow();
         }
-        overflowCounters.clear();
         forwardedAddressWarningIps.clear();
     }
 
@@ -421,13 +433,27 @@ public final class RateLimitFilter implements Filter {
             evictStaleCounters();
         }
         if (counters.size() >= maxCounterEntries) {
-            logger.warn("Rate limit: counter map at max {} entries; using shared overflow counter for tier={}",
-                    maxCounterEntries, LogSanitizer.sanitize(tier));
-            return overflowCounters.computeIfAbsent(tier,
-                    k -> new FixedWindowCounter(requests, windowMillis, clock));
+            evictLeastRecentlySeenCounter();
         }
         return counters.computeIfAbsent(key,
                 k -> new FixedWindowCounter(requests, windowMillis, clock));
+    }
+
+    private void evictLeastRecentlySeenCounter() {
+        String evictKey = null;
+        long oldestSeen = Long.MAX_VALUE;
+        for (Map.Entry<String, FixedWindowCounter> entry : counters.entrySet()) {
+            long lastSeen = entry.getValue().lastSeenMillis();
+            if (lastSeen < oldestSeen) {
+                oldestSeen = lastSeen;
+                evictKey = entry.getKey();
+            }
+        }
+        if (evictKey != null) {
+            counters.remove(evictKey);
+            logger.warn("Rate limit: counter map at max {} entries; evicted least-recently-seen counter",
+                    maxCounterEntries);
+        }
     }
 
     /**
@@ -619,6 +645,7 @@ public final class RateLimitFilter implements Filter {
 
         private final AtomicInteger count = new AtomicInteger(0);
         private volatile long windowStart;
+        private volatile long lastSeenMillis;
         private final int maxRequests;
         private final long windowMillis;
         private final LongSupplier clock;
@@ -645,6 +672,7 @@ public final class RateLimitFilter implements Filter {
             this.windowMillis = windowMillis;
             this.clock = clock;
             this.windowStart = clock.getAsLong();
+            this.lastSeenMillis = this.windowStart;
         }
 
         /**
@@ -654,6 +682,7 @@ public final class RateLimitFilter implements Filter {
          */
         boolean tryAcquire() {
             long now = clock.getAsLong();
+            lastSeenMillis = now;
             if (now - windowStart >= windowMillis) {
                 // Window has expired — reset under lock to avoid multiple simultaneous resets
                 synchronized (this) {
@@ -685,7 +714,11 @@ public final class RateLimitFilter implements Filter {
          * @return {@code true} if the entry is stale
          */
         boolean isStale(long now) {
-            return now - windowStart > windowMillis * 2;
+            return now - lastSeenMillis > windowMillis * 2;
+        }
+
+        long lastSeenMillis() {
+            return lastSeenMillis;
         }
     }
 }

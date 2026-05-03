@@ -105,6 +105,13 @@
     </div>
 </c:if>
 
+<c:if test="${historyModel.patientNameUnavailable}">
+    <div style="background:#fff3cd;color:#7a5b00;border:1px solid #d4a700;padding:8px;margin:4px 0;">
+        <strong>Patient name is temporarily unavailable.</strong>
+        Confirm the demographic before acting on this history.
+    </div>
+</c:if>
+
 <nav class="navbar navbar-dark bg-dark">
     <div class="container-fluid">
         <span class="navbar-brand"><fmt:message key="billing.billingONHistory.title"/></span>

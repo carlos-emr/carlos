@@ -26,6 +26,12 @@
  * separate from {@code viewmodel} records so JSP presentation concerns do not
  * leak into persistence code.</p>
  *
+ * <p>Legacy beans in this package may still expose string getters/setters
+ * where DAO, fixed-width parser, or JSP contracts require that shape. Keep
+ * fields private, normalize money into {@code BillingMoney} or
+ * {@code BigDecimal} at the setter boundary, and document any compatibility
+ * behavior on the class instead of adding mechanical getter/setter JavaDoc.</p>
+ *
  * @since 2026-04-28
  */
 package io.github.carlos_emr.carlos.billings.ca.on.dto;

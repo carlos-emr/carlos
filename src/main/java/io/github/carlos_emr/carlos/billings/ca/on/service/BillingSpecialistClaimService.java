@@ -206,7 +206,10 @@ public class BillingSpecialistClaimService {
     private String feeForCode(String serviceCode) {
         java.util.List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingCodeAttribute> attrs =
                 serviceCodeLoader.getBillingCodeAttr(serviceCode);
-        return (attrs == null || attrs.isEmpty()) ? "" : attrs.get(0).value();
+        if (attrs == null || attrs.isEmpty() || attrs.get(0).valueMoney() == null) {
+            return "";
+        }
+        return attrs.get(0).valueMoney().format();
     }
 
     private static String[] getHinVer(String val) {

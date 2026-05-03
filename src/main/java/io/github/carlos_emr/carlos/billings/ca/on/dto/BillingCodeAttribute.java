@@ -17,14 +17,19 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.dto;
 
+import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
+
+import java.math.BigDecimal;
+
 /**
  * One row from the {@code billing_service} table for OHIP code lookup —
  * the service code, its description, fee value, percentage, effective date,
  * and GST flag.
  *
- * <p>Consumers can read only the attributes they need. For example, the
- * fee-only path in {@code BillingSpecialistClaimService.feeForCode} reads
- * only {@link #value()}.</p>
+ * <p>Consumers can read only the attributes they need. Calculation paths
+ * should use {@link #valueMoney()} or {@link #percentageAmount()} so malformed
+ * schedule values fail at the billing boundary instead of being reparsed
+ * inconsistently by each caller.</p>
  *
  * @since 2026-05-01
  */
@@ -42,5 +47,17 @@ public record BillingCodeAttribute(
         percentage = percentage == null ? "" : percentage;
         billingServiceDate = billingServiceDate == null ? "" : billingServiceDate;
         gstFlag = gstFlag == null ? "" : gstFlag;
+    }
+
+    /** Parsed service-code fee for calculation paths that should not reparse the raw string ad hoc. */
+    public BillingMoney valueMoney() {
+        return value.isBlank() ? null : BillingMoney.parseNonNegative(value, "value");
+    }
+
+    /** Parsed percentage multiplier for percentage-line calculations. */
+    public BigDecimal percentageAmount() {
+        return percentage.isBlank()
+                ? BigDecimal.ZERO.setScale(BillingMoney.MONEY_SCALE)
+                : BillingMoney.parseNonNegativeAmount(percentage, "percentage");
     }
 }

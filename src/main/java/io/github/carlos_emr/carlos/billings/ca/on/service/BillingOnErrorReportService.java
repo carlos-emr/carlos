@@ -136,7 +136,7 @@ public class BillingOnErrorReportService {
         b.setAdmittedDate(ConversionUtils.fromDateString(val.getAdmitted_date(), "yyyyMMdd"));
         b.setClaimError(val.getClaim_error());
         b.setCode(val.getCode());
-        b.setFee(val.getFee());
+        b.setFee(val.getFeeMoney() == null ? null : val.getFeeMoney().format());
         b.setUnit(val.getUnit());
         b.setCodeDate(ConversionUtils.fromDateString(val.getCode_date(), "yyyyMMdd"));
         b.setDx(val.getDx());

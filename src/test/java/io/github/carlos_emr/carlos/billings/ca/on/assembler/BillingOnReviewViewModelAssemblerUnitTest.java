@@ -185,6 +185,24 @@ class BillingOnReviewViewModelAssemblerUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldGateReview_whenPercentageUnitIsMalformed() {
+        request.setParameter("xml_billtype", "ODP");
+        java.util.List<io.github.carlos_emr.carlos.billings.ca.on.support.BillingReviewServiceParam> serviceParams =
+                java.util.List.of(new io.github.carlos_emr.carlos.billings.ca.on.support.BillingReviewServiceParam(
+                        "PERC", "abc", ""));
+        when(reviewPrep.getRequestCodes(any(), any(), any(), any(), anyInt())).thenReturn(serviceParams);
+        when(reviewPrep.getPercentageCodeReviewItems(any(), any(), any())).thenReturn(java.util.List.of(
+                new io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingReviewPercentageItem(
+                        "PERC", "abc", "10.00", "", "", java.util.List.of("1.00"), java.util.List.of("10.00"), "")));
+
+        BillingOnReviewViewModel m = assembler.assemble(request, null);
+
+        assertThat(m.isTotalsParseFailed()).isTrue();
+        assertThat(m.getPercCodeRows()).hasSize(1);
+        assertThat(m.getPercCodeRows().get(0).segments().get(0).percTotal()).isEqualTo("0");
+    }
+
+    @Test
     void shouldErrorWithBoldRedHtml_whenHinIsNull() {
         Demographic demo = new Demographic();
         demo.setFirstName("Jones");

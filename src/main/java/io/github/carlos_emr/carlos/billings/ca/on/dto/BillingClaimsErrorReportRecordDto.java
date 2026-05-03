@@ -24,71 +24,74 @@
 
 package io.github.carlos_emr.carlos.billings.ca.on.dto;
 
+import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 
 /**
  * Parsed row from the Ontario claims error report file.
  *
  * <p>The field names intentionally match the historic fixed-width report
  * vocabulary so existing import, reconciliation, and JSP code can reason
- * about the same terms the ministry uses.</p>
+ * about the same terms the ministry uses. Amount-submitted is parsed into
+ * {@link BillingMoney} from the file's six-character fixed-width cents token
+ * while the legacy getter returns the normalized decimal string.</p>
  */
 public class BillingClaimsErrorReportRecordDto {
 
-    String techSpec = null;
-    String MOHoffice = null;
-    String providerNumber = null;
-    String groupNumber = null;
-    String operatorNumber = null;
-    String specialtyCode = null;
-    String stationNumber = null;
-    String claimProcessDate = null;
+    private String techSpec = null;
+    private String MOHoffice = null;
+    private String providerNumber = null;
+    private String groupNumber = null;
+    private String operatorNumber = null;
+    private String specialtyCode = null;
+    private String stationNumber = null;
+    private String claimProcessDate = null;
 
-    String hin = "";
-    String ver = "";
-    String dob = "";
-    String account = "";
-    String billtype = "";
-    String payee = "";
-    String referNumber = "";
-    String facilityNumber = "";
-    String admitDate = "";
-    String referLab = "";
-    String location = "";
-    String heCode1 = "";
-    String heCode2 = "";
-    String heCode3 = "";
-    String heCode4 = "";
-    String heCode5 = "";
+    private String hin = "";
+    private String ver = "";
+    private String dob = "";
+    private String account = "";
+    private String billtype = "";
+    private String payee = "";
+    private String referNumber = "";
+    private String facilityNumber = "";
+    private String admitDate = "";
+    private String referLab = "";
+    private String location = "";
+    private String heCode1 = "";
+    private String heCode2 = "";
+    private String heCode3 = "";
+    private String heCode4 = "";
+    private String heCode5 = "";
 
-    String regNumber = null;
-    String patient_last = null;
-    String patient_first = null;
-    String patient_sex = null;
-    String province_code = null;
-    String reCode1 = null;
-    String reCode2 = null;
-    String reCode3 = null;
-    String reCode4 = null;
-    String reCode5 = null;
+    private String regNumber = null;
+    private String patient_last = null;
+    private String patient_first = null;
+    private String patient_sex = null;
+    private String province_code = null;
+    private String reCode1 = null;
+    private String reCode2 = null;
+    private String reCode3 = null;
+    private String reCode4 = null;
+    private String reCode5 = null;
 
-    String servicecode = null;
-    String amountsubmit = null;
-    String serviceno = null;
-    String servicedate = null;
-    String dxcode = null;
-    String code1 = null;
-    String code2 = null;
-    String code3 = null;
-    String code4 = null;
-    String code5 = null;
+    private String servicecode = null;
+    private BillingMoney amountsubmit = null;
+    private String serviceno = null;
+    private String servicedate = null;
+    private String dxcode = null;
+    private String code1 = null;
+    private String code2 = null;
+    private String code3 = null;
+    private String code4 = null;
+    private String code5 = null;
 
-    String explain = null;
-    String error = null;
+    private String explain = null;
+    private String error = null;
 
-    String header1Count = null;
-    String header2Count = null;
-    String itemCount = null;
-    String messageCount = null;
+    private String header1Count = null;
+    private String header2Count = null;
+    private String itemCount = null;
+    private String messageCount = null;
 
     public BillingClaimsErrorReportRecordDto() {
     }
@@ -376,10 +379,18 @@ public class BillingClaimsErrorReportRecordDto {
     }
 
     public String getAmountsubmit() {
-        return amountsubmit;
+        return BillingDtoMoney.format(amountsubmit);
     }
 
     public void setAmountsubmit(String amountsubmit) {
+        this.amountsubmit = BillingDtoMoney.parseNonNegativeStoredCentsOrDecimal(amountsubmit, "amountsubmit");
+    }
+
+    public BillingMoney getAmountsubmitMoney() {
+        return amountsubmit;
+    }
+
+    public void setAmountsubmitMoney(BillingMoney amountsubmit) {
         this.amountsubmit = amountsubmit;
     }
 

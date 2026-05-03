@@ -203,12 +203,15 @@ PathValidationUtils.validateExistingPath(file, baseDir);
 ### 2Action Structure Template:
 ```java
 public class Example2Action extends ActionSupport {
-    HttpServletRequest request = ServletActionContext.getRequest();
-    HttpServletResponse response = ServletActionContext.getResponse();
+    private final SecurityInfoManager securityInfoManager;
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    public Example2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
 
     public String execute() {
+        HttpServletRequest request = ServletActionContext.getRequest();
+        HttpServletResponse response = ServletActionContext.getResponse();
         // MANDATORY security check
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_object", "r", null)) {
             throw new SecurityException("missing required sec object");
@@ -432,7 +435,11 @@ DAO method names can be misleading. For example, `getProviders(boolean active)` 
 
 **Spring Integration Pattern**:
 ```java
-private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
+private final SomeManager someManager;
+
+public Example2Action(SomeManager someManager) {
+    this.someManager = someManager;
+}
 ```
 
 **Documentation Standards**:
@@ -443,6 +450,7 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 - **Return Documentation**: Use `@return` tags when callers need help understanding shape, nullability, or compatibility expectations
 - **Exception Documentation**: Document thrown exceptions when failure modes are part of the caller contract
 - **Deprecation**: Use @deprecated with migration guidance to newer APIs
+- **Legacy DTOs**: Keep fields private and document compatibility behavior at the class level, especially fixed-width file shapes and money normalization. Avoid mechanical JavaDoc on trivial bean accessors.
 - **JSP Documentation**: Add comprehensive JSP comment blocks after copyright headers with purpose, features, parameters, and @since
 - **Package-Level Docs**: Use `package-info.java` to document ownership boundaries and conventions for `assembler`, `command`, `dto`, and `support` packages
 - **Inline Comments**: Comment the why: legacy compatibility, security/compliance constraints, file-format offsets, transaction boundaries, and non-obvious control flow. Do not narrate obvious assignments or getters/setters.
@@ -604,12 +612,17 @@ CARLOS EMR uses a unique incremental migration approach from Struts 1.x to Strut
 - **Class Structure**:
   ```java
   public class Example2Action extends ActionSupport {
-      HttpServletRequest request = ServletActionContext.getRequest();
-      HttpServletResponse response = ServletActionContext.getResponse();
+      private final SecurityInfoManager securityInfoManager;
+      private final SomeManager someManager;
 
-      private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
+      public Example2Action(SecurityInfoManager securityInfoManager, SomeManager someManager) {
+          this.securityInfoManager = securityInfoManager;
+          this.someManager = someManager;
+      }
 
       public String execute() {
+          HttpServletRequest request = ServletActionContext.getRequest();
+          HttpServletResponse response = ServletActionContext.getResponse();
           // Security check pattern
           if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_object", "r", null)) {
               throw new SecurityException("missing required sec object");
@@ -651,12 +664,17 @@ HttpServletResponse response = ServletActionContext.getResponse();
 
 **Spring Integration**
 ```java
-private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-private TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
+private final SecurityInfoManager securityInfoManager;
+private final TicklerManager ticklerManager;
+
+public Some2Action(SecurityInfoManager securityInfoManager, TicklerManager ticklerManager) {
+    this.securityInfoManager = securityInfoManager;
+    this.ticklerManager = ticklerManager;
+}
 ```
-- Spring dependency injection via `SpringUtils.getBean()`
-- Maintains loose coupling with Spring container
-- No need for Struts2-Spring plugin complexity
+- Prefer constructor injection for new actions and services.
+- Legacy Struts-created routers that require a no-arg constructor may call `SpringUtils.getBean()` inside that constructor and expose a package-private test constructor.
+- Do not add new `field = SpringUtils.getBean(...)` shims.
 
 **Security Pattern (Required)**
 ```java
@@ -705,7 +723,7 @@ if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(re
 - Return appropriate result strings
 
 **3. Spring Integration**
-- Use `SpringUtils.getBean()` for dependency injection
+- Prefer constructor injection; reserve `SpringUtils.getBean()` for legacy compatibility shims that cannot be constructor-wired yet.
 - Leverage existing Spring-managed services
 - Maintain transactional boundaries
 

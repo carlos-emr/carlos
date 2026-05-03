@@ -34,17 +34,17 @@ package io.github.carlos_emr.carlos.billings.ca.on.dto;
  */
 public class BillingEdtObecOutputSpecificationRecordDto {
 
-    String healthNo;
-    String version;
-    String responseCode;
-    String identifier = "";
-    String sex = "";
-    String DOB = "";
-    String expiry = "";
-    String lastName = "";
-    String firstName = "";
-    String secondName = "";
-    String MOH = "";
+    private String healthNo;
+    private String version;
+    private String responseCode;
+    private String identifier = "";
+    private String sex = "";
+    private String DOB = "";
+    private String expiry = "";
+    private String lastName = "";
+    private String firstName = "";
+    private String secondName = "";
+    private String MOH = "";
 
     public BillingEdtObecOutputSpecificationRecordDto(String healthNo, String version, String responseCode) {
         this.healthNo = healthNo;

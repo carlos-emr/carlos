@@ -160,7 +160,25 @@ Forbidden in new code (and currently absent from this module): `*Prep`,
   outside the transaction boundary and delegate to services for read/write
   units of work.
 
-### 3.3 Design rationale
+### 3.3 DTO compatibility policy
+
+Ontario billing still has DAO, parser, and JSP contracts that consume mutable
+bean-style DTOs. Those classes should stay boring at the boundary but strict
+inside it:
+
+- Fields stay `private`; callers use accessors so validation and normalization
+  cannot be bypassed.
+- Money-bearing DTO fields normalize through `BillingMoney` or `BigDecimal`
+  as soon as the setter receives raw parser/DAO text. Legacy string getters
+  may remain when fixed-width import code or JSPs still need them, but they
+  should return normalized decimal text.
+- Class JavaDoc should explain legacy field names, fixed-width report shapes,
+  and compatibility behavior. Do not add mechanical JavaDoc to every trivial
+  bean accessor.
+- Immutable records/builders are preferred for new DTOs, but convert old beans
+  only after the parser, DAO, and JSP callers are pinned by focused tests.
+
+### 3.4 Design rationale
 
 Three constraints drove the layered shape:
 
@@ -359,6 +377,8 @@ known operation.
 | Class | Role | What it does |
 |---|---|---|
 | `BatchBillingRemovalService` | Service | Transactional removal of selected batch-billing rows |
+| `BatchBillingSubmissionService` | Service | Transactional batch-billing submission |
+| `BillingAdmissionDateLoader` | Loader | Admission-date lookup for inpatient billing defaults |
 | `BillingClaimBatchAcknowledgementReportParser` | Parser | Fixed-width batch acknowledgement report parsing |
 | `BillingClaimSubmissionService` | Service | Save-side orchestration (legacy; mixed) |
 | `BillingClaimsErrorReportImportService` | Import service | Claims error report upload/import workflow |
@@ -378,9 +398,12 @@ known operation.
 | `BillingOnCorrectionPersister` | Persister | Correction lifecycle writes + colocated reads (split into `*Loader` is a candidate follow-up) |
 | `BillingOnDiskLoader` | Loader | Disk record queries, batch header reads, MRI list |
 | `BillingOnDiskService` | Service | Disk operations facade |
+| `BillingOnDiskTransactionService` | Service | Disk batch transaction-state updates |
 | `BillingOnErrorReportService` | Service | RA error-report generation |
-| `BillingOnInvoiceTotalsService` | Service | `calculateBalanceOwing` — reads `BillingONCHeader1Dao` + `BillingONPaymentDao` (cross-DAO ⇒ `*Service` per layer-names rule 4) |
 | `BillingOnHeaderCreationService` | Service | Header creation orchestration (`@Transactional`) |
+| `BillingOnHistoryBalanceCalculator` | Calculator | Patient-bill balance arithmetic |
+| `BillingOnHistoryBalanceService` | Service | DAO-backed patient-bill balance lookup and partial-state reporting |
+| `BillingOnInvoiceTotalsService` | Service | `calculateBalanceOwing` — reads `BillingONCHeader1Dao` + `BillingONPaymentDao` (cross-DAO ⇒ `*Service` per layer-names rule 4) |
 | `BillingOnLookupService` | Service | Provider/team/site lookups + a few status writes (mixed) |
 | `BillingOnRaService` | Service | RA import + status updates |
 | `BillingOnReviewDiagPersister` | Persister | Diagnostic-code persistence on review save |
@@ -509,6 +532,9 @@ Notes on this template:
   [carlos-emr/carlos#1751](https://github.com/carlos-emr/carlos/issues/1751),
   for the known remainders.
 - **Constructor injection.** No `field = SpringUtils.getBean(...)` shims.
+  Legacy Struts-created routers that still need a no-arg constructor may keep
+  the `SpringUtils.getBean(...)` lookup inside that constructor and expose a
+  package-private test constructor.
 - **Privilege check first.** `_billing r` for read, `_billing w` for write.
   Throw `SecurityException` (the global Struts exception mapping renders
   the access-denied page).
@@ -774,7 +800,7 @@ JPA `EntityManager` and the legacy Hibernate `Session`. Common pitfalls
 
 Things this module would benefit from but which are not yet done:
 
-- **`billingON.jsp` JSP refactor (Phase 2A in `/root/.claude/plans/`).**
+- **`billingON.jsp` JSP refactor (Phase 2A).**
   The largest remaining ON JSP is being decomposed into Assembler +
   ViewModel + JSP includes — same recipe as the four other ON billing
   JSPs that are already done.
@@ -782,12 +808,35 @@ Things this module would benefit from but which are not yet done:
   `billings/ca/bc`. The BC analogue still has the legacy patterns
   (multi-method actions, scriptlet JSPs, mixed-role services). Out of
   scope for the ON refactor branch; tracked separately.
+- **Uppercase ON package migration.** Some legacy `billing/CA/ON` DAO/model
+  classes are still shared by the lowercase `billings/ca/on` module
+  (`BillingONDiskName`, `BillingONFilename`, `EDTFolder`, etc.). Keep new
+  module code in lowercase packages and migrate the shared legacy classes in a
+  dedicated compatibility pass.
 - **Mixed-role services.** A handful of pre-existing services
   (`BillingOnLookupService`, `BillingDiskCreationService`,
   `BillingClaimSubmissionService`, `BillingOnCorrectionPersister`) carry
   both reads and writes. They legitimately orchestrate mixed lifecycles
   today, but if any one of them grows further, splitting into
   `*Loader` + `*Persister` is the next step.
+- **Service-grid query batching.** `BillingOnFormServiceGridComposer` still
+  has documented `TODO(perf)` N+1 lookups while preserving the legacy billing
+  form output. Track any optimizer pass as a separate performance issue with
+  before/after query counts.
+- **DTO modernization beyond compatibility.** The highest-risk legacy DTO
+  fields are now private and normalize money at the setter boundary, but some
+  classes intentionally remain mutable beans because DAO, parser, and JSP
+  contracts still depend on that shape. Convert individual DTOs to records or
+  builders only after their parser, DAO, and JSP callers are pinned by focused
+  compatibility tests.
+- **Presentation assembler coverage.** High-branching report assemblers
+  should continue to receive focused unit tests as they are touched. Cover
+  failure banners, partial-data flags, and money/date parsing before changing
+  rendering behaviour.
+- **Layer test tags.** The current test suite is mostly tagged `unit` and
+  `billing`; module-specific tags such as `service`, `assembler`, `loader`,
+  `persister`, `calculator`, and `action` should be added in a mechanical pass
+  so filtered Maven runs match the documented architecture vocabulary.
 
 <a id="remaining-method-dispatch-cleanup"></a>
 - **Remaining method-dispatch cleanup.** Active method-param dispatch remains
