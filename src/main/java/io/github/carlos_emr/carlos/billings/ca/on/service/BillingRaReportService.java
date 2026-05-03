@@ -197,7 +197,17 @@ public class BillingRaReportService {
                 unreadableRowCount++;
             }
 
-            BigDecimal bdCFee = BillingMoney.amount(amountsubmit);
+            BigDecimal bdCFee;
+            try {
+                bdCFee = BillingMoney.amount(amountsubmit);
+            } catch (RuntimeException e) {
+                unreadableRowCount++;
+                MiscUtils.getLogger().error(
+                        "RA summary: account {} has unreadable amountsubmit [{}]; excluded from submitted total",
+                        io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(account),
+                        io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(amountsubmit), e);
+                bdCFee = BillingMoney.zeroAmount();
+            }
             BigCTotal = BigCTotal.add(bdCFee);
 
             // Skip the row from the per-amountpay totals when upstream flagged

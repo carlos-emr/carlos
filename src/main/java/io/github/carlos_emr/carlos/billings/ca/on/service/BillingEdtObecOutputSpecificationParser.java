@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 /**
  * Parses fixed-format Ontario EDT OBEC output specification files.
@@ -62,19 +63,33 @@ public class BillingEdtObecOutputSpecificationParser {
                                                         BatchEligibilityDao batchEligibilityDao,
                                                         DemographicManager demographicManager,
                                                         ProviderDao providerDao) {
+        this(loggedInInfo, file, batchEligibilityDao, demographicManager, providerDao, "unknown");
+    }
+
+    public BillingEdtObecOutputSpecificationParser(LoggedInInfo loggedInInfo, FileInputStream file,
+                                                        BatchEligibilityDao batchEligibilityDao,
+                                                        DemographicManager demographicManager,
+                                                        ProviderDao providerDao,
+                                                        String sourceName) {
         this.batchEligibilityDao = batchEligibilityDao;
         this.demographicManager = demographicManager;
         this.providerDao = providerDao;
-        init(loggedInInfo, file);
+        init(loggedInInfo, file, sourceName);
     }
 
     public boolean init(LoggedInInfo loggedInInfo, FileInputStream file) {
+        return init(loggedInInfo, file, "unknown");
+    }
+
+    public boolean init(LoggedInInfo loggedInInfo, FileInputStream file, String sourceName) {
 
         String nextline;
+        int lineNumber = 0;
 
         try (BufferedReader input = new BufferedReader(new InputStreamReader(file))) {
 
             while ((nextline = input.readLine()) != null) {
+                lineNumber++;
 
                 if (nextline.length() > 2) {
                     attemptedRecordCount++;
@@ -123,15 +138,21 @@ public class BillingEdtObecOutputSpecificationParser {
             // now flips verdict false AND SIOOBE branch logs.
             verdict = false;
             edtObecOutputSpecificationRecords.clear();
-            MiscUtils.getLogger().error("EDT/OBEC parse failed (IOException), verdict=false", ioe);
+            MiscUtils.getLogger().error(
+                    "EDT/OBEC parse failed (file={}, line={}, IOException), verdict=false",
+                    LogSanitizer.sanitize(sourceName), lineNumber, ioe);
         } catch (StringIndexOutOfBoundsException ioe) {
             verdict = false;
             edtObecOutputSpecificationRecords.clear();
-            MiscUtils.getLogger().error("EDT/OBEC parse failed (malformed record layout), verdict=false", ioe);
+            MiscUtils.getLogger().error(
+                    "EDT/OBEC parse failed (file={}, line={}, malformed record layout), verdict=false",
+                    LogSanitizer.sanitize(sourceName), lineNumber, ioe);
         } catch (NumberFormatException nfe) {
             verdict = false;
             edtObecOutputSpecificationRecords.clear();
-            MiscUtils.getLogger().error("EDT/OBEC parse failed (nonnumeric response code), verdict=false", nfe);
+            MiscUtils.getLogger().error(
+                    "EDT/OBEC parse failed (file={}, line={}, nonnumeric response code), verdict=false",
+                    LogSanitizer.sanitize(sourceName), lineNumber, nfe);
         }
         return verdict;
     }

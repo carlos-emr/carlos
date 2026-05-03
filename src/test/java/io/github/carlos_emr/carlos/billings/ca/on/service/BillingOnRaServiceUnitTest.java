@@ -49,9 +49,11 @@ import java.util.List;
 import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -117,17 +119,16 @@ class BillingOnRaServiceUnitTest {
         dto.setClaim_no("CLM-001");
 
         ArgumentCaptor<RaDetail> captor = ArgumentCaptor.forClass(RaDetail.class);
-        // The persister returns the assigned id via JPA; legacy unboxes it
-        // through r.getId(). We only verify the persist-call shape here
-        // because the id setter route is JPA-driven and not under test.
-        try {
-            service.addOneRADtRecord(dto);
-        } catch (NullPointerException expected) {
-            // Returned-int unbox of a JPA-assigned id can NPE under mocks.
-        }
+        doAnswer(invocation -> {
+            invocation.getArgument(0, RaDetail.class).setId(501);
+            return null;
+        }).when(raDetailDao).persist(any(RaDetail.class));
+
+        int id = service.addOneRADtRecord(dto);
 
         verify(raDetailDao).persist(captor.capture());
         RaDetail r = captor.getValue();
+        assertThat(id).isEqualTo(501);
         assertThat(r.getRaHeaderNo()).isEqualTo(99);
         assertThat(r.getProviderOhipNo()).isEqualTo("012345");
         assertThat(r.getBillingNo()).isEqualTo(1001);
@@ -308,6 +309,32 @@ class BillingOnRaServiceUnitTest {
     }
 
     @Test
+    void shouldEscapeRaTransactionMessage_whenImportingDescriptionFile() throws Exception {
+        List<RaHeader> persistedHeaders = new ArrayList<>();
+        org.mockito.Mockito.doAnswer(invocation -> {
+            RaHeader header = invocation.getArgument(0);
+            ReflectionTestUtils.setField(header, "id", 99);
+            persistedHeaders.add(header);
+            return null;
+        }).when(raHeaderDao).persist(any(RaHeader.class));
+        when(raHeaderDao.findCurrentByFilenamePaymentDate(any(), any())).thenReturn(List.of());
+        when(raHeaderDao.findByFilenamePaymentDate(any(), any())).thenAnswer(invocation -> persistedHeaders);
+
+        Path file = tempDir.resolve("escaped-ra.ra");
+        Files.write(file, List.of(
+                h1("20260401", "000001234", "+"),
+                h7("20", "C", "00123450", "+", "<script>alert(1)</script>")));
+
+        service.importRAFile(file.toString());
+
+        ArgumentCaptor<RaHeader> mergeCaptor = ArgumentCaptor.forClass(RaHeader.class);
+        verify(raHeaderDao).merge(mergeCaptor.capture());
+        assertThat(mergeCaptor.getValue().getContent())
+                .contains("&lt;script&gt;alert(1)&lt;/script&gt;")
+                .doesNotContain("<script>alert(1)</script>");
+    }
+
+    @Test
     void shouldRejectPathOutsideDocumentDir_whenImportRaFileCalledDirectly() throws Exception {
         Path outside = Files.createTempFile("outside-ra", ".txt");
 
@@ -357,6 +384,16 @@ class BillingOnRaServiceUnitTest {
         assertThat(result).isEmpty();
     }
 
+    @Test
+    void shouldPropagateSecurityException_whenGetRASummaryRejectsAccess() {
+        when(raDetailDao.findByRaHeaderNoAndProviderOhipNo(anyInt(), org.mockito.ArgumentMatchers.anyString()))
+                .thenThrow(new SecurityException("access denied"));
+
+        assertThatThrownBy(() -> service.getRASummary("99", "012345"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("access denied");
+    }
+
     // ---- getRAErrorReport: same partial-load contract as getRASummary --
 
     @Test
@@ -373,6 +410,17 @@ class BillingOnRaServiceUnitTest {
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getProperty(BillingOnRaService.LOAD_FAILURE_MARKER))
                 .isEqualTo("true");
+    }
+
+    @Test
+    void shouldPropagateSecurityException_whenGetRAErrorReportRejectsAccess() {
+        when(raDetailDao.findDistinctIdOhipWithError(anyInt(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.<List<String>>any()))
+                .thenThrow(new SecurityException("access denied"));
+
+        assertThatThrownBy(() -> service.getRAErrorReport("99", "012345", new String[0]))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("access denied");
     }
 
     private static String h1(String paymentDate, String total, String status) {

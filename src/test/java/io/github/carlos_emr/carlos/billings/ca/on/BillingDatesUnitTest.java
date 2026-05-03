@@ -54,6 +54,13 @@ class BillingDatesUnitTest {
     }
 
     @Test
+    void shouldRejectZeroDay_whenParsingLiveBillingOhipDate() {
+        assertThatThrownBy(() -> BillingDates.ohipEffectiveDate("20260400", LocalDate.of(2026, 4, 28)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid OHIP date");
+    }
+
+    @Test
     void shouldParseIsoDate_whenInputIsValid() {
         // Round-trip via formatIsoDate to assert the contract rather than
         // the underlying Date subclass's toString format.
@@ -158,6 +165,7 @@ class BillingDatesUnitTest {
     void shouldThrowWithFieldName_whenOptionalIsoTimeIsMalformed() {
         assertThatThrownBy(() -> BillingDates.parseOptionalIsoTime("99:99:99", "billing_time"))
                 .isInstanceOf(IllegalArgumentException.class)
+                .hasCauseInstanceOf(java.time.format.DateTimeParseException.class)
                 .hasMessageContaining("billing_time")
                 .hasMessageContaining("99:99:99");
     }
@@ -207,6 +215,7 @@ class BillingDatesUnitTest {
     void shouldThrow_whenIsoTimeIsMalformed() {
         assertThatThrownBy(() -> BillingDates.parseIsoTime("99:99:99"))
                 .isInstanceOf(IllegalArgumentException.class)
+                .hasCauseInstanceOf(java.time.format.DateTimeParseException.class)
                 .hasMessageContaining("99:99:99");
     }
 

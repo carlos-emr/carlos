@@ -222,7 +222,7 @@ public final class BillingDates {
                     .atZone(billingZone()).toInstant());
         } catch (java.time.format.DateTimeParseException e) {
             throw new IllegalArgumentException(
-                    "BillingDates.parseOptionalIsoTime: malformed " + fieldName + " [" + raw + "]");
+                    "BillingDates.parseOptionalIsoTime: malformed " + fieldName + " [" + raw + "]", e);
         }
     }
 
@@ -258,7 +258,7 @@ public final class BillingDates {
                     .atZone(billingZone()).toInstant());
         } catch (java.time.format.DateTimeParseException e) {
             throw new IllegalArgumentException(
-                    "BillingDates.parseIsoTime: malformed HH:mm:ss time [" + raw + "]");
+                    "BillingDates.parseIsoTime: malformed HH:mm:ss time [" + raw + "]", e);
         }
     }
 

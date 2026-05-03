@@ -59,6 +59,12 @@ public final class BillingCalendarPopupViewModel {
     private final List<WeekRow> weeks;
 
     private BillingCalendarPopupViewModel(Builder b) {
+        if (b.year < 1900 || b.year > 2100) {
+            throw new IllegalArgumentException("BillingCalendarPopupViewModel: year out of range");
+        }
+        if (b.month < 1 || b.month > 12) {
+            throw new IllegalArgumentException("BillingCalendarPopupViewModel: month out of range");
+        }
         this.year = b.year;
         this.month = b.month;
         this.type = b.type == null ? "" : b.type;

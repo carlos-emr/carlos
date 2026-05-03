@@ -333,7 +333,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
                     isGot = hd.isVerdict();
                 } else if (prefix.compareTo("B") == 0) {
                     ReportName = "Claim Batch Acknowledgement Report";
-                    BillingClaimBatchAcknowledgementReportParser hd = generateReportB(file);
+                    BillingClaimBatchAcknowledgementReportParser hd = generateReportB(file, sanitizedFileName);
                     request.setAttribute("batchAcks", hd);
                     isGot = hd.verdict;
                 } else if (prefix.compareTo("X") == 0) {
@@ -343,7 +343,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
                     isGot = reportXIsGenerated;
                 } else if (prefix.compareTo("R") == 0) {
                     ReportName = "EDT OBEC Output Specification";
-                    BillingEdtObecOutputSpecificationParser hd = generateReportR(loggedInInfo, file, request);
+                    BillingEdtObecOutputSpecificationParser hd = generateReportR(loggedInInfo, file, request, sanitizedFileName);
                     request.setAttribute("outputSpecs", hd);
                     isGot = hd.verdict;
                 } else if (prefix.compareTo("L") == 0) {
@@ -402,7 +402,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
         if (bB) {
             hd = claimsErrorReportImportService.importStream(file, filename);
         } else {
-            hd = new BillingClaimsErrorReportParser(file);
+            hd = new BillingClaimsErrorReportParser(file, filename);
         }
 
         return hd;
@@ -459,9 +459,9 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
      * @param file
      * @return batch acknowledgement report parser
      */
-    private BillingClaimBatchAcknowledgementReportParser generateReportB(FileInputStream file) {
+    private BillingClaimBatchAcknowledgementReportParser generateReportB(FileInputStream file, String filename) {
         BillingClaimBatchAcknowledgementReportParser hd = new BillingClaimBatchAcknowledgementReportParser(
-                file);
+                file, filename);
 
         return hd;
     }
@@ -533,10 +533,11 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
      */
     private BillingEdtObecOutputSpecificationParser generateReportR(LoggedInInfo loggedInInfo,
                                                                     FileInputStream file,
-                                                                    HttpServletRequest request) {
+                                                                    HttpServletRequest request,
+                                                                    String filename) {
         BillingEdtObecOutputSpecificationParser hd =
                 new BillingEdtObecOutputSpecificationParser(loggedInInfo, file,
-                        batchEligibilityDao, demographicManager, providerDao);
+                        batchEligibilityDao, demographicManager, providerDao, filename);
 
         if (!hd.verdict) {
             // Parsing is all-or-nothing from the operator's perspective: do

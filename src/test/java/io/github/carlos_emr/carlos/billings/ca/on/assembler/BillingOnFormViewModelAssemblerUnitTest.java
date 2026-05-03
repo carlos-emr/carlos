@@ -94,6 +94,7 @@ class BillingOnFormViewModelAssemblerUnitTest extends CarlosUnitTestBase {
     private BillingOnFormViewModelAssembler assembler;
     private BillingAdmissionDateLoader admissionDateLoader;
     private BillingOnClaimLoader claimLoader;
+    private io.github.carlos_emr.carlos.billings.ca.on.service.BillingSiteIdService siteIdService;
     private MockedStatic<BillingGuidelines> billingGuidelinesMock;
     private BillingGuidelines billingGuidelines;
 
@@ -192,6 +193,7 @@ class BillingOnFormViewModelAssemblerUnitTest extends CarlosUnitTestBase {
                 .thenReturn(Collections.emptyList());
 
         admissionDateLoader = Mockito.mock(BillingAdmissionDateLoader.class);
+        siteIdService = Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingSiteIdService.class);
 
         assembler = new BillingOnFormViewModelAssembler(
                 dxresearchDAO,
@@ -206,7 +208,7 @@ class BillingOnFormViewModelAssemblerUnitTest extends CarlosUnitTestBase {
                         cssStylesDAO, codeFilterManager, ctlBillingTypeDao, diagnosticCodeDao),
                 new BillingOnFormSiteContextComposer(
                         siteDao, oscarAppointmentDao, clinicNbrDao, providerDao),
-                Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingSiteIdService.class),
+                siteIdService,
                 admissionDateLoader);
     }
 
@@ -312,6 +314,31 @@ class BillingOnFormViewModelAssemblerUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldFlagSiteContextDegraded_whenLegacySiteSuggestLookupFails() {
+        CarlosProperties properties = CarlosProperties.getInstance();
+        String previousMultisites = properties.getProperty("multisites");
+        String previousScheduleSiteId = properties.getProperty("scheduleSiteID");
+        try {
+            properties.setProperty("multisites", "off");
+            properties.setProperty("scheduleSiteID", "Site A|Site B");
+            request.setParameter("demographic_no", "1");
+            request.setParameter("appointment_no", "0");
+            request.setParameter("service_date", "2026-04-24");
+            request.setParameter("appointment_date", "2026-04-24");
+            request.setParameter("billForm", "GP");
+            when(siteIdService.getSiteList()).thenThrow(new RuntimeException("site lookup down"));
+
+            BillingOnFormViewModel model = assembler.assemble(request, loggedInInfo);
+
+            assertThat(model.isSiteContextDegraded()).isTrue();
+            assertThat(model.getLegacySiteOptions()).isEmpty();
+        } finally {
+            restoreProperty(properties, "multisites", previousMultisites);
+            restoreProperty(properties, "scheduleSiteID", previousScheduleSiteId);
+        }
+    }
+
+    @Test
     void shouldExposeProviderViewFromXmlProviderParam_whenSupplied() {
         request.setParameter("xml_provider", "111111|something");
         request.setParameter("demographic_no", "1");
@@ -325,6 +352,14 @@ class BillingOnFormViewModelAssemblerUnitTest extends CarlosUnitTestBase {
         // The pipe is stripped — JSP's behaviour preserved.
         assertThat(model.getProviderPanel().providerView()).isEqualTo("111111");
         assertThat(model.getProviderView()).isEqualTo(model.getProviderPanel().providerView());
+    }
+
+    private static void restoreProperty(CarlosProperties properties, String key, String previousValue) {
+        if (previousValue == null) {
+            properties.remove(key);
+        } else {
+            properties.setProperty(key, previousValue);
+        }
     }
 
     @Test

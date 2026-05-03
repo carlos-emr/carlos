@@ -43,4 +43,24 @@ class BillingCalendarPopupViewModelUnitTest {
         assertThatThrownBy(() -> row.cells().add(new BillingCalendarPopupViewModel.DayCell(1)))
                 .isInstanceOf(UnsupportedOperationException.class);
     }
+
+    @Test
+    void shouldRejectMonthOutsideCalendarRange_whenBuildingModel() {
+        assertThatThrownBy(() -> BillingCalendarPopupViewModel.builder()
+                .year(2026)
+                .month(13)
+                .build())
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("month");
+    }
+
+    @Test
+    void shouldRejectYearOutsideSupportedRange_whenBuildingModel() {
+        assertThatThrownBy(() -> BillingCalendarPopupViewModel.builder()
+                .year(1899)
+                .month(1)
+                .build())
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("year");
+    }
 }

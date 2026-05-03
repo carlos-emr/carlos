@@ -142,6 +142,8 @@ public class BillingOnReviewDiagPersister {
             throw new BillingValidationException(
                     "Could not save dx (" + LogSanitizer.sanitizeForDisplay(dxCodeAdd)
                     + ") for the patient: a session conflict occurred. Please reload the chart and retry.", nuoe);
+        } catch (SecurityException sec) {
+            throw sec;
         } catch (RuntimeException rtEx) {
             // Catch-all for transient JDBC outages, lock-wait timeouts, etc.
             // Without this, the user sees the generic CARLOS Error 500 page

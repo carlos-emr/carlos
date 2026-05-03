@@ -65,4 +65,16 @@ class BillingOnHistoryBalanceCalculatorUnitTest {
         assertThat(balance).isEqualByComparingTo("10.01");
         assertThat(balance.scale()).isEqualTo(2);
     }
+
+    @Test
+    void shouldReturnNegativeBalance_whenPaymentsExceedTotal() {
+        BigDecimal balance = BillingOnHistoryBalanceCalculator.balance(
+                new BigDecimal("25.00"),
+                new BigDecimal("30.00"),
+                BigDecimal.ZERO,
+                BigDecimal.ZERO);
+
+        assertThat(balance).isEqualByComparingTo("-5.00");
+        assertThat(balance.scale()).isEqualTo(2);
+    }
 }

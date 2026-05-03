@@ -75,6 +75,7 @@ public final class BillingOnStatusViewModel {
             String exp,
             String codeError,
             String reportName,
+            boolean feeUnreadable,
             boolean checked,
             String rowClass) { }
 

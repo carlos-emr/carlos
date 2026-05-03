@@ -22,11 +22,14 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.dto;
 
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Unit coverage for {@code BillingClaimHeaderDto} compatibility accessors and normalization helpers. */
 @DisplayName("Ontario claim header DTO")
@@ -57,12 +60,10 @@ class BillingClaimHeaderDtoUnitTest {
     }
 
     @Test
-    void shouldPreserveMalformedTotals_whenStatusAssemblerNeedsUnreadableCount() {
-        BillingClaimHeaderDto dto = new BillingClaimHeaderDto()
-                .withTotal("garbage")
-                .withPaid("bad-paid");
-
-        assertThat(dto.total()).isEqualTo("garbage");
-        assertThat(dto.paid()).isEqualTo("bad-paid");
+    void shouldThrowBillingValidationException_whenMalformedMoneyProvided() {
+        assertThatThrownBy(() -> new BillingClaimHeaderDto().withTotal("garbage"))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("BillingClaimHeaderDto")
+                .hasMessageContaining("total");
     }
 }

@@ -50,6 +50,7 @@ import io.github.carlos_emr.carlos.commn.model.RaDetail;
 import io.github.carlos_emr.carlos.commn.model.RaHeader;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
@@ -356,11 +357,11 @@ public class BillingOnRaService {
                     trans_message = nextline.substring(transMessageStart,
                             Math.min(nextline.length(), transMessageStart + 50));
 
-                    transaction = transaction + "<tr><td width='14%'>" + trans_code + "</td><td width='12%'>" + trans_date + "</td><td width='17%'>" + cheque_indicator + "</td><td width='13%'>" + trans_amount + "</td><td width='44%'>" + trans_message + "</td></tr>";
+                    transaction = transaction + "<tr><td width='14%'>" + trans_code + "</td><td width='12%'>" + trans_date + "</td><td width='17%'>" + cheque_indicator + "</td><td width='13%'>" + trans_amount + "</td><td width='44%'>" + SafeEncode.forHtmlContent(trans_message) + "</td></tr>";
                 }
 
                 if (headerCount.compareTo("8") == 0) {
-                    message_txt = message_txt + nextline.substring(3, 73) + "<br>";
+                    message_txt = message_txt + SafeEncode.forHtmlContent(nextline.substring(3, 73)) + "<br>";
                 }
 
             } // ends with header "H"
@@ -551,6 +552,8 @@ public class BillingOnRaService {
                         }
                         prop.setProperty("demoLast", demoLast);
                         ret.add(prop);
+                    } catch (SecurityException sec) {
+                        throw sec;
                     } catch (RuntimeException rowFailure) {
                         _logger.error(
                                 "Failed to render RA error-report row (raNo={}, billingNo={}, claimNo={}, serviceCode={})",
@@ -563,6 +566,8 @@ public class BillingOnRaService {
                     }
                 }
             }
+        } catch (SecurityException sec) {
+            throw sec;
         } catch (Exception e) {
             _logger.error("Failed to load RA error report (raNo={}, providerOhipNo={}); reconciliation grid may silently drop entries",
                     LogSanitizer.sanitize(raNo),
@@ -676,6 +681,8 @@ public class BillingOnRaService {
                     if (site == null) site = "";
                     prop.setProperty("site", site);
                     ret.add(prop);
+                } catch (SecurityException sec) {
+                    throw sec;
                 } catch (RuntimeException rowFailure) {
                     _logger.error(
                             "Failed to render RA summary row (raHeaderId={}, billingNo={}, claimNo={}, serviceCode={})",
@@ -687,6 +694,8 @@ public class BillingOnRaService {
                     appendLoadFailureMarker(ret);
                 }
             }
+        } catch (SecurityException sec) {
+            throw sec;
         } catch (Exception e) {
             _logger.error("Failed to load RA summary (raHeaderId={}, providerOhipNo={}); rows may be silently dropped",
                     LogSanitizer.sanitize(id),

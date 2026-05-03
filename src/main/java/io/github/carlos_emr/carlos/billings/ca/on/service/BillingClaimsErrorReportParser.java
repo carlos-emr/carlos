@@ -33,6 +33,7 @@ import java.util.Objects;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimsErrorReportRecordDto;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 /**
  * Parses fixed-format Ontario claims error report files.
@@ -57,7 +58,11 @@ public class BillingClaimsErrorReportParser {
     }
 
     public BillingClaimsErrorReportParser(FileInputStream file) {
-        init(file);
+        this(file, "unknown");
+    }
+
+    public BillingClaimsErrorReportParser(FileInputStream file, String sourceName) {
+        init(file, sourceName);
     }
 
     static BillingClaimsErrorReportParser successful(List<BillingClaimsErrorReportRecordDto> records) {
@@ -75,21 +80,28 @@ public class BillingClaimsErrorReportParser {
      * is the single entry point.
      */
     private boolean init(FileInputStream file) {
+        return init(file, "unknown");
+    }
+
+    private boolean init(FileInputStream file, String sourceName) {
         String nextline;
+        int lineNumber = 0;
         BillingClaimsErrorReportRecordDto record = new BillingClaimsErrorReportRecordDto();
 
         boolean isNewHin = false;
         try (InputStreamReader reader = new InputStreamReader(file);
              BufferedReader input = new BufferedReader(reader)) {
-            while ((nextline = input.readLine()) != null) {     
+            while ((nextline = input.readLine()) != null) {
+                lineNumber++;
                 String headerCount = "";
                 if (nextline.length() >= 3) {
                     headerCount = nextline.substring(2, 3);
                 } else {
                     // Short/malformed line: log sanitized and leave headerCount
                     // empty so none of the dispatch branches below match.
-                    MiscUtils.getLogger().warn("Skipping short or malformed line: {}",
-                            io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(nextline));
+                    MiscUtils.getLogger().warn(
+                            "Skipping short or malformed claims-error line (file={}, line={}, length={})",
+                            LogSanitizer.sanitize(sourceName), lineNumber, nextline.length());
                 }
 
                 if (headerCount.compareTo("1") == 0) {
@@ -182,15 +194,21 @@ public class BillingClaimsErrorReportParser {
             // surface to the caller as "import succeeded".
             verdict = false;
             claimsErrorReportRecords.clear();
-            MiscUtils.getLogger().error("Claims-error parse failed (IOException), verdict=false", ioe);
+            MiscUtils.getLogger().error(
+                    "Claims-error parse failed (file={}, line={}, IOException), verdict=false",
+                    LogSanitizer.sanitize(sourceName), lineNumber, ioe);
         } catch (StringIndexOutOfBoundsException ioe) {
             verdict = false;
             claimsErrorReportRecords.clear();
-            MiscUtils.getLogger().error("Claims-error parse failed (malformed record layout), verdict=false", ioe);
+            MiscUtils.getLogger().error(
+                    "Claims-error parse failed (file={}, line={}, malformed record layout), verdict=false",
+                    LogSanitizer.sanitize(sourceName), lineNumber, ioe);
         } catch (BillingValidationException e) {
             verdict = false;
             claimsErrorReportRecords.clear();
-            MiscUtils.getLogger().error("Claims-error parse failed (malformed amount), verdict=false", e);
+            MiscUtils.getLogger().error(
+                    "Claims-error parse failed (file={}, line={}, malformed amount), verdict=false",
+                    LogSanitizer.sanitize(sourceName), lineNumber, e);
         }
 
         return verdict;

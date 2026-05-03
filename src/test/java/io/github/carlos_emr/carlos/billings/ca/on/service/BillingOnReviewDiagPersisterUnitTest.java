@@ -264,6 +264,19 @@ class BillingOnReviewDiagPersisterUnitTest extends CarlosUnitTestBase {
                 .hasMessageContaining("please retry");
     }
 
+    @Test
+    void shouldPropagateSecurityException_whenDxSaveRejectsAccess() {
+        request.setParameter("addToPatientDx", "yes");
+        request.setParameter("dxCode", "401");
+        request.setParameter("demographic_no", "1");
+        doThrow(new SecurityException("access denied"))
+                .when(dxresearchDAO).save(any());
+
+        assertThatThrownBy(() -> persister.persistIfRequested(request, "999998"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("access denied");
+    }
+
     /**
      * Minimal in-memory log4j2 appender — captures events without filtering
      * so the WARN-on-early-return assertions can run. Mirrors the shape

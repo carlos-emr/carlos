@@ -159,6 +159,38 @@ class BillingOnThirdPartyInvoiceViewModelAssemblerUnitTest {
         verify(totalsService, never()).calculateBalanceOwing(anyInt());
     }
 
+    @Test
+    void shouldExposeInvoiceParseError_whenBillingNoIsMalformed() {
+        BillingONCHeader1Dao headerDao = mock(BillingONCHeader1Dao.class);
+        BillingONExtDao extDao = mock(BillingONExtDao.class);
+        BillingONPaymentDao paymentDao = mock(BillingONPaymentDao.class);
+        BillingServiceDao billingServiceDao = mock(BillingServiceDao.class);
+        ClinicDAO clinicDao = mock(ClinicDAO.class);
+        DemographicDao demographicDao = mock(DemographicDao.class);
+        ProviderDao providerDao = mock(ProviderDao.class);
+        SiteDao siteDao = mock(SiteDao.class);
+        BillingOnInvoiceTotalsService totalsService = mock(BillingOnInvoiceTotalsService.class);
+        BillingThirdPartyRecordService thirdPartyRecordService = mock(BillingThirdPartyRecordService.class);
+        when(thirdPartyRecordService.getLocalClinicAddr()).thenReturn(new Properties());
+        when(thirdPartyRecordService.get3rdPartBillProp("")).thenReturn(new Properties());
+        when(thirdPartyRecordService.get3rdPayMethod()).thenReturn(new Properties());
+
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getLocale()).thenReturn(Locale.CANADA);
+        when(request.getParameter("billingNo")).thenReturn("not-a-number");
+
+        BillingOnThirdPartyInvoiceViewModelAssembler assembler =
+                new BillingOnThirdPartyInvoiceViewModelAssembler(
+                        headerDao, extDao, paymentDao, billingServiceDao, clinicDao, demographicDao,
+                        providerDao, siteDao, totalsService, thirdPartyRecordService);
+
+        BillingOnThirdPartyInvoiceViewModel model = assembler.assemble(request, null);
+
+        assertThat(model.isInvoiceLoaded()).isFalse();
+        assertThat(model.isInvoiceParseError()).isTrue();
+        verify(headerDao, never()).find(any());
+    }
+
     private static HttpServletRequest invoiceRequest() {
         HttpServletRequest request = mock(HttpServletRequest.class);
         when(request.getLocale()).thenReturn(Locale.CANADA);

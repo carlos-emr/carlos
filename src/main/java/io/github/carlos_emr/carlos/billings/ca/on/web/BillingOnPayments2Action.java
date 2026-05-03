@@ -615,6 +615,7 @@ public class BillingOnPayments2Action extends ActionSupport {
     }
 
     public String viewPayment() {
+        requireBillingWritePrivilege();
         String id = request.getParameter("paymentId");
         int paymentId = 0;
         try {
@@ -778,8 +779,15 @@ public class BillingOnPayments2Action extends ActionSupport {
             return BigDecimal.ZERO;
         }
         try {
-            return new BigDecimal(raw.trim());
+            BigDecimal parsed = new BigDecimal(raw.trim());
+            if (parsed.signum() < 0) {
+                throw new NumberFormatException(String.format("[%s] cannot be negative", raw));
+            }
+            return parsed;
         } catch (NumberFormatException e) {
+            if (e.getMessage() != null && e.getMessage().contains("cannot be negative")) {
+                throw e;
+            }
             throw new NumberFormatException(String.format("[%s] is not a valid number", raw));
         }
     }

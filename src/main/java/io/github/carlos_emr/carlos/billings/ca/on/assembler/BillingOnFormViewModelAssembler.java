@@ -399,31 +399,34 @@ public class BillingOnFormViewModelAssembler {
         if (!IsPropertiesOn.isMultisitesEnable()) {
             String scheduleSiteId = oscarVars.getProperty("scheduleSiteID", "");
             if (scheduleSiteId != null && !scheduleSiteId.isEmpty()) {
-                String[] siteList = siteIdService.getSiteList();
-                if (siteList != null && siteList.length > 0) {
-                    String strServDate = firstNonNull(
-                            request.getParameter("appointment_date"), today);
-                    String thisSite = "";
-                    String suggested = "";
-                    try {
+                try {
+                    String[] siteList = siteIdService.getSiteList();
+                    if (siteList != null && siteList.length > 0) {
+                        String strServDate = firstNonNull(
+                                request.getParameter("appointment_date"), today);
+                        String thisSite = "";
+                        String suggested = "";
                         thisSite = new io.github.carlos_emr.carlos.appt.JdbcApptImpl()
                                 .getLocationFromSchedule(strServDate, apptProviderNo);
                         suggested = siteIdService.getSuggestSite(siteList, thisSite,
                                 strServDate, apptProviderNo);
-                    } catch (RuntimeException e) {
-                        MiscUtils.getLogger().warn(
-                                "Site-suggest lookup failed for provider={}; rendering empty suggestion",
-                                LogSanitizer.sanitize(apptProviderNo), e);
+                        List<BillingOnFormViewModel.LegacySiteOption> siteOptions = new ArrayList<>();
+                        String suggestedFinal = nullToEmpty(suggested);
+                        for (String name : siteList) {
+                            String n = nullToEmpty(name);
+                            siteOptions.add(new BillingOnFormViewModel.LegacySiteOption(
+                                    n, n.equals(suggestedFinal)));
+                        }
+                        b.legacySiteContextEnabled(true)
+                                .legacySiteOptions(siteOptions);
                     }
-                    List<BillingOnFormViewModel.LegacySiteOption> siteOptions = new ArrayList<>();
-                    String suggestedFinal = nullToEmpty(suggested);
-                    for (String name : siteList) {
-                        String n = nullToEmpty(name);
-                        siteOptions.add(new BillingOnFormViewModel.LegacySiteOption(
-                                n, n.equals(suggestedFinal)));
-                    }
-                    b.legacySiteContextEnabled(true)
-                            .legacySiteOptions(siteOptions);
+                } catch (SecurityException sec) {
+                    throw sec;
+                } catch (RuntimeException e) {
+                    b.siteContextDegraded(true);
+                    MiscUtils.getLogger().warn(
+                            "Site-suggest lookup failed for provider={}; rendering empty suggestion",
+                            LogSanitizer.sanitize(apptProviderNo), e);
                 }
             }
         }

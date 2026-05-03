@@ -139,6 +139,11 @@
 
 <oscar:customInterface section="billingInvoice"/>
 <table width="100%" border="0">
+    <c:if test="${invoiceModel.invoiceParseError}">
+        <tr>
+            <td colspan="4" class="alert">Invoice number could not be read. Reopen the invoice from the billing screen.</td>
+        </tr>
+    </c:if>
     <tr>
         <td id="ptName">Patient: <c:choose><c:when test="${invoiceModel.invoiceLoaded}"><carlos:encode value="${invoiceModel.patientName}" context="html"/></c:when><c:otherwise>N/A</c:otherwise></c:choose>
         </td>

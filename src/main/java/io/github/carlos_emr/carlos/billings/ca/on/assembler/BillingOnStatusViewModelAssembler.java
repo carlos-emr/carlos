@@ -377,9 +377,11 @@ public class BillingOnStatusViewModelAssembler {
                 }
                 String rowClass = nC ? "success" : "";
                 String formattedFee;
+                boolean feeUnreadable = false;
                 try {
                     formattedFee = BillingAmounts.format(BillingAmounts.amount(bObj.getFee()));
                 } catch (RuntimeException nfe) {
+                    feeUnreadable = true;
                     MiscUtils.getLogger().warn("Rejected-bill fee is not numeric for billingNo={} fee={}",
                             LogSanitizer.sanitize(bObj.getBilling_no()),
                             LogSanitizer.sanitize(bObj.getFee()), nfe);
@@ -405,6 +407,7 @@ public class BillingOnStatusViewModelAssembler {
                         bObj.getExp(),
                         bObj.getCode_error(),
                         bObj.getReport_name(),
+                        feeUnreadable,
                         checked,
                         rowClass));
             }

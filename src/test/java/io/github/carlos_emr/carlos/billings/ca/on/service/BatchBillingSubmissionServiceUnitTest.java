@@ -118,6 +118,25 @@ class BatchBillingSubmissionServiceUnitTest {
     }
 
     @Test
+    void shouldThrowBillingValidationException_whenLockedBatchRowAlreadyBilled() {
+        BatchBilling first = new BatchBilling();
+        first.setId(1);
+        first.setLastBilledDate(new Date(1_777_344_000_000L));
+        when(batchBillingDAO.findForUpdate(42, "A007A")).thenReturn(List.of(first));
+
+        assertThatThrownBy(() -> service.submitAll(List.of(
+                new BatchBillingSubmissionService.Row("A007A", "250", 42, "999998")),
+                "clinic-a", billingDate, "999998"))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("already billed")
+                .hasMessageContaining("42")
+                .hasMessageContaining("A007A");
+
+        verify(headerCreationService, never()).createBill(any(), any(), any(), any(), any(), any(), any());
+        verify(batchBillingDAO, never()).merge(any());
+    }
+
+    @Test
     void shouldRejectMissingCurrentUser_beforeAnyWrites() {
         assertThatThrownBy(() -> service.submitAll(
                 List.of(new BatchBillingSubmissionService.Row("A007A", "250", 42, "999998")),

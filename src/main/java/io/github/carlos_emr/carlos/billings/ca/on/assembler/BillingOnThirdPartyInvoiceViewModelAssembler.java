@@ -115,9 +115,11 @@ public class BillingOnThirdPartyInvoiceViewModelAssembler {
         Locale locale = request.getLocale();
         String invoiceNoStr = request.getParameter("billingNo");
         Integer invoiceNo = null;
+        boolean invoiceParseError = false;
         try {
             invoiceNo = Integer.parseInt(invoiceNoStr);
         } catch (NumberFormatException | NullPointerException e) {
+            invoiceParseError = true;
             invoiceNoStr = "";
             MiscUtils.getLogger().warn("Invalid Invoice No.", e);
         }
@@ -131,6 +133,7 @@ public class BillingOnThirdPartyInvoiceViewModelAssembler {
 
         BillingOnThirdPartyInvoiceViewModel.Builder b = BillingOnThirdPartyInvoiceViewModel.builder()
                 .invoiceNoStr(invoiceNoStr)
+                .invoiceParseError(invoiceParseError)
                 .multisiteEnabled(isMultisite)
                 .printDate(DateUtils.sumDate("yyyy-MM-dd HH:mm", "0"));
 

@@ -143,4 +143,31 @@ class BillingRaReportServiceUnitTest {
         // amountpay zero-coalesced, so xml_total stays at 0.
         assertThat(totals).containsEntry("xml_total", new BigDecimal("0.00"));
     }
+
+    @Test
+    void shouldBumpPartialCount_whenSubmittedAmountIsMalformed() {
+        BillingOnRaService remittanceAdviceService = mock(BillingOnRaService.class);
+
+        Properties row = new Properties();
+        row.setProperty("servicedate", "20260428");
+        row.setProperty("explain", "");
+        row.setProperty("amountsubmit", "bad-amount");
+        row.setProperty("amountpay", "0.00");
+        row.setProperty("location", "00");
+        row.setProperty("localServiceDate", "2026-04-28");
+        row.setProperty("demo_hin", "1234567890");
+        row.setProperty("account", "42");
+
+        when(remittanceAdviceService.getRASummary("1", "123456"))
+                .thenReturn(List.of(row));
+
+        BillingRaReportService service = new BillingRaReportService(remittanceAdviceService);
+        Map<String, Object> totals = new HashMap<>();
+
+        service.getRASummary("1", "123456",
+                Collections.emptyList(), Collections.emptyList(), totals);
+
+        assertThat(totals).containsEntry("xml_partial_count", 1);
+        assertThat(totals).containsEntry("xml_total", new BigDecimal("0.00"));
+    }
 }

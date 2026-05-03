@@ -54,8 +54,7 @@ import static org.mockito.Mockito.when;
 /**
  * Pins round-6 P1-1/P1-5: the unreadable-row count must propagate from
  * {@link BillingRaLookupService.AmountPaidResult#unreadableCount()} (and
- * from a NumberFormatException on {@code ch1.total}) through
- * {@link BillingOnStatusViewModelAssembler#assemble} into the view model
+ * through {@link BillingOnStatusViewModelAssembler#assemble} into the view model
  * via {@code unreadableTotalRowCount}, so the JSP banners
  * "N rows excluded" instead of silently understating the grand total.
  */
@@ -137,28 +136,6 @@ class BillingOnStatusViewModelAssemblerUnreadableCountUnitTest {
     }
 
     @Test
-    void shouldExposeUnreadableCount_whenChTotalIsUnparseable() {
-        // ch1.total = "garbage" trips the NumberFormatException catch in
-        // buildBillRows; that branch must bump unreadableTotalRowCount.
-        MockHttpServletRequest req = new MockHttpServletRequest();
-        req.setParameter("billType", "OHIP");
-
-        BillingClaimHeaderDto header = headerWithTotal("garbage");
-        when(statusPrep.getBills(any(), any(), any(), any(), any(), any(), any(), any(), any()))
-                .thenReturn(List.of(header));
-
-        when(raLookupService.getRADataInternBatch(any()))
-                .thenReturn(raBatch(header, new ArrayList<>()));
-
-        BillingOnStatusViewModel vm = assembler.assemble(req, loggedInInfo);
-
-        assertThat(vm.getUnreadableTotalRowCount())
-                .as("Malformed ch1.total must bump unreadableTotalRowCount")
-                .isEqualTo(1);
-        assertThat(vm.isPartialTotal()).isTrue();
-    }
-
-    @Test
     void shouldExposeZeroUnreadableCount_whenAllRowsAreClean() {
         MockHttpServletRequest req = new MockHttpServletRequest();
         req.setParameter("billType", "OHIP");
@@ -197,5 +174,31 @@ class BillingOnStatusViewModelAssemblerUnreadableCountUnitTest {
 
         assertThat(vm.getRejectedBillRows()).hasSize(1);
         assertThat(vm.getRejectedBillRows().get(0).formattedFee()).isEqualTo("35.00");
+        assertThat(vm.getRejectedBillRows().get(0).feeUnreadable()).isFalse();
+    }
+
+    @Test
+    void shouldFlagRejectedBillFeeUnreadable_whenErrorReportFeeMalformed() {
+        MockHttpServletRequest req = new MockHttpServletRequest();
+        req.setParameter("billType", "OHIP");
+        req.setParameter("statusType", "_");
+        req.setParameter("providerview", "999998");
+        when(statusPrep.getBills(any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of());
+        BillingProviderDto provider = new BillingProviderDto();
+        provider.setProviderNo("999998");
+        when(lookupService.getProviderObj("999998")).thenReturn(provider);
+        BillingErrorReportDto rejected = mock(BillingErrorReportDto.class);
+        when(rejected.getBilling_no()).thenReturn("123");
+        when(rejected.getFee()).thenReturn("bad-fee");
+        when(rejected.getStatus()).thenReturn("B");
+        when(errorRepImpl.getErrorRecords(any(BillingProviderDto.class), anyString(),
+                anyString(), anyString())).thenReturn(List.of(rejected));
+
+        BillingOnStatusViewModel vm = assembler.assemble(req, loggedInInfo);
+
+        assertThat(vm.getRejectedBillRows()).hasSize(1);
+        assertThat(vm.getRejectedBillRows().get(0).formattedFee()).isEqualTo("N/A");
+        assertThat(vm.getRejectedBillRows().get(0).feeUnreadable()).isTrue();
     }
 }

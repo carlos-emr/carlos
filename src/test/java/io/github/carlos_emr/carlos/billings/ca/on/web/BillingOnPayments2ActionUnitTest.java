@@ -159,6 +159,13 @@ class BillingOnPayments2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldThrow_whenInputIsNegative() {
+        assertThatThrownBy(() -> BillingOnPayments2Action.parseStrictAmount("-12.34"))
+                .isInstanceOf(NumberFormatException.class)
+                .hasMessageContaining("cannot be negative");
+    }
+
+    @Test
     void shouldTrimSurroundingWhitespace_beforeParsing() {
         assertThat(BillingOnPayments2Action.parseStrictAmount("  42.00  "))
                 .isEqualByComparingTo("42.00");
@@ -500,6 +507,16 @@ class BillingOnPayments2ActionUnitTest extends CarlosUnitTestBase {
                 .thenReturn(false);
 
         assertThatThrownBy(() -> new BillingOnPayments2Action().viewPayment_ext())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_billing");
+    }
+
+    @Test
+    void shouldCheckPrivilege_whenViewPaymentCalledDirectly() {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> new BillingOnPayments2Action().viewPayment())
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_billing");
     }

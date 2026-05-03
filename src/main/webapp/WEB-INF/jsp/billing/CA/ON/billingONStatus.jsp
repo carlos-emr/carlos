@@ -578,7 +578,12 @@
                                 <td><carlos:encode value='${row.admittedDate}' context='html'/></td>
                                 <td><carlos:encode value='${row.claimError}' context='html'/></td>
                                 <td><carlos:encode value='${row.code}' context='html'/></td>
-                                <td style="text-align:right"><carlos:encode value='${row.formattedFee}' context='html'/></td>
+                                <td style="text-align:right">
+                                    <carlos:encode value='${row.formattedFee}' context='html'/>
+                                    <c:if test="${row.feeUnreadable}">
+                                        <span class="alert">Fee unreadable</span>
+                                    </c:if>
+                                </td>
                                 <td style="text-align:right"><carlos:encode value='${row.unit}' context='html'/></td>
                                 <td><font size="-1"><carlos:encode value='${row.codeDate}' context='html'/></font></td>
                                 <td><carlos:encode value='${row.dx}' context='html'/></td>

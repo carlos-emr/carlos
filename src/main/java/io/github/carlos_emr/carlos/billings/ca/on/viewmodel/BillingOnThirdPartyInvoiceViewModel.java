@@ -52,6 +52,7 @@ public final class BillingOnThirdPartyInvoiceViewModel {
 
     private final String invoiceNoStr;
     private final boolean invoiceLoaded;
+    private final boolean invoiceParseError;
 
     // Clinic / site header
     private final boolean multisiteEnabled;
@@ -118,6 +119,7 @@ public final class BillingOnThirdPartyInvoiceViewModel {
     private BillingOnThirdPartyInvoiceViewModel(Builder b) {
         this.invoiceNoStr = BillingViewStrings.nullToEmpty(b.invoiceNoStr);
         this.invoiceLoaded = b.invoiceLoaded;
+        this.invoiceParseError = b.invoiceParseError;
         this.multisiteEnabled = b.multisiteEnabled;
         this.siteLogoAvailable = b.siteLogoAvailable;
         this.siteLogoId = b.siteLogoId;
@@ -166,6 +168,7 @@ public final class BillingOnThirdPartyInvoiceViewModel {
 
     public String getInvoiceNoStr() { return invoiceNoStr; }
     public boolean isInvoiceLoaded() { return invoiceLoaded; }
+    public boolean isInvoiceParseError() { return invoiceParseError; }
     public boolean isMultisiteEnabled() { return multisiteEnabled; }
     public boolean isSiteLogoAvailable() { return siteLogoAvailable; }
     public Integer getSiteLogoId() { return siteLogoId; }
@@ -210,6 +213,7 @@ public final class BillingOnThirdPartyInvoiceViewModel {
     public static final class Builder {
         private String invoiceNoStr;
         private boolean invoiceLoaded;
+        private boolean invoiceParseError;
         private boolean multisiteEnabled;
         private boolean siteLogoAvailable;
         private Integer siteLogoId;
@@ -253,6 +257,7 @@ public final class BillingOnThirdPartyInvoiceViewModel {
 
         public Builder invoiceNoStr(String v) { this.invoiceNoStr = v; return this; }
         public Builder invoiceLoaded(boolean v) { this.invoiceLoaded = v; return this; }
+        public Builder invoiceParseError(boolean v) { this.invoiceParseError = v; return this; }
         public Builder multisiteEnabled(boolean v) { this.multisiteEnabled = v; return this; }
         public Builder siteLogoAvailable(boolean v) { this.siteLogoAvailable = v; return this; }
         public Builder siteLogoId(Integer v) { this.siteLogoId = v; return this; }

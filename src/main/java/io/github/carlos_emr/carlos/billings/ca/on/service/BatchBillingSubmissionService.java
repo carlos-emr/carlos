@@ -72,6 +72,11 @@ public class BatchBillingSubmissionService {
                                 + " serviceCode=" + row.serviceCode());
             }
             BatchBilling batchBilling = batchBillingList.get(0);
+            if (batchBilling.getLastBilledDate() != null) {
+                throw new BillingValidationException(
+                        "Batch billing row was already billed for demographicNo=" + row.demographicNo()
+                                + " serviceCode=" + row.serviceCode());
+            }
             String total = headerCreationService.createBill(row.providerNo(), row.demographicNo(),
                     row.serviceCode(), row.dxCode(), clinicView, billingDate, currentUser);
             batchBilling.setBillingAmount(total);

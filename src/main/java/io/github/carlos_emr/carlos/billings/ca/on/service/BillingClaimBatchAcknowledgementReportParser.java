@@ -29,6 +29,7 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimBatchAcknowledgementReportRecordDto;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 /**
  * Parses fixed-format Ontario claim batch acknowledgement report files.
@@ -43,17 +44,25 @@ public class BillingClaimBatchAcknowledgementReportParser {
     public boolean verdict = true;
 
     public BillingClaimBatchAcknowledgementReportParser(FileInputStream file) {
-        verdict = init(file);
+        this(file, "unknown");
+    }
+
+    public BillingClaimBatchAcknowledgementReportParser(FileInputStream file, String sourceName) {
+        verdict = init(file, sourceName);
     }
 
     public boolean init(FileInputStream file) {
+        return init(file, "unknown");
+    }
 
-
+    public boolean init(FileInputStream file, String sourceName) {
         String nextline;
+        int lineNumber = 0;
 
         try (InputStreamReader reader = new InputStreamReader(file);
              BufferedReader input = new BufferedReader(reader)) {
             while ((nextline = input.readLine()) != null) {
+                lineNumber++;
                 String headerCount = nextline.substring(2, 3);
                 if (headerCount.compareTo("1") == 0) {
 
@@ -91,11 +100,13 @@ public class BillingClaimBatchAcknowledgementReportParser {
             // Flip verdict false AND log so the operator's import-result
             // page reflects a partial-read mid-stream failure rather than
             // surfacing a clean-parse outcome.
-            MiscUtils.getLogger().error("Batch ack parse failed (IOException)", ioe);
+            MiscUtils.getLogger().error("Batch ack parse failed (file={}, line={}, IOException)",
+                    LogSanitizer.sanitize(sourceName), lineNumber, ioe);
             verdict = false;
             batchAcknowledgementRecords.clear();
         } catch (StringIndexOutOfBoundsException ioe) {
-            MiscUtils.getLogger().error("Batch ack parse failed (malformed record layout)", ioe);
+            MiscUtils.getLogger().error("Batch ack parse failed (file={}, line={}, malformed record layout)",
+                    LogSanitizer.sanitize(sourceName), lineNumber, ioe);
             verdict = false;
             batchAcknowledgementRecords.clear();
         }

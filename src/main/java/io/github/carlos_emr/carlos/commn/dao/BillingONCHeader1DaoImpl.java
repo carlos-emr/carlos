@@ -740,15 +740,15 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
                 .append("FROM billing_on_item bi LEFT JOIN billing_on_cheader1 ch1 ON ch1.id=bi.ch1_id WHERE 1=1");
         Map<Integer, Object> params = new HashMap<>();
         int p = 1;
-        p = appendEquals(sql, params, p, "ch1.demographic_no", filter.demoNo());
-        p = appendEquals(sql, params, p, "ch1.provider_no", filter.providerNo());
-        p = appendEquals(sql, params, p, "ch1.status", filter.statusType());
-        p = appendGreaterOrEqual(sql, params, p, "ch1.billing_date", filter.startDate());
-        p = appendLessOrEqual(sql, params, p, "ch1.billing_date", filter.endDate());
-        p = appendEquals(sql, params, p, "ch1.pay_program", filter.billType());
-        p = appendEquals(sql, params, p, "bi.dx", filter.dx());
-        p = appendEquals(sql, params, p, "ch1.visittype", filter.visitType());
-        p = appendEquals(sql, params, p, "bi.service_code", filter.serviceCodes());
+        p = appendEquals(sql, params, p, SearchColumn.DEMOGRAPHIC_NO, filter.demoNo());
+        p = appendEquals(sql, params, p, SearchColumn.PROVIDER_NO, filter.providerNo());
+        p = appendEquals(sql, params, p, SearchColumn.STATUS, filter.statusType());
+        p = appendGreaterOrEqual(sql, params, p, SearchColumn.BILLING_DATE, filter.startDate());
+        p = appendLessOrEqual(sql, params, p, SearchColumn.BILLING_DATE, filter.endDate());
+        p = appendEquals(sql, params, p, SearchColumn.PAY_PROGRAM, filter.billType());
+        p = appendEquals(sql, params, p, SearchColumn.DX, filter.dx());
+        p = appendEquals(sql, params, p, SearchColumn.VISIT_TYPE, filter.visitType());
+        p = appendEquals(sql, params, p, SearchColumn.SERVICE_CODE, filter.serviceCodes());
         sql.append(" ORDER BY ch1.billing_date, ch1.billing_time");
 
         Query query = entityManager.createNativeQuery(sql.toString());
@@ -824,32 +824,49 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         return query.getResultList();
     }
 
+    private enum SearchColumn {
+        DEMOGRAPHIC_NO("ch1.demographic_no"),
+        PROVIDER_NO("ch1.provider_no"),
+        STATUS("ch1.status"),
+        BILLING_DATE("ch1.billing_date"),
+        PAY_PROGRAM("ch1.pay_program"),
+        DX("bi.dx"),
+        VISIT_TYPE("ch1.visittype"),
+        SERVICE_CODE("bi.service_code");
+
+        private final String sql;
+
+        SearchColumn(String sql) {
+            this.sql = sql;
+        }
+    }
+
     private static int appendEquals(StringBuilder sql, Map<Integer, Object> params, int index,
-                                    String column, String value) {
+                                    SearchColumn column, String value) {
         if (StringUtils.isBlank(value)) {
             return index;
         }
-        sql.append(" AND ").append(column).append("=?").append(index);
+        sql.append(" AND ").append(column.sql).append("=?").append(index);
         params.put(index, value);
         return index + 1;
     }
 
     private static int appendGreaterOrEqual(StringBuilder sql, Map<Integer, Object> params,
-                                            int index, String column, String value) {
+                                            int index, SearchColumn column, String value) {
         if (StringUtils.isBlank(value)) {
             return index;
         }
-        sql.append(" AND ").append(column).append(">=?").append(index);
+        sql.append(" AND ").append(column.sql).append(">=?").append(index);
         params.put(index, value);
         return index + 1;
     }
 
     private static int appendLessOrEqual(StringBuilder sql, Map<Integer, Object> params,
-                                         int index, String column, String value) {
+                                         int index, SearchColumn column, String value) {
         if (StringUtils.isBlank(value)) {
             return index;
         }
-        sql.append(" AND ").append(column).append("<=?").append(index);
+        sql.append(" AND ").append(column.sql).append("<=?").append(index);
         params.put(index, value);
         return index + 1;
     }
