@@ -148,7 +148,7 @@ class DemographicExportAction42ActionRequestMethodTest extends CarlosUnitTestBas
 
     @Test
     @DisplayName("should display export UI for GET requests")
-    void shouldDisplayExportUi_forGetRequest() throws Exception {
+    void shouldReturnSuccess_whenRequestMethodIsGet() throws Exception {
         when(request.getMethod()).thenReturn("GET");
 
         String result = action.execute();
@@ -157,5 +157,19 @@ class DemographicExportAction42ActionRequestMethodTest extends CarlosUnitTestBas
         verify(securityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), isNull());
         verify(securityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_demographicExport"), eq("r"), isNull());
         verifyNoInteractions(response);
+    }
+
+    @Test
+    @DisplayName("should continue export flow for POST requests")
+    void shouldReturnFail_whenRequestMethodIsPostWithUnsupportedTemplate() throws Exception {
+        when(request.getMethod()).thenReturn("POST");
+        action.setDemographicNo("123");
+        action.setTemplate(String.valueOf(DemographicExportAction42Action.E2E));
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("fail");
+        verify(securityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), isNull());
+        verify(securityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_demographicExport"), eq("r"), isNull());
     }
 }

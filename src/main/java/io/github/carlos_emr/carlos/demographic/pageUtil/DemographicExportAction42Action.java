@@ -274,7 +274,8 @@ public class DemographicExportAction42Action extends ActionSupport {
             throw new SecurityException("missing required security object (_demographicExport)");
         }
 
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        boolean isExportSubmission = "POST".equals(request.getMethod());
+        if (!isExportSubmission) {
             return SUCCESS;
         }
 
