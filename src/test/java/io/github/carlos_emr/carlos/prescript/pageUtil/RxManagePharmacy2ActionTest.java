@@ -125,4 +125,17 @@ class RxManagePharmacy2ActionTest extends CarlosUnitTestBase {
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_rx");
     }
+
+    @Test
+    @DisplayName("should throw security exception when pharmacyAction is missing and only read privilege granted")
+    void shouldThrowSecurityException_whenPharmacyActionIsMissingAndOnlyReadPrivilegeGranted() {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("w"), isNull()))
+                .thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("r"), isNull()))
+                .thenReturn(true);
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_rx");
+    }
 }
