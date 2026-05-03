@@ -29,6 +29,7 @@ import org.xml.sax.SAXException;
 
 import javax.xml.XMLConstants;
 import javax.xml.transform.stream.StreamSource;
+import javax.xml.validation.Schema;
 import javax.xml.validation.SchemaFactory;
 import java.io.StringReader;
 import java.net.URL;
@@ -61,12 +62,14 @@ class XmlUtilsUnitTest extends CarlosUnitTestBase {
     @DisplayName("should compile simple in-memory schema and create secure validator")
     void shouldCreateSecureValidator_withSimpleSchema() throws Exception {
         SchemaFactory factory = XmlUtils.createSecureSchemaFactory(XMLConstants.W3C_XML_SCHEMA_NS_URI);
-
-        assertThat(XmlUtils.createSecureValidator(factory.newSchema(new StreamSource(new StringReader("""
+        String schemaContent = """
                 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
                     <xs:element name="root" type="xs:string"/>
                 </xs:schema>
-                """))))).isNotNull();
+                """;
+        Schema schema = factory.newSchema(new StreamSource(new StringReader(schemaContent)));
+
+        assertThat(XmlUtils.createSecureValidator(schema)).isNotNull();
     }
 
     @Test

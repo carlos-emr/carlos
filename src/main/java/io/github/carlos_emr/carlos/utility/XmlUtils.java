@@ -262,9 +262,21 @@ public final class XmlUtils {
      */
     public static javax.xml.validation.SchemaFactory createSecureSchemaFactory(String schemaLanguage) throws SAXException {
         javax.xml.validation.SchemaFactory sf = createSchemaFactoryInstance(schemaLanguage);
-        sf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-        sf.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "");
-        sf.setProperty(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+        try {
+            sf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        } catch (SAXException ex) {
+            throw new SAXException("Failed to enable secure XML schema processing", ex);
+        }
+        try {
+            sf.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+        } catch (SAXException ex) {
+            throw new SAXException("Failed to restrict external DTD access on SchemaFactory", ex);
+        }
+        try {
+            sf.setProperty(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+        } catch (SAXException ex) {
+            throw new SAXException("Failed to restrict external schema access on SchemaFactory", ex);
+        }
         return sf;
     }
 
@@ -322,7 +334,7 @@ public final class XmlUtils {
         }
 
         String resourcePrefix = normalizeClasspathResourceDirectory(resourceDirectory);
-        return (type, namespaceURI, publicId, systemId, baseURI) -> {
+        return (_type, _namespaceURI, publicId, systemId, baseURI) -> {
             if (systemId == null || !allowedNames.contains(systemId)) {
                 // Delegate to the secured factory so non-allowlisted imports are rejected.
                 return null;
@@ -330,7 +342,7 @@ public final class XmlUtils {
 
             InputStream byteStream = resourceClass.getResourceAsStream(resourcePrefix + systemId);
             if (byteStream == null) {
-                logger.warn(
+                logger.error(
                         "Could not resolve allowlisted classpath schema import {} using {}",
                         resourcePrefix + systemId,
                         resourceClass.getName());
