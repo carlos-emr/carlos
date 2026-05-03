@@ -239,9 +239,8 @@ public class TeleplanFileWriter {
 
         WCBTeleplanSubmission wcbSub = new WCBTeleplanSubmission();
         wcbSub.setDemographicManager(demographicManager);
-        //WcbSb sb = new WcbSb(billing_no);
-        appendToHTML(wcbSub.getHtmlLine(wcbForm, bm)); //sb.getHtmlLine());
-        appendToHTML(wcbSub.validate(wcbForm, bm)); //sb.validate());
+        appendToHTML(wcbSub.getHtmlLine(wcbForm, bm));
+        appendToHTML(wcbSub.validate(wcbForm, bm));
 
         Claims claims = new Claims();
         claims.increaseClaims();
