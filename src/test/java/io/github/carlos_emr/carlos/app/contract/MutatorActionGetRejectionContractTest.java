@@ -60,8 +60,8 @@ import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -269,19 +269,14 @@ class MutatorActionGetRejectionContractTest {
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
         // Grant every privilege so auth never stands in the way of the
         // method-check path. Some actions check multiple privileges (e.g.
-        // DbReportAgeSex2Action accepts either _report r or _admin.reporting r);
-        // the per-entry {privilegeObject, privilegeLevel} tuple on the manifest
-        // is documentation, asserted by the narrower stub below.
+        // DbReportAgeSex2Action accepts either _report r or _admin.reporting r).
+        // Use nullable(String.class), not isNull(), so this broad grant covers
+        // both null and non-null demographic/context targets.
         when(securityInfoManager.hasPrivilege(
-                any(LoggedInInfo.class), any(String.class), any(String.class), isNull()))
+                any(LoggedInInfo.class), any(String.class), any(String.class), nullable(String.class)))
             .thenReturn(true);
-        // Narrower stub keeps the manifest honest — if a class renames its
-        // security object and this test is re-run with the old manifest entry,
-        // the narrower matcher simply becomes unreachable (both stubs return
-        // the same value) and the test still passes on the reject path,
-        // surfacing the rename only when the class's own focused test breaks.
         when(securityInfoManager.hasPrivilege(
-                any(LoggedInInfo.class), eq(privilegeObject), eq(privilegeLevel), isNull()))
+                any(LoggedInInfo.class), any(String.class), any(String.class), anyInt()))
             .thenReturn(true);
 
         MockHttpServletRequest request = new MockHttpServletRequest();
@@ -351,7 +346,33 @@ class MutatorActionGetRejectionContractTest {
             for (Map.Entry<Class<?>, Object> entry : autoMocks.entrySet()) {
                 verifyNoInteractions(entry.getValue());
             }
+            assertDeclaredPrivilegeWasCheckedIfAuthWasReached(
+                    securityInfoManager, className, privilegeObject, privilegeLevel, httpMethod);
         }
+    }
+
+    private static void assertDeclaredPrivilegeWasCheckedIfAuthWasReached(
+            SecurityInfoManager securityInfoManager, String className, String privilegeObject,
+            String privilegeLevel, String httpMethod) {
+        boolean anyPrivilegeCheck = Mockito.mockingDetails(securityInfoManager).getInvocations().stream()
+                .anyMatch(inv -> "hasPrivilege".equals(inv.getMethod().getName()));
+        if (!anyPrivilegeCheck) {
+            return;
+        }
+
+        boolean declaredPrivilegeWasChecked = Mockito.mockingDetails(securityInfoManager).getInvocations().stream()
+                .filter(inv -> "hasPrivilege".equals(inv.getMethod().getName()))
+                .anyMatch(inv -> {
+                    Object[] args = inv.getArguments();
+                    return args.length >= 3
+                            && privilegeObject.equals(args[1])
+                            && privilegeLevel.equals(args[2]);
+                });
+
+        assertThat(declaredPrivilegeWasChecked)
+            .as("%s to mutator %s reached authorization, but no hasPrivilege call used "
+              + "the manifest privilege tuple %s/%s", httpMethod, className, privilegeObject, privilegeLevel)
+            .isTrue();
     }
 
     /**
@@ -406,26 +427,29 @@ class MutatorActionGetRejectionContractTest {
 
     private static List<String> scanCandidates(Path sourceRoot) throws IOException {
         List<String> out = new ArrayList<>();
+        List<Path> actionSources;
         try (Stream<Path> paths = Files.walk(sourceRoot)) {
-            paths.filter(Files::isRegularFile)
-                 .filter(p -> p.getFileName().toString().endsWith("2Action.java"))
-                 .forEach(p -> {
-                     String className = fileToClassName(sourceRoot, p);
-                     if (!isInScope(className)) {
-                         return;
-                     }
-                     try {
-                         String source = Files.readString(p);
-                         if (source.contains("SC_METHOD_NOT_ALLOWED")
-                                 && (source.contains("\"POST\".equalsIgnoreCase(")
-                                     || source.contains(".equalsIgnoreCase(\"POST\")"))) {
-                             out.add(className);
-                         }
-                     } catch (IOException ignored) {
-                         // Unreadable source files fall out of the scan; the
-                         // build will fail earlier for unrelated reasons.
-                     }
-                 });
+            actionSources = paths.filter(Files::isRegularFile)
+                    .filter(p -> p.getFileName().toString().endsWith("2Action.java"))
+                    .toList();
+        }
+        for (Path actionSource : actionSources) {
+            String className = fileToClassName(sourceRoot, actionSource);
+            if (!isInScope(className)) {
+                continue;
+            }
+            String source;
+            try {
+                source = Files.readString(actionSource);
+            } catch (IOException e) {
+                throw new IOException("Unable to read in-scope 2Action source during mutator discovery: "
+                        + actionSource, e);
+            }
+            if (source.contains("SC_METHOD_NOT_ALLOWED")
+                    && (source.contains("\"POST\".equalsIgnoreCase(")
+                        || source.contains(".equalsIgnoreCase(\"POST\")"))) {
+                out.add(className);
+            }
         }
         Collections.sort(out);
         return out;
