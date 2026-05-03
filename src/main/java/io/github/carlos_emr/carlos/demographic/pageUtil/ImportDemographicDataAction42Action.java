@@ -218,6 +218,10 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
         // initialize
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+
+        if (!hasUploadedImportFile(importFile, importFileFileName)) {
+            return SUCCESS;
+        }
         
         admProviderNo = (String) request.getSession().getAttribute("user");
         programId = new EctProgram(request.getSession()).getProgram(admProviderNo);
@@ -4854,6 +4858,10 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
     private boolean matchProviderNames = true;
     private int timeshiftInDays;
     private String courseId;
+
+    static boolean hasUploadedImportFile(File importFile, String importFileFileName) {
+        return importFile != null && importFileFileName != null && !importFileFileName.isBlank();
+    }
 
     public File getImportFile() {
         return importFile;
