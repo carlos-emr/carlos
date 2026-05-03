@@ -229,6 +229,7 @@ public class DemographicExportAction42Action extends ActionSupport {
     private static final String REPORTBINARY = "Binary";
     private static final String REPORTTEXT = "Text";
     private static final String RISKFACTOR = "Risk";
+    private static final String HTTP_METHOD_POST = "POST";
     public static final int CMS4 = 0;
     public static final int E2E = 1;
 
@@ -274,7 +275,7 @@ public class DemographicExportAction42Action extends ActionSupport {
             throw new SecurityException("missing required security object (_demographicExport)");
         }
 
-        boolean isExportSubmission = "POST".equals(request.getMethod());
+        boolean isExportSubmission = HTTP_METHOD_POST.equals(request.getMethod());
         if (!isExportSubmission) {
             return SUCCESS;
         }
