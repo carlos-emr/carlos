@@ -78,30 +78,30 @@ class RxManagePharmacy2ActionTest extends CarlosUnitTestBase {
         mockRequest = new MockHttpServletRequest();
         mockResponse = new MockHttpServletResponse();
 
-        servletActionContextMock = mockStatic(ServletActionContext.class);
-        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
-        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(mockResponse);
-
-        loggedInInfoMock = mockStatic(LoggedInInfo.class);
-        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
-                .thenReturn(mockLoggedInInfo);
-
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         registerMock(PharmacyInfoDao.class, mockPharmacyInfoDao);
         registerMock(DemographicPharmacyDao.class, mockDemographicPharmacyDao);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("w"), isNull()))
                 .thenReturn(true);
 
+        loggedInInfoMock = mockStatic(LoggedInInfo.class);
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                .thenReturn(mockLoggedInInfo);
+
+        servletActionContextMock = mockStatic(ServletActionContext.class);
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(mockResponse);
+
         action = new RxManagePharmacy2Action();
     }
 
     @AfterEach
     void tearDown() throws Exception {
-        if (loggedInInfoMock != null) {
-            loggedInInfoMock.close();
-        }
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
+        }
+        if (loggedInInfoMock != null) {
+            loggedInInfoMock.close();
         }
         if (mocks != null) {
             mocks.close();
