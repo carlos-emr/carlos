@@ -97,6 +97,20 @@ class XmlUtilsUnitTest {
     }
 
     @Test
+    @DisplayName("should compile HRM schema with allowlisted classpath import")
+    void shouldCompileHrmSchema_withAllowlistedClasspathImport() throws Exception {
+        SchemaFactory factory = XmlUtils.createSecureSchemaFactory(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+        factory.setResourceResolver(XmlUtils.createClasspathSchemaResolver(
+                XmlUtilsUnitTest.class,
+                "/xsd/hrm/1.1.2/",
+                Set.of("ontariomd_hrm_dt.xsd")));
+        URL schemaUrl = XmlUtilsUnitTest.class.getResource("/xsd/hrm/1.1.2/ontariomd_hrm.xsd");
+
+        assertThat(schemaUrl).isNotNull();
+        assertThat(factory.newSchema(schemaUrl)).isNotNull();
+    }
+
+    @Test
     @DisplayName("should reject non-simple allowlisted schema import names")
     void shouldRejectAllowlistedSchemaImportNames_whenNotSimpleFileName() {
         assertThatThrownBy(() -> XmlUtils.createClasspathSchemaResolver(

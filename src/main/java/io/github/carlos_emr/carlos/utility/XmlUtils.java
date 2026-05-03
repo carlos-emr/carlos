@@ -320,7 +320,10 @@ public final class XmlUtils {
 
             InputStream byteStream = resourceClass.getResourceAsStream(resourcePrefix + systemId);
             if (byteStream == null) {
-                logger.warn("Could not resolve allowlisted classpath schema import {}", systemId);
+                logger.warn(
+                        "Could not resolve allowlisted classpath schema import {} using {}",
+                        resourcePrefix + systemId,
+                        resourceClass.getName());
                 return null;
             }
 
