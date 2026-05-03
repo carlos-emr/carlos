@@ -268,6 +268,12 @@ public final class XmlUtils {
         return sf;
     }
 
+    /**
+     * Selects the JDK W3C XML Schema factory so required JAXP external-access
+     * security properties are recognized even when an older classpath Xerces
+     * provider is present. Non-W3C schema languages still use the standard JAXP
+     * provider lookup because the JDK default factory only supports W3C XML Schema.
+     */
     private static javax.xml.validation.SchemaFactory createSchemaFactoryInstance(String schemaLanguage) {
         if (XMLConstants.W3C_XML_SCHEMA_NS_URI.equals(schemaLanguage)) {
             return javax.xml.validation.SchemaFactory.newDefaultInstance();
@@ -365,6 +371,10 @@ public final class XmlUtils {
         return validator;
     }
 
+    /**
+     * Minimal {@link LSInput} implementation for schema imports resolved from
+     * allowlisted classpath resources.
+     */
     private static final class ClasspathSchemaInput implements LSInput {
         private Reader characterStream;
         private InputStream byteStream;
