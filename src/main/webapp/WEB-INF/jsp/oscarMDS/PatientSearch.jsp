@@ -612,8 +612,12 @@
         });
 
         function openAddPatient() {
-            window.open('', 'addNewPatient', 'scrollbars=yes,resizable=yes,width=900,height=700');
+            var popup = window.open('', 'addNewPatient', 'scrollbars=yes,resizable=yes,width=900,height=700');
+            if (!popup) {
+                return;
+            }
             document.getElementById('addPatientForm').submit();
+            popup.focus();
         }
 
         // Match patient: POST to PatientMatch, notify lab display and inboxhub, then close popup
