@@ -616,20 +616,23 @@
             const addPatientForm = document.getElementById('addPatientForm');
             const originalTarget = addPatientForm.getAttribute('target');
             const popup = window.open('', 'addNewPatient', 'scrollbars=yes,resizable=yes,width=900,height=700');
-            if (!popup || popup.closed) {
-                addPatientForm.removeAttribute('target');
+            try {
+                if (!popup) {
+                    addPatientForm.removeAttribute('target');
+                } else {
+                    addPatientForm.target = 'addNewPatient';
+                }
                 addPatientForm.submit();
+            } finally {
                 if (originalTarget !== null) {
                     addPatientForm.setAttribute('target', originalTarget);
+                } else {
+                    addPatientForm.removeAttribute('target');
                 }
-                return;
             }
-            addPatientForm.target = 'addNewPatient';
-            addPatientForm.submit();
-            if (originalTarget !== null) {
-                addPatientForm.setAttribute('target', originalTarget);
+            if (popup) {
+                popup.focus();
             }
-            popup.focus();
         }
 
         // Match patient: POST to PatientMatch, notify lab display and inboxhub, then close popup
