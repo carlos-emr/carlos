@@ -113,16 +113,18 @@ class GenerateRaDescriptionViewModelAssemblerUnitTest extends CarlosUnitTestBase
                 mockRaHeaderDao, mockBillingONPremiumDao, mockProviderDao, raDescriptionFileParser)
                 .assemble(request, null);
 
-        assertThat(model.getBalanceForwardRow().claimsAdjustment()).isEqualTo("0000001.111");
-        assertThat(model.getBalanceForwardRow().advances()).isEqualTo("0000002.222");
-        assertThat(model.getBalanceForwardRow().reductions()).isEqualTo("0000003.333");
-        assertThat(model.getBalanceForwardRow().deductions()).isEqualTo("0000004.444");
+        // H06 amounts per MOH spec are 7-whole + 2-cent (e.g., "000001234" -> "0000012.34").
+        assertThat(model.getBalanceForwardRow().claimsAdjustment()).isEqualTo("0000012.34");
+        assertThat(model.getBalanceForwardRow().advances()).isEqualTo("0000056.78");
+        assertThat(model.getBalanceForwardRow().reductions()).isEqualTo("0000090.12");
+        assertThat(model.getBalanceForwardRow().deductions()).isEqualTo("0000034.56");
 
         assertThat(model.getTransactionRows()).singleElement().satisfies(row -> {
             assertThat(row.transaction()).isEqualTo("Accounting adjustment");
             assertThat(row.transactionDate()).isEqualTo("20260428");
             assertThat(row.chequeIssued()).isEqualTo("Computer Cheque issued");
-            assertThat(row.amount()).isEqualTo("000123.450");
+            // H07 transaction amount is 6-whole + 2-cent (e.g., "00012345" -> "000123.45").
+            assertThat(row.amount()).isEqualTo("000123.45");
             assertThat(row.message()).contains("<script>alert(1)</script> & text");
             assertThat(row.message()).doesNotContain("<tr", "<td", "<table");
         });
@@ -243,17 +245,28 @@ class GenerateRaDescriptionViewModelAssemblerUnitTest extends CarlosUnitTestBase
         return line.toString();
     }
 
+    /**
+     * H06 record per MOH spec: each "Amount Brought Forward" field is 9 chars
+     * (7 whole + 2 cents per the global "last 2 digits are cents" rule), followed
+     * by a 1-char sign byte (' ' for zero/positive, '-' for negative). Four
+     * field+sign pairs: claims-adjustment, advances, reductions, deductions.
+     */
     private static String h6Line() {
         return "H06"
-                + "0000001" + "111"
-                + "0000002" + "222"
-                + "0000003" + "333"
-                + "0000004" + "444";
+                + "000001234" + " "
+                + "000005678" + " "
+                + "000009012" + " "
+                + "000003456" + " ";
     }
 
+    /**
+     * H07 record per MOH spec: 8-char transaction amount (6 whole + 2 cents),
+     * followed by a 1-char sign byte at position 23 (1-indexed), then a 50-char
+     * transaction message at position 24.
+     */
     private static String h7Line(String message) {
         String paddedMessage = String.format("%-50s", message);
-        return "H07" + "50" + "C" + "20260428" + "000123" + "450" + paddedMessage;
+        return "H07" + "50" + "C" + "20260428" + "00012345" + " " + paddedMessage;
     }
 
     private static void replace(StringBuilder target, int start, String value) {

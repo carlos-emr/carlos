@@ -174,7 +174,7 @@ class BillingOnHistoryViewModelAssemblerUnitTest {
     }
 
     @Test
-    void shouldNotRaisePartial_whenPatBillIdIsNumericAndHeaderMissing() {
+    void shouldRaisePartial_whenPatBillIdIsNumericAndHeaderMissing() {
         BillingClaimHeaderDto header = mock(BillingClaimHeaderDto.class);
         when(header.getId()).thenReturn("999"); // numeric, but headerDao returns null
         when(header.payProgram()).thenReturn("PAT"); // PAT path with numeric id
@@ -194,9 +194,13 @@ class BillingOnHistoryViewModelAssemblerUnitTest {
 
         BillingOnHistoryViewModel vm = newAssembler().assemble(loggedInInfo, "1");
 
-        // Numeric id but missing header is a "no balance computable" case,
-        // not a corruption — partial stays false.
-        assertThat(vm.isPartial()).isFalse();
+        // Listing says the bill exists but the header lookup returns null —
+        // that's a data-integrity inconsistency between the two queries.
+        // BillingOnHistoryBalanceService surfaces this as partial=true so the
+        // operator sees the "data may be incomplete" banner. The assembler
+        // must propagate the signal; suppressing it would let a duplicate-bill
+        // hazard render as a clean row.
+        assertThat(vm.isPartial()).isTrue();
         assertThat(vm.getRows()).hasSize(1);
     }
 }

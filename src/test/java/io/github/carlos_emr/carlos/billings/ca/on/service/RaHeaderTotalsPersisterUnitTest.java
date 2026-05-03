@@ -103,7 +103,10 @@ class RaHeaderTotalsPersisterUnitTest {
 
         persister.refreshDescriptionHeaderAndPremiums(loggedInInfo, 7, Locale.CANADA);
 
-        assertThat(header.getTotalAmount()).isEqualTo("12.34 ");
+        // parsed.cheque() formats H1 cheque as "12.34" with no trailing sign byte
+        // (negative amounts are prefixed with "-"; positive amounts have no prefix).
+        // RaHeaderTotalsPersister stores parsed.cheque() verbatim into totalAmount.
+        assertThat(header.getTotalAmount()).isEqualTo("12.34");
         assertThat(header.getRecords()).isEqualTo("0");
         assertThat(header.getClaims()).isEqualTo("0");
         assertThat(header.getContent())
@@ -232,17 +235,28 @@ class RaHeaderTotalsPersisterUnitTest {
         return line.toString();
     }
 
+    /**
+     * H06 record per MOH spec: each "Amount Brought Forward" field is 9 chars
+     * (7 whole + 2 cents per the global "last 2 digits are cents" rule), followed
+     * by a 1-char sign byte (' ' for zero/positive, '-' for negative). Four
+     * field+sign pairs: claims-adjustment, advances, reductions, deductions.
+     */
     private static String h6Line() {
         return "H06"
-                + "0000001" + "111"
-                + "0000002" + "222"
-                + "0000003" + "333"
-                + "0000004" + "444";
+                + "000001234" + " "
+                + "000005678" + " "
+                + "000009012" + " "
+                + "000003456" + " ";
     }
 
+    /**
+     * H07 record per MOH spec: 8-char transaction amount (6 whole + 2 cents),
+     * followed by a 1-char sign byte at position 23 (1-indexed), then a 50-char
+     * transaction message at position 24.
+     */
     private static String h7Line(String message) {
         String paddedMessage = String.format("%-50s", message);
-        return "H07" + "50" + "C" + "20260428" + "000123" + "450" + paddedMessage;
+        return "H07" + "50" + "C" + "20260428" + "00012345" + " " + paddedMessage;
     }
 
     private static void replace(StringBuilder target, int start, String value) {

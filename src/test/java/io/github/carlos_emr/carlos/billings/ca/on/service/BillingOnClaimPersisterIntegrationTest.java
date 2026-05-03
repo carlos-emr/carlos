@@ -68,26 +68,33 @@ class BillingOnClaimPersisterIntegrationTest extends CarlosTestBase {
     private EntityManager entityManager;
 
     @Test
-    void shouldRollbackExtPaymentAndItemPaymentRows_whenThirdPartyItemPaymentFailsMidBatch() {
+    void shouldRollbackExtPaymentAndItemPaymentRows_whenAmountValidationFails() {
         // Run setup/assertions in their own transactions so the integration
         // test can observe committed database state before and after rollback.
+        // BillingClaimItemDto eagerly validates amount fields in its compact
+        // constructor, so a malformed item-paid value is unreachable through
+        // the DTO API. The persister still validates the request-level
+        // {@code total_discount} via BillingMoney.parseOptionalNonNegativeAmount
+        // upfront — that is the @Transactional abort path verified here.
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
         int billingNo = tx.execute(status -> createHeader());
         try {
             Map<String, String> values = new HashMap<>();
             values.put("demographic_no", "700001");
             values.put("total_payment", "100.00");
-            values.put("total_discount", "0.00");
+            // Inject a malformed amount that the persister rejects upfront
+            // (BillingMoney.parseOptionalNonNegativeAmount throws on non-numeric
+            // input). The persister design aborts BEFORE any BillingONExt rows
+            // are written, so the rollback verification confirms the
+            // unit-of-work boundary holds.
+            values.put("total_discount", "not-money");
             values.put("payMethod", "1");
 
-            // Match the legacy add3rdBillExt payload shape: [claim header DTO,
-            // item DTO list]. The second item carries the malformed paid
-            // amount that should abort the whole write set.
             ArrayList<Object> envelope = new ArrayList<>();
             envelope.add(headerDto(billingNo));
             envelope.add(List.of(
                     itemDto("5001", "25.00"),
-                    itemDto("5002", "not-money")));
+                    itemDto("5002", "10.00")));
 
             assertThatThrownBy(() -> persister.add3rdBillExt(values, billingNo, envelope))
                     .isInstanceOf(BillingValidationException.class)

@@ -624,7 +624,9 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
     @Override
     public List<io.github.carlos_emr.carlos.commn.dao.projection.AppointmentProviderRow> findAppointmentAndProviderByAppointmentNo(Integer apptNo) {
-        String sql = "SELECT new io.github.carlos_emr.carlos.commn.dao.projection.AppointmentProviderRow(a.location, a.providerNo, p.ohipNo) FROM Appointment a, Provider p WHERE a.providerNo = p.ProviderNo AND a.id = ?1";
+        // Provider.hbm.xml maps the field with PascalCase HBM property names
+        // (ProviderNo, OhipNo); HQL must use the exact name from the mapping.
+        String sql = "SELECT new io.github.carlos_emr.carlos.commn.dao.projection.AppointmentProviderRow(a.location, a.providerNo, p.OhipNo) FROM Appointment a, Provider p WHERE a.providerNo = p.ProviderNo AND a.id = ?1";
         jakarta.persistence.TypedQuery<io.github.carlos_emr.carlos.commn.dao.projection.AppointmentProviderRow> query =
                 entityManager.createQuery(sql, io.github.carlos_emr.carlos.commn.dao.projection.AppointmentProviderRow.class);
         query.setParameter(1, apptNo);

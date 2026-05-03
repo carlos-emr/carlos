@@ -41,7 +41,6 @@ import io.github.carlos_emr.carlos.util.LabelValueBean;
 
 import java.math.BigDecimal;
 import java.text.DateFormat;
-import java.text.NumberFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -620,14 +619,25 @@ public class BillingOnClaimLoader {
                 itObj = itObj.withServiceDate(strServiceDate);
 
                 List<BillingONPayment> payment = payDao.find3rdPartyPaymentsByBillingNo(h.getId());
-                itObj = itObj.withPaid(payDao.getTotalSumByBillingNoWeb(h.getId().toString()));
-                itObj = itObj.withRefund(payDao.getPaymentsRefundByBillingNoWeb(h.getId().toString()));
+                // Use the BigDecimal-returning DAO variants (not the *Web variants
+                // which return locale-formatted currency strings like "$0.00").
+                // BillingClaimItemDto's compact ctor calls
+                // BillingMoney.parseNonNegativeAmount, which rejects the "$" prefix.
+                BigDecimal paid_total = payDao.getPaymentsSumByBillingNo(h.getId());
+                if (paid_total == null) {
+                    paid_total = BigDecimal.ZERO;
+                }
+                itObj = itObj.withPaid(paid_total.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString());
+                BigDecimal refund_total = payDao.getPaymentsRefundByBillingNo(h.getId());
+                if (refund_total == null) {
+                    refund_total = BigDecimal.ZERO;
+                }
+                itObj = itObj.withRefund(refund_total.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString());
                 BigDecimal discount_total = payDao.getPaymentsDiscountByBillingNo(h.getId());
                 if (discount_total == null) {
-                    discount_total = new BigDecimal(0);
+                    discount_total = BigDecimal.ZERO;
                 }
-                NumberFormat currency = NumberFormat.getCurrencyInstance(Locale.US);
-                itObj = itObj.withDiscount(currency.format(discount_total));
+                itObj = itObj.withDiscount(discount_total.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString());
 
                 retval.add(itObj);
             }

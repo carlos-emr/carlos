@@ -35,7 +35,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import jakarta.persistence.Query;
-import jakarta.persistence.LockModeType;
 
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.billings.dto.BillingONCListItemDTO;
@@ -134,7 +133,12 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         if (id == null) {
             return null;
         }
-        return entityManager.find(BillingONCHeader1.class, id, LockModeType.PESSIMISTIC_WRITE);
+        Query query = entityManager.createNativeQuery(
+                "SELECT * FROM billing_on_cheader1 WHERE id = ?1 FOR UPDATE",
+                BillingONCHeader1.class);
+        query.setParameter(1, id);
+        List<BillingONCHeader1> rows = query.getResultList();
+        return rows.isEmpty() ? null : rows.get(0);
     }
 
     @Override
