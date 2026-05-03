@@ -162,10 +162,10 @@ public class UtilDateUtilities {
      * @throws IllegalArgumentException if pointInTime is null
      */
     public static String calcAgeAtDate(Date DOB, Date pointInTime, Locale dlocal) {
-        if (DOB == null) return (null);
         if (pointInTime == null) {
             throw new IllegalArgumentException("pointInTime must not be null");
         }
+        if (DOB == null) return (null);
         Locale resolvedLocale = dlocal != null ? dlocal : Locale.getDefault();
         ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", resolvedLocale);
         
