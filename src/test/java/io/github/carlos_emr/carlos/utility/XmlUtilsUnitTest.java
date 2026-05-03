@@ -93,7 +93,9 @@ class XmlUtilsUnitTest extends CarlosUnitTestBase {
                 Set.of("EMR_Data_Migration_Schema_DT.xsd")));
         URL schemaUrl = XmlUtilsUnitTest.class.getResource("/omdDataMigration/EMR_Data_Migration_Schema.xsd");
 
-        assertThat(schemaUrl).isNotNull();
+        assertThat(schemaUrl)
+                .as("Export Patient schema resource should exist at /omdDataMigration/EMR_Data_Migration_Schema.xsd")
+                .isNotNull();
         assertThat(factory.newSchema(schemaUrl)).isNotNull();
     }
 
@@ -107,7 +109,9 @@ class XmlUtilsUnitTest extends CarlosUnitTestBase {
                 Set.of("ontariomd_hrm_dt.xsd")));
         URL schemaUrl = XmlUtilsUnitTest.class.getResource("/xsd/hrm/1.1.2/ontariomd_hrm.xsd");
 
-        assertThat(schemaUrl).isNotNull();
+        assertThat(schemaUrl)
+                .as("HRM schema resource should exist at /xsd/hrm/1.1.2/ontariomd_hrm.xsd")
+                .isNotNull();
         assertThat(factory.newSchema(schemaUrl)).isNotNull();
     }
 

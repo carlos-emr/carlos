@@ -321,6 +321,7 @@ public final class XmlUtils {
         String resourcePrefix = normalizeClasspathResourceDirectory(resourceDirectory);
         return (type, namespaceURI, publicId, systemId, baseURI) -> {
             if (systemId == null || !allowedNames.contains(systemId)) {
+                // Delegate to the secured factory so non-allowlisted imports are rejected.
                 return null;
             }
 
