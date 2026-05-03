@@ -168,8 +168,10 @@ jobs:
             echo '========================================='
             echo 'Compiling and running SpotBugs analysis'
             echo '========================================='
+            export MAVEN_OPTS=\"-Xmx4g\"
             mvn -B compile spotbugs:spotbugs \
               -Pspotbugs,skip-dependency-lock \
+              -Dspotbugs.maxHeap=4096 \
               -DskipTests \
               -T 1C
           "
