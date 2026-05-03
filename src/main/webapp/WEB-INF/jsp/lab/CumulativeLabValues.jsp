@@ -30,6 +30,7 @@
 --%>
 
 <%@ page import="java.nio.charset.StandardCharsets" %>
+<%@ page import="java.util.Objects" %>
 <%@page
         import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.lab.ca.on.*,io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues" %>
@@ -214,20 +215,20 @@
                                     String labType = Objects.toString(h.get("labType"), "");
                                     String identCode = Objects.toString(h.get("identCode"), "");
                                     String identCodeEsc = identCode.replaceAll("&", "_amp_");
-                                    String encodedPrevNameForHtmlAttribute = SafeEncode.forHtmlAttribute(prevName);
-                                    String encodedPrevNameForJavaScriptAttribute = SafeEncode.forJavaScriptAttribute(prevName);
-                                    String encodedLabTypeForJavaScriptAttribute = SafeEncode.forJavaScriptAttribute(labType);
-                                    String encodedIdentCodeForJavaScriptAttribute = SafeEncode.forJavaScriptAttribute(identCodeEsc);
-                                    String encodedDisplayNameForHtml = SafeEncode.forHtmlContent(StringUtils.maxLenString(prevName, 13, 8, "..."));
+                                    String prevNameHtmlAttr = SafeEncode.forHtmlAttribute(prevName);
+                                    String prevNameJsAttr = SafeEncode.forJavaScriptAttribute(prevName);
+                                    String labTypeJsAttr = SafeEncode.forJavaScriptAttribute(labType);
+                                    String identCodeJsAttr = SafeEncode.forJavaScriptAttribute(identCodeEsc);
+                                    String displayNameHtml = SafeEncode.forHtmlContent(StringUtils.maxLenString(prevName, 13, 8, "..."));
                             %>
                             <li class="list-group-item py-1 px-2"><%-- a title="fade=[on] header=[<%=prevName%>] body=[]"      href="javascript: function myFunction() {return false; }"  onclick="javascript:addLabToProfile2('<%=h.get("labType")%>','<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>');" --%>
                                 <button type="button"
                                         class="btn btn-link p-0 text-start"
-                                        title="<%=encodedPrevNameForHtmlAttribute%>"
-                                        aria-label="<%=encodedPrevNameForHtmlAttribute%>"
-                                        onclick="addLabToProfile2('<%=encodedLabTypeForJavaScriptAttribute%>','<%=encodedPrevNameForJavaScriptAttribute%>','<%= encodedIdentCodeForJavaScriptAttribute %>');">
+                                        title="<%=prevNameHtmlAttr%>"
+                                        aria-label="<%=prevNameHtmlAttr%>"
+                                        onclick="addLabToProfile2('<%=labTypeJsAttr%>','<%=prevNameJsAttr%>','<%= identCodeJsAttr %>');">
 
-                                     <%=encodedDisplayNameForHtml%>
+                                     <%=displayNameHtml%>
                                 </button></li>
                             <%}%>
                         </ul>
