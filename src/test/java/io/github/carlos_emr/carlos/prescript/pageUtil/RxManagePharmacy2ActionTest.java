@@ -12,9 +12,12 @@
  */
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.commn.dao.DemographicPharmacyDao;
+import io.github.carlos_emr.carlos.commn.dao.PharmacyInfoDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -36,6 +39,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 /**
@@ -100,5 +104,7 @@ class RxManagePharmacy2ActionTest extends CarlosUnitTestBase {
     @DisplayName("should return success when pharmacyAction is missing")
     void shouldReturnSuccess_whenPharmacyActionMissing() throws Exception {
         assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        springUtilsMock.verify(() -> SpringUtils.getBean(PharmacyInfoDao.class), never());
+        springUtilsMock.verify(() -> SpringUtils.getBean(DemographicPharmacyDao.class), never());
     }
 }
