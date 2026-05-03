@@ -612,11 +612,15 @@
         });
 
         function openAddPatient() {
-            var popup = window.open('', 'addNewPatient', 'scrollbars=yes,resizable=yes,width=900,height=700');
+            const addPatientForm = document.getElementById('addPatientForm');
+            const popup = window.open('', 'addNewPatient', 'scrollbars=yes,resizable=yes,width=900,height=700');
             if (!popup) {
+                addPatientForm.removeAttribute('target');
+                addPatientForm.submit();
                 return;
             }
-            document.getElementById('addPatientForm').submit();
+            addPatientForm.target = 'addNewPatient';
+            addPatientForm.submit();
             popup.focus();
         }
 
