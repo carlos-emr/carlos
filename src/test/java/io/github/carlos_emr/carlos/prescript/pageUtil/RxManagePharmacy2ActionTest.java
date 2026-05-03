@@ -117,7 +117,7 @@ class RxManagePharmacy2ActionTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should throw security exception when pharmacyAction is missing and write privilege denied")
-    void shouldThrowSecurityException_whenPharmacyActionMissingAndWritePrivilegeDenied() {
+    void shouldThrowSecurityException_whenPharmacyActionIsMissingAndWritePrivilegeDenied() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("w"), isNull()))
                 .thenReturn(false);
 
