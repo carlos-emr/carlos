@@ -29,6 +29,12 @@
 
 --%>
 
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_measurements" rights="r" reverse="<%=true%>">
+    <%authed = false; %>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_eChart");%>
+</security:oscarSec>
+
 <%
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String userroleName = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
