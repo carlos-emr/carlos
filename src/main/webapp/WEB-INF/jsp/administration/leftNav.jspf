@@ -348,7 +348,8 @@ String curProvider_no = (String)session.getAttribute("user");
 					</li>
 
 					<li>
-					<a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarReport/dbReportAgeSex.jsp"><fmt:message key="admin.admin.btnAgeSexReport"/></a>
+					<a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarReport/DbReportAgeSex" data-submit-form="ageSexForm"><fmt:message key="admin.admin.btnAgeSexReport"/></a>
+					<form id="ageSexForm" method="post" action="${ctx}/oscarReport/DbReportAgeSex" target="myFrame" style="display:none"></form>
 					</li>
 					
 					<li><a href="${ctx}/oscarReport/ViewOscarReportVisitControl" class="contentLink defaultvisitreport">
@@ -902,9 +903,20 @@ $(document).ready(function(){
 	});
 
 	$(".xlink").click(function(e) {
+		e.preventDefault();
 		var source = $(this).attr('rel');
+		var submitForm = $(this).data('submit-form');
 		$("#dynamic-content").addClass("dynamic-iframe-content");
-		$("#dynamic-content").html('<iframe id="myFrame" name="myFrame" frameborder="0" src="'+source+'">');
+		$("#dynamic-content").html('<iframe id="myFrame" name="myFrame" frameborder="0">');
+		if (submitForm) {
+			var form = document.getElementById(submitForm);
+			if (form) {
+				form.target = "myFrame";
+				form.submit();
+			}
+		} else {
+			$("#myFrame").attr("src", source);
+		}
 		$("html, body").animate({ scrollTop: 0 }, "slow");
 	});
 
