@@ -27,7 +27,7 @@ import java.time.LocalDate;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
- * Package-private parser for OHIP {@code yyyyMMdd} date tokens shared by
+ * Package-private utility for OHIP {@code yyyyMMdd} date tokens shared by
  * Ontario billing date utilities and Schedule of Benefits import logic.
  *
  * <p>Zero-day tokens are policy-controlled. Live billing dates reject day
@@ -38,7 +38,7 @@ import io.github.carlos_emr.carlos.utility.LogSanitizer;
  *
  * @since 2026-05-01
  */
-final class OhipDateParser {
+final class OhipDateTokens {
 
     /** Controls whether OHIP {@code yyyyMM00} values are rejected or normalized. */
     enum ZeroDayPolicy {
@@ -46,7 +46,7 @@ final class OhipDateParser {
         NORMALIZE_ZERO_DAY_TO_FIRST
     }
 
-    private OhipDateParser() {
+    private OhipDateTokens() {
     }
 
     static LocalDate parse(String raw, ZeroDayPolicy zeroDayPolicy) {

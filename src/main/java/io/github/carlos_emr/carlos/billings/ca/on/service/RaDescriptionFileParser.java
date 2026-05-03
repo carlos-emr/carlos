@@ -50,6 +50,7 @@ public class RaDescriptionFileParser {
         MISSING_FILENAME,
         SECURITY_REJECTED,
         IO_ERROR,
+        MALFORMED_RECORD,
         INCOMPLETE_HEADER
     }
 
@@ -67,7 +68,8 @@ public class RaDescriptionFileParser {
         try {
             raFile = PathValidationUtils.validatePath(filename, new File(docDir));
         } catch (SecurityException se) {
-            MiscUtils.getLogger().error("Rejected RA filename outside DOCUMENT_DIR", se);
+            MiscUtils.getLogger().error("Rejected RA filename outside DOCUMENT_DIR: {}",
+                    io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(filename), se);
             out.parseFailureReason = ParseFailureReason.SECURITY_REJECTED;
             return out;
         }
@@ -144,17 +146,33 @@ public class RaDescriptionFileParser {
     }
 
     private static void parseH6(String line, ParsedFile out) {
-        if (line.length() < 39) return;
-        SignedField abfCa = signedField(line, 3, 7, 2);
-        SignedField abfAd = signedField(line, abfCa.nextIndex(), 7, 2);
-        SignedField abfRe = signedField(line, abfAd.nextIndex(), 7, 2);
-        SignedField abfDe = signedField(line, abfRe.nextIndex(), 7, 2);
+        if (line.length() < 39) {
+            out.markMalformedRecord("H6 record too short (" + line.length() + " chars, need 39)");
+            return;
+        }
+        SignedField abfCa;
+        SignedField abfAd;
+        SignedField abfRe;
+        SignedField abfDe;
+        try {
+            abfCa = signedField(line, 3, 7, 2);
+            abfAd = signedField(line, abfCa.nextIndex(), 7, 2);
+            abfRe = signedField(line, abfAd.nextIndex(), 7, 2);
+            abfDe = signedField(line, abfRe.nextIndex(), 7, 2);
+        } catch (RuntimeException e) {
+            out.markMalformedRecord("H6 balance-forward amount malformed");
+            MiscUtils.getLogger().warn("Malformed H6 balance-forward record; RA header merge blocked", e);
+            return;
+        }
         out.balanceForwardRow = new GenerateRaDescriptionViewModel.BalanceForwardRow(
                 abfCa.value(), abfAd.value(), abfRe.value(), abfDe.value());
     }
 
     private static void parseH7(String line, ParsedFile out) {
-        if (line.length() < 72) return;
+        if (line.length() < 72) {
+            out.markMalformedRecord("H7 record too short (" + line.length() + " chars, need 72)");
+            return;
+        }
         String transCode = decodeTransCode(line.substring(3, 5));
         String chequeIndicator = decodeChequeIndicator(line.substring(5, 6));
         String transDate = line.substring(6, 14);
@@ -163,7 +181,14 @@ public class RaDescriptionFileParser {
         if (line.length() > 22 && isSignChar(line.charAt(22))) {
             sign = line.substring(22, 23);
         }
-        String transAmount = formatSignedAmount(line.substring(14, 22), sign, 2, false);
+        String transAmount;
+        try {
+            transAmount = formatSignedAmount(line.substring(14, 22), sign, 2, false);
+        } catch (RuntimeException e) {
+            out.markMalformedRecord("H7 transaction amount malformed");
+            MiscUtils.getLogger().warn("Malformed H7 transaction amount; RA header merge blocked", e);
+            return;
+        }
         String transMessage = line.substring(messageStart, Math.min(line.length(), messageStart + 50));
         out.transactionRows.add(new GenerateRaDescriptionViewModel.TransactionRow(
                 transCode, transDate, chequeIndicator, transAmount, transMessage));
@@ -293,6 +318,13 @@ public class RaDescriptionFileParser {
         public boolean h1Parsed() { return h1Parsed; }
         public boolean fileReadComplete() { return fileReadComplete; }
         public ParseFailureReason parseFailureReason() { return parseFailureReason; }
-        public boolean isCompleteForHeaderMerge() { return fileReadComplete && h1Parsed; }
+        public boolean isCompleteForHeaderMerge() {
+            return fileReadComplete && h1Parsed && parseFailureReason != ParseFailureReason.MALFORMED_RECORD;
+        }
+
+        private void markMalformedRecord(String reason) {
+            MiscUtils.getLogger().warn("Malformed RA description record: {}", reason);
+            parseFailureReason = ParseFailureReason.MALFORMED_RECORD;
+        }
     }
 }

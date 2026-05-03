@@ -39,7 +39,7 @@ public record BillingCorrectionLineCommand(String serviceCode,
 
     public BillingCorrectionLineCommand {
         serviceCode = Commands.nullToEmpty(serviceCode);
-        billingUnit = billingUnit == null ? BigDecimal.ZERO : billingUnit;
+        billingUnit = billingUnit == null ? Commands.quantity(null, "billingUnit") : billingUnit;
     }
 
     public String billingUnitText() {

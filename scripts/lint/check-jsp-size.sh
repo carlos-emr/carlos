@@ -14,8 +14,9 @@
 #   - JSP_GETBEAN_THRESHOLD    max SpringUtils.getBean calls per JSP (default 6)
 #   - JSP_SCRIPTLET_THRESHOLD  max scriptlet blocks per JSP (default 20)
 #
-# Per-file allowlist exemptions live in `billing-jsp-size-allowlist.txt` next
-# to this script, one path per line.
+# Per-file baselines live in `billing-jsp-size-baseline.txt` next to this
+# script. Baseline files are still checked and fail if they grow beyond their
+# recorded byte / getBean / scriptlet counts.
 #
 # Exit codes:
 #   0 - all billing JSPs are under threshold
@@ -26,9 +27,9 @@
 
 set -euo pipefail
 
-# extglob is required by the allowlist whitespace-trimming patterns below
+# extglob is required by the baseline whitespace-trimming patterns below
 # (`*([[:space:]])`). Default bash settings have it off, which silently makes
-# the trim a no-op and causes allowlist entries with incidental whitespace to
+# the trim a no-op and causes baseline entries with incidental whitespace to
 # miss.
 shopt -s extglob
 
@@ -36,7 +37,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 BILLING_JSP_ROOT="$REPO_ROOT/src/main/webapp/WEB-INF/jsp/billing"
-ALLOWLIST_FILE="$SCRIPT_DIR/billing-jsp-size-allowlist.txt"
+BASELINE_FILE="$SCRIPT_DIR/billing-jsp-size-baseline.txt"
 
 BYTE_THRESHOLD=${JSP_BYTE_THRESHOLD:-81920}     # 80 KB
 GETBEAN_THRESHOLD=${JSP_GETBEAN_THRESHOLD:-6}
@@ -47,29 +48,34 @@ if [[ ! -d "$BILLING_JSP_ROOT" ]]; then
   exit 0
 fi
 
-# Load allowlist (one path per line, # comments, blank lines ignored)
-declare -A ALLOWLIST=()
-if [[ -f "$ALLOWLIST_FILE" ]]; then
+# Load baselines: path bytes getbean_count scriptlet_count
+declare -A BASELINE_SIZE=()
+declare -A BASELINE_GETBEAN=()
+declare -A BASELINE_SCRIPTLET=()
+if [[ -f "$BASELINE_FILE" ]]; then
   while IFS= read -r line; do
     # Strip comments and whitespace
     line="${line%%#*}"
     line="${line##*([[:space:]])}"
     line="${line%%*([[:space:]])}"
     [[ -z "$line" ]] && continue
-    ALLOWLIST["$line"]=1
-  done < "$ALLOWLIST_FILE"
+    read -r path bytes getbeans scriptlets <<< "$line"
+    if [[ -z "${path:-}" || -z "${bytes:-}" || -z "${getbeans:-}" || -z "${scriptlets:-}" ]]; then
+      printf "Invalid baseline row in %s: %s\n" "$(realpath --relative-to="$REPO_ROOT" "$BASELINE_FILE")" "$line" >&2
+      exit 2
+    fi
+    BASELINE_SIZE["$path"]="$bytes"
+    BASELINE_GETBEAN["$path"]="$getbeans"
+    BASELINE_SCRIPTLET["$path"]="$scriptlets"
+  done < "$BASELINE_FILE"
 fi
 
 fails=0
-allowlist_hits=0
+baseline_hits=0
 
 # Find all JSPs under billing/
 while IFS= read -r -d '' jsp; do
   rel="${jsp#$REPO_ROOT/}"
-  if [[ -n "${ALLOWLIST[$rel]:-}" ]]; then
-    allowlist_hits=$((allowlist_hits + 1))
-    continue
-  fi
 
   size=$(wc -c < "$jsp")
   # Count occurrences (not lines) — a JSP can have multiple SpringUtils.getBean
@@ -78,6 +84,25 @@ while IFS= read -r -d '' jsp; do
   getbean_count=$(grep -o "SpringUtils\.getBean" "$jsp" 2>/dev/null | wc -l || true)
   # Count opening scriptlet blocks (not directives like <%@, <%--, <%=, <%!).
   scriptlet_count=$(grep -o "<%[^@!=-]" "$jsp" 2>/dev/null | wc -l || true)
+
+  if [[ -n "${BASELINE_SIZE[$rel]:-}" ]]; then
+    baseline_hits=$((baseline_hits + 1))
+    if (( size > BASELINE_SIZE[$rel] )); then
+      printf "FAIL: %s is %d bytes (baseline %d)\n" "$rel" "$size" "${BASELINE_SIZE[$rel]}"
+      fails=$((fails + 1))
+    fi
+    if (( getbean_count > BASELINE_GETBEAN[$rel] )); then
+      printf "FAIL: %s has %d SpringUtils.getBean lookups (baseline %d)\n" \
+        "$rel" "$getbean_count" "${BASELINE_GETBEAN[$rel]}"
+      fails=$((fails + 1))
+    fi
+    if (( scriptlet_count > BASELINE_SCRIPTLET[$rel] )); then
+      printf "FAIL: %s has %d scriptlet blocks (baseline %d)\n" \
+        "$rel" "$scriptlet_count" "${BASELINE_SCRIPTLET[$rel]}"
+      fails=$((fails + 1))
+    fi
+    continue
+  fi
 
   if (( size > BYTE_THRESHOLD )); then
     printf "FAIL: %s is %d bytes (threshold %d)\n" "$rel" "$size" "$BYTE_THRESHOLD"
@@ -97,12 +122,12 @@ done < <(find "$BILLING_JSP_ROOT" -type f \( -name "*.jsp" -o -name "*.jspf" \) 
 
 if (( fails > 0 )); then
   printf "\n%d billing JSP guard violations. Move data-building to an action + view model; use JSTL for iteration.\n" "$fails" >&2
-  printf "(To acknowledge a known baseline, add the path to %s.)\n" "$(realpath --relative-to="$REPO_ROOT" "$ALLOWLIST_FILE")" >&2
+  printf "(To acknowledge a known baseline, add path/metric counts to %s.)\n" "$(realpath --relative-to="$REPO_ROOT" "$BASELINE_FILE")" >&2
   exit 1
 fi
 
-if (( allowlist_hits > 0 )); then
-  printf "All non-allowlisted billing JSPs within size / DAO / scriptlet thresholds. %d allowlisted files skipped.\n" "$allowlist_hits"
+if (( baseline_hits > 0 )); then
+  printf "All billing JSPs within size / DAO / scriptlet thresholds or recorded baselines. %d baseline files checked.\n" "$baseline_hits"
 else
   echo "All billing JSPs within size / DAO / scriptlet thresholds."
 fi

@@ -105,7 +105,7 @@ public final class BillingCorrectionReviewViewModel {
         this.billingNo = BillingViewStrings.nullToEmpty(b.billingNo);
         this.billingItems = b.billingItems == null
                 ? Collections.<Item>emptyList()
-                : Collections.unmodifiableList(b.billingItems);
+                : List.copyOf(b.billingItems);
         this.diagCode = BillingViewStrings.nullToEmpty(b.diagCode);
         this.formattedTotal = BillingViewStrings.nullToEmpty(b.formattedTotal);
         this.content = BillingViewStrings.nullToEmpty(b.content);

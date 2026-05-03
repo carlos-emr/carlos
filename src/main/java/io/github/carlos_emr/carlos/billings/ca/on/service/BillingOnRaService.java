@@ -530,26 +530,37 @@ public class BillingOnRaService {
                 }
 
                 for (RaDetail rr : raDetailDao.findByHeaderAndBillingNos(ConversionUtils.fromIntString(raNo), billingNo)) {
-                    Properties prop = new Properties();
-                    String explain = rr.getErrorCode();
-                    if (explain == null || explain.compareTo("") == 0) {
-                        explain = "**";
-                    }
-                    String serviceDate = rr.getServiceDate();
-                    serviceDate = serviceDate.length() == 8 ? (serviceDate.substring(0, 4) + "-" + serviceDate.substring(4, 6) + "-" + serviceDate.substring(6)) : serviceDate;
-                    prop.setProperty("servicecode", rr.getServiceCode());
-                    prop.setProperty("servicedate", serviceDate);
-                    prop.setProperty("serviceno", rr.getServiceCount());
-                    prop.setProperty("explain", explain);
-                    prop.setProperty("amountsubmit", rr.getAmountClaim());
-                    prop.setProperty("amountpay", rr.getAmountPay());
+                    try {
+                        Properties prop = new Properties();
+                        String explain = rr.getErrorCode();
+                        if (explain == null || explain.compareTo("") == 0) {
+                            explain = "**";
+                        }
+                        String serviceDate = rr.getServiceDate();
+                        serviceDate = serviceDate.length() == 8 ? (serviceDate.substring(0, 4) + "-" + serviceDate.substring(4, 6) + "-" + serviceDate.substring(6)) : serviceDate;
+                        prop.setProperty("servicecode", rr.getServiceCode());
+                        prop.setProperty("servicedate", serviceDate);
+                        prop.setProperty("serviceno", rr.getServiceCount());
+                        prop.setProperty("explain", explain);
+                        prop.setProperty("amountsubmit", rr.getAmountClaim());
+                        prop.setProperty("amountpay", rr.getAmountPay());
 
-                    prop.setProperty("account", account);
-                    if (!billingDate.equals(serviceDate)) {
-                        demoLast = "";
+                        prop.setProperty("account", account);
+                        if (!billingDate.equals(serviceDate)) {
+                            demoLast = "";
+                        }
+                        prop.setProperty("demoLast", demoLast);
+                        ret.add(prop);
+                    } catch (RuntimeException rowFailure) {
+                        _logger.error(
+                                "Failed to render RA error-report row (raNo={}, billingNo={}, claimNo={}, serviceCode={})",
+                                LogSanitizer.sanitize(raNo),
+                                LogSanitizer.sanitize(String.valueOf(billingNo)),
+                                LogSanitizer.sanitize(rr == null ? "" : rr.getClaimNo()),
+                                LogSanitizer.sanitize(rr == null ? "" : rr.getServiceCode()),
+                                rowFailure);
+                        appendLoadFailureMarker(ret);
                     }
-                    prop.setProperty("demoLast", demoLast);
-                    ret.add(prop);
                 }
             }
         } catch (Exception e) {
@@ -559,9 +570,7 @@ public class BillingOnRaService {
             // Append a sentinel row so downstream consumers can detect the
             // partial load and refuse to persist a $-balance computed from
             // an incomplete grid. Mirrors the marker pattern in getRASummary.
-            Properties marker = new Properties();
-            marker.setProperty(LOAD_FAILURE_MARKER, "true");
-            ret.add(marker);
+            appendLoadFailureMarker(ret);
         }
         return ret;
     }
@@ -591,81 +600,92 @@ public class BillingOnRaService {
 
         try {
             for (RaDetail r : raDetailDao.findByRaHeaderNoAndProviderOhipNo(ConversionUtils.fromIntString(id), providerOhipNo)) {
-                String account = "" + r.getBillingNo();
-                String location = "";
-                String demo_name = "";
-                String localServiceDate = "";
-                String demo_hin = r.getHin() != null ? r.getHin() : "";
-                demo_hin = demo_hin.trim();
-                String site = "";
-                String famProviderNo = null;
-                for (Object[] o : cheader1Dao.findBillingsAndDemographicsById(ConversionUtils.fromIntString(account))) {
-                    BillingONCHeader1 b = (BillingONCHeader1) o[0];
-                    Demographic d = (Demographic) o[1];
+                try {
+                    String account = "" + r.getBillingNo();
+                    String location = "";
+                    String demo_name = "";
+                    String localServiceDate = "";
+                    String demo_hin = r.getHin() != null ? r.getHin() : "";
+                    demo_hin = demo_hin.trim();
+                    String site = "";
+                    String famProviderNo = null;
+                    for (Object[] o : cheader1Dao.findBillingsAndDemographicsById(ConversionUtils.fromIntString(account))) {
+                        BillingONCHeader1 b = (BillingONCHeader1) o[0];
+                        Demographic d = (Demographic) o[1];
 
-                    demo_name = b.getDemographicName();
-                    famProviderNo = d.getProviderNo();
-                    site = b.getClinic();
-                    if (b.getHin() != null) {
-                        if (!(b.getHin()).startsWith(demo_hin)) {
+                        demo_name = b.getDemographicName();
+                        famProviderNo = d.getProviderNo();
+                        site = b.getClinic();
+                        if (b.getHin() != null) {
+                            if (!(b.getHin()).startsWith(demo_hin)) {
+                                demo_hin = "";
+                                demo_name = "";
+                            }
+                        } else {
                             demo_hin = "";
                             demo_name = "";
                         }
-                    } else {
-                        demo_hin = "";
-                        demo_name = "";
+                        location = b.getVisitType();
+                        localServiceDate = ConversionUtils.toDateString(b.getBillingDate());
                     }
-                    location = b.getVisitType();
-                    localServiceDate = ConversionUtils.toDateString(b.getBillingDate());
-                }
 
-                if (famProviderNo == null) {
-                    famProviderNo = "";
-                }
-                // proName =
-                // propProvierName.getProperty(r.getproviderohip_no());
-                String servicecode = r.getServiceCode();
-                String servicedate = r.getServiceDate();
-                String serviceno = r.getServiceCount();
-                String explain = r.getErrorCode();
-                String amountsubmit = r.getAmountClaim();
-                String amountpay = r.getAmountPay();
-                // unparseable flag — exposed to the JSP so the row renders
-                // with a "contact MOH" badge instead of a fake $0.00. Silent
-                // coalesce to "0.00" would prevent the operator's
-                // reconciliation grid from distinguishing a malformed amount
-                // from a legitimate $0 payment.
-                boolean amountUnreadable = false;
-                try {
-                    BillingMoney.amount(amountpay);
-                } catch (NumberFormatException e) {
-                    amountUnreadable = true;
-                    MiscUtils.getLogger().error(
-                            "RA reconciliation: header {} row had unreadable amountPay [{}]; flagged for operator follow-up",
-                            LogSanitizer.sanitize(id), LogSanitizer.sanitize(amountpay), e);
-                    amountpay = "0.00";
-                }
+                    if (famProviderNo == null) {
+                        famProviderNo = "";
+                    }
+                    // proName =
+                    // propProvierName.getProperty(r.getproviderohip_no());
+                    String servicecode = r.getServiceCode();
+                    String servicedate = r.getServiceDate();
+                    String serviceno = r.getServiceCount();
+                    String explain = r.getErrorCode();
+                    String amountsubmit = r.getAmountClaim();
+                    String amountpay = r.getAmountPay();
+                    // unparseable flag — exposed to the JSP so the row renders
+                    // with a "contact MOH" badge instead of a fake $0.00. Silent
+                    // coalesce to "0.00" would prevent the operator's
+                    // reconciliation grid from distinguishing a malformed amount
+                    // from a legitimate $0 payment.
+                    boolean amountUnreadable = false;
+                    try {
+                        BillingMoney.amount(amountpay);
+                    } catch (NumberFormatException e) {
+                        amountUnreadable = true;
+                        MiscUtils.getLogger().error(
+                                "RA reconciliation: header {} row had unreadable amountPay [{}]; flagged for operator follow-up",
+                                LogSanitizer.sanitize(id), LogSanitizer.sanitize(amountpay), e);
+                        amountpay = "0.00";
+                    }
 
-                Properties prop = new Properties();
-                prop.setProperty("servicecode", servicecode);
-                prop.setProperty("servicedate", servicedate);
-                prop.setProperty("serviceno", serviceno);
-                prop.setProperty("explain", explain);
-                prop.setProperty("amountsubmit", amountsubmit);
-                if (amountUnreadable) {
-                    prop.setProperty("amountUnreadable", "true");
+                    Properties prop = new Properties();
+                    prop.setProperty("servicecode", servicecode);
+                    prop.setProperty("servicedate", servicedate);
+                    prop.setProperty("serviceno", serviceno);
+                    prop.setProperty("explain", explain);
+                    prop.setProperty("amountsubmit", amountsubmit);
+                    if (amountUnreadable) {
+                        prop.setProperty("amountUnreadable", "true");
+                    }
+                    prop.setProperty("amountpay", amountpay);
+                    prop.setProperty("location", location);
+                    prop.setProperty("localServiceDate", localServiceDate);
+                    prop.setProperty("account", account);
+                    prop.setProperty("demo_name", demo_name);
+                    prop.setProperty("demo_hin", demo_hin);
+                    prop.setProperty("demo_doc", famProviderNo);
+                    prop.setProperty("claimNo", r.getClaimNo());
+                    if (site == null) site = "";
+                    prop.setProperty("site", site);
+                    ret.add(prop);
+                } catch (RuntimeException rowFailure) {
+                    _logger.error(
+                            "Failed to render RA summary row (raHeaderId={}, billingNo={}, claimNo={}, serviceCode={})",
+                            LogSanitizer.sanitize(id),
+                            LogSanitizer.sanitize(r == null ? "" : String.valueOf(r.getBillingNo())),
+                            LogSanitizer.sanitize(r == null ? "" : r.getClaimNo()),
+                            LogSanitizer.sanitize(r == null ? "" : r.getServiceCode()),
+                            rowFailure);
+                    appendLoadFailureMarker(ret);
                 }
-                prop.setProperty("amountpay", amountpay);
-                prop.setProperty("location", location);
-                prop.setProperty("localServiceDate", localServiceDate);
-                prop.setProperty("account", account);
-                prop.setProperty("demo_name", demo_name);
-                prop.setProperty("demo_hin", demo_hin);
-                prop.setProperty("demo_doc", famProviderNo);
-                prop.setProperty("claimNo", r.getClaimNo());
-                if (site == null) site = "";
-                prop.setProperty("site", site);
-                ret.add(prop);
             }
         } catch (Exception e) {
             _logger.error("Failed to load RA summary (raHeaderId={}, providerOhipNo={}); rows may be silently dropped",
@@ -676,11 +696,15 @@ public class BillingOnRaService {
             // load and bump xml_partial_count, which propagates into the
             // OnRaSummaryViewModel.partial flag and ultimately blocks the
             // OnRaSummary partial-totals persist-block contract.
-            Properties marker = new Properties();
-            marker.setProperty(LOAD_FAILURE_MARKER, "true");
-            ret.add(marker);
+            appendLoadFailureMarker(ret);
         }
         return ret;
+    }
+
+    private static void appendLoadFailureMarker(List<Properties> ret) {
+        Properties marker = new Properties();
+        marker.setProperty(LOAD_FAILURE_MARKER, "true");
+        ret.add(marker);
     }
 
     /**

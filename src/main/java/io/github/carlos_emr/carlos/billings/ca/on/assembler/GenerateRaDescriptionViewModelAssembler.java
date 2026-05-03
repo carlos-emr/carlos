@@ -139,6 +139,7 @@ public class GenerateRaDescriptionViewModelAssembler {
             case MISSING_FILENAME -> "RA description file is missing.";
             case SECURITY_REJECTED -> "RA description file path was rejected.";
             case IO_ERROR -> "RA description file could not be read.";
+            case MALFORMED_RECORD -> "RA description file contains a malformed H6/H7 record; totals were not merged.";
             case INCOMPLETE_HEADER -> "RA description file is incomplete; H1 header totals could not be parsed.";
             case NONE -> "RA description file could not be fully parsed.";
         };

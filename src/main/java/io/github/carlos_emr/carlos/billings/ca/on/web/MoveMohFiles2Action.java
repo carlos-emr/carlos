@@ -121,11 +121,11 @@ public class MoveMohFiles2Action extends ActionSupport {
      *         the archival process. The struts mapping is case-sensitive, so the inherited constant
      *         must be used rather than a literal string.
      * @throws Exception if an unexpected error occurs during execution
-     * @throws SecurityException if the user lacks required administrative privileges (_admin with write access)
+     * @throws SecurityException if the user lacks required administrative privileges (_admin.billing with write access)
      */
     public String execute() throws Exception {
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin.billing)");
         }
 
         // Dual-purpose action: GET = render file listing, POST = mutate MOH

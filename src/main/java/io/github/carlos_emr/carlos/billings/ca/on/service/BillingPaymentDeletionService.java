@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Date;
 
 import org.springframework.stereotype.Service;
@@ -92,9 +93,10 @@ public class BillingPaymentDeletionService {
 
         billingONPaymentDao.remove(paymentId);
 
-        BigDecimal paid = billingONPaymentDao.getPaymentsSumByBillingNo(billingNo);
-        BigDecimal refund = billingONPaymentDao.getPaymentsRefundByBillingNo(billingNo).negate();
-        ch1.setPaid(paid.subtract(refund));
+        BigDecimal paid = money(billingONPaymentDao.getPaymentsSumByBillingNo(billingNo));
+        BigDecimal refund = money(billingONPaymentDao.getPaymentsRefundByBillingNo(billingNo));
+        BigDecimal netPaid = paid.subtract(refund).setScale(2, RoundingMode.HALF_UP);
+        ch1.setPaid(netPaid);
         billingClaimDao.merge(ch1);
 
         // Use BigDecimal.toPlainString() rather than NumberFormat.getCurrencyInstance().
@@ -105,12 +107,16 @@ public class BillingPaymentDeletionService {
         // the format other paths use to write into this column.
         billingONExtDao.setExtItem(billingNo, ch1.getDemographicNo(),
                 BillingONExtDao.KEY_PAYMENT,
-                paid.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString(),
+                netPaid.toPlainString(),
                 now, '1');
         billingONExtDao.setExtItem(billingNo, ch1.getDemographicNo(),
                 BillingONExtDao.KEY_REFUND,
-                refund.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString(),
+                refund.toPlainString(),
                 now, '1');
+    }
+
+    private static BigDecimal money(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO.setScale(2) : value.setScale(2, RoundingMode.HALF_UP);
     }
 
     /**

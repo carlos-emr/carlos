@@ -86,7 +86,7 @@ public class BillingOnFormViewModelAssembler {
     private final UserPropertyDAO userPropertyDao;
     private final ProviderDao providerDao;
     private final BillingOnLookupService lookupService;
-    private final BillingOnClaimLoader claimQueryService;
+    private final BillingOnClaimLoader claimLoader;
 
     // Inner steps — built once per assembler instance.
     private final BillingOnFormDemographicLoader demographicLoader;
@@ -100,7 +100,7 @@ public class BillingOnFormViewModelAssembler {
                                UserPropertyDAO userPropertyDao,
                                ProviderDao providerDao,
                                BillingOnLookupService lookupService,
-                               BillingOnClaimLoader claimQueryService,
+                               BillingOnClaimLoader claimLoader,
                                BillingOnFormDemographicLoader demographicLoader,
                                BillingOnFormBillFormResolver billFormResolver,
                                BillingOnFormServiceGridComposer serviceGridComposer,
@@ -111,7 +111,7 @@ public class BillingOnFormViewModelAssembler {
         this.userPropertyDao = userPropertyDao;
         this.providerDao = providerDao;
         this.lookupService = lookupService;
-        this.claimQueryService = claimQueryService;
+        this.claimLoader = claimLoader;
         this.demographicLoader = demographicLoader;
         this.billFormResolver = billFormResolver;
         this.serviceGridComposer = serviceGridComposer;
@@ -602,7 +602,7 @@ public class BillingOnFormViewModelAssembler {
         }
         boolean unavailable = false;
         try {
-            List<Object> raw = claimQueryService.getBillingHist(demoNo, 5, 0, null);
+            List<Object> raw = claimLoader.getBillingHist(demoNo, 5, 0, null);
             for (int i = 0; i + 1 < raw.size(); i += 2) {
                 io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto header =
                         (io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto) raw.get(i);
@@ -718,7 +718,7 @@ public class BillingOnFormViewModelAssembler {
         }
         boolean unavailable = false;
         try {
-            List<Object> raw = claimQueryService.getBillingHist(demoNo, 5, 0, null);
+            List<Object> raw = claimLoader.getBillingHist(demoNo, 5, 0, null);
             if (raw.size() >= 2) {
                 BillingClaimHeaderDto header = (BillingClaimHeaderDto) raw.get(0);
                 BillingClaimItemDto item = (BillingClaimItemDto) raw.get(1);

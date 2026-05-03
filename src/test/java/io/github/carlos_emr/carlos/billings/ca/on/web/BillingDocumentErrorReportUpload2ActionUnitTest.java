@@ -92,6 +92,8 @@ class BillingDocumentErrorReportUpload2ActionUnitTest extends CarlosUnitTestBase
     @Mock private DemographicCustDao mockDemographicCustDao;
     @Mock private ProviderDao mockProviderDao;
     @Mock private BillingOnErrorReportService mockErrorReportService;
+    @Mock private BillingClaimsErrorReportImportService mockImportService;
+    @Mock private BillingObecOutputApplyService mockApplyService;
     @Mock private LoggedInInfo mockLoggedInInfo;
 
     private MockHttpServletRequest mockRequest;
@@ -126,7 +128,7 @@ class BillingDocumentErrorReportUpload2ActionUnitTest extends CarlosUnitTestBase
     private BillingDocumentErrorReportUpload2Action newAction() {
         return new BillingDocumentErrorReportUpload2Action(mockSecurityInfoManager,
                 mockDemographicManager, mockBatchEligibilityDao, mockDemographicCustDao,
-                mockProviderDao, mockErrorReportService);
+                mockProviderDao, mockErrorReportService, mockImportService, mockApplyService);
     }
 
     @Test
@@ -213,15 +215,12 @@ class BillingDocumentErrorReportUpload2ActionUnitTest extends CarlosUnitTestBase
         mockRequest.setMethod("GET");
         mockRequest.setParameter("filename", "Eclaims.err");
 
-        BillingClaimsErrorReportImportService importService = mock(BillingClaimsErrorReportImportService.class);
-        registerMock(BillingClaimsErrorReportImportService.class, importService);
-
         BillingDocumentErrorReportUpload2Action action = newAction();
 
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(405);
         assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
-        verify(importService, never()).importStream(any(), any());
+        verify(mockImportService, never()).importStream(any(), any());
     }
 
     @Test
@@ -231,15 +230,12 @@ class BillingDocumentErrorReportUpload2ActionUnitTest extends CarlosUnitTestBase
         mockRequest.setMethod("GET");
         mockRequest.setParameter("filename", "Rvalid.txt");
 
-        BillingObecOutputApplyService applyService = mock(BillingObecOutputApplyService.class);
-        registerMock(BillingObecOutputApplyService.class, applyService);
-
         BillingDocumentErrorReportUpload2Action action = newAction();
 
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(405);
         assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
-        verify(applyService, never()).applyOutputSpec(any(LoggedInInfo.class), anyList());
+        verify(mockApplyService, never()).applyOutputSpec(any(LoggedInInfo.class), anyList());
     }
 
     @Test
@@ -329,11 +325,8 @@ class BillingDocumentErrorReportUpload2ActionUnitTest extends CarlosUnitTestBase
         when(props.getProperty("ONEDT_ARCHIVE")).thenReturn(archive.toString());
         when(props.getProperty("isNewONbilling", "")).thenReturn("true");
 
-        BillingClaimsErrorReportImportService importService = mock(BillingClaimsErrorReportImportService.class);
-        when(importService.importStream(any(), eq("Eclaims.err")))
+        when(mockImportService.importStream(any(), eq("Eclaims.err")))
                 .thenThrow(new BillingFileImportException("malformed Eclaims.err", new RuntimeException("bad row")));
-
-        registerMock(BillingClaimsErrorReportImportService.class, importService);
 
         try (MockedStatic<CarlosProperties> propsMock = mockStatic(CarlosProperties.class)) {
             propsMock.when(CarlosProperties::getInstance).thenReturn(props);
@@ -362,9 +355,6 @@ class BillingDocumentErrorReportUpload2ActionUnitTest extends CarlosUnitTestBase
                 fixedWidthLine("1234567890", "AB", "05", "20261231", "Second") + "\n"
                         + "9999999999AB05too-short\n");
 
-        BillingObecOutputApplyService applyService = mock(BillingObecOutputApplyService.class);
-        registerMock(BillingObecOutputApplyService.class, applyService);
-
         CarlosProperties props = mock(CarlosProperties.class);
         when(props.getProperty("ONEDT_INBOX")).thenReturn(inbox.toString());
         when(props.getProperty("ONEDT_ARCHIVE")).thenReturn(archive.toString());
@@ -377,7 +367,7 @@ class BillingDocumentErrorReportUpload2ActionUnitTest extends CarlosUnitTestBase
             doReturn("errors.incorrectFileFormat").when(action).getText("errors.incorrectFileFormat");
 
             assertThat(action.execute()).isEqualTo("error");
-            verify(applyService, never()).applyOutputSpec(any(LoggedInInfo.class), anyList());
+            verify(mockApplyService, never()).applyOutputSpec(any(LoggedInInfo.class), anyList());
         }
     }
 
@@ -394,10 +384,8 @@ class BillingDocumentErrorReportUpload2ActionUnitTest extends CarlosUnitTestBase
         Files.writeString(inbox.resolve("Rvalid.txt"),
                 fixedWidthLine("1234567890", "AB", "05", "20261231", "Second") + "\n");
 
-        BillingObecOutputApplyService applyService = mock(BillingObecOutputApplyService.class);
         doThrow(new RuntimeException("db failed"))
-                .when(applyService).applyOutputSpec(any(LoggedInInfo.class), anyList());
-        registerMock(BillingObecOutputApplyService.class, applyService);
+                .when(mockApplyService).applyOutputSpec(any(LoggedInInfo.class), anyList());
 
         CarlosProperties props = mock(CarlosProperties.class);
         when(props.getProperty("ONEDT_INBOX")).thenReturn(inbox.toString());

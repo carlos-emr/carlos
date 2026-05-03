@@ -166,6 +166,35 @@ class RaDescriptionFileParserUnitTest {
                 .isEqualTo(RaDescriptionFileParser.ParseFailureReason.INCOMPLETE_HEADER);
     }
 
+    @Test
+    void shouldReportMalformedRecord_whenH6IsTooShort() throws Exception {
+        String filename = "ra-desc-short-h6.txt";
+        Files.writeString(tempDir.resolve(filename), String.join(System.lineSeparator(),
+                h1Line("20260428", "000001234", " "),
+                "H06too-short"), StandardCharsets.ISO_8859_1);
+
+        RaDescriptionFileParser.ParsedFile parsed = parser.parse(filename);
+
+        assertThat(parsed.isCompleteForHeaderMerge()).isFalse();
+        assertThat(parsed.parseFailureReason())
+                .isEqualTo(RaDescriptionFileParser.ParseFailureReason.MALFORMED_RECORD);
+    }
+
+    @Test
+    void shouldReportMalformedRecord_whenH7AmountIsNonnumeric() throws Exception {
+        String filename = "ra-desc-bad-h7.txt";
+        Files.writeString(tempDir.resolve(filename), String.join(System.lineSeparator(),
+                h1Line("20260428", "000001234", " "),
+                h7Line("50", "C", "ABCDEF12", "", "bad amount")), StandardCharsets.ISO_8859_1);
+
+        RaDescriptionFileParser.ParsedFile parsed = parser.parse(filename);
+
+        assertThat(parsed.isCompleteForHeaderMerge()).isFalse();
+        assertThat(parsed.parseFailureReason())
+                .isEqualTo(RaDescriptionFileParser.ParseFailureReason.MALFORMED_RECORD);
+        assertThat(parsed.transactionRows()).isEmpty();
+    }
+
     private static String h1Line(String paymentDate, String rawTotal, String status) {
         StringBuilder line = new StringBuilder(" ".repeat(77));
         replace(line, 0, "H");

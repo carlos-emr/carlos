@@ -502,7 +502,7 @@ OSCAR billing system functionality.
 
 | Action Name | Class Name | Description |
 |-------------|------------|-------------|
-| oscarBilling/DocumentErrorReportUpload | io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingDocumentErrorReportUpload2Action | Uploads billing error reports |
+| oscarBilling/DocumentErrorReportUpload | io.github.carlos_emr.carlos.billings.ca.on.web.BillingDocumentErrorReportUpload2Action | Uploads billing error reports |
 
 ## Oscar Chart Module
 

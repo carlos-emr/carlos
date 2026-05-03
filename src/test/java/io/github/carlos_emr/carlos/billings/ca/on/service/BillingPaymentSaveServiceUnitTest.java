@@ -323,6 +323,27 @@ class BillingPaymentSaveServiceUnitTest extends CarlosUnitTestBase {
         verify(bCh1Dao, times(1)).merge(ch1);
     }
 
+    @Test
+    void shouldReduceHeaderPaid_whenRefundIsSaved() {
+        BillingONCHeader1 ch1 = headerWithPaidAndDemo(new BigDecimal("100.00"), 7);
+        when(bCh1Dao.findForUpdate(101)).thenReturn(ch1);
+        when(bExtDao.getAccountVal(eq(101), anyString())).thenReturn(BigDecimal.ZERO);
+
+        BillingPaymentSaveService.Command cmd = new BillingPaymentSaveService.Command(
+                101, new Date(), "999998", 1, "1",
+                BigDecimal.ZERO, BigDecimal.ZERO, new BigDecimal("15.00"), BigDecimal.ZERO,
+                null, List.of());
+
+        svc.saveThirdPartyPayment(cmd);
+
+        assertThat(ch1.getPaid()).isEqualByComparingTo("85.00");
+        verify(bCh1Dao).merge(ch1);
+        verify(thirdPartyService).keyExists("101", BillingONExtDao.KEY_PAYMENT);
+        verify(thirdPartyService).add3rdBillExt("101", "7", BillingONExtDao.KEY_PAYMENT, "85.00");
+        verify(thirdPartyService).keyExists("101", BillingONExtDao.KEY_REFUND);
+        verify(thirdPartyService).add3rdBillExt("101", "7", BillingONExtDao.KEY_REFUND, "15.00");
+    }
+
     private static BillingONCHeader1 headerWithPaidAndDemo(BigDecimal paid, int demoNo) {
         BillingONCHeader1 h = new BillingONCHeader1();
         try {

@@ -47,6 +47,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentCaptor.forClass;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -128,6 +129,23 @@ class BillingCorrectionValid2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(request.getSession().getAttribute("billingPatientDataBean")).isNull();
         verify(preparationService).prepareReviewDraft(any());
         verify(reviewViewModelAssembler).assemble(draft);
+    }
+
+    @Test
+    void shouldDefensivelyCopyBillingItems_whenReviewViewModelIsBuilt() {
+        java.util.List<BillingCorrectionReviewViewModel.Item> items =
+                new java.util.ArrayList<>();
+        items.add(new BillingCorrectionReviewViewModel.Item(
+                "A001A", "Minor assessment", "1", "10.00", "250"));
+
+        BillingCorrectionReviewViewModel model = BillingCorrectionReviewViewModel.builder()
+                .billingItems(items)
+                .build();
+        items.clear();
+
+        assertThat(model.getBillingItems()).hasSize(1);
+        assertThatThrownBy(() -> model.getBillingItems().clear())
+                .isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test

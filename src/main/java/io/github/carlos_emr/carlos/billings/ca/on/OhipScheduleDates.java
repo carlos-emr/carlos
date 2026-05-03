@@ -41,6 +41,6 @@ public final class OhipScheduleDates {
         if ("99999999".equals(raw)) {
             return "9999-12-31";
         }
-        return OhipDateParser.parse(raw, OhipDateParser.ZeroDayPolicy.NORMALIZE_ZERO_DAY_TO_FIRST).format(SERVICE_DATE);
+        return OhipDateTokens.parse(raw, OhipDateTokens.ZeroDayPolicy.NORMALIZE_ZERO_DAY_TO_FIRST).format(SERVICE_DATE);
     }
 }

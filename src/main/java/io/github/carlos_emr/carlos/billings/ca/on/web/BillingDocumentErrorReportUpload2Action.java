@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingClaimsErrorRepo
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFileImportException;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingEdtObecOutputSpecificationParser;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingClaimsErrorReportImportService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingObecOutputApplyService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnErrorReportService;
 
 import jakarta.servlet.ServletException;
@@ -75,19 +76,25 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
     private final DemographicManager demographicManager;
     private final ProviderDao providerDao;
     private final BillingOnErrorReportService errorReportService;
+    private final BillingClaimsErrorReportImportService claimsErrorReportImportService;
+    private final BillingObecOutputApplyService obecOutputApplyService;
 
     public BillingDocumentErrorReportUpload2Action(SecurityInfoManager securityInfoManager,
                                                    DemographicManager demographicManager,
                                                    BatchEligibilityDao batchEligibilityDao,
                                                    DemographicCustDao demographicCustDao,
                                                    ProviderDao providerDao,
-                                                   BillingOnErrorReportService errorReportService) {
+                                                   BillingOnErrorReportService errorReportService,
+                                                   BillingClaimsErrorReportImportService claimsErrorReportImportService,
+                                                   BillingObecOutputApplyService obecOutputApplyService) {
         this.securityInfoManager = securityInfoManager;
         this.demographicManager = demographicManager;
         this.batchEligibilityDao = batchEligibilityDao;
         this.demographicCustDao = demographicCustDao;
         this.providerDao = providerDao;
         this.errorReportService = errorReportService;
+        this.claimsErrorReportImportService = claimsErrorReportImportService;
+        this.obecOutputApplyService = obecOutputApplyService;
     }
     public String execute() throws ServletException, IOException {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -393,13 +400,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
     private BillingClaimsErrorReportParser generateReportE(FileInputStream file, boolean bB, String filename) {
         BillingClaimsErrorReportParser hd = null;
         if (bB) {
-            // Fetch via SpringUtils so the @Transactional proxy is applied —
-            // direct construction (`new`) bypasses the proxy and would
-            // re-introduce the multi-tx-per-line behaviour where each row
-            // committed independently with no atomic boundary.
-            hd = io.github.carlos_emr.carlos.utility.SpringUtils
-                    .getBean(BillingClaimsErrorReportImportService.class)
-                    .importStream(file, filename);
+            hd = claimsErrorReportImportService.importStream(file, filename);
         } else {
             hd = new BillingClaimsErrorReportParser(file);
         }
@@ -542,7 +543,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
             // not apply a partial file, but still report how many candidate
             // records were encountered before the parser failed.
             request.setAttribute("obecApplyResult",
-                    new io.github.carlos_emr.carlos.billings.ca.on.service.BillingObecOutputApplyService.ApplyResult(
+                    new BillingObecOutputApplyService.ApplyResult(
                             0, hd.getAttemptedRecordCount(),
                             java.util.List.of("Output specification was not applied because the whole file could not be fully parsed")));
             return hd;
@@ -553,15 +554,13 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
         // SpringUtils so the @Transactional proxy applies (direct
         // construction would bypass it).
         try {
-            io.github.carlos_emr.carlos.billings.ca.on.service.BillingObecOutputApplyService.ApplyResult applyResult =
-                    io.github.carlos_emr.carlos.utility.SpringUtils
-                    .getBean(io.github.carlos_emr.carlos.billings.ca.on.service.BillingObecOutputApplyService.class)
-                    .applyOutputSpec(loggedInInfo, hd.getEdtObecOutputSpecificationRecords());
+            BillingObecOutputApplyService.ApplyResult applyResult =
+                    obecOutputApplyService.applyOutputSpec(loggedInInfo, hd.getEdtObecOutputSpecificationRecords());
             request.setAttribute("obecApplyResult", applyResult);
         } catch (RuntimeException e) {
             MiscUtils.getLogger().error("OBEC output-spec apply rolled back; demographic graph unchanged", e);
             request.setAttribute("obecApplyResult",
-                    new io.github.carlos_emr.carlos.billings.ca.on.service.BillingObecOutputApplyService.ApplyResult(
+                    new BillingObecOutputApplyService.ApplyResult(
                             0, hd.getAttemptedRecordCount(),
                             java.util.List.of("Output specification apply rolled back; demographic graph unchanged")));
             hd.verdict = false;

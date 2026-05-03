@@ -750,12 +750,7 @@
             <!-- admin/doctor roles bypass the report-center landing page and
                  jump straight to the new-report dashboard, mirroring the
                  RequestDispatcher.include the legacy JSP performed inline. -->
-            <result name="newReport" type="redirectAction">billing/CA/ON/ViewBillingONNewReport</result>
-        </action>
-
-        <action name="billing/CA/ON/billingReportCenter.jsp" class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingReportCenter2Action">
-            <result name="success">/WEB-INF/jsp/billing/CA/ON/billingReportCenter.jsp</result>
-            <result name="newReport" type="redirectAction">billing/CA/ON/ViewBillingONNewReport</result>
+            <result name="newReport" type="chain">billing/CA/ON/ViewBillingONNewReport</result>
         </action>
 
         <action name="billing/CA/ON/ViewBillingReportControl" class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingReportControl2Action">

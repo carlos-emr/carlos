@@ -122,6 +122,13 @@ public class BillingClaimsErrorReportImportService {
                     erObj.setProcess_date(nextline.substring(38, 46));
                 }
 
+                if (headerCount.compareTo("H") == 0
+                        || headerCount.compareTo("R") == 0
+                        || headerCount.compareTo("T") == 0
+                        || headerCount.compareTo("8") == 0) {
+                    requireHeader(erObj, filename, headerCount);
+                }
+
                 if (headerCount.compareTo("H") == 0) {
                     isNewHin = true;
                     record = new BillingClaimsErrorReportRecordDto();
@@ -253,6 +260,15 @@ public class BillingClaimsErrorReportImportService {
         } catch (BillingValidationException validationFailure) {
             throw new BillingFileImportException(
                     IMPORT_FAILURE_MSG_PREFIX + filename + " (invalid amount)", validationFailure);
+        }
+    }
+
+    private static void requireHeader(BillingErrorReportDto erObj, String filename, String headerCount) {
+        if (erObj == null) {
+            throw new BillingFileImportException(
+                    IMPORT_FAILURE_MSG_PREFIX + filename
+                            + " (record " + headerCount + " appeared before header 1)",
+                    new IllegalStateException("dependent record appeared before header 1"));
         }
     }
 }

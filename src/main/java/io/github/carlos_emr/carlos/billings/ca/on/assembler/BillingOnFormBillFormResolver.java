@@ -36,7 +36,7 @@ import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * Composer for the {@code ctlBillForm} priority-chain resolution. The
+ * Resolver for the {@code ctlBillForm} priority-chain resolution. The
  * legacy scriptlet had this 70-line decision tree inline in the assembler;
  * extracting it makes each branch independently grokkable and lets the
  * priority rules be unit-tested without standing up the full assembler.

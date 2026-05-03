@@ -21,8 +21,7 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
-import io.github.carlos_emr.carlos.billing.CA.dao.BillingInrDao;
-import io.github.carlos_emr.carlos.billing.CA.model.BillingInr;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingInrCreationService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -73,7 +72,7 @@ class InrBillingCreate2ActionUnitTest extends CarlosUnitTestBase {
     private AutoCloseable mockitoCloseable;
 
     @Mock private SecurityInfoManager mockSecurityInfoManager;
-    @Mock private BillingInrDao mockBillingInrDao;
+    @Mock private BillingInrCreationService mockBillingInrCreationService;
     @Mock private LoggedInInfo mockLoggedInInfo;
 
     private MockHttpServletRequest mockRequest;
@@ -93,7 +92,7 @@ class InrBillingCreate2ActionUnitTest extends CarlosUnitTestBase {
         // CarlosUnitTestBase sets up the SpringUtils static mock; we just
         // register the beans the action will pull during construction.
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
-        registerMock(BillingInrDao.class, mockBillingInrDao);
+        registerMock(BillingInrCreationService.class, mockBillingInrCreationService);
 
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
@@ -119,7 +118,7 @@ class InrBillingCreate2ActionUnitTest extends CarlosUnitTestBase {
         InrBillingCreate2Action action = new InrBillingCreate2Action();
 
         assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
-        verify(mockBillingInrDao).persist(any(BillingInr.class));
+        verify(mockBillingInrCreationService).create(any(BillingInrCreationService.Command.class));
         verify(mockSecurityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_admin.billing"), eq("w"), isNull());
     }
 
@@ -145,7 +144,7 @@ class InrBillingCreate2ActionUnitTest extends CarlosUnitTestBase {
         InrBillingCreate2Action action = new InrBillingCreate2Action();
 
         assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
-        verify(mockBillingInrDao, never()).persist(any(BillingInr.class));
+        verify(mockBillingInrCreationService, never()).create(any(BillingInrCreationService.Command.class));
     }
 
     @Test
@@ -157,7 +156,7 @@ class InrBillingCreate2ActionUnitTest extends CarlosUnitTestBase {
         InrBillingCreate2Action action = new InrBillingCreate2Action();
 
         assertThat(action.execute()).isEqualTo(ActionSupport.ERROR);
-        verify(mockBillingInrDao, never()).persist(any(BillingInr.class));
+        verify(mockBillingInrCreationService, never()).create(any(BillingInrCreationService.Command.class));
     }
 
     @Test
@@ -169,7 +168,7 @@ class InrBillingCreate2ActionUnitTest extends CarlosUnitTestBase {
         InrBillingCreate2Action action = new InrBillingCreate2Action();
 
         assertThat(action.execute()).isEqualTo(ActionSupport.ERROR);
-        verify(mockBillingInrDao, never()).persist(any(BillingInr.class));
+        verify(mockBillingInrCreationService, never()).create(any(BillingInrCreationService.Command.class));
     }
 
     @Test
@@ -180,6 +179,6 @@ class InrBillingCreate2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(405);
-        verify(mockBillingInrDao, never()).persist(any(BillingInr.class));
+        verify(mockBillingInrCreationService, never()).create(any(BillingInrCreationService.Command.class));
     }
 }

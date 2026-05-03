@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.Timestamp;
 import java.util.Date;
 import java.util.HashMap;
@@ -115,12 +116,17 @@ public class BillingPaymentSaveService {
         String demographicNo = cheader1.getDemographicNo().toString();
         Map<Integer, BillingONItem> billItemsById = requireExistingActionableItems(cmd);
 
-        // 1. billing_on_ext: payment key (also bumps header.paid)
-        if (cmd.sumPaid.compareTo(BigDecimal.ZERO) > 0) {
+        // 1. billing_on_ext: net payment key (also bumps header.paid).
+        // Refunds reduce the invoice's paid aggregate; the positive refund
+        // total is still stored separately below for audit/display.
+        if (cmd.sumPaid.compareTo(BigDecimal.ZERO) > 0 || cmd.sumRefund.compareTo(BigDecimal.ZERO) > 0) {
             toUpdateChl = true;
-            BigDecimal newPaid = cmd.sumPaid.add(cheader1.getPaid());
+            BigDecimal newPaid = money(cheader1.getPaid())
+                    .add(money(cmd.sumPaid))
+                    .subtract(money(cmd.sumRefund))
+                    .setScale(2, RoundingMode.HALF_UP);
             cheader1.setPaid(newPaid);
-            upsertExtKey(cmd.billNo, demographicNo, BillingONExtDao.KEY_PAYMENT, newPaid.toString());
+            upsertExtKey(cmd.billNo, demographicNo, BillingONExtDao.KEY_PAYMENT, newPaid.toPlainString());
         }
         if (toUpdateChl) {
             bCh1Dao.merge(cheader1);
@@ -271,6 +277,10 @@ public class BillingPaymentSaveService {
         } else {
             thirdPartyService.add3rdBillExt(billNoStr, demoNo, key, value);
         }
+    }
+
+    private static BigDecimal money(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO.setScale(2) : value.setScale(2, RoundingMode.HALF_UP);
     }
 
     /**

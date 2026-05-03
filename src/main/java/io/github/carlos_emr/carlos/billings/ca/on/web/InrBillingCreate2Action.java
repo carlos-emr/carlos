@@ -23,15 +23,12 @@
 
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
-import java.util.Date;
-
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
-import io.github.carlos_emr.carlos.billing.CA.dao.BillingInrDao;
-import io.github.carlos_emr.carlos.billing.CA.model.BillingInr;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingInrCreationService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -40,8 +37,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * Struts2 action for adding an INR billing record.
  *
  * <p>Migrated from {@code billing/CA/ON/inr/dbINRbilling.jsp}. Accepts POST only,
- * enforces {@code _admin.billing} write privilege, builds a {@link BillingInr} entity
- * from request parameters and persists it via {@link BillingInrDao}.
+ * enforces {@code _admin.billing} write privilege, builds a command from
+ * request parameters, and delegates persistence to {@link BillingInrCreationService}.
  *
  * @since 2026-04-05
  */
@@ -52,11 +49,22 @@ public class InrBillingCreate2Action extends ActionSupport {
     private final HttpServletRequest request = ServletActionContext.getRequest();
     private final HttpServletResponse response = ServletActionContext.getResponse();
 
-    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private final BillingInrDao billingInrDao = SpringUtils.getBean(BillingInrDao.class);
+    private final SecurityInfoManager securityInfoManager;
+    private final BillingInrCreationService billingInrCreationService;
+
+    public InrBillingCreate2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class),
+                SpringUtils.getBean(BillingInrCreationService.class));
+    }
+
+    public InrBillingCreate2Action(SecurityInfoManager securityInfoManager,
+                                   BillingInrCreationService billingInrCreationService) {
+        this.securityInfoManager = securityInfoManager;
+        this.billingInrCreationService = billingInrCreationService;
+    }
 
     /**
-     * Validates the request, builds and persists a new {@link BillingInr} record.
+     * Validates the request, then delegates persistence of a new INR record.
      *
      * @return {@link #SUCCESS} on success, {@link #ERROR} for validation failures, or {@link #NONE} if the method is not POST
      * @throws Exception if an unexpected error occurs during persistence
@@ -86,33 +94,22 @@ public class InrBillingCreate2Action extends ActionSupport {
             return ERROR;
         }
 
-        BillingInr bi = new BillingInr();
-        bi.setDemographicNo(demoIdInt);
-        bi.setDemographicName(cap(request.getParameter("demo_name"), 60));
-        bi.setHin(cap(request.getParameter("demo_hin"), 12));
-        bi.setDob(cap(request.getParameter("demo_dob"), 8));
-        bi.setProviderNo(cap(request.getParameter("provider_no"), 10));
-        bi.setProviderOhipNo(cap(request.getParameter("provider_ohip_no"), 20));
-        bi.setProviderRmaNo(cap(request.getParameter("provider_rma_no"), 20));
-        bi.setCreator(cap(request.getParameter("doccreator"), 6));
-        bi.setDiagnosticCode(cap(request.getParameter("diag_code"), 3));
-        bi.setServiceCode(cap(request.getParameter("service_code"), 6));
-        bi.setServiceDesc(cap(request.getParameter("service_desc"), 255));
-        bi.setBillingAmount(cap(request.getParameter("service_amount"), 6));
-        bi.setBillingUnit(cap(request.getParameter("service_unit"), 1));
-        bi.setCreateDateTime(new Date());
-        bi.setStatus("N");
-
-        billingInrDao.persist(bi);
+        billingInrCreationService.create(new BillingInrCreationService.Command(
+                demoIdInt,
+                request.getParameter("demo_name"),
+                request.getParameter("demo_hin"),
+                request.getParameter("demo_dob"),
+                request.getParameter("provider_no"),
+                request.getParameter("provider_ohip_no"),
+                request.getParameter("provider_rma_no"),
+                request.getParameter("doccreator"),
+                request.getParameter("diag_code"),
+                request.getParameter("service_code"),
+                request.getParameter("service_desc"),
+                request.getParameter("service_amount"),
+                request.getParameter("service_unit")));
 
         request.setAttribute("billSaved", true);
         return SUCCESS;
-    }
-
-    private static String cap(String value, int maxLen) {
-        if (value == null) {
-            return "";
-        }
-        return value.length() > maxLen ? value.substring(0, maxLen) : value;
     }
 }

@@ -108,53 +108,9 @@ public class BatchBill2Action extends ActionSupport {
                 break;
         }
 
-        Date billingDate;
-        SimpleDateFormat dateFmt = new SimpleDateFormat("yyyy-MM-dd");
-        String strDate = request.getParameter("BillDate");
-        if (strDate == null) {
-            billingDate = new Date();
-        } else {
-            try {
-                billingDate = dateFmt.parse(strDate);
-            } catch (ParseException e) {
-                // Send an explicit 400 with a body and return NONE so Struts
-                // doesn't try to resolve a result string. Returning null after
-                // setStatus produces an empty/ambiguous response.
-                MiscUtils.getLogger().error("BatchBill execute: invalid BillDate", e);
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid BillDate");
-                return NONE;
-            }
-        }
-
-        String clinic_view = request.getParameter("clinic_view");
-        String curUser = (String) request.getSession().getAttribute("user");
         String[] billingInfo = request.getParameterValues("bill");
-
         if (billingInfo != null) {
-            // Pre-validate the entire batch BEFORE the first DAO write so a
-            // malformed row N (wrong split count or non-numeric demo no)
-            // cannot land bills 0..N-1 and then leave the operator with
-            // a generic 500 and no signal which bills posted. Validate-
-            // then-execute keeps the batch atomic from the operator's
-            // perspective.
-            for (int idx = 0; idx < billingInfo.length; ++idx) {
-                try {
-                    parseBatchBillRow(billingInfo[idx]);
-                } catch (IllegalArgumentException nfe) {
-                    MiscUtils.getLogger().error(
-                            "BatchBill execute: row {} malformed or invalid",
-                            idx, nfe);
-                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Malformed bill row");
-                    return NONE;
-                }
-            }
-
-            for (int idx = 0; idx < billingInfo.length; ++idx) {
-                BatchBillRow row = parseBatchBillRow(billingInfo[idx]);
-                this.headerCreationService.createBill(row.providerNo(), row.demographicNo(),
-                        row.serviceCode(), row.dxCode(), clinic_view, billingDate, curUser);
-            }
-
+            return doBatchBill();
         }
         // Assemble the JSP view model so batchBilling.jsp can render purely
         // via EL/JSTL. The JSP scriptlet body previously called four

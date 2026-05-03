@@ -88,7 +88,7 @@ public final class BillingDates {
         if (raw == null || raw.trim().isEmpty() || "null".equalsIgnoreCase(raw.trim())) {
             return fallbackDate.format(SERVICE_DATE);
         }
-        return OhipDateParser.parse(raw, OhipDateParser.ZeroDayPolicy.REJECT_ZERO_DAY).format(SERVICE_DATE);
+        return OhipDateTokens.parse(raw, OhipDateTokens.ZeroDayPolicy.REJECT_ZERO_DAY).format(SERVICE_DATE);
     }
 
     public static Date serviceDate(String serviceDate) {
@@ -121,7 +121,7 @@ public final class BillingDates {
                     .atStartOfDay(billingZone()).toInstant());
         } catch (java.time.format.DateTimeParseException e) {
             throw new IllegalArgumentException(
-                    "BillingDates.parseIsoDate: malformed yyyy-MM-dd date [" + raw + "]");
+                    "BillingDates.parseIsoDate: malformed yyyy-MM-dd date [" + raw + "]", e);
         }
     }
 
@@ -147,7 +147,7 @@ public final class BillingDates {
                     .atStartOfDay(billingZone()).toInstant());
         } catch (java.time.format.DateTimeParseException e) {
             throw new IllegalArgumentException(
-                    "BillingDates.parseOptionalIsoDate: malformed " + fieldName + " [" + raw + "]");
+                    "BillingDates.parseOptionalIsoDate: malformed " + fieldName + " [" + raw + "]", e);
         }
     }
 

@@ -45,7 +45,7 @@ src/main/java/io/github/carlos_emr/carlos/billings/
 │   └── on/                                ← Ontario implementation (this doc)
 │       ├── BillingDates.java                top-level utility (date parsing / formatting)
 │       ├── BillingMoney.java                top-level utility (BigDecimal money helpers)
-│       ├── OhipDateParser.java              top-level OHIP date parser bridge
+│       ├── OhipDateTokens.java              top-level OHIP date-token utility
 │       ├── OhipScheduleDates.java           top-level Schedule of Benefits date normalizer
 │       ├── assembler/                       *ViewModelAssembler classes + composers/loaders
 │       ├── command/                         typed write/validation commands
@@ -129,7 +129,7 @@ only when nothing more specific applies.
 | Pure-read query service | `*Loader` | `BillingOnClaimLoader`, `BillingOnDiskLoader`, `ServiceCodeLoader` |
 | Pure-write persistence service | `*Persister` | `BillingOnClaimPersister`, `BillingOnReviewDiagPersister`, `DiagCodeDescriptionPersister`, `RaHeaderTotalsPersister`, `ServiceCodePersister` |
 | Pure calculation | `*Calculator` | `BillingOnHistoryBalanceCalculator` (pure arithmetic only; DAO-backed balance loading belongs in a `*Service` / `*Loader`.) |
-| Input validator | `*Validator` | `BillingOnReviewValidator` (with `BillingValidationException` for fail-fast paths) |
+| Input validator | `*Validator` | `BillingOnReviewValidator` for composable result objects; command/value coercers may use `BillingValidationException` for fail-fast write paths |
 | Mixed read/write orchestration | `*Service` | `BillingCorrectionService`, `BillingOnHeaderCreationService`, `BillingOnLookupService` |
 | Data access | `*Dao` | `BillingONCHeader1Dao`, `BillingONPaymentDao`, `BillingServiceDao` |
 
@@ -347,18 +347,25 @@ open Hibernate session (e.g., in a non-`@Transactional` assembler or a
 REST converter), Hibernate throws `LazyInitializationException`. Use
 `findWithItems` instead.
 
-### 6.2 The DISTINCT pattern in `findByDemoNoWithItems`
+### 6.2 The pagination-safe DISTINCT pattern in `findByDemoNoWithItems`
 
 ```java
-"SELECT DISTINCT h FROM BillingONCHeader1 h "
-+ "LEFT JOIN FETCH h.billingItems "
+"SELECT h.id FROM BillingONCHeader1 h "
 + "WHERE h.demographicNo = ?1 AND h.status != 'D' "
 + "ORDER BY h.billingDate DESC, h.billingTime DESC, h.id DESC"
+// setFirstResult(offset), setMaxResults(pageSize)
+
+"SELECT DISTINCT h FROM BillingONCHeader1 h "
++ "LEFT JOIN FETCH h.billingItems "
++ "WHERE h.id IN :ids"
+// sort the fetched headers back into id-query order
 ```
 
-`LEFT JOIN FETCH` produces one SQL row per child item, so without `DISTINCT`
-the parent count would be wrong. `DISTINCT` keeps the parent count correct;
-the items collection is still populated correctly in each returned entity.
+Pagination happens on a header-id query first. The second query fetches only
+that page of headers with their items using `LEFT JOIN FETCH`. This avoids
+Hibernate paging over the multiplied join rows. `DISTINCT` is still required
+on the fetch query because `LEFT JOIN FETCH` produces one SQL row per child
+item; the final in-memory sort restores the original id-query order.
 
 ### 6.3 Tested invariants
 

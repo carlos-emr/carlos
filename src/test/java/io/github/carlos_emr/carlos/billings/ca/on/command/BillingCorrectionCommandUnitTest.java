@@ -96,6 +96,14 @@ class BillingCorrectionCommandUnitTest {
     }
 
     @Test
+    void shouldNormalizeNullBillingUnitThroughQuantityParser_forCorrectionLine() {
+        BillingCorrectionLineCommand command =
+                new BillingCorrectionLineCommand("A001A", (java.math.BigDecimal) null, null);
+
+        assertThat(command.billingUnitText()).isEqualTo("0");
+    }
+
+    @Test
     void shouldRejectMalformedDateAtCommandBoundary_forInvalidInput() {
         assertThatThrownBy(() -> new BillingCorrectionSubmitCommand(
                 "42",

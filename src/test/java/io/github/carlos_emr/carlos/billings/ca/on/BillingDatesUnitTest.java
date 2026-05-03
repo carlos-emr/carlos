@@ -90,7 +90,8 @@ class BillingDatesUnitTest {
         // service date on the OHIP claim. Must surface to the caller.
         assertThatThrownBy(() -> BillingDates.parseIsoDate("not-a-date"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("not-a-date");
+                .hasMessageContaining("not-a-date")
+                .hasCauseInstanceOf(java.time.format.DateTimeParseException.class);
     }
 
     @Test
@@ -124,7 +125,8 @@ class BillingDatesUnitTest {
         assertThatThrownBy(() -> BillingDates.parseOptionalIsoDate("not-a-date", "billing_date"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("billing_date")
-                .hasMessageContaining("not-a-date");
+                .hasMessageContaining("not-a-date")
+                .hasCauseInstanceOf(java.time.format.DateTimeParseException.class);
     }
 
     @Test

@@ -119,17 +119,17 @@ class BillingPaymentDeletionServiceUnitTest {
         InOrder lockThenDelete = inOrder(headerDao, paymentDao);
         lockThenDelete.verify(headerDao).findForUpdate(42);
         lockThenDelete.verify(paymentDao).remove(101);
-        // 2. header rebalanced — paid (80) - refund.negate (-10) = 90
+        // 2. header rebalanced — net paid is payments (80) minus refunds (10).
         BillingONCHeader1 ch1 = payment.getBillingONCheader1();
-        assertThat(ch1.getPaid()).isEqualByComparingTo("90.00");
+        assertThat(ch1.getPaid()).isEqualByComparingTo("70.00");
         verify(headerDao).merge(ch1);
-        // 3. ext payment-key written as plain decimal "80.00" — NOT "$80.00" or "€80.00"
+        // 3. ext payment-key stores the same net paid total as the header.
         verify(extDao).setExtItem(eq(42), eq(7),
-                eq(BillingONExtDao.KEY_PAYMENT), eq("80.00"),
+                eq(BillingONExtDao.KEY_PAYMENT), eq("70.00"),
                 any(Date.class), eq('1'));
-        // 4. ext refund-key written negated
+        // 4. ext refund-key stores the positive refund total for audit/display.
         verify(extDao).setExtItem(eq(42), eq(7),
-                eq(BillingONExtDao.KEY_REFUND), eq("-10.00"),
+                eq(BillingONExtDao.KEY_REFUND), eq("10.00"),
                 any(Date.class), eq('1'));
     }
 

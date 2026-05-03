@@ -140,11 +140,31 @@ public record BillingMoney(BigDecimal amount, Currency currency) implements Comp
         return decimal(raw).setScale(scale, RoundingMode.HALF_UP);
     }
 
+    /**
+     * @deprecated use {@link #amountOrZeroLegacyBigDecimal(String)} while
+     * migrating legacy BigDecimal call sites toward {@link BillingMoney}.
+     */
+    @Deprecated(forRemoval = false)
     public static BigDecimal amountOrZero(String raw) {
-        return amountOrZero(raw, MONEY_SCALE);
+        return amountOrZeroLegacyBigDecimal(raw);
     }
 
+    /**
+     * @deprecated use {@link #amountOrZeroLegacyBigDecimal(String, int)} while
+     * migrating legacy BigDecimal call sites toward {@link BillingMoney}.
+     */
+    @Deprecated(forRemoval = false)
     public static BigDecimal amountOrZero(String raw, int scale) {
+        return amountOrZeroLegacyBigDecimal(raw, scale);
+    }
+
+    /** Legacy BigDecimal bridge for report/import paths that still need zero-on-malformed behavior. */
+    public static BigDecimal amountOrZeroLegacyBigDecimal(String raw) {
+        return amountOrZeroLegacyBigDecimal(raw, MONEY_SCALE);
+    }
+
+    /** Legacy BigDecimal bridge for report/import paths that still need zero-on-malformed behavior. */
+    public static BigDecimal amountOrZeroLegacyBigDecimal(String raw, int scale) {
         if (raw == null || raw.trim().isEmpty()) {
             return BigDecimal.ZERO.setScale(scale);
         }
@@ -158,7 +178,17 @@ public record BillingMoney(BigDecimal amount, Currency currency) implements Comp
         }
     }
 
+    /**
+     * @deprecated use {@link #ohipFeeAmountLegacyBigDecimal(String)} while
+     * migrating fee-schedule import paths toward {@link BillingMoney}.
+     */
+    @Deprecated(forRemoval = false)
     public static BigDecimal ohipFeeAmount(String raw) {
+        return ohipFeeAmountLegacyBigDecimal(raw);
+    }
+
+    /** Legacy BigDecimal bridge for fixed-width OHIP fee amounts. */
+    public static BigDecimal ohipFeeAmountLegacyBigDecimal(String raw) {
         return decimal(raw).movePointLeft(OHIP_FEE_SCALE).setScale(MONEY_SCALE, RoundingMode.HALF_UP);
     }
 

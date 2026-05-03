@@ -109,7 +109,7 @@ class MoveMohFiles2ActionUnitTest extends CarlosUnitTestBase {
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(mockLoggedInInfo);
 
-        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin"), eq("w"), isNull()))
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.billing"), eq("w"), isNull()))
                 .thenReturn(true);
     }
 
@@ -142,14 +142,14 @@ class MoveMohFiles2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldThrowSecurityException_whenLackingAdminWritePrivilege() {
-        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin"), eq("w"), isNull()))
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.billing"), eq("w"), isNull()))
                 .thenReturn(false);
 
         MoveMohFiles2Action action = new MoveMohFiles2Action();
 
         assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("_admin");
+                .hasMessageContaining("_admin.billing");
     }
 
     /**

@@ -116,6 +116,17 @@ class BillingClaimsErrorReportImportServiceUnitTest {
     }
 
     @Test
+    void shouldThrowBillingFileImportException_whenDependentRecordPrecedesHeader() throws IOException {
+        String content = claimLine() + "\n" + transactionLine() + "\n" + footerLine() + "\n";
+        FileInputStream input = writeAndOpen(content);
+
+        assertThatThrownBy(() -> svc.importStream(input, "out-of-order.err"))
+                .isInstanceOf(BillingFileImportException.class)
+                .hasMessageContaining("out-of-order.err")
+                .hasMessageContaining("before header");
+    }
+
+    @Test
     void shouldSkipShortLines_andContinueParsingWhenHeaderCountUnreadable() throws IOException {
         // Lines under 3 chars cannot yield a headerCount substring — the
         // parser logs and continues. The remaining valid lines must still

@@ -236,13 +236,13 @@ public class FeeScheduleImportService {
                     rawLine.substring(0, 4),
                     rawLine.substring(4, 12),
                     rawLine.substring(12, 20),
-                    BillingMoney.ohipFeeAmount(rawLine.substring(20, 31)),
-                    BillingMoney.ohipFeeAmount(rawLine.substring(31, 42)),
-                    BillingMoney.ohipFeeAmount(rawLine.substring(42, 53)),
-                    BillingMoney.ohipFeeAmount(rawLine.substring(53, 64)),
-                    BillingMoney.ohipFeeAmount(rawLine.substring(64, 75)));
+                    BillingMoney.ohipFeeAmountLegacyBigDecimal(rawLine.substring(20, 31)),
+                    BillingMoney.ohipFeeAmountLegacyBigDecimal(rawLine.substring(31, 42)),
+                    BillingMoney.ohipFeeAmountLegacyBigDecimal(rawLine.substring(42, 53)),
+                    BillingMoney.ohipFeeAmountLegacyBigDecimal(rawLine.substring(53, 64)),
+                    BillingMoney.ohipFeeAmountLegacyBigDecimal(rawLine.substring(64, 75)));
         } catch (RuntimeException e) {
-            // The expected case is NumberFormatException from BillingMoney.ohipFeeAmount;
+            // The expected case is NumberFormatException from BillingMoney.ohipFeeAmountLegacyBigDecimal;
             // the catch is intentionally broad in case BillingMoney's contract drifts.
             // Log the line number + exception type so unknown failure modes remain
             // debuggable instead of disappearing into the validation-error bag.

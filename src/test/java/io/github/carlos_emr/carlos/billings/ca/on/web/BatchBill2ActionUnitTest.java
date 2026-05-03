@@ -161,6 +161,29 @@ class BatchBill2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getHeader("Allow")).isEqualTo("POST");
         verify(headerCreationService, never())
                 .createBill(any(), any(), any(), any(), any(), any(), any());
+        verify(batchBillingSubmissionService, never())
+                .submitAll(any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldRouteDefaultPost_throughBatchSubmissionService() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("bill", "A007A;250;42;999998");
+        request.setParameter("method", "");
+
+        String result = action().execute();
+
+        assertThat(result).isNull();
+        verify(batchBillingSubmissionService)
+                .submitAll(org.mockito.ArgumentMatchers.argThat(rows ->
+                                rows.size() == 1
+                                        && rows.get(0).providerNo().equals("999998")
+                                        && rows.get(0).demographicNo().equals(42)
+                                        && rows.get(0).serviceCode().equals("A007A")
+                                        && rows.get(0).dxCode().equals("250")),
+                        eq("clinic-a"), any(), eq("999998"));
+        verify(headerCreationService, never())
+                .createBill(any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
