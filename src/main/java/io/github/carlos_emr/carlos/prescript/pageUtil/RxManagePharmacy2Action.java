@@ -105,13 +105,17 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         }
 
         String actionType = this.getPharmacyAction();
+        if (StringUtils.isNullOrEmpty(actionType)) {
+            return SUCCESS;
+        }
+
         RxPharmacyData pharmacy = new RxPharmacyData();
 
-        if (actionType.equals("Add")) {
+        if ("Add".equals(actionType)) {
             pharmacy.addPharmacy(this.getName(), this.getAddress(), this.getCity(), this.getProvince(), this.getPostalCode(), this.getPhone1(), this.getPhone2(), this.getFax(), this.getEmail(), this.getServiceLocationIdentifier(), this.getNotes());
-        } else if (actionType.equals("Edit")) {
+        } else if ("Edit".equals(actionType)) {
             pharmacy.updatePharmacy(this.getID(), this.getName(), this.getAddress(), this.getCity(), this.getProvince(), this.getPostalCode(), this.getPhone1(), this.getPhone2(), this.getFax(), this.getEmail(), this.getServiceLocationIdentifier(), this.getNotes());
-        } else if (actionType.equals("Delete")) {
+        } else if ("Delete".equals(actionType)) {
             pharmacy.deletePharmacy(this.getID());
         }
 
