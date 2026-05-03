@@ -53,8 +53,11 @@ class AdministrationLeftNavAgeSexReportTest {
         assertThat(jsp)
                 .as("xlink handler should submit the hidden form into the iframe")
                 .contains("data-submit-form=\"ageSexForm\"")
+                .contains("data-frame-title=\"Age-Sex Report\"")
                 .contains("form.submit();")
-                .contains("var iframeTitle = $.trim($(this).text()) || \"Administration content\"")
-                .contains("title: iframeTitle");
+                .contains("var iframeTitle = $(this).data('frame-title') || $.trim($(this).text()) || \"Administration page\"")
+                .contains("title: iframeTitle")
+                .contains("}).css(\"border\", \"0\")")
+                .doesNotContain("frameborder");
     }
 }

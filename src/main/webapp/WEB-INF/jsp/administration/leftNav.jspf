@@ -348,7 +348,7 @@ String curProvider_no = (String)session.getAttribute("user");
 					</li>
 
 					<li>
-					<a href="javascript:void(0);" class="xlink" rel="${carlos:forHtmlAttribute(ctx)}/oscarReport/DbReportAgeSex" data-submit-form="ageSexForm"><fmt:message key="admin.admin.btnAgeSexReport"/></a>
+					<a href="javascript:void(0);" class="xlink" rel="${carlos:forHtmlAttribute(ctx)}/oscarReport/DbReportAgeSex" data-submit-form="ageSexForm" data-frame-title="Age-Sex Report"><fmt:message key="admin.admin.btnAgeSexReport"/></a>
 					<form id="ageSexForm" method="post" action="${carlos:forHtmlAttribute(ctx)}/oscarReport/DbReportAgeSex" target="myFrame" style="display:none"></form>
 					</li>
 					
@@ -905,14 +905,13 @@ $(document).ready(function(){
 	$(".xlink").click(function(e) {
 		var source = $(this).attr('rel');
 		var submitForm = $(this).data('submit-form');
-		var iframeTitle = $.trim($(this).text()) || "Administration content";
+		var iframeTitle = $(this).data('frame-title') || $.trim($(this).text()) || "Administration page";
 		$("#dynamic-content").addClass("dynamic-iframe-content");
 		$("#dynamic-content").empty().append($("<iframe>", {
 			id: "myFrame",
 			name: "myFrame",
-			title: iframeTitle,
-			frameborder: 0
-		}));
+			title: iframeTitle
+		}).css("border", "0"));
 		if (submitForm) {
 			var form = document.getElementById(submitForm);
 			if (form) {
