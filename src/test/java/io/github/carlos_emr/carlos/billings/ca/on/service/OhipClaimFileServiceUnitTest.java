@@ -45,6 +45,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.on.BillingDates;
@@ -174,6 +175,37 @@ class OhipClaimFileServiceUnitTest {
         File written = new File(tempDir.toFile(), "HCPv03.html");
         assertThat(written).exists();
         assertThat(Files.readString(written.toPath())).contains("HE B0001234");
+    }
+
+    @Test
+    void shouldDeleteGeneratedFilesQuietly_whenCleanupRequested() throws IOException {
+        Path ohipFile = tempDir.resolve("claim.cleanup.txt");
+        Path htmlFile = tempDir.resolve("claim.cleanup.html");
+        Files.writeString(ohipFile, "ohip");
+        Files.writeString(htmlFile, "html");
+        service.setOhipFilename("claim.cleanup.txt");
+        service.setHtmlFilename("claim.cleanup.html");
+
+        service.deleteOhipFileQuietly();
+        service.deleteHtmlFileQuietly();
+
+        assertThat(ohipFile).doesNotExist();
+        assertThat(htmlFile).doesNotExist();
+    }
+
+    @Test
+    void shouldRestoreRenamedFileQuietly_whenRegenerationCleanupRequested() throws IOException {
+        Path original = tempDir.resolve("claim.regen.txt");
+        Files.writeString(original, "original file");
+        service.setOhipFilename("claim.regen.txt");
+
+        service.renameFile();
+        assertThat(original).doesNotExist();
+
+        service.restoreLastRenameQuietly();
+
+        assertThat(original).exists();
+        assertThat(Files.readString(original)).isEqualTo("original file");
     }
 
     @Test
@@ -331,6 +363,11 @@ class OhipClaimFileServiceUnitTest {
         assertThat(Modifier.isSynchronized(
                 OhipClaimFileService.class.getMethod("setProviderNo", String.class).getModifiers()))
                 .isFalse();
+    }
+
+    @Test
+    void shouldKeepPrototypeWriterOutsideClassLevelTransactions_forFileSystemConsistency() {
+        assertThat(OhipClaimFileService.class.getAnnotation(Transactional.class)).isNull();
     }
 
     private static BillingONCHeader1 hcpHeader() throws Exception {

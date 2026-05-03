@@ -28,7 +28,6 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.text.NumberFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -36,7 +35,6 @@ import java.util.Arrays;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 
@@ -105,16 +103,17 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
  * {@code factory.getObject()} call yields a fresh instance (see
  * {@link BillingOnDiskService}).</p>
  *
- * <p><strong>{@code @Transactional} note:</strong> {@link #finalizeGeneratedDisk()}
- * applies the DB state transition after the caller has durably written the
- * OHIP/HTML files. {@link #updateDisknameSum} remains a separate disk-log
- * update after that finalization step.</p>
+ * <p><strong>Transaction note:</strong> this prototype writer is intentionally
+ * not class-level transactional because it performs filesystem writes.
+ * Claim-file assembly keeps method-level read-only transactions for DAO reads;
+ * disk generation callers run {@link #finalizeGeneratedDisk()} and
+ * {@link #updateDisknameSum(int)} through {@link BillingOnDiskTransactionService}
+ * after the OHIP/HTML files are durable.</p>
  *
  * @since 2026-04-26
  */
 @org.springframework.stereotype.Service
 @org.springframework.context.annotation.Scope("prototype")
-@org.springframework.transaction.annotation.Transactional
 public class OhipClaimFileService {
 
     private static final Logger _logger = MiscUtils.getLogger();
@@ -194,6 +193,8 @@ public class OhipClaimFileService {
     private String m_Flag = "";
     private String ohipClaim;
     private String ohipFilename;
+    private File lastRenamedOriginalFile;
+    private File lastRenamedBackupFile;
     private String ohipReciprocal;
     private String ohipRecord;
     private String ohipVer;
@@ -327,9 +328,8 @@ public class OhipClaimFileService {
                 ? ConversionUtils.toTimeString(h.getBillingTime())
                 : ConversionUtils.toDateString(h.getBillingTime()));
 
-        NumberFormat currency = NumberFormat.getCurrencyInstance(Locale.US);
-        dto = dto.withTotal(h.getTotal() == null ? "0.00" : currency.format(h.getTotal()));
-        dto = dto.withPaid(h.getPaid() == null ? "0.00" : currency.format(h.getPaid()));
+        dto = dto.withTotal(h.getTotal() == null ? "0.00" : BillingMoney.format(h.getTotal()));
+        dto = dto.withPaid(h.getPaid() == null ? "0.00" : BillingMoney.format(h.getPaid()));
         dto = dto.withStatus(h.getStatus());
         dto = dto.withComment(h.getComment());
         dto = dto.withVisitType(h.getVisitType());
@@ -623,6 +623,7 @@ public class OhipClaimFileService {
      *
      * @see #createBillingFileStr(LoggedInInfo, String, String[], boolean, String, boolean, boolean)
      */
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public void createBillingFileStr(LoggedInInfo loggedInInfo, String bid, String[] status, boolean simulation, String mohOffice, boolean summaryView) {
         createBillingFileStr(loggedInInfo, bid, status, simulation, mohOffice, summaryView, false);
     }
@@ -630,9 +631,10 @@ public class OhipClaimFileService {
     /**
      * Builds the fixed-width OHIP claim file body and companion HTML preview in
      * this prototype instance. When {@code simulation} is false and
-     * {@code eFlag} is {@code "1"}, this also marks included claim headers as
-     * billed and updates the batch summary counts.
+     * {@code eFlag} is {@code "1"}, this stages the included claim-header and
+     * batch summary updates for {@link #finalizeGeneratedDisk()}.
      */
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public void createBillingFileStr(LoggedInInfo loggedInInfo, String bid, String[] status, boolean simulation, String mohOffice, boolean summaryView, boolean useProviderMOH) {
         this.summaryView = summaryView;
         resetGeneratedDiskFinalization();
@@ -1210,11 +1212,13 @@ public class OhipClaimFileService {
         try {
             java.nio.file.Files.move(file.toPath(), file2.toPath(),
                     java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            rememberRenamedFile(file, file2);
         } catch (java.nio.file.AtomicMoveNotSupportedException atomicNotSupported) {
             // Cross-volume rename — fall back to plain move.
             try {
                 java.nio.file.Files.move(file.toPath(), file2.toPath(),
                         java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                rememberRenamedFile(file, file2);
             } catch (java.io.IOException ioe) {
                 _logger.error("OHIP file rename failed: {} -> {}", ohipFilename, newName, ioe);
                 throw new BillingFileWriteException(
@@ -1224,6 +1228,62 @@ public class OhipClaimFileService {
             _logger.error("OHIP file rename failed: {} -> {}", ohipFilename, newName, ioe);
             throw new BillingFileWriteException(
                     "OHIP file rename failed: " + ohipFilename, ioe);
+        }
+    }
+
+    private void rememberRenamedFile(File originalFile, File backupFile) {
+        lastRenamedOriginalFile = originalFile;
+        lastRenamedBackupFile = backupFile;
+    }
+
+    /** Deletes the generated OHIP claim file, suppressing cleanup failures. */
+    public void deleteOhipFileQuietly() {
+        deleteConfiguredOutputQuietly(ohipFilename, "OHIP");
+    }
+
+    /** Deletes the generated HTML companion file, suppressing cleanup failures. */
+    public void deleteHtmlFileQuietly() {
+        deleteConfiguredOutputQuietly(htmlFilename, "HTML");
+    }
+
+    /**
+     * Restores the original OHIP file after a regeneration failure, suppressing
+     * cleanup failures so the original exception remains visible to callers.
+     */
+    public void restoreLastRenameQuietly() {
+        if (lastRenamedOriginalFile == null || lastRenamedBackupFile == null
+                || !lastRenamedBackupFile.exists()) {
+            return;
+        }
+        try {
+            java.nio.file.Files.move(lastRenamedBackupFile.toPath(),
+                    lastRenamedOriginalFile.toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            lastRenamedOriginalFile = null;
+            lastRenamedBackupFile = null;
+        } catch (IOException | RuntimeException e) {
+            _logger.warn("Failed to restore renamed OHIP file from {} to {}",
+                    LogSanitizer.sanitize(lastRenamedBackupFile.getName()),
+                    LogSanitizer.sanitize(lastRenamedOriginalFile.getName()), e);
+        }
+    }
+
+    private void deleteConfiguredOutputQuietly(String configuredFilename, String outputLabel) {
+        if (configuredFilename == null || configuredFilename.isBlank()) {
+            return;
+        }
+        try {
+            String homeDir = CarlosProperties.getInstance().getProperty("HOME_DIR");
+            if (homeDir == null || homeDir.isBlank()) {
+                _logger.warn("Skipping {} cleanup because HOME_DIR is not configured", outputLabel);
+                return;
+            }
+            File safeOut = io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath(
+                    configuredFilename, new File(homeDir));
+            java.nio.file.Files.deleteIfExists(safeOut.toPath());
+        } catch (IOException | RuntimeException e) {
+            _logger.warn("Failed to delete generated {} file {} during cleanup", outputLabel,
+                    LogSanitizer.sanitize(configuredFilename), e);
         }
     }
 

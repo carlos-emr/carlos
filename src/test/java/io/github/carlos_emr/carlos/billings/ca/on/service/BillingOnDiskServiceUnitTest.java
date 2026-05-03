@@ -22,6 +22,9 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import java.math.BigDecimal;
 import java.util.List;
 
+import org.springframework.transaction.annotation.Transactional;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -44,6 +47,7 @@ class BillingOnDiskServiceUnitTest {
     private ProviderDao providerDao;
     private BillingDiskCreationService diskCreationService;
     private BillingOnDiskLoader diskLoader;
+    private BillingOnDiskTransactionService transactionService;
     private ObjectFactory<OhipClaimFileService> claimFileFactory;
     private OhipClaimFileService claimFileService;
     private LoggedInInfo loggedInInfo;
@@ -55,6 +59,7 @@ class BillingOnDiskServiceUnitTest {
         providerDao = mock(ProviderDao.class);
         diskCreationService = mock(BillingDiskCreationService.class);
         diskLoader = mock(BillingOnDiskLoader.class);
+        transactionService = mock(BillingOnDiskTransactionService.class);
         claimFileFactory = mock(ObjectFactory.class);
         claimFileService = mock(OhipClaimFileService.class);
         loggedInInfo = mock(LoggedInInfo.class);
@@ -67,7 +72,8 @@ class BillingOnDiskServiceUnitTest {
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(loggedInInfo);
 
-        service = new BillingOnDiskService(providerDao, diskCreationService, diskLoader, claimFileFactory);
+        service = new BillingOnDiskService(providerDao, diskCreationService, diskLoader,
+                claimFileFactory, transactionService);
     }
 
     @AfterEach
@@ -75,6 +81,11 @@ class BillingOnDiskServiceUnitTest {
         if (loggedInInfoMock != null) {
             loggedInInfoMock.close();
         }
+    }
+
+    @Test
+    void shouldKeepOrchestrationOutsideTransaction_forFileSystemConsistency() {
+        assertThat(BillingOnDiskService.class.getAnnotation(Transactional.class)).isNull();
     }
 
     @Test
@@ -97,8 +108,7 @@ class BillingOnDiskServiceUnitTest {
                 aryEq(new String[]{"O", "W", "I"}), eq(false), eq("4"), eq(false), eq(false));
         verify(claimFileService).writeFile("claim-body");
         verify(claimFileService).writeHtml("<html>claim</html>");
-        verify(claimFileService).finalizeGeneratedDisk();
-        verify(claimFileService).updateDisknameSum(12);
+        verify(transactionService).finalizeGeneratedDisk(claimFileService, 12);
     }
 
     @Test
@@ -113,11 +123,10 @@ class BillingOnDiskServiceUnitTest {
 
         service.generateNewDisk(request);
 
-        InOrder order = inOrder(claimFileService);
+        InOrder order = inOrder(claimFileService, transactionService);
         order.verify(claimFileService).writeFile("claim-body");
         order.verify(claimFileService).writeHtml("<html>claim</html>");
-        order.verify(claimFileService).finalizeGeneratedDisk();
-        order.verify(claimFileService).updateDisknameSum(12);
+        order.verify(transactionService).finalizeGeneratedDisk(claimFileService, 12);
     }
 
     @Test
@@ -137,8 +146,27 @@ class BillingOnDiskServiceUnitTest {
                 .hasMessageContaining("disk full");
 
         verify(claimFileService, never()).writeHtml(anyString());
-        verify(claimFileService, never()).finalizeGeneratedDisk();
-        verify(claimFileService, never()).updateDisknameSum(12);
+        verify(transactionService, never()).finalizeGeneratedDisk(claimFileService, 12);
+    }
+
+    @Test
+    void shouldDeleteWrittenFiles_whenDbFinalizationFails() {
+        MockHttpServletRequest request = newDiskRequest("999998");
+        BillingProviderDto provider = provider("999998", "0000");
+        when(diskCreationService.getProviderObj("999998")).thenReturn(provider);
+        when(diskCreationService.createNewSoloDiskName("999998", "999998")).thenReturn(12);
+        when(diskCreationService.createBatchHeader(provider, "12", "4", "1", "999998")).thenReturn(34);
+        when(diskCreationService.getOhipfilename(12)).thenReturn("ohip.txt");
+        when(diskCreationService.getHtmlfilename(12, "999998")).thenReturn("ohip.html");
+        doThrow(new IllegalStateException("db down"))
+                .when(transactionService).finalizeGeneratedDisk(claimFileService, 12);
+
+        assertThatThrownBy(() -> service.generateNewDisk(request))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("db down");
+
+        verify(claimFileService).deleteOhipFileQuietly();
+        verify(claimFileService).deleteHtmlFileQuietly();
     }
 
     @Test
@@ -161,8 +189,29 @@ class BillingOnDiskServiceUnitTest {
         verify(claimFileService).renameFile();
         verify(claimFileService).createBillingFileStr(eq(loggedInInfo), eq("78"),
                 aryEq(new String[]{"B"}), eq(false), eq("4"), eq(false), eq(false));
-        verify(claimFileService, never()).finalizeGeneratedDisk();
-        verify(claimFileService, never()).updateDisknameSum(55);
+        verify(transactionService, never()).finalizeGeneratedDisk(claimFileService, 55);
+    }
+
+    @Test
+    void shouldRestoreOriginalFile_whenRegeneratedDbFinalizationFails() {
+        MockHttpServletRequest request = regenerateRequest("55");
+        BillingProviderDto provider = provider("999998", "0000");
+        when(diskLoader.getDiskCreateDate("55")).thenReturn("2026-04-30");
+        when(diskCreationService.getProvider("55")).thenReturn(List.of(provider));
+        when(diskCreationService.updateBatchHeader(provider, "55", "4", "1", "999998")).thenReturn(78);
+        when(diskCreationService.getOhipfilename(55)).thenReturn("regen.txt");
+        when(diskCreationService.getHtmlfilename(55, "999998")).thenReturn("regen.html");
+        doThrow(new IllegalStateException("db down"))
+                .when(transactionService).finalizeGeneratedDisk(claimFileService, 55);
+
+        assertThatThrownBy(() -> service.regenerateDisk(request))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("db down");
+
+        verify(claimFileService).renameFile();
+        verify(claimFileService).deleteOhipFileQuietly();
+        verify(claimFileService).deleteHtmlFileQuietly();
+        verify(claimFileService).restoreLastRenameQuietly();
     }
 
     private static MockHttpServletRequest newDiskRequest(String providerNo) {

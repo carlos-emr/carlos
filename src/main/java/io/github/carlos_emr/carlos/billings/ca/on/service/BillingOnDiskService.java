@@ -55,7 +55,6 @@ import org.springframework.beans.factory.ObjectFactory;
  * @since 2026-04-26
  */
 @org.springframework.stereotype.Service
-@org.springframework.transaction.annotation.Transactional
 public class BillingOnDiskService {
 
     private static final String[] BILLING_STATUS_NEW = new String[]{"O", "W", "I"};
@@ -65,15 +64,18 @@ public class BillingOnDiskService {
     private final BillingDiskCreationService prep;
     private final BillingOnDiskLoader diskQueryService;
     private final ObjectFactory<OhipClaimFileService> ohipClaimFileFactory;
+    private final BillingOnDiskTransactionService transactionService;
 
     BillingOnDiskService(ProviderDao providerDao,
                          BillingDiskCreationService prep,
                          BillingOnDiskLoader diskQueryService,
-                         ObjectFactory<OhipClaimFileService> ohipClaimFileFactory) {
+                         ObjectFactory<OhipClaimFileService> ohipClaimFileFactory,
+                         BillingOnDiskTransactionService transactionService) {
         this.providerDao = providerDao;
         this.prep = prep;
         this.diskQueryService = diskQueryService;
         this.ohipClaimFileFactory = ohipClaimFileFactory;
+        this.transactionService = transactionService;
     }
 
     /**
@@ -145,10 +147,7 @@ public class BillingOnDiskService {
             objFile.renameFile();
             objFile.createBillingFileStr(loggedInInfo, "" + headerId, BILLING_STATUS_REGEN, false,
                     resolvedMoh, false, false);
-            objFile.writeFile(objFile.getValue());
-            objFile.writeHtml(objFile.getHtmlCode());
-            objFile.finalizeGeneratedDisk();
-            objFile.updateDisknameSum(Integer.parseInt(diskId));
+            writeRegeneratedDiskFilesAndFinalize(objFile, Integer.parseInt(diskId));
         } else if (lProvider != null && !lProvider.isEmpty()) {
             regenerateGroupDisk(prep, lProvider, loggedInInfo, request, dateRange, mohOffice,
                     diskId, currentUser);
@@ -189,10 +188,7 @@ public class BillingOnDiskService {
                     prep.getHtmlfilename(diskId, dataProvider.getProviderNo()));
             objFile.createBillingFileStr(loggedInInfo, "" + headerId, BILLING_STATUS_NEW, false,
                     mohOffice, false, "on".equals(useProviderMOH));
-            objFile.writeFile(objFile.getValue());
-            objFile.writeHtml(objFile.getHtmlCode());
-            objFile.finalizeGeneratedDisk();
-            objFile.updateDisknameSum(diskId);
+            writeNewDiskFilesAndFinalize(objFile, diskId);
         }
     }
 
@@ -233,11 +229,7 @@ public class BillingOnDiskService {
                 OhipClaimFileService finalize = ohipClaimFileFactory.getObject();
                 finalize.setContextPath(request.getContextPath());
                 finalize.setOhipFilename(prep.getOhipfilename(diskId));
-                finalize.writeFile(generation.claimBody());
-                for (OhipClaimFileService writer : generation.writers()) {
-                    writer.finalizeGeneratedDisk();
-                    writer.updateDisknameSum(diskId);
-                }
+                writeNewGroupDiskFileAndFinalize(generation, finalize, diskId);
             }
         }
     }
@@ -287,10 +279,7 @@ public class BillingOnDiskService {
                 prep.getHtmlfilename(diskId, dataProvider.getProviderNo()));
         objFile.createBillingFileStr(loggedInInfo, "" + headerId, BILLING_STATUS_NEW, false,
                 mohOffice, false, "on".equals(useProviderMOH));
-        objFile.writeFile(objFile.getValue());
-        objFile.writeHtml(objFile.getHtmlCode());
-        objFile.finalizeGeneratedDisk();
-        objFile.updateDisknameSum(diskId);
+        writeNewDiskFilesAndFinalize(objFile, diskId);
     }
 
     private void regenerateGroupDisk(BillingDiskCreationService prep,
@@ -318,12 +307,70 @@ public class BillingOnDiskService {
             lastWriter = objFile;
         }
         if (lastWriter != null) {
-            lastWriter.renameFile();
-            lastWriter.writeFile(value.toString());
-            for (OhipClaimFileService writer : writers) {
-                writer.finalizeGeneratedDisk();
-                writer.updateDisknameSum(Integer.parseInt(diskId));
-            }
+            writeRegeneratedGroupDiskFileAndFinalize(writers, lastWriter, value.toString(),
+                    Integer.parseInt(diskId));
+        }
+    }
+
+    private void writeNewDiskFilesAndFinalize(OhipClaimFileService writer, int diskId) {
+        try {
+            writer.writeFile(writer.getValue());
+            writer.writeHtml(writer.getHtmlCode());
+            transactionService.finalizeGeneratedDisk(writer, diskId);
+        } catch (RuntimeException e) {
+            cleanupWrittenFiles(List.of(writer), writer, false);
+            throw e;
+        }
+    }
+
+    private void writeRegeneratedDiskFilesAndFinalize(OhipClaimFileService writer, int diskId) {
+        try {
+            writer.writeFile(writer.getValue());
+            writer.writeHtml(writer.getHtmlCode());
+            transactionService.finalizeGeneratedDisk(writer, diskId);
+        } catch (RuntimeException e) {
+            cleanupWrittenFiles(List.of(writer), writer, true);
+            throw e;
+        }
+    }
+
+    private void writeNewGroupDiskFileAndFinalize(GroupDiskGeneration generation,
+                                                   OhipClaimFileService ohipWriter,
+                                                   int diskId) {
+        try {
+            ohipWriter.writeFile(generation.claimBody());
+            transactionService.finalizeGeneratedDisks(generation.writers(), diskId);
+        } catch (RuntimeException e) {
+            cleanupWrittenFiles(generation.writers(), ohipWriter, false);
+            throw e;
+        }
+    }
+
+    private void writeRegeneratedGroupDiskFileAndFinalize(List<OhipClaimFileService> writers,
+                                                           OhipClaimFileService ohipWriter,
+                                                           String claimBody,
+                                                           int diskId) {
+        try {
+            ohipWriter.renameFile();
+            ohipWriter.writeFile(claimBody);
+            transactionService.finalizeGeneratedDisks(writers, diskId);
+        } catch (RuntimeException e) {
+            cleanupWrittenFiles(writers, ohipWriter, true);
+            throw e;
+        }
+    }
+
+    private static void cleanupWrittenFiles(List<OhipClaimFileService> htmlWriters,
+                                             OhipClaimFileService ohipWriter,
+                                             boolean restoreRenamedOriginal) {
+        if (ohipWriter != null) {
+            ohipWriter.deleteOhipFileQuietly();
+        }
+        for (OhipClaimFileService writer : htmlWriters) {
+            writer.deleteHtmlFileQuietly();
+        }
+        if (restoreRenamedOriginal && ohipWriter != null) {
+            ohipWriter.restoreLastRenameQuietly();
         }
     }
 
