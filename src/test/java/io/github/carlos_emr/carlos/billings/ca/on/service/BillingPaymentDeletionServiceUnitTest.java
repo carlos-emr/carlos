@@ -31,6 +31,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 
 import java.math.BigDecimal;
 import java.util.Date;
@@ -42,6 +43,7 @@ import static org.mockito.ArgumentMatchers.anyChar;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -98,6 +100,7 @@ class BillingPaymentDeletionServiceUnitTest {
         }
         ch1.setDemographicNo(demoNo);
         p.setBillingOnCheader1(ch1);
+        p.setBillingNo(billingNo);
         return p;
     }
 
@@ -105,6 +108,7 @@ class BillingPaymentDeletionServiceUnitTest {
     void shouldRebalanceHeaderAndUpdateExtKeys_onHappyPath() {
         BillingONPayment payment = paymentWithHeader(42, 7);
         when(paymentDao.find(101)).thenReturn(payment);
+        when(headerDao.findForUpdate(42)).thenReturn(payment.getBillingONCheader1());
         when(paymentDao.getPaymentsSumByBillingNo(42)).thenReturn(new BigDecimal("80.00"));
         when(paymentDao.getPaymentsRefundByBillingNo(42)).thenReturn(new BigDecimal("10.00"));
 
@@ -112,6 +116,9 @@ class BillingPaymentDeletionServiceUnitTest {
 
         // 1. payment removed
         verify(paymentDao).remove(101);
+        InOrder lockThenDelete = inOrder(headerDao, paymentDao);
+        lockThenDelete.verify(headerDao).findForUpdate(42);
+        lockThenDelete.verify(paymentDao).remove(101);
         // 2. header rebalanced — paid (80) - refund.negate (-10) = 90
         BillingONCHeader1 ch1 = payment.getBillingONCheader1();
         assertThat(ch1.getPaid()).isEqualByComparingTo("90.00");
@@ -146,6 +153,7 @@ class BillingPaymentDeletionServiceUnitTest {
         // this; the service itself doesn't catch.
         BillingONPayment payment = paymentWithHeader(42, 7);
         when(paymentDao.find(101)).thenReturn(payment);
+        when(headerDao.findForUpdate(42)).thenReturn(payment.getBillingONCheader1());
         when(paymentDao.getPaymentsSumByBillingNo(42)).thenReturn(new BigDecimal("80.00"));
         when(paymentDao.getPaymentsRefundByBillingNo(42)).thenReturn(new BigDecimal("0.00"));
         doThrow(new RuntimeException("simulated DAO failure")).when(headerDao).merge(any());
@@ -167,6 +175,7 @@ class BillingPaymentDeletionServiceUnitTest {
         // uses BigDecimal.toPlainString() which is guaranteed locale-neutral.
         BillingONPayment payment = paymentWithHeader(42, 7);
         when(paymentDao.find(1)).thenReturn(payment);
+        when(headerDao.findForUpdate(42)).thenReturn(payment.getBillingONCheader1());
         when(paymentDao.getPaymentsSumByBillingNo(42)).thenReturn(new BigDecimal("12345.67"));
         when(paymentDao.getPaymentsRefundByBillingNo(42)).thenReturn(BigDecimal.ZERO);
 
@@ -181,6 +190,7 @@ class BillingPaymentDeletionServiceUnitTest {
     void shouldHandleZeroPaidAndZeroRefund_byWritingZeroFormatted() {
         BillingONPayment payment = paymentWithHeader(42, 7);
         when(paymentDao.find(1)).thenReturn(payment);
+        when(headerDao.findForUpdate(42)).thenReturn(payment.getBillingONCheader1());
         when(paymentDao.getPaymentsSumByBillingNo(42)).thenReturn(BigDecimal.ZERO);
         when(paymentDao.getPaymentsRefundByBillingNo(42)).thenReturn(BigDecimal.ZERO);
 

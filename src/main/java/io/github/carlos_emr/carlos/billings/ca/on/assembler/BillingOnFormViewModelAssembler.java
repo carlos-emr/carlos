@@ -362,7 +362,11 @@ public class BillingOnFormViewModelAssembler {
         b.billingFavouriteOptions(favOptions);
 
         // ---- recent-billing history rows (the bottom table renders aL/iAL pairs) ----
-        b.billingHistoryRows(loadHistoryRows(demoNo));
+        LoadedBillingHistoryRows historyRows = loadHistoryRows(demoNo);
+        b.billingHistoryRows(historyRows.rows());
+        if (historyRows.unavailable()) {
+            b.historyUnavailable(true);
+        }
 
         // ---- visit-location dropdown (was inline tdbObj.facilityNumber()) ----
         List<String> facilityFlat = lookupService.getFacilty_num();
@@ -544,13 +548,13 @@ public class BillingOnFormViewModelAssembler {
         echoes.put("checkFlag", checkFlag != null ? checkFlag : "0");
         b.requestParamEchoes(echoes);
 
-        // ---- pre-rendered msg (errorMsg + warningMsg + DOB-invalid notice) ----
+        // ---- display msg (errorMsg + warningMsg + DOB-invalid notice) ----
         StringBuilder msg = new StringBuilder("The default unit and @ value is 1.");
         msg.append(nullToEmpty(b.peekErrorMsg()));
         msg.append(nullToEmpty(b.peekWarningMsg()));
         if (b.peekDemoDobInvalid()) {
-            msg.append("<br><b><font color='orange'>Warning: the patient's stored DOB is malformed; "
-                    + "age-keyed premium codes and visit-type defaults are unreliable.</font></b><br>");
+            msg.append("Warning: the patient's stored DOB is malformed; "
+                    + "age-keyed premium codes and visit-type defaults are unreliable.");
         }
         b.displayMessage(msg.toString());
 
@@ -591,11 +595,12 @@ public class BillingOnFormViewModelAssembler {
      * Loads the recent-billing history rows the JSP renders at the bottom of
      * the form. Up to 5 (claim, item) pairs from {@link BillingOnClaimLoader}.
      */
-    private List<BillingOnFormViewModel.BillingHistoryRow> loadHistoryRows(String demoNo) {
+    private LoadedBillingHistoryRows loadHistoryRows(String demoNo) {
         List<BillingOnFormViewModel.BillingHistoryRow> rows = new ArrayList<>();
         if (demoNo == null || demoNo.isEmpty()) {
-            return rows;
+            return new LoadedBillingHistoryRows(rows, false);
         }
+        boolean unavailable = false;
         try {
             List<Object> raw = claimQueryService.getBillingHist(demoNo, 5, 0, null);
             for (int i = 0; i + 1 < raw.size(); i += 2) {
@@ -613,11 +618,17 @@ public class BillingOnFormViewModelAssembler {
                         updateDt.length() >= 10 ? updateDt.substring(0, 10) : updateDt));
             }
         } catch (RuntimeException rtEx) {
+            unavailable = true;
             MiscUtils.getLogger().error(
                     "Billing history rows lookup failed for demo={}; rendering with empty history",
                     LogSanitizer.sanitize(demoNo), rtEx);
         }
-        return rows;
+        return new LoadedBillingHistoryRows(rows, unavailable);
+    }
+
+    private record LoadedBillingHistoryRows(
+            List<BillingOnFormViewModel.BillingHistoryRow> rows,
+            boolean unavailable) {
     }
 
     /**
@@ -686,7 +697,7 @@ public class BillingOnFormViewModelAssembler {
         } catch (NumberFormatException nfe) {
             MiscUtils.getLogger().warn(
                     "Invalid demographic_no for dx lookup: {}",
-                    LogSanitizer.sanitize(demoNo));
+                    LogSanitizer.sanitize(demoNo), nfe);
         }
         return patientDx;
     }

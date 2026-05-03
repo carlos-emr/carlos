@@ -413,7 +413,7 @@ public class MoveMohFiles2Action extends ActionSupport {
             return PathValidationUtils.validatePath(fileName, new File(folderPath));
         } catch (SecurityException e) {
             logger.warn("Rejected file path: {} in {}",
-                    LogSanitizer.sanitize(fileName), LogSanitizer.sanitize(folderPath));
+                    LogSanitizer.sanitize(fileName), LogSanitizer.sanitize(folderPath), e);
             return null;
         }
     }

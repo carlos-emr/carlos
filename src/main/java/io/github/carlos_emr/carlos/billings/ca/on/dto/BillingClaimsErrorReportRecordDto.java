@@ -383,7 +383,11 @@ public class BillingClaimsErrorReportRecordDto {
     }
 
     public void setAmountsubmit(String amountsubmit) {
-        this.amountsubmit = BillingDtoMoney.parseNonNegativeStoredCentsOrDecimal(amountsubmit, "amountsubmit");
+        this.amountsubmit = BillingDtoMoney.parseNonNegativeDecimal(amountsubmit, "amountsubmit");
+    }
+
+    public void setAmountsubmitStoredCents(String amountsubmit) {
+        this.amountsubmit = BillingDtoMoney.parseNonNegativeStoredCents(amountsubmit, "amountsubmit");
     }
 
     public BillingMoney getAmountsubmitMoney() {

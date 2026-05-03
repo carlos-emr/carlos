@@ -21,9 +21,11 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
-import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCorrectionReviewViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingCorrectionReviewViewModelAssembler;
 import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionValidationCommand;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionReviewPreparationService;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCorrectionReviewDraft;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCorrectionReviewViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -35,21 +37,23 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentCaptor.forClass;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.ArgumentCaptor.forClass;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import org.mockito.ArgumentCaptor;
 
 /** Unit coverage for {@code BillingCorrectionValid2Action} request parsing and correction-review handoff. */
 @DisplayName("BillingCorrectionValid2Action")
@@ -63,6 +67,7 @@ class BillingCorrectionValid2ActionUnitTest extends CarlosUnitTestBase {
 
     @Mock private SecurityInfoManager securityInfoManager;
     @Mock private BillingCorrectionReviewPreparationService preparationService;
+    @Mock private BillingCorrectionReviewViewModelAssembler reviewViewModelAssembler;
     @Mock private LoggedInInfo loggedInInfo;
 
     private MockHttpServletRequest request;
@@ -108,9 +113,12 @@ class BillingCorrectionValid2ActionUnitTest extends CarlosUnitTestBase {
                 .dataLoaded(true)
                 .billingNo("42")
                 .build();
-        when(preparationService.prepareReview(any())).thenReturn(model);
+        BillingCorrectionReviewDraft draft = draft();
+        when(preparationService.prepareReviewDraft(any())).thenReturn(draft);
+        when(reviewViewModelAssembler.assemble(draft)).thenReturn(model);
 
-        String result = new BillingCorrectionValid2Action(securityInfoManager, preparationService).execute();
+        String result = new BillingCorrectionValid2Action(
+                securityInfoManager, preparationService, reviewViewModelAssembler).execute();
 
         assertThat(result).isEqualTo("review");
         assertThat(request.getAttribute("reviewModel")).isSameAs(model);
@@ -118,7 +126,8 @@ class BillingCorrectionValid2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(request.getSession().getAttribute("billing")).isNull();
         assertThat(request.getSession().getAttribute("billingDataBean")).isNull();
         assertThat(request.getSession().getAttribute("billingPatientDataBean")).isNull();
-        verify(preparationService).prepareReview(any());
+        verify(preparationService).prepareReviewDraft(any());
+        verify(reviewViewModelAssembler).assemble(draft);
     }
 
     @Test
@@ -131,13 +140,14 @@ class BillingCorrectionValid2ActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("servicecode0", "A001A");
         request.setParameter("billingunit0", "1");
 
-        when(preparationService.prepareReview(any())).thenReturn(BillingCorrectionReviewViewModel.builder().build());
+        when(preparationService.prepareReviewDraft(any())).thenReturn(draft());
 
-        new BillingCorrectionValid2Action(securityInfoManager, preparationService).execute();
+        new BillingCorrectionValid2Action(
+                securityInfoManager, preparationService, reviewViewModelAssembler).execute();
 
         ArgumentCaptor<BillingCorrectionValidationCommand> captor =
                 forClass(BillingCorrectionValidationCommand.class);
-        verify(preparationService).prepareReview(captor.capture());
+        verify(preparationService).prepareReviewDraft(captor.capture());
         assertThat(captor.getValue().dobText()).isEqualTo("1980-01-01");
         assertThat(captor.getValue().visitDateText()).isEqualTo("2026-04-28");
         assertThat(captor.getValue().billingDateText()).isEqualTo("2026-04-29");
@@ -158,15 +168,47 @@ class BillingCorrectionValid2ActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("billingunit1", "");
         request.setParameter("billingamount1", "");
 
-        when(preparationService.prepareReview(any())).thenReturn(BillingCorrectionReviewViewModel.builder().build());
+        when(preparationService.prepareReviewDraft(any())).thenReturn(draft());
 
-        new BillingCorrectionValid2Action(securityInfoManager, preparationService).execute();
+        new BillingCorrectionValid2Action(
+                securityInfoManager, preparationService, reviewViewModelAssembler).execute();
 
         ArgumentCaptor<BillingCorrectionValidationCommand> captor =
                 forClass(BillingCorrectionValidationCommand.class);
-        verify(preparationService).prepareReview(captor.capture());
+        verify(preparationService).prepareReviewDraft(captor.capture());
         assertThat(captor.getValue().serviceLines())
                 .extracting("serviceCode")
                 .containsExactly("A001A", "C003A");
+    }
+
+    private static BillingCorrectionReviewDraft draft() {
+        return new BillingCorrectionReviewDraft(
+                true,
+                "",
+                "42",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "0",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                List.of());
     }
 }

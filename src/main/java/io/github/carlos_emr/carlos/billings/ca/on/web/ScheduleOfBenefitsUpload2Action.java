@@ -77,20 +77,16 @@ public class ScheduleOfBenefitsUpload2Action extends ActionSupport implements Up
 
     public String execute() throws java.io.IOException {
         HttpServletRequest request = ServletActionContext.getRequest();
-        jakarta.servlet.http.HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.billing)");
         }
 
-        // POST-only — multipart file upload + fee-preview is a state mutation.
-        // GET must surface 405 with an Allow header so a forged GET cannot
-        // even reach the import service. View rendering for the empty form
-        // lives on the sibling ViewBenefitScheduleUpload2Action.
+        // POST-only for multipart file upload + fee preview. Legacy GET
+        // bookmarks for this URL are read-only form requests; route those to
+        // the sibling view action instead of returning 405.
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.setHeader("Allow", "POST");
-            response.sendError(jakarta.servlet.http.HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            return NONE;
+            return "view";
         }
 
         List warnings = new ArrayList();

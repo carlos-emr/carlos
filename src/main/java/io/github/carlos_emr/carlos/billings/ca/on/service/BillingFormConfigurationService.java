@@ -162,4 +162,33 @@ public class BillingFormConfigurationService {
             clinicLocationDao.persist(loc);
         }
     }
+
+    /**
+     * Action #8: Atomically update the bill-type association for a service
+     * type. Used by ManageBillingFormBillTypeSave2Action.
+     *
+     * @return {@code false} when an update was requested for a missing row
+     */
+    public boolean updateBillingTypeAssociation(String serviceType, String billType, String oldBillType) {
+        if ("no".equals(billType)) {
+            ctlBillingTypeDao.remove(serviceType);
+            return true;
+        }
+
+        if ("no".equals(oldBillType)) {
+            CtlBillingType cbt = new CtlBillingType();
+            cbt.setId(serviceType);
+            cbt.setBillType(billType);
+            ctlBillingTypeDao.persist(cbt);
+            return true;
+        }
+
+        CtlBillingType cbt = ctlBillingTypeDao.find(serviceType);
+        if (cbt == null) {
+            return false;
+        }
+        cbt.setBillType(billType);
+        ctlBillingTypeDao.merge(cbt);
+        return true;
+    }
 }

@@ -238,16 +238,27 @@ public class BillingDiskCreationService {
     private static boolean isDuplicateDiskNameFailure(RuntimeException e) {
         Throwable t = e;
         while (t != null) {
-            String message = t.getMessage();
-            if (message != null) {
-                String lower = message.toLowerCase(java.util.Locale.ROOT);
-                if (lower.contains("duplicate") || lower.contains("unique")) {
+            if (t instanceof org.springframework.dao.DataIntegrityViolationException
+                    || t instanceof java.sql.SQLIntegrityConstraintViolationException) {
+                return true;
+            }
+            if (t instanceof org.hibernate.exception.ConstraintViolationException constraintFailure) {
+                if (isDuplicateSqlState(constraintFailure.getSQLState())) {
+                    return true;
+                }
+            }
+            if (t instanceof java.sql.SQLException sqlFailure) {
+                if (isDuplicateSqlState(sqlFailure.getSQLState())) {
                     return true;
                 }
             }
             t = t.getCause();
         }
         return false;
+    }
+
+    private static boolean isDuplicateSqlState(String sqlState) {
+        return "23000".equals(sqlState) || "23505".equals(sqlState);
     }
 
     public boolean updateSoloDiskName(String diskId, String creator) {

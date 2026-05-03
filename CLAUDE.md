@@ -123,7 +123,8 @@ The null-safe wrappers live in:
 - `src/main/java/io/github/carlos_emr/carlos/utility/tld/CarlosEncodeTag.java`
 - `src/main/webapp/WEB-INF/carlos-tag.tld`
 
-Unit tests: `src/test/java/io/github/carlos_emr/carlos/utility/SafeEncodeUnitTest.java` and `CarlosEncodeTagUnitTest.java`.
+Unit tests: `src/test/java/io/github/carlos_emr/carlos/utility/SafeEncodeUnitTest.java` and
+`src/test/java/io/github/carlos_emr/carlos/utility/tld/CarlosEncodeTagUnitTest.java`.
 
 A migration codemod script is kept at `scripts/migrate-to-carlos-encode.py` for rewriting any future `<e:...>` / `${e:...}` / `Encode.*` drift.
 

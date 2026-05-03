@@ -70,6 +70,8 @@ class BillingOnReviewViewModelAssemblerUnitTest extends CarlosUnitTestBase {
     private ProviderDao providerDao;
     @Mock
     private BillingReviewLoader reviewPrep;
+    @Mock
+    private BillingOnLookupService lookupService;
 
     private BillingOnReviewViewModelAssembler assembler;
     private MockHttpServletRequest request;
@@ -88,7 +90,6 @@ class BillingOnReviewViewModelAssemblerUnitTest extends CarlosUnitTestBase {
         ServiceCodeLoader serviceCodeLoader = Mockito.mock(ServiceCodeLoader.class);
         when(serviceCodeLoader.getCodeDescByNames(any())).thenReturn(new java.util.Properties());
         registerMock(ServiceCodeLoader.class, serviceCodeLoader);
-        BillingOnLookupService lookupService = Mockito.mock(BillingOnLookupService.class);
         registerMock(BillingOnLookupService.class, lookupService);
         SiteDao siteDao = Mockito.mock(SiteDao.class);
         registerMock(SiteDao.class, siteDao);
@@ -130,6 +131,18 @@ class BillingOnReviewViewModelAssemblerUnitTest extends CarlosUnitTestBase {
 
         assertThat(m.isPrivatePayer()).isTrue();
         assertThat(m.isTotalsParseFailed()).isTrue();
+    }
+
+    @Test
+    void shouldFlagPaymentTypeLookupFailed_whenPrivatePaymentTypesUnavailable() {
+        request.setParameter("xml_billtype", "PAT");
+        when(lookupService.getPaymentType()).thenThrow(new RuntimeException("db down"));
+
+        BillingOnReviewViewModel m = assembler.assemble(request, null);
+
+        assertThat(m.isPrivatePayer()).isTrue();
+        assertThat(m.isPaymentTypeLookupFailed()).isTrue();
+        assertThat(m.getPaymentTypes()).isEmpty();
     }
 
     @Test

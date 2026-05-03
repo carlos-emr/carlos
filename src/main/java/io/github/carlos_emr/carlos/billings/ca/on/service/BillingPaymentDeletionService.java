@@ -76,8 +76,19 @@ public class BillingPaymentDeletionService {
         if (payment == null) {
             throw new PaymentNotFoundException(paymentId);
         }
-        BillingONCHeader1 ch1 = payment.getBillingONCheader1();
-        Integer billingNo = ch1.getId();
+        Integer billingNo = payment.getBillingNo();
+        if (billingNo == null && payment.getBillingONCheader1() != null) {
+            billingNo = payment.getBillingONCheader1().getId();
+        }
+        if (billingNo == null) {
+            throw new IllegalStateException("BillingONPayment paymentId=" + paymentId
+                    + " is missing its parent billing number");
+        }
+        BillingONCHeader1 ch1 = billingClaimDao.findForUpdate(billingNo);
+        if (ch1 == null) {
+            throw new IllegalStateException("BillingONCHeader1 billingNo=" + billingNo
+                    + " not found for paymentId=" + paymentId);
+        }
 
         billingONPaymentDao.remove(paymentId);
 

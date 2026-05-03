@@ -282,6 +282,36 @@ class BillingOnFormViewModelAssemblerUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldFlagHistoryUnavailable_whenRecentBillingRowsLookupFails() {
+        request.setParameter("demographic_no", "1");
+        request.setParameter("appointment_no", "0");
+        request.setParameter("service_date", "2026-04-24");
+        request.setParameter("billForm", "GP");
+        io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto header =
+                new io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto()
+                        .withId("100")
+                        .withAdmissionDate("2026-04-24")
+                        .withBillingDate("2026-04-24")
+                        .withVisitType("00")
+                        .withFacilityNumber("0000")
+                        .withUpdateDateTime("2026-04-24 12:00:00");
+        io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto item =
+                new io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto()
+                        .withServiceCode("A001A")
+                        .withServiceDate("2026-04-24")
+                        .withDx("401");
+        when(claimLoader.getBillingHist("1", 5, 0, null))
+                .thenReturn(java.util.List.of(header, item))
+                .thenThrow(new RuntimeException("db down"));
+
+        BillingOnFormViewModel model = assembler.assemble(request, loggedInInfo);
+
+        assertThat(model.isHistoryUnavailable()).isTrue();
+        assertThat(model.getBillingHistory()).hasSize(1);
+        assertThat(model.getBillingHistoryRows()).isEmpty();
+    }
+
+    @Test
     void shouldExposeProviderViewFromXmlProviderParam_whenSupplied() {
         request.setParameter("xml_provider", "111111|something");
         request.setParameter("demographic_no", "1");

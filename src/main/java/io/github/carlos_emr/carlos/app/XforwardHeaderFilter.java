@@ -122,7 +122,7 @@ public class XforwardHeaderFilter implements Filter {
             try {
                 result.add(CidrRange.parse(trimmed));
             } catch (IllegalArgumentException e) {
-                LOGGER.warn("Ignoring invalid trusted proxy CIDR '{}'", trimmed);
+                LOGGER.warn("Ignoring invalid trusted proxy CIDR '{}'", trimmed, e);
             }
         }
         return Collections.unmodifiableSet(result);

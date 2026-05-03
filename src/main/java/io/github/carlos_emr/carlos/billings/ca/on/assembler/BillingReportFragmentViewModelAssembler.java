@@ -249,6 +249,7 @@ public class BillingReportFragmentViewModelAssembler {
                 billingDetailDao.findByBillingNos(billingNos).stream()
                         .collect(Collectors.groupingBy(BillingDetail::getBillingNo));
         boolean bodd = false;
+        int unreadableTotalCount = 0;
         for (io.github.carlos_emr.carlos.billings.ca.on.dto.BillObRow row : bs) {
             bodd = !bodd;
             Integer bId = row.id();
@@ -268,13 +269,10 @@ public class BillingReportFragmentViewModelAssembler {
                     BigDecimal fee = new BigDecimal(formattedTotal).setScale(2, RoundingMode.HALF_UP);
                     total = total.add(fee);
                 } catch (NumberFormatException e) {
-                    // Log so drift in the "Total Paid" footer is at least
-                    // diagnosable — a silently-excluded malformed Settled
-                    // row would understate the running total with no
-                    // operator-visible signal.
+                    unreadableTotalCount++;
                     MiscUtils.getLogger().warn(
                             "BillingReportFragment: bill {} has unparseable total [{}]; excluded from Total Paid",
-                            bId, formattedTotal);
+                            bId, formattedTotal, e);
                 }
             }
             // Service codes: up to 10 non-D-status detail entries.
@@ -298,7 +296,8 @@ public class BillingReportFragmentViewModelAssembler {
                     billingNo, demoName, apptDate, codes, formattedTotal,
                     reasonCode, bodd ? "#EEEEFF" : "white"));
         }
-        b.billobRows(rows).billobTotal(total.toPlainString());
+        b.billobRows(rows).billobTotal(total.toPlainString())
+                .billobUnreadableTotalCount(unreadableTotalCount);
     }
 
     private void loadFlu(String providerView, Date dateBegin, Date dateEnd,
@@ -317,6 +316,7 @@ public class BillingReportFragmentViewModelAssembler {
         boolean bodd = false;
         int walkinCount = 0;
         int clinicCount = 0;
+        int unreadableTotalCount = 0;
         for (io.github.carlos_emr.carlos.billings.ca.on.dto.BillFluRow row : bs) {
             bodd = !bodd;
             String bContent = row.content();
@@ -338,9 +338,10 @@ public class BillingReportFragmentViewModelAssembler {
             try {
                 fee = new BigDecimal(formattedTotal).setScale(2, RoundingMode.HALF_UP);
             } catch (NumberFormatException nfe) {
+                unreadableTotalCount++;
                 MiscUtils.getLogger().warn(
                         "BillingReportFragment: Flu bill {} has unparseable total [{}]; using 0",
-                        billingNo, formattedTotal);
+                        billingNo, formattedTotal, nfe);
                 fee = new BigDecimal(0).setScale(2, RoundingMode.HALF_UP);
             }
             if ("flu".equals(specialty)) {
@@ -361,7 +362,8 @@ public class BillingReportFragmentViewModelAssembler {
         }
         b.fluClinicRows(clinicRows).fluWalkinRows(walkinRows)
          .fluTotal1(total1.toPlainString()).fluTotal2(total2.toPlainString())
-         .fluClinicCount(clinicCount).fluWalkinCount(walkinCount);
+         .fluClinicCount(clinicCount).fluWalkinCount(walkinCount)
+         .fluUnreadableTotalCount(unreadableTotalCount);
     }
 
     /**

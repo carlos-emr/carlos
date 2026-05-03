@@ -184,7 +184,7 @@ public class BillingOnReviewValidator {
             } catch (java.text.ParseException e) {
                 MiscUtils.getLogger().warn(
                         "BillingOnReviewValidator: A003A guard failed — unparseable service_date '{}'",
-                        LogSanitizer.sanitize(request.getParameter("service_date")));
+                        LogSanitizer.sanitize(request.getParameter("service_date")), e);
                 messages.add(new Message(Message.Severity.ERROR,
                         "Invalid service date for A003A annual-billing check. Please correct the service date."));
                 return false;

@@ -19,7 +19,7 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.billings.ca.on.assembler;
+package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -28,35 +28,35 @@ import java.util.List;
 
 /**
  * Money parser/formatter and accumulator for the paid/unpaid rows rendered by
- * {@link BillingOnNewReportViewModelAssembler}.
+ * BillingOnNewReportViewModelAssembler.
  */
-final class BillingOnNewReportTotalsCalculator {
+public final class BillingOnNewReportTotalsCalculator {
 
     private BigDecimal paidClaimTotal = BigDecimal.ZERO;
     private BigDecimal paidAmountTotal = BigDecimal.ZERO;
     private BigDecimal unpaidClaimTotal = BigDecimal.ZERO;
 
-    void addPaidRow(String claimAmount, String paidAmount) {
+    public void addPaidRow(String claimAmount, String paidAmount) {
         paidClaimTotal = paidClaimTotal.add(parseMoney(claimAmount));
         paidAmountTotal = paidAmountTotal.add(parseMoney(paidAmount));
     }
 
-    void addUnpaidClaim(String claimAmount) {
+    public void addUnpaidClaim(String claimAmount) {
         unpaidClaimTotal = unpaidClaimTotal.add(parseMoney(claimAmount));
     }
 
-    String addPaidAmount(String currentAmount, String amountToAdd) {
+    public String addPaidAmount(String currentAmount, String amountToAdd) {
         return formatMoney(parseMoney(currentAmount).add(parseMoney(amountToAdd)));
     }
 
-    List<String> paidTotalRow() {
+    public List<String> paidTotalRow() {
         return Arrays.asList("Total", "", "",
                 formatMoney(paidClaimTotal),
                 formatMoney(paidAmountTotal),
                 "");
     }
 
-    List<String> unpaidTotalRow() {
+    public List<String> unpaidTotalRow() {
         return Arrays.asList("Total", "", "",
                 formatMoney(unpaidClaimTotal),
                 "", "", "");

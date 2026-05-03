@@ -122,6 +122,8 @@ public final class BillingReportFragmentViewModel {
     private final String fluTotal2; // clinic total (specialty != "flu")
     private final int fluClinicCount;
     private final int fluWalkinCount;
+    private final int billobUnreadableTotalCount;
+    private final int fluUnreadableTotalCount;
     private final List<UnbilledRow> unbilledRows;
 
     private BillingReportFragmentViewModel(Builder b) {
@@ -139,6 +141,8 @@ public final class BillingReportFragmentViewModel {
         this.fluTotal2 = nullToZero(b.fluTotal2);
         this.fluClinicCount = b.fluClinicCount;
         this.fluWalkinCount = b.fluWalkinCount;
+        this.billobUnreadableTotalCount = b.billobUnreadableTotalCount;
+        this.fluUnreadableTotalCount = b.fluUnreadableTotalCount;
         this.unbilledRows = b.unbilledRows == null ? Collections.emptyList() : b.unbilledRows;
     }
 
@@ -156,6 +160,10 @@ public final class BillingReportFragmentViewModel {
     public String getFluTotal2() { return fluTotal2; }
     public int getFluClinicCount() { return fluClinicCount; }
     public int getFluWalkinCount() { return fluWalkinCount; }
+    public int getBillobUnreadableTotalCount() { return billobUnreadableTotalCount; }
+    public int getFluUnreadableTotalCount() { return fluUnreadableTotalCount; }
+    public boolean isBillobTotalPartial() { return billobUnreadableTotalCount > 0; }
+    public boolean isFluTotalPartial() { return fluUnreadableTotalCount > 0; }
     public List<UnbilledRow> getUnbilledRows() { return unbilledRows; }
 
     public static final class Builder {
@@ -169,6 +177,8 @@ public final class BillingReportFragmentViewModel {
         private String fluTotal2;
         private int fluClinicCount;
         private int fluWalkinCount;
+        private int billobUnreadableTotalCount;
+        private int fluUnreadableTotalCount;
         private List<UnbilledRow> unbilledRows;
 
         public Builder billedRows(List<BilledRow> v) { this.billedRows = v == null ? null : List.copyOf(v); return this; }
@@ -181,6 +191,8 @@ public final class BillingReportFragmentViewModel {
         public Builder fluTotal2(String v) { this.fluTotal2 = v; return this; }
         public Builder fluClinicCount(int v) { this.fluClinicCount = v; return this; }
         public Builder fluWalkinCount(int v) { this.fluWalkinCount = v; return this; }
+        public Builder billobUnreadableTotalCount(int v) { this.billobUnreadableTotalCount = v; return this; }
+        public Builder fluUnreadableTotalCount(int v) { this.fluUnreadableTotalCount = v; return this; }
         public Builder unbilledRows(List<UnbilledRow> v) { this.unbilledRows = v == null ? null : List.copyOf(v); return this; }
 
         public BillingReportFragmentViewModel build() { return new BillingReportFragmentViewModel(this); }

@@ -21,13 +21,27 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.assembler;
 
+import io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillFluRow;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillObRow;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingReportFragmentViewModel;
+import io.github.carlos_emr.carlos.commn.dao.BillingDao;
+import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpServletRequest;
 
 import java.lang.reflect.Method;
+import java.util.Collections;
+import java.util.Date;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Smoke tests for {@link BillingReportFragmentViewModelAssembler}. The
@@ -105,5 +119,47 @@ class BillingReportFragmentFormatUnitTest {
         assertThat(invokeFormat("not-a-number"))
                 .as("format helper should not throw on non-numeric input")
                 .isNotNull();
+    }
+
+    @Test
+    void shouldExposeBillobPartialTotal_whenSettledTotalIsMalformed() {
+        BillingDao billingDao = mock(BillingDao.class);
+        BillingDetailDao detailDao = mock(BillingDetailDao.class);
+        BillingReportFragmentViewModelAssembler assembler =
+                new BillingReportFragmentViewModelAssembler(billingDao, detailDao, mock(OscarAppointmentDao.class));
+        when(billingDao.search_billob(eq("999998"), any(Date.class), any(Date.class)))
+                .thenReturn(List.of(new BillObRow(42, "bad.total", "S", new Date(0), "Patient, Test")));
+        when(detailDao.findByBillingNos(List.of(42))).thenReturn(Collections.emptyList());
+
+        BillingReportFragmentViewModel model = assembler.assemble(request(), null, "billob");
+
+        assertThat(model.isBillobTotalPartial()).isTrue();
+        assertThat(model.getBillobUnreadableTotalCount()).isEqualTo(1);
+        assertThat(model.getBillobTotal()).isEqualTo("0.00");
+    }
+
+    @Test
+    void shouldExposeFluPartialTotal_whenFluTotalIsMalformed() {
+        BillingDao billingDao = mock(BillingDao.class);
+        BillingReportFragmentViewModelAssembler assembler =
+                new BillingReportFragmentViewModelAssembler(
+                        billingDao, mock(BillingDetailDao.class), mock(OscarAppointmentDao.class));
+        when(billingDao.search_billflu(eq("999998"), any(Date.class), any(Date.class)))
+                .thenReturn(List.of(new BillFluRow(
+                        "<specialty>flu</specialty>", 43, "bad.total", "S", new Date(0), "Patient, Test")));
+
+        BillingReportFragmentViewModel model = assembler.assemble(request(), null, "flu");
+
+        assertThat(model.isFluTotalPartial()).isTrue();
+        assertThat(model.getFluUnreadableTotalCount()).isEqualTo(1);
+        assertThat(model.getFluTotal1()).isEqualTo("0.00");
+    }
+
+    private static MockHttpServletRequest request() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("providerview", "999998");
+        request.setParameter("xml_vdate", "2026-01-01");
+        request.setParameter("xml_appointment_date", "2026-01-31");
+        return request;
     }
 }

@@ -36,3 +36,4 @@
 <%@ page contentType="text/html;charset=UTF-8" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <input type="hidden" name="demoNo" value="${carlos:forHtmlContent(model.demoNo)}"/>
+<input type="hidden" name="quotedDemoNo" value='prefix "quoted" ${carlos:forHtmlContent(model.demoNo)}'/>

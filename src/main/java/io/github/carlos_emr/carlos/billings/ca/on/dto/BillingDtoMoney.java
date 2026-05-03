@@ -32,16 +32,18 @@ final class BillingDtoMoney {
     private BillingDtoMoney() {
     }
 
-    static BillingMoney parseNonNegativeStoredCentsOrDecimal(String raw, String fieldName) {
+    static BillingMoney parseNonNegativeDecimal(String raw, String fieldName) {
         if (raw == null || raw.trim().isEmpty()) {
             return null;
         }
-        String value = raw.trim();
-        // OHIP claims-error report amount tokens are six digits of stored
-        // cents. Shorter digit-only DAO/JSP values are decimal dollars.
-        return value.matches("\\d{6}")
-                ? BillingMoney.storedCents(value, fieldName)
-                : BillingMoney.parseNonNegative(value, fieldName);
+        return BillingMoney.parseNonNegative(raw, fieldName);
+    }
+
+    static BillingMoney parseNonNegativeStoredCents(String raw, String fieldName) {
+        if (raw == null || raw.trim().isEmpty()) {
+            return null;
+        }
+        return BillingMoney.storedCents(raw, fieldName);
     }
 
     static BigDecimal parseSignedDecimal(String raw, String fieldName) {

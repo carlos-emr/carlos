@@ -228,6 +228,11 @@ public class BillingPaymentSaveService {
                             "Billing item " + line.itemId + " no longer exists; payment not saved for bill "
                                     + cmd.billNo);
                 }
+                if (!Objects.equals(billItem.getCh1Id(), cmd.billNo)) {
+                    throw new BillingValidationException(
+                            "Billing item " + line.itemId + " does not belong to bill " + cmd.billNo
+                                    + "; payment not saved");
+                }
                 billItemsById.put(line.itemId, billItem);
             }
         }

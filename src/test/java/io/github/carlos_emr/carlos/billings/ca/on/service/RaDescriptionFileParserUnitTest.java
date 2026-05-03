@@ -77,7 +77,7 @@ class RaDescriptionFileParserUnitTest {
 
         assertThat(parsed.isCompleteForHeaderMerge()).isTrue();
         assertThat(parsed.paymentDate()).isEqualTo("20260428");
-        assertThat(parsed.cheque()).isEqualTo("12.34 ");
+        assertThat(parsed.cheque()).isEqualTo("12.34");
         assertThat(parsed.recordCount()).isEqualTo(1);
         assertThat(parsed.claimCount()).isEqualTo(1);
         assertThat(parsed.balanceForwardRow().claimsAdjustment()).isEqualTo("0000001.111");
@@ -87,6 +87,26 @@ class RaDescriptionFileParserUnitTest {
             assertThat(row.message()).contains("claim <adjustment> & message");
         });
         assertThat(parsed.messageTxt()).contains("operator message");
+    }
+
+    @Test
+    void shouldFormatNegativeSignedMoney_whenRaDescriptionUsesSeparateSignFields() throws Exception {
+        String filename = "ra-desc-negative.txt";
+        Files.writeString(tempDir.resolve(filename), String.join(System.lineSeparator(),
+                h1Line("20260428", "000001234", "-"),
+                h6Line("-", "-", "-", "-"),
+                h7Line("20", "C", "000123450", "-", "negative adjustment")), StandardCharsets.ISO_8859_1);
+
+        RaDescriptionFileParser.ParsedFile parsed = parser.parse(filename);
+
+        assertThat(parsed.isCompleteForHeaderMerge()).isTrue();
+        assertThat(parsed.cheque()).isEqualTo("-12.34");
+        assertThat(parsed.balanceForwardRow().claimsAdjustment()).isEqualTo("-0000001.111");
+        assertThat(parsed.balanceForwardRow().advances()).isEqualTo("-0000002.222");
+        assertThat(parsed.balanceForwardRow().reductions()).isEqualTo("-0000003.333");
+        assertThat(parsed.balanceForwardRow().deductions()).isEqualTo("-0000004.444");
+        assertThat(parsed.transactionRows()).singleElement().satisfies(row ->
+                assertThat(row.amount()).isEqualTo("-000123.450"));
     }
 
     @Test
@@ -127,15 +147,25 @@ class RaDescriptionFileParserUnitTest {
     }
 
     private static String h6Line() {
+        return h6Line("", "", "", "");
+    }
+
+    private static String h6Line(String claimsSign, String advanceSign,
+                                 String reductionSign, String deductionSign) {
         return "H06"
-                + "0000001" + "111"
-                + "0000002" + "222"
-                + "0000003" + "333"
-                + "0000004" + "444";
+                + "0000001" + "111" + claimsSign
+                + "0000002" + "222" + advanceSign
+                + "0000003" + "333" + reductionSign
+                + "0000004" + "444" + deductionSign;
     }
 
     private static String h7Line(String transactionCode, String chequeIndicator, String message) {
-        return "H07" + transactionCode + chequeIndicator + "20260428" + "000123" + "450"
+        return h7Line(transactionCode, chequeIndicator, "000123450", "", message);
+    }
+
+    private static String h7Line(String transactionCode, String chequeIndicator,
+                                 String amount, String sign, String message) {
+        return "H07" + transactionCode + chequeIndicator + "20260428" + amount + sign
                 + String.format("%-50s", message);
     }
 

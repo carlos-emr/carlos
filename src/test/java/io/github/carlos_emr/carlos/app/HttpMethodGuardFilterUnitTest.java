@@ -298,6 +298,22 @@ class HttpMethodGuardFilterUnitTest {
             verify(response).sendError(anyInt(), anyString());
             verify(chain, never()).doFilter(request, response);
         }
+
+        @Test
+        @DisplayName("should block GET to DocumentErrorReportUpload")
+        void shouldBlock_forGetToDocumentErrorReportUpload() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/oscarBilling/DocumentErrorReportUpload");
+            when(request.getParameter("filename")).thenReturn("R1234567");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED,
+                    "GET requests are not allowed on this endpoint. Use POST.");
+            verify(response).setHeader("Allow", "POST");
+            verify(chain, never()).doFilter(request, response);
+        }
     }
 
     @Nested

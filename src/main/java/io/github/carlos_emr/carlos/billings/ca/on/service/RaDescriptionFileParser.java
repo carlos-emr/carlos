@@ -136,13 +136,7 @@ public class RaDescriptionFileParser {
         String total = line.substring(59, 68);
         String totalStatus = line.substring(68, 69);
         try {
-            int totalSum = Integer.parseInt(total);
-            if (totalSum == 0) {
-                out.cheque = "0.00";
-            } else {
-                String s = String.valueOf(totalSum);
-                out.cheque = s.substring(0, s.length() - 2) + "." + s.substring(s.length() - 2) + totalStatus;
-            }
+            out.cheque = formatSignedAmount(total, totalStatus, 2, true);
             out.h1Parsed = true;
         } catch (NumberFormatException e) {
             MiscUtils.getLogger().warn("H1 cheque total not numeric (raw='{}') — leaving cheque unparsed", total, e);
@@ -151,12 +145,12 @@ public class RaDescriptionFileParser {
 
     private static void parseH6(String line, ParsedFile out) {
         if (line.length() < 43) return;
-        String abfCa = line.substring(3, 10) + "." + line.substring(10, 13);
-        String abfAd = line.substring(13, 20) + "." + line.substring(20, 23);
-        String abfRe = line.substring(23, 30) + "." + line.substring(30, 33);
-        String abfDe = line.substring(33, 40) + "." + line.substring(40, 43);
+        SignedField abfCa = signedField(line, 3, 7, 3);
+        SignedField abfAd = signedField(line, abfCa.nextIndex(), 7, 3);
+        SignedField abfRe = signedField(line, abfAd.nextIndex(), 7, 3);
+        SignedField abfDe = signedField(line, abfRe.nextIndex(), 7, 3);
         out.balanceForwardRow = new GenerateRaDescriptionViewModel.BalanceForwardRow(
-                abfCa, abfAd, abfRe, abfDe);
+                abfCa.value(), abfAd.value(), abfRe.value(), abfDe.value());
     }
 
     private static void parseH7(String line, ParsedFile out) {
@@ -164,11 +158,54 @@ public class RaDescriptionFileParser {
         String transCode = decodeTransCode(line.substring(3, 5));
         String chequeIndicator = decodeChequeIndicator(line.substring(5, 6));
         String transDate = line.substring(6, 14);
-        String transAmount = line.substring(14, 20) + "." + line.substring(20, 23);
-        String transMessage = line.substring(23, 73);
+        String sign = "";
+        int messageStart = 23;
+        if (line.length() > 23 && isSignChar(line.charAt(23))) {
+            sign = line.substring(23, 24);
+            messageStart = 24;
+        }
+        String transAmount = formatSignedAmount(line.substring(14, 23), sign, 3, false);
+        String transMessage = line.substring(messageStart, Math.min(line.length(), messageStart + 50));
         out.transactionRows.add(new GenerateRaDescriptionViewModel.TransactionRow(
                 transCode, transDate, chequeIndicator, transAmount, transMessage));
     }
+
+    private static SignedField signedField(String line, int start, int wholeDigits, int fractionDigits) {
+        int end = start + wholeDigits + fractionDigits;
+        String rawAmount = line.substring(start, end);
+        String sign = "";
+        if (line.length() > end && isSignChar(line.charAt(end))) {
+            sign = line.substring(end, end + 1);
+            end++;
+        }
+        return new SignedField(formatSignedAmount(rawAmount, sign, fractionDigits, false), end);
+    }
+
+    private static String formatSignedAmount(String rawAmount, String sign, int fractionDigits,
+                                             boolean stripWholeLeadingZeros) {
+        String digits = rawAmount == null ? "" : rawAmount.trim();
+        if (digits.isEmpty()) {
+            digits = "0";
+        }
+        if (!digits.matches("\\d+")) {
+            throw new NumberFormatException("RA amount is not numeric");
+        }
+        while (digits.length() <= fractionDigits) {
+            digits = "0" + digits;
+        }
+        String whole = digits.substring(0, digits.length() - fractionDigits);
+        String fraction = digits.substring(digits.length() - fractionDigits);
+        if (stripWholeLeadingZeros) {
+            whole = new java.math.BigInteger(whole).toString();
+        }
+        return ("-".equals(sign) ? "-" : "") + whole + "." + fraction;
+    }
+
+    private static boolean isSignChar(char ch) {
+        return ch == '-' || ch == '+' || ch == ' ';
+    }
+
+    private record SignedField(String value, int nextIndex) { }
 
     private static void parseH8(String line, StringBuilder messages) {
         if (line.length() >= 73) {

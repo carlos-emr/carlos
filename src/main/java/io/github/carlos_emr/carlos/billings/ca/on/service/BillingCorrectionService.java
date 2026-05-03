@@ -147,7 +147,7 @@ public class BillingCorrectionService {
                     "3rd party payment rejected: invalid billing_no ["
                     + LogSanitizer.sanitizeForDisplay(invoiceNo) + "]", nfe);
         }
-        BillingONCHeader1 bCh1 = bCh1Dao.find(invoiceId);
+        BillingONCHeader1 bCh1 = bCh1Dao.findForUpdate(invoiceId);
         if (bCh1 == null) {
             MiscUtils.getLogger().error("3rd party payment: billing_no '{}' not found",
                     LogSanitizer.sanitize(invoiceNo));

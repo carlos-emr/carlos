@@ -522,7 +522,7 @@ public class BillingOnPaymentViewModelAssembler {
                     }
                 } catch (NumberFormatException e) {
                     paymentsPartial = true;
-                    MiscUtils.getLogger().warn("BillItem fee is not a valid amount: {}", amtBilled);
+                    MiscUtils.getLogger().warn("BillItem fee is not a valid amount: {}", amtBilled, e);
                 }
 
                 List<BillingOnItemPayment> bItemPayList =

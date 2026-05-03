@@ -97,6 +97,7 @@ public final class BillingOnReviewViewModel {
     private final String payeeFromConfig;
     private final boolean payeeFromConfigSet;
     private final java.util.List<PaymentType> paymentTypes;
+    private final boolean paymentTypeLookupFailed;
     private final java.util.List<ParamPair> allRequestParams;
     private final String loggedInUserNo;
 
@@ -239,6 +240,7 @@ public final class BillingOnReviewViewModel {
         this.paymentTypes = b.paymentTypes == null
                 ? java.util.Collections.emptyList()
                 : java.util.List.copyOf(b.paymentTypes);
+        this.paymentTypeLookupFailed = b.paymentTypeLookupFailed;
         this.allRequestParams = b.allRequestParams == null
                 ? java.util.Collections.emptyList()
                 : java.util.List.copyOf(b.allRequestParams);
@@ -335,6 +337,7 @@ public final class BillingOnReviewViewModel {
     public String getPayeeFromConfig() { return payeeFromConfig; }
     public boolean isPayeeFromConfigSet() { return payeeFromConfigSet; }
     public java.util.List<PaymentType> getPaymentTypes() { return paymentTypes; }
+    public boolean isPaymentTypeLookupFailed() { return paymentTypeLookupFailed; }
     public java.util.List<ParamPair> getAllRequestParams() { return allRequestParams; }
     public String getLoggedInUserNo() { return loggedInUserNo; }
 
@@ -415,6 +418,7 @@ public final class BillingOnReviewViewModel {
         private String payeeFromConfig = "";
         private boolean payeeFromConfigSet = false;
         private java.util.List<PaymentType> paymentTypes;
+        private boolean paymentTypeLookupFailed = false;
         private java.util.List<ParamPair> allRequestParams;
         private String loggedInUserNo = "";
 
@@ -487,6 +491,7 @@ public final class BillingOnReviewViewModel {
         public Builder payeeFromConfig(String v) { this.payeeFromConfig = v; return this; }
         public Builder payeeFromConfigSet(boolean v) { this.payeeFromConfigSet = v; return this; }
         public Builder paymentTypes(java.util.List<PaymentType> v) { this.paymentTypes = v == null ? null : java.util.List.copyOf(v); return this; }
+        public Builder paymentTypeLookupFailed(boolean v) { this.paymentTypeLookupFailed = v; return this; }
         public Builder allRequestParams(java.util.List<ParamPair> v) { this.allRequestParams = v == null ? null : java.util.List.copyOf(v); return this; }
         public Builder loggedInUserNo(String v) { this.loggedInUserNo = v; return this; }
 

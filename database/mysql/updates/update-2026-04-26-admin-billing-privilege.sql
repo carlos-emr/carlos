@@ -9,13 +9,13 @@
 --
 -- The dev DB's admin role already has `_admin x` plus many specific
 -- `_admin.*` entries (caisi, demographic, document, eform, fax, etc.);
--- `_admin.billing` is just missing from that set. Adding it brings the
--- admin role's privilege bag in line with what the menu links
--- ("Manage Billing Service Code", etc.) require.
+-- `_admin.billing` is just missing from that set. Grant the narrower write
+-- privilege instead of all-permissions `x`; the billing administration
+-- actions introduced here require `_admin.billing` write access.
 --
 -- Idempotent via INSERT IGNORE — safe to re-run on databases that
 -- already have the row.
 INSERT IGNORE INTO `secObjPrivilege`
     (`roleUserGroup`, `objectName`, `privilege`, `priority`, `provider_no`)
 VALUES
-    ('admin', '_admin.billing', 'x', 0, '999998');
+    ('admin', '_admin.billing', 'w', 0, '999998');

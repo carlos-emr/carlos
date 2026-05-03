@@ -62,8 +62,8 @@ class BillingLegacyDtoMoneyInvariantUnitTest {
         BillingErrorReportDto report = new BillingErrorReportDto();
         BillingClaimsErrorReportRecordDto record = new BillingClaimsErrorReportRecordDto();
 
-        report.setFee("003500");
-        record.setAmountsubmit("000123");
+        report.setFeeStoredCents("003500");
+        record.setAmountsubmitStoredCents("000123");
 
         assertThat(report.getFee()).isEqualTo("35.00");
         assertThat(report.getFeeMoney().format()).isEqualTo("35.00");
@@ -72,13 +72,13 @@ class BillingLegacyDtoMoneyInvariantUnitTest {
     }
 
     @Test
-    void shouldTreatShortDigitOnlyMoneyAsDecimal_whenLegacyDaoValueSet() {
+    void shouldTreatDigitOnlyMoneyAsDecimal_whenLegacyDaoValueSet() {
         BillingErrorReportDto report = new BillingErrorReportDto();
 
-        report.setFee("35");
+        report.setFee("123456");
 
-        assertThat(report.getFee()).isEqualTo("35.00");
-        assertThat(report.getFeeMoney().format()).isEqualTo("35.00");
+        assertThat(report.getFee()).isEqualTo("123456.00");
+        assertThat(report.getFeeMoney().format()).isEqualTo("123456.00");
     }
 
     @Test

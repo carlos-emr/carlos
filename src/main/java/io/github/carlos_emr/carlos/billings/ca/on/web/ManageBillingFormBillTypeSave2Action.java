@@ -26,8 +26,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.commn.dao.CtlBillingTypeDao;
-import io.github.carlos_emr.carlos.commn.model.CtlBillingType;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFormConfigurationService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -41,9 +40,9 @@ import java.util.Objects;
  *
  * <p>Replaces {@code dbManageBillingform_billtype.jsp}. Three cases are handled:
  * <ul>
- *   <li>{@code billtype == "no"} – removes the existing {@link CtlBillingType} entry.</li>
- *   <li>{@code billtype_old == "no"} – creates a new {@link CtlBillingType} entry.</li>
- *   <li>Otherwise – finds the existing entry and updates its bill type value.</li>
+ *   <li>{@code billtype == "no"} - removes the existing bill-type entry.</li>
+ *   <li>{@code billtype_old == "no"} - creates a new bill-type entry.</li>
+ *   <li>Otherwise - finds the existing entry and updates its bill type value.</li>
  * </ul>
  * Returns {@code success} to forward to the confirmation view JSP.
  *
@@ -57,7 +56,8 @@ public class ManageBillingFormBillTypeSave2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private CtlBillingTypeDao ctlBillingTypeDao = SpringUtils.getBean(CtlBillingTypeDao.class);
+    private BillingFormConfigurationService billingFormConfigurationService =
+            SpringUtils.getBean(BillingFormConfigurationService.class);
 
     /**
      * Processes a bill type change for the given service type.
@@ -87,31 +87,13 @@ public class ManageBillingFormBillTypeSave2Action extends ActionSupport {
         }
 
         try {
-            if (billtype.equals("no")) {
-                // Remove the existing billing type entry by its String ID
-                ctlBillingTypeDao.remove(servicetype);
-
-            } else if (billtypeOld.equals("no")) {
-                // No prior entry existed; create a new one
-                CtlBillingType cbt = new CtlBillingType();
-                cbt.setId(servicetype);
-                cbt.setBillType(billtype);
-                ctlBillingTypeDao.persist(cbt);
-
-            } else {
-                // Update the existing entry
-                CtlBillingType cbt = ctlBillingTypeDao.find(servicetype);
-                if (cbt != null) {
-                    cbt.setBillType(billtype);
-                    ctlBillingTypeDao.merge(cbt);
-                } else {
-                    MiscUtils.getLogger().error( // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
-                            "ManageBillingFormBillTypeSave2Action: no CtlBillingType found for servicetype={} — update failed",
-                            LogSanitizer.sanitize(servicetype));
-                    response.sendError(HttpServletResponse.SC_NOT_FOUND,
-                            "Billing type entry not found for the specified service type");
-                    return NONE;
-                }
+            if (!billingFormConfigurationService.updateBillingTypeAssociation(servicetype, billtype, billtypeOld)) {
+                MiscUtils.getLogger().error( // NOSONAR javasecurity:S5145 - sanitized with LogSanitizer
+                        "ManageBillingFormBillTypeSave2Action: no billing type found for servicetype={} - update failed",
+                        LogSanitizer.sanitize(servicetype));
+                response.sendError(HttpServletResponse.SC_NOT_FOUND,
+                        "Billing type entry not found for the specified service type");
+                return NONE;
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Failed to update bill type for servicetype={}", LogSanitizer.sanitize(servicetype), e);

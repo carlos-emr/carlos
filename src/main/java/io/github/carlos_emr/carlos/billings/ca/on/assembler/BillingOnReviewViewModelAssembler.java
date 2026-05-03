@@ -528,15 +528,10 @@ public class BillingOnReviewViewModelAssembler {
                 }
                 b.paymentTypes(paymentTypes);
             } catch (RuntimeException e) {
-                // ERROR (not WARN): an empty payment-type dropdown leaves the
-                // private-payer review unable to proceed and the operator
-                // with no diagnostic. Bump severity so the failure is visible
-                // in default log levels; a follow-up should add a
-                // paymentTypeLookupFailed flag + JSP banner so the user
-                // sees "Payment types unavailable — contact admin" inline.
                 MiscUtils.getLogger().error(
                         "BillingOnReviewViewModelAssembler: getPaymentType failed; rendering empty dropdown", e);
-                b.paymentTypes(Collections.emptyList());
+                b.paymentTypes(Collections.emptyList())
+                        .paymentTypeLookupFailed(true);
             }
 
             String clinicAddress = resolveClinicAddress(request, bMultisites, loggedInUserNo);
@@ -689,7 +684,7 @@ public class BillingOnReviewViewModelAssembler {
             parseFailed[0] = true;
             MiscUtils.getLogger().error(
                     "BillingOnReviewViewModel: malformed numeric input on Review screen — field={}, value=\"{}\". GST/totals will read 0; submission must be gated.",
-                    fieldName, io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(trimmed));
+                    fieldName, io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(trimmed), e);
             return BigDecimal.ZERO;
         }
     }
@@ -710,7 +705,7 @@ public class BillingOnReviewViewModelAssembler {
             parseFailed[0] = true;
             MiscUtils.getLogger().warn(
                     "BillingOnReviewViewModel: malformed integer input on Review screen — field={}, value=\"{}\". Percentage totals will read 0; submission must be gated.",
-                    fieldName, io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(trimmed));
+                    fieldName, io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(trimmed), e);
             return 0;
         }
     }

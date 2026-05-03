@@ -38,6 +38,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportBilledRow;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportPaidBillingRow;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadException;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnNewReportTotalsCalculator;
 import io.github.carlos_emr.carlos.commn.dao.projection.BillingOnNewReportPaidRaDetailRow;
 import io.github.carlos_emr.carlos.commn.dao.projection.BillingOnNewReportUnbilledRow;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportUnpaidRow;

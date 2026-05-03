@@ -33,8 +33,8 @@ import java.time.format.DateTimeParseException;
 /**
  * Shared coercion helpers for Ontario billing command objects.
  *
- * <p>The command layer sits between loose request/form inputs and the typed
- * services introduced in this PR. Keeping the normalization rules here avoids
+ * <p>The command layer sits between loose request/form inputs and typed
+ * billing services. Keeping the normalization rules here avoids
  * re-encoding the same legacy null/blank/date/money handling in each command
  * type and makes validation failures uniform for callers and tests.</p>
  */

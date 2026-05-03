@@ -194,7 +194,8 @@ class BillingDiskCreationServiceUnitTest {
         when(diskLoader.getLatestSoloMonthCodeBatchNum("054321"))
                 .thenReturn(null, new String[]{monthCode, "1"});
         when(claimPersister.addBillingDiskName(org.mockito.ArgumentMatchers.any(BillingDiskNameDto.class)))
-                .thenThrow(new RuntimeException("Duplicate entry billing_on_diskname_ohipfilename_uq"))
+                .thenThrow(new org.springframework.dao.DataIntegrityViolationException(
+                        "billing_on_diskname_ohipfilename_uq"))
                 .thenReturn(44);
 
         int diskId = service.createNewSoloDiskName("999998", "creator");
@@ -212,7 +213,8 @@ class BillingDiskCreationServiceUnitTest {
         when(diskLoader.getLatestGrpMonthCodeBatchNum("1234"))
                 .thenReturn(null, new String[]{monthCode, "1"});
         when(claimPersister.addBillingDiskName(org.mockito.ArgumentMatchers.any(BillingDiskNameDto.class)))
-                .thenThrow(new RuntimeException("Duplicate entry billing_on_filename_htmlfilename_uq"))
+                .thenThrow(new org.springframework.dao.DataIntegrityViolationException(
+                        "billing_on_filename_htmlfilename_uq"))
                 .thenReturn(45);
 
         int diskId = service.createNewGrpDiskName(
@@ -226,6 +228,22 @@ class BillingDiskCreationServiceUnitTest {
         verify(claimPersister, org.mockito.Mockito.times(2)).addBillingDiskName(captor.capture());
         assertThat(captor.getAllValues()).extracting(BillingDiskNameDto::getBatchcount)
                 .containsExactly("1", "2");
+    }
+
+    @Test
+    void shouldPropagateRuntimeException_whenMessageOnlyLooksUnique() {
+        Properties refreshed = new Properties();
+        refreshed.setProperty("999998", "054321");
+        when(lookupService.getPropProviderOHIP()).thenReturn(refreshed);
+        when(diskLoader.getLatestSoloMonthCodeBatchNum("054321")).thenReturn(null);
+        RuntimeException failure = new RuntimeException("unique network timeout");
+        when(claimPersister.addBillingDiskName(org.mockito.ArgumentMatchers.any(BillingDiskNameDto.class)))
+                .thenThrow(failure);
+
+        assertThatThrownBy(() -> service.createNewSoloDiskName("999998", "creator"))
+                .isSameAs(failure);
+
+        verify(claimPersister).addBillingDiskName(org.mockito.ArgumentMatchers.any(BillingDiskNameDto.class));
     }
 
     // ---- createBatchHeader: assembles the BillingBatchHeaderDto ---------

@@ -281,6 +281,36 @@ class BillingOnRaServiceUnitTest {
     }
 
     @Test
+    void shouldStoreLeadingNegativeRaAmounts_whenImportFileUsesSeparateSignFields() throws Exception {
+        List<RaHeader> persistedHeaders = new ArrayList<>();
+        org.mockito.Mockito.doAnswer(invocation -> {
+            RaHeader header = invocation.getArgument(0);
+            ReflectionTestUtils.setField(header, "id", 99);
+            persistedHeaders.add(header);
+            return null;
+        }).when(raHeaderDao).persist(any(RaHeader.class));
+        when(raHeaderDao.findCurrentByFilenamePaymentDate(any(), any())).thenReturn(List.of());
+        when(raHeaderDao.findByFilenamePaymentDate(any(), any())).thenAnswer(invocation -> persistedHeaders);
+
+        Path file = tempDir.resolve("negative-ra.ra");
+        Files.write(file, List.of(
+                h1("20260401", "000001234", "-"),
+                h6("-", "-", "-", "-"),
+                h7("20", "C", "000123450", "-", "negative transaction")));
+
+        service.importRAFile(file.toString());
+
+        ArgumentCaptor<RaHeader> mergeCaptor = ArgumentCaptor.forClass(RaHeader.class);
+        verify(raHeaderDao).merge(mergeCaptor.capture());
+        RaHeader header = mergeCaptor.getValue();
+        assertThat(header.getTotalAmount()).isEqualTo("-12.34");
+        assertThat(header.getContent())
+                .contains("<xml_cheque>-12.34</xml_cheque>")
+                .contains("<td>-0000001.111</td>")
+                .contains("<td width='13%'>-000123.450</td>");
+    }
+
+    @Test
     void shouldRejectPathOutsideDocumentDir_whenImportRaFileCalledDirectly() throws Exception {
         Path outside = Files.createTempFile("outside-ra", ".txt");
 
@@ -384,6 +414,32 @@ class BillingOnRaServiceUnitTest {
         put(line, 37, "001000");
         put(line, 43, "+");
         put(line, 44, "00");
+        return new String(line);
+    }
+
+    private static String h6(String claimsSign, String advanceSign,
+                             String reductionSign, String deductionSign) {
+        char[] line = fixedLine();
+        line[0] = 'H';
+        line[2] = '6';
+        put(line, 3, "0000001111" + claimsSign);
+        put(line, 14, "0000002222" + advanceSign);
+        put(line, 25, "0000003333" + reductionSign);
+        put(line, 36, "0000004444" + deductionSign);
+        return new String(line);
+    }
+
+    private static String h7(String transactionCode, String chequeIndicator,
+                             String amount, String sign, String message) {
+        char[] line = fixedLine();
+        line[0] = 'H';
+        line[2] = '7';
+        put(line, 3, transactionCode);
+        put(line, 5, chequeIndicator);
+        put(line, 6, "20260401");
+        put(line, 14, amount);
+        put(line, 23, sign);
+        put(line, 24, message);
         return new String(line);
     }
 

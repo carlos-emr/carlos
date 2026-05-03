@@ -36,6 +36,16 @@
     </tr>
 </c:when>
 <c:otherwise>
+    <c:if test="${billingReportFragmentModel.billobTotalPartial}">
+        <tr>
+            <td colspan="6">
+                <div class="alert alert-warning" role="alert">
+                    <carlos:encode value="${billingReportFragmentModel.billobUnreadableTotalCount}" context="html"/>
+                    settled OB row(s) had unreadable totals and were excluded from the paid total.
+                </div>
+            </td>
+        </tr>
+    </c:if>
     <tr bgcolor="#CCCCFF">
         <TH align="center" width="5%"><b><font size="2"
             face="Arial, Helvetica, sans-serif">INVOICE</font></b></TH>

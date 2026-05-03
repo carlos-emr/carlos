@@ -145,7 +145,11 @@ public class BillingErrorReportDto {
     }
 
     public void setFee(String fee) {
-        this.fee = BillingDtoMoney.parseNonNegativeStoredCentsOrDecimal(fee, "fee");
+        this.fee = BillingDtoMoney.parseNonNegativeDecimal(fee, "fee");
+    }
+
+    public void setFeeStoredCents(String fee) {
+        this.fee = BillingDtoMoney.parseNonNegativeStoredCents(fee, "fee");
     }
 
     public BillingMoney getFeeMoney() {

@@ -32,7 +32,7 @@
  *       request-method guard.</li>
  *   <li>Delegates to <em>exactly one</em> of:
  *       <ul>
- *         <li>{@code billings.ca.on.assembler.*Assembler} — for read pages
+ *         <li>{@code billings.ca.on.assembler.*ViewModelAssembler} — for read pages
  *             that build a view model.</li>
  *         <li>{@code billings.ca.on.service.*Service} — for mutation pages
  *             that perform side effects.</li>

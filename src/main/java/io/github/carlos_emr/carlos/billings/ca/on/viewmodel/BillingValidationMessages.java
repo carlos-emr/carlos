@@ -30,12 +30,11 @@ package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;
  *   <li>{@code errorFlag} — string sentinel (legacy: empty or {@code "1"});
  *       a non-empty value means a hard validation failure that should
  *       prevent submission.</li>
- *   <li>{@code errorMessage} — pre-rendered HTML snippet shown in the red
- *       banner (assembled by the page's data assembler from per-field
- *       validation results).</li>
- *   <li>{@code warningMessage} — pre-rendered HTML snippet shown in the
- *       orange banner (non-blocking warnings such as missing HIN, malformed
- *       referral OHIP).</li>
+ *   <li>{@code errorMessage} — operator-facing error text rendered by the
+ *       JSP in the error banner.</li>
+ *   <li>{@code warningMessage} — operator-facing warning text rendered by
+ *       the JSP in the warning banner (non-blocking warnings such as missing
+ *       HIN, malformed referral OHIP).</li>
  * </ul>
  *
  * <p>Every component is null-coalesced to empty so EL output via

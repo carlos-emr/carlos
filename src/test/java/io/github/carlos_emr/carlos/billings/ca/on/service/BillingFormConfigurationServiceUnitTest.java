@@ -42,6 +42,7 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.doThrow;
@@ -265,6 +266,53 @@ class BillingFormConfigurationServiceUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(RuntimeException.class).hasMessageContaining("loc-fail");
 
         verify(locationDao).persist(same(loc1));
+    }
+
+    // ---- updateBillingTypeAssociation ----------------------------------
+
+    @Test
+    void shouldRemoveExistingType_whenBillTypeIsNo() {
+        boolean updated = svc.updateBillingTypeAssociation("ABC", "no", "private");
+
+        assertThat(updated).isTrue();
+        verify(typeDao).remove("ABC");
+        verify(typeDao, never()).persist(org.mockito.ArgumentMatchers.any(CtlBillingType.class));
+    }
+
+    @Test
+    void shouldCreateType_whenOldBillTypeIsNo() {
+        boolean updated = svc.updateBillingTypeAssociation("ABC", "private", "no");
+
+        assertThat(updated).isTrue();
+        org.mockito.ArgumentCaptor<CtlBillingType> captor =
+                org.mockito.ArgumentCaptor.forClass(CtlBillingType.class);
+        verify(typeDao).persist(captor.capture());
+        assertThat(captor.getValue().getId()).isEqualTo("ABC");
+        assertThat(captor.getValue().getBillType()).isEqualTo("private");
+    }
+
+    @Test
+    void shouldUpdateExistingType_whenTypeExists() {
+        CtlBillingType existing = new CtlBillingType();
+        existing.setId("ABC");
+        existing.setBillType("old");
+        when(typeDao.find("ABC")).thenReturn(existing);
+
+        boolean updated = svc.updateBillingTypeAssociation("ABC", "new", "old");
+
+        assertThat(updated).isTrue();
+        assertThat(existing.getBillType()).isEqualTo("new");
+        verify(typeDao).merge(same(existing));
+    }
+
+    @Test
+    void shouldReturnFalse_whenExistingTypeMissing() {
+        when(typeDao.find("ABC")).thenReturn(null);
+
+        boolean updated = svc.updateBillingTypeAssociation("ABC", "new", "old");
+
+        assertThat(updated).isFalse();
+        verify(typeDao, never()).merge(org.mockito.ArgumentMatchers.any(CtlBillingType.class));
     }
 
     // ---- helpers --------------------------------------------------------

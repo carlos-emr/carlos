@@ -239,19 +239,13 @@ class ScheduleOfBenefitsActionsUnitTest {
     }
 
     @Test
-    void shouldReturn405WithAllowHeaderOnUpload_whenGet() throws Exception {
-        // The fee-schedule upload mutates billingservice rows. A forged GET
-        // would have bypassed the multipart-aware preview entirely; pin the
-        // 405 + Allow contract so a future regression that drops the gate
-        // surfaces here.
+    void shouldRouteUploadGetToView_whenLegacyUrlIsOpened() throws Exception {
         request.setMethod("GET");
 
         ScheduleOfBenefitsUpload2Action action =
                 new ScheduleOfBenefitsUpload2Action(securityInfoManager, feeScheduleImportService);
 
-        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
-        assertThat(response.getStatus()).isEqualTo(jakarta.servlet.http.HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        assertThat(action.execute()).isEqualTo("view");
         verify(feeScheduleImportService, org.mockito.Mockito.never()).preview(any(), any());
     }
 

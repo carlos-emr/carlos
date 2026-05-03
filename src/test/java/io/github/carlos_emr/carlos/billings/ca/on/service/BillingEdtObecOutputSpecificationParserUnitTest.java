@@ -126,6 +126,27 @@ class BillingEdtObecOutputSpecificationParserUnitTest {
     }
 
     @Test
+    void shouldSetVerdictFalse_whenResponseCodeIsNotNumeric() throws Exception {
+        Path report = tempDir.resolve("R-nonnumeric-response.txt");
+        Files.writeString(report, fixedWidthLine("1234567890", "AB", "XX", "20261231", "Second") + "\n");
+
+        BillingEdtObecOutputSpecificationParser parser;
+        try (FileInputStream input = new FileInputStream(report.toFile())) {
+            parser = new BillingEdtObecOutputSpecificationParser(
+                    mock(LoggedInInfo.class),
+                    input,
+                    mock(BatchEligibilityDao.class),
+                    mock(DemographicManager.class),
+                    mock(ProviderDao.class));
+        }
+
+        assertThat(parser.verdict).isFalse();
+        assertThat(parser.getEdtObecOutputSpecificationRecords()).isEmpty();
+        assertThat(parser.getAttemptedRecordCount()).isEqualTo(1);
+    }
+
+
+    @Test
     void shouldClearPreviouslyParsedRows_whenLaterRecordLayoutIsMalformed() throws Exception {
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         BatchEligibilityDao batchEligibilityDao = mock(BatchEligibilityDao.class);

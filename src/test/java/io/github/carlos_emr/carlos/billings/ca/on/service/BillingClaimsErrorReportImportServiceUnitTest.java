@@ -105,6 +105,17 @@ class BillingClaimsErrorReportImportServiceUnitTest {
     }
 
     @Test
+    void shouldThrowBillingFileImportException_whenTransactionAmountIsMalformed() throws IOException {
+        String content = headerLine("1") + "\n" + claimLine() + "\n"
+                + transactionLine("ABCDEF") + "\n" + footerLine() + "\n";
+        FileInputStream input = writeAndOpen(content);
+
+        assertThatThrownBy(() -> svc.importStream(input, "bad-amount.err"))
+                .isInstanceOf(BillingFileImportException.class)
+                .hasMessageContaining("bad-amount.err");
+    }
+
+    @Test
     void shouldSkipShortLines_andContinueParsingWhenHeaderCountUnreadable() throws IOException {
         // Lines under 3 chars cannot yield a headerCount substring — the
         // parser logs and continues. The remaining valid lines must still
@@ -243,6 +254,10 @@ class BillingClaimsErrorReportImportServiceUnitTest {
     }
 
     private static String transactionLine() {
+        return transactionLine("003500");
+    }
+
+    private static String transactionLine(String amountSubmitted) {
         // Layout — substrings used: [3,8) servicecode, [10,16) amountsubmit,
         // [16,18) serviceno, [18,26) servicedate, [26,30) dxcode,
         // [64,79) error codes.
@@ -250,7 +265,7 @@ class BillingClaimsErrorReportImportServiceUnitTest {
         sb.append("HET");                          // 0..3: HE marker + T
         sb.append("A001A");                        // 3..8: service code
         sb.append("  ");                           // 8..10: pad
-        sb.append("003500");                       // 10..16: amount-submitted
+        sb.append(amountSubmitted);                 // 10..16: amount-submitted
         sb.append("01");                           // 16..18: service-no
         sb.append("20260101");                     // 18..26: service-date
         sb.append("V70");                          // 26..29: dx-code (3 chars)

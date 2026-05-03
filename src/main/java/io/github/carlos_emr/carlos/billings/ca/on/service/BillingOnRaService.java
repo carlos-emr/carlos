@@ -189,11 +189,7 @@ public class BillingOnRaService {
                     total = nextline.substring(59, 68);
                     totalStatus = nextline.substring(68, 69);
 
-                    totalsum = Integer.parseInt(total);
-                    total = String.valueOf(totalsum);
-
-                    total = getPointNum(total);
-                    total += totalStatus;
+                    total = formatRaSignedAmount(total, totalStatus, 2, true);
 
                     List<RaHeader> headers = raHeaderDao.findCurrentByFilenamePaymentDate(filename, paymentdate);
                     for (RaHeader h : headers) {
@@ -326,10 +322,14 @@ public class BillingOnRaService {
                     // colspan='4'>Balance Forward Record - Amount Brought
                     // Forward (ABF)</td></tr><tr><td>Claims
                     // Adjustment</td><td>Advances</td><td>Reductions</td><td>Deductions</td></tr><tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr></table>";
-                    abf_ca = nextline.substring(3, 10) + "." + nextline.substring(10, 13);
-                    abf_ad = nextline.substring(13, 20) + "." + nextline.substring(20, 23);
-                    abf_re = nextline.substring(23, 30) + "." + nextline.substring(30, 33);
-                    abf_de = nextline.substring(33, 40) + "." + nextline.substring(40, 43);
+                    SignedRaAmount claimsAdjustment = signedRaAmount(nextline, 3, 7, 3);
+                    SignedRaAmount advances = signedRaAmount(nextline, claimsAdjustment.nextIndex(), 7, 3);
+                    SignedRaAmount reductions = signedRaAmount(nextline, advances.nextIndex(), 7, 3);
+                    SignedRaAmount deductions = signedRaAmount(nextline, reductions.nextIndex(), 7, 3);
+                    abf_ca = claimsAdjustment.value();
+                    abf_ad = advances.value();
+                    abf_re = reductions.value();
+                    abf_de = deductions.value();
                 }
 
                 if (headerCount.compareTo("7") == 0) {
@@ -347,8 +347,15 @@ public class BillingOnRaService {
                         cheque_indicator = "Interim payment Cheque/Direct Bank Deposit issued";
 
                     trans_date = nextline.substring(6, 14);
-                    trans_amount = nextline.substring(14, 20) + "." + nextline.substring(20, 23);
-                    trans_message = nextline.substring(23, 73);
+                    String transAmountSign = "";
+                    int transMessageStart = 23;
+                    if (nextline.length() > 23 && isRaSignChar(nextline.charAt(23))) {
+                        transAmountSign = nextline.substring(23, 24);
+                        transMessageStart = 24;
+                    }
+                    trans_amount = formatRaSignedAmount(nextline.substring(14, 23), transAmountSign, 3, false);
+                    trans_message = nextline.substring(transMessageStart,
+                            Math.min(nextline.length(), transMessageStart + 50));
 
                     transaction = transaction + "<tr><td width='14%'>" + trans_code + "</td><td width='12%'>" + trans_date + "</td><td width='17%'>" + cheque_indicator + "</td><td width='13%'>" + trans_amount + "</td><td width='44%'>" + trans_message + "</td></tr>";
                 }
@@ -389,6 +396,43 @@ public class BillingOnRaService {
             raHeaderDao.merge(h);
         }
     }
+
+    private static SignedRaAmount signedRaAmount(String line, int start, int wholeDigits, int fractionDigits) {
+        int end = start + wholeDigits + fractionDigits;
+        String rawAmount = line.substring(start, end);
+        String sign = "";
+        if (line.length() > end && isRaSignChar(line.charAt(end))) {
+            sign = line.substring(end, end + 1);
+            end++;
+        }
+        return new SignedRaAmount(formatRaSignedAmount(rawAmount, sign, fractionDigits, false), end);
+    }
+
+    private static String formatRaSignedAmount(String rawAmount, String sign, int fractionDigits,
+                                               boolean stripWholeLeadingZeros) {
+        String digits = rawAmount == null ? "" : rawAmount.trim();
+        if (digits.isEmpty()) {
+            digits = "0";
+        }
+        if (!digits.matches("\\d+")) {
+            throw new NumberFormatException("RA amount is not numeric");
+        }
+        while (digits.length() <= fractionDigits) {
+            digits = "0" + digits;
+        }
+        String whole = digits.substring(0, digits.length() - fractionDigits);
+        String fraction = digits.substring(digits.length() - fractionDigits);
+        if (stripWholeLeadingZeros) {
+            whole = new java.math.BigInteger(whole).toString();
+        }
+        return ("-".equals(sign) ? "-" : "") + whole + "." + fraction;
+    }
+
+    private static boolean isRaSignChar(char ch) {
+        return ch == '-' || ch == '+' || ch == ' ';
+    }
+
+    private record SignedRaAmount(String value, int nextIndex) { }
 
     public List<Properties> getAllRahd(String status) {
         List<Properties> ret = new ArrayList<Properties>();
@@ -599,7 +643,7 @@ public class BillingOnRaService {
                     amountUnreadable = true;
                     MiscUtils.getLogger().error(
                             "RA reconciliation: header {} row had unreadable amountPay [{}]; flagged for operator follow-up",
-                            LogSanitizer.sanitize(id), LogSanitizer.sanitize(amountpay));
+                            LogSanitizer.sanitize(id), LogSanitizer.sanitize(amountpay), e);
                     amountpay = "0.00";
                 }
 

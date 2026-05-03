@@ -58,7 +58,8 @@ ENCODE_SCRIPTLET_RE = re.compile(r"<%=\s*Encode\.for[A-Za-z]+\s*\(")
 # `carlos:forHtmlContent(` anywhere inside an attribute value, by treating
 # anything between the opening quote and the EL marker as opaque content.
 HTML_ATTR_CONTENT_MISUSE_RE = re.compile(
-    r"""=\s*['"][^'"]*\$\{\s*carlos:forHtmlContent\s*\(""",
+    r"""=\s*(["'])(?:(?!\1).)*?\$\{\s*carlos:forHtmlContent\s*\(""",
+    re.DOTALL,
 )
 TAGLIB_DECL_RE = re.compile(
     r"""<%@\s*taglib\s+[^%>]*uri\s*=\s*["']owasp\.encoder\.jakarta""",

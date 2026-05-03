@@ -491,7 +491,7 @@ public class BillingOnStatusViewModelAssembler {
                 unreadableTotalRowCount++;
                 MiscUtils.getLogger().warn(
                         "BillingOnStatus: bill {} has unparseable total [{}]; excluded from grand total",
-                        ch1Obj.getId(), ch1Obj.getTotal());
+                        ch1Obj.getId(), ch1Obj.getTotal(), e);
             }
             total = total.add(valueToAdd);
 

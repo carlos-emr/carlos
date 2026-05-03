@@ -105,7 +105,7 @@ public class ManageBillingFormService2Action extends ActionSupport {
                     } catch (NumberFormatException e) {
                         MiscUtils.getLogger().warn(
                                 "Invalid serviceOrder value [{}] for group{}_service{} — aborting save",
-                                LogSanitizer.sanitize(orderStr), j, i);
+                                LogSanitizer.sanitize(orderStr), j, i, e);
                         orderParseFailures.add("group" + j + "_service" + i + "=" + orderStr);
                         continue;
                     }

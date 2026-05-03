@@ -893,7 +893,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                 <div class="alert">Inpatient admission date is temporarily unavailable.</div>
                             </c:if>
                         </td>
-                        <td style="text-align: center;">${formModel.display.displayMessage}
+                        <td style="text-align: center;"><carlos:encode value="${formModel.display.displayMessage}" context="html"/>
                         </td>
                     </tr>
                 </table>

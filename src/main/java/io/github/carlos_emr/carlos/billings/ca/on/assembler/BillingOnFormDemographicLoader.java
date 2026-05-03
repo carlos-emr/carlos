@@ -34,7 +34,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.support.BillingDateOfBirths;
 import static io.github.carlos_emr.carlos.billings.ca.on.support.BillingDateOfBirths.calculateAge;
 
 /**
- * Composer that loads patient context onto the billing form view model:
+ * Loader that adds patient context to the billing form view model:
  * demographic fields, age, roster status, referral doctor, and patient
  * validation messages (HIN / DOB / referral-no warnings).
  *
@@ -157,8 +157,10 @@ public class BillingOnFormDemographicLoader {
     }
 
     /**
-     * Builds the patient-validation banners (HIN / referral-no / DOB) and
-     * the {@code errorFlag} based on the loaded demographic's state.
+     * Builds the patient-validation messages (HIN / referral-no / DOB) and
+     * the {@code errorFlag} based on the loaded demographic's state. Markup is
+     * rendered by the JSP so future message changes cannot accidentally inject
+     * HTML into the view model.
      */
     private void populateValidationMessages(BillingOnFormViewModel.Builder b,
                                             String demoHin,
@@ -168,14 +170,14 @@ public class BillingOnFormDemographicLoader {
         StringBuilder error = new StringBuilder();
         String errorFlag = "";
         if (demoHin != null && demoHin.isEmpty()) {
-            warning.append("<b><div class='alert alert-danger'>Warning: The patient does not have a valid HIN. </div></b>");
+            warning.append("Warning: The patient does not have a valid HIN. ");
         }
         if (rDoctorOhip != null && !rDoctorOhip.isEmpty() && rDoctorOhip.length() != 6) {
-            warning.append("<div class='alert alert-danger'>Warning: the referral doctor's number is wrong. </div>");
+            warning.append("Warning: the referral doctor's number is wrong. ");
         }
         if (demoDob == null || demoDob.isEmpty() || demoDob.length() != 8) {
             errorFlag = "1";
-            error.append("<b><div class='alert alert-danger'>Error: The patient does not have a valid DOB. </div></b>");
+            error.append("Error: The patient does not have a valid DOB. ");
         }
         b.warningMsg(warning.toString())
                 .errorMsg(error.toString())

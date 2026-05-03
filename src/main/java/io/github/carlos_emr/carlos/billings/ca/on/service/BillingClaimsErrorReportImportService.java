@@ -37,6 +37,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimsErrorReportRecordDto;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 
 /**
  * Imports MOH claims-error-report files into typed report rows. Spring-
@@ -186,7 +187,7 @@ public class BillingClaimsErrorReportImportService {
                         isNewHin = false;
                     }
                     record.setServicecode(nextline.substring(3, 8));
-                    record.setAmountsubmit(nextline.substring(10, 16));
+                    record.setAmountsubmitStoredCents(nextline.substring(10, 16));
                     record.setServiceno(nextline.substring(16, 18));
                     record.setServicedate(nextline.substring(18, 26));
                     record.setDxcode(nextline.substring(26, 30));
@@ -198,7 +199,7 @@ public class BillingClaimsErrorReportImportService {
                     records.add(record);
 
                     erObj.setCode(nextline.substring(3, 8));
-                    erObj.setFee(nextline.substring(10, 16));
+                    erObj.setFeeStoredCents(nextline.substring(10, 16));
                     erObj.setUnit(nextline.substring(16, 18));
                     erObj.setCode_date(nextline.substring(18, 26));
                     erObj.setDx(nextline.substring(26, 30));
@@ -249,6 +250,9 @@ public class BillingClaimsErrorReportImportService {
             // Same rationale as the IOException catch above.
             throw new BillingFileImportException(
                     IMPORT_FAILURE_MSG_PREFIX + filename + " (malformed line)", sioobe);
+        } catch (BillingValidationException validationFailure) {
+            throw new BillingFileImportException(
+                    IMPORT_FAILURE_MSG_PREFIX + filename + " (invalid amount)", validationFailure);
         }
     }
 }

@@ -86,7 +86,7 @@ public class BillingOnHistorySpecialistViewModelAssembler {
             daysInt = Integer.parseInt(safeDay);
         } catch (NumberFormatException e) {
             MiscUtils.getLogger().warn("BillingOnHistorySpecialist: invalid day range [{}]; using 0",
-                    LogSanitizer.sanitize(safeDay));
+                    LogSanitizer.sanitize(safeDay), e);
             daysInt = 0;
         }
         calendar.add(Calendar.DATE, daysInt * (-1));

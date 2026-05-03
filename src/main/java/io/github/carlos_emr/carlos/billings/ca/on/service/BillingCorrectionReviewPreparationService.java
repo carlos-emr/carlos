@@ -23,11 +23,9 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingCorrectionReviewViewModelAssembler;
 import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionLineCommand;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCorrectionReviewDraft;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCorrectionReviewItemDraft;
-import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCorrectionReviewViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionValidationCommand;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,19 +44,12 @@ import java.util.Map;
 public class BillingCorrectionReviewPreparationService {
 
     private final ServiceCodeLoader serviceCodeLoader;
-    private final BillingCorrectionReviewViewModelAssembler reviewViewModelAssembler;
 
-    public BillingCorrectionReviewPreparationService(ServiceCodeLoader serviceCodeLoader,
-                                                     BillingCorrectionReviewViewModelAssembler reviewViewModelAssembler) {
+    public BillingCorrectionReviewPreparationService(ServiceCodeLoader serviceCodeLoader) {
         this.serviceCodeLoader = serviceCodeLoader;
-        this.reviewViewModelAssembler = reviewViewModelAssembler;
     }
 
-    public BillingCorrectionReviewViewModel prepareReview(BillingCorrectionValidationCommand command) {
-        return reviewViewModelAssembler.assemble(prepareDraft(command));
-    }
-
-    BillingCorrectionReviewDraft prepareDraft(BillingCorrectionValidationCommand command) {
+    public BillingCorrectionReviewDraft prepareReviewDraft(BillingCorrectionValidationCommand command) {
         BigDecimal billingunit = BillingMoney.zeroAmount();
         BigDecimal percentPremium = BillingMoney.zeroAmount();
         BigDecimal bigTotal = BillingMoney.zeroAmount();

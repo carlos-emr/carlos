@@ -6,7 +6,7 @@ This policy was written against the Ontario billing module (`io.github.carlos_em
 
 ## The principle
 
-**Suffix = role + lifecycle.** Pick the most specific verb that fits. Only fall back to `*Service` when nothing more specific applies. Never combine two role-suffixes.
+**Suffix = role + lifecycle.** Pick the most specific verb that fits. Only fall back to `*Service` when nothing more specific applies. Never combine two role-suffixes, except for the sanctioned `*ImportService` suffix used by file-import workflows.
 
 ## Identifier abbreviations
 
@@ -44,6 +44,7 @@ Do not revive legacy compressed names such as `3rd`, `Dig`, `Db`, `Obj`,
 | `*Composer` | `@Service` | Assembles a **complex sub-structure** onto a builder. Bigger than a Loader. | `BillingOnFormServiceGridComposer` |
 | `*Validator` | `@Service` / `@Component` | Pure validation → typed `Result(messages, codeValid)`. No side effects. | `BillingOnReviewValidator` |
 | `*Parser` | plain class or `@Service` | Parses fixed-format/file input into DTO records. No Struts request handling. | `BillingClaimsErrorReportParser` |
+| `*ImportService` | `@Service` | Validates, parses, and persists externally supplied files. | `OnRaImportService` |
 | `*Persister` | `@Service @Transactional` | **Side-effect-only writer** split out from a sibling reader. | `BillingOnReviewDiagPersister` |
 | `*Calculator` | static or dependency-free `@Service` | Pure math/derivation. Typed in, typed out. No DAO ownership. | `BillingOnHistoryBalanceCalculator` |
 | `*Service` | `@Service` (often `@Transactional`) | **Default fallback.** Multi-step business operation no single verb captures, including cross-DAO read orchestration. | `BillingOnHeaderCreationService`, `GstSettingsService` |
@@ -82,9 +83,9 @@ Plus utility classes — static-only, no Spring annotation. Use a domain noun (p
 - **`*Prep`** — not a role, not a lifecycle. Use `*Loader` for read-side prep, `*Service` for write-side prep, or absorb into the consumer.
 - **`*DataAssembler`** — retired in Ontario billing. It was accurate during the JSP-scriptlet cleanup, but `*ViewModelAssembler` now says the real output type directly.
 - **`*Manager`** as a new class. Existing `*Manager` classes in the codebase (e.g., `DemographicManager`) are legacy domain managers; don't add new ones. Use `*Service` for new code.
-- **`*Bean` / `*Handler`** for module-owned classes. Use `*Dto` for transfer state and `*Parser`, `*Importer`, or `*Service` for behavior.
+- **`*Bean` / `*Handler`** for module-owned classes. Use `*Dto` for transfer state and `*Parser`, `*ImportService`, or `*Service` for behavior.
 - **`*Helper`, `*Utils`** — too generic. Use a domain noun for utility classes.
-- **Compound suffixes** — `*LoaderService`, `*ServiceManager`, `*ResolverService`, etc. The annotation carries the infrastructure role; the suffix carries the conceptual role. Doubling up is noise.
+- **Compound suffixes** — `*LoaderService`, `*ServiceManager`, `*ResolverService`, etc. The annotation carries the infrastructure role; the suffix carries the conceptual role. Doubling up is noise. `*ImportService` is the explicit exception for workflows that validate, parse, and persist externally supplied files.
 
 ## Cross-DAO orchestration
 

@@ -97,7 +97,7 @@ class BillingClaimBatchAcknowledgementReportParserUnitTest {
         assertThat(record.getClaimNumber()).isEqualTo("CLM01");
         assertThat(record.getRecordNumber()).isEqualTo("REC001");
         assertThat(record.getBatchProcessDate()).isEqualTo("20260429");
-        assertThat(record.getExplain()).isEqualTo("processed ok" + " ".repeat(18));
+        assertThat(record.getExplain()).isEqualTo("processed ok" + " ".repeat(28));
     }
 
     @Test
@@ -113,7 +113,7 @@ class BillingClaimBatchAcknowledgementReportParserUnitTest {
     }
 
     private static String headerLine() {
-        StringBuilder line = new StringBuilder(" ".repeat(111));
+        StringBuilder line = new StringBuilder(" ".repeat(121));
         replace(line, 0, "AB1");
         replace(line, 6, "BATCH");
         replace(line, 11, "OPER01");

@@ -368,7 +368,7 @@ public class BillingOnMriViewModelAssembler {
             return Integer.parseInt(s);
         } catch (NumberFormatException e) {
             MiscUtils.getLogger().warn("BillingOnMri: invalid integer [{}]; using 0",
-                    LogSanitizer.sanitize(s));
+                    LogSanitizer.sanitize(s), e);
             return 0;
         }
     }

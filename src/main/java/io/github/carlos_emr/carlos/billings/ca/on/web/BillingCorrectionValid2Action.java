@@ -21,10 +21,12 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingCorrectionReviewViewModelAssembler;
 import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionLineCommand;
-import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCorrectionReviewViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionValidationCommand;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionReviewPreparationService;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCorrectionReviewDraft;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCorrectionReviewViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
@@ -48,11 +50,14 @@ public class BillingCorrectionValid2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
     private final BillingCorrectionReviewPreparationService preparationService;
+    private final BillingCorrectionReviewViewModelAssembler reviewViewModelAssembler;
 
     public BillingCorrectionValid2Action(SecurityInfoManager securityInfoManager,
-                                         BillingCorrectionReviewPreparationService preparationService) {
+                                         BillingCorrectionReviewPreparationService preparationService,
+                                         BillingCorrectionReviewViewModelAssembler reviewViewModelAssembler) {
         this.securityInfoManager = securityInfoManager;
         this.preparationService = preparationService;
+        this.reviewViewModelAssembler = reviewViewModelAssembler;
     }
 
     @Override
@@ -69,7 +74,8 @@ public class BillingCorrectionValid2Action extends ActionSupport {
             return NONE;
         }
 
-        BillingCorrectionReviewViewModel model = preparationService.prepareReview(toCommand(request));
+        BillingCorrectionReviewDraft draft = preparationService.prepareReviewDraft(toCommand(request));
+        BillingCorrectionReviewViewModel model = reviewViewModelAssembler.assemble(draft);
         request.setAttribute("reviewModel", model);
         return REVIEW;
     }

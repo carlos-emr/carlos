@@ -213,7 +213,7 @@ class BillingCorrectionServiceValidationThrowsUnitTest {
     void shouldThrowBillingValidationException_whenAddThirdPartyPaymentBillNotFound() {
         BillingCorrectionService service = newService();
         mockRequest.setParameter("billing_no", "12345");
-        when(bCh1Dao.find(Integer.valueOf(12345))).thenReturn(null);
+        when(bCh1Dao.findForUpdate(Integer.valueOf(12345))).thenReturn(null);
 
         assertThatThrownBy(() -> service.addThirdPartyPayment(loggedInInfo, mockRequest))
                 .isInstanceOf(BillingValidationException.class)
@@ -226,7 +226,7 @@ class BillingCorrectionServiceValidationThrowsUnitTest {
         mockRequest.setParameter("billing_no", "12345");
         mockRequest.setParameter("amtPaid", "not-a-number");
         BillingONCHeader1 bCh1 = new BillingONCHeader1();
-        when(bCh1Dao.find(Integer.valueOf(12345))).thenReturn(bCh1);
+        when(bCh1Dao.findForUpdate(Integer.valueOf(12345))).thenReturn(bCh1);
 
         assertThatThrownBy(() -> service.addThirdPartyPayment(loggedInInfo, mockRequest))
                 .isInstanceOf(BillingValidationException.class)
@@ -246,7 +246,7 @@ class BillingCorrectionServiceValidationThrowsUnitTest {
         mockRequest.setParameter("billing_no", "12345");
         // intentionally do not set 'amtPaid'
         BillingONCHeader1 bCh1 = new BillingONCHeader1();
-        when(bCh1Dao.find(Integer.valueOf(12345))).thenReturn(bCh1);
+        when(bCh1Dao.findForUpdate(Integer.valueOf(12345))).thenReturn(bCh1);
 
         assertThatThrownBy(() -> service.addThirdPartyPayment(loggedInInfo, mockRequest))
                 .isInstanceOf(BillingValidationException.class)
@@ -263,7 +263,7 @@ class BillingCorrectionServiceValidationThrowsUnitTest {
         mockRequest.setParameter("amtPaid", "100.00");
         mockRequest.setParameter("payMethod", "UNKNOWN");
         BillingONCHeader1 bCh1 = new BillingONCHeader1();
-        when(bCh1Dao.find(Integer.valueOf(12345))).thenReturn(bCh1);
+        when(bCh1Dao.findForUpdate(Integer.valueOf(12345))).thenReturn(bCh1);
         when(billingPaymentTypeDao.find("UNKNOWN")).thenReturn(null);
 
         assertThatThrownBy(() -> service.addThirdPartyPayment(loggedInInfo, mockRequest))
@@ -282,7 +282,7 @@ class BillingCorrectionServiceValidationThrowsUnitTest {
         mockRequest.setParameter("payMethod", "CASH");
         mockRequest.setParameter("payType", "X");
         BillingONCHeader1 bCh1 = new BillingONCHeader1();
-        when(bCh1Dao.find(Integer.valueOf(12345))).thenReturn(bCh1);
+        when(bCh1Dao.findForUpdate(Integer.valueOf(12345))).thenReturn(bCh1);
         when(billingPaymentTypeDao.find("CASH")).thenReturn(Mockito.mock(BillingPaymentType.class));
 
         assertThatThrownBy(() -> service.addThirdPartyPayment(loggedInInfo, mockRequest))
@@ -301,13 +301,14 @@ class BillingCorrectionServiceValidationThrowsUnitTest {
         mockRequest.setParameter("payMethod", "CASH");
         mockRequest.setParameter("payType", "P");
         BillingONCHeader1 bCh1 = new BillingONCHeader1();
-        when(bCh1Dao.find(Integer.valueOf(12345))).thenReturn(bCh1);
+        when(bCh1Dao.findForUpdate(Integer.valueOf(12345))).thenReturn(bCh1);
         when(billingPaymentTypeDao.find("CASH")).thenReturn(Mockito.mock(BillingPaymentType.class));
 
         String result = service.addThirdPartyPayment(loggedInInfo, mockRequest);
 
         assertThat(result).isEqualTo("success");
         InOrder inOrder = Mockito.inOrder(bPaymentDao, bCh1Dao);
+        inOrder.verify(bCh1Dao).findForUpdate(12345);
         inOrder.verify(bPaymentDao).createPayment(
                 Mockito.same(bCh1),
                 Mockito.eq(mockRequest.getLocale()),

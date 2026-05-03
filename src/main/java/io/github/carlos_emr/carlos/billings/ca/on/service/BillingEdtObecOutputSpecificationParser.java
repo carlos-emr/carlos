@@ -39,11 +39,10 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 /**
- * Bean handler for {@code BillingEdtObecOutputSpecificationParser}.
+ * Parses fixed-format Ontario EDT OBEC output specification files.
  *
- * <p>The handler models fixed-format Ontario billing report data so callers can
- * parse, inspect, and render records without duplicating report conventions in
- * JSPs.</p>
+ * <p>The parser models report data so callers can inspect and render records
+ * without duplicating report conventions in JSPs.</p>
  */
 
 public class BillingEdtObecOutputSpecificationParser {
@@ -129,6 +128,10 @@ public class BillingEdtObecOutputSpecificationParser {
             verdict = false;
             edtObecOutputSpecificationRecords.clear();
             MiscUtils.getLogger().error("EDT/OBEC parse failed (malformed record layout), verdict=false", ioe);
+        } catch (NumberFormatException nfe) {
+            verdict = false;
+            edtObecOutputSpecificationRecords.clear();
+            MiscUtils.getLogger().error("EDT/OBEC parse failed (nonnumeric response code), verdict=false", nfe);
         }
         return verdict;
     }

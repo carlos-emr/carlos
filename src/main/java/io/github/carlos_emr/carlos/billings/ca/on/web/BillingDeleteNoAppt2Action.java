@@ -93,7 +93,7 @@ public class BillingDeleteNoAppt2Action extends ActionSupport {
                     billingDao.merge(b);
                 }
             } catch (NumberFormatException e) {
-                MiscUtils.getLogger().error("Invalid billing_no: {}", LogSanitizer.sanitize(billingNoStr));
+                MiscUtils.getLogger().error("Invalid billing_no: {}", LogSanitizer.sanitize(billingNoStr), e);
                 return ERROR;
             }
         }

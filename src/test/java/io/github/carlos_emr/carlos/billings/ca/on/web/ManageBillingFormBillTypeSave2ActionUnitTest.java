@@ -21,7 +21,7 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
-import io.github.carlos_emr.carlos.commn.dao.CtlBillingTypeDao;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFormConfigurationService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -45,7 +45,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /** Unit coverage for {@code ManageBillingFormBillTypeSave2Action} save contracts and privilege checks. */
@@ -59,7 +61,7 @@ class ManageBillingFormBillTypeSave2ActionUnitTest extends CarlosUnitTestBase {
     private AutoCloseable mockitoCloseable;
 
     @Mock private SecurityInfoManager mockSecurityInfoManager;
-    @Mock private CtlBillingTypeDao mockCtlBillingTypeDao;
+    @Mock private BillingFormConfigurationService billingFormConfigurationService;
     @Mock private LoggedInInfo mockLoggedInInfo;
 
     private MockHttpServletRequest mockRequest;
@@ -73,7 +75,7 @@ class ManageBillingFormBillTypeSave2ActionUnitTest extends CarlosUnitTestBase {
         mockRequest.setMethod("GET");
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
-        registerMock(CtlBillingTypeDao.class, mockCtlBillingTypeDao);
+        registerMock(BillingFormConfigurationService.class, billingFormConfigurationService);
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
@@ -111,5 +113,56 @@ class ManageBillingFormBillTypeSave2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+    }
+
+    @Test
+    void shouldDelegateToService_whenAuthorizedPostIsValid() throws Exception {
+        mockRequest.setMethod("POST");
+        mockRequest.setParameter("servicetype", "ABC");
+        mockRequest.setParameter("billtype", "private");
+        mockRequest.setParameter("billtype_old", "no");
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        when(billingFormConfigurationService.updateBillingTypeAssociation("ABC", "private", "no"))
+                .thenReturn(true);
+
+        String result = new ManageBillingFormBillTypeSave2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        verify(billingFormConfigurationService).updateBillingTypeAssociation("ABC", "private", "no");
+    }
+
+    @Test
+    void shouldReturn404_whenServiceCannotFindExistingType() throws Exception {
+        mockRequest.setMethod("POST");
+        mockRequest.setParameter("servicetype", "ABC");
+        mockRequest.setParameter("billtype", "private");
+        mockRequest.setParameter("billtype_old", "old");
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        when(billingFormConfigurationService.updateBillingTypeAssociation("ABC", "private", "old"))
+                .thenReturn(false);
+
+        String result = new ManageBillingFormBillTypeSave2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
+    }
+
+    @Test
+    void shouldReturn500_whenServiceThrows() throws Exception {
+        mockRequest.setMethod("POST");
+        mockRequest.setParameter("servicetype", "ABC");
+        mockRequest.setParameter("billtype", "private");
+        mockRequest.setParameter("billtype_old", "old");
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        doThrow(new RuntimeException("boom")).when(billingFormConfigurationService)
+                .updateBillingTypeAssociation("ABC", "private", "old");
+
+        String result = new ManageBillingFormBillTypeSave2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
     }
 }

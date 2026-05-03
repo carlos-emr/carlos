@@ -357,7 +357,7 @@ public class BillingOnPayments2Action extends ActionSupport {
             // banner is added later.
             MiscUtils.getLogger().warn(
                     "BillingOnPayments view: rendering 0.00 for unparseable amount [{}] (length={})",
-                    LogSanitizer.sanitize(s), s.length());
+                    LogSanitizer.sanitize(s), s.length(), e);
             return BigDecimal.ZERO;
         }
     }
@@ -559,7 +559,7 @@ public class BillingOnPayments2Action extends ActionSupport {
                     .deletePayment(paymentId);
         } catch (NumberFormatException nfe) {
             logger.warn("deletePayment: invalid id parameter: {}",
-                    io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(request.getParameter("id")));
+                    io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(request.getParameter("id")), nfe);
             return "failure";
         } catch (io.github.carlos_emr.carlos.billings.ca.on.service.BillingPaymentDeletionService.PaymentNotFoundException notFound) {
             // Distinct outcome — operator hit "delete" on a row that's
@@ -567,7 +567,7 @@ public class BillingOnPayments2Action extends ActionSupport {
             // current payment list rather than the generic failure page so
             // they see the up-to-date state.
             logger.warn("deletePayment: paymentId not found: {}",
-                    io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(request.getParameter("id")));
+                    io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(request.getParameter("id")), notFound);
             return listPayments();
         } catch (Exception ex) {
             logger.error("Failed to delete payment: {}",

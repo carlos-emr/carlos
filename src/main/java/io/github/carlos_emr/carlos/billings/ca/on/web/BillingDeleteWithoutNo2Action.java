@@ -88,7 +88,7 @@ public class BillingDeleteWithoutNo2Action extends ActionSupport {
         try {
             apptNo = Integer.parseInt(apptNoStr);
         } catch (NumberFormatException e) {
-            MiscUtils.getLogger().error("Invalid appointment_no: {}", LogSanitizer.sanitize(apptNoStr));
+            MiscUtils.getLogger().error("Invalid appointment_no: {}", LogSanitizer.sanitize(apptNoStr), e);
             return ERROR;
         }
 
@@ -133,7 +133,7 @@ public class BillingDeleteWithoutNo2Action extends ActionSupport {
                         rowsAffected = 1;
                     }
                 } catch (NumberFormatException e) {
-                    MiscUtils.getLogger().error("Invalid billNo: {}", LogSanitizer.sanitize(billNo));
+                    MiscUtils.getLogger().error("Invalid billNo: {}", LogSanitizer.sanitize(billNo), e);
                 }
             }
         }

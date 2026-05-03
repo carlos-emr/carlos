@@ -717,6 +717,11 @@
 
         <td class="myGreen">
             Payment Method:<br/>
+            <c:if test="${reviewModel.paymentTypeLookupFailed}">
+                <div class="alert alert-danger" role="alert">
+                    Payment types are temporarily unavailable. Contact an administrator before saving this private invoice.
+                </div>
+            </c:if>
             <c:forEach var="pt" items="${reviewModel.paymentTypes}" varStatus="pst">
                 <input type="radio" name="payMethod" value="<carlos:encode value='${pt.id}' context='htmlAttribute'/>" id="payMethod_${pst.index * 2}"/><carlos:encode value="${pt.label}" context="html"/>
                 <br/>

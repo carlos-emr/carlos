@@ -692,6 +692,30 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
             verify(fourthResponse, never()).sendError(eq(429), anyString());
             assertThat(filter.getCounters()).hasSizeLessThanOrEqualTo(2);
         }
+
+        @Test
+        @DisplayName("should cap forwarded-address warning suppression set")
+        void shouldCapForwardedWarningSet_whenProxyIpsRotate() throws Exception {
+            when(mockProperties.isPropertyActive("WAF_RATE_LIMIT_ENABLED")).thenReturn(true);
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_MODE")).thenReturn("detect");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_REQUESTS")).thenReturn("100");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_WINDOW_SECONDS")).thenReturn("60");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_PATHS")).thenReturn("");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_EXEMPT_IPS")).thenReturn("127.0.0.1,::1");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_CLEANUP_INTERVAL_SECONDS")).thenReturn("300");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_MAX_COUNTERS")).thenReturn("2");
+            when(mockProperties.getProperty(XforwardHeaderFilter.TRUSTED_PROXY_IPS_PROPERTY))
+                    .thenReturn("10.0.0.1,10.0.0.2,10.0.0.3,10.0.0.4,10.0.0.5");
+            filter.init(mock(FilterConfig.class));
+
+            for (int i = 1; i <= 5; i++) {
+                HttpServletRequest forwardedRequest = requestForIp("10.0.0." + i);
+                when(forwardedRequest.getHeader("X-Forwarded-For")).thenReturn("192.0.2." + i);
+                filter.doFilter(forwardedRequest, response, chain);
+            }
+
+            assertThat(filter.forwardedAddressWarningIpCount()).isLessThanOrEqualTo(2);
+        }
     }
 
     // -------------------------------------------------------------------------

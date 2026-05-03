@@ -22,8 +22,8 @@ claims for Ontario-resident patients. It implements:
   entry, audit-snapshot writes to `billing_on_repo`.
 - **Bill status** (`billingONStatus.jsp`) — paginated, filtered list of all
   bills with sort/search.
-- **Disk creation + MOH submission** (`billingDiskCreation.jsp` and the
-  OHIP claim-file generators) — assemble batches, write the MOH HL7 / fixed-
+- **Disk creation + MOH submission** (the OHIP claim-file generators) —
+  assemble batches, write the MOH HL7 / fixed-
   width file format, track disk IDs.
 - **Remittance advice import** — pull MOH RA messages, settle headers,
   reconcile payments and rejects.
@@ -145,10 +145,8 @@ Forbidden in new code (and currently absent from this module): `*Prep`,
 
 - All non-DAO components are registered with `@org.springframework.stereotype.Service`.
 - Constructor injection is used in the `service/` and `assembler/` layers.
-  The `web/` (Struts2 action) layer still has 28 `= SpringUtils.getBean(...)`
-  field-init patterns; there are 52 `SpringUtils.getBean(...)` references in
-  `web/` when method-local lookups are included, and 80 across the ON billing
-  module as a whole. New 2Actions should prefer
+  The `web/` (Struts2 action) layer still has legacy
+  `SpringUtils.getBean(...)` compatibility shims. New 2Actions should prefer
   constructor injection where the Struts2 wiring permits; treat new field-init
   `getBean` calls as a regression.
 - `@Lazy` is **not** used anywhere in `billings/ca/on`. It was carried

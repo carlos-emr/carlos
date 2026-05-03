@@ -113,7 +113,7 @@ public class BillingDeleteWithBillNo2Action extends ActionSupport {
                     billNo = b.getId().toString();
                 }
             } catch (NumberFormatException e) {
-                MiscUtils.getLogger().error("Invalid appointment_no: {}", LogSanitizer.sanitize(apptNoStr));
+                MiscUtils.getLogger().error("Invalid appointment_no: {}", LogSanitizer.sanitize(apptNoStr), e);
                 return ERROR;
             }
         }
@@ -147,7 +147,7 @@ public class BillingDeleteWithBillNo2Action extends ActionSupport {
                     billingDao.merge(b);
                 }
             } catch (NumberFormatException e) {
-                MiscUtils.getLogger().error("Invalid billNo: {}", LogSanitizer.sanitize(billNo));
+                MiscUtils.getLogger().error("Invalid billNo: {}", LogSanitizer.sanitize(billNo), e);
                 return ERROR;
             }
         }

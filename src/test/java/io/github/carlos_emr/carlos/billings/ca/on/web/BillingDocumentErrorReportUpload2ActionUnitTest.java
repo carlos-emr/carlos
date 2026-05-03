@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -73,9 +74,8 @@ import static org.mockito.Mockito.when;
 /**
  * Pins the security-critical surface of {@link BillingDocumentErrorReportUpload2Action}.
  * The silent-failure-hunter agent flagged that this action mutates patient
- * demographic records via the {@code R*} branch with no POST gate; that
- * remains an open finding (out of scope here), but the privilege
- * check itself is the primary line of defence and must not regress.
+ * demographic records via the {@code R*} branch. The action must reject
+ * GET requests before file IO or DB-backed import/apply work begins.
  */
 @DisplayName("BillingDocumentErrorReportUpload2Action")
 @Tag("unit")
@@ -95,6 +95,7 @@ class BillingDocumentErrorReportUpload2ActionUnitTest extends CarlosUnitTestBase
     @Mock private LoggedInInfo mockLoggedInInfo;
 
     private MockHttpServletRequest mockRequest;
+    private MockHttpServletResponse mockResponse;
 
     @TempDir
     Path tempDir;
@@ -104,11 +105,11 @@ class BillingDocumentErrorReportUpload2ActionUnitTest extends CarlosUnitTestBase
         mockitoCloseable = MockitoAnnotations.openMocks(this);
         mockRequest = new MockHttpServletRequest();
         mockRequest.setMethod("POST");
+        mockResponse = new MockHttpServletResponse();
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
-        servletActionContextMock.when(ServletActionContext::getResponse)
-                .thenReturn(new MockHttpServletResponse());
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(mockResponse);
 
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
@@ -188,6 +189,83 @@ class BillingDocumentErrorReportUpload2ActionUnitTest extends CarlosUnitTestBase
 
         assertThat(action.execute()).isEqualTo("error");
         assertThat(action.getActionErrors()).isNotEmpty();
+    }
+
+    @Test
+    void shouldRejectUploadBranch_whenRequestIsGet() throws Exception {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        mockRequest.setMethod("GET");
+
+        BillingDocumentErrorReportUpload2Action action = newAction();
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(405);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+        verifyNoInteractions(mockDemographicManager, mockBatchEligibilityDao,
+                mockDemographicCustDao, mockProviderDao, mockErrorReportService);
+    }
+
+    @Test
+    void shouldRejectClaimsErrorImport_whenRequestIsGet() throws Exception {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        mockRequest.setMethod("GET");
+        mockRequest.setParameter("filename", "Eclaims.err");
+
+        BillingClaimsErrorReportImportService importService = mock(BillingClaimsErrorReportImportService.class);
+        registerMock(BillingClaimsErrorReportImportService.class, importService);
+
+        BillingDocumentErrorReportUpload2Action action = newAction();
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(405);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+        verify(importService, never()).importStream(any(), any());
+    }
+
+    @Test
+    void shouldRejectObecApply_whenRequestIsGet() throws Exception {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        mockRequest.setMethod("GET");
+        mockRequest.setParameter("filename", "Rvalid.txt");
+
+        BillingObecOutputApplyService applyService = mock(BillingObecOutputApplyService.class);
+        registerMock(BillingObecOutputApplyService.class, applyService);
+
+        BillingDocumentErrorReportUpload2Action action = newAction();
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(405);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+        verify(applyService, never()).applyOutputSpec(any(LoggedInInfo.class), anyList());
+    }
+
+    @Test
+    void shouldAllowReadOnlyOutsideReport_whenFilenameRequestIsGet() throws Exception {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        mockRequest.setMethod("GET");
+        mockRequest.setParameter("filename", "Loutside.txt");
+
+        Path inbox = Files.createDirectory(tempDir.resolve("inbox"));
+        Path archive = Files.createDirectory(tempDir.resolve("archive"));
+        Files.writeString(inbox.resolve("Loutside.txt"), "outside report");
+
+        CarlosProperties props = mock(CarlosProperties.class);
+        when(props.getProperty("ONEDT_INBOX")).thenReturn(inbox.toString());
+        when(props.getProperty("ONEDT_ARCHIVE")).thenReturn(archive.toString());
+        when(props.getProperty("isNewONbilling", "")).thenReturn("");
+
+        try (MockedStatic<CarlosProperties> propsMock = mockStatic(CarlosProperties.class)) {
+            propsMock.when(CarlosProperties::getInstance).thenReturn(props);
+
+            BillingDocumentErrorReportUpload2Action action = newAction();
+
+            assertThat(action.execute()).isEqualTo("outside");
+            assertThat(mockResponse.getStatus()).isEqualTo(200);
+        }
     }
 
     @Test

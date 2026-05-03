@@ -466,6 +466,9 @@
         </action>
 
         <action name="billing/CA/ON/benefitScheduleUpload" class="io.github.carlos_emr.carlos.billings.ca.on.web.ScheduleOfBenefitsUpload2Action">
+            <result name="view" type="redirectAction">
+                <param name="actionName">billing/CA/ON/ViewBenefitScheduleUpload</param>
+            </result>
             <result name="forceUpdate">/billing/CA/ON/benefitScheduleChange</result>
             <result name="success">/WEB-INF/jsp/billing/CA/ON/ScheduleOfBenefitsUpload.jsp</result>
             <result name="exception">/WEB-INF/jsp/billing/CA/ON/ScheduleOfBenefitsUpload.jsp</result>

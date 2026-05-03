@@ -26,6 +26,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Stream;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingBatchHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
@@ -144,5 +145,32 @@ class BillingOntarioReviewFindingsArchitectureTest {
         assertThat(header.getTranscId()).isEqualTo("BH");
         assertThat(header.getMoh_office()).isEqualTo("G");
         assertThat(header.getBatchDate()).isEqualTo("2026-05-01");
+    }
+
+    @Test
+    void shouldKeepBillingDataLoadExceptionContextKeysFreeOfPhi_forArchitectureContract() throws Exception {
+        List<String> forbiddenPhiKeys = List.of(
+                "\"hin\"",
+                "\"healthCard\"",
+                "\"healthcard\"",
+                "\"firstName\"",
+                "\"lastName\"",
+                "\"patientName\"",
+                "\"address\"",
+                "\"diagnosis\"",
+                "\"diagCode\"");
+
+        try (Stream<Path> paths = Files.walk(Path.of(
+                "src/main/java/io/github/carlos_emr/carlos/billings/ca/on"))) {
+            for (Path file : paths.filter(path -> path.toString().endsWith(".java")).toList()) {
+                String source = Files.readString(file);
+                if (!source.contains("BillingDataLoadException")) {
+                    continue;
+                }
+                assertThat(source)
+                        .describedAs("BillingDataLoadException context in %s must use PHI-safe keys", file)
+                        .doesNotContain(forbiddenPhiKeys.toArray(String[]::new));
+            }
+        }
     }
 }

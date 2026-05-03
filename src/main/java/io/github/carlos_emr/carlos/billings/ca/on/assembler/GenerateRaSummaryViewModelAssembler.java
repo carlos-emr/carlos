@@ -272,7 +272,7 @@ public class GenerateRaSummaryViewModelAssembler {
             return Integer.parseInt(s);
         } catch (NumberFormatException | NullPointerException e) {
             MiscUtils.getLogger().warn("GenerateRaSummary: invalid integer [{}]; using 0",
-                    LogSanitizer.sanitize(s));
+                    LogSanitizer.sanitize(s), e);
             return 0;
         }
     }

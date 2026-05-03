@@ -332,13 +332,13 @@ public final class RateLimitFilter implements Filter {
         String firstForwardedIp = forwardedFor.split(",", 2)[0].trim();
         if (!firstForwardedIp.isEmpty() && !firstForwardedIp.equals(clientIp)) {
             boolean trustedProxy = XforwardHeaderFilter.isTrustedProxy(clientIp, trustedProxyIps, trustedProxyCidrs);
-            if (trustedProxy && forwardedAddressWarningIps.add(clientIp)) {
+            if (trustedProxy && rememberForwardedAddressWarningIp(clientIp)) {
                 logger.warn(
                         "RATE CONFIG: X-Forwarded-For present but rate limit is using remoteAddr; "
                                 + "verify XforwardHeaderFilter ordering/trusted proxy configuration. remoteAddr={} xForwardedForFirst={}",
                         LogSanitizer.sanitize(clientIp),
                         LogSanitizer.sanitize(firstForwardedIp));
-            } else if (!trustedProxy && forwardedAddressWarningIps.add(clientIp)) {
+            } else if (!trustedProxy && rememberForwardedAddressWarningIp(clientIp)) {
                 logger.debug(
                         "RATE CONFIG: untrusted remoteAddr supplied X-Forwarded-For; ignoring forwarded value. remoteAddr={} xForwardedForFirst={}",
                         LogSanitizer.sanitize(clientIp),
@@ -350,6 +350,19 @@ public final class RateLimitFilter implements Filter {
                         LogSanitizer.sanitize(firstForwardedIp));
             }
         }
+    }
+
+    private boolean rememberForwardedAddressWarningIp(String clientIp) {
+        if (forwardedAddressWarningIps.contains(clientIp)) {
+            return false;
+        }
+        if (forwardedAddressWarningIps.size() >= maxCounterEntries) {
+            forwardedAddressWarningIps.clear();
+            logger.debug(
+                    "RATE CONFIG: forwarded-address warning suppression set reached {} entries; cleared remembered IPs",
+                    maxCounterEntries);
+        }
+        return forwardedAddressWarningIps.add(clientIp);
     }
 
     /**
@@ -420,6 +433,10 @@ public final class RateLimitFilter implements Filter {
      */
     boolean isEnabled() {
         return enabled;
+    }
+
+    int forwardedAddressWarningIpCount() {
+        return forwardedAddressWarningIps.size();
     }
 
     // --- Private helpers ---
@@ -539,7 +556,7 @@ public final class RateLimitFilter implements Filter {
                 }
                 result.put(pathPrefix, new RateConfig(requests, windowSecs));
             } catch (NumberFormatException e) {
-                logger.warn("Rate limit: skipping non-numeric rate for path '{}': {}", pathPrefix, rateStr);
+                logger.warn("Rate limit: skipping non-numeric rate for path '{}': {}", pathPrefix, rateStr, e);
             }
         }
         return Collections.unmodifiableMap(result);
@@ -586,7 +603,7 @@ public final class RateLimitFilter implements Filter {
             }
             return parsed;
         } catch (NumberFormatException e) {
-            logger.warn("Rate limit: property '{}' is not a valid integer '{}'; using default {}", key, value, defaultValue);
+            logger.warn("Rate limit: property '{}' is not a valid integer '{}'; using default {}", key, value, defaultValue, e);
             return defaultValue;
         }
     }

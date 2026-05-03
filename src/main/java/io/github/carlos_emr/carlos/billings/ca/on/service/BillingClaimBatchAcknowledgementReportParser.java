@@ -31,11 +31,10 @@ import java.util.ArrayList;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimBatchAcknowledgementReportRecordDto;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 /**
- * Bean handler for {@code BillingClaimBatchAcknowledgementReportParser}.
+ * Parses fixed-format Ontario claim batch acknowledgement report files.
  *
- * <p>The handler models fixed-format Ontario billing report data so callers can
- * parse, inspect, and render records without duplicating report conventions in
- * JSPs.</p>
+ * <p>The parser models report data so callers can inspect and render records
+ * without duplicating report conventions in JSPs.</p>
  */
 
 public class BillingClaimBatchAcknowledgementReportParser {
@@ -70,7 +69,7 @@ public class BillingClaimBatchAcknowledgementReportParser {
                     String claimNumber = nextline.substring(62, 67);
                     String recordNumber = nextline.substring(67, 73);
                     String batchProcessDate = nextline.substring(73, 81);
-                    String explain = nextline.substring(81, 111);
+                    String explain = nextline.substring(81, 121);
 
                     BillingClaimBatchAcknowledgementReportRecordDto CBABean = new BillingClaimBatchAcknowledgementReportRecordDto(batchNumber,
                             operatorNumber,

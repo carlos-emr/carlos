@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnErrorReportSe
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.net.URLEncoder;
 import java.util.List;
@@ -96,6 +97,9 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
         }
 
         String filename = request.getParameter("filename");
+        if (requiresPost(filename) && !isPost(request)) {
+            return rejectNonPost(ServletActionContext.getResponse());
+        }
 
         if (StringUtils.isBlank(filename)) {
             if (file1 == null || StringUtils.isBlank(file1FileName)) {
@@ -140,6 +144,28 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
         }
     }
 
+    private static boolean isPost(HttpServletRequest request) {
+        return "POST".equalsIgnoreCase(request.getMethod());
+    }
+
+    private static boolean requiresPost(String fileName) {
+        if (StringUtils.isBlank(fileName)) {
+            return true;
+        }
+        String baseName = org.apache.commons.io.FilenameUtils.getName(fileName);
+        if (StringUtils.isBlank(baseName)) {
+            return true;
+        }
+        char prefix = Character.toUpperCase(baseName.charAt(0));
+        return prefix == 'E' || prefix == 'F' || prefix == 'R';
+    }
+
+    private static String rejectNonPost(HttpServletResponse response) throws IOException {
+        response.setHeader("Allow", "POST");
+        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        return NONE;
+    }
+
     /**
      * Save the uploaded report file under {@code DOCUMENT_DIR}.
      *
@@ -177,7 +203,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
                 destFile = PathValidationUtils.validatePath(fileName, placeDir);
             } catch (SecurityException e) {
                 MiscUtils.getLogger().error("Invalid MOH report upload filename provided: {}",
-                        LogSanitizer.sanitize(fileName));
+                        LogSanitizer.sanitize(fileName), e);
                 return SaveReportFileResult.failure(FILE_ACCESS_ERROR_MESSAGE);
             }
 
@@ -273,7 +299,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
                 inputFile = PathValidationUtils.validatePath(fileName, safeDir);
             } catch (SecurityException e) {
                 MiscUtils.getLogger().error("Invalid MOH report filename provided for {}: {}",
-                        LogSanitizer.sanitize(pathDir), LogSanitizer.sanitize(fileName));
+                        LogSanitizer.sanitize(pathDir), LogSanitizer.sanitize(fileName), e);
                 return MohReportReadResult.failure(ReadFailureCategory.FILE_ACCESS, FILE_ACCESS_ERROR_MESSAGE);
             }
 
@@ -455,8 +481,10 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
         InputStreamReader reader = new InputStreamReader(file);
         BufferedReader input = new BufferedReader(reader);
         String nextline = null;
+        int rowNumber = 0;
         try {
             while ((nextline = input.readLine()) != null) {
+                rowNumber++;
                 String headerCount = nextline.substring(2, 3);
 
                 if (headerCount.compareTo("1") == 0) {
@@ -485,13 +513,10 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
             reportXIsGenerated = false;
             MiscUtils.getLogger().error("I/O error parsing MOH X-report claim-rejection file", ioe);
         } catch (StringIndexOutOfBoundsException ioe) {
-            // Without the offending line the operator has no way to tell which
-            // record in the X-report is malformed. Log the sanitized line so
-            // they can pinpoint the failure.
             reportXIsGenerated = false;
             MiscUtils.getLogger().warn(
-                    "Malformed MOH X-report row (substring offset out of range): {}",
-                    LogSanitizer.sanitize(nextline), ioe);
+                    "Malformed MOH X-report row (row={}, length={}, offsetFailure={})",
+                    rowNumber, nextline == null ? 0 : nextline.length(), ioe.getMessage(), ioe);
         }
         return messages;
     }

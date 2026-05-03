@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.DocumentBean;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
@@ -29,10 +30,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import java.io.File;
+import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -63,12 +66,18 @@ import static org.mockito.Mockito.when;
 @Tag("billing")
 class OnRaImportServiceUnitTest {
 
+    @TempDir
+    private Path tempDir;
+
     private BillingOnRaService mockRaService;
     private OnRaImportService service;
     private MockHttpServletRequest request;
+    private String previousDocumentDir;
 
     @BeforeEach
     void setUp() {
+        previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", tempDir.toString());
         mockRaService = mock(BillingOnRaService.class);
         service = new OnRaImportService(mockRaService);
         request = new MockHttpServletRequest();
@@ -76,7 +85,11 @@ class OnRaImportServiceUnitTest {
 
     @AfterEach
     void tearDown() {
-        // No static state to reset.
+        if (previousDocumentDir == null) {
+            CarlosProperties.getInstance().remove("DOCUMENT_DIR");
+        } else {
+            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", previousDocumentDir);
+        }
     }
 
     @Test
@@ -107,6 +120,37 @@ class OnRaImportServiceUnitTest {
         request.setAttribute("documentBean", db);
 
         assertThat(service.importDocumentBeanFile(request)).isTrue();
+        assertThat(service.importDocumentBeanFileOutcome(request))
+                .isEqualTo(OnRaImportService.ImportOutcome.EMPTY_FILENAME);
+        verify(mockRaService, never()).importRAFile(anyString());
+    }
+
+    @Test
+    void shouldReturnImported_whenValidatedFileImportsSuccessfully() throws Exception {
+        DocumentBean db = mock(DocumentBean.class);
+        when(db.getFilename()).thenReturn("ra-file.txt");
+        request.setAttribute("documentBean", db);
+
+        try (MockedStatic<PathValidationUtils> pathMock = mockStatic(PathValidationUtils.class)) {
+            File validated = tempDir.resolve("ra-file.txt").toFile();
+            pathMock.when(() -> PathValidationUtils.validatePath(anyString(), any(File.class)))
+                    .thenReturn(validated);
+
+            assertThat(service.importDocumentBeanFileOutcome(request))
+                    .isEqualTo(OnRaImportService.ImportOutcome.IMPORTED);
+            verify(mockRaService).importRAFile(validated.getPath());
+        }
+    }
+
+    @Test
+    void shouldReturnDocumentDirMissing_whenDocumentDirIsBlank() throws Exception {
+        CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", " ");
+        DocumentBean db = mock(DocumentBean.class);
+        when(db.getFilename()).thenReturn("ra-file.txt");
+        request.setAttribute("documentBean", db);
+
+        assertThat(service.importDocumentBeanFileOutcome(request))
+                .isEqualTo(OnRaImportService.ImportOutcome.DOCUMENT_DIR_MISSING);
         verify(mockRaService, never()).importRAFile(anyString());
     }
 

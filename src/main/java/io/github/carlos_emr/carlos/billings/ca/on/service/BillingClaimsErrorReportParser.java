@@ -34,11 +34,10 @@ import java.util.Objects;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimsErrorReportRecordDto;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 /**
- * Bean handler for {@code BillingClaimsErrorReportParser}.
+ * Parses fixed-format Ontario claims error report files.
  *
- * <p>The handler models fixed-format Ontario billing report data so callers can
- * parse, inspect, and render records without duplicating report conventions in
- * JSPs.</p>
+ * <p>The parser models report data so callers can inspect and render records
+ * without duplicating report conventions in JSPs.</p>
  *
  * <p>State exposure is via accessors, not public fields, so callers can't
  * silently undo the parse-time invariant {@code verdict==true initially}
@@ -148,7 +147,7 @@ public class BillingClaimsErrorReportParser {
                         isNewHin = false;
                     }
                     record.setServicecode(nextline.substring(3, 8));
-                    record.setAmountsubmit(nextline.substring(10, 16));
+                    record.setAmountsubmitStoredCents(nextline.substring(10, 16));
                     record.setServiceno(nextline.substring(16, 18));
                     record.setServicedate(nextline.substring(18, 26));
                     record.setDxcode(nextline.substring(26, 30));

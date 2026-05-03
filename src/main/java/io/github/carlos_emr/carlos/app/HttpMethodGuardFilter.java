@@ -104,6 +104,7 @@ public class HttpMethodGuardFilter implements Filter {
             // the `mohFile` mutation-intent parameter is present, so we don't
             // need the filter-level block; including it here would 405 the
             // legitimate render path.
+            "documenterrorreportupload", // MOH report upload/import/apply endpoint; action also gates mutating prefixes
             "newmeasurementmap",      // EctAddMeasurementMap2Action
             "remapmeasurementmap",    // EctRemoveMeasurementMap2Action
             "setupaddmeasurementgroup",      // EctSetupAddMeasurementGroup2Action

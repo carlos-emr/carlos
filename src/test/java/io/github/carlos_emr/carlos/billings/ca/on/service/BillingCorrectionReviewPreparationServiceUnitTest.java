@@ -21,10 +21,10 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
-import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingCorrectionReviewViewModelAssembler;
 import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionLineCommand;
-import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCorrectionReviewViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionValidationCommand;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCorrectionReviewDraft;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCorrectionReviewItemDraft;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -44,10 +44,10 @@ import static org.mockito.Mockito.when;
 class BillingCorrectionReviewPreparationServiceUnitTest extends CarlosUnitTestBase {
 
     @Test
-    void shouldPrepareReviewModelWithPremiumCodes_withoutLegacySessionBeans() {
+    void shouldPrepareReviewDraftWithPremiumCodes_withoutLegacySessionBeans() {
         ServiceCodeLoader serviceCodeLoader = Mockito.mock(ServiceCodeLoader.class);
         BillingCorrectionReviewPreparationService service =
-                new BillingCorrectionReviewPreparationService(serviceCodeLoader, new BillingCorrectionReviewViewModelAssembler());
+                new BillingCorrectionReviewPreparationService(serviceCodeLoader);
 
         when(serviceCodeLoader.getBillingCodeAttr("A001A"))
                 .thenReturn(List.of(new io.github.carlos_emr.carlos.billings.ca.on.dto.BillingCodeAttribute(
@@ -91,15 +91,15 @@ class BillingCorrectionReviewPreparationServiceUnitTest extends CarlosUnitTestBa
                 "M1M1M1",
                 "F");
 
-        BillingCorrectionReviewViewModel model = service.prepareReview(command);
+        BillingCorrectionReviewDraft draft = service.prepareReviewDraft(command);
 
-        assertThat(model.isDataLoaded()).isTrue();
-        assertThat(model.getBillingNo()).isEqualTo("42");
-        assertThat(model.getFormattedTotal()).isEqualTo("30.00");
-        assertThat(model.getContent()).contains("<rdohip>123456</rdohip>");
-        assertThat(model.getBillingItems())
-                .extracting(BillingCorrectionReviewViewModel.Item::getServiceCode,
-                        BillingCorrectionReviewViewModel.Item::getStoredFee)
+        assertThat(draft.dataLoaded()).isTrue();
+        assertThat(draft.billingNo()).isEqualTo("42");
+        assertThat(draft.total()).isEqualTo("3000");
+        assertThat(draft.content()).contains("<rdohip>123456</rdohip>");
+        assertThat(draft.items())
+                .extracting(BillingCorrectionReviewItemDraft::serviceCode,
+                        BillingCorrectionReviewItemDraft::storedFee)
                 .containsExactly(
                         org.assertj.core.groups.Tuple.tuple("A001A", "2000"),
                         org.assertj.core.groups.Tuple.tuple("E411A", "1000"));

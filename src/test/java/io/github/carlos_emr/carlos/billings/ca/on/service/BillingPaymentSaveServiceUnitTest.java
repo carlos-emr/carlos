@@ -128,7 +128,7 @@ class BillingPaymentSaveServiceUnitTest extends CarlosUnitTestBase {
         BillingONCHeader1 ch1 = headerWithPaidAndDemo(new BigDecimal("0.00"), 7);
         when(bCh1Dao.findForUpdate(101)).thenReturn(ch1);
         when(bExtDao.getAccountVal(eq(101), anyString())).thenReturn(BigDecimal.ZERO);
-        BillingONItem item = new BillingONItem();
+        BillingONItem item = itemForBill(101);
         when(bItemDao.find(11)).thenReturn(item);
         when(bTransactionDao.getTransTemplate(eq(ch1), eq(item), any(), anyString(), org.mockito.ArgumentMatchers.anyInt()))
                 .thenReturn(new BillingOnTransaction());
@@ -169,6 +169,31 @@ class BillingPaymentSaveServiceUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> svc.saveThirdPartyPayment(cmd))
                 .isInstanceOf(BillingValidationException.class)
                 .hasMessageContaining("11");
+
+        assertThat(ch1.getPaid()).isEqualByComparingTo("20.00");
+        verify(bCh1Dao, never()).merge(any());
+        verify(thirdPartyService, never()).keyExists(anyString(), anyString());
+        verify(bPaymentDao, never()).persist(any());
+        verify(bItemPaymentDao, never()).persist(any());
+        verify(bTransactionDao, never()).persist(any());
+    }
+
+    @Test
+    void shouldThrowBillingValidationException_whenItemBelongsToDifferentBill() {
+        BillingONCHeader1 ch1 = headerWithPaidAndDemo(new BigDecimal("20.00"), 7);
+        when(bCh1Dao.findForUpdate(101)).thenReturn(ch1);
+        when(bItemDao.find(11)).thenReturn(itemForBill(202));
+
+        BillingPaymentSaveService.Line line = new BillingPaymentSaveService.Line(
+                11, "payment", new BigDecimal("80.00"), new BigDecimal("0.00"));
+        BillingPaymentSaveService.Command cmd = new BillingPaymentSaveService.Command(
+                101, new Date(), "999998", 1, "1",
+                new BigDecimal("80.00"), BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+                null, List.of(line));
+
+        assertThatThrownBy(() -> svc.saveThirdPartyPayment(cmd))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("does not belong to bill 101");
 
         assertThat(ch1.getPaid()).isEqualByComparingTo("20.00");
         verify(bCh1Dao, never()).merge(any());
@@ -247,7 +272,7 @@ class BillingPaymentSaveServiceUnitTest extends CarlosUnitTestBase {
     void shouldPropagate_whenItemPaymentDaoThrowsMidLoop() {
         BillingONCHeader1 ch1 = headerWithPaidAndDemo(BigDecimal.ZERO, 7);
         when(bCh1Dao.findForUpdate(101)).thenReturn(ch1);
-        when(bItemDao.find(11)).thenReturn(new BillingONItem());
+        when(bItemDao.find(11)).thenReturn(itemForBill(101));
         doThrow(new RuntimeException("ip-fail")).when(bItemPaymentDao).persist(any());
 
         BillingPaymentSaveService.Line line = new BillingPaymentSaveService.Line(
@@ -294,6 +319,12 @@ class BillingPaymentSaveServiceUnitTest extends CarlosUnitTestBase {
         }
         h.setDemographicNo(demoNo);
         return h;
+    }
+
+    private static BillingONItem itemForBill(int billNo) {
+        BillingONItem item = new BillingONItem();
+        item.setCh1Id(billNo);
+        return item;
     }
 
     private static void assignIdField(Object entity, int id) {
