@@ -38,7 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * @since 2026-05-03
  */
-@DisplayName("struts-admin.xml config Tests")
+@DisplayName("struts-admin.xml Config Tests")
 @Tag("unit")
 @Tag("fast")
 @Tag("admin")
@@ -49,7 +49,7 @@ class StrutsAdminConfigTest {
 
     @Test
     @DisplayName("lookup list manager should render the migrated WEB-INF JSP")
-    void shouldRouteLookupListManager_toMigratedWebInfJsp() throws Exception {
+    void shouldRenderMigratedWebInfJsp_forLookupListManagerAction() throws Exception {
         Element action = findAction("lookupListManagerAction");
 
         assertThat(action)
@@ -97,7 +97,7 @@ class StrutsAdminConfigTest {
         dbf.setXIncludeAware(false);
         dbf.setExpandEntityReferences(false);
         DocumentBuilder db = dbf.newDocumentBuilder();
-        db.setEntityResolver((publicId, systemId) ->
+        db.setEntityResolver((_publicId, _systemId) ->
                 new InputSource(new java.io.StringReader("")));
 
         try (InputStream in = Files.newInputStream(resolveProjectPath(configPath))) {
