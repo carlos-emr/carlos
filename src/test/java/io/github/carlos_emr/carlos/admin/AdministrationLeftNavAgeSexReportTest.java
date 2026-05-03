@@ -46,13 +46,14 @@ class AdministrationLeftNavAgeSexReportTest {
                 .doesNotContain("/oscarReport/dbReportAgeSex.jsp");
         assertThat(jsp)
                 .as("Age-Sex Report link should target the migrated Struts action")
-                .contains("rel=\"${ctx}/oscarReport/DbReportAgeSex\"");
+                .contains("rel=\"${carlos:forHtmlAttribute(ctx)}/oscarReport/DbReportAgeSex\"");
         assertThat(jsp)
                 .as("Age-Sex Report must submit by POST so DbReportAgeSex2Action accepts the request")
-                .contains("method=\"post\" action=\"${ctx}/oscarReport/DbReportAgeSex\"");
+                .contains("method=\"post\" action=\"${carlos:forHtmlAttribute(ctx)}/oscarReport/DbReportAgeSex\"");
         assertThat(jsp)
                 .as("xlink handler should submit the hidden form into the iframe")
                 .contains("data-submit-form=\"ageSexForm\"")
-                .contains("form.submit();");
+                .contains("form.submit();")
+                .contains("title=\"Administration content\"");
     }
 }
