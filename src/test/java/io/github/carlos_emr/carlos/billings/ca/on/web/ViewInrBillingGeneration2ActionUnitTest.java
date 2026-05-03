@@ -33,6 +33,7 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -230,6 +231,31 @@ class ViewInrBillingGeneration2ActionUnitTest extends CarlosUnitTestBase {
         String result = newAction().execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
+        verify(mockBillingDao, never()).persist(any());
+        verify(mockBillingInrDao, never()).search_inrbilling_dt_billno(anyInt());
+    }
+
+    @Test
+    void shouldIgnoreMalformedInrBillingParams_forInvalidParameterNames() throws Exception {
+        mockRequest.setParameter("inrbilling", "on");
+        mockRequest.setParameter("inrbillingABC", "on");
+
+        String result = newAction().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        verify(mockBillingDao, never()).persist(any());
+        verify(mockBillingInrDao, never()).search_inrbilling_dt_billno(anyInt());
+    }
+
+    @Test
+    void shouldThrowBillingValidationException_whenClinicNumberInvalid() {
+        mockRequest.setParameter("inrbilling7", "on");
+        mockRequest.setParameter("clinic_no", "not-a-number");
+
+        assertThatThrownBy(() -> newAction().execute())
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("clinic_no");
+
         verify(mockBillingDao, never()).persist(any());
         verify(mockBillingInrDao, never()).search_inrbilling_dt_billno(anyInt());
     }

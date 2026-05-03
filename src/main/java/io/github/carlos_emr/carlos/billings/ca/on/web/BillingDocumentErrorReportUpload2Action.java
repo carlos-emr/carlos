@@ -61,7 +61,11 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  * ({@link BillingClaimBatchAcknowledgementReportParser},
  * {@link BillingClaimsErrorReportImportService},
  * {@link BillingEdtObecOutputSpecificationParser}) and renders the
- * resulting summary HTML. Requires {@code _billing w}.
+ * resulting summary HTML. Requires {@code _billing w}. This endpoint remains
+ * available to billing-write users because it processes Ministry return files
+ * that affect billing reconciliation; the upload gate page is narrower
+ * ({@code _admin.billing w}) because it also exposes broader file-management
+ * navigation.
  */
 @org.springframework.stereotype.Component
 @org.springframework.context.annotation.Scope("prototype")

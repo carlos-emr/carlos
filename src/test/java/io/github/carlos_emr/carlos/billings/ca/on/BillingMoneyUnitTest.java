@@ -219,6 +219,26 @@ class BillingMoneyUnitTest {
     }
 
     @Test
+    void shouldThrowValidation_whenCurrenciesDiffer() {
+        BillingMoney cad = BillingMoney.cad("10.00");
+        BillingMoney usd = new BillingMoney(
+                new java.math.BigDecimal("1.00"),
+                java.util.Currency.getInstance("USD"));
+
+        assertThatThrownBy(() -> cad.plus(usd))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("currency mismatch")
+                .hasMessageContaining("CAD")
+                .hasMessageContaining("USD");
+        assertThatThrownBy(() -> cad.minusExact(usd))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class);
+        assertThatThrownBy(() -> cad.tryMinus(usd))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class);
+        assertThatThrownBy(() -> cad.compareTo(usd))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class);
+    }
+
+    @Test
     void shouldThrowValidationWithMinusMessage_whenSubtractWouldGoNegative() {
         BillingMoney subtotal = BillingMoney.cad("2.50");
         BillingMoney adjustment = BillingMoney.cad("10.00");

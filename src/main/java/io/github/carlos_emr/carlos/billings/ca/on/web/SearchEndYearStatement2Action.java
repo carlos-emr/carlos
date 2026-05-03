@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
+import java.util.Date;
+
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.billings.ca.on.service.PatientEndYearStatementService;
@@ -67,6 +69,16 @@ public class SearchEndYearStatement2Action extends ActionSupport {
         request.setAttribute("fromDateParam", getFromDateParam());
         request.setAttribute("toDateParam", getToDateParam());
 
+        Date fromDate;
+        Date toDate;
+        try {
+            fromDate = PatientEndYearStatements.parseIso(getFromDateParam(), "from date");
+            toDate = PatientEndYearStatements.parseIso(getToDateParam(), "to date");
+        } catch (PatientEndYearStatements.InvalidDateFilterException ex) {
+            addActionError(ex.getMessage());
+            return "failure";
+        }
+
         Demographic demographic;
         try {
             demographic = statementService.findUniquePatient(
@@ -78,10 +90,7 @@ public class SearchEndYearStatement2Action extends ActionSupport {
 
         PatientEndYearStatementService.Result result;
         try {
-            result = statementService.aggregateInvoices(
-                    demographic,
-                    PatientEndYearStatements.parseIso(getFromDateParam()),
-                    PatientEndYearStatements.parseIso(getToDateParam()));
+            result = statementService.aggregateInvoices(demographic, fromDate, toDate);
         } catch (PatientEndYearStatementService.Failure ex) {
             return failWithI18n(ex);
         }

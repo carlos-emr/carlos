@@ -76,6 +76,10 @@
             var decodedFilename = decodeURIComponent(filename.replace(/\+/g, "%20"));
             var form = document.getElementById("form");
             document.getElementById("filename").value = filename;
+            var folderSelect = document.querySelector("select[name='folder']");
+            if (folderSelect) {
+                document.getElementById("reportFolder").value = folderSelect.value;
+            }
             var fileType = decodedFilename.substring(0, 1).toUpperCase();
             if (decodedFilename.substring(decodedFilename.length - 4).toLowerCase() == ".zip") {
                 alert("Please unzip " + decodedFilename + " before processing.");
@@ -125,6 +129,7 @@
 
     <form id="form" method="POST" action="${pageContext.request.contextPath}/billing/CA/ON/moveMOHFiles">
         <input type="hidden" id="filename" name="filename" value="">
+        <input type="hidden" id="reportFolder" name="folder" value="">
     </form>
 
     <c:if test="${mohModel.inbox}">

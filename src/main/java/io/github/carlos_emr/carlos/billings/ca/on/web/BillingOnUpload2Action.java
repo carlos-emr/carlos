@@ -31,13 +31,16 @@ import org.apache.struts2.ServletActionContext;
 
 /**
  * View gate for {@code billing/CA/ON/billingONUpload.jsp}. Enforces {@code _admin.billing}
- * w privilege then forwards to the JSP, which renders the file-picker form.
+ * w privilege then forwards to the JSP, which renders the file-picker form and
+ * broader MOH file-management navigation.
  *
  * <p>The form's {@code onSubmit} JavaScript reroutes the multipart POST to either
  * {@code /servlet/io.github.carlos_emr.DocumentUploadServlet} (for "P"/"S"-prefixed
  * MOH diskette files) or {@code /oscarBilling/DocumentErrorReportUpload} (for error
- * reports). This action never receives the upload itself, so a POST gate would
- * just break the GET that renders the form.
+ * reports). The error-report upload endpoint intentionally enforces the lower
+ * {@code _billing w} privilege because billing-write operators reconcile MOH
+ * return files directly. This action never receives the upload itself, so a POST
+ * gate would just break the GET that renders the form.
  *
  * @since 2026-04-13
  */

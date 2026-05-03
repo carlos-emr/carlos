@@ -95,7 +95,7 @@ Document handling and storage.
 
 ## Other Notable Modules
 
-- **MCEDT** (15 actions) - Medical Care Electronic Data Transfer
+- **MCEDT** (15 actions) - Medical Claims Electronic Data Transfer
 - **Demographics** (14 actions) - Patient demographic management
 - **Forms** (12 actions) - Clinical forms processing
 - **Hospital Report Manager** (10 actions) - Hospital report integration

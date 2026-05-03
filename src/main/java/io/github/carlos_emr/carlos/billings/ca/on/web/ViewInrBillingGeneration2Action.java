@@ -25,6 +25,8 @@ import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Enumeration;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -41,6 +43,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -61,6 +64,8 @@ import org.apache.struts2.ServletActionContext;
  * @since 2026-04-26
  */
 public class ViewInrBillingGeneration2Action extends ActionSupport {
+
+    private static final Pattern INR_BILLING_PARAM = Pattern.compile("^inrbilling(\\d+)$");
 
     private final SecurityInfoManager securityInfoManager;
     private final BillingInrDao billingInrDao;
@@ -109,17 +114,21 @@ public class ViewInrBillingGeneration2Action extends ActionSupport {
         SimpleDateFormat timeFormatter = new SimpleDateFormat("HH:mm");
 
         Enumeration<String> paramNames = request.getParameterNames();
+        Integer clinicNoValue = null;
         while (paramNames.hasMoreElements()) {
             String name = paramNames.nextElement();
-            if (name.indexOf("inrbilling") == -1) {
+            Integer billingInrNo = inrBillingNoFromParam(name);
+            if (billingInrNo == null) {
                 continue;
             }
+            if (clinicNoValue == null) {
+                clinicNoValue = parseRequiredInt(clinicNo, "clinic_no");
+            }
 
-            int billingInrNo = Integer.parseInt(name.substring(10));
             for (Object[] row : billingInrDao.search_inrbilling_dt_billno(billingInrNo)) {
                 BillingInr inr = (BillingInr) row[0];
                 Demographic demo = (Demographic) row[1];
-                persistOneBilling(inr, demo, billingInrNo, clinicNo, clinicRefCode,
+                persistOneBilling(inr, demo, billingInrNo, clinicNoValue, clinicRefCode,
                                   creator, curDate, appointmentDate, timeFormatter);
             }
         }
@@ -135,10 +144,14 @@ public class ViewInrBillingGeneration2Action extends ActionSupport {
     }
 
     private void persistOneBilling(BillingInr inr, Demographic demo, int billingInrNo,
-                                   String clinicNo, String clinicRefCode,
+                                   int clinicNo, String clinicRefCode,
                                    String creator, String curDate, String appointmentDate,
                                    SimpleDateFormat timeFormatter) {
-        String demoNo = String.valueOf(inr.getDemographicNo());
+        Integer demographicNo = inr.getDemographicNo();
+        if (demographicNo == null) {
+            throw new BillingValidationException("INR billing row has no demographic number");
+        }
+        String demoNo = String.valueOf(demographicNo);
         String demoName = inr.getDemographicName();
         String demoHin = demo.getHin() + demo.getVer();
         String demoDob = demo.getYearOfBirth() + demo.getMonthOfBirth() + demo.getDateOfBirth();
@@ -152,8 +165,8 @@ public class ViewInrBillingGeneration2Action extends ActionSupport {
         String billingUnit = inr.getBillingUnit();
 
         Billing billing = new Billing();
-        billing.setClinicNo(Integer.parseInt(clinicNo));
-        billing.setDemographicNo(Integer.parseInt(demoNo));
+        billing.setClinicNo(clinicNo);
+        billing.setDemographicNo(demographicNo);
         billing.setProviderNo(providerNo);
         billing.setAppointmentNo(0);
         billing.setOrganizationSpecCode("V03");
@@ -183,7 +196,10 @@ public class ViewInrBillingGeneration2Action extends ActionSupport {
 
         billingDao.persist(billing);
 
-        Integer billNo = billingDao.search_billing_no_by_appt(Integer.parseInt(demoNo), 0);
+        Integer billNo = billingDao.search_billing_no_by_appt(demographicNo, 0);
+        if (billNo == null) {
+            throw new BillingValidationException("Unable to resolve generated INR billing number");
+        }
 
         BillingInr inrToUpdate = billingInrDao.find(billingInrNo);
         if (inrToUpdate != null && !"D".equals(inrToUpdate.getStatus())) {
@@ -215,5 +231,24 @@ public class ViewInrBillingGeneration2Action extends ActionSupport {
             return amount;
         }
         return amount.substring(0, dot) + amount.substring(dot + 1);
+    }
+
+    private static Integer inrBillingNoFromParam(String name) {
+        Matcher matcher = INR_BILLING_PARAM.matcher(name);
+        if (!matcher.matches()) {
+            return null;
+        }
+        return Integer.parseInt(matcher.group(1));
+    }
+
+    private static int parseRequiredInt(String value, String fieldName) {
+        if (value == null || value.isBlank()) {
+            throw new BillingValidationException("Missing required numeric field: " + fieldName);
+        }
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException nfe) {
+            throw new BillingValidationException("Invalid numeric field: " + fieldName, nfe);
+        }
     }
 }

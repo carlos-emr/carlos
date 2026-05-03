@@ -75,7 +75,10 @@ import static org.mockito.Mockito.when;
  * Pins the security-critical surface of {@link BillingDocumentErrorReportUpload2Action}.
  * The silent-failure-hunter agent flagged that this action mutates patient
  * demographic records via the {@code R*} branch. The action must reject
- * GET requests before file IO or DB-backed import/apply work begins.
+ * GET requests before file IO or DB-backed import/apply work begins. The
+ * privilege remains {@code _billing w} because MOH return-file reconciliation
+ * is a billing-write workflow even when the broader upload gate page requires
+ * {@code _admin.billing w}.
  */
 @DisplayName("BillingDocumentErrorReportUpload2Action")
 @Tag("unit")

@@ -1509,6 +1509,7 @@ insert into `secObjectName` (`objectName`) values('_formMentalHealth');
 insert into `secObjectName` (`objectName`) values ('_admin.userAdmin');
 insert into `secObjectName` (`objectName`) values ('_admin.schedule');
 insert into `secObjectName` (`objectName`) values ('_admin.billing');
+insert into `secObjectName` (`objectName`,`description`,`orgapplicable`) values('_admin.invoices', 'Restrict invoice admin to current provider', 0);
 insert into `secObjectName` (`objectName`) values ('_admin.resource');
 insert into `secObjectName` (`objectName`) values ('_admin.reporting');
 insert into `secObjectName` (`objectName`) values ('_admin.backup');
@@ -1803,6 +1804,7 @@ insert into `secObjPrivilege` values('admin','_appDefinition','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_demographicExport','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_admin.document','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_admin.demographic','u',0,'999998');
+insert into `secObjPrivilege` values('admin','_admin.invoices','r',0,'999998');
 
 insert into `secObjPrivilege` values('admin','_admin.hrm','x',0,'999998');
 insert into `secObjPrivilege` values('HRMAdmin','_hrm.administrator','x',0,'999998');

@@ -232,6 +232,9 @@
                         Service Code:&nbsp;<b><carlos:encode value='${rowItem.serviceCode}' context='html'/>&nbsp;$<carlos:encode value='${rowItem.fee}' context='html'/>&nbsp;
                         Paid:&nbsp;<carlos:encode value='${rowItem.realPaidDisplay}' context='html'/>&nbsp;
                         Balance:&nbsp;<carlos:encode value='${rowItem.balanceDisplay}' context='html'/>
+                        <c:if test="${rowItem.amountUnreadable}">
+                            <span style="color:#b00020;">Amount unreadable</span>
+                        </c:if>
                         </b>
                         <input type="hidden" name="itemId${itr.index}" value="<carlos:encode value='${rowItem.id}' context='htmlAttribute'/>"/>
                     </td>

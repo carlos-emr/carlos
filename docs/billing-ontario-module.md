@@ -4,7 +4,7 @@
 > workflow in CARLOS EMR. Frontend (JSP) details for the bill-entry form
 > itself are out of scope here — see the JSP layer notes below.
 
-> **Last refreshed**: 2026-05-01. Codebase changes after that date should be
+> **Last refreshed**: 2026-05-03. Codebase changes after that date should be
 > verified against the current source before relying on this document.
 
 ## 1 — At a glance
@@ -43,6 +43,7 @@ src/main/java/io/github/carlos_emr/carlos/billings/
 │   ├── pageUtil/                          ← cross-province router (Billing2Action)
 │   ├── bc/                                ← BC implementation (out of scope)
 │   └── on/                                ← Ontario implementation (this doc)
+│       ├── BillingAmounts.java              top-level utility (legacy BigDecimal money bridges)
 │       ├── BillingDates.java                top-level utility (date parsing / formatting)
 │       ├── BillingMoney.java                top-level utility (BigDecimal money helpers)
 │       ├── OhipDateTokens.java              top-level OHIP date-token utility
@@ -240,7 +241,7 @@ funnels.
 
 ## 5 — Entity model
 
-Three entities carry the bulk of Ontario billing state:
+Four entities carry the bulk of Ontario billing state:
 
 | Entity | Table | Role |
 |---|---|---|
@@ -852,11 +853,9 @@ Things this module would benefit from but which are not yet done:
 
 <a id="remaining-method-dispatch-cleanup"></a>
 - **Remaining method-dispatch cleanup.** Active method-param dispatch remains
-  in `BatchBill2Action`, `ManageCss2Action`, and `BillingOnPayments2Action`.
-  The correction routes `BillingCorrection2Action` and
-  `UpdateBillingOnCorrection2Action` also retain legacy correction-flow
-  compatibility and are tracked with
-  [carlos-emr/carlos#1751](https://github.com/carlos-emr/carlos/issues/1751).
+  in `BatchBill2Action`, `ManageCss2Action`, and `BillingOnPayments2Action`;
+  keep new routes single-purpose and track any explicit exceptions in code
+  review.
 - **JSP guardrail.** `scripts/lint/check-jsp-size.sh` fails CI on any JSP
   under `WEB-INF/jsp/billing/**` that exceeds the byte/scriptlet/getBean
   thresholds. Cheap insurance against the page-buffer workaround returning.

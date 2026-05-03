@@ -482,7 +482,7 @@ public Example2Action(SomeManager someManager) {
 
 **Provincial Healthcare Systems**:
 - **Teleplan**: BC MSP billing system with specialized upload/download
-- **MCEDT**: Medical Certificate Electronic Data Transfer
+- **MCEDT**: Medical Claims Electronic Data Transfer
 - **DrugRef**: Drug reference database integration
 
 **Medical Forms Integration**:

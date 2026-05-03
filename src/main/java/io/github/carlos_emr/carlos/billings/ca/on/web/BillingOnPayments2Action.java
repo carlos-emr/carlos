@@ -305,12 +305,20 @@ public class BillingOnPayments2Action extends ActionSupport {
         List<BillingOnThirdPartyPaymentsViewModel.ItemSummary> items = new ArrayList<>();
         if (itemDataList != null) {
             for (BillingClaimItemDto billItemData : itemDataList) {
-                BigDecimal itemTotal = parseDec(billItemData.getFee()).setScale(2, java.math.RoundingMode.HALF_UP);
-                BigDecimal itemPaid = parseDec(billItemData.getPaid()).setScale(2, java.math.RoundingMode.HALF_UP);
-                BigDecimal itemDiscount = parseDec(billItemData.getDiscount()).setScale(2, java.math.RoundingMode.HALF_UP);
-                BigDecimal itemCredit = parseDec(billItemData.getCredit()).setScale(2, java.math.RoundingMode.HALF_UP);
+                ParsedAmount itemTotalParsed = parseDec(billItemData.getFee());
+                ParsedAmount itemPaidParsed = parseDec(billItemData.getPaid());
+                ParsedAmount itemDiscountParsed = parseDec(billItemData.getDiscount());
+                ParsedAmount itemCreditParsed = parseDec(billItemData.getCredit());
+                BigDecimal itemTotal = itemTotalParsed.value().setScale(2, java.math.RoundingMode.HALF_UP);
+                BigDecimal itemPaid = itemPaidParsed.value().setScale(2, java.math.RoundingMode.HALF_UP);
+                BigDecimal itemDiscount = itemDiscountParsed.value().setScale(2, java.math.RoundingMode.HALF_UP);
+                BigDecimal itemCredit = itemCreditParsed.value().setScale(2, java.math.RoundingMode.HALF_UP);
                 BigDecimal itemBalance = itemTotal.subtract(itemPaid).subtract(itemDiscount).add(itemCredit);
                 BigDecimal realPaid = itemPaid.subtract(itemCredit);
+                boolean amountUnreadable = itemTotalParsed.unreadable()
+                        || itemPaidParsed.unreadable()
+                        || itemDiscountParsed.unreadable()
+                        || itemCreditParsed.unreadable();
 
                 String realPaidSign = realPaid.compareTo(BigDecimal.ZERO) < 0 ? "-" : "";
                 String balanceSign = itemBalance.compareTo(BigDecimal.ZERO) < 0 ? "-" : "";
@@ -320,7 +328,8 @@ public class BillingOnPayments2Action extends ActionSupport {
                         nullToEmpty(billItemData.serviceCode()),
                         nullToEmpty(billItemData.getFee()),
                         realPaidSign + currency.format(realPaid.abs()),
-                        balanceSign + currency.format(itemBalance.abs())));
+                        balanceSign + currency.format(itemBalance.abs()),
+                        amountUnreadable));
             }
         }
 
@@ -383,20 +392,17 @@ public class BillingOnPayments2Action extends ActionSupport {
                 .build();
     }
 
-    private static BigDecimal parseDec(String s) {
-        if (s == null || s.isEmpty()) return BigDecimal.ZERO;
+    record ParsedAmount(BigDecimal value, boolean unreadable) { }
+
+    static ParsedAmount parseDec(String s) {
+        if (s == null || s.isEmpty()) return new ParsedAmount(BigDecimal.ZERO, false);
         try {
-            return new BigDecimal(s);
+            return new ParsedAmount(new BigDecimal(s), false);
         } catch (NumberFormatException e) {
-            // Stored fee/paid/discount values that don't parse silently
-            // render as $0.00 indistinguishable from a real zero. Log so
-            // ops can see corrupt rows in the payment view; mirror the
-            // amountUnreadable signal pattern used elsewhere if a UI
-            // banner is added later.
             MiscUtils.getLogger().warn(
-                    "BillingOnPayments view: rendering 0.00 for unparseable amount [{}] (length={})",
+                    "BillingOnPayments view: rendering 0.00 for unparseable amount [{}] (length={}); amountUnreadable=true",
                     LogSanitizer.sanitize(s), s.length(), e);
-            return BigDecimal.ZERO;
+            return new ParsedAmount(BigDecimal.ZERO, true);
         }
     }
 
@@ -520,7 +526,8 @@ public class BillingOnPayments2Action extends ActionSupport {
         // instead of routing to the generic error mapping.
         BillingONCHeader1 cheader1 = billingClaimDAO.find(billNo);
         if (cheader1 == null) {
-            return "failure";
+            return writeRejectionJson("Billing record " + billNo
+                    + " no longer exists; payment not saved");
         }
         String status = request.getParameter("status");
         boolean statusChanges = status != null && !status.equals(cheader1.getStatus());

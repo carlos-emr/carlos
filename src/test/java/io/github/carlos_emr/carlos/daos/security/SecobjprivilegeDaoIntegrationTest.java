@@ -165,6 +165,9 @@ public class SecobjprivilegeDaoIntegrationTest extends CarlosTestBase {
     private static final Path ADMIN_BILLING_PRIVILEGE_MIGRATION =
             Path.of("database/mysql/updates/update-2026-04-26-admin-billing-privilege.sql");
 
+    private static final Path ADMIN_INVOICES_PRIVILEGE_MIGRATION =
+            Path.of("database/mysql/updates/update-2026-05-03-admin-invoices-privilege.sql");
+
     /**
      * Creates and persists a {@link Secobjprivilege} with the given composite key
      * and privilege details.
@@ -213,7 +216,15 @@ public class SecobjprivilegeDaoIntegrationTest extends CarlosTestBase {
     }
 
     private void applyAdminBillingPrivilegeMigration() throws IOException {
-        String sql = Files.readString(ADMIN_BILLING_PRIVILEGE_MIGRATION);
+        applyMigration(ADMIN_BILLING_PRIVILEGE_MIGRATION);
+    }
+
+    private void applyAdminInvoicesPrivilegeMigration() throws IOException {
+        applyMigration(ADMIN_INVOICES_PRIVILEGE_MIGRATION);
+    }
+
+    private void applyMigration(Path migration) throws IOException {
+        String sql = Files.readString(migration);
         for (String statement : sql.replaceAll("(?m)^\\s*--.*$", "").split(";")) {
             String trimmed = statement.trim();
             if (!trimmed.isEmpty()) {
@@ -225,8 +236,12 @@ public class SecobjprivilegeDaoIntegrationTest extends CarlosTestBase {
 
     private static String toH2CompatibleSql(String statement) {
         String normalized = statement.replace("`", "");
-        return normalized.replaceFirst("(?is)^INSERT\\s+IGNORE\\s+INTO\\s+secObjPrivilege\\s*\\(([^)]*)\\)\\s*VALUES",
-                "MERGE INTO secObjPrivilege ($1) KEY(roleUserGroup, objectName) VALUES");
+        if (normalized.matches("(?is)^INSERT\\s+IGNORE\\s+INTO\\s+secObjPrivilege\\s*\\(([^)]*)\\)\\s*VALUES.*")) {
+            return normalized.replaceFirst("(?is)^INSERT\\s+IGNORE\\s+INTO\\s+secObjPrivilege\\s*\\(([^)]*)\\)\\s*VALUES",
+                    "MERGE INTO secObjPrivilege ($1) KEY(roleUserGroup, objectName) VALUES");
+        }
+        return normalized.replaceFirst("(?is)^INSERT\\s+IGNORE\\s+INTO\\s+secObjectName\\s*\\(([^)]*)\\)\\s*VALUES",
+                "MERGE INTO secObjectName ($1) KEY(objectName) VALUES");
     }
 
     private List<Object[]> selectAdminBillingPrivileges() {
@@ -234,6 +249,23 @@ public class SecobjprivilegeDaoIntegrationTest extends CarlosTestBase {
         List<Object[]> rows = entityManager.createNativeQuery(
                 "SELECT roleUserGroup, objectName, privilege, priority, provider_no FROM secObjPrivilege "
                         + "WHERE roleUserGroup = 'admin' AND objectName = '_admin.billing'")
+                .getResultList();
+        return rows;
+    }
+
+    private List<Object[]> selectAdminInvoicesPrivileges() {
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = entityManager.createNativeQuery(
+                "SELECT roleUserGroup, objectName, privilege, priority, provider_no FROM secObjPrivilege "
+                        + "WHERE roleUserGroup = 'admin' AND objectName = '_admin.invoices'")
+                .getResultList();
+        return rows;
+    }
+
+    private List<Object[]> selectAdminInvoicesObjectNames() {
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = entityManager.createNativeQuery(
+                "SELECT objectName, description, orgapplicable FROM secObjectName WHERE objectName = '_admin.invoices'")
                 .getResultList();
         return rows;
     }
@@ -272,6 +304,51 @@ public class SecobjprivilegeDaoIntegrationTest extends CarlosTestBase {
         applyAdminBillingPrivilegeMigration();
 
         assertThat(selectAdminBillingPrivileges()).hasSize(1);
+    }
+
+    @Test
+    @Tag("migration")
+    @DisplayName("admin invoices privilege migration should grant _admin.invoices read access")
+    void shouldGrantAdminInvoicesPrivilege_whenMigrationApplied() throws Exception {
+        entityManager.createNativeQuery(
+                "DELETE FROM secObjPrivilege WHERE roleUserGroup = 'admin' AND objectName = '_admin.invoices'")
+                .executeUpdate();
+        entityManager.createNativeQuery("DELETE FROM secObjectName WHERE objectName = '_admin.invoices'")
+                .executeUpdate();
+        entityManager.flush();
+
+        applyAdminInvoicesPrivilegeMigration();
+
+        List<Object[]> objectNames = selectAdminInvoicesObjectNames();
+        assertThat(objectNames).hasSize(1);
+        assertThat(objectNames.get(0)[0]).isEqualTo("_admin.invoices");
+
+        List<Object[]> rows = selectAdminInvoicesPrivileges();
+        assertThat(rows).hasSize(1);
+        Object[] row = rows.get(0);
+        assertThat(row[0]).isEqualTo("admin");
+        assertThat(row[1]).isEqualTo("_admin.invoices");
+        assertThat(row[2]).isEqualTo("r");
+        assertThat(((Number) row[3]).intValue()).isZero();
+        assertThat(row[4]).isEqualTo("999998");
+    }
+
+    @Test
+    @Tag("migration")
+    @DisplayName("admin invoices privilege migration should be idempotent")
+    void shouldBeIdempotent_whenAdminInvoicesMigrationAppliedTwice() throws Exception {
+        entityManager.createNativeQuery(
+                "DELETE FROM secObjPrivilege WHERE roleUserGroup = 'admin' AND objectName = '_admin.invoices'")
+                .executeUpdate();
+        entityManager.createNativeQuery("DELETE FROM secObjectName WHERE objectName = '_admin.invoices'")
+                .executeUpdate();
+        entityManager.flush();
+
+        applyAdminInvoicesPrivilegeMigration();
+        applyAdminInvoicesPrivilegeMigration();
+
+        assertThat(selectAdminInvoicesObjectNames()).hasSize(1);
+        assertThat(selectAdminInvoicesPrivileges()).hasSize(1);
     }
 
     /**

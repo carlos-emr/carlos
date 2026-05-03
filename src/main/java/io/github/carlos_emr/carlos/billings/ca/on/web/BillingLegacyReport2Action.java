@@ -28,6 +28,7 @@ import java.nio.charset.StandardCharsets;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.billing.CA.ON.util.EDTFolder;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingLegacyReportViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
@@ -45,8 +46,8 @@ import org.apache.struts2.ServletActionContext;
  *
  * <p>The legacy JSP body resolved {@code filename} from request attribute
  * (set by {@code BillingDocumentErrorReportUpload2Action}'s {@code outside}
- * result) or from a query parameter, read
- * {@code ONEDT_INBOX/{filename}} into a string, picked an XSL stylesheet
+ * result) or from a query parameter, read the selected EDT folder file into
+ * a string, picked an XSL stylesheet
  * via the third/fourth filename character ({@code "OU"} vs {@code "ES"}),
  * and embedded the bytes into JS. All of that work moves to this action,
  * which exposes {@code ${lreportModel}} so the JSP renders pure EL/JSTL.</p>
@@ -92,10 +93,10 @@ public class BillingLegacyReport2Action extends ActionSupport {
         String fileContents = "";
         if (!filename.isEmpty()) {
             try {
-                String inbox = CarlosProperties.getInstance().getProperty("ONEDT_INBOX");
-                if (inbox != null && !inbox.isEmpty()) {
-                    File inboxDir = new File(inbox);
-                    File target = PathValidationUtils.validatePath(filename, inboxDir);
+                String folderPath = selectedFolderPath(request);
+                if (folderPath != null && !folderPath.isEmpty()) {
+                    File folderDir = new File(folderPath);
+                    File target = PathValidationUtils.validatePath(filename, folderDir);
                     if (target.exists() && target.isFile()) {
                         fileContents = FileUtils.readFileToString(target, StandardCharsets.UTF_8);
                     }
@@ -121,5 +122,11 @@ public class BillingLegacyReport2Action extends ActionSupport {
         request.setAttribute("lreportModel", model);
 
         return SUCCESS;
+    }
+
+    private static String selectedFolderPath(HttpServletRequest request) {
+        String folderParam = request.getParameter("folder");
+        EDTFolder folder = EDTFolder.getFolder(folderParam);
+        return CarlosProperties.getInstance().getProperty("ONEDT_" + folder.name());
     }
 }

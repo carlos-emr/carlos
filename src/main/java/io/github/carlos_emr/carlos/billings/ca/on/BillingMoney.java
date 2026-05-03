@@ -40,7 +40,6 @@ import io.github.carlos_emr.carlos.utility.LogSanitizer;
 public record BillingMoney(BigDecimal amount, Currency currency) implements Comparable<BillingMoney> {
     public static final int MONEY_SCALE = 2;
     public static final Currency CAD = Currency.getInstance("CAD");
-    private static final int OHIP_FEE_SCALE = 4;
     private static final BigDecimal ZERO = BigDecimal.ZERO.setScale(MONEY_SCALE);
 
     public BillingMoney {
@@ -142,8 +141,9 @@ public record BillingMoney(BigDecimal amount, Currency currency) implements Comp
     private void requireSameCurrency(BillingMoney other) {
         Objects.requireNonNull(other, "other");
         if (!currency.equals(other.currency)) {
-            throw new IllegalArgumentException(
-                    "Currency mismatch: " + currency.getCurrencyCode() + " vs " + other.currency.getCurrencyCode());
+            throw new BillingValidationException(
+                    "BillingMoney: currency mismatch ["
+                            + currency.getCurrencyCode() + " vs " + other.currency.getCurrencyCode() + "]");
         }
     }
 

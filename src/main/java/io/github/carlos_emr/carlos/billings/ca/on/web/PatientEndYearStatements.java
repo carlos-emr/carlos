@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import java.text.ParseException;
+import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -104,13 +105,30 @@ final class PatientEndYearStatements {
         }
     }
 
-    /** Lenient ISO-8601 date parser — returns null on malformed/empty input. */
-    static Date parseIso(String value) {
-        if (value == null || value.isEmpty()) return null;
+    /**
+     * Optional ISO-8601 date parser. Blank inputs mean "open-ended range";
+     * malformed nonblank inputs are rejected so typos cannot silently widen
+     * the statement range.
+     */
+    static Date parseIso(String value, String fieldLabel) {
+        if (value == null || value.isBlank()) return null;
         try {
-            return new SimpleDateFormat("yyyy-MM-dd").parse(value);
-        } catch (ParseException ex) {
-            return null;
+            SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
+            format.setLenient(false);
+            ParsePosition position = new ParsePosition(0);
+            Date parsed = format.parse(value, position);
+            if (parsed == null || position.getIndex() != value.length()) {
+                throw new ParseException("Unparseable date", position.getErrorIndex());
+            }
+            return parsed;
+        } catch (ParseException | IllegalArgumentException ex) {
+            throw new InvalidDateFilterException(fieldLabel, ex);
+        }
+    }
+
+    static final class InvalidDateFilterException extends RuntimeException {
+        private InvalidDateFilterException(String fieldLabel, Exception cause) {
+            super("Invalid " + fieldLabel + ". Use yyyy-MM-dd.", cause);
         }
     }
 }

@@ -27,6 +27,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -59,6 +61,8 @@ import org.apache.struts2.ServletActionContext;
  * @since 2026-04-26
  */
 public class ViewOnInrBillingGeneration2Action extends ActionSupport {
+
+    private static final Pattern INR_BILLING_PARAM = Pattern.compile("^inrbilling(\\d+)$");
 
     private static final DateTimeFormatter UPDATE_TS_FMT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -106,11 +110,11 @@ public class ViewOnInrBillingGeneration2Action extends ActionSupport {
         Enumeration<String> paramNames = request.getParameterNames();
         while (paramNames.hasMoreElements()) {
             String name = paramNames.nextElement();
-            if (name.indexOf("inrbilling") == -1) {
+            Integer billingInrNo = inrBillingNoFromParam(name);
+            if (billingInrNo == null) {
                 continue;
             }
 
-            int billingInrNo = Integer.parseInt(name.substring(10));
             for (Object[] row : billingInrDao.search_inrbilling_dt_billno(billingInrNo)) {
                 BillingInr inr = (BillingInr) row[0];
                 Demographic demo = (Demographic) row[1];
@@ -196,5 +200,13 @@ public class ViewOnInrBillingGeneration2Action extends ActionSupport {
         List<BillingClaimItemDto> items = new ArrayList<>(1);
         items.add(item);
         persistenceService.addItemRecord(items, billNo);
+    }
+
+    private static Integer inrBillingNoFromParam(String name) {
+        Matcher matcher = INR_BILLING_PARAM.matcher(name);
+        if (!matcher.matches()) {
+            return null;
+        }
+        return Integer.parseInt(matcher.group(1));
     }
 }

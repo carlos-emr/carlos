@@ -239,6 +239,14 @@ class BillingOnPayments2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(model.getBalanceDisplay()).doesNotContain("--");
     }
 
+    @Test
+    void shouldFlagAmountUnreadable_whenStoredAmountMalformed() {
+        BillingOnPayments2Action.ParsedAmount parsed = BillingOnPayments2Action.parseDec("not-money");
+
+        assertThat(parsed.value()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(parsed.unreadable()).isTrue();
+    }
+
     // -- savePayment(): JSON rejection contract.
     //
     // The legacy shape silently zeroed malformed amounts inside per-item
@@ -481,6 +489,29 @@ class BillingOnPayments2ActionUnitTest extends CarlosUnitTestBase {
         verify(saveService).saveThirdPartyPayment(commandCaptor.capture());
         assertThat(commandCaptor.getValue().paymentTypeId).isEqualTo(7);
         assertThat(commandCaptor.getValue().paymentTypeIdRaw).isEqualTo("7");
+    }
+
+    @Test
+    void shouldWriteJsonRejection_whenBillingHeaderMissingDuringSave() throws Exception {
+        MockHttpServletRequest request = savePaymentRequestWithItem("10.00", "0.00");
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+        BillingONItemDao itemDao = mock(BillingONItemDao.class);
+        when(itemDao.find(11)).thenReturn(new BillingONItem());
+        registerMock(BillingONItemDao.class, itemDao);
+
+        BillingONCHeader1Dao headerDao = mock(BillingONCHeader1Dao.class);
+        when(headerDao.find(4242)).thenReturn(null);
+        registerMock(BillingONCHeader1Dao.class, headerDao);
+
+        String result = new BillingOnPayments2Action().savePayment();
+
+        assertThat(result).isNull();
+        assertThat(response.getContentType()).contains("application/json");
+        assertThat(response.getContentAsString()).contains("\"ret\":1");
+        assertThat(response.getContentAsString()).contains("no longer exists");
     }
 
     // -- viewPayment_ext: returns "failure" instead of null on bad input

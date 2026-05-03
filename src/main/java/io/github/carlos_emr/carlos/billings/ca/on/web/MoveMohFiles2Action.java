@@ -62,14 +62,14 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
  *
  * <p>This action handles the secure movement of MOH billing files from active Electronic Data
  * Transfer (EDT) folders to an archive directory. It is part of the Ontario-specific billing
- * infrastructure for MCEDT (Medical Certificate Electronic Data Transfer) file management.</p>
+ * infrastructure for MCEDT (Medical Claims Electronic Data Transfer) file management.</p>
  *
  * <p>The action provides critical file management functionality for healthcare billing workflows,
  * ensuring that processed MOH billing files are safely archived while maintaining data integrity
  * and security compliance. All file operations include path validation to prevent path traversal
  * attacks and unauthorized file access.</p>
  *
- * <p><strong>Security:</strong> Requires administrative privileges (_admin with write access) to
+ * <p><strong>Security:</strong> Requires {@code _admin.billing} write access to
  * execute file archival operations. All file paths are validated using {@link PathValidationUtils}
  * to ensure files are within authorized EDT folder locations.</p>
  *
@@ -81,7 +81,8 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
  * @see EDTFolder
  * @see PathValidationUtils
  * @see SecurityInfoManager
- * @since 2014-03-24
+ * @since 2014-03-24 legacy MOH file-management flow; repackaged and
+ *        POST-gated in the Ontario billing refactor.
  */
 public class MoveMohFiles2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest(); 

@@ -51,7 +51,8 @@ public final class BillingOnThirdPartyPaymentsViewModel {
             String serviceCode,
             String fee,
             String realPaidDisplay,   // pre-signed, currency-formatted
-            String balanceDisplay) { } // pre-signed, currency-formatted
+            String balanceDisplay,    // pre-signed, currency-formatted
+            boolean amountUnreadable) { }
 
     /** One existing-payment row in the PAYMENTS LIST table. */
     public record PaymentRow(

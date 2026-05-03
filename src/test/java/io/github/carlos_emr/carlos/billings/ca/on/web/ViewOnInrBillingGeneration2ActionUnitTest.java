@@ -265,6 +265,20 @@ class ViewOnInrBillingGeneration2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldIgnoreMalformedInrBillingParams_forInvalidParameterNames() {
+        mockRequest.setParameter("clinic_no", "C1");
+        mockRequest.setParameter("inrbilling", "on");
+        mockRequest.setParameter("inrbillingABC", "on");
+        mockRequest.setParameter("xml_appointment_date", "2026-04-26");
+
+        String result = newAction().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        verify(mockPersistenceService, never()).addOneClaimHeaderRecord(any());
+        verify(mockBillingInrDao, never()).search_inrbilling_dt_billno(anyInt());
+    }
+
+    @Test
     void shouldThrowSecurityException_whenSessionMissing() {
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(null);

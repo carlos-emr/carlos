@@ -177,7 +177,7 @@ Province-specific billing functionality:
 The following tests are excluded from regular Maven test runs via Surefire plugin configuration:
 
 - **HinValidatorTest** - Health Insurance Number validation
-- **MCEDT Tests** (`**/*EDTTest.java`) - Medical Certificate Electronic Data Transfer
+- **MCEDT Tests** (`**/*EDTTest.java`) - Medical Claims Electronic Data Transfer
 - **AR2005 Tests** (`**/AR2005*.java`) - Annual Report 2005 related
 - **OntarioMDSpec4DataTest** - Ontario MD specification tests
 - **ONAREnhancedBornConnectorTest** - BORN integration tests

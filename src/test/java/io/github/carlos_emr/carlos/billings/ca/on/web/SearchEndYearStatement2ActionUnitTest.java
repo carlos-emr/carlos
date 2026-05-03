@@ -54,7 +54,9 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -173,6 +175,19 @@ class SearchEndYearStatement2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(action.execute()).isEqualTo("failure");
         assertThat(action.getActionErrors()).isNotEmpty();
+    }
+
+    @Test
+    void shouldReturnFailure_whenDateFilterMalformed() throws Exception {
+        SearchEndYearStatement2Action action =
+                new SearchEndYearStatement2Action(mockSecurityInfoManager, mockService);
+        action.setFromDateParam("not-a-date");
+        action.setToDateParam("2025-12-31");
+
+        assertThat(action.execute()).isEqualTo("failure");
+        assertThat(action.getActionErrors()).containsExactly("Invalid from date. Use yyyy-MM-dd.");
+        verify(mockService, never()).findUniquePatient(any(), any(), any(), any());
+        verify(mockService, never()).aggregateInvoices(any(Demographic.class), any(), any());
     }
 
     @Test

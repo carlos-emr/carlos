@@ -173,4 +173,31 @@ class BillingOntarioReviewFindingsArchitectureTest {
             }
         }
     }
+
+    @Test
+    void shouldKeepStrutsFiltersForwardEnabled_forDocumentUploadCompatibility() throws Exception {
+        String webXml = Files.readString(Path.of("src/main/webapp/WEB-INF/web.xml"));
+
+        assertThat(filterMappingFor(webXml, "struts2-prepare"))
+                .contains("<dispatcher>FORWARD</dispatcher>");
+        assertThat(filterMappingFor(webXml, "struts2-execute"))
+                .contains("<dispatcher>FORWARD</dispatcher>");
+    }
+
+    private static String filterMappingFor(String webXml, String filterName) {
+        String filterNameElement = "<filter-name>" + filterName + "</filter-name>";
+        int searchFrom = 0;
+        while (true) {
+            int mappingStart = webXml.indexOf("<filter-mapping>", searchFrom);
+            assertThat(mappingStart)
+                    .as("filter mapping for %s", filterName)
+                    .isGreaterThanOrEqualTo(0);
+            int mappingEnd = webXml.indexOf("</filter-mapping>", mappingStart);
+            String mapping = webXml.substring(mappingStart, mappingEnd + "</filter-mapping>".length());
+            if (mapping.contains(filterNameElement)) {
+                return mapping;
+            }
+            searchFrom = mappingEnd + "</filter-mapping>".length();
+        }
+    }
 }

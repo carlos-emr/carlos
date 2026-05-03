@@ -46,6 +46,10 @@ final class BillingDtoMoney {
         return BillingMoney.storedCents(raw, fieldName);
     }
 
+    /**
+     * Parses RA money fields, which can legitimately be signed because
+     * remittance adjustments include reversals and negative transactions.
+     */
     static BigDecimal parseSignedDecimal(String raw, String fieldName) {
         if (raw == null || raw.trim().isEmpty()) {
             return null;
