@@ -848,7 +848,6 @@
       "CN-37": "Shandong",
       "CN-14": "Shanxi",
       "CN-51": "Sichuan",
-      "CN-71": "Taiwan",
       "CN-53": "Yunnan",
       "CN-33": "Zhejiang",
       "CN-45": "Guangxi",
@@ -4608,6 +4607,33 @@
     "name": "Tuvalu",
     "divisions": {
       "TV-TV": "Tuvalu"
+    }
+  },
+  "TW": {
+    "name": "Taiwan",
+    "divisions": {
+      "TW-CHA": "Changhua county",
+      "TW-CYI": "Chiayi city",
+      "TW-CYQ": "Chiayi county",
+      "TW-HSZ": "Hsinchu city",
+      "TW-HSQ": "Hsinchu county",
+      "TW-HUA": "Hualien county",
+      "TW-KHH": "Kaohsiung municipality",
+      "TW-KEE": "Keelung city",
+      "TW-KIN": "Kinmen county",
+      "TW-LIE": "Lienchiang county",
+      "TW-MIA": "Miaoli county",
+      "TW-NAN": "Nantou county",
+      "TW-NWT": "New Taipei municipality",
+      "TW-PEN": "Penghu county",
+      "TW-PIF": "Pingtung county",
+      "TW-TXG": "Taichung municipality",
+      "TW-TNN": "Tainan municipality",
+      "TW-TPE": "Taipei municipality",
+      "TW-TTT": "Taitung county",
+      "TW-TAO": "Taoyuan municipality",
+      "TW-ILA": "Yilan county",
+      "TW-YUN": "Yunlin county"
     }
   },
   "UG": {
