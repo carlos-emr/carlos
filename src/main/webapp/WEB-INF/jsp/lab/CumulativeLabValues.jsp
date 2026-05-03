@@ -204,7 +204,7 @@
 
 
                 <div class="leftBox">
-                    <h3>&nbsp;<fmt:message key="encounter.Labs.title"/></h3>
+                    <h3>&nbsp;<fmt:message key="lab.cumulativeLab.labs"/></h3>
                     <div style="background-color: #EEEEFF;">
                         <ul class="list-group list-group-flush">
                             <%
@@ -212,6 +212,9 @@
                                     Hashtable h = (Hashtable) prevList.get(i);
                                     String prevName = (String) h.get("testName");
                                     String labType = (String) h.get("labType");
+                                    if (labType == null) {
+                                        labType = "";
+                                    }
                                     String identCode = (String) h.get("identCode");
                                     String identCodeEsc = "";
                                     if (identCode != null)
@@ -219,9 +222,6 @@
 
                                     if (prevName == null) {
                                         prevName = "";
-                                    }
-                                    if (labType == null) {
-                                        labType = "";
                                     }
                                     String prevNameHtmlAttribute = SafeEncode.forHtmlAttribute(prevName);
                                     String prevNameJavaScriptAttribute = SafeEncode.forJavaScriptAttribute(prevName);
