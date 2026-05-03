@@ -227,12 +227,13 @@
                                     String displayName = SafeEncode.forHtmlContent(StringUtils.maxLenString(prevName, 13, 8, "..."));
                             %>
                             <li class="list-group-item py-1 px-2"><%-- a title="fade=[on] header=[<%=prevName%>] body=[]"      href="javascript: function myFunction() {return false; }"  onclick="javascript:addLabToProfile2('<%=h.get("labType")%>','<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>');" --%>
-                                <a title="fade=[on] header=[<%=prevNameAttr%>] body=[]"
-                                   href="#"
-                                   onclick="addLabToProfile2('<%=labTypeJs%>','<%=prevNameJs%>','<%= identCodeJs %>'); return false;">
+                                <button type="button"
+                                        class="btn btn-link p-0 text-start"
+                                        title="fade=[on] header=[<%=prevNameAttr%>] body=[]"
+                                        onclick="addLabToProfile2('<%=labTypeJs%>','<%=prevNameJs%>','<%= identCodeJs %>');">
 
                                      <%=displayName%>
-                                </a></li>
+                                </button></li>
                             <%}%>
                         </ul>
                     </div>
