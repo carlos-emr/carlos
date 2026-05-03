@@ -124,7 +124,7 @@
     %>
 
     <form name="codesearch" id="codesearch" method="post"
-          action="/billing/CA/ON/ViewBillingDigSearch">
+          action="<%= request.getContextPath() %>/billing/CA/ON/ViewBillingDigSearch">
         <%if (targetElement != null || name2ParseError) {%>
         <input type="hidden" name="name2"
                value="<carlos:encode value='<%= name2 %>' context="htmlAttribute"/>"/>
@@ -153,7 +153,7 @@
     </form>
 
     <form name="diagcode" id="diagcode" method="post"
-          action="/billing/CA/ON/BillingDigUpdate">
+          action="<%= request.getContextPath() %>/billing/CA/ON/BillingDigUpdate">
         <table style="width:800px; margin:auto" class="table-striped table-sm">
             <thead>
             <tr>

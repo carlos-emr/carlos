@@ -98,6 +98,17 @@ public class AddPrevention2Action extends ActionSupport {
         if (sessionUser == null) {
             return "Logout";
         }
+
+        // This mutating endpoint is POST-only. GET/HEAD form loads must target the
+        // dedicated view gate /prevention/ViewAddPreventionData, which preserves
+        // the historical _prevention w privilege but keeps the actual mutation path
+        // behind POST + CSRFGuard only.
+        String httpMethod = request.getMethod();
+        if (!"POST".equalsIgnoreCase(httpMethod)) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         String preventionType = request.getParameter("prevention");
         String demographic_no = request.getParameter("demographic_no");
         String id = request.getParameter("id");

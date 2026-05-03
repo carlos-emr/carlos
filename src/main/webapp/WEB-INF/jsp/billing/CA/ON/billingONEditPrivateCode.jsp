@@ -285,7 +285,7 @@
 
 
         <div class="card card-body bg-body-tertiary">
-            <form method="post" name="baseur0" action="/billing/CA/ON/ViewBillingONEditPrivateCode" class="d-flex flex-wrap align-items-center gap-2">
+            <form method="post" name="baseur0" action="<%= request.getContextPath() %>/billing/CA/ON/ViewBillingONEditPrivateCode" class="d-flex flex-wrap align-items-center gap-2">
 
                 Select Code to edit:<br>
                 <select name="service_code" id="service_code" required>
@@ -324,7 +324,7 @@
         </div><!--select code to edit well-->
 
         <div class="card card-body bg-body-tertiary">
-            <form method="post" name="baseurl" action="/billing/CA/ON/ViewBillingONEditPrivateCode">
+            <form method="post" name="baseurl" action="<%= request.getContextPath() %>/billing/CA/ON/ViewBillingONEditPrivateCode">
 
                 <div class="alert alert-<carlos:encode value='<%= alert %>' context="htmlAttribute"/>">
                     <%=msg%>

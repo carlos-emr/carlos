@@ -77,7 +77,7 @@
 </table>
 <table width="100%" border="0" bgcolor="#EEEEFF">
     <form name="serviceform" method="post"
-          action="/billing/CA/ON/ViewPrintBillingClipboard">
+          action="<%= request.getContextPath() %>/billing/CA/ON/ViewPrintBillingClipboard">
         <tr>
             <td height="40"><input type="submit" name="Submit"
                                    value="Print Preview"></td>

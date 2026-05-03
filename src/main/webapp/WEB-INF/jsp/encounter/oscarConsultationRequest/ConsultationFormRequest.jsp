@@ -3150,6 +3150,7 @@ if (userAgent != null) {
     </form>
     </body>
 
+    <fmt:message var="saveAndCloseText" key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnSaveAndClose"/>
     <script type="text/javascript">
         jQuery(document).ready(function () {
             var ctx = "${pageContext.request.contextPath}";
@@ -3310,7 +3311,7 @@ if (userAgent != null) {
                 }).dialog({
                     title: title,
                     modal: true,
-                    closeText: "Save and Close",
+                    closeText: "${carlos:forJavaScript(saveAndCloseText)}",
                     height: 'auto',
                     width: 'auto',
                     resizable: true,
@@ -3323,7 +3324,7 @@ if (userAgent != null) {
                         let closeBtn = jQuery(this).parent().find(".ui-dialog-titlebar-close");
                         closeBtn.removeClass("ui-button-icon-only");
                         closeBtn.addClass("save-and-close-button");
-                        closeBtn.text("Save and Close");
+                        closeBtn.text("${carlos:forJavaScript(saveAndCloseText)}");
                     },
 
                     beforeClose: function (event, ui) {

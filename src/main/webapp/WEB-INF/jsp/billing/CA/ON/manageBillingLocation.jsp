@@ -174,7 +174,7 @@
 
                         <tr>
                             <form name="serviceform" method="post"
-                                  action="/billing/CA/ON/ManageBillingLocation"
+                                  action="<%= request.getContextPath() %>/billing/CA/ON/ManageBillingLocation"
                                   onsubmit="return confirmthis(<%=clinicLocation.getClinicLocationNo()%>);">
                                 <td align="center"><%=clinicLocation.getClinicLocationNo()%>
                                 </td>

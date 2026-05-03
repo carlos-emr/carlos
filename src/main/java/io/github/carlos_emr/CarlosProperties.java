@@ -430,10 +430,6 @@ public class CarlosProperties extends Properties {
         return carlosProperties.getProperty("form_intake_program_cash_fid");
     }
 
-    public static boolean isLdapAuthenticationEnabled() {
-        return Boolean.parseBoolean(carlosProperties.getProperty("ldap.enabled"));
-    }
-
     public String getDocumentDirectory() {
        String documents = carlosProperties.getProperty("DOCUMENT_DIR");
 

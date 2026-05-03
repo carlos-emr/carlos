@@ -1845,7 +1845,10 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should merge detached SecProvider entity")
         void shouldMergeDetachedEntity_whenInvokedWithDetachedInstance() {
             SecProvider saved = createProvider(uniquePrefix + "M1", "MergeFirst", "MergeLast", "1");
-            hibernateTemplate.flush();
+            // SecProviderDao writes through the JPA EntityManager. Flushing via the Hibernate
+            // Session here confuses Hibernate 7's thread-safety assertion when merge() later
+            // forces a JPA flush — the two persistence contexts race on shared EntityInsertActions.
+            entityManager.flush();
             entityManager.detach(saved);
 
             saved.setFirstName("MergedFirst");

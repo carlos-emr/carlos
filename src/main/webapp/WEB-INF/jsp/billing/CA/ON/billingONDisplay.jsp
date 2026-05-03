@@ -134,7 +134,7 @@
                 f1 = document.serviceform.xml_dig_search1.value;
                 // f2 = escape(document.serviceform.elements["File2Data"].value);
                 // fname = escape(document.Compose.elements["FName"].value);
-                awnd = rs('att', '/billing/CA/ON/ViewBillingDigSearch?name=' + f0 + '&search=' + f1, 600, 600, 1);
+                awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingDigSearch?name=' + f0 + '&search=' + f1, 600, 600, 1);
                 awnd.focus();
             }
 
@@ -142,14 +142,14 @@
                 var d = elementName;
                 t0 = escape("document.forms[1].elements[\'" + d + "\'].value");
                 t1 = escape("document.forms[1].elements[\'" + name2 + "\'].value");
-                awnd = rs('att', ('/billing/CA/ON/ViewSearchRefDoc?param=' + t0 + '&param2=' + t1), 600, 600, 1);
+                awnd = rs('att', ('<%= request.getContextPath() %>/billing/CA/ON/ViewSearchRefDoc?param=' + t0 + '&param2=' + t1), 600, 600, 1);
                 awnd.focus();
             }
 
             function scScriptAttach(nameF) {
                 f0 = document.forms[1].elements[nameF].value;
                 f1 = escape("document.forms[1].elements[\'" + nameF + "\'].value");
-                awnd = rs('att', '/billing/CA/ON/ViewBillingCodeSearch?name=' + f0 + '&search=&name1=&name2=&nameF=' + f1, 600, 600, 1);
+                awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCodeSearch?name=' + f0 + '&search=&name1=&name2=&nameF=' + f1, 600, 600, 1);
                 awnd.focus();
             }
 
@@ -281,7 +281,7 @@
     %>
 
     <table width="100%" border="0" class="myYellow">
-        <form name="form1" method="post" action="/billing/CA/ON/ViewBillingONDisplay">
+        <form name="form1" method="post" action="<%= request.getContextPath() %>/billing/CA/ON/ViewBillingONDisplay">
             <tr>
                 <th width="30%" align="left"><fmt:message key="billing.billingCorrection.formInvoiceNo"/></th>
                 <th width="10%"><input type="text" name="billing_no"
