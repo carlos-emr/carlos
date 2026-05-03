@@ -120,8 +120,8 @@
                    onclick="javascript:return onExit();"><br/>
             <input type="submit" value="<fmt:message key="encounter.formRourke1.btnPrint"/>"
                    onclick="javascript:return onPrint();"/>
-            <input type="button" value="About"
-                   onclick="javascript:return popPage('http://rourkebabyrecord.ca','About Rourke');"/>
+            <input type="button" value="<fmt:message key="encounter.formRourke1.btnAbout"/>"
+                   onclick="javascript:return popPage('http://rourkebabyrecord.ca','<fmt:message key="encounter.formRourke1.aboutRourkeTitle"/>');"/>
         </td>
         <td width="100%">
             <div name="saveMessageDiv"></div>
@@ -1530,8 +1530,8 @@
                    onclick="javascript:return onExit();"> <br/>
             <input type="submit" value="<fmt:message key="encounter.formRourke1.btnPrint"/>"
                    onclick="javascript:return onPrint();"/>
-            <input type="button" value="About"
-                   onclick="javascript:return popPage('http://rourkebabyrecord.ca','About Rourke');"/>
+            <input type="button" value="<fmt:message key="encounter.formRourke1.btnAbout"/>"
+                   onclick="javascript:return popPage('http://rourkebabyrecord.ca','<fmt:message key="encounter.formRourke1.aboutRourkeTitle"/>');"/>
         </td>
         <td width="100%">
             <div name="saveMessageDiv"></div>
