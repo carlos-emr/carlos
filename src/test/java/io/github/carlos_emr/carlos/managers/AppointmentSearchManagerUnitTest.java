@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.managers;
 import java.util.Calendar;
 import java.util.List;
 import java.util.TreeMap;
+import java.util.TimeZone;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -33,6 +34,13 @@ import io.github.carlos_emr.carlos.appointment.search.TimeSlot;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Unit tests for {@link AppointmentSearchManager}.
+ *
+ * <p>Verifies appointment type code filtering for generated schedule time slots.</p>
+ *
+ * @since 2026-04-30
+ */
 @DisplayName("AppointmentSearchManager unit tests")
 @Tag("unit")
 @Tag("fast")
@@ -40,9 +48,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("appointment")
 class AppointmentSearchManagerUnitTest {
 
+    private static final TimeZone UTC = TimeZone.getTimeZone("UTC");
+
     @Test
     @DisplayName("getAllowedTimesByType should return empty list when schedule has no time slots")
-    void getAllowedTimesByType_shouldReturnEmptyList_whenNoTimeSlots() {
+    void shouldReturnEmptyList_whenScheduleHasNoTimeSlots() {
         DayWorkSchedule dayWorkSchedule = new DayWorkSchedule();
         dayWorkSchedule.setTimeSlots(new TreeMap<>());
 
@@ -53,10 +63,10 @@ class AppointmentSearchManagerUnitTest {
 
     @Test
     @DisplayName("getAllowedTimesByType should return empty list when no codes match")
-    void getAllowedTimesByType_shouldReturnEmptyList_whenNoCodesMatch() {
+    void shouldReturnEmptyList_whenNoScheduleCodesMatchRequestedCodes() {
         DayWorkSchedule dayWorkSchedule = new DayWorkSchedule();
         TreeMap<Calendar, Character> timeSlots = new TreeMap<>();
-        timeSlots.put(Calendar.getInstance(), 'B');
+        timeSlots.put(createAppointmentTime(0), 'B');
         dayWorkSchedule.setTimeSlots(timeSlots);
 
         List<TimeSlot> result = AppointmentSearchManager.getAllowedTimesByType(dayWorkSchedule, new Character[]{'A'}, "123");
@@ -66,14 +76,12 @@ class AppointmentSearchManagerUnitTest {
 
     @Test
     @DisplayName("getAllowedTimesByType should return matching time slots")
-    void getAllowedTimesByType_shouldReturnMatchingTimeSlots() {
+    void shouldReturnMatchingTimeSlots_whenScheduleContainsRequestedCodes() {
         DayWorkSchedule dayWorkSchedule = new DayWorkSchedule();
         TreeMap<Calendar, Character> timeSlots = new TreeMap<>();
-        Calendar cal1 = Calendar.getInstance();
-        Calendar cal2 = Calendar.getInstance();
-        cal2.add(Calendar.HOUR, 1);
-        Calendar cal3 = Calendar.getInstance();
-        cal3.add(Calendar.HOUR, 2);
+        Calendar cal1 = createAppointmentTime(0);
+        Calendar cal2 = createAppointmentTime(1);
+        Calendar cal3 = createAppointmentTime(2);
 
         timeSlots.put(cal1, 'A');
         timeSlots.put(cal2, 'B'); // Should not match
@@ -87,5 +95,13 @@ class AppointmentSearchManagerUnitTest {
         assertThat(result).extracting(TimeSlot::getCode).containsExactly('A', 'A');
         assertThat(result).extracting(TimeSlot::getProviderNo).containsExactly("123", "123");
         assertThat(result).extracting(TimeSlot::getAvailableApptTime).containsExactly(cal1, cal3);
+    }
+
+    private static Calendar createAppointmentTime(int hoursAfterStart) {
+        Calendar calendar = Calendar.getInstance(UTC);
+        calendar.clear();
+        calendar.set(2026, Calendar.JANUARY, 15, 9, 0, 0);
+        calendar.add(Calendar.HOUR_OF_DAY, hoursAfterStart);
+        return calendar;
     }
 }
