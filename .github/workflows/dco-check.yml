@@ -42,7 +42,7 @@ jobs:
       github.event_name == 'pull_request_target' ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.pull_request &&
-       contains(github.event.comment.body, 'confirming dco sign off for all commits') &&
+       contains(toLower(github.event.comment.body), 'confirming dco sign off for all commits') &&
        (contains(fromJson('["OWNER","MEMBER","COLLABORATOR","CONTRIBUTOR"]'), github.event.comment.author_association) ||
         github.event.comment.user.login == github.event.issue.user.login))
     steps:
@@ -174,6 +174,28 @@ jobs:
             echo "commits_missing=false" >> "$GITHUB_OUTPUT"
             echo "All commits have valid DCO sign-off."
           fi
+
+      - name: Set success status
+        if: steps.pr.outputs.skip != 'true' && steps.dco_check.outputs.commits_missing == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+
+          jq -n \
+            --arg state "success" \
+            --arg context "DCO" \
+            --arg description "All commits have valid DCO sign-off" \
+            --arg target_url "$GITHUB_SERVER_URL/$REPO/actions/runs/$GITHUB_RUN_ID" \
+            '{state: $state, context: $context, description: $description, target_url: $target_url}' | \
+            curl -fsS -X POST \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              -H "Content-Type: application/json" \
+              "https://api.github.com/repos/$REPO/statuses/$HEAD_SHA" \
+              -d @-
 
       - name: Check for manual DCO confirmation comment
         id: manual_check
@@ -321,9 +343,36 @@ jobs:
                 -d @-
           }
 
+          delete_failure_comment() {
+            local page=1
+            local failure_id=""
+
+            while true; do
+              comments=$(curl -fsSL \
+                -H "Authorization: Bearer $GH_TOKEN" \
+                -H "Accept: application/vnd.github+json" \
+                "https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments?per_page=100&page=$page")
+
+              if [ "$(jq 'length' <<< "$comments")" = "0" ]; then
+                break
+              fi
+
+              failure_id=$(jq -r '.[] | select((.body // "") | contains("<!-- dco-check-failed -->")) | .id' <<< "$comments" | head -n 1)
+              if [ -n "$failure_id" ]; then
+                curl -fsS -X DELETE \
+                  -H "Authorization: Bearer $GH_TOKEN" \
+                  "https://api.github.com/repos/$REPO/issues/comments/$failure_id"
+                break
+              fi
+
+              page=$((page + 1))
+            done
+          }
+
           if [ "$MANUAL_CONFIRMED" = "true" ]; then
             echo "DCO check passed via manual confirmation from $CONFIRMING_USER ($CONFIRMING_ASSOCIATION)."
             if [ "$EVENT_NAME" = "issue_comment" ]; then
+              delete_failure_comment
               set_dco_status success "DCO manually confirmed by $CONFIRMING_USER"
               {
                 echo "## CARLOS EMR DCO Check Passed via Manual Confirmation"

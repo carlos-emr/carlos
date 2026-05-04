@@ -62,6 +62,10 @@ env:
   # Images will be: ghcr.io/carlos-emr/carlos-tomcat-dev, etc.
   IMAGE_PREFIX: ${{ github.repository_owner }}
 
+concurrency:
+  group: container-images-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # ===========================================================================
   # Check which containers need rebuilding
@@ -242,6 +246,7 @@ jobs:
         env:
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-tomcat-dev
           CONTENT_HASH: ${{ needs.check-containers.outputs.tomcat_hash }}
+          SHOULD_PUSH_LATEST: ${{ github.ref_name == 'develop' }}
         run: |
           echo "Building carlos-tomcat-dev container for publish..."
           docker buildx build \
@@ -261,11 +266,13 @@ jobs:
           docker exec publish-tomcat node --version
           docker stop publish-tomcat && docker rm publish-tomcat
 
-          docker tag carlos-tomcat-dev:publish "$IMAGE:latest"
           docker tag carlos-tomcat-dev:publish "$IMAGE:${{ github.sha }}"
-          docker push "$IMAGE:latest"
+          if [ "$SHOULD_PUSH_LATEST" = "true" ]; then
+            docker tag carlos-tomcat-dev:publish "$IMAGE:latest"
+            docker push "$IMAGE:latest"
+            echo "Pushed $IMAGE:latest"
+          fi
           docker push "$IMAGE:${{ github.sha }}"
-          echo "Pushed $IMAGE:latest"
           echo "Pushed $IMAGE:${{ github.sha }}"
 
   # ===========================================================================
@@ -397,6 +404,7 @@ jobs:
         env:
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-mariadb-dev
           CONTENT_HASH: ${{ needs.check-containers.outputs.mariadb_hash }}
+          SHOULD_PUSH_LATEST: ${{ github.ref_name == 'develop' }}
         run: |
           echo "Building carlos-mariadb-dev container for publish..."
           docker buildx build \
@@ -454,11 +462,13 @@ jobs:
           docker exec publish-mariadb mysql -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "drugref2" > /dev/null
           docker stop publish-mariadb && docker rm publish-mariadb
 
-          docker tag carlos-mariadb-dev:publish "$IMAGE:latest"
           docker tag carlos-mariadb-dev:publish "$IMAGE:${{ github.sha }}"
-          docker push "$IMAGE:latest"
+          if [ "$SHOULD_PUSH_LATEST" = "true" ]; then
+            docker tag carlos-mariadb-dev:publish "$IMAGE:latest"
+            docker push "$IMAGE:latest"
+            echo "Pushed $IMAGE:latest"
+          fi
           docker push "$IMAGE:${{ github.sha }}"
-          echo "Pushed $IMAGE:latest"
           echo "Pushed $IMAGE:${{ github.sha }}"
 
   # ===========================================================================
@@ -565,6 +575,7 @@ jobs:
         env:
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-drugref
           CONTENT_HASH: ${{ needs.check-containers.outputs.drugref_hash }}
+          SHOULD_PUSH_LATEST: ${{ github.ref_name == 'develop' }}
         run: |
           echo "Building carlos-drugref container for publish..."
           docker buildx build \
@@ -602,11 +613,13 @@ jobs:
           docker exec publish-drugref ls -la /usr/local/tomcat/webapps/
           docker stop publish-drugref && docker rm publish-drugref
 
-          docker tag carlos-drugref:publish "$IMAGE:latest"
           docker tag carlos-drugref:publish "$IMAGE:${{ github.sha }}"
-          docker push "$IMAGE:latest"
+          if [ "$SHOULD_PUSH_LATEST" = "true" ]; then
+            docker tag carlos-drugref:publish "$IMAGE:latest"
+            docker push "$IMAGE:latest"
+            echo "Pushed $IMAGE:latest"
+          fi
           docker push "$IMAGE:${{ github.sha }}"
-          echo "Pushed $IMAGE:latest"
           echo "Pushed $IMAGE:${{ github.sha }}"
 
   # ===========================================================================
