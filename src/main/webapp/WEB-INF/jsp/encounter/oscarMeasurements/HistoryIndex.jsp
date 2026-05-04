@@ -35,9 +35,9 @@
 %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_measurements" rights="r" reverse="<%=true%>">
+<security:oscarSec roleName="<%=roleName$%>" objectName="_measurement" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_measurements");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_measurement"); return;%>
 </security:oscarSec>
 
 <%
