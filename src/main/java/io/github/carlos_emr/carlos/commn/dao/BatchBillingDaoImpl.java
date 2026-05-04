@@ -54,6 +54,20 @@ public class BatchBillingDaoImpl extends AbstractDaoImpl<BatchBilling> implement
     }
 
     @SuppressWarnings("unchecked")
+    public List<BatchBilling> findForUpdate(Integer demographicNo, String service_code) {
+        if (demographicNo == null || service_code == null) {
+            return java.util.Collections.emptyList();
+        }
+        Query query = entityManager.createNativeQuery(
+                "SELECT * FROM batch_billing WHERE demographic_no = ?1 AND service_code = ?2 FOR UPDATE",
+                BatchBilling.class);
+        query.setParameter(1, demographicNo);
+        query.setParameter(2, service_code);
+
+        return query.getResultList();
+    }
+
+    @SuppressWarnings("unchecked")
     public List<BatchBilling> findByProvider(String providerNo) {
         Query query = entityManager.createQuery("select b from BatchBilling b where b.billingProviderNo = :provider");
         query.setParameter("provider", providerNo);

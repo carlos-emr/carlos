@@ -54,7 +54,6 @@ import jakarta.xml.bind.annotation.XmlRootElement;
         @NamedQuery(name = "OscarMsgType.findByDescription", query = "SELECT o FROM OscarMsgType o WHERE o.description = :description")})
 public class OscarMsgType extends AbstractModel<Integer> implements Serializable {
 
-    public static final Integer OSCAR_REVIEW_TYPE = 1;
     public static final Integer GENERAL_TYPE = 2;
 
     private static final long serialVersionUID = 1L;

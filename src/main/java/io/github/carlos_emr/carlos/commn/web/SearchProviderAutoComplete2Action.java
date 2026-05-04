@@ -52,8 +52,12 @@ import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class SearchProviderAutoComplete2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -61,6 +65,11 @@ public class SearchProviderAutoComplete2Action extends ActionSupport {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() throws Exception {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
+
         if ("labSearch".equals(request.getParameter("method"))) {
             return labSearch();
         }
@@ -78,7 +87,7 @@ public class SearchProviderAutoComplete2Action extends ActionSupport {
 
         response.setContentType("application/json");
         ObjectNode jsonArray = objectMapper.valueToTree(d);
-        response.getWriter().write(jsonArray.toString());
+        response.getWriter().write(jsonArray.toString()); // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- JSON API response with application/json content-type
         return null;
 
     }
@@ -111,7 +120,7 @@ public class SearchProviderAutoComplete2Action extends ActionSupport {
         }
 
         response.setContentType("application/json");
-        response.getWriter().write(objectMapper.writeValueAsString(results));
+        response.getWriter().write(objectMapper.writeValueAsString(results)); // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- JSON API response with application/json content-type
 
         return null;
     }

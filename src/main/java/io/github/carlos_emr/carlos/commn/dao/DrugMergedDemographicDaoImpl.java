@@ -37,6 +37,7 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.merge.MergedDemographicSingleResultTemplate;
 import io.github.carlos_emr.carlos.commn.merge.MergedDemographicTemplate;
 import io.github.carlos_emr.carlos.commn.model.Drug;
+import io.github.carlos_emr.carlos.prescript.dto.DrugListItemDTO;
 import org.springframework.stereotype.Repository;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -288,5 +289,23 @@ public class DrugMergedDemographicDaoImpl extends DrugDaoImpl implements DrugMer
         };
         return template.findMerged(demographicNo, result);
 
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Merges drug DTOs from the target demographic with those from any
+     * demographics merged into it.</p>
+     */
+    @Override
+    public List<DrugListItemDTO> findDrugDTOsByDemographicId(Integer demographicId) {
+        List<DrugListItemDTO> result = super.findDrugDTOsByDemographicId(demographicId);
+        MergedDemographicTemplate<DrugListItemDTO> template = new MergedDemographicTemplate<DrugListItemDTO>() {
+            @Override
+            protected List<DrugListItemDTO> findById(Integer demographic_no) {
+                return DrugMergedDemographicDaoImpl.super.findDrugDTOsByDemographicId(demographic_no);
+            }
+        };
+        return template.findMerged(demographicId, result);
     }
 }

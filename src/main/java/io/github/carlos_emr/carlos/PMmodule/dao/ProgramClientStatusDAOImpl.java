@@ -36,25 +36,25 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramClientStatus;
 import io.github.carlos_emr.carlos.commn.model.Admission;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
-import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
+import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 import org.springframework.transaction.annotation.Transactional;
 
 @Transactional
-public class ProgramClientStatusDAOImpl extends AbstractHibernateDao implements ProgramClientStatusDAO {
+public class ProgramClientStatusDAOImpl extends AbstractJpaDao implements ProgramClientStatusDAO {
 
     private Logger log = MiscUtils.getLogger();
 
     public List<ProgramClientStatus> getProgramClientStatuses(Integer programId) {
         String sSQL = "from ProgramClientStatus pcs where pcs.programId=?1";
-        return (List<ProgramClientStatus>) HqlQueryHelper.find(currentSession(), sSQL, programId);
+        return (List<ProgramClientStatus>) JpqlQueryHelper.find(entityManager(), sSQL, programId);
     }
 
     public void saveProgramClientStatus(ProgramClientStatus status) {
         if (status.getId() == null) {
-            currentSession().persist(status);
+            entityManager().persist(status);
         } else {
-            currentSession().merge(status);
+            entityManager().merge(status);
         }
     }
 
@@ -64,13 +64,12 @@ public class ProgramClientStatusDAOImpl extends AbstractHibernateDao implements 
         }
 
         ProgramClientStatus pcs = null;
-        pcs = currentSession().get(ProgramClientStatus.class, Integer.valueOf(id));
-        if (pcs != null) return pcs;
-        else return null;
+        pcs = entityManager().find(ProgramClientStatus.class, Integer.valueOf(id));
+        return pcs;
     }
 
     public void deleteProgramClientStatus(String id) {
-        currentSession().remove(getProgramClientStatus(id));
+        entityManager().remove(getProgramClientStatus(id));
     }
 
     public boolean clientStatusNameExists(Integer programId, String statusName) {
@@ -82,7 +81,7 @@ public class ProgramClientStatusDAOImpl extends AbstractHibernateDao implements 
             throw new IllegalArgumentException();
         }
 
-        List<?> results = HqlQueryHelper.find(currentSession(),
+        List<?> results = JpqlQueryHelper.find(entityManager(),
                 "from ProgramClientStatus pt where pt.programId = ?1 and pt.name = ?2",
                 programId, statusName);
 
@@ -102,7 +101,7 @@ public class ProgramClientStatusDAOImpl extends AbstractHibernateDao implements 
         }
 
         String sSQL = "from Admission a where a.programId = ?1 and a.teamId = ?2 and a.admissionStatus='current'";
-        List<Admission> results = (List<Admission>) HqlQueryHelper.find(currentSession(), sSQL, programId, statusId);
+        List<Admission> results = (List<Admission>) JpqlQueryHelper.find(entityManager(), sSQL, programId, statusId);
 
         if (log.isDebugEnabled()) {
             log.debug("getAllClientsInStatus: programId= " + programId + ",statusId=" + statusId + ",# results=" + results.size());

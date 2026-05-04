@@ -68,6 +68,7 @@ rule "A1C"
     when
         m : MeasurementDSHelper()
         eval( m.getDataAsDouble() >= 7 )
+        eval( !m.hasProblem() )
     then
         m.log("A1C RULES IS GETTING RUN");
         m.setIndicationColor("HIGH");
@@ -84,6 +85,7 @@ rule "A1C2"
         m : MeasurementDSHelper()
         eval( m.getDataAsDouble() <= 2 )
         eval( m.getDataAsDouble() >= 0.07 )
+        eval( !m.hasProblem() )
     then
         m.log("A1C RULES IS GETTING RUN");
         m.setIndicationColor("HIGH");

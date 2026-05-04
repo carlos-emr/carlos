@@ -109,6 +109,7 @@ public class FrmForm2Action extends ActionSupport {
 
         HttpSession session = request.getSession();
         EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
+        // nosemgrep: tainted-session-from-http-request -- bean is retrieved from existing session attribute, not raw user input
         request.getSession().setAttribute("EctSessionBean", bean);
 
         String formName = (String) this.getValue("formName");
@@ -279,7 +280,7 @@ public class FrmForm2Action extends ActionSupport {
             logger.debug("current mem 9 " + currentMem());
         } else {
             // return to the orignal form
-            return "/form/SetupForm.do?formName=" + formName + "&formId=0";
+            return "/form/SetupForm?formName=" + formName + "&formId=0";
         }
 
         // return SUCCESS;
@@ -288,12 +289,12 @@ public class FrmForm2Action extends ActionSupport {
         logger.debug("submit value: " + submit);
         if (submit.equalsIgnoreCase("exit")) {
             request.setAttribute("diagnosisVT", "See Vascular Tracker Template");
-            return "/form/formSaveAndExit.jsp";
+            return "/WEB-INF/jsp/form/formSaveAndExit.jsp";
         }
         logger.debug("formName from Frm ForamAction" + formName);
         EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
         EncounterForm encounterForm = encounterFormDao
-                .find("../form/SetupForm.do?formName=" + formName + "&demographic_no=");
+                .find("../form/SetupForm?formName=" + formName + "&demographic_no=");
         String formNameByFormTable = encounterForm.getFormName();
         logger.debug("formNameByFormTable" + formNameByFormTable);
         String[] formPath = {"", "0"};
@@ -302,7 +303,7 @@ public class FrmForm2Action extends ActionSupport {
         } catch (SQLException e) {
             logger.error("Error", e);
         }
-        return "/form/SetupForm.do?formName=" + formName + "&formId=" + formPath[1];
+        return "/form/SetupForm?formName=" + formName + "&formId=" + formPath[1];
     }
 
     private boolean validate(String inputValue, String observationDate, EctMeasurementTypesBean mt,

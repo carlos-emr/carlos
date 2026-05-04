@@ -48,7 +48,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import javax.xml.XMLConstants;
@@ -75,6 +74,10 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.AbstractCodeSystemDao;
 import io.github.carlos_emr.carlos.commn.dao.ContactDao;
+import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
+import io.github.carlos_emr.carlos.commn.dao.Icd10Dao;
+import io.github.carlos_emr.carlos.commn.dao.Icd9Dao;
+import io.github.carlos_emr.carlos.commn.dao.SnomedCoreDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicContactDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
@@ -115,11 +118,18 @@ import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentComment;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToProvider;
+import io.github.carlos_emr.carlos.commn.model.OscarLog;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.WebUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
+import org.owasp.encoder.Encode;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
@@ -219,8 +229,30 @@ public class DemographicExportAction42Action extends ActionSupport {
     private static final String REPORTBINARY = "Binary";
     private static final String REPORTTEXT = "Text";
     private static final String RISKFACTOR = "Risk";
+    private static final String HTTP_METHOD_POST = "POST";
     public static final int CMS4 = 0;
     public static final int E2E = 1;
+
+    /** Characters unsafe in filenames across common filesystems; used to sanitize patient name components. */
+    private static final String UNSAFE_FILENAME_CHARS = "[/\\\\:*?\"<>|]";
+    private static final Set<String> ONTARIOMD_EXPORT_SCHEMA_IMPORTS = Set.of("EMR_Data_Migration_Schema_DT.xsd");
+
+    /**
+     * Allowlist of coding system names to their {@link AbstractCodeSystemDao} classes.
+     *
+     * <p>Replaces the previous {@code Class.forName()} reflection lookup (CWE-470) with
+     * a static, compile-time-safe map. Keys are lowercase coding system identifiers.
+     * Values read from {@code dxresearch.coding_system} are normalized to lowercase
+     * before lookup, so database casing differences do not break the mapping.</p>
+     *
+     * @since 2026-04-14
+     */
+    static final Map<String, Class<? extends AbstractCodeSystemDao>> ALLOWED_CODE_SYSTEM_DAOS = Map.of(
+            "icd9", Icd9Dao.class,
+            "icd10", Icd10Dao.class,
+            "snomedcore", SnomedCoreDao.class,
+            "msp", DiagnosticCodeDao.class
+    );
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -242,6 +274,11 @@ public class DemographicExportAction42Action extends ActionSupport {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographicExport", "r", null)) {
             throw new SecurityException("missing required security object (_demographicExport)");
+        }
+
+        boolean isExportSubmission = HTTP_METHOD_POST.equals(request.getMethod());
+        if (!isExportSubmission) {
+            return SUCCESS;
         }
 
         String setName = this.getPatientSet();
@@ -294,6 +331,7 @@ public class DemographicExportAction42Action extends ActionSupport {
         }
 
         String ffwd = "fail";
+        boolean fileStreamed = false;
         String tmpDir = oscarProperties.getProperty("TMP_DIR") + File.separator + RandomStringUtils.random(8, true, false);
 
 
@@ -1288,11 +1326,13 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     String code = dx.getCodingSystem().equalsIgnoreCase("icd9") ? Util.formatIcd9(dx.getDxresearchCode()) : dx.getDxresearchCode();
                                     diagnosis.setStandardCode(code);
 
-                                    AbstractCodeSystemDao dao = null;
-                                    try {
-                                        dao = (AbstractCodeSystemDao) SpringUtils.getBean(Class.forName("io.github.carlos_emr.carlos.commn.dao." + org.apache.commons.lang3.StringUtils.capitalize(dx.getCodingSystem()) + "Dao"));
-                                    } catch (ClassNotFoundException e) {
-                                        logger.warn("DAO class not found for coding system: " + dx.getCodingSystem(), e);
+                                    String codingSystem = dx.getCodingSystem();
+                                    Class<? extends AbstractCodeSystemDao> daoClass =
+                                            codingSystem == null ? null
+                                                    : ALLOWED_CODE_SYSTEM_DAOS.get(codingSystem.toLowerCase());
+                                    AbstractCodeSystemDao dao = (daoClass == null) ? null : SpringUtils.getBean(daoClass);
+                                    if (dao == null) {
+                                        logger.warn("Unknown coding system: {}", LogSanitizer.sanitize(codingSystem));
                                     }
                                     if (dao != null) {
                                         AbstractCodeSystemModel result = dao.findByCode(dx.getDxresearchCode());
@@ -2017,7 +2057,16 @@ public class DemographicExportAction42Action extends ActionSupport {
                             for (int j = 0; j < edoc_list.size(); j++) {
                                 EDoc edoc = edoc_list.get(j);
 
-                                File f = new File(edoc.getFilePath());
+                                File f;
+                                try {
+                                    f = PathValidationUtils.validateExistingPath(
+                                            new File(edoc.getFilePath()),
+                                            new File(oscarProperties.getProperty("DOCUMENT_DIR")));
+                                } catch (SecurityException e) {
+                                    exportError.add("Error! Document \"" + Encode.forHtml(edoc.getFileName()) + "\" path is invalid or outside the allowed directory. Skipping.");
+                                    logger.error("Path traversal attempt on document export: {}", Encode.forJava(edoc.getFilePath()));
+                                    continue;
+                                }
                                 if (!f.exists()) {
                                     exportError.add("Error! Document \"" + f.getName() + "\" does not exist!");
                                 } else if (f.length() > Runtime.getRuntime().freeMemory()) {
@@ -2115,18 +2164,26 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     String reportFile = hrmDoc.getReportFile();
                                     if (StringUtils.empty(reportFile)) continue;
 
+                                    File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
                                     File hrmFile = new File(reportFile);
 
                                     //check the DOCUMENT_DIR
                                     if (!hrmFile.exists()) {
-                                        String place = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-                                        reportFile = place + File.separator + reportFile;
+                                        reportFile = documentDir.getPath() + File.separator + reportFile;
                                         hrmFile = new File(reportFile);
                                     }
 
                                     if (!hrmFile.exists()) {
                                         exportError.add("Error! HRM report file '" + reportFile + "' does not exist! HRM report not exported.");
                                         logger.error("Error! HRM report file '" + reportFile + "' does not exist! HRM report not exported.");
+                                        continue;
+                                    }
+
+                                    try {
+                                        hrmFile = PathValidationUtils.validateExistingPath(hrmFile, documentDir);
+                                    } catch (SecurityException e) {
+                                        exportError.add("Error! HRM report file '" + Encode.forHtml(reportFile) + "' is outside the allowed directory. HRM report not exported.");
+                                        logger.error("HRM report file path traversal attempt: {}", Encode.forJava(reportFile));
                                         continue;
                                     }
 
@@ -2521,6 +2578,7 @@ public class DemographicExportAction42Action extends ActionSupport {
 
 
                         //export file to temp directory
+                        int fileCountBefore = files.size();
                         try {
                             File directory = new File(tmpDir);
                             if (!directory.exists()) {
@@ -2529,13 +2587,26 @@ public class DemographicExportAction42Action extends ActionSupport {
                             }
 
                             //Standard format for xml exported file : PatientFN_PatientLN_PatientUniqueID_DOB (DOB: ddmmyyyy)
-                            String expFile = demographic.getFirstName() + "_" + demographic.getLastName();
+                            // Sanitize name components to remove path separators and other unsafe characters
+                            String safeFirst = demographic.getFirstName() != null ? demographic.getFirstName().replaceAll(UNSAFE_FILENAME_CHARS, "") : "";
+                            String safeLast = demographic.getLastName() != null ? demographic.getLastName().replaceAll(UNSAFE_FILENAME_CHARS, "") : "";
+                            String expFile = safeFirst + "_" + safeLast;
                             expFile += "_" + demoNo;
                             expFile += "_" + demographic.getDateOfBirth() + demographic.getMonthOfBirth() + demographic.getYearOfBirth();
-                            files.add(new File(directory, expFile + ".xml"));
-                            dirs.add(getProviderName(demographic.getProviderNo()));
+                            // Compute both values before adding to either list so that if
+                            // getProviderName() throws, neither list is modified (atomic add).
+                            File validatedFile = PathValidationUtils.validatePath(expFile + ".xml", directory);
+                            String providerName = getProviderName(demographic.getProviderNo());
+                            files.add(validatedFile);
+                            dirs.add(providerName);
                         } catch (Exception e) {
                             logger.error("Error", e);
+                        }
+                        // Guard: only write if a new file entry was successfully added above.
+                        // Without this check, a validation failure would cause us to write
+                        // this patient's data into the previous patient's export file (PHI leak).
+                        if (files.size() <= fileCountBefore) {
+                            continue;
                         }
                         try {
                             FileWriter fw = new FileWriter(files.get(files.size() - 1));
@@ -2546,8 +2617,14 @@ public class DemographicExportAction42Action extends ActionSupport {
                             //omdCdsDoc.save(files.get(files.size()-1), options);
 
                         } catch (IOException ex) {
-                            logger.error("Error", ex);
-                            throw new Exception("Cannot write .xml file(s) to export directory.\n Please check directory permissions.");
+                            logger.error("Error writing export file to directory", ex);
+                            // Remove the file entry that could not be written so the list stays consistent
+                            if (!files.isEmpty()) {
+                                files.remove(files.size() - 1);
+                                dirs.remove(dirs.size() - 1);
+                            }
+                            ffwd = "fail";
+                            break;
                         }
                     }
 
@@ -2566,7 +2643,8 @@ public class DemographicExportAction42Action extends ActionSupport {
 
                     if (files.isEmpty()) {
                         logger.warn("no files to export");
-                        return "fail";
+                        ffwd = "fail";
+                        break;
                     }
 
                     //create ReadMe.txt & ExportEvent.log
@@ -2598,14 +2676,16 @@ public class DemographicExportAction42Action extends ActionSupport {
                         PGPEncrypt pgp = new PGPEncrypt();
                         if (pgp.encrypt(zipName, tmpDir)) {
 
-                            // Set success cookie before download so JS knows export completed
-                            setExportStatusCookie(response, "success");
+                            // Set export status header so client-side JS knows export completed
+                            setExportStatusHeader(response, "success");
                             Util.downloadFile(zipName + ".pgp", tmpDir, response);
                             Util.cleanFile(zipName + ".pgp", tmpDir);
                             ffwd = "success";
+                            fileStreamed = true;
 
                         } else {
-                            setExportStatusCookie(response, "error");
+                            setExportStatusHeader(response, "error");
+                            // nosemgrep: tainted-session-from-http-request -- value is hardcoded literal "No", not user input
                             request.getSession().setAttribute("pgp_ready", "No");
                             ffwd = "fail";
                         }
@@ -2614,12 +2694,14 @@ public class DemographicExportAction42Action extends ActionSupport {
                         if (!"true".equals(CarlosProperties.getInstance().getProperty("demographic.export.encryptedOnly", "false"))) {
                             logger.info("Warning: PGP Encryption NOT available - unencrypted file exported!");
 
-                            // Set success cookie before download so JS knows export completed
-                            setExportStatusCookie(response, "success");
+                            // Set export status header so client-side JS knows export completed
+                            setExportStatusHeader(response, "success");
                             Util.downloadFile(zipName, tmpDir, response);
                             ffwd = "success";
+                            fileStreamed = true;
                         } else {
-                            setExportStatusCookie(response, "error");
+                            setExportStatusHeader(response, "error");
+                            // nosemgrep: tainted-session-from-http-request -- value is hardcoded literal "No", not user input
                             request.getSession().setAttribute("pgp_ready", "No");
                             ffwd = "fail";
                         }
@@ -2741,7 +2823,68 @@ public class DemographicExportAction42Action extends ActionSupport {
                 break;
         }
 
-        return ffwd;
+        String exportedIds = null;
+        String exportOutcome = ffwd;
+        String exportException = null;
+        try {
+            StringBuilder exportedIdsBuilder = new StringBuilder();
+            boolean truncated = false;
+            for (String id : list) {
+                if (id == null) {
+                    continue;
+                }
+                if (exportedIdsBuilder.length() > 0) {
+                    if (exportedIdsBuilder.length() + 1 > 500) {
+                        truncated = true;
+                        break;
+                    }
+                    exportedIdsBuilder.append(',');
+                }
+                if (exportedIdsBuilder.length() + id.length() > 500) {
+                    truncated = true;
+                    break;
+                }
+                exportedIdsBuilder.append(id);
+            }
+            exportedIds = exportedIdsBuilder.toString();
+            if (truncated && !exportedIds.isEmpty()) {
+                int lastComma = exportedIds.lastIndexOf(',');
+                if (lastComma > 0) {
+                    exportedIds = exportedIds.substring(0, lastComma);
+                }
+                exportedIds = exportedIds + "...";
+            }
+        } catch (RuntimeException e) {
+            // Ensure failures in the export tail are still audited without exposing PHI
+            exportOutcome = "error";
+            exportException = e.getClass().getSimpleName();
+            throw e;
+        } finally {
+            if (exportedIds == null) {
+                exportedIds = "<unavailable>";
+            }
+            OscarLog exportAuditLog = new OscarLog();
+            if (loggedInInfo.getLoggedInSecurity() != null) {
+                exportAuditLog.setSecurityId(loggedInInfo.getLoggedInSecurity().getSecurityNo());
+            }
+            if (loggedInInfo.getLoggedInProvider() != null) {
+                exportAuditLog.setProviderNo(loggedInInfo.getLoggedInProviderNo());
+            }
+            exportAuditLog.setAction(LogConst.EXPORT);
+            exportAuditLog.setContent(LogConst.CON_DEMOGRAPHIC);
+            exportAuditLog.setIp(loggedInInfo.getIp());
+            StringBuilder dataBuilder = new StringBuilder();
+            dataBuilder.append("Exported ").append(list.size()).append(" records; outcome=").append(exportOutcome);
+            if (exportException != null) {
+                dataBuilder.append("; error=").append(exportException);
+            }
+            dataBuilder.append("; ids=").append(exportedIds);
+            exportAuditLog.setData(dataBuilder.toString());
+            LogAction.addLogSynchronous(exportAuditLog);
+        }
+        // When a file was streamed to the response, return null to prevent Struts
+        // from rendering a JSP result into the already-committed response.
+        return fileStreamed ? null : ffwd;
     }
 
     File makeReadMe(ArrayList<String> dirs, ArrayList<File> fs) throws IOException {
@@ -3535,37 +3678,28 @@ public class DemographicExportAction42Action extends ActionSupport {
     public Boolean validateExport(File f) {
         Boolean result = true;
 
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        factory.setNamespaceAware(true);
-        
+        DocumentBuilderFactory factory = null;
         try {
-            // Disable external entities to prevent XXE attacks
-            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-            factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-            
-            // Disable XInclude
-            factory.setXIncludeAware(false);
-            
-            // Disabled expansion of entity references
-            factory.setExpandEntityReferences(false);
+            factory = XmlUtils.createSecureDocumentBuilderFactory();
+            factory.setNamespaceAware(true);
         } catch (ParserConfigurationException e) {
-            logger.error("Failed to configure XML parser security features", e);
-            return false;
-        }
-        
-        DocumentBuilder builder = null;
-        try {
-            builder = factory.newDocumentBuilder();
-        } catch (ParserConfigurationException e1) {
-            logger.error("Parse exception", e1);
+            logger.error("Failed to create secure XML parser factory", e);
             return false;
         }
 
         URL url = getClass().getResource("/omdDataMigration/EMR_Data_Migration_Schema.xsd");
-        String constant = XMLConstants.W3C_XML_SCHEMA_NS_URI;
-        SchemaFactory xsdFactory = SchemaFactory.newInstance(constant);
+        SchemaFactory xsdFactory;
+        try {
+            xsdFactory = XmlUtils.createSecureSchemaFactory(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+            // The OntarioMD export schema imports this bundled DT schema; all other imports remain blocked.
+            xsdFactory.setResourceResolver(XmlUtils.createClasspathSchemaResolver(
+                    DemographicExportAction42Action.class,
+                    "/omdDataMigration/",
+                    ONTARIOMD_EXPORT_SCHEMA_IMPORTS));
+        } catch (SAXException e) {
+            logger.error("Failed to create secure schema factory", e);
+            return false;
+        }
         Schema schema = null;
         try {
             schema = xsdFactory.newSchema(url);
@@ -3573,8 +3707,14 @@ public class DemographicExportAction42Action extends ActionSupport {
             logger.error("Parse exception", e);
             return false;
         }
-        factory.setSchema(schema);
 
+        DocumentBuilder builder = null;
+        try {
+            builder = factory.newDocumentBuilder();
+        } catch (ParserConfigurationException e1) {
+            logger.error("Parse exception", e1);
+            return false;
+        }
 
         Document doc = null;
         try {
@@ -3588,7 +3728,13 @@ public class DemographicExportAction42Action extends ActionSupport {
         }
 
         // Check whether document is valid; validation stops at first error detected.
-        Validator validator = schema.newValidator();
+        Validator validator;
+        try {
+            validator = XmlUtils.createSecureValidator(schema); // nosemgrep: validator-xxe -- XXE protection applied by XmlUtils.createSecureValidator()
+        } catch (SAXException e) {
+            logger.error("Failed to create secure validator", e);
+            return false;
+        }
         try {
             validator.validate(new DOMSource(doc));
         } catch (SAXException e) {
@@ -3827,21 +3973,18 @@ public class DemographicExportAction42Action extends ActionSupport {
     }
 
     /**
-     * Sets a cookie to signal export status to the client-side JavaScript.
+     * Sets a response header to signal export status to the client-side JavaScript.
      * This allows the UI to know when the export has completed or failed.
      *
-     * <p>The Secure flag is set based on the request protocol - only set for HTTPS
-     * to ensure the cookie works in both development (HTTP) and production (HTTPS).</p>
+     * <p>Replaces the previous cookie-based approach to eliminate code-scanning alerts
+     * for missing HttpOnly/SameSite attributes. The client reads this header from the
+     * {@code fetch()} response instead of polling {@code document.cookie}.</p>
      *
-     * @param response the HTTP response to add the cookie to
+     * @param response the HTTP response to add the header to
      * @param status the export status ("success" or "error")
      */
-    private void setExportStatusCookie(HttpServletResponse response, String status) {
-        Cookie cookie = new Cookie("exportStatus", status);
-        cookie.setPath("/");
-        cookie.setMaxAge(60);
-        cookie.setSecure(request.isSecure());
-        response.addCookie(cookie);
+    private void setExportStatusHeader(HttpServletResponse response, String status) {
+        response.setHeader("X-Export-Status", status);
     }
 }
 

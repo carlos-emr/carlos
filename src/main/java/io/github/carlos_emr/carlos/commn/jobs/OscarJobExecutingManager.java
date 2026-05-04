@@ -28,21 +28,23 @@
  */
 package io.github.carlos_emr.carlos.commn.jobs;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 
 public class OscarJobExecutingManager {
 
-    private static Map<Integer, ScheduledFuture<Object>> futures = new HashMap<Integer, ScheduledFuture<Object>>();
+    private static final Map<Integer, ScheduledFuture<Object>> futures = new ConcurrentHashMap<>();
 
     public static Map<Integer, ScheduledFuture<Object>> getFutures() {
         return futures;
     }
 
-    public static void setFutures(Map<Integer, ScheduledFuture<Object>> futures) {
-        OscarJobExecutingManager.futures = futures;
+    /**
+     * Removes entries for futures that are done (completed or cancelled),
+     * releasing their Runnable and captured state for garbage collection.
+     */
+    public static void purgeCompletedFutures() {
+        futures.entrySet().removeIf(entry -> entry.getValue().isDone());
     }
-
-
 }

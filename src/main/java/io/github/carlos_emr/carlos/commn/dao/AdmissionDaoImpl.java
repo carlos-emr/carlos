@@ -35,8 +35,10 @@ package io.github.carlos_emr.carlos.commn.dao;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Set;
 import jakarta.persistence.Query;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
@@ -348,20 +350,17 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
         }
 
         List<Admission> currentAdmissions = getCurrentAdmissions(demographicNo);
+        Set<Integer> currentProgramIds = new HashSet<Integer>(currentAdmissions.size());
+        for (Admission currentAdmission : currentAdmissions) {
+            currentProgramIds.add(currentAdmission.getProgramId());
+        }
 
         List<Admission> fullyDischargedAdmissions = new ArrayList<Admission>();
 
         for (Admission d : dischargedAdmissions) {
-            boolean isDischarged = true;
-
-            for (Admission a : currentAdmissions) {
-                if (d.getProgramId().intValue() == a.getProgramId().intValue()) {
-                    isDischarged = false;
-                }
-            }
-
-            if (isDischarged)
+            if (!currentProgramIds.contains(d.getProgramId())) {
                 fullyDischargedAdmissions.add(d);
+            }
         }
 
         return fullyDischargedAdmissions;

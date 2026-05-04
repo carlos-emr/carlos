@@ -34,6 +34,8 @@ package io.github.carlos_emr.carlos.casemgmt.service;
 import io.github.carlos_emr.carlos.PMmodule.model.*;
 import io.github.carlos_emr.carlos.appt.ApptStatusData;
 import io.github.carlos_emr.carlos.casemgmt.dao.*;
+import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementIssueListDTO;
+import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementNoteListDTO;
 import io.github.carlos_emr.carlos.casemgmt.model.*;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
@@ -107,7 +109,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     @Autowired
     private SecurityInfoManager securityInfoManager;
 
-    private boolean enabled;
 
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -625,30 +626,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     @Override
     public CaseManagementNoteLink getLatestLinkByTableId(Integer tableName, Long tableId) {
         return this.caseManagementNoteLinkDAO.getLastLinkByTableId(tableName, tableId);
-    }
-
-    @Override
-    public Integer getTableNameByDisplay(String disp) {
-        if (!filled(disp))
-            return null;
-        Integer tName = CaseManagementNoteLink.CASEMGMTNOTE;
-
-        if (disp.equals(CaseManagementNoteLink.DISP_ALLERGY))
-            tName = CaseManagementNoteLink.ALLERGIES;
-        else if (disp.equals(CaseManagementNoteLink.DISP_DOCUMENT))
-            tName = CaseManagementNoteLink.DOCUMENT;
-        else if (disp.equals(CaseManagementNoteLink.DISP_LABTEST))
-            tName = CaseManagementNoteLink.LABTEST;
-        else if (disp.equals(CaseManagementNoteLink.DISP_PRESCRIP))
-            tName = CaseManagementNoteLink.DRUGS;
-        else if (disp.equals(CaseManagementNoteLink.DISP_DEMO))
-            tName = CaseManagementNoteLink.DEMOGRAPHIC;
-        else if (disp.equals(CaseManagementNoteLink.DISP_PREV))
-            tName = CaseManagementNoteLink.PREVENTIONS;
-        else if (disp.equals(CaseManagementNoteLink.DISP_APPOINTMENT))
-            tName = CaseManagementNoteLink.APPOINTMENT;
-
-        return tName;
     }
 
     @Override
@@ -1751,7 +1728,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
     @Override
     public Long saveNoteSimpleReturnID(CaseManagementNote note) {
-        return (Long) this.caseManagementNoteDAO.saveAndReturn(note);
+        CaseManagementNote managed = (CaseManagementNote) this.caseManagementNoteDAO.saveAndReturn(note);
+        return managed.getId();
     }
 
     @Override
@@ -1834,17 +1812,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     }
 
     @Override
-    public boolean unlockNote(int noteId, String password) {
-        CaseManagementNote note = this.caseManagementNoteDAO.getNote(Long.valueOf(noteId));
-        if (note != null) {
-            if (note.isLocked() && note.getPassword().equals(password)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    @Override
     public void updateIssue(String demographicNo, Long originalIssueId, Long newIssueId) {
         List<CaseManagementIssue> issues = this.caseManagementIssueDAO.getIssuesByDemographic(demographicNo);
         for (CaseManagementIssue issue : issues) {
@@ -1870,16 +1837,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
          * issue.setIssue_id(newIssueId.longValue()); } }
          * this.caseManagementNoteDAO.saveNote(note); }
          */
-    }
-
-    @Override
-    public boolean getEnabled() {
-        return enabled;
-    }
-
-    @Override
-    public void setEnabled(boolean enabled) {
-        this.enabled = enabled;
     }
 
     @Override
@@ -2154,18 +2111,16 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
     /**
      * Gets all the notes.
-     * If we have a key, and the note is locked, consider it.
      * Caisi - filter notes.
      * Grab the last one, where I am providers, and it's not signed.
      *
      * @param programId the program ID
      * @param demono the demographic number
      * @param providerNo the provider number
-     * @param unlockedNotesMap map of unlocked notes
      * @return the last saved case management note
      */
     @Override
-    public CaseManagementNote getLastSaved(String programId, String demono, String providerNo, Map unlockedNotesMap) {
+    public CaseManagementNote getLastSaved(String programId, String demono, String providerNo) {
         // CaseManagementNote note = null;
         List<EChartNoteEntry> entries = new ArrayList<EChartNoteEntry>();
 
@@ -2191,11 +2146,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
         }
 
-        // UserProperty prop = caseManagementMgr.getUserProperty(providerNo,
-        // UserProperty.STALE_NOTEDATE);
-        // notes = caseManagementMgr.getNotes(demono);
-        // notes = manageLockedNotes(notes, false, this.getUnlockedNotesMap(request));
-
         if (programId == null || programId.length() == 0) {
             programId = "0";
         }
@@ -2206,9 +2156,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
         for (EChartNoteEntry entry : entries) {
             CaseManagementNote n = getNote(String.valueOf(entry.getId()));
-            if (n.isLocked() && unlockedNotesMap.get(entry.getId()) != null) {
-                n.setLocked(false);
-            }
             if (n.getProviderNo().equals(providerNo)) {
                 return n;
             }
@@ -2307,12 +2254,12 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     @Override
     public CaseManagementNote saveCaseManagementNote(LoggedInInfo loggedInInfo, CaseManagementNote note,
                                                      List<CaseManagementIssue> issuelist, CaseManagementCPP cpp, String ongoing, boolean verify, Locale locale,
-                                                     Date now, CaseManagementNote annotationNote, String userName, String user, String remoteAddr,
+                                                     Date now, String userName, String user, String remoteAddr,
                                                      String lastSavedNoteString) throws Exception {
         ProgramManager programManager = (ProgramManager) SpringUtils.getBean(ProgramManager.class);
         AdmissionManager admissionManager = (AdmissionManager) SpringUtils.getBean(AdmissionManager.class);
 
-        Long old_note_id = note.getId(); // saved for use with annotation
+        Long old_note_id = note.getId();
 
         boolean inCaisi = CarlosProperties.getInstance().isCaisiLoaded();
 
@@ -2332,7 +2279,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             role = "0";
         }
         /*
-         * if (session.getAttribute("archiveView")!="true")
+         * if (!"true".equals(session.getAttribute("archiveView")))
          * note.setReporter_caisi_role(role); else note.setReporter_caisi_role("1");
          */
         note.setReporter_caisi_role(role);
@@ -2473,23 +2420,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             logger.warn("warn", e);
         }
 
-        if (annotationNote != null) {
-            // new annotation created and got it in session attribute
-
-            saveNoteSimple(annotationNote);
-            CaseManagementNoteLink cml = new CaseManagementNoteLink(CaseManagementNoteLink.CASEMGMTNOTE, note.getId(),
-                    annotationNote.getId());
-            saveNoteLink(cml);
-            LogAction.addLog(annotationNote.getDemographic_no(), LogConst.ANNOTATE, LogConst.CON_CME_NOTE,
-                    String.valueOf(annotationNote.getId()), remoteAddr, annotationNote.getDemographic_no(),
-                    annotationNote.getNote());
-
-        }
-
         if (old_note_id != null) {
-            // Not a new note, look for old annotation
-
-            CaseManagementNoteLink cml_anno = null;
+            // Not a new note, look for old CMS4 import dump link
             CaseManagementNoteLink cml_dump = null;
             List<CaseManagementNoteLink> cmll = getLinkByTableIdDesc(CaseManagementNoteLink.CASEMGMTNOTE, old_note_id);
             for (CaseManagementNoteLink link : cmll) {
@@ -2498,22 +2430,12 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
                     continue;
 
                 if (cmmn.getNote().startsWith("imported.cms4.2011.06")) {
-                    if (cml_dump == null)
-                        cml_dump = link;
-                } else {
-                    if (cml_anno == null)
-                        cml_anno = link;
-                }
-                if (cml_anno != null && cml_dump != null)
+                    cml_dump = link;
                     break;
+                }
             }
 
-            if (cml_anno != null) {// old annotation exists - create new link
-                CaseManagementNoteLink cml_n = new CaseManagementNoteLink(CaseManagementNoteLink.CASEMGMTNOTE,
-                        note.getId(), cml_anno.getNoteId());
-                saveNoteLink(cml_n);
-            }
-            if (cml_dump != null) {// old dump exists - create new link
+            if (cml_dump != null) {
                 CaseManagementNoteLink cml_n = new CaseManagementNoteLink(CaseManagementNoteLink.CASEMGMTNOTE,
                         note.getId(), cml_dump.getNoteId());
                 saveNoteLink(cml_n);
@@ -2610,6 +2532,28 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             logger.warn("Invalid role format: '" + roleIdStr + "' - not a valid Long");
         }
         return "";
+    }
+
+    @Override
+    public List<CaseManagementIssueListDTO> getIssueDTOs(LoggedInInfo loggedInInfo, String demographicNo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", SecurityInfoManager.READ, demographicNo)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+        List<CaseManagementIssueListDTO> results = caseManagementIssueDAO.findIssueDTOsByDemographicNo(demographicNo);
+        LogAction.addLogSynchronous(loggedInInfo, "CaseManagementManager.getIssueDTOs",
+                "demographicNo=" + demographicNo);
+        return results;
+    }
+
+    @Override
+    public List<CaseManagementNoteListDTO> getNoteDTOs(LoggedInInfo loggedInInfo, String demographicNo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", SecurityInfoManager.READ, demographicNo)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+        List<CaseManagementNoteListDTO> results = caseManagementNoteDAO.findNoteDTOsByDemographicNo(demographicNo);
+        LogAction.addLogSynchronous(loggedInInfo, "CaseManagementManager.getNoteDTOs",
+                "demographicNo=" + demographicNo);
+        return results;
     }
 
 }

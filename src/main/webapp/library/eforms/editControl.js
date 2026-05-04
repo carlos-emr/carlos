@@ -398,7 +398,7 @@ function loadTemplate(selectname) {
 function parseTemplate() {
     //replace template placeholders with database pulls
     var temp = new Array();
-    contents = editControlContents(cfg_editorname);
+    var contents = editControlContents(cfg_editorname);
     temp = contents.split('##'); //parse for template place holders identified by ##value##
     contents = '';
     var keys = [];
@@ -433,7 +433,7 @@ function parseTemplate() {
 function populateTemplate() {
     //replace template placeholders with database pulls
     var temp = new Array();
-    contents = editControlContents(cfg_editorname);
+    var contents = editControlContents(cfg_editorname);
     temp = contents.split('##'); //parse for template place holders identified by ##value##
     contents = '';
     var x;
@@ -610,9 +610,20 @@ function viewsource(source) {
         document.getElementById("control2").style.visibility = "hidden";
         document.getElementById("control3").style.visibility = "hidden";
     } else {
-        html = document.getElementById(cfg_editorname).contentWindow.document.body.ownerDocument.createRange();
-        html.selectNodeContents(document.getElementById(cfg_editorname).contentWindow.document.body);
-        document.getElementById(cfg_editorname).contentWindow.document.body.innerHTML = jQuery().convertImagePaths(html.toString());
+        // Read the raw HTML source text that was being edited in source view
+        var sourceText = document.getElementById(cfg_editorname).contentWindow.document.body.textContent;
+        var convertedHtml = jQuery().convertImagePaths(sourceText);
+        // Use DOMParser to reconstruct the DOM from the source view HTML, preventing
+        // DOM text from being reinterpreted as HTML without going through a parser context
+        var parser = new DOMParser();
+        var parsedDoc = parser.parseFromString('<!DOCTYPE html><html><body>' + convertedHtml + '</body></html>', 'text/html');
+        var editorBody = document.getElementById(cfg_editorname).contentWindow.document.body;
+        editorBody.textContent = '';
+        var fragment = document.getElementById(cfg_editorname).contentWindow.document.createDocumentFragment();
+        Array.prototype.forEach.call(parsedDoc.body.childNodes, function (node) {
+            fragment.appendChild(editorBody.ownerDocument.importNode(node, true));
+        });
+        editorBody.appendChild(fragment);
         document.getElementById("control1").style.visibility = "visible";
         document.getElementById("control2").style.visibility = "visible";
         document.getElementById("control3").style.visibility = "visible";

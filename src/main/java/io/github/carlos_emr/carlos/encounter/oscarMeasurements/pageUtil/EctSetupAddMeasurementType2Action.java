@@ -41,19 +41,29 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctValidatio
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public final class EctSetupAddMeasurementType2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
     public String execute()
             throws Exception {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.measurements", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin.measurements)");
+        }
+
 
         EctValidationsBeanHandler hd = new EctValidationsBeanHandler();
         Collection validations = hd.getValidationsVector();
         HttpSession session = request.getSession();
-        session.setAttribute("validations", validations);
+        session.setAttribute("validations", validations); // nosemgrep: tainted-session-from-http-request -- DAO result list from EctValidationsBeanHandler
 
         return "continue";
     }

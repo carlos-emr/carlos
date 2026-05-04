@@ -35,19 +35,19 @@ import java.util.Collections;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.PMmodule.model.DefaultRoleAccess;
-import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import org.springframework.transaction.annotation.Transactional;
-import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
+import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
 @Transactional
-public class RoleProgramAccessDAOImpl extends AbstractHibernateDao implements RoleProgramAccessDAO {
+public class RoleProgramAccessDAOImpl extends AbstractJpaDao implements RoleProgramAccessDAO {
 
     @SuppressWarnings("unchecked")
     @Override
     public List<DefaultRoleAccess> getDefaultAccessRightByRole(Long roleId) {
         if (roleId == null) return Collections.emptyList();
         String q = "from DefaultRoleAccess da where da.caisi_role.id=?1";
-        return (List<DefaultRoleAccess>) HqlQueryHelper.find(currentSession(), q, roleId);
+        return (List<DefaultRoleAccess>) JpqlQueryHelper.find(entityManager(), q, roleId);
     }
 
     @SuppressWarnings("unchecked")
@@ -55,13 +55,13 @@ public class RoleProgramAccessDAOImpl extends AbstractHibernateDao implements Ro
     public List<DefaultRoleAccess> getDefaultSpecificAccessRightByRole(Long roleId, String accessType) {
         if (roleId == null || accessType == null) return Collections.emptyList();
         String q = "from DefaultRoleAccess da where da.caisi_role.id=?1 and da.access_type.Name like ?2";
-        return (List<DefaultRoleAccess>) HqlQueryHelper.find(currentSession(), q, roleId, accessType);
+        return (List<DefaultRoleAccess>) JpqlQueryHelper.find(entityManager(), q, roleId, accessType);
     }
 
     @Override
     public boolean hasAccess(String accessName, Long roleId) {
         if (accessName == null || roleId == null) return false;
         String q = "from DefaultRoleAccess da where da.caisi_role.id=?1 and da.access_type.Name=?2";
-        return !HqlQueryHelper.find(currentSession(), q, roleId, accessName).isEmpty();
+        return !JpqlQueryHelper.find(entityManager(), q, roleId, accessName).isEmpty();
     }
 }

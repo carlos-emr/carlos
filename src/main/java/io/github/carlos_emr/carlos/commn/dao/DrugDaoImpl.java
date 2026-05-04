@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 
 import jakarta.persistence.Query;
 import jakarta.persistence.TypedQuery;
@@ -40,9 +41,13 @@ import jakarta.persistence.TypedQuery;
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.commn.model.Drug;
+import io.github.carlos_emr.carlos.prescript.dto.DrugListItemDTO;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
+
+    private static final Set<String> FIND_BY_PARAMETER_ALLOWED_COLUMNS =
+            Set.of("customName", "regional_identifier", "BN");
 
     public DrugDaoImpl() {
         super(Drug.class);
@@ -479,9 +484,12 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     @SuppressWarnings("unchecked")
     @Override
     public List<Object[]> findByParameter(String parameter, String value) {
-        String sql = "select special,special_instruction from drugs where " + parameter + " = '" + value
-                + "' order by drugid desc";
+        if (!FIND_BY_PARAMETER_ALLOWED_COLUMNS.contains(parameter)) {
+            throw new IllegalArgumentException("Unsupported parameter: " + parameter);
+        }
+        String sql = "select special, special_instruction from drugs where " + parameter + " = :value order by drugid desc";
         Query query = entityManager.createNativeQuery(sql);
+        query.setParameter("value", value);
         return query.getResultList();
     }
 
@@ -629,6 +637,32 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
         typedQuery.setParameter("searchString", "%" + spInstructQuery + "%");
 
         return typedQuery.getResultList();
+    }
+
+    /**
+     * Returns lightweight drug/prescription list DTOs for a demographic, ordered by
+     * prescription date descending. Carries 20 fields vs 101 on the full Drug entity.
+     *
+     * @param demographicId Integer the patient demographic identifier
+     * @return List&lt;DrugListItemDTO&gt; ordered by rxDate descending; empty if none found
+     * @throws jakarta.persistence.PersistenceException if the underlying query fails
+     * @since 2026-04-11
+     */
+    @Override
+    public List<DrugListItemDTO> findDrugDTOsByDemographicId(Integer demographicId) {
+        TypedQuery<DrugListItemDTO> query = entityManager.createQuery("""
+                SELECT NEW io.github.carlos_emr.carlos.prescript.dto.DrugListItemDTO(
+                    d.id, d.demographicId, d.brandName, d.genericName, d.customName,
+                    d.dosage, d.route, d.freqCode, d.duration, d.durUnit, d.quantity,
+                    d.repeat, d.rxDate, d.endDate, d.lastRefillDate, d.archived,
+                    d.longTerm, d.providerNo, d.special, d.scriptNo)
+                FROM Drug d
+                WHERE d.demographicId = :demoId
+                ORDER BY d.rxDate DESC
+                """,
+                DrugListItemDTO.class);
+        query.setParameter("demoId", demographicId);
+        return query.getResultList();
     }
 
 }

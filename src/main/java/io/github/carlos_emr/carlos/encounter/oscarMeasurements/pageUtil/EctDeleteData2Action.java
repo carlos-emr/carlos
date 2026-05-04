@@ -81,7 +81,7 @@ public class EctDeleteData2Action extends ActionSupport {
         if (this.getType() != null) {
             response.sendRedirect(
                 request.getContextPath()
-                    + "/encounter/oscarMeasurements/SetupDisplayHistory.do?type="
+                    + "/encounter/oscarMeasurements/SetupDisplayHistory?type="
                     + URLEncoder.encode(this.getType(), StandardCharsets.UTF_8.name()));
             return NONE;
         }

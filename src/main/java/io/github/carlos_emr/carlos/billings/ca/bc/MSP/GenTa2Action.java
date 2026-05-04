@@ -31,6 +31,7 @@
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -53,7 +54,10 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS22;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS23;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS25;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 import io.github.carlos_emr.CarlosProperties;
 
@@ -64,6 +68,8 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class GenTa2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -85,6 +91,11 @@ public class GenTa2Action extends ActionSupport {
 
     public String execute()
             throws IOException, ServletException, Exception {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin.billing)");
+        }
+
 
 
         MSPReconcile mspReconcile = new MSPReconcile();
@@ -96,10 +107,10 @@ public class GenTa2Action extends ActionSupport {
 
         String forwardPage = "S21";
 
-        String filepath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        File docDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
+        File validatedFile = PathValidationUtils.validatePath(filename, docDir);
 
-        FileInputStream file = new FileInputStream(filepath + filename);
-        BufferedReader input = new BufferedReader(new InputStreamReader(file));
+        try (BufferedReader input = new BufferedReader(new InputStreamReader(new FileInputStream(validatedFile)))) {
         String nextline;
 
         while ((nextline = input.readLine()) != null) {
@@ -473,6 +484,7 @@ public class GenTa2Action extends ActionSupport {
 
             }
         }
+        } // end try-with-resources
         return forwardPage;
     }
 }

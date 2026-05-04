@@ -573,7 +573,7 @@ def convert_jrxml(input_path):
     try:
         # Register namespace to avoid ns0: prefixes
         ET.register_namespace('', JR_NS)
-        root = ET.fromstring(content)
+        root = ET.fromstring(content)  # deepcode ignore InsecureXmlParser: parses sanitized content after this function strips DOCTYPE declarations before XML parsing; build-time conversion script
     except ET.ParseError as e:
         print(f"  ERROR parsing {input_path}: {e}", file=sys.stderr)
         return None

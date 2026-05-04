@@ -29,7 +29,6 @@ package io.github.carlos_emr.carlos.ui.servlet;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.UnsupportedEncodingException;
 import java.net.SocketException;
 
 import jakarta.servlet.http.HttpServlet;
@@ -37,27 +36,26 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
+
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.web.PrescriptionQrCodeUIBean;
 
 import io.github.carlos_emr.carlos.log.LogAction;
-import io.github.carlos_emr.carlos.lab.ca.all.pageUtil.ViewOruR01UIBean;
-import ca.uhn.hl7v2.HL7Exception;
-import ca.uhn.hl7v2.parser.EncodingNotSupportedException;
 
 /**
  * This servlet requires a parameter called "source" which should signify where to get the image from.
  * An optional parameter is "download" where if the parameter is present it will download the item instead of rendering it. (the value of the parameter is not significant, i.e. download=true and download=false will both cause it to download).
  * <p>
- * Example, source=oruR01. Depending on the source, you can optionally add more parameters, as examples a oruR01 may need a
- * segmentId=5&amp;download=true
+ * Example, source=prescriptionQrCode. Depending on the source, you can optionally add more parameters, as examples a prescriptionQrCode may need a
+ * prescriptionId=5&amp;download=true
  */
 public final class ContentRenderingServlet extends HttpServlet {
     private static Logger logger = MiscUtils.getLogger();
 
     public enum Source {
-        oruR01, prescriptionQrCode
+        prescriptionQrCode
     }
 
     public class Content {
@@ -84,14 +82,16 @@ public final class ContentRenderingServlet extends HttpServlet {
                 os.write(content.data);
                 os.flush();
             } else {
-                response.sendError(HttpServletResponse.SC_NOT_FOUND, request.getRequestURI());
+                response.sendError(HttpServletResponse.SC_NOT_FOUND, "Resource not found");
             }
         } catch (Exception e) {
             if (e.getCause() instanceof SocketException) {
                 logger.warn("An error we can't handle that's expected infrequently. " + e.getMessage());
             } else {
-                logger.error("Unexpected error. qs=" + request.getQueryString(), e);
-                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, request.getRequestURI());
+                logger.error("Unexpected error. qs=" + LogSanitizer.sanitize(request.getQueryString()), e);
+                if (!response.isCommitted()) {
+                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Internal Server Error");
+                }
             }
         }
     }
@@ -100,7 +100,6 @@ public final class ContentRenderingServlet extends HttpServlet {
         String source = request.getParameter("source");
 
         try {
-            if (Source.oruR01.name().equals(source)) return (getOruR01Content(request, loggedInInfo));
             if (Source.prescriptionQrCode.name().equals(source))
                 return (getPrescriptionQrCodeContent(request, loggedInInfo));
         } catch (Exception e) {
@@ -108,25 +107,6 @@ public final class ContentRenderingServlet extends HttpServlet {
         }
 
         return null;
-    }
-
-    private Content getOruR01Content(HttpServletRequest request, LoggedInInfo loggedInInfo) throws EncodingNotSupportedException, UnsupportedEncodingException, HL7Exception {
-        // for OruR01 we need segmentId.
-        String segmentId = request.getParameter("segmentId");
-
-        ViewOruR01UIBean viewOruR01UIBean = new ViewOruR01UIBean(segmentId);
-        if (!viewOruR01UIBean.hasBinaryFile()) {
-            logger.error("Odd, this request should not have taken place, there's no binary content.", new IllegalStateException());
-            return (null);
-        }
-
-        Content content = new Content();
-        content.contentType = getServletContext().getMimeType(viewOruR01UIBean.getFilename());
-        content.data = viewOruR01UIBean.getFileContents();
-
-        LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), getClass().getSimpleName(), "getOruR01Content", "segmentId=" + segmentId);
-
-        return (content);
     }
 
     private Content getPrescriptionQrCodeContent(HttpServletRequest request, LoggedInInfo loggedInInfo) {

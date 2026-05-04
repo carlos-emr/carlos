@@ -34,41 +34,41 @@ package io.github.carlos_emr.carlos.PMmodule.dao;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.PMmodule.model.DefaultRoleAccess;
-import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import org.springframework.transaction.annotation.Transactional;
-import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
+import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
 @Transactional
 @SuppressWarnings("unchecked")
-public class DefaultRoleAccessDAOImpl extends AbstractHibernateDao implements DefaultRoleAccessDAO {
+public class DefaultRoleAccessDAOImpl extends AbstractJpaDao implements DefaultRoleAccessDAO {
 
     public void deleteDefaultRoleAccess(Long id) {
-        currentSession().remove(getDefaultRoleAccess(id));
+        entityManager().remove(getDefaultRoleAccess(id));
     }
 
     public DefaultRoleAccess getDefaultRoleAccess(Long id) {
-        return currentSession().get(DefaultRoleAccess.class, id);
+        return entityManager().find(DefaultRoleAccess.class, id);
     }
 
     public List<DefaultRoleAccess> getDefaultRoleAccesses() {
-        return (List<DefaultRoleAccess>) HqlQueryHelper.find(currentSession(), "from DefaultRoleAccess dra ORDER BY role_id");
+        return (List<DefaultRoleAccess>) JpqlQueryHelper.find(entityManager(), "from DefaultRoleAccess dra ORDER BY role_id");
     }
 
     public List<DefaultRoleAccess> findAll() {
-        return (List<DefaultRoleAccess>) HqlQueryHelper.find(currentSession(), "from DefaultRoleAccess dra");
+        return (List<DefaultRoleAccess>) JpqlQueryHelper.find(entityManager(), "from DefaultRoleAccess dra");
     }
 
     public void saveDefaultRoleAccess(DefaultRoleAccess dra) {
         if (dra.getId() == null) {
-            currentSession().persist(dra);
+            entityManager().persist(dra);
         } else {
-            currentSession().merge(dra);
+            entityManager().merge(dra);
         }
     }
 
     public DefaultRoleAccess find(Long roleId, Long accessTypeId) {
         String sSQL = "from DefaultRoleAccess dra where dra.roleId=?1 and dra.accessTypeId=?2";
-        List results = HqlQueryHelper.find(currentSession(), sSQL, roleId, accessTypeId);
+        List results = JpqlQueryHelper.find(entityManager(), sSQL, roleId, accessTypeId);
 
         if (!results.isEmpty()) {
             return (DefaultRoleAccess) results.get(0);
@@ -77,7 +77,7 @@ public class DefaultRoleAccessDAOImpl extends AbstractHibernateDao implements De
     }
 
     public List<Object[]> findAllRolesAndAccessTypes() {
-        return (List<Object[]>) HqlQueryHelper.find(currentSession(), "SELECT a, b FROM DefaultRoleAccess a, AccessType b WHERE a.id = b.Id");
+        return (List<Object[]>) JpqlQueryHelper.find(entityManager(), "SELECT a, b FROM DefaultRoleAccess a, AccessType b WHERE a.id = b.Id");
     }
 
 }

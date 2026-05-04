@@ -171,7 +171,7 @@ public final class ResponseDefaultsFilter implements Filter {
 
     /**
      * Disables caching for requests whose URI ends with a configured suffix
-     * (e.g. {@code .jsp}, {@code .do}).
+     * (e.g. {@code .jsp}) or whose final path segment is extensionless.
      *
      * @param request  HttpServletRequest the current request (used for URI matching)
      * @param response HttpServletResponse the response to set cache headers on
@@ -188,7 +188,11 @@ public final class ResponseDefaultsFilter implements Filter {
                 return;
             }
         }
-
+        int lastSlash = requestUri.lastIndexOf('/');
+        String lastSegment = lastSlash >= 0 ? requestUri.substring(lastSlash + 1) : requestUri;
+        if (!lastSegment.isEmpty() && !lastSegment.contains(".")) {
+            response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+        }
     }
 
     /**
@@ -226,4 +230,3 @@ public final class ResponseDefaultsFilter implements Filter {
         response.setCharacterEncoding(this.encoding);
     }
 }
-

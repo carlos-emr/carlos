@@ -137,7 +137,7 @@ public class MsgSendDemographicMessage2Action extends ActionSupport {
         bean.setUserName(ProviderData.getProviderName(provNo));
 
         // Store session bean and demographic context
-        request.getSession().setAttribute("msgSessionBean", bean);
+        request.getSession().setAttribute("msgSessionBean", bean); // nosemgrep: tainted-session-from-http-request -- session bean built from authenticated providerNo and DAO-loaded provider name
         request.setAttribute("demographic_no", request.getParameter("demographic_no"));
         
         return SUCCESS;

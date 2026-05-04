@@ -49,7 +49,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Transactional
 public class GroupsDaoIntegrationTest extends CarlosTestBase {
 
+    // Use the @Repository-scanned bean by name. Another test
+    // (MsgMessengerAdmin2ActionTest#setUp) pollutes the shared Spring context by calling
+    // CarlosWebTestBase.replaceSpringUtilsBean(GroupsDao.class, mockGroupsDao), which
+    // registers a "groupsDao" singleton alongside the real "groupsDaoImpl". That leaves two
+    // GroupsDao beans visible here and a bare @Autowired by type is ambiguous — @Qualifier
+    // pins us to the production DAO regardless of test order.
     @Autowired
+    @org.springframework.beans.factory.annotation.Qualifier("groupsDaoImpl")
     private GroupsDao dao;
 
     /**

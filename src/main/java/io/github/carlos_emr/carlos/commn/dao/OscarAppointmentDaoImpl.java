@@ -34,6 +34,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.commn.NativeSql;
+import io.github.carlos_emr.carlos.appointment.dto.AppointmentListItemDTO;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentArchive;
 import io.github.carlos_emr.carlos.commn.model.Facility;
@@ -622,9 +623,12 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
     }
 
     @Override
-    public List<Object[]> findAppointmentAndProviderByAppointmentNo(Integer apptNo) {
-        String sql = "SELECT a, p FROM Appointment a, Provider p WHERE a.providerNo = p.ProviderNo AND a.id = ?1";
-        Query query = entityManager.createQuery(sql);
+    public List<io.github.carlos_emr.carlos.commn.dao.projection.AppointmentProviderRow> findAppointmentAndProviderByAppointmentNo(Integer apptNo) {
+        // Provider.hbm.xml maps the field with PascalCase HBM property names
+        // (ProviderNo, OhipNo); HQL must use the exact name from the mapping.
+        String sql = "SELECT new io.github.carlos_emr.carlos.commn.dao.projection.AppointmentProviderRow(a.location, a.providerNo, p.OhipNo) FROM Appointment a, Provider p WHERE a.providerNo = p.ProviderNo AND a.id = ?1";
+        jakarta.persistence.TypedQuery<io.github.carlos_emr.carlos.commn.dao.projection.AppointmentProviderRow> query =
+                entityManager.createQuery(sql, io.github.carlos_emr.carlos.commn.dao.projection.AppointmentProviderRow.class);
         query.setParameter(1, apptNo);
         return query.getResultList();
     }
@@ -686,51 +690,6 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         query.setParameter(2, to);
         query.setParameter(3, demoIds);
         return query.getResultList();
-    }
-
-    /**
-     * Get billed appointment history.
-     * Used if using the Clinicaid billing integration.
-     */
-    @Override
-    public List<Appointment> findPatientBilledAppointmentsByProviderAndAppointmentDate(
-            String providerNo,
-            Date startAppointmentDate,
-            Date endAppointmentDate) {
-        String queryString = "SELECT a FROM Appointment a WHERE a.providerNo = ?1 AND a.appointmentDate >= ?2 AND a.appointmentDate <= ?3 AND a.status = 'B' AND a.demographicNo <> 0 ORDER BY a.appointmentDate DESC, a.startTime DESC ";
-
-        Query q = entityManager.createQuery(queryString);
-        q.setParameter(1, providerNo);
-        q.setParameter(2, startAppointmentDate);
-        q.setParameter(3, endAppointmentDate);
-
-        @SuppressWarnings("unchecked")
-        List<Appointment> results = q.getResultList();
-
-        return results;
-    }
-
-    /**
-     * Get unbilled appointment history.
-     * Used if using the Clinicaid billing integration.
-     */
-    @Override
-    public List<Appointment> findPatientUnbilledAppointmentsByProviderAndAppointmentDate(
-            String providerNo,
-            Date startAppointmentDate,
-            Date endAppointmentDate) {
-
-        String queryString = "SELECT a FROM Appointment a WHERE a.providerNo = ?1 AND a.appointmentDate >= ?2 AND a.appointmentDate <= ?3 AND a.status NOT LIKE 'B%' AND a.status NOT LIKE 'C%' AND a.status NOT LIKE 'N%' AND a.status NOT LIKE 'T%' AND a.status NOT LIKE 't%' AND a.demographicNo != 0 ORDER BY a.appointmentDate DESC, a.startTime DESC";
-
-        Query q = entityManager.createQuery(queryString);
-        q.setParameter(1, providerNo);
-        q.setParameter(2, startAppointmentDate);
-        q.setParameter(3, endAppointmentDate);
-
-        @SuppressWarnings("unchecked")
-        List<Appointment> results = q.getResultList();
-
-        return results;
     }
 
     @Override
@@ -823,6 +782,28 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
     }
 
     @Override
+    public List<io.github.carlos_emr.carlos.commn.dao.projection.BillingOnNewReportUnbilledRow>
+    findBillingOnNewReportUnbilledRows(String providerNo, String startDate, String endDate) {
+        String sql = "select appointment_no, provider_no, appointment_date, start_time, demographic_no, name, reason, location "
+                + "from appointment where provider_no=?1 and appointment_date >=?2 and appointment_date<=?3 "
+                + "and (BINARY status NOT LIKE 'B%' AND BINARY status NOT LIKE 'C%' AND BINARY status NOT LIKE 'N%') "
+                + "and demographic_no != 0 order by appointment_date, start_time";
+        Query query = entityManager.createNativeQuery(sql);
+        query.setParameter(1, providerNo);
+        query.setParameter(2, startDate);
+        query.setParameter(3, endDate);
+
+        List<io.github.carlos_emr.carlos.commn.dao.projection.BillingOnNewReportUnbilledRow> rows =
+                new ArrayList<>();
+        for (Object[] r : (List<Object[]>) query.getResultList()) {
+            rows.add(new io.github.carlos_emr.carlos.commn.dao.projection.BillingOnNewReportUnbilledRow(
+                    value(r[0]), value(r[1]), value(r[2]), value(r[3]),
+                    value(r[4]), value(r[5]), value(r[6]), value(r[7])));
+        }
+        return rows;
+    }
+
+    @Override
     public List<Object[]> listAppointmentsByPeriodProvider(Date sDate, Date eDate, List<Integer> providerNos) {
         String sql = "SELECT a.appointment_no, a.provider_no, a.appointment_date, a.start_time, a.demographic_no, a.notes, a.location, "
                 +
@@ -864,6 +845,40 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         query.setParameter(1, sDate == null ? new Date(Long.MIN_VALUE) : sDate);
         query.setParameter(2, eDate == null ? new Date(Long.MIN_VALUE) : eDate);
         return query.getResultList();
+    }
+
+    /**
+     * Returns lightweight appointment list DTOs for a provider's day schedule.
+     * Uses HBM-mapped PascalCase property names ({@code d.DemographicNo}, {@code d.LastName},
+     * {@code d.FirstName}) as defined in {@code Demographic.hbm.xml}.
+     *
+     * @param date Date the appointment date to query
+     * @param providerNo String the provider number to filter by
+     * @return List&lt;AppointmentListItemDTO&gt; ordered by start time ascending; empty if none found
+     * @since 2026-04-11
+     */
+    @Override
+    public List<AppointmentListItemDTO> findDayAppointmentDTOs(Date date, String providerNo) {
+        // HBM-mapped Demographic uses PascalCase property names (DemographicNo, LastName,
+        // FirstName) per Demographic.hbm.xml; HQL must reference the HBM name attribute.
+        Query query = entityManager.createQuery("""
+                SELECT NEW io.github.carlos_emr.carlos.appointment.dto.AppointmentListItemDTO(
+                    a.id, a.providerNo, a.appointmentDate, a.startTime, a.endTime,
+                    a.name, a.demographicNo, a.status, a.type, a.reason, a.location,
+                    a.notes, a.urgency, a.remarks, a.reasonCode,
+                    d.LastName, d.FirstName)
+                FROM Appointment a
+                LEFT JOIN Demographic d ON d.DemographicNo = a.demographicNo
+                WHERE a.appointmentDate = :date AND a.providerNo = :providerNo
+                ORDER BY a.startTime
+                """);
+        query.setParameter("date", date);
+        query.setParameter("providerNo", providerNo);
+        return query.getResultList();
+    }
+
+    private static String value(Object value) {
+        return value == null ? "" : String.valueOf(value);
     }
 
 }

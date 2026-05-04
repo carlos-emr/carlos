@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.EFormDocs;
+import io.github.carlos_emr.carlos.documentManager.dto.DocumentListItemDTO;
 import org.springframework.stereotype.Repository;
 
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
@@ -497,5 +498,35 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
         query.setParameter(2, demographicId);
 
         return getSingleResultOrNull(query);
+    }
+
+    /**
+     * Returns lightweight document list DTOs for a demographic number.
+     *
+     * <p>Uses {@code c.id.documentNo}, {@code c.id.module}, {@code c.id.moduleId} to
+     * traverse the {@code @EmbeddedId} on {@code CtlDocument}. Active (non-deleted)
+     * documents only.</p>
+     *
+     * @param demographicNo Integer the patient demographic number
+     * @return List&lt;DocumentListItemDTO&gt; ordered by observation date descending
+     * @since 2026-04-11
+     */
+    @Override
+    public List<DocumentListItemDTO> findDocumentDTOsByDemographicNo(Integer demographicNo) {
+        Query query = entityManager.createQuery("""
+                SELECT NEW io.github.carlos_emr.carlos.documentManager.dto.DocumentListItemDTO(
+                    d.documentNo, d.doctype, d.docClass, d.docSubClass, d.docdesc,
+                    d.docfilename, d.doccreator, d.responsible, d.source, d.status,
+                    d.contenttype, d.contentdatetime, d.observationdate, d.reviewer,
+                    d.reviewdatetime, d.numberofpages, d.appointmentNo, d.abnormal)
+                FROM Document d
+                WHERE d.documentNo IN (
+                    SELECT c.id.documentNo FROM CtlDocument c
+                    WHERE c.id.module = 'demographic' AND c.id.moduleId = :demoNo)
+                AND d.status != 'D'
+                ORDER BY d.observationdate DESC
+                """);
+        query.setParameter("demoNo", demographicNo);
+        return query.getResultList();
     }
 }

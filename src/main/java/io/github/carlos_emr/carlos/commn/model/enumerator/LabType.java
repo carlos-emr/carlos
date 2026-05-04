@@ -18,7 +18,6 @@ public enum LabType {
     MDS,
     HL7,
     OLIS_HL7,
-    OSCAR_TO_OSCAR_HL7_V2,
     SIOUX,
     Spire,
     OUL_R21,

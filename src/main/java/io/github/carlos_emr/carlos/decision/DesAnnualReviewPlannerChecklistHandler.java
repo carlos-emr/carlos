@@ -209,7 +209,7 @@ public class DesAnnualReviewPlannerChecklistHandler extends DefaultHandler {
         // Process risk elements - check if risk factor applies to this patient
         if (rawName.equals("risk")) {
             for (int i = 0; i < atts.getLength(); i++) {
-                if (atts.getQName(i) == "riskname") {
+                if ("riskname".equals(atts.getQName(i))) {
                     riskName = atts.getValue(i);
                     MiscUtils.getLogger().debug("Evaluating risk factor: " + riskName);
 
@@ -231,7 +231,7 @@ public class DesAnnualReviewPlannerChecklistHandler extends DefaultHandler {
         if (rawName.equals("item") && display) {
             results += "<tr>";
             for (int i = 0; i < atts.getLength(); i++) {
-                if (atts.getQName(i) == "clname") {
+                if ("clname".equals(atts.getQName(i))) {
                     clName = atts.getValue(i);
 
                     // Create "Done" checkbox

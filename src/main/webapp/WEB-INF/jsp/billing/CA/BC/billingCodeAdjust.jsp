@@ -1,0 +1,176 @@
+<%--
+
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for the
+    Department of Family Medicine
+    McMaster University
+    Hamilton
+    Ontario, Canada
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
+<%
+    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+    boolean authed = true;
+%>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing,_admin" rights="w" reverse="<%=true%>">
+    <%authed = false; %>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.billing");%>
+</security:oscarSec>
+<%
+    if (!authed) {
+        return;
+    }
+%>
+
+<%@page import="java.util.*,io.github.carlos_emr.carlos.billings.ca.bc.data.BillingCodeData,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao,io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.commn.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
+<%BillingServiceDao billingServiceDao = (BillingServiceDao) SpringUtils.getBean(BillingServiceDao.class); %>
+
+<html>
+    <head>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <title>Adjust Billing Codes</title>
+        <link rel="stylesheet" type="text/css"
+              href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
+        <script type="text/javascript">
+
+
+        </script>
+        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
+        <script>
+            function deletePrivateCode(code) {
+                var form = document.createElement('form');
+                form.method = 'post';
+                form.action = '<%= request.getContextPath() %>/billing/CA/BC/DeletePrivateCode';
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'code';
+                input.value = code;
+                form.appendChild(input);
+                document.body.appendChild(form);
+                form.submit();
+            }
+        </script>
+    </head>
+    <body class="BodyStyle" vlink="#0000FF" onLoad="setValues()">
+    <!--  -->
+    <table class="MainTable" id="scrollNumber1" name="encounterTable">
+        <tr class="MainTableTopRow">
+            <td width="10%" class="MainTableTopRowLeftColumn">Billing</td>
+            <td width="88%" class="MainTableTopRowRightColumn">
+                <table class="TopStatusBar">
+                    <tr>
+                        <td>Adjust Billing Codes</td>
+                        <td>&nbsp;</td>
+                        <td style="text-align: right"><a
+                                href="javascript:popupStart(300,400,'Help.jsp')"> <fmt:message key="global.help"/> </a> | <a
+                                href="javascript:popupStart(300,400,'About.jsp')"> <fmt:message key="global.about"/> </a> | <a
+                                href="javascript:popupStart(300,400,'License.jsp')"> <fmt:message key="global.license"/> </a></td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+        <tr>
+            <td class="MainTableLeftColumn" valign="top">&nbsp; <a
+                    href="<%= request.getContextPath() %>/billing/CA/BC/billingAddCode?addNew=true">Add Code</a></td>
+            <td class="MainTableRightColumn">
+                <form action="<%= request.getContextPath() %>/billing/CA/BC/billingAddCode" method="get">
+                    <%if (request.getAttribute("returnMessage") != null) { %>
+                    <table>
+                        <tr>
+                            <td style="font-color: red;"><carlos:encode value='<%= request.getAttribute("returnMessage") != null ? request.getAttribute("returnMessage").toString() : "" %>' context="html"/>
+                            </td>
+                        </tr>
+                    </table>
+                    <%} %>
+                    <table>
+                        <tr>
+                            <td>Billing Code <input type="text" name="bCode" maxlength="5"/>
+                                <input type="submit" name="Search"/></td>
+                        </tr>
+                    </table>
+                </form>
+                <%
+
+                    String sortOrder = request.getParameter("sortOrder") != null ? request.getParameter("sortOrder") : "";
+
+                    String bCode = request.getParameter("bCode");
+                    List list = null;
+                    if (bCode != null) {
+                        list = (List) billingServiceDao.findBillingCodesByCode(bCode, billingServiceDao.BC, sortOrder.equals("desc") ? 1 : 0);
+                    }
+                    if (list != null) {
+                        String arrow = "";
+                        String newOrder = "";
+                        if (sortOrder.equals("desc")) {
+                            newOrder = "";
+                            arrow = "&uarr;";
+                        } else if (sortOrder.equals("")) {
+                            newOrder = "desc";
+                            arrow = "&darr;";
+                        }
+                %>
+                <table border=1 width="80%">
+                    <tr>
+                        <th>Service Code<a
+                                href="<%= request.getContextPath() %>/billing/CA/BC/billingAddCode?sortOrder=<%=newOrder%>"><%=arrow%>
+                        </a></th>
+                        <th>Description</th>
+                        <th>Price</th>
+                        <th>Options</th>
+                    </tr>
+                    <%
+                        for (int i = 0; i < list.size(); i++) {
+                            BillingService bcd = (BillingService) list.get(i);
+                    %>
+                    <tr align="center">
+                        <td><strong><carlos:encode value='<%= bcd.getServiceCode() %>' context="html"/>
+                        </strong></td>
+                        <td><carlos:encode value='<%= bcd.getDescription() %>' context="html"/>
+                        </td>
+                        <td><carlos:encode value='<%= bcd.getValue() %>' context="html"/>
+                        </td>
+                        <td><a
+                                href="<%= request.getContextPath() %>/billing/CA/BC/billingEditCode?codeId=<carlos:encode value='<%= String.valueOf(bcd.getBillingserviceNo()) %>' context="uriComponent"/>&code=<carlos:encode value='<%= bcd.getServiceCode() %>' context="uriComponent"/>&desc=<carlos:encode value='<%= bcd.getDescription() %>' context="uriComponent"/>&value=<carlos:encode value='<%= bcd.getValue() %>' context="uriComponent"/>">Edit</a>
+                            <br>
+                            <a href="javascript:void(0);" onclick="deletePrivateCode('<carlos:encode value='<%= String.valueOf(bcd.getBillingserviceNo()) %>' context="javaScriptAttribute"/>');">Delete</a></td>
+                    </tr>
+                    <%} %>
+                </table>
+                <%} %>
+            </td>
+        </tr>
+        <tr>
+            <td class="MainTableBottomRowLeftColumn"></td>
+            <td class="MainTableBottomRowRightColumn"></td>
+        </tr>
+    </table>
+    </body>
+</html>

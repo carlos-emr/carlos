@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.commn.model.Admission;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.EForm;
 import io.github.carlos_emr.carlos.commn.model.Facility;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -72,6 +73,7 @@ public class FacilityManager2Action extends ActionSupport {
     private DemographicDao demographicDao;
     private ProgramManager programManager;
     private LookupManager lookupManager;
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     private FacilityDao facilityDao;
     private EFormDao eFormDao = (EFormDao) SpringUtils.getBean(EFormDao.class);
@@ -88,6 +90,31 @@ public class FacilityManager2Action extends ActionSupport {
     private static final String BEAN_ASSOCIATED_PROGRAMS = "associatedPrograms";
     private static final String BEAN_ASSOCIATED_CLIENTS = "associatedClients";
     private static final String registrationIntakeName = "Registration Intake";
+
+    @Override
+    public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String method = request.getParameter("method");
+        boolean mutatingMethod = "delete".equals(method) || "save".equals(method);
+        String privilege = mutatingMethod ? "w" : "r";
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", privilege, null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
+
+        if ("view".equals(method)) {
+            return view();
+        } else if ("edit".equals(method)) {
+            return edit();
+        } else if ("delete".equals(method)) {
+            return delete();
+        } else if ("add".equals(method)) {
+            return add();
+        } else if ("save".equals(method)) {
+            return save();
+        }
+        return list();
+    }
 
     public String unspecified() {
         return list();
@@ -114,7 +141,9 @@ public class FacilityManager2Action extends ActionSupport {
 
 
         this.setFacility(facility);
+        request.setAttribute("facility", facility);
         this.setRegistrationIntakeForms(eFormDao.getEfromInGroupByGroupName(registrationIntakeName));
+        request.setAttribute("registrationIntakeForms", this.getRegistrationIntakeForms());
 
         List<FacilityDischargedClients> facilityClients = new ArrayList<FacilityDischargedClients>();
 
@@ -178,11 +207,14 @@ public class FacilityManager2Action extends ActionSupport {
         Facility facility = facilityDao.find(Integer.valueOf(id));
 
         this.setFacility(facility);
+        request.setAttribute("facility", facility);
         this.setRegistrationIntakeForms(eFormDao.getEfromInGroupByGroupName(registrationIntakeName));
+        request.setAttribute("registrationIntakeForms", this.getRegistrationIntakeForms());
 
         request.setAttribute("id", facility.getId());
         request.setAttribute("orgId", facility.getOrgId());
         request.setAttribute("sectorId", facility.getSectorId());
+        request.setAttribute("sectorID", facility.getSectorId());
 
         // get agency's organization list from the lookup table
         request.setAttribute("orgList", lookupManager.LoadCodeList("OGN", true, null, null));
@@ -205,6 +237,9 @@ public class FacilityManager2Action extends ActionSupport {
     public String add() {
         Facility facility = new Facility("", "");
         this.setFacility(facility);
+        request.setAttribute("facility", facility);
+        this.setRegistrationIntakeForms(eFormDao.getEfromInGroupByGroupName(registrationIntakeName));
+        request.setAttribute("registrationIntakeForms", this.getRegistrationIntakeForms());
 
         // get agency's organization list from the lookup table
         request.setAttribute("orgList", lookupManager.LoadCodeList("OGN", true, null, null));
@@ -238,7 +273,8 @@ public class FacilityManager2Action extends ActionSupport {
 
             // if we just updated our current facility, refresh local cached data in the session / thread local variable
             if (loggedInInfo.getCurrentFacility().getId().intValue() == facility.getId().intValue()) {
-                request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility);
+                // nosemgrep: tainted-session-from-http-request -- facility fields from admin form, persisted/merged to DB above; admin-restricted via Struts URL mapping
+                request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): admin-persisted facility entity (DAO-sourced); _admin.facility hasPrivilege checked
                 loggedInInfo.setCurrentFacility(facility);
             }
 

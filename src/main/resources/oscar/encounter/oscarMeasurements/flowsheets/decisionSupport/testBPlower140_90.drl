@@ -50,6 +50,7 @@ rule "BP"
         eval( m.getNumberFromSplit("/",0) < 141 )
         eval( m.getNumberFromSplit("/",1) < 91 )
         eval( m.getLastDateRecordedInMths() < 13 )
+        eval( !m.hasProblem() )
     then
         m.log("BP RULES IS GETTING RUN");
         m.setInRange(true);

@@ -1,0 +1,291 @@
+<%--
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    CARLOS EMR Project
+    https://github.com/carlos-emr/carlos
+--%>
+<%--
+  Page role: Renders `labValues.jsp` for the CARLOS EMR workflow.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%
+    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+    boolean authed = true;
+%>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="r" reverse="<%=true%>">
+    <%authed = false; %>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_lab");%>
+</security:oscarSec>
+<%
+    if (!authed) {
+        return;
+    }
+%>
+
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="java.io.Serializable" %>
+<%@page import="org.w3c.dom.Document" %>
+<%@page import="io.github.carlos_emr.carlos.lab.ca.all.web.LabDisplayHelper" %>
+<%@ page
+        import="java.util.*,io.github.carlos_emr.carlos.lab.ca.on.*,io.github.carlos_emr.carlos.demographic.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
+<%
+    String labType = request.getParameter("labType");
+    String demographicNo = request.getParameter("demo");
+    String testName = request.getParameter("testName");
+    String identifier = request.getParameter("identifier");
+    if (identifier == null) identifier = "NULL";
+
+    String highlight = "#E0E0FF";
+
+    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+
+    DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
+    Demographic demographic = demographicManager.getDemographic(loggedInInfo, demographicNo);
+
+    ArrayList list = null;
+
+    if (!(demographicNo == null || "null".equals(demographicNo) || "undefined".equals(demographicNo))) {
+        list = CommonLabTestValues.findValuesForTest(labType, Integer.valueOf(demographicNo), testName, identifier);
+    }
+%>
+<!DOCTYPE html>
+<html>
+<head>
+    <title><fmt:message key="oscarMDS.segmentDisplay.title"/></title>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
+
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+    <link href="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
+    <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
+    <script type="text/javascript"
+            src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
+    <script type="text/javascript"
+            src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
+    <script type="text/javascript">
+        jQuery(document).ready(function () {
+
+            jQuery('#tblDiscs').DataTable({
+                "order": [],
+                "bPaginate": false,
+                "searching": false
+            });
+        });
+
+    </script>
+    <style media="all">
+        .AbnormalRes {
+            color: red;
+        }
+
+        .LoRes {
+            color: blue;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+        }
+    </style>
+
+    <style media="print">
+        .DoNotPrint {
+            display: none;
+
+        }
+    </style>
+
+</head>
+
+<script language="JavaScript">
+    function getComment() {
+        var commentVal = prompt('<fmt:message key="oscarMDS.segmentDisplay.msgComment"/>', '');
+        document.acknowledgeForm.comment.value = commentVal;
+        return true;
+    }
+
+    function popupStart(vheight, vwidth, varpage, windowname) {
+        var page = varpage;
+        windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes";
+        var popup = window.open(varpage, windowname, windowprops);
+    }
+</script>
+
+<body>
+
+<% if (demographic == null) {%>
+
+<script language="JavaScript">
+    alert("The demographic number is not valid");
+    window.close();
+</script>
+
+<%} else {%>
+<div class="container">
+    <form name="acknowledgeForm" method="post" action="<%=request.getContextPath()%>/oscarMDS/UpdateStatus">
+
+        <table>
+            <tr>
+                <td>
+                    <table>
+                        <tr>
+                            <td>
+                                <div class="Field2" style="text-align: center;">
+                                    <fmt:message key="oscarMDS.segmentDisplay.formDetailResults"/>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <table>
+                                    <tr>
+                                        <td>
+                                            <table>
+                                                <tr>
+                                                    <td>
+                                                        <table>
+                                                            <tr>
+                                                                <td>
+                                                                    <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formPatientName"/>: </strong>
+                                                                        <carlos:encode value='<%= demographic.getFormattedName() %>' context="html"/>
+                                                                    </div>
+
+                                                                </td>
+                                                                <td>
+                                                                    <div class="" nowrap><strong><fmt:message key="oscarMDS.segmentDisplay.formSex"/>: </strong><carlos:encode value='<%= demographic.getSex() %>' context="html"/>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td>
+                                                                    <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formDateBirth"/>: </strong> <carlos:encode value='<%= DemographicData.getDob(demographic, "-") %>' context="html"/>
+                                                                    </div>
+                                                                </td>
+                                                                <td>
+                                                                    <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formAge"/>: </strong><carlos:encode value='<%= String.valueOf(demographic.getAge()) %>' context="html"/>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        </table>
+                                                    </td>
+                                                    <td width="33%"></td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <table name="tblDiscs" id="tblDiscs" class="table table-sm table-striped">
+                        <thead>
+                        <tr class="Field2">
+                            <th class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></th>
+                            <th class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formResult"/></th>
+                            <th class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formAbn"/></th>
+                            <th class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formReferenceRange"/></th>
+                            <th class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formUnits"/></th>
+                            <th class="Cell"><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <%
+                            if (list != null) {
+                                for (int i = 0; i < list.size(); i++) {
+                                    Map h = (Map) list.get(i);
+                                    String lineClass = "NormalRes";
+                                    if (h.get("abn") != null && h.get("abn").equals("A")) {
+                                        lineClass = "AbnormalRes";
+                                    }
+                                    if (h.get("abn") != null && (h.get("abn").toString().toLowerCase().contains("l"))) {
+
+                                        lineClass = "LoRes";
+
+                                    }
+
+                                    if (h.get("abn") != null && (h.get("abn").toString().toLowerCase().contains("h"))) {
+
+                                        lineClass = "AbnormalRes";
+
+                                    }
+                        %>
+
+                        <tr class="<%=lineClass%>">
+                            <td><carlos:encode value='<%= String.valueOf(h.get("testName")) %>' context="html"/>
+                            </td>
+                            <td><carlos:encode value='<%= String.valueOf(h.get("result")) %>' context="html"/>
+                            </td>
+                            <td><carlos:encode value='<%= String.valueOf(h.get("abn")) %>' context="html"/>
+                            </td>
+                            <td><carlos:encode value='<%= String.valueOf(h.get("range")) %>' context="html"/>
+                            </td>
+                            <td><carlos:encode value='<%= String.valueOf(h.get("units")) %>' context="html"/>
+                            </td>
+                            <td><carlos:encode value='<%= String.valueOf(h.get("collDate")) %>' context="html"/>
+                            </td>
+                        </tr>
+
+                        <% }
+                        } %>
+                        </tbody>
+                    </table>
+                </td>
+            <tr>
+                <td>
+                    <table class="MainTableBottomRowRightColumn" bgcolor="#003399">
+                        <tr>
+                            <td align="left"><input type="button" class="btn btn-danger DoNotPrint"
+                                                    value=" <fmt:message key="global.btnClose"/> "
+                                                    onClick="window.close()"> <input type="button"
+                                                                                     class="btn DoNotPrint"
+                                                                                     value=" <fmt:message key="global.btnPrint"/> "
+                                                                                     onClick="window.print()">
+                                <input type="button" value="Plot" class="btn btn-primary DoNotPrint"
+                                       onclick="window.location = '<carlos:encode value='<%= request.getContextPath() %>' context="javaScript"/>/lab/CA/ON/ViewLabValuesGraph?demographic_no=<carlos:encode value='<%= String.valueOf(demographicNo) %>' context="uriComponent"/>&labType=<carlos:encode value='<%= labType %>' context="uriComponent"/>&identifier=<carlos:encode value='<%= identifier %>' context="uriComponent"/>&testName=<carlos:encode value='<%= testName %>' context="uriComponent"/>';"/>
+
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+
+    </form>
+</div>
+<%}%>
+</body>
+</html>

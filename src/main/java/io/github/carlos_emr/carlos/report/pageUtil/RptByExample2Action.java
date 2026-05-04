@@ -47,7 +47,6 @@ import io.github.carlos_emr.carlos.PMmodule.model.SecUserRole;
 import io.github.carlos_emr.carlos.commn.dao.ReportByExamplesDao;
 import io.github.carlos_emr.carlos.commn.model.ReportByExamples;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -58,6 +57,12 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts2 action for the Query-by-Example report tool. Allows admin users to execute
+ * custom SQL queries, persist them as recent searches, and display results.
+ *
+ * @since 2003-07-22
+ */
 public class RptByExample2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -68,13 +73,21 @@ public class RptByExample2Action extends ActionSupport {
 
     public String execute()
             throws ServletException, IOException {
-        String roleName$ = request.getSession().getAttribute("userrole") + "," + (String) request.getSession().getAttribute("user");
+        if (request.getSession().getAttribute("user") == null) {
+            response.sendRedirect(request.getContextPath() + "/logout.htm");
+            return NONE;
+        }
+
+        Object userrole = request.getSession().getAttribute("userrole");
+        if (userrole == null) {
+            response.sendRedirect(request.getContextPath() + "/logout.htm");
+            return NONE;
+        }
+
+        String roleName$ = userrole + "," + (String) request.getSession().getAttribute("user");
         if (!SecurityManager.hasPrivilege("_admin", roleName$) && !SecurityManager.hasPrivilege("_report", roleName$)) {
             throw new SecurityException("Insufficient Privileges");
         }
-
-        if (request.getSession().getAttribute("user") == null)
-            response.sendRedirect(request.getContextPath() + "/logout.htm");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -83,17 +96,12 @@ public class RptByExample2Action extends ActionSupport {
 
         List<SecUserRole> userRoles = secUserRoleDao.findByRoleNameAndProviderNo("admin", providerNo);
         if (userRoles.isEmpty()) {
-            MiscUtils.getLogger().warn("providers " + providerNo + " does not have admin privileges to run query by example");
-            return "/oscarReport/RptByExample.jsp";
+            throw new SecurityException("missing required admin privileges to run query by example");
         }
 
         RptByExampleQueryBeanHandler hd = new RptByExampleQueryBeanHandler();
         Collection favorites = hd.getFavoriteCollection(providerNo);
         request.setAttribute("favorites", favorites);
-
-
-        //String sql = frm.getSql();
-
 
         if (sql != null) {
             write2Database(sql, providerNo);
@@ -114,13 +122,6 @@ public class RptByExample2Action extends ActionSupport {
 
     public void write2Database(String query, String providerNo) {
         if (query != null && query.compareTo("") != 0) {
-
-
-            // StringEscapeUtils strEscUtils = new StringEscapeUtils();
-
-            //query = exampleData.replaceSQLString (";","",query);
-            //query = exampleData.replaceSQLString("\"", "\'", query);
-
             ReportByExamples r = new ReportByExamples();
             r.setProviderNo(providerNo);
             r.setQuery(query);

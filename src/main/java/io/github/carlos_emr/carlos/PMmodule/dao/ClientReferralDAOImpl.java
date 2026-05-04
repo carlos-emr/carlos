@@ -39,18 +39,18 @@ import io.github.carlos_emr.carlos.PMmodule.model.ClientReferral;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.commn.model.Admission;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import org.springframework.transaction.annotation.Transactional;
-import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
+import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
 @Transactional
-public class ClientReferralDAOImpl extends AbstractHibernateDao implements ClientReferralDAO {
+public class ClientReferralDAOImpl extends AbstractJpaDao implements ClientReferralDAO {
 
     private Logger log = MiscUtils.getLogger();
 
     public List<ClientReferral> getReferrals() {
         @SuppressWarnings("unchecked")
-        List<ClientReferral> results = (List<ClientReferral>) HqlQueryHelper.find(currentSession(), "from ClientReferral");
+        List<ClientReferral> results = (List<ClientReferral>) JpqlQueryHelper.find(entityManager(), "from ClientReferral");
 
         if (log.isDebugEnabled()) {
             log.debug("getReferrals: # of results=" + results.size());
@@ -67,7 +67,7 @@ public class ClientReferralDAOImpl extends AbstractHibernateDao implements Clien
         }
         
         String sSQL = "from ClientReferral cr where cr.ClientId = ?1";
-        List<ClientReferral> results = (List<ClientReferral>) HqlQueryHelper.find(currentSession(), sSQL, clientId);
+        List<ClientReferral> results = (List<ClientReferral>) JpqlQueryHelper.find(entityManager(), sSQL, clientId);
 
         if (log.isDebugEnabled()) {
             log.debug("getReferrals: clientId=" + clientId + ",# of results=" + results.size());
@@ -96,7 +96,7 @@ public class ClientReferralDAOImpl extends AbstractHibernateDao implements Clien
             facilityId,
             facilityId
         };
-        List<ClientReferral> results = (List<ClientReferral>) HqlQueryHelper.find(currentSession(), sSQL, param);
+        List<ClientReferral> results = (List<ClientReferral>) JpqlQueryHelper.find(entityManager(), sSQL, param);
 
         if (log.isDebugEnabled()) {
             log.debug("getReferralsByFacility: clientId=" + clientId + ",# of results=" + results.size());
@@ -120,7 +120,7 @@ public class ClientReferralDAOImpl extends AbstractHibernateDao implements Clien
             String sSQL = "from ClientReferral r where r.ClientId = ?1 and r.Id < ?2 order by r.Id desc";
             Object[] param = new Object[]{cr.getClientId(), cr.getId()};
             @SuppressWarnings("unchecked")
-            List<ClientReferral> results = (List<ClientReferral>) HqlQueryHelper.find(currentSession(), sSQL, param);
+            List<ClientReferral> results = (List<ClientReferral>) JpqlQueryHelper.find(entityManager(), sSQL, param);
 
             // temp - completionNotes/Referring program/agency, notes/External
             String completionNotes = "";
@@ -158,7 +158,7 @@ public class ClientReferralDAOImpl extends AbstractHibernateDao implements Clien
 
         String queryStr = "FROM Program p WHERE p.id = ?1 AND p.type = 'external'";
         @SuppressWarnings("unchecked")
-        List<Program> rs = (List<Program>) HqlQueryHelper.find(currentSession(), queryStr, programId);
+        List<Program> rs = (List<Program>) JpqlQueryHelper.find(entityManager(), queryStr, programId);
 
         if (!rs.isEmpty()) {
             result = true;
@@ -178,7 +178,7 @@ public class ClientReferralDAOImpl extends AbstractHibernateDao implements Clien
 
         String queryStr = "FROM Admission a WHERE a.clientId=?1 ORDER BY a.admissionDate DESC";
         @SuppressWarnings("unchecked")
-        List<Admission> rs = (List<Admission>) HqlQueryHelper.find(currentSession(), queryStr, demographicNo);
+        List<Admission> rs = (List<Admission>) JpqlQueryHelper.find(entityManager(), queryStr, demographicNo);
         return rs;
     }
     // end of change
@@ -198,7 +198,7 @@ public class ClientReferralDAOImpl extends AbstractHibernateDao implements Clien
                 ClientReferral.STATUS_PENDING,
                 ClientReferral.STATUS_UNKNOWN
             };
-            results = (List<ClientReferral>) HqlQueryHelper.find(currentSession(), resultQuery, param);
+            results = (List<ClientReferral>) JpqlQueryHelper.find(entityManager(), resultQuery, param);
         } else {
             String sSQL = "from ClientReferral cr where cr.ClientId = ?1 and (cr.Status = ?2 or cr.Status = ?3 or cr.Status = ?4) and ((cr.FacilityId=?5) or (cr.ProgramId in (select s.id from Program s where s.facilityId=?6)))";
             Object params[] = new Object[] {
@@ -209,7 +209,7 @@ public class ClientReferralDAOImpl extends AbstractHibernateDao implements Clien
                 facilityId,
                 facilityId
             };
-            results = (List<ClientReferral>) HqlQueryHelper.find(currentSession(), sSQL, params);
+            results = (List<ClientReferral>) JpqlQueryHelper.find(entityManager(), sSQL, params);
         }
 
         if (log.isDebugEnabled()) {
@@ -237,7 +237,7 @@ public class ClientReferralDAOImpl extends AbstractHibernateDao implements Clien
             ClientReferral.STATUS_ACTIVE,
             ClientReferral.STATUS_CURRENT
         };
-        results = (List<ClientReferral>) HqlQueryHelper.find(currentSession(), sSQL, params);
+        results = (List<ClientReferral>) JpqlQueryHelper.find(entityManager(), sSQL, params);
 
         if (log.isDebugEnabled()) {
             log.debug("getActiveReferralsByClientAndProgram: clientId=" + clientId + "programId " + programId + ", # of results=" + results.size());
@@ -251,7 +251,7 @@ public class ClientReferralDAOImpl extends AbstractHibernateDao implements Clien
             throw new IllegalArgumentException();
         }
 
-        ClientReferral result = currentSession().get(ClientReferral.class, id);
+        ClientReferral result = entityManager().find(ClientReferral.class, id);
 
         if (log.isDebugEnabled()) {
             log.debug("getClientReferral: id=" + id + ",found=" + (result != null));
@@ -266,9 +266,9 @@ public class ClientReferralDAOImpl extends AbstractHibernateDao implements Clien
         }
 
         if (referral.getId() == null) {
-            currentSession().persist(referral);
+            entityManager().persist(referral);
         } else {
-            currentSession().merge(referral);
+            entityManager().merge(referral);
         }
 
         if (log.isDebugEnabled()) {
@@ -280,15 +280,15 @@ public class ClientReferralDAOImpl extends AbstractHibernateDao implements Clien
     @SuppressWarnings("unchecked")
     public List<ClientReferral> search(ClientReferral referral) {
         if (referral != null && referral.getProgramId() != null && referral.getProgramId() > 0) {
-            return (List<ClientReferral>) HqlQueryHelper.find(currentSession(),
+            return (List<ClientReferral>) JpqlQueryHelper.find(entityManager(),
                     "from ClientReferral cr where cr.ProgramId = ?1", referral.getProgramId());
         }
-        return (List<ClientReferral>) HqlQueryHelper.find(currentSession(), "from ClientReferral");
+        return (List<ClientReferral>) JpqlQueryHelper.find(entityManager(), "from ClientReferral");
     }
 
     public List<ClientReferral> getClientReferralsByProgram(int programId) {
         @SuppressWarnings("unchecked")
-        List<ClientReferral> results = (List<ClientReferral>) HqlQueryHelper.find(currentSession(), "from ClientReferral cr where cr.ProgramId = ?1", Long.valueOf(programId));
+        List<ClientReferral> results = (List<ClientReferral>) JpqlQueryHelper.find(entityManager(), "from ClientReferral cr where cr.ProgramId = ?1", Long.valueOf(programId));
 
         return results;
     }

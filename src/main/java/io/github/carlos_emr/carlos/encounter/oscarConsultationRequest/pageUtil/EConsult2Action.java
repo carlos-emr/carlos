@@ -49,8 +49,13 @@ import io.github.carlos_emr.CarlosProperties;
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class EConsult2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -64,6 +69,11 @@ public class EConsult2Action extends ActionSupport {
     private final String backendEconsultUrl = oscarProperties.getProperty("backendEconsultUrl");
 
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", "w", null)) {
+            throw new SecurityException("missing required sec object (_con)");
+        }
+
         if ("login".equals(request.getParameter("method"))) {
             return login();
         }
@@ -138,7 +148,7 @@ public class EConsult2Action extends ActionSupport {
         //Sets the length of the URL, found by subtracting the length of the servlet path from the length of the full URL, that way it only gets up to the context path
         oscarUrl.setLength(urlLength);
 
-        oscarUrl.append(String.format("%1$s%2$s", File.separator, "econsultSSOLogin.do"));
+        oscarUrl.append(String.format("%1$s%2$s", File.separator, "econsultSSOLogin"));
 
         StringBuilder stringBuilder = new StringBuilder(backendEconsultUrl);
 

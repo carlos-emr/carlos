@@ -55,6 +55,7 @@ import java.util.ArrayList;
 import java.util.Date;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
@@ -70,8 +71,13 @@ public class Utilities {
 
     public static ArrayList<String> separateMessages(String fileName) throws Exception {
 
+        // Validate the file path is within DOCUMENT_DIR to prevent path traversal
+        CarlosProperties props = CarlosProperties.getInstance();
+        String place = props.getProperty("DOCUMENT_DIR");
+        File validatedFile = PathValidationUtils.validateExistingPath(new File(fileName), new File(place));
+
         ArrayList<String> messages = new ArrayList<String>();
-        try (InputStream is = new FileInputStream(fileName);
+        try (InputStream is = new FileInputStream(validatedFile);
              BufferedReader br = new BufferedReader(new InputStreamReader(is))) {
 
             String line = null;
@@ -134,7 +140,9 @@ public class Utilities {
             // Construct retVal using the validated targetFile path
             retVal = targetFile.getParent() + File.separator + "LabUpload." + targetFile.getName().replaceAll(".enc", "") + "." + (new Date()).getTime();
 
-            logger.debug("saveFile place=" + place + ", retVal=" + retVal);
+            logger.debug("saveFile place={}, retVal={}",
+                    LogSanitizer.sanitize(place, 1024),
+                    LogSanitizer.sanitize(retVal, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
 
             try (OutputStream os = Files.newOutputStream(Paths.get(retVal));
                 BufferedInputStream bis = new BufferedInputStream(stream)) {
@@ -146,9 +154,9 @@ public class Utilities {
                 }
             }
         } catch (FileNotFoundException fnfe) {
-            logger.error("Unable to create or write to file: " + filename, fnfe);
+            logger.error("Unable to create or write to file: {}", LogSanitizer.sanitize(filename), fnfe); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         } catch (IOException ioe) {
-            logger.error("Error processing file: " + filename, ioe);
+            logger.error("Error processing file: {}", LogSanitizer.sanitize(filename), ioe); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         }
         return retVal;
     }
@@ -202,13 +210,15 @@ public class Utilities {
             File baseDir = new File(place);
             File targetFile = PathValidationUtils.validatePath(filename, baseDir);
 
+            // Derive the safe output name from the validated file (not the raw input)
+            String safeName = targetFile.getName();
             // Remove .enc
-            filename = filename.replaceAll("\\.enc$", "");
-            if (filename.toLowerCase().endsWith(".pdf")) {
-                filename = filename.substring(0, filename.length() - 4);
+            safeName = safeName.replaceAll("\\.enc$", "");
+            if (safeName.toLowerCase().endsWith(".pdf")) {
+                safeName = safeName.substring(0, safeName.length() - 4);
             }
 
-            retVal = new File(baseDir, "DocUpload." + filename + "." + System.currentTimeMillis() + ".pdf").toString();
+            retVal = new File(baseDir, "DocUpload." + safeName + "." + System.currentTimeMillis() + ".pdf").toString();
 
             try (OutputStream os = new FileOutputStream(retVal)) {
                 int bytesRead;
@@ -225,7 +235,7 @@ public class Utilities {
             logger.error("Error", ioe);
             return retVal;
         } catch (IllegalArgumentException iae) {
-            logger.error("Invalid filename: " + filename, iae);
+            logger.error("Invalid filename: {}", LogSanitizer.sanitize(filename), iae); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return null;
         }
 

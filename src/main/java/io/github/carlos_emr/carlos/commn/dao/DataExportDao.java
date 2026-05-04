@@ -39,8 +39,6 @@ import io.github.carlos_emr.carlos.commn.model.DataExport;
 public interface DataExportDao extends AbstractDao<DataExport> {
 
     public static final String ROURKE = "Rourke";
-    public static final String CIHI_OMD4 = "CIHI_OMD4";
-    public static final String CIHI_PHC_VRS = "CIHI_PHC_VRS";
 
     public List<DataExport> findAll();
 

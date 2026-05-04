@@ -61,6 +61,32 @@ public interface OscarLogDao extends AbstractDao<OscarLog> {
     public List<Object[]> getRecentDemographicsViewedByProviderAfterDateIncluded(String providerNo, Date date,
                                                                                  int startPosition, int itemsToReturn);
 
+    /**
+     * Finds audit log entries for the admin log report using the supplied filters.
+     *
+     * <p>The query is executed as native SQL with a {@code FORCE INDEX (datetime)} hint against
+     * the {@code log} table's composite {@code datetime(dateTime, provider_no)} index. The hint
+     * is preserved from the original JDBC implementation because, on large production audit
+     * logs, the optimizer can otherwise choose {@code provider_noIndex} and sort, which is
+     * significantly slower for narrow date ranges.</p>
+     *
+     * <p>When {@code providerNo} is non-null the caller is responsible for verifying it is
+     * within {@code siteProviderNos}; in that case the site-allowed IN clause is omitted to
+     * keep the plan simple.</p>
+     *
+     * @param startDate Date inclusive lower bound for the log timestamp
+     * @param endDate Date inclusive upper bound for the log timestamp
+     * @param content String raw SQL LIKE parameter for the content column, bound exactly as supplied by the caller;
+     *                plain values such as {@code admin} and {@code login} therefore behave as exact matches,
+     *                while callers may pass wildcards such as {@code %}
+     * @param providerNo String specific provider number to filter by, or {@code null} for all providers
+     * @param siteProviderNos List<String> provider numbers allowed by site-access privacy, or {@code null} when unrestricted;
+     *                        an empty list short-circuits to an empty result (fail-closed for site-restricted users)
+     * @return List<OscarLog> matching log entries ordered by newest first
+     */
+    public List<OscarLog> findForReport(Date startDate, Date endDate, String content, String providerNo,
+                                        List<String> siteProviderNos);
+
     public int purgeLogEntries(Date maxDateToRemove);
 
 }

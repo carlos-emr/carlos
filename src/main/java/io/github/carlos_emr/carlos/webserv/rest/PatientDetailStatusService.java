@@ -32,6 +32,7 @@ import java.util.List;
 
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
@@ -47,6 +48,7 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.PatientDetailStatusTo1;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.ValidateHCRequestTo1;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -80,9 +82,17 @@ public class PatientDetailStatusService extends AbstractServiceImpl {
         return status;
     }
 
-    @GET
+    @POST
     @Path("/validateHC")
-    public HCValidationResult validateHC(@QueryParam("hin") String healthCardNo, @QueryParam("ver") String versionCode) {
+    public HCValidationResult validateHC(ValidateHCRequestTo1 request) {
+        if (request == null || request.getHin() == null || request.getHin().trim().isEmpty()) {
+            HCValidationResult error = new HCValidationResult();
+            error.setResponseCode(HCValidator.NOT_VALID_RESPONSE_CODE);
+            error.setResponseDescription("Invalid Health Card Number");
+            return error;
+        }
+        String healthCardNo = request.getHin().trim();
+        String versionCode = request.getVer() == null ? null : request.getVer().trim();
         HCValidator validator = HCValidationFactory.getHCValidator();
         HCValidationResult result = null;
 

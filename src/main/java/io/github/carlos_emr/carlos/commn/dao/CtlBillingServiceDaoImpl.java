@@ -60,21 +60,20 @@ public class CtlBillingServiceDaoImpl extends AbstractDaoImpl<CtlBillingService>
      * @param serviceStatus Status of the service to be retrieved
      * @return Returns list containing arrays of strings, where the first element represents the service type and the second element is the service type name.
      */
-    public List<Object[]> getUniqueServiceTypes(String serviceStatus) {
-        Query query = entityManager.createQuery("SELECT DISTINCT b.serviceType, b.serviceTypeName FROM CtlBillingService b WHERE b.status = ?1");
+    public List<io.github.carlos_emr.carlos.billings.ca.on.dto.UniqueServiceTypeRow> getUniqueServiceTypes(String serviceStatus) {
+        String jpql = "SELECT DISTINCT new io.github.carlos_emr.carlos.billings.ca.on.dto.UniqueServiceTypeRow(b.serviceType, b.serviceTypeName) FROM CtlBillingService b WHERE b.status = ?1";
+        jakarta.persistence.TypedQuery<io.github.carlos_emr.carlos.billings.ca.on.dto.UniqueServiceTypeRow> query =
+                entityManager.createQuery(jpql, io.github.carlos_emr.carlos.billings.ca.on.dto.UniqueServiceTypeRow.class);
         query.setParameter(1, serviceStatus);
-
-
-        List<Object[]> results = query.getResultList();
-        return results;
+        return query.getResultList();
     }
 
     /**
      * Gets distinct service type for services with {@link #DEFAULT_STATUS}
      *
-     * @return Returns list containing arrays of strings, where the first element represents the service type code and the second element is the service type name.
+     * @return List of typed {@code (serviceType, serviceTypeName)} rows.
      */
-    public List<Object[]> getUniqueServiceTypes() {
+    public List<io.github.carlos_emr.carlos.billings.ca.on.dto.UniqueServiceTypeRow> getUniqueServiceTypes() {
         return getUniqueServiceTypes(DEFAULT_STATUS);
     }
 
@@ -163,20 +162,20 @@ public class CtlBillingServiceDaoImpl extends AbstractDaoImpl<CtlBillingService>
         return query.getResultList();
     }
 
-    public List<Object[]> findServiceTypes() {
-        String sql = "SELECT DISTINCT s.serviceType, s.serviceTypeName FROM CtlBillingService s " +
-                "WHERE s.status != 'D' " +
-                "AND s.serviceType IS NOT NULL " +
-                "AND LENGTH(TRIM(s.serviceType)) > 0";
-        Query query = entityManager.createQuery(sql);
+    public List<io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow> findServiceTypes() {
+        String sql = "SELECT DISTINCT new io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow(s.serviceType, s.serviceTypeName) FROM CtlBillingService s WHERE s.status != 'D' AND s.serviceType IS NOT NULL AND LENGTH(TRIM(s.serviceType)) > 0";
+        jakarta.persistence.TypedQuery<io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow> query =
+                entityManager.createQuery(sql, io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow.class);
         return query.getResultList();
     }
 
-    public List<Object[]> findServiceTypesByStatus(String status) {
-        String sql = "SELECT DISTINCT s.serviceTypeName, s.serviceType " +
-                "FROM CtlBillingService s " +
-                "WHERE s.status = ?1";
-        Query query = entityManager.createQuery(sql);
+    public List<io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow> findServiceTypesByStatus(String status) {
+        // Normalized to (serviceType, serviceTypeName) ordering — matches findServiceTypes.
+        // Legacy SQL projected (serviceTypeName, serviceType); the BillingOnFormServiceGridComposer
+        // consumer was reading that reversed shape and is updated alongside this DAO.
+        String sql = "SELECT DISTINCT new io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow(s.serviceType, s.serviceTypeName) FROM CtlBillingService s WHERE s.status = ?1";
+        jakarta.persistence.TypedQuery<io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow> query =
+                entityManager.createQuery(sql, io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow.class);
         query.setParameter(1, status);
         return query.getResultList();
     }

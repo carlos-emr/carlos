@@ -39,16 +39,16 @@ import java.util.Map;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.model.security.Secobjprivilege;
-import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
+import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
 import java.util.Set;
 
 @Transactional
-public class SecobjprivilegeDaoImpl extends AbstractHibernateDao implements SecobjprivilegeDao {
+public class SecobjprivilegeDaoImpl extends AbstractJpaDao implements SecobjprivilegeDao {
 
     private Logger logger = MiscUtils.getLogger();
 
@@ -62,9 +62,9 @@ public class SecobjprivilegeDaoImpl extends AbstractHibernateDao implements Seco
         }
 
         if (secobjprivilege.getRoleusergroup() == null || secobjprivilege.getObjectname_code() == null) {
-            currentSession().persist(secobjprivilege);
+            entityManager().persist(secobjprivilege);
         } else {
-            currentSession().merge(secobjprivilege);
+            entityManager().merge(secobjprivilege);
         }
 
         if (logger.isDebugEnabled()) {
@@ -107,7 +107,7 @@ public class SecobjprivilegeDaoImpl extends AbstractHibernateDao implements Seco
         try {
             String queryString = "update Secobjprivilege as model set model.providerNo = ?1 where model.objectname_code = ?2 and model.privilege_code = ?3 and model.roleusergroup = ?4";
 
-            return HqlQueryHelper.bulkUpdate(currentSession(), queryString,
+            return JpqlQueryHelper.bulkUpdate(entityManager(), queryString,
                     instance.getProviderNo(), instance.getObjectname_code(),
                     instance.getPrivilege_code(), instance.getRoleusergroup());
 
@@ -122,7 +122,7 @@ public class SecobjprivilegeDaoImpl extends AbstractHibernateDao implements Seco
         logger.debug("deleting Secobjprivilege by roleName");
         try {
 
-            return HqlQueryHelper.bulkUpdate(currentSession(), "delete Secobjprivilege as model where model.roleusergroup =?1",
+            return JpqlQueryHelper.bulkUpdate(entityManager(), "delete Secobjprivilege as model where model.roleusergroup =?1",
                     roleName);
 
         } catch (RuntimeException re) {
@@ -135,7 +135,13 @@ public class SecobjprivilegeDaoImpl extends AbstractHibernateDao implements Seco
     public void delete(Secobjprivilege persistentInstance) {
         logger.debug("deleting Secobjprivilege instance");
         try {
-            currentSession().remove(persistentInstance);
+            // Pre-migration Hibernate Session.delete() accepted detached entities. JPA
+            // EntityManager.remove() requires a managed instance, so reattach via merge()
+            // when the caller passes a detached entity (mirrors SecProviderDaoImpl.delete).
+            Secobjprivilege managed = entityManager().contains(persistentInstance)
+                    ? persistentInstance
+                    : entityManager().merge(persistentInstance);
+            entityManager().remove(managed);
             logger.debug("delete successful");
         } catch (RuntimeException re) {
             logger.error("delete failed", re);
@@ -148,7 +154,7 @@ public class SecobjprivilegeDaoImpl extends AbstractHibernateDao implements Seco
         try {
             String queryString = "select description from Secobjectname obj where obj.objectname=?1";
 
-            List lst = HqlQueryHelper.find(currentSession(), queryString, function_code);
+            List lst = JpqlQueryHelper.find(entityManager(), queryString, function_code);
             if (lst.size() > 0 && lst.get(0) != null)
                 return lst.get(0).toString();
             else
@@ -164,7 +170,7 @@ public class SecobjprivilegeDaoImpl extends AbstractHibernateDao implements Seco
         try {
             String queryString = "select description from Secprivilege obj where obj.privilege=?1";
 
-            List lst = HqlQueryHelper.find(currentSession(), queryString, accessType_code);
+            List lst = JpqlQueryHelper.find(entityManager(), queryString, accessType_code);
             if (lst.size() > 0 && lst.get(0) != null)
                 return lst.get(0).toString();
             else
@@ -198,7 +204,7 @@ public class SecobjprivilegeDaoImpl extends AbstractHibernateDao implements Seco
             }
             String queryString = "from Secobjprivilege as model where model."
                     + propertyName + "= ?1 order by objectname_code";
-            return HqlQueryHelper.find(currentSession(), queryString, value);
+            return JpqlQueryHelper.find(entityManager(), queryString, value);
         } catch (RuntimeException re) {
             logger.error("find by property name failed", re);
             throw re;
@@ -211,7 +217,7 @@ public class SecobjprivilegeDaoImpl extends AbstractHibernateDao implements Seco
         List<Secobjprivilege> results = new ArrayList<Secobjprivilege>();
 
         @SuppressWarnings("unchecked")
-        List<Secobjprivilege> lst = (List<Secobjprivilege>) HqlQueryHelper.find(currentSession(), queryString, o);
+        List<Secobjprivilege> lst = (List<Secobjprivilege>) JpqlQueryHelper.find(entityManager(), queryString, o);
 
         for (Secobjprivilege p : lst) {
             if (roles.contains(p.getRoleusergroup())) {
@@ -227,6 +233,6 @@ public class SecobjprivilegeDaoImpl extends AbstractHibernateDao implements Seco
         String hql = "from Secobjprivilege obj where obj.roleusergroup IN (:roles)";
         Map<String, Object> params = new HashMap<>();
         params.put("roles", roles);
-        return (List<Secobjprivilege>) HqlQueryHelper.find(currentSession(), hql, params);
+        return (List<Secobjprivilege>) JpqlQueryHelper.find(entityManager(), hql, params);
     }
 }

@@ -62,14 +62,22 @@ public class GenerateTraceabilityUtil {
         HttpSession session = request.getSession();
         ServletContext servletContext = session.getServletContext();
         String realPath = servletContext.getRealPath("/");
-        Iterator<File> iterator = FileUtils.iterateFiles(new File(realPath), null, true);
+        if (realPath == null) {
+            throw new SecurityException("Cannot resolve webapp directory path");
+        }
+        File webappDir = new File(realPath);
+        // Defense-in-depth: verify the webapp directory exists and is actually a directory
+        if (!webappDir.exists() || !webappDir.isDirectory()) {
+            throw new SecurityException("Webapp directory does not exist or is not a directory: " + realPath);
+        }
+        Iterator<File> iterator = FileUtils.iterateFiles(webappDir, null, true);
         while (iterator.hasNext()) {
             File f_ = iterator.next();
-            FileInputStream fi_ = new FileInputStream(f_);
             String path = f_.getAbsolutePath();
             path = path.replace(realPath, "");
-            traceMap.put(path, DigestUtils.sha256Hex(fi_));
-            fi_.close();
+            try (FileInputStream fi_ = new FileInputStream(f_)) {
+                traceMap.put(path, DigestUtils.sha256Hex(fi_));
+            }
         }
 
         return traceMap;

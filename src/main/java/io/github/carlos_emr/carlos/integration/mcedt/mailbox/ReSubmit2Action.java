@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.integration.mcedt.DelegateFactory;
 import io.github.carlos_emr.carlos.integration.mcedt.McedtMessageCreator;
+import io.github.carlos_emr.carlos.integration.mcedt.McedtSecurity;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -58,6 +59,8 @@ public class ReSubmit2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
+        McedtSecurity.requireWrite(request);
+        McedtSecurity.requirePost(request);
         List<BigInteger> resourceIds = getResourceIds(request);
         String serviceId = getServiceId(request);
         if (serviceId == null || serviceId.trim().equals("")) serviceId = getDefaultServiceId();
@@ -77,7 +80,7 @@ public class ReSubmit2Action extends ActionSupport {
 
             List<DetailDataCustom> resourceList = getResourceList();
 
-            request.getSession().setAttribute("resourceListSent", resourceList);
+            request.getSession().setAttribute("resourceListSent", resourceList); // nosemgrep: tainted-session-from-http-request -- MCEDT resource list from EDT service response
 
             return SUCCESS;
         } catch (Exception e) {
@@ -103,11 +106,11 @@ public class ReSubmit2Action extends ActionSupport {
                 BigInteger resultSize = null;
                 if (result != null)
                     resultSize = result.getResultSize();
-                request.getSession().setAttribute("resultSize", resultSize);
+                request.getSession().setAttribute("resultSize", resultSize); // nosemgrep: tainted-session-from-http-request -- computed list size, not from user input
 
                 if (request.getSession().getAttribute("resourceTypeList") == null) {
                     this.setTypeListResult(ActionUtils.getTypeList(request, delegate));
-                    request.getSession().setAttribute("resourceTypeList", this.getTypeListResult());
+                    request.getSession().setAttribute("resourceTypeList", this.getTypeListResult()); // nosemgrep: tainted-session-from-http-request -- MCEDT type list from EDT service response
                 } else {
                     this.setTypeListResult((TypeListResult) request.getSession().getAttribute("resourceTypeList"));
                 }

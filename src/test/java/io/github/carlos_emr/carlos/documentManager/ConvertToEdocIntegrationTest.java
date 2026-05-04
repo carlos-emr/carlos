@@ -54,7 +54,7 @@ import static org.assertj.core.api.Assertions.assertThatNoException;
 @DisplayName("ConvertToEdoc Integration Tests")
 class ConvertToEdocIntegrationTest {
 
-    private static final String FORM_DATA = "<!DOCTYPE html><html><head><meta http-equiv=\"content-type\" content=\"text/html; charset=UTF-8\"><title>Rich Text Letter</title><style type=\"text/css\">.butn {width: 140px;}</style></head><body bgcolor=\"FFFFFF\"><form action=\"../eform/addEForm.do\" method=\"POST\" name=\"RichTextLetter\"><input type=\"hidden\" value=\"Colcamex Test Clinic\" name=\"clinic_name\" id=\"clinic_name\"><input type=\"hidden\" value=\"TEST, MISTER\" name=\"patient_name\" id=\"patient_name\"><textarea name=\"Letter\" id=\"Letter\" style=\"width:600px; display: none;\"><section><div id=\"container\"><header><div id=\"returnaddress\"><span>Second Floor, 2405 Wesbrook Mall</span></div></header></div></section></textarea></form></body></html>";
+    private static final String FORM_DATA = "<!DOCTYPE html><html><head><meta http-equiv=\"content-type\" content=\"text/html; charset=UTF-8\"><title>Rich Text Letter</title><style type=\"text/css\">.butn {width: 140px;}</style></head><body bgcolor=\"FFFFFF\"><form action=\"../eform/addEForm\" method=\"POST\" name=\"RichTextLetter\"><input type=\"hidden\" value=\"Colcamex Test Clinic\" name=\"clinic_name\" id=\"clinic_name\"><input type=\"hidden\" value=\"TEST, MISTER\" name=\"patient_name\" id=\"patient_name\"><textarea name=\"Letter\" id=\"Letter\" style=\"width:600px; display: none;\"><section><div id=\"container\"><header><div id=\"returnaddress\"><span>Second Floor, 2405 Wesbrook Mall</span></div></header></div></section></textarea></form></body></html>";
 
     private EFormData eformData;
 

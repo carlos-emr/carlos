@@ -125,7 +125,8 @@ public class CtlBillingServiceDaoIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should return non-null and non-empty unique service types with default status")
         void shouldReturnNonEmptyUniqueServiceTypes_withDefaultStatus() {
-            List<Object[]> serviceTypes = dao.getUniqueServiceTypes();
+            List<io.github.carlos_emr.carlos.billings.ca.on.dto.UniqueServiceTypeRow> serviceTypes =
+                    dao.getUniqueServiceTypes();
 
             assertThat(serviceTypes).isNotNull();
             assertThat(serviceTypes).isNotEmpty();
@@ -134,7 +135,7 @@ public class CtlBillingServiceDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return all service types grouped by type")
-        void shouldReturnAllServiceTypes() {
+        void shouldReturnAllServiceTypes_forDefaultInput() {
             List<Object[]> serviceTypes = dao.getAllServiceTypes();
 
             assertThat(serviceTypes).isNotEmpty();
@@ -207,13 +208,14 @@ public class CtlBillingServiceDaoIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should find service types excluding deleted")
         void shouldReturnServiceTypes_excludingDeleted() {
-            List<Object[]> result = dao.findServiceTypes();
+            List<io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow> result =
+                    dao.findServiceTypes();
 
             // Should return non-deleted types with non-null, non-empty serviceType
             assertThat(result).isNotEmpty();
             // RAD with status "D" should be excluded
             List<String> serviceTypes = result.stream()
-                    .map(row -> (String) row[0])
+                    .map(io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow::serviceType)
                     .toList();
             assertThat(serviceTypes).doesNotContain("RAD");
             assertThat(serviceTypes).contains("MFP", "LAB");
@@ -243,12 +245,15 @@ public class CtlBillingServiceDaoIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should find service types by status")
         void shouldReturnServiceTypes_byStatus() {
-            List<Object[]> result = dao.findServiceTypesByStatus("A");
+            List<io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow> result =
+                    dao.findServiceTypesByStatus("A");
 
             assertThat(result).isNotEmpty();
-            // Should contain MFP and LAB (active), not RAD (deleted)
+            // Should contain MFP and LAB (active), not RAD (deleted).
+            // After fold the result is normalized to (serviceType, serviceTypeName) ordering;
+            // legacy SQL projected (serviceTypeName, serviceType).
             List<String> types = result.stream()
-                    .map(row -> (String) row[1])
+                    .map(io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow::serviceType)
                     .toList();
             assertThat(types).contains("MFP", "LAB");
             assertThat(types).doesNotContain("RAD");
@@ -258,16 +263,17 @@ public class CtlBillingServiceDaoIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should find deleted service types by status D")
         void shouldReturnDeletedServiceTypes_byStatusD() {
-            List<Object[]> result = dao.findServiceTypesByStatus("D");
+            List<io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow> result =
+                    dao.findServiceTypesByStatus("D");
 
             assertThat(result).hasSize(1);
-            assertThat(result.get(0)[1]).isEqualTo("RAD");
+            assertThat(result.get(0).serviceType()).isEqualTo("RAD");
         }
 
         @Test
         @Tag("query")
         @DisplayName("should find all services")
-        void shouldReturnAllServices() {
+        void shouldReturnAllServices_forDefaultInput() {
             List<CtlBillingService> all = dao.findAll();
 
             assertThat(all).hasSize(4);

@@ -45,24 +45,28 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
 
+import java.util.Arrays;
+
 import org.apache.logging.log4j.Logger;
 import org.hibernate.Hibernate;
-import org.hibernate.Session;
-import org.hibernate.query.NativeQuery;
-import org.hibernate.query.Query;
+
+import jakarta.persistence.Query;
+import jakarta.persistence.TypedQuery;
 
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
+import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementNoteListDTO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementSearchBean;
 import io.github.carlos_emr.carlos.commn.model.Provider;
-import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
+import io.github.carlos_emr.carlos.utility.EncounterUtil;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.transaction.annotation.Transactional;
 
-import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
+import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
 @Transactional
-public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements CaseManagementNoteDAO {
+public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseManagementNoteDAO {
 
     private static Logger log = MiscUtils.getLogger();
 
@@ -71,7 +75,7 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
     public List<CaseManagementNote> findAll() {
         log.warn(
                 "A METHOD THAT IS LIKELY TO CAUSE A CRASH HAS BEEN INVOKED. PLEASE LIMIT THE USE OF THIS METHOD, AS IT'S LIKELY TO EXHAUST MEMORY AND MAY LEAD TO A SERVER CRASH. CONSIDER PAGINATING THE INVOCATION INSTEAD");
-        return (List<CaseManagementNote>) HqlQueryHelper.find(currentSession(), "FROM CaseManagementNote");
+        return (List<CaseManagementNote>) JpqlQueryHelper.find(entityManager(), "FROM CaseManagementNote");
     }
 
     @SuppressWarnings("unchecked")
@@ -80,7 +84,7 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
         String uuid = note.getUuid();
         if (uuid == null) return Collections.emptyList();
         String hql = "select distinct p from Provider p, CaseManagementNote cmn where p.ProviderNo = cmn.providerNo and cmn.uuid = ?1";
-        return (List<Provider>) HqlQueryHelper.find(currentSession(), hql, uuid);
+        return (List<Provider>) JpqlQueryHelper.find(entityManager(), hql, uuid);
     }
 
     @SuppressWarnings("unchecked")
@@ -88,7 +92,7 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
     public List<Provider> getAllEditors(String demographicNo) {
         if (demographicNo == null) return Collections.emptyList();
         String hql = "select distinct p from Provider p, CaseManagementNote cmn where p.ProviderNo = cmn.providerNo and cmn.demographic_no = ?1";
-        return (List<Provider>) HqlQueryHelper.find(currentSession(), hql, demographicNo);
+        return (List<Provider>) JpqlQueryHelper.find(entityManager(), hql, demographicNo);
     }
 
     @SuppressWarnings("unchecked")
@@ -96,7 +100,7 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
     public List<CaseManagementNote> getHistory(CaseManagementNote note) {
         String uuid = note.getUuid();
         if (uuid == null) return Collections.emptyList();
-        return (List<CaseManagementNote>) HqlQueryHelper.find(currentSession(),
+        return (List<CaseManagementNote>) JpqlQueryHelper.find(entityManager(),
                 "from CaseManagementNote cmn where cmn.uuid = ?1 order by cmn.update_date asc", uuid);
     }
 
@@ -112,10 +116,10 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
         params.put("demoNo", demoNo);
 
         String hql = "select cmn from CaseManagementNote cmn join cmn.issues i where i.issue_id in (:issueIds) and cmn.demographic_no = :demoNo ORDER BY cmn.observation_date asc";
-        List<CaseManagementNote> issueList = (List<CaseManagementNote>) HqlQueryHelper.find(currentSession(), hql, params);
+        List<CaseManagementNote> issueList = (List<CaseManagementNote>) JpqlQueryHelper.find(entityManager(), hql, params);
 
         hql = "select max(cmn.id) from CaseManagementNote cmn join cmn.issues i where i.issue_id in (:issueIds) and cmn.demographic_no = :demoNo group by cmn.uuid order by max(cmn.id)";
-        List<Long> currNoteList = (List<Long>) HqlQueryHelper.find(currentSession(), hql, params);
+        List<Long> currNoteList = (List<Long>) JpqlQueryHelper.find(entityManager(), hql, params);
 
         for (CaseManagementNote issueNote : issueList) {
             if (currNoteList.contains(issueNote.getId())) {
@@ -128,8 +132,8 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
 
     @Override
     public CaseManagementNote getNote(Long id) {
-        CaseManagementNote note = currentSession().get(CaseManagementNote.class, id);
-        // currentSession().get() returns null when no record exists for the given id;
+        CaseManagementNote note = entityManager().find(CaseManagementNote.class, id);
+        // entityManager().find() returns null when no record exists for the given id;
         // guard prevents NPE on lazy-collection initialization for deleted or missing notes
         if (note != null) {
             Hibernate.initialize(note.getIssues());
@@ -145,7 +149,7 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
         Map<String, Object> params = new HashMap<>();
         params.put("ids", ids);
         @SuppressWarnings("unchecked")
-        List<CaseManagementNote> notes = (List<CaseManagementNote>) HqlQueryHelper.find(currentSession(), hql, params);
+        List<CaseManagementNote> notes = (List<CaseManagementNote>) JpqlQueryHelper.find(entityManager(), hql, params);
         return notes;
     }
 
@@ -158,7 +162,7 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
         Map<String, Object> params = new HashMap<>();
         params.put("uuid", uuid);
         @SuppressWarnings("unchecked")
-        List<CaseManagementNote> tmp = (List<CaseManagementNote>) HqlQueryHelper.find(currentSession(), hql, params);
+        List<CaseManagementNote> tmp = (List<CaseManagementNote>) JpqlQueryHelper.find(entityManager(), hql, params);
 
         if (tmp == null || tmp.isEmpty())
             return null;
@@ -170,7 +174,7 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
     public List<CaseManagementNote> getNotesByUUID(String uuid) {
         String hql = "select cmn from CaseManagementNote cmn where cmn.uuid = ?1 order by cmn.id";
         @SuppressWarnings("unchecked")
-        List<CaseManagementNote> ret = (List<CaseManagementNote>) HqlQueryHelper.find(currentSession(), hql, uuid);
+        List<CaseManagementNote> ret = (List<CaseManagementNote>) JpqlQueryHelper.find(entityManager(), hql, uuid);
         return ret;
     }
 
@@ -194,7 +198,7 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
         String hql = "select distinct cmn from CaseManagementNote cmn join cmn.issues i where i.issue_id = ?1 and cmn.demographic_no = ?2 and cmn.observation_date >= ?3  and cmn.id in (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.demographic_no = ?4 GROUP BY cmn2.uuid) ORDER BY cmn.observation_date asc";
 
         @SuppressWarnings("unchecked")
-        List<CaseManagementNote> result = (List<CaseManagementNote>) HqlQueryHelper.find(currentSession(), hql,
+        List<CaseManagementNote> result = (List<CaseManagementNote>) JpqlQueryHelper.find(entityManager(), hql,
                 issueId, demoNo, d, demoNo);
         return result;
     }
@@ -224,17 +228,17 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
         params.put("staleDate", d);
 
         @SuppressWarnings("unchecked")
-        List<CaseManagementNote> result = (List<CaseManagementNote>) HqlQueryHelper.find(currentSession(), hql, params);
+        List<CaseManagementNote> result = (List<CaseManagementNote>) JpqlQueryHelper.find(entityManager(), hql, params);
         return result;
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNote> getNotesByDemographic(String demographic_no, String staleDate) {
-        Query<?> q = currentSession().createNamedQuery("mostRecentTime");
+        Query q = entityManager().createNamedQuery("mostRecentTime");
         q.setParameter("demographicNo", demographic_no);
         q.setParameter("staleDate", staleDate);
-        return (List<CaseManagementNote>) q.list();
+        return (List<CaseManagementNote>) q.getResultList();
     }
 
     // This was created by OSCAR. if all notes' UUID are same like null, it will
@@ -243,48 +247,48 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
     @Override
     public List<CaseManagementNote> getNotesByDemographic(String demographic_no) {
         String hql = "select cmn from CaseManagementNote cmn where cmn.demographic_no = ?1 and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.uuid = cmn.uuid) order by cmn.observation_date";
-        return (List<CaseManagementNote>) HqlQueryHelper.find(currentSession(), hql, demographic_no);
+        return (List<CaseManagementNote>) JpqlQueryHelper.find(entityManager(), hql, demographic_no);
     }
 
     @Override
     public List<CaseManagementNote> getNotesByDemographicSince(String demographic_no, Date date) {
         if (demographic_no == null || date == null) return Collections.emptyList();
         String hql = "select cmn from CaseManagementNote cmn where cmn.demographic_no = ?1 and cmn.update_date > ?2 and cmn.locked = false and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.uuid = cmn.uuid) order by cmn.observation_date";
-        return (List<CaseManagementNote>) HqlQueryHelper.find(currentSession(), hql, demographic_no, date);
+        return (List<CaseManagementNote>) JpqlQueryHelper.find(entityManager(), hql, demographic_no, date);
     }
 
     @Override
     public long getNotesCountByDemographicId(String demographic_no) {
         String hql = "select count(*) from CaseManagementNote cmm where cmm.demographic_no = ?1";
-        return ((Long) HqlQueryHelper.find(currentSession(), hql, demographic_no).get(0)).longValue();
+        return ((Long) JpqlQueryHelper.find(entityManager(), hql, demographic_no).get(0)).longValue();
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public List<Object[]> getRawNoteInfoByDemographic(String demographic_no) {
         String hql = "select cmn.id,cmn.observation_date,cmn.providerNo,cmn.program_no,cmn.reporter_caisi_role,cmn.uuid from CaseManagementNote cmn where cmn.demographic_no = ?1 order by cmn.update_date DESC";
-        return (List<Object[]>) HqlQueryHelper.find(currentSession(), hql, demographic_no);
+        return (List<Object[]>) JpqlQueryHelper.find(entityManager(), hql, demographic_no);
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public List<Map<String, Object>> getRawNoteInfoMapByDemographic(String demographic_no) {
         String hql = "select new map(cmn.id as id,cmn.observation_date as observation_date,cmn.providerNo as providerNo,cmn.program_no as program_no,cmn.reporter_caisi_role as reporter_caisi_role,cmn.uuid as uuid, cmn.update_date as update_date) from CaseManagementNote cmn where cmn.demographic_no = ?1 order by cmn.update_date DESC";
-        return (List<Map<String, Object>>) HqlQueryHelper.find(currentSession(), hql, demographic_no);
+        return (List<Map<String, Object>>) JpqlQueryHelper.find(entityManager(), hql, demographic_no);
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public List<Map<String, Object>> getUnsignedRawNoteInfoMapByDemographic(String demographic_no) {
         String hql = "select new map(cmn.id as id,cmn.observation_date as observation_date,cmn.providerNo as providerNo,cmn.program_no as program_no,cmn.reporter_caisi_role as reporter_caisi_role,cmn.uuid as uuid, cmn.update_date as update_date) from CaseManagementNote cmn where cmn.demographic_no = ?1 and cmn.signed=?2 and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.uuid = cmn.uuid) order by cmn.update_date DESC";
-        return (List<Map<String, Object>>) HqlQueryHelper.find(currentSession(), hql, demographic_no, false);
+        return (List<Map<String, Object>>) JpqlQueryHelper.find(entityManager(), hql, demographic_no, false);
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNote> getNotesByDemographic(String demographic_no, Integer maxNotes) {
         String hql = "select cmn from CaseManagementNote cmn where cmn.demographic_no = ?1 and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.uuid = cmn.uuid) order by cmn.observation_date desc";
-        return (List<CaseManagementNote>) HqlQueryHelper.findWithLimit(currentSession(), hql, maxNotes, demographic_no);
+        return (List<CaseManagementNote>) JpqlQueryHelper.findWithLimit(entityManager(), hql, maxNotes, demographic_no);
     }
 
     @SuppressWarnings("unchecked")
@@ -302,7 +306,7 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
             Map<String, Object> params = new HashMap<>();
             params.put("issueIds", issueIdList);
             params.put("demoNo", demographic_no);
-            return (List<CaseManagementNote>) HqlQueryHelper.find(currentSession(), hql, params);
+            return (List<CaseManagementNote>) JpqlQueryHelper.find(entityManager(), hql, params);
 
         } else {
             long id = Long.parseLong(issues[0]);
@@ -311,12 +315,12 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
             Map<String, Object> params = new HashMap<>();
             params.put("issueId", id);
             params.put("demoNo", demographic_no);
-            List<CaseManagementNote> issueList = (List<CaseManagementNote>) HqlQueryHelper.find(currentSession(), hql, params);
+            List<CaseManagementNote> issueList = (List<CaseManagementNote>) JpqlQueryHelper.find(entityManager(), hql, params);
 
             hql = "select max(cmn.id) from CaseManagementNote cmn where cmn.demographic_no = :demoNo group by cmn.uuid order by max(cmn.id)";
             Map<String, Object> params2 = new HashMap<>();
             params2.put("demoNo", demographic_no);
-            List<Long> currNoteList = (List<Long>) HqlQueryHelper.find(currentSession(), hql, params2);
+            List<Long> currNoteList = (List<Long>) JpqlQueryHelper.find(entityManager(), hql, params2);
 
             for (CaseManagementNote issueNote : issueList) {
                 if (currNoteList.contains(issueNote.getId())) {
@@ -339,7 +343,7 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
         Map<String, Object> params = new HashMap<>();
         params.put("issueIds", issueIdList);
         params.put("demoNo", demographic_no);
-        return (List<CaseManagementNote>) HqlQueryHelper.findWithLimit(currentSession(), hql, maxNotes, params);
+        return (List<CaseManagementNote>) JpqlQueryHelper.findWithLimit(entityManager(), hql, maxNotes, params);
     }
 
     @SuppressWarnings("unchecked")
@@ -354,13 +358,12 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
         Map<String, Object> params = new HashMap<>();
         params.put("issueIds", issueIdList);
         params.put("demoNo", demographic_no);
-        return (List<CaseManagementNote>) HqlQueryHelper.find(currentSession(), hql, params);
+        return (List<CaseManagementNote>) JpqlQueryHelper.find(entityManager(), hql, params);
     }
 
     @Override
     public Collection<CaseManagementNote> findNotesByDemographicAndIssueCode(Integer demographic_no,
                                                                              String[] issueCodes) {
-        Session session = currentSession();
         List<CaseManagementNote> notes = new ArrayList<CaseManagementNote>();
         StringBuilder sqlCommand = new StringBuilder(
                 "select distinct casemgmt_note.note_id from issue,casemgmt_issue,casemgmt_issue_notes,casemgmt_note " +
@@ -372,15 +375,18 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
             
             sqlCommand.append("and casemgmt_issue_notes.id=casemgmt_issue.id and casemgmt_issue_notes.note_id=casemgmt_note.note_id");
             
-            NativeQuery<?> query = session.createNativeQuery(sqlCommand.toString());
+            Query query = entityManager().createNativeQuery(sqlCommand.toString());
             query.setParameter("demographicNo", demographic_no);
 
             if (issueCodes != null && issueCodes.length > 0) {
-                query.setParameterList("issueCodes", issueCodes);
+                // Hibernate 7 extension: setParameter with a List on a native query expands the collection
+                // into the IN clause — this is not guaranteed by the JPA spec but is supported by Hibernate
+                // as NativeQueryImplementor (replaces the pre-migration setParameterList() call).
+                query.setParameter("issueCodes", Arrays.asList(issueCodes));
             }
 
             @SuppressWarnings("unchecked")
-            List<?> ids = query.list();
+            List<?> ids = query.getResultList();
             for (Object id : ids) {
                 if (id instanceof Number) {
                     notes.add(getNote(((Number) id).longValue()));
@@ -411,30 +417,30 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
     @Override
     public List<CaseManagementNote> getNotesByDemographicDateRange(String demographic_no, Date startDate,
                                                                    Date endDate) {
-        Query<?> q = currentSession().createNamedQuery("mostRecentDateRange");
+        Query q = entityManager().createNamedQuery("mostRecentDateRange");
         q.setParameter("demographicNo", demographic_no);
         q.setParameter("startDate", startDate);
         q.setParameter("endDate", endDate);
-        return (List<CaseManagementNote>) q.list();
+        return (List<CaseManagementNote>) q.getResultList();
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNote> getNotesByDemographicLimit(String demographic_no, Integer offset,
                                                                Integer numToReturn) {
-        Query<?> q = currentSession().createNamedQuery("mostRecentLimit");
+        Query q = entityManager().createNamedQuery("mostRecentLimit");
         q.setParameter("demographicNo", demographic_no);
         q.setFirstResult(offset);
         q.setMaxResults(numToReturn);
-        return (List<CaseManagementNote>) q.list();
+        return (List<CaseManagementNote>) q.getResultList();
     }
 
     @Override
     @Transactional(readOnly = false)
     public void updateNote(CaseManagementNote note) {
         note.setUpdate_date(new Date());
-        currentSession().merge(note);
-        currentSession().flush();
+        entityManager().merge(note);
+        entityManager().flush();
     }
 
     /**
@@ -460,11 +466,11 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
         // existing IDs — merge reattaches them. persist is for new notes only.
         // updateNote() also exists but callers historically use saveNote for both.
         if (note.getId() != null && note.getId() > 0) {
-            currentSession().merge(note);
+            entityManager().merge(note);
         } else {
-            currentSession().persist(note);
+            entityManager().persist(note);
         }
-        currentSession().flush();
+        entityManager().flush();
     }
 
     /**
@@ -488,9 +494,9 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
             note.setUpdate_date(new Date());
         }
         if (note.getId() != null && note.getId() > 0) {
-            return currentSession().merge(note);
+            return entityManager().merge(note);
         } else {
-            currentSession().persist(note);
+            entityManager().persist(note);
             return note;
         }
     }
@@ -533,8 +539,8 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
             hql += " ORDER BY cmn.update_date DESC";
 
             @SuppressWarnings("unchecked")
-            List<CaseManagementNote> results = (List<CaseManagementNote>) HqlQueryHelper.find(
-                    currentSession(), hql, params);
+            List<CaseManagementNote> results = (List<CaseManagementNote>) JpqlQueryHelper.find(
+                    entityManager(), hql, params);
             return results;
 
         } catch (ParseException e) {
@@ -546,26 +552,26 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
     @Override
     public List<Long> getAllNoteIds() {
         @SuppressWarnings("unchecked")
-        List<Long> results = (List<Long>) HqlQueryHelper.find(currentSession(), "select n.id from CaseManagementNote n");
+        List<Long> results = (List<Long>) JpqlQueryHelper.find(entityManager(), "select n.id from CaseManagementNote n");
         return results;
     }
 
     @Override
     public boolean haveIssue(Long issid, String demoNo) {
-        NativeQuery<?> query = currentSession().createNativeQuery(
+        Query query = entityManager().createNativeQuery(
                 "SELECT * FROM casemgmt_issue_notes WHERE id = :issId");
         query.setParameter("issId", issid);
-        List<?> results = query.list();
+        List<?> results = query.getResultList();
         return !results.isEmpty();
     }
 
     @Override
     public boolean haveIssue(String issueCode, Integer demographicId) {
-        NativeQuery<?> query = currentSession().createNativeQuery(
+        Query query = entityManager().createNativeQuery(
                 "SELECT casemgmt_issue.id FROM casemgmt_issue_notes, casemgmt_issue, issue WHERE issue.issue_id = casemgmt_issue.issue_id AND casemgmt_issue.id = casemgmt_issue_notes.id AND demographic_no = :demographicId AND issue.code = :issueCode");
         query.setParameter("demographicId", demographicId);
         query.setParameter("issueCode", issueCode);
-        List<?> results = query.list();
+        List<?> results = query.getResultList();
         return !results.isEmpty();
     }
 
@@ -576,16 +582,14 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
     @Override
     public int getNoteCountForProviderForDateRange(String providerNo, Date startDate, Date endDate) {
         try {
-            Session session = currentSession();
             String sqlCommand = "select count(distinct uuid) from casemgmt_note where provider_no = :providerNo and observation_date >= :startDate and observation_date <= :endDate";
 
-            @SuppressWarnings("unchecked")
-            NativeQuery<Number> query = session.createNativeQuery(sqlCommand);
+            Query query = entityManager().createNativeQuery(sqlCommand);
             query.setParameter("providerNo", providerNo);
             query.setParameter("startDate", new Timestamp(startDate.getTime()));
             query.setParameter("endDate", new Timestamp(endDate.getTime()));
 
-            Number result = (Number) query.uniqueResultOptional().orElse(null);
+            Number result = (Number) query.getSingleResult();
             return result != null ? result.intValue() : 0;
         } catch (RuntimeException e) {
             log.error("getNoteCountForProviderForDateRange failed for providerNo={}", providerNo, e);
@@ -597,21 +601,19 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
     public int getNoteCountForProviderForDateRangeWithIssueId(String providerNo, Date startDate, Date endDate,
                                                               String issueCode) {
         try {
-            Session session = currentSession();
-
             // Step 1: Get issue_id from issue code
             String getIssueIdSql = "SELECT issue_id FROM issue WHERE code = :issueCode";
             log.debug(getIssueIdSql);
 
-            @SuppressWarnings("unchecked")
-            NativeQuery<Integer> issueQuery = session.createNativeQuery(getIssueIdSql);
+            Query issueQuery = entityManager().createNativeQuery(getIssueIdSql);
             issueQuery.setParameter("issueCode", issueCode);
 
-            Integer issueId = (Integer) issueQuery.uniqueResultOptional().orElse(null);
-            if (issueId == null) {
+            List<?> issueResults = issueQuery.getResultList();
+            if (issueResults.isEmpty()) {
                 log.debug("Could not find issueCode: " + issueCode);
                 return 0;
             }
+            int issueId = ((Number) issueResults.get(0)).intValue();
 
             log.debug("issue Code " + issueCode + " id :" + issueId);
 
@@ -619,14 +621,13 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
             String sqlCommand = "select count(distinct uuid) from casemgmt_issue c, casemgmt_issue_notes cin, casemgmt_note cn where c.issue_id = :issueId and c.id = cin.id and cin.note_id = cn.note_id and cn.provider_no = :providerNo and observation_date >= :startDate and observation_date <= :endDate";
             log.debug(sqlCommand);
 
-            @SuppressWarnings("unchecked")
-            NativeQuery<Number> countQuery = session.createNativeQuery(sqlCommand);
+            Query countQuery = entityManager().createNativeQuery(sqlCommand);
             countQuery.setParameter("issueId", issueId);
             countQuery.setParameter("providerNo", providerNo);
             countQuery.setParameter("startDate", new Timestamp(startDate.getTime()));
             countQuery.setParameter("endDate", new Timestamp(endDate.getTime()));
 
-            Number result = (Number) countQuery.uniqueResultOptional().orElse(null);
+            Number result = (Number) countQuery.getSingleResult();
             int finalCount = result != null ? result.intValue() : 0;
             return finalCount;
         } catch (RuntimeException e) {
@@ -641,7 +642,7 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
         String hql = "select distinct cmn from CaseManagementNote cmn where cmn.id in (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.demographic_no = ?1 GROUP BY cmn2.uuid) and cmn.demographic_no = ?2 and cmn.note like ?3 and cmn.archived = false";
 
         @SuppressWarnings("unchecked")
-        List<CaseManagementNote> result = (List<CaseManagementNote>) HqlQueryHelper.find(currentSession(), hql,
+        List<CaseManagementNote> result = (List<CaseManagementNote>) JpqlQueryHelper.find(entityManager(), hql,
                 demographic_no, demographic_no, searchString);
         return result;
     }
@@ -652,7 +653,7 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
         String queryStr = "FROM CaseManagementNote x WHERE x.program_no=?1 and x.observation_date>=?2 and x.observation_date<=?3";
 
         @SuppressWarnings("unchecked")
-        List<CaseManagementNote> rs = (List<CaseManagementNote>) HqlQueryHelper.find(currentSession(), queryStr,
+        List<CaseManagementNote> rs = (List<CaseManagementNote>) JpqlQueryHelper.find(entityManager(), queryStr,
                 programId.toString(), minObservationDate, maxObservationDate);
 
         return rs;
@@ -662,7 +663,7 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
     public List<CaseManagementNote> getMostRecentNotesByAppointmentNo(int appointmentNo) {
         String hql = "select distinct cmn.uuid from CaseManagementNote cmn where cmn.appointmentNo = ?1";
         @SuppressWarnings("unchecked")
-        List<String> tmp = (List<String>) HqlQueryHelper.find(currentSession(), hql, appointmentNo);
+        List<String> tmp = (List<String>) JpqlQueryHelper.find(entityManager(), hql, appointmentNo);
         List<CaseManagementNote> mostRecents = new ArrayList<CaseManagementNote>();
         for (String uuid : tmp) {
             mostRecents.add(this.getMostRecentNote(uuid));
@@ -674,7 +675,7 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
     public List<CaseManagementNote> getMostRecentNotes(Integer demographicNo) {
         String hql = "select distinct cmn.uuid from CaseManagementNote cmn where cmn.demographic_no = ?1";
         @SuppressWarnings("unchecked")
-        List<String> tmp = (List<String>) HqlQueryHelper.find(currentSession(), hql,
+        List<String> tmp = (List<String>) JpqlQueryHelper.find(entityManager(), hql,
                 String.valueOf(demographicNo));
         List<CaseManagementNote> mostRecents = new ArrayList<CaseManagementNote>();
         for (String uuid : tmp) {
@@ -687,7 +688,7 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
     public Long findMaxNoteId() {
         String sql = "select max(c.id) from CaseManagementNote c";
         @SuppressWarnings("unchecked")
-        List<Object> r = (List<Object>) HqlQueryHelper.find(currentSession(), sql);
+        List<Object> r = (List<Object>) JpqlQueryHelper.find(entityManager(), sql);
         if (r.isEmpty()) {
             return 0L;
         }
@@ -711,7 +712,7 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
         Map<String, Object> params = new HashMap<>();
         params.put("programIds", programIds);
         params.put("updateDate", date);
-        List<String> results = (List<String>) HqlQueryHelper.find(currentSession(), hql, params);
+        List<String> results = (List<String>) JpqlQueryHelper.find(entityManager(), hql, params);
 
         List<Integer> results2 = new ArrayList<Integer>();
         for (String r : results) {
@@ -726,5 +727,104 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
             issueIdList.add(Long.parseLong(id.trim()));
         }
         return issueIdList;
+    }
+
+    /**
+     * Returns lightweight case management note list DTOs for a demographic, ordered by
+     * observation date descending. Pre-joins provider name (HBM PascalCase:
+     * {@code p.LastName}, {@code p.FirstName}) via LEFT JOIN. Eliminates 3 {@code lazy=false}
+     * collections on the full {@code CaseManagementNote} entity.
+     *
+     * @param demographicNo String the demographic number
+     * @return List&lt;CaseManagementNoteListDTO&gt; ordered by observation_date descending; empty if none found
+     * @throws org.hibernate.HibernateException if the underlying query fails
+     * @since 2026-04-11
+     */
+    @SuppressWarnings("unchecked")
+    @Override
+    public List<CaseManagementNoteListDTO> findNoteDTOsByDemographicNo(String demographicNo) {
+        // HBM-mapped Provider uses PascalCase property names (ProviderNo, LastName,
+        // FirstName) per Provider.hbm.xml; HQL must reference the HBM name attribute.
+        TypedQuery<CaseManagementNoteListDTO> query = entityManager().createQuery("""
+                SELECT NEW io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementNoteListDTO(
+                    cmn.id, cmn.update_date, cmn.observation_date, cmn.demographic_no,
+                    cmn.signed, cmn.providerNo, cmn.signing_provider_no, cmn.encounter_type,
+                    cmn.billing_code, cmn.program_no, cmn.uuid,
+                    cmn.locked, cmn.archived, cmn.appointmentNo,
+                    p.LastName, p.FirstName)
+                FROM CaseManagementNote cmn
+                LEFT JOIN Provider p ON p.ProviderNo = cmn.providerNo
+                WHERE cmn.demographic_no = :demoNo
+                ORDER BY cmn.observation_date DESC
+                """,
+                CaseManagementNoteListDTO.class);
+        query.setParameter("demoNo", demographicNo);
+        return query.getResultList();
+    }
+
+    /**
+     * Returns encounter counts grouped by {@link EncounterUtil.EncounterType} for the
+     * notes in the given role (and optionally program) in the date range.
+     *
+     * <p>Migrated from the legacy static JDBC helper on {@link CaseManagementNoteDAO}:
+     * converting to an instance method lets this query participate in the Spring
+     * {@link Transactional @Transactional} context via {@link #entityManager()},
+     * rather than running outside Spring transactions on an autoCommit connection.</p>
+     *
+     * @param programId Integer the program number, or {@code null} to span all programs
+     * @param roleId int the reporter_caisi_role to match
+     * @param startDate Date inclusive lower bound on observation_date
+     * @param endDate Date exclusive upper bound on observation_date
+     * @return EncounterCounts non-null aggregate, zero-initialised for types with no matches
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public EncounterCounts getDemographicEncounterCountsByProgramAndRoleId(Integer programId, int roleId,
+                                                                           Date startDate, Date endDate) {
+        EncounterCounts results = new EncounterCounts();
+
+        // Broken down by encounter type
+        String breakdownSql = String.join(" ",
+                "select encounter_type, count(demographic_no), count(distinct demographic_no)",
+                "from casemgmt_note",
+                "where reporter_caisi_role = :roleId",
+                "and observation_date >= :startDate",
+                "and observation_date < :endDate",
+                (programId == null ? "" : "and program_no = :programId"),
+                "group by encounter_type");
+
+        Query breakdownQuery = entityManager().createNativeQuery(breakdownSql);
+        breakdownQuery.setParameter("roleId", roleId);
+        breakdownQuery.setParameter("startDate", new Timestamp(startDate.getTime()));
+        breakdownQuery.setParameter("endDate", new Timestamp(endDate.getTime()));
+        if (programId != null) breakdownQuery.setParameter("programId", programId);
+
+        @SuppressWarnings("unchecked")
+        List<Object[]> breakdownRows = breakdownQuery.getResultList();
+        for (Object[] row : breakdownRows) {
+            EncounterUtil.EncounterType encounterType = EncounterUtil
+                    .getEncounterTypeFromOldDbValue((String) row[0]);
+            results.nonUniqueCounts.put(encounterType, ((Number) row[1]).intValue());
+            results.uniqueCounts.put(encounterType, ((Number) row[2]).intValue());
+        }
+
+        // Total unique count (not broken down)
+        String totalSql = String.join(" ",
+                "select count(distinct demographic_no)",
+                "from casemgmt_note",
+                "where reporter_caisi_role = :roleId",
+                "and observation_date >= :startDate",
+                "and observation_date < :endDate",
+                (programId == null ? "" : "and program_no = :programId"));
+
+        Query totalQuery = entityManager().createNativeQuery(totalSql);
+        totalQuery.setParameter("roleId", roleId);
+        totalQuery.setParameter("startDate", new Timestamp(startDate.getTime()));
+        totalQuery.setParameter("endDate", new Timestamp(endDate.getTime()));
+        if (programId != null) totalQuery.setParameter("programId", programId);
+
+        results.totalUniqueCount = ((Number) totalQuery.getSingleResult()).intValue();
+
+        return results;
     }
 }

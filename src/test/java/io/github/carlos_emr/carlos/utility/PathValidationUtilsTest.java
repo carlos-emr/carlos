@@ -465,6 +465,105 @@ public class PathValidationUtilsTest {
     }
 
     // ========================================================================
+    // REGRESSION CANARY TESTS
+    // These tests are tripwires: if PathValidationUtils is weakened, these must
+    // fail so that downstream CodeQL path-injection dismissals remain defensible.
+    // DO NOT remove or weaken without a formal security review.
+    // ========================================================================
+
+    /**
+     * Regression canary tests for path traversal prevention.
+     *
+     * <p>Seven named tests that explicitly cover the attack vectors cited when
+     * dismissing CodeQL path-injection alerts. If any of these tests start
+     * failing, the corresponding alert dismissals must be revisited.</p>
+     *
+     * @since 2026-04-13
+     */
+    @Nested
+    @DisplayName("Regression Canary Tests")
+    @Tag("security")
+    @Tag("canary")
+    class RegressionCanaryTests {
+
+        @TempDir
+        Path secondTempDir;
+
+        @Test
+        @DisplayName("should throw SecurityException when filename is dot-dot")
+        void shouldThrowSecurityException_whenFilenameContainsDotDot() {
+            // ".." starts with '.' so sanitizeFileName rejects it as a hidden file,
+            // preventing dot-dot directory traversal at the sanitization layer.
+            assertThatThrownBy(() -> PathValidationUtils.validatePath("..", allowedDir))
+                .isInstanceOf(SecurityException.class);
+        }
+
+        @Test
+        @DisplayName("should throw SecurityException when filename starts with dot")
+        void shouldThrowSecurityException_whenFilenameStartsWithDot() {
+            assertThatThrownBy(() -> PathValidationUtils.validatePath(".hidden", allowedDir))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("hidden files not allowed");
+        }
+
+        @Test
+        @DisplayName("should throw SecurityException when absolute path escapes base directory")
+        void shouldThrowSecurityException_whenAbsolutePathEscapesBaseDir() throws IOException {
+            // File resides in a separate temp directory that is not allowedDir
+            File outsideFile = Files.createTempFile(secondTempDir, "outside", ".txt").toFile();
+
+            assertThatThrownBy(() -> PathValidationUtils.validateExistingPath(outsideFile, allowedDir))
+                .isInstanceOf(SecurityException.class);
+        }
+
+        @Test
+        @DisplayName("should throw SecurityException when uploaded file is outside allowed temp directories")
+        void shouldThrowSecurityException_whenUploadedFileOutsideTempDirs() {
+            // /etc/hostname is a standard Linux file that exists outside java.io.tmpdir
+            // and any Tomcat work directory, so validateUpload must reject it.
+            File outsideFile = new File("/etc/hostname");
+            Assumptions.assumeTrue(outsideFile.exists() && outsideFile.isFile(),
+                "Test requires /etc/hostname to exist (Linux-specific)");
+
+            assertThatThrownBy(() -> PathValidationUtils.validateUpload(outsideFile))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("Invalid upload source");
+        }
+
+        @Test
+        @DisplayName("should return safe file when filename is clean")
+        void shouldReturnSafeFile_whenFilenameIsClean() {
+            File result = PathValidationUtils.validatePath("document.pdf", allowedDir);
+
+            assertThat(result).isNotNull();
+            assertThat(result.getParentFile()).isEqualTo(allowedDir);
+            assertThat(result.getName()).isEqualTo("document.pdf");
+        }
+
+        @Test
+        @DisplayName("should strip path components when filename contains forward slash")
+        void shouldStripPathComponents_whenFilenameContainsForwardSlash() {
+            // "sub/../../etc/passwd" is sanitized to just "passwd" and placed inside allowedDir.
+            // The traversal attempt must never produce a path outside allowedDir.
+            File result = PathValidationUtils.validatePath("sub/../../etc/passwd", allowedDir);
+
+            assertThat(result.getName()).isEqualTo("passwd");
+            assertThat(result.getParentFile()).isEqualTo(allowedDir);
+        }
+
+        @Test
+        @DisplayName("should strip path components when filename contains backslash")
+        void shouldStripPathComponents_whenFilenameContainsBackslash() {
+            // Windows-style traversal "dir\..\etc\passwd" is sanitized to just "passwd".
+            // FilenameUtils treats '\' as a path separator on all platforms.
+            File result = PathValidationUtils.validatePath("dir\\..\\etc\\passwd", allowedDir);
+
+            assertThat(result.getName()).isEqualTo("passwd");
+            assertThat(result.getParentFile()).isEqualTo(allowedDir);
+        }
+    }
+
+    // ========================================================================
     // SYMLINK HANDLING (Platform Dependent)
     // ========================================================================
 

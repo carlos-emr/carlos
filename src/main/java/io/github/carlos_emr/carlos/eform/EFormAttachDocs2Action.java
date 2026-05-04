@@ -68,7 +68,8 @@ public class EFormAttachDocs2Action
         String provNo = providerNo;
 
         if (StringUtils.isEmpty(requestId)) {
-            return SUCCESS;
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing requestId");
+            return null;
         }
         if (!CarlosProperties.getInstance().isPropertyActive("consultation_indivica_attachment_enabled")) {
             String[] arrDocs = attachedDocs;
@@ -84,7 +85,6 @@ public class EFormAttachDocs2Action
 
             EFormAttachEForms eForms = new EFormAttachEForms(provNo, demoNo, requestId, arrDocs);
             eForms.attach(loggedInInfo);
-            return SUCCESS;
         } else {
             String[] labs = request.getParameterValues("labNo");
             String[] docs = request.getParameterValues("docNo");
@@ -113,8 +113,15 @@ public class EFormAttachDocs2Action
             hrmReports.attach();
             EFormAttachEForms eForms = new EFormAttachEForms(provNo, demoNo, requestId, eFormIds);
             eForms.attach(loggedInInfo);
-            return SUCCESS;
         }
+        writeOkResponse();
+        return null;
+    }
+
+    private void writeOkResponse() throws IOException {
+        response.setContentType("text/plain");
+        response.getWriter().write("ok");
+        response.getWriter().flush();
     }
 
     private String requestId;

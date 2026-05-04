@@ -58,19 +58,6 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
         return (results);
     }
 
-    /**
-    /**
-     * Retrieves a list of ProfessionalSpecialist entities with a non-null eDataUrl, sorted by lastname and firstname.
-     */
-    public List<ProfessionalSpecialist> findByEDataUrlNotNull() {
-        Query query = entityManager.createQuery("select x from ProfessionalSpecialist x where x.deleted = false and x.eDataUrl is not null order by x.lastName,x.firstName");
-
-        @SuppressWarnings("unchecked")
-        List<ProfessionalSpecialist> results = query.getResultList();
-
-        return (results);
-    }
-
     @Override
     /**
      * Retrieves a list of ProfessionalSpecialist entities by their full name.
@@ -150,10 +137,6 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
 
     }
 
-    @Override
-    public boolean hasRemoteCapableProfessionalSpecialists() {
-        return (findByEDataUrlNotNull().size() > 0);
-    }
     @Override
     public List<ProfessionalSpecialist> search(String keyword) {
         String[] temp = keyword.split("\\,\\p{Space}*");

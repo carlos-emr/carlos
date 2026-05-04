@@ -26,7 +26,7 @@
 			<bottomPen lineWidth="0.5" lineColor="#000000" />
 		</box>
 	</style>
-	<subDataset name="dataset1" />
+	<dataset name="dataset1" />
 	<parameter name="invoice_no" class="java.lang.Integer">
 		<defaultValueExpression><![CDATA[1]]></defaultValueExpression>
 	</parameter>
@@ -65,7 +65,7 @@
 	<background splitType="Stretch">
 		</background>
 	<title height="93" splitType="Stretch">
-		<element kind="image" mode="Transparent" x="306" y="0" width="265" height="87" hAlign="Right">
+		<element kind="image" mode="Transparent" x="306" y="0" width="265" height="87" hImageAlign="Right">
 			<expression><![CDATA[$P{clinic_logo}]]></expression>
 		</element>
 		<element kind="textField" mode="Transparent" x="-1" y="0" width="320" height="23" forecolor="#666666" hTextAlign="Left" vTextAlign="Top" fontSize="16.0" bold="false" italic="false" blankWhenNull="true">
@@ -86,9 +86,7 @@
 	</title>
 	<pageHeader height="274" splitType="Stretch">
 		<element kind="rectangle" x="388" y="181" width="173" height="87">
-			<graphicElement>
-				<pen lineWidth="3.0" lineStyle="Double" />
-			</graphicElement>
+			<pen lineWidth="3.0" lineStyle="Double" />
 		</element>
 		<element kind="textField" mode="Opaque" x="0" y="0" width="570" height="47" backcolor="#999999" hTextAlign="Left" vTextAlign="Top" fontSize="22.0" bold="true" blankWhenNull="true">
 			<paragraph leftIndent="10" />

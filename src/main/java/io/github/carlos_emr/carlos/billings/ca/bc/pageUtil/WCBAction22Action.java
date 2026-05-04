@@ -62,19 +62,29 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class WCBAction22Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    public String execute() throws Exception {
-        return save();
+    public String execute() throws Exception {        return save();
     }
 
     public String save() throws Exception {
         if (request.getSession().getAttribute("user") == null) {
             return "Logout";
         }
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+
         MiscUtils.getLogger().debug("In WCBAction22Action Jackson");
 
         //Get rid of this
@@ -122,7 +132,7 @@ public class WCBAction22Action extends ActionSupport {
 
 
         MiscUtils.getLogger().debug("OVER AND OUT.");
-        response.sendRedirect(request.getContextPath() + "/billing/CA/BC/formwcb.jsp");
+        response.sendRedirect(request.getContextPath() + "/billing/CA/BC/viewformwcb");
         return NONE;
     }
 

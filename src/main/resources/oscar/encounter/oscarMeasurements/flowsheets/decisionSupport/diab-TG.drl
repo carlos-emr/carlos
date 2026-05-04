@@ -66,6 +66,7 @@ rule "TG 1"
     when
         m : MeasurementDSHelper()
         eval( m.getDataAsDouble() >= 2.0 )
+        eval( !m.hasProblem() )
     then
         m.log("TG RULES IS GETTING RUN");
         m.setIndicationColor("HIGH");

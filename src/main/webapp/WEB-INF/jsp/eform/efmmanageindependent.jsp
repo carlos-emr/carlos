@@ -1,0 +1,183 @@
+<%--
+
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for the
+    Department of Family Medicine
+    McMaster University
+    Hamilton
+    Ontario, Canada
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+<%@page import="java.util.*,io.github.carlos_emr.carlos.eform.*" %>
+<%@page import="io.github.carlos_emr.carlos.web.eform.EfmPatientFormList" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
+    String country = request.getLocale().getCountry();
+
+    ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
+
+    String orderByRequest = request.getParameter("orderby");
+    String orderBy = "";
+    if (orderByRequest == null) orderBy = EFormUtil.DATE;
+    else orderBy = orderByRequest;
+%>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+
+<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
+<html>
+
+    <head>
+        <script type="text/javascript" src="<%=request.getContextPath()%>/js/global.js"></script>
+        <title><fmt:message key="admin.admin.frmIndependent"/>s</title>
+
+
+        <script type="text/javascript">
+            function openEform(varpage, windowname) {
+                var page = "" + varpage;
+
+                windowprops = "height=700,width=800,location=no,"
+                    + "scrollbars=yes,menubars=no,status=yes,toolbars=no,resizable=yes,top=10,left=200";
+
+                var popup = window.open(page, windowname, windowprops);
+
+                if (popup != null) {
+                    if (popup.opener == null) {
+                        popup.opener = self;
+                    }
+                    popup.focus();
+                }
+            }
+
+            function checkSelectBox() {
+                var selectVal = document.forms[0].group_view.value;
+                if (selectVal == "default") {
+                    return false;
+                }
+            }
+        </script>
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css">
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+    <script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+    </head>
+
+    <body>
+
+    <%@ include file="efmTopNav.jspf" %>
+
+    <div class="card card-body bg-body-tertiary">
+        <h3 style="display:inline"><fmt:message key="admin.admin.frmIndependent"/>s</h3> <i
+            class="fa-solid fa-circle-question"></i>
+
+
+        <p>View: <fmt:message key="eform.independent.btnCurrent"/> | <a
+                href="<%=request.getContextPath()%>/eform/efmmanageindependentdeleted"
+                class="contentLink"><fmt:message key="eform.independent.btnDeleted"/></a></p>
+
+
+        <table class="table table-sm table-striped">
+            <thead>
+            <tr>
+                <th>
+                    <a href="<%=request.getContextPath()%>/eform/efmmanageindependent?orderby=<%=EFormUtil.NAME%>"
+                       class="contentLink">
+                        <fmt:message key="eform.showmyform.btnFormName"/>
+                    </a>
+                </th>
+                <th>
+                    <a href="<%=request.getContextPath()%>/eform/efmmanageindependent?orderby=<%=EFormUtil.SUBJECT%>"
+                       class="contentLink">
+                        <fmt:message key="eform.showmyform.btnSubject"/>
+                    </a>
+                </th>
+                <th>
+                    <a href="<%=request.getContextPath()%>/eform/efmmanageindependent?orderby=<%=EFormUtil.PROVIDER%>"
+                       class="contentLink">
+                        <fmt:message key="eform.showmyform.btnFormProvider"/>
+                    </a>
+                </th>
+                <th>
+                    <a href="<%=request.getContextPath()%>/eform/efmmanageindependent" class="contentLink">
+                        <fmt:message key="eform.showmyform.formDate"/>
+                    </a>
+                </th>
+                <th>
+                    <fmt:message key="eform.showmyform.msgAction"/>
+                </th>
+            </tr>
+            </thead>
+
+
+            <tbody>
+            <%
+                ArrayList<HashMap<String, ? extends Object>> eForms;
+                eForms = EFormUtil.listPatientIndependentEForms(orderBy, EFormUtil.CURRENT);
+
+                for (int i = 0; i < eForms.size(); i++) {
+                    HashMap<String, ? extends Object> curform = eForms.get(i);
+            %>
+            <tr>
+                <td><a href="#"
+                       ONCLICK="openEform('<%= request.getContextPath() %>/eform/efmshowform_data?fdid=<%=curform.get("fdid")%>', '<%="FormP" + i%>'); return false;"
+                       TITLE="<fmt:message key="eform.showmyform.msgViewFrm"/>"
+                       onmouseover="window.status='<fmt:message key="eform.showmyform.msgViewFrm"/>'; return true"><%=curform.get("formName")%>
+                </a></td>
+                <td><%=curform.get("formSubject")%>
+                </td>
+                <td align='center'><%=providerDao.getProviderNameLastFirst((String) curform.get("providerNo"))%>
+                </td>
+                <td align='center'><%=curform.get("formDate")%>
+                </td>
+                <td align='center'>
+                    <form method="post" action="<%= request.getContextPath() %>/eform/removeEForm" style="display:inline;">
+                        <input type="hidden" name="callpage" value="independent"/>
+                        <input type="hidden" name="fdid" value="<%=curform.get("fdid")%>"/>
+                        <a href="javascript:void(0);" onclick="if(confirm('Are you sure you want to delete this eform?')){this.closest('form').submit();}"
+                           class="contentLink"><fmt:message key="eform.uploadimages.btnDelete"/></a>
+                    </form>
+                </td>
+            </tr>
+            <%
+                }
+                if (eForms.size() <= 0) {
+            %>
+            <tr>
+                <td align='center' colspan='5'><fmt:message key="eform.showmyform.msgNoData"/></td>
+            </tr>
+            <%
+                }
+            %>
+
+            </tbody>
+        </table>
+
+        <%@ include file="efmFooter.jspf" %>
+    </div>
+
+    </body>
+</html>

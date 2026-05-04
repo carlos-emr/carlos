@@ -98,6 +98,17 @@ public class AddPrevention2Action extends ActionSupport {
         if (sessionUser == null) {
             return "Logout";
         }
+
+        // This mutating endpoint is POST-only. GET/HEAD form loads must target the
+        // dedicated view gate /prevention/ViewAddPreventionData, which preserves
+        // the historical _prevention w privilege but keeps the actual mutation path
+        // behind POST + CSRFGuard only.
+        String httpMethod = request.getMethod();
+        if (!"POST".equalsIgnoreCase(httpMethod)) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         String preventionType = request.getParameter("prevention");
         String demographic_no = request.getParameter("demographic_no");
         String id = request.getParameter("id");
@@ -268,6 +279,7 @@ public class AddPrevention2Action extends ActionSupport {
                         bundles = new HashMap<String, Bundle>();
                     }
                     bundles.put(bundle.getId(), bundle);
+                    // nosemgrep: tainted-session-from-http-request -- bundles map contains DAO-sourced FHIR Bundle objects, not raw user input
                     request.getSession().setAttribute("bundles", bundles);
 
                     MiscUtils.getLogger().info(fbb.getMessageJson());

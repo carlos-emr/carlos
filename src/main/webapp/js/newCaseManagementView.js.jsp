@@ -35,6 +35,7 @@
     <%@page contentType="text/javascript; charset=UTF-8" pageEncoding="UTF-8"%>
     <%@page import="io.github.carlos_emr.carlos.casemgmt.common.Colour"%>
     <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
     var numNotes = 0;   //How many saved notes do we have?
     var ctx;        //url context
@@ -42,7 +43,6 @@
     var demographicNo;
     var case_program_id;
     var caisiEnabled = false;
-    var passwordEnabled = false;
     var requireIssue = true;
     var requireObsDate = true;
     var makeIssue;
@@ -98,7 +98,7 @@
         }
         var page = "" + varpage;
         windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=600,screenY=200,top=0,left=0";
-        //var popup =window.open(page, "<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Index.popupPageWindow"/>", windowprops);
+        //var popup =window.open(page, "<fmt:message key="encounter.Index.popupPageWindow"/>", windowprops);
         openWindows[name] = window.open(page, name, windowprops);
 
         if (openWindows[name] != null) {
@@ -156,7 +156,7 @@
 
         if (needToReleaseLock) {
             //release lock on note via sendBeacon (reliable on page unload)
-            var url = ctx + "/CaseManagementEntry.do";
+            var url = ctx + "/CaseManagementEntry";
             var nId = document.forms['caseManagementEntryForm'].noteId.value;
             var params = "method=releaseNoteLock&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&noteId=" + nId;
             var csrfToken = CarlosAjax.getCsrfToken();
@@ -368,7 +368,7 @@
     var fullChart = "false";
     function viewFullChart(displayFullChart) {
 
-        var url = ctx + "/CaseManagementEntry.do";
+        var url = ctx + "/CaseManagementEntry";
         var params = assembleMainChartParams(displayFullChart);
 
         if (displayFullChart) {
@@ -424,10 +424,10 @@
 */
     function showIssueNotes() {
         issueNoteUrls = {
-            divR1I1: ctx + "/CaseManagementView.do?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=SocHistory&title=" + socHistoryLabel + "&cmd=divR1I1",
-            divR1I2: ctx + "/CaseManagementView.do?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=MedHistory&title=" + medHistoryLabel + "&cmd=divR1I2",
-            divR2I1: ctx + "/CaseManagementView.do?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=Concerns&title=" + onGoingLabel + "&cmd=divR2I1",
-            divR2I2: ctx + "/CaseManagementView.do?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=Reminders&title=" + remindersLabel + "&cmd=divR2I2"
+            divR1I1: ctx + "/CaseManagementView?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=SocHistory&title=" + socHistoryLabel + "&cmd=divR1I1",
+            divR1I2: ctx + "/CaseManagementView?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=MedHistory&title=" + medHistoryLabel + "&cmd=divR1I2",
+            divR2I1: ctx + "/CaseManagementView?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=Concerns&title=" + onGoingLabel + "&cmd=divR2I1",
+            divR2I2: ctx + "/CaseManagementView?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=Reminders&title=" + remindersLabel + "&cmd=divR2I2"
         };
         var limit = 5;
 
@@ -444,16 +444,16 @@
 
         // If any position variable is empty, it means that the corresponding issue is hidden
         if (socialHistoryPositon) {
-            issueNoteUrls[socialHistoryPositon] = ctx + "/CaseManagementView.do?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=SocHistory&title=" + socHistoryLabel + "&cmd=div" + socialHistoryPositon;
+            issueNoteUrls[socialHistoryPositon] = ctx + "/CaseManagementView?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=SocHistory&title=" + socHistoryLabel + "&cmd=div" + socialHistoryPositon;
         }
         if (medicalHistoryPosition) {
-            issueNoteUrls[medicalHistoryPosition] = ctx + "/CaseManagementView.do?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=MedHistory&title=" + medHistoryLabel + "&cmd=div" + medicalHistoryPosition;
+            issueNoteUrls[medicalHistoryPosition] = ctx + "/CaseManagementView?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=MedHistory&title=" + medHistoryLabel + "&cmd=div" + medicalHistoryPosition;
         }
         if (ongoingConcernsPosition) {
-            issueNoteUrls[ongoingConcernsPosition] = ctx + "/CaseManagementView.do?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=Concerns&title=" + onGoingLabel + "&cmd=div" + ongoingConcernsPosition;
+            issueNoteUrls[ongoingConcernsPosition] = ctx + "/CaseManagementView?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=Concerns&title=" + onGoingLabel + "&cmd=div" + ongoingConcernsPosition;
         }
         if (remindersPosition) {
-            issueNoteUrls[remindersPosition] = ctx + "/CaseManagementView.do?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=Reminders&title=" + remindersLabel + "&cmd=div" + remindersPosition;
+            issueNoteUrls[remindersPosition] = ctx + "/CaseManagementView?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=Reminders&title=" + remindersLabel + "&cmd=div" + remindersPosition;
         }
 
         var limit = 5;
@@ -519,7 +519,7 @@
             params = params + "&" + params2;
         }
         CarlosAjax.updater("encMainDiv",
-            ctx + "/CaseManagementView.do",
+            ctx + "/CaseManagementView",
             {
                 method: 'post',
                 postBody: params,
@@ -562,31 +562,31 @@
         this.load = function () {
 
             var leftNavBar = [
-                ctx + "/encounter/displayPrevention.do?hC=" + Colour.prevention,
-                ctx + "/encounter/displayTickler.do?hC=" + Colour.tickler,
-                ctx + "/encounter/displayMessages.do?hC=" + Colour.messages,
-                ctx + "/encounter/displayDocuments.do?hC=" + Colour.documents,
-                ctx + "/encounter/displayLabs.do?hC=" + Colour.labs,
-                ctx + "/encounter/displayHRM.do?hC=" + Colour.hrmDocuments,
-                ctx + "/encounter/displayMeasurements.do?hC=" + Colour.measurements,
-                ctx + "/encounter/displayConsultation.do?hC=" + Colour.consultation,
-                ctx + "/encounter/displayForms.do?hC=" + Colour.forms,
-                ctx + "/encounter/displayEForms.do?hC=" + Colour.eForms,
+                ctx + "/encounter/displayPrevention?hC=" + Colour.prevention,
+                ctx + "/encounter/displayTickler?hC=" + Colour.tickler,
+                ctx + "/encounter/displayMessages?hC=" + Colour.messages,
+                ctx + "/encounter/displayDocuments?hC=" + Colour.documents,
+                ctx + "/encounter/displayLabs?hC=" + Colour.labs,
+                ctx + "/encounter/displayHRM?hC=" + Colour.hrmDocuments,
+                ctx + "/encounter/displayMeasurements?hC=" + Colour.measurements,
+                ctx + "/encounter/displayConsultation?hC=" + Colour.consultation,
+                ctx + "/encounter/displayForms?hC=" + Colour.forms,
+                ctx + "/encounter/displayEForms?hC=" + Colour.eForms,
             ];
             var leftNavBarTitles = ["preventions", "tickler", "msgs", "docs", "labs", "HRM", "measurements", "consultation", "forms", "eforms"];
             var rightNavBar = [
-                ctx + "/encounter/displayDisease.do?hC=" + Colour.disease,
-                ctx + "/CaseManagementView.do?hc=" + Colour.familyHistory + "&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=FamHistory&title=" + famHistoryLabel + "&cmd=FamHistory" + "&appointment_no=" + appointmentNo,
-                ctx + "/encounter/displayAllergy.do?hC=" + Colour.allergy,
-                ctx + "/encounter/displayRx.do?hC=" + Colour.rx + "&numToDisplay=12",
-                ctx + "/CaseManagementView.do?hc=" + Colour.omed + "&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=OMeds&title=" + oMedsLabel + "&cmd=OMeds" + "&appointment_no=" + appointmentNo,
-                ctx + "/CaseManagementView.do?hc=" + Colour.riskFactors + "&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=RiskFactors&title=" + riskFactorsLabel + "&cmd=RiskFactors" + "&appointment_no=" + appointmentNo,
-                ctx + "/encounter/displayIssues.do?hC=" + Colour.unresolvedIssues,
-                ctx + "/encounter/displayResolvedIssues.do?hC=" + Colour.resolvedIssues,
-                ctx + "/encounter/displayDecisionSupportAlerts.do?hC=" + Colour.contacts + "&providerNo=" + providerNo + "&demographicNo=" + demographicNo,
-                ctx + "/encounter/displayEpisodes.do?hC=" + Colour.episode,
-                ctx + "/encounter/displayPregnancies.do?hC=" + Colour.episode,
-                ctx + "/encounter/displayContacts.do?hC=" + Colour.contacts
+                ctx + "/encounter/displayDisease?hC=" + Colour.disease,
+                ctx + "/CaseManagementView?hc=" + Colour.familyHistory + "&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=FamHistory&title=" + famHistoryLabel + "&cmd=FamHistory" + "&appointment_no=" + appointmentNo,
+                ctx + "/encounter/displayAllergy?hC=" + Colour.allergy,
+                ctx + "/encounter/displayRx?hC=" + Colour.rx + "&numToDisplay=12",
+                ctx + "/CaseManagementView?hc=" + Colour.omed + "&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=OMeds&title=" + oMedsLabel + "&cmd=OMeds" + "&appointment_no=" + appointmentNo,
+                ctx + "/CaseManagementView?hc=" + Colour.riskFactors + "&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=RiskFactors&title=" + riskFactorsLabel + "&cmd=RiskFactors" + "&appointment_no=" + appointmentNo,
+                ctx + "/encounter/displayIssues?hC=" + Colour.unresolvedIssues,
+                ctx + "/encounter/displayResolvedIssues?hC=" + Colour.resolvedIssues,
+                ctx + "/encounter/displayDecisionSupportAlerts?hC=" + Colour.contacts + "&providerNo=" + providerNo + "&demographicNo=" + demographicNo,
+                ctx + "/encounter/displayEpisodes?hC=" + Colour.episode,
+                ctx + "/encounter/displayPregnancies?hC=" + Colour.episode,
+                ctx + "/encounter/displayContacts?hC=" + Colour.contacts
             ];
 
             var rightNavBarTitles = ["Dx", "FamHistory", "allergies", "Rx", "OMeds", "RiskFactors", "unresolvedIssues", "resolvedIssues", "Guidelines", "episode", "pregnancy", "contacts"];
@@ -786,11 +786,6 @@
         $(editElem).style.top = top + "px";
         $(editElem).style.display = "table";
 
-        //Prepare Annotation Window & Extra Fields
-        var now = new Date();
-        document.getElementById('annotation_attrib').value = "anno" + now.getTime();
-        var obj = {};
-        Element.observe('anno', 'click', openAnnotation.bindAsEventListener(obj, noteId, cppDisplay, demoNo));
         prepareExtraFields(cppDisplay, noteExts);
 
         //Set note position order
@@ -942,13 +937,6 @@
 
     }
 
-    function openAnnotation() {
-        var atbname = document.getElementById('annotation_attrib').value;
-        var data = $A(arguments);
-        var addr = ctx + "/annotation/annotation.jsp?atbname=" + atbname + "&table_id=" + data[1] + "&display=" + data[2] + "&demo=" + data[3];
-        window.open(addr, "anwin", "width=400,height=500");
-        Event.stop(data[0]);
-    }
 
 function updateCPPNote() {
     try {
@@ -1279,7 +1267,7 @@ function updateCPPNote() {
     function ajaxInsertTemplate(varpage) { //fetch template
 
         if (varpage != 'null') {
-            var page = ctx + "/encounter/InsertTemplate.do";
+            var page = ctx + "/encounter/InsertTemplate";
             var params = "templateName=" + varpage + "&version=2";
             CarlosAjax.request(page, {
                     method: 'post',
@@ -1347,21 +1335,12 @@ function updateCPPNote() {
 
         Element.remove(Event.element(e).id);
         Event.stop(e);
-
-        if (error)
-            Element.remove("passwdError");
-
-        if (frm)
-            Element.remove("passwdPara");
-
-        //$(parent).insertAdjacentHTML('afterbegin', img);
-        Element.observe(parent, 'click', unlockNote);
     }
 
     function removeLock(id) {
         var regEx = /\d+/;
         var nId = regEx.exec(id);
-        var url = ctx + "/CaseManagementEntry.do";
+        var url = ctx + "/CaseManagementEntry";
         params = "method=releaseNoteLock&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&noteId=" + nId + "&force=true";
 
         CarlosAjax.request(
@@ -1408,10 +1387,6 @@ function updateCPPNote() {
         //clear auto save
         clearTimeout(autoSaveTimer);
         deleteAutoSave();
-
-        if ($("notePasswd") != null) {
-            Element.remove("notePasswd");
-        }
 
     jQuery('#' + id).off('keyup', monitorCaseNote);
     jQuery('#' + caseNote).off('paste');
@@ -1493,10 +1468,6 @@ function updateCPPNote() {
             var editAnchor = "<a title='Edit' id='edit" + nId + "' href='#' onclick='" + func + " return false;' style='float: right; margin-right: 5px;'>" + editLabel + "</a>";
             var editId = "edit" + nId;
 
-            var attribName = "anno" + (new Date().getTime());
-            var attribAnchor = "<input id='anno" + nId + "' height='10px;' width='10px' type='image' src='" + ctx + "/encounter/graphics/annotation.png' title='" + annotationLabel + "' style='float: right; margin-right: 5px; margin-bottom: 3px;'" +
-                "onclick=\"window.open('" + ctx + "/annotation/annotation.jsp?atbname=" + attribName + "&table_id=" + nId + "&display=EChartNote&demo=" + demographicNo + "','anwin','width=400,height=500');$('annotation_attribname').value='" + attribName + "'; return false;\">";
-
             $(parent).insertAdjacentHTML('afterbegin', editAnchor);
             $(editId).insertAdjacentHTML('afterend', input);
 
@@ -1504,7 +1475,6 @@ function updateCPPNote() {
             if (nId.substr(0, 1) != "0") {
                 Element.remove(printImg);
                 $(editId).insertAdjacentHTML('beforebegin', printimg);
-                $(editId).insertAdjacentHTML('afterend', attribAnchor);
                 $(parent).insertAdjacentHTML('afterbegin', img);
             }
 
@@ -1669,7 +1639,7 @@ function updateCPPNote() {
     }
 
     function fetchNote(nId) {
-        var url = ctx + "/CaseManagementView.do";
+        var url = ctx + "/CaseManagementView";
         var fullId = "full" + nId;
         var params = "method=viewNote&raw=true&noteId=" + nId;
         var noteTxtArea = "caseNote_note" + nId;
@@ -1717,7 +1687,7 @@ function updateCPPNote() {
     }
 
     function fullViewById(id) {
-        var url = ctx + "/CaseManagementView.do";
+        var url = ctx + "/CaseManagementView";
 
         var regEx = /\d+/;
         var nId = regEx.exec(id);
@@ -1795,7 +1765,6 @@ function updateCPPNote() {
         if (txt == "") txt = Event.element(e).parentNode.parentNode.id;
 
         payload = $(caseNote).value;
-        Element.remove("notePasswd");
         Element.remove(caseNote);
 
         payload = payload.replace(/^\s+|\s+$/g, "");
@@ -1808,74 +1777,14 @@ function updateCPPNote() {
 
     }
 
-// send password to server for auth to display locked Note
     var sessionExpiredError;
-    var unlockNoteError;
-    function unlock_ajax(id) {
-        var url = ctx + "/CaseManagementView.do";
-        var noteId = id.substr(1);
-        var params = "method=do_unlock_ajax&noteId=" + noteId + "&password=" + encodeURIComponent($F("passwd"));
 
-        CarlosAjax.request(
-            url,
-            {
-                method: 'post',
-                postBody: params,
-                evalScripts: true,
-                onSuccess: function (request) {
-                    var html = request.responseText;
-                    $(id).update(html);
-                },
-                onFailure: function (request) {
-                    if (request.status == 403)
-                        alert(sessionExpiredError);
-                    else
-                        alert(request.status + " " + unlockNoteError);
-                }
-            }
-        );
-        return false;
-    }
-
-//display unlock note password text field and submit button
-    var msgPasswd;
-    var btnMsgUnlock;
-    function unlockNote(e) {
-        var txt;
-        var el;
-
-        el = Event.element(e);
-
-        //get id for parent div
-        if (el.id.search(/^n/) > -1)
-            txt = el.id;
-        else {
-            var level = 0;
-            var ancestor = $(el).up('div', level);
-            while (ancestor && ancestor.id.search(/^n/) === -1) {
-                ++level;
-                ancestor = $(el).up('div', level);
-            }
-            if (!ancestor) return;
-            txt = ancestor.id;
-        }
-
-        var passwd = "passwd";
-        var nId = txt.substr(1);
-        var img = "<img id='quitImg" + nId + "' onclick='resetView(true, false, event)' style='float:right; margin-right:5px;' src='" + ctx + "/encounter/graphics/triangle_up.gif'>";
-        $(txt).insertAdjacentHTML('afterbegin', img);
-        var lockForm = "<p id='passwdPara' class='passwd'>" + msgPasswd + ":&nbsp;<input onkeypress=\"return grabEnter('btnUnlock', event);\" type='password' id='" + passwd + "' size='16'>&nbsp;<input id='btnUnlock' type='button' onclick=\"return unlock_ajax('" + txt + "');\" value='" + btnMsgUnlock + "'><\/p>";
-        $(txt).insertAdjacentHTML('beforeend', lockForm);
-
-        $(txt).style.height = "auto";
-        $(passwd).focus();
-        Element.stopObserving(txt, 'click', unlockNote);
-    }
-
+// Check whether another provider currently has this note open for editing.
+// Returns the server's edit-lock status as JSON-derived string ("true"/"false"/"").
     function NoteisLocked(nId) {
 
         var noteIsLocked = "";
-        var url = ctx + "/CaseManagementEntry.do";
+        var url = ctx + "/CaseManagementEntry";
         params = "method=isNoteEdited&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&noteId=" + nId;
 
         CarlosAjax.request(
@@ -1921,14 +1830,14 @@ function updateCPPNote() {
                 var params = "method=releaseNoteLock&demographicNo=" + demographicNo + "&providerNo=" + providerNo + "&noteId=" + oldNoteId + "&force=true";
                 jQuery.ajax({
                     type: "POST",
-                    url: ctx + "/CaseManagementEntry.do",
+                    url: ctx + "/CaseManagementEntry",
                     data: params
                 });
 
                 params = "method=updateNoteLock&demographicNo=" + demographicNo + "&noteId=" + nId;
                 jQuery.ajax({
                     type: "POST",
-                    url: ctx + "/CaseManagementEntry.do",
+                    url: ctx + "/CaseManagementEntry",
                     data: params
                 });
             } else {
@@ -1963,17 +1872,12 @@ function updateCPPNote() {
 
 
         var editAnchor = "edit" + nId;
-        var annoAnchor = "anno" + nId;
         var date = "d" + nId;
         var content = "c" + nId;
 
         // remove edit anchor
         if ($(editAnchor) != null)
             Element.remove(editAnchor);
-
-        // Remove annotation anchor
-        if ($(annoAnchor) != null)
-            Element.remove(annoAnchor);
 
         //check for line item displayed when note is minimized
         if ($(date) != null) {
@@ -2026,11 +1930,6 @@ function updateCPPNote() {
         initTemplateFeatures();
         Element.observe(caseNote, 'click', getActiveText);
 
-        if (passwordEnabled) {
-            input = "<p style='background-color:#CCCCFF; display:none; margin:0;' id='notePasswd'>Password:&nbsp;<input type='password' name='caseNote.password'/><\/p>";
-            $(txt).insertAdjacentHTML('beforeend', input);
-        }
-
         //we check if we are dealing with a new note or not
         if (strNid.charAt(0) == "0") {
             document.forms["caseManagementEntryForm"].noteId.value = "0";
@@ -2057,7 +1956,7 @@ function updateCPPNote() {
 
 
         //AutoCompleter for Issues
-        <%--var issueURL = ctx + "/CaseManagementEntry.do?method=issueList&demographicNo=" + demographicNo + "&providerNo=" + providerNo;--%>
+        <%--var issueURL = ctx + "/CaseManagementEntry?method=issueList&demographicNo=" + demographicNo + "&providerNo=" + providerNo;--%>
         <%--issueAutoCompleter = new Ajax.Autocompleter("issueAutocomplete", "issueAutocompleteList", issueURL, {minChars: 4, indicator: 'busy', afterUpdateElement: saveIssueId, onShow: autoCompleteShowMenu, onHide: autoCompleteHideMenu});--%>
 
         //if note is already signed, remove save button to force edits to be signed
@@ -2187,7 +2086,7 @@ function updateCPPNote() {
     }
 
     function filter(reset) {
-        var url = ctx + "/CaseManagementEntry.do";
+        var url = ctx + "/CaseManagementEntry";
         var params = "ajaxview=ajaxView&fullChart=" + fullChart;
         document.forms["caseManagementEntryForm"].method.value = "edit";
         document.forms["caseManagementEntryForm"].note_edit.value = "new";
@@ -2373,7 +2272,7 @@ function updateCPPNote() {
         var demoNo = demographicNo;
         var encType = "encTypeSelect" + noteId;
         var caseMgtEntryfrm = document.forms["caseManagementEntryForm"];
-        var url = ctx + "/CaseManagementEntry.do";
+        var url = ctx + "/CaseManagementEntry";
         var params = "nId=" + noteId + issueParams + "&demographicNo=" + demographicNo + "&providerNo=" + providerNo + "&numIssues=" + idx + "&obsDate=" + $F("observationDate") + "&encType=" + encodeURI($F(encType)) + "&noteTxt=" + encodeURI(noteTxt);
         params += "&" + Form.serialize(caseMgtEntryfrm);
 
@@ -2475,7 +2374,7 @@ function updateCPPNote() {
         var params = Form.serialize(caseMgtEntryfrm);
         params += "&ajaxview=ajaxView&fullChart=" + fullChart;
 
-        var url = ctx + "/CaseManagementEntry.do";
+        var url = ctx + "/CaseManagementEntry";
 
         $("notCPP").update("Loading...");
 
@@ -2501,87 +2400,7 @@ function updateCPPNote() {
         );
         return false;
     }
-    function cancelResident() {
-        jQuery('#resident').trigger("reset");
-        jQuery("#residentChain").val("");
-        jQuery("#residentMethod").val("");
-        if (jQuery(".supervisor").is(":visible")) {
-            jQuery(".supervisor").slideUp(300);
-        }
-
-        if (jQuery(".reviewer").is(":visible")) {
-            jQuery(".reviewer").slideUp(300);
-        }
-
-        jQuery('#showResident').fadeOut(2000);
-        jQuery('#showResident').css('z-index', 300);
-
-        return false;
-
-    }
-
-    function subResident() {
-        if (!jQuery("input[name='reviewed']:checked").length) {
-            alert("Please select if the note has been reviewed");
-            return false;
-        }
-
-        if ((jQuery("input[name='reviewed']:checked").val() == "true" && jQuery("#reviewer").val() == "")) {
-            alert("Please select who you reviewed the note with");
-            return false;
-        } else if ((jQuery("input[name='reviewed']:checked").val() == "false" && jQuery("#supervisor").val() == "")) {
-            alert("Please Choose Your Supervisor");
-            return false;
-        }
-
-        jQuery('<input>').attr({
-            type: 'hidden',
-            id: 'isAResident',
-            name: 'isAResident',
-            value: 'true'
-        }).appendTo('#resident');
-
-        jQuery('<input>').attr({
-            type: 'hidden',
-            id: 'supervisor',
-            name: 'supervisor',
-            value: jQuery("#supervisor").val()
-        }).appendTo("form[name='caseManagementEntryForm']");
-
-        jQuery('<input>').attr({
-            type: 'hidden',
-            id: 'reviewer',
-            name: 'reviewer',
-            value: jQuery("#reviewer").val()
-        }).appendTo("form[name='caseManagementEntryForm']");
-
-        jQuery('<input>').attr({
-            type: 'hidden',
-            id: 'resident',
-            name: 'resident',
-            value: 'true'
-        }).appendTo("form[name='caseManagementEntryForm']");
-
-        jQuery('#showResident').fadeOut(2000);
-        jQuery('#showResident').css('z-index', 300);
-        savePage(jQuery("#residentMethod").val(), jQuery("#residentChain").val());
-        return false;
-    }
-
-
     function savePage(method, chain) {
-
-        if (typeof jQuery("form[name='resident'] input[name='residentMethod']").val() != "undefined" &&
-            jQuery("form[name='resident'] input[name='residentMethod']").val().trim().length == 0 &&
-            method.match(/.*[Ee]xit$/g) != null) {
-            jQuery("#residentChain").val(chain);
-            jQuery("#residentMethod").val(method);
-            jQuery("#showResident").css('z-index', 1);
-            jQuery("#showResident").fadeIn(2000);
-            jQuery("#reviewed").focus();
-            return false;
-        }
-
 
         var noteStr;
         noteStr = $F(caseNote);
@@ -2719,29 +2538,18 @@ function updateCPPNote() {
         return false;
     }
 
-    function toggleNotePasswd() {
-        if (passwordEnabled) {
-            Element.toggle('notePasswd');
-            if ($('notePasswd').style.display != "none")
-                document.forms['caseManagementEntryForm'].elements['caseNote.password'].focus();
-            else
-                document.forms['caseManagementEntryForm'].elements[caseNote].focus();
-        }
-        return false;
-    }
-
     var closeWithoutSaveMsg;
     function closeEnc(e) {
         Event.stop(e);
         if (!lostNoteLock && (origCaseNote != $F(caseNote) || origObservationDate != $("observationDate").value)) {
             if (confirm(closeWithoutSaveMsg)) {
-                var frm = document.forms["caseManagementEntryForm"];
-                origCaseNote = $F(caseNote);
-                frm.method.value = "cancel";
-                frm.submit();
+                clearAutoSaveTimer();
+                window.close();
             }
-        } else
+        } else {
+            clearAutoSaveTimer();
             window.close();
+        }
 
         return false;
     }
@@ -2814,7 +2622,7 @@ function updateCPPNote() {
         frm.method.value = method;
         frm.ajax.value = true;
 
-        var url = ctx + "/CaseManagementEntry.do";
+        var url = ctx + "/CaseManagementEntry";
         var p = Form.serialize(frm);
         p.note_edit = '';
         ajaxRequest = CarlosAjax.updater({success: div}, url, {
@@ -2838,7 +2646,7 @@ function updateCPPNote() {
         var demographicNo = $("demographicNo").value;
 
         if (typeof loadDiv === 'function' && demographicNo) {
-            var reloadUrl = ctx + "/encounter/displayIssues.do?demographicNo=" + demographicNo + "&cmd=unresolvedIssues&reloadURL=" + encodeURIComponent(ctx + "/encounter/displayIssues.do");
+            var reloadUrl = ctx + "/encounter/displayIssues?demographicNo=" + demographicNo + "&cmd=unresolvedIssues&reloadURL=" + encodeURIComponent(ctx + "/encounter/displayIssues");
             loadDiv('unresolvedIssueslist', reloadUrl, 0);
         }
     }
@@ -2921,27 +2729,25 @@ function updateCPPNote() {
 
         ++newNoteCounter;
         var newNoteIdx = "0" + newNoteCounter;
-        var id = "nc" + newNoteIdx;
-        var sigId = "sig" + newNoteIdx;
-        var input = "<textarea tabindex='7' cols='84' rows='1' wrap='hard' class='txtArea boxsizingBorder' style='line-height:1.0em;' name='caseNote_note' id='caseNote_note" + newNoteIdx + "'>" + reason + "<\/textarea>";
-        var passwd = "";
-        if (passwordEnabled) {
-            passwd = "<p style='background-color:#CCCCFF; display:none; margin:0;' id='notePasswd'>Password:&nbsp;<input type='password' name='caseNote.password'/><\/p>";
-        }
-
+        var safeNewNoteIdx = newNoteIdx.replace(/\s+/g, "");
+        var safeNoteIdSuffix = safeNewNoteIdx.replace(/[^A-Za-z0-9\-_:.]/g, "");
+        var id = "nc" + safeNewNoteIdx;
+        var sigId = "sig" + safeNewNoteIdx;
+        var safeSigId = sigId.replace(/[^A-Za-z0-9\-_:.]/g, "");
+        var input = "<textarea tabindex='7' cols='84' rows='1' wrap='hard' class='txtArea boxsizingBorder' style='line-height:1.0em;' name='caseNote_note' id='caseNote_note" + safeNoteIdSuffix + "'>" + reason + "<\/textarea>";
         // the extra BR NBSP at the ends are for IE fix for selection box is out of scrolling pane view.
-        var div = "<div id='" + id + "' class='newNote'><input type='hidden' id='signed" + newNoteIdx + "' value='false'><input type='hidden' id='editWarn" + newNoteIdx + "' value='false'><div id='n" + newNoteIdx + "'><input type='hidden' id='full" + newNoteIdx + "' value='true'>" +
-            "<input type='hidden' id='bgColour" + newNoteIdx + "' value='color:white;background-color:#CCCCFF;'>" + input + "<div class='sig' style='display:inline;' id='" + sigId + "'><\/div>" + passwd + "<\/div><\/div><br \/>&nbsp;<br \/>&nbsp;<br \/>&nbsp;<br \/>";
+        var div = "<div id='" + id + "' class='newNote'><input type='hidden' id='signed" + safeNewNoteIdx + "' value='false'><input type='hidden' id='editWarn" + safeNewNoteIdx + "' value='false'><div id='n" + safeNewNoteIdx + "'><input type='hidden' id='full" + safeNewNoteIdx + "' value='true'>" +
+            "<input type='hidden' id='bgColour" + safeNewNoteIdx + "' value='color:white;background-color:#CCCCFF;'>" + input + "<div class='sig' style='display:inline;' id='" + safeSigId + "'><\/div><\/div><\/div><br \/>&nbsp;<br \/>&nbsp;<br \/>&nbsp;<br \/>";
 
 
         if (changeToView(caseNote)) {
 
-            caseNote = "caseNote_note" + newNoteIdx;
+            caseNote = "caseNote_note" + safeNoteIdSuffix;
             document.forms["caseManagementEntryForm"].note_edit.value = "new";
             document.forms["caseManagementEntryForm"].noteId.value = "0";
             document.forms["caseManagementEntryForm"].newNoteIdx.value = newNoteIdx;
             document.getElementById("encMainDiv").insertAdjacentHTML('beforeend', div);
-            $(sigId).addClassName("sig");
+            $(safeSigId).addClassName("sig");
             <%--Rounded("div#"+id,"all","transparent","#CCCCCC","big border #000000");--%>
             $(caseNote).focus();
             adjustCaseNote();
@@ -2959,12 +2765,12 @@ function updateCPPNote() {
             Element.observe(caseNote, 'click', getActiveText);
 
             origCaseNote = $F(caseNote);
-            ajaxUpdateIssues("edit", sigId);
-            addIssueFunc = updateIssues.bindAsEventListener(obj, makeIssue, sigId);
+            ajaxUpdateIssues("edit", safeSigId);
+            addIssueFunc = updateIssues.bindAsEventListener(obj, makeIssue, safeSigId);
             if ($("asgnIssues")) { Element.observe('asgnIssues', 'click', addIssueFunc); }
 
             //AutoCompleter for Issues
-            <%--var issueURL = "/CaseManagementEntry.do?method=issueList&demographicNo=" + demographicNo + "&providerNo=" + providerNo;--%>
+            <%--var issueURL = "/CaseManagementEntry?method=issueList&demographicNo=" + demographicNo + "&providerNo=" + providerNo;--%>
             <%--let issueAutoCompleter = new Ajax.Autocompleter("issueAutocomplete", "issueAutocompleteList", issueURL, {minChars: 4, indicator: 'busy', afterUpdateElement: saveIssueId, onShow: autoCompleteShowMenu, onHide: autoCompleteHideMenu});--%>
 
             //hide new note button
@@ -2985,7 +2791,7 @@ function updateCPPNote() {
     }
 
     function deleteAutoSave() {
-        var url = ctx + "/CaseManagementEntry.do";
+        var url = ctx + "/CaseManagementEntry";
         var frm = document.forms["caseManagementEntryForm"];
         frm.method.value = "cancel";
 
@@ -2998,19 +2804,22 @@ function updateCPPNote() {
 var month=new Array(12);
 var msgDraftSaved;
 var lostNoteLock = false;
+var autoSaveXhr = null;
 function autoSave() {
     sanitizeElementByPattern(document.getElementById(caseNote), CONTROL_CHAR_PATTERN_2);
-    var url = ctx + "/CaseManagementEntry.do";
+    var url = ctx + "/CaseManagementEntry";
     var programId = case_program_id;
     var demoNo = demographicNo;
     var cmeFrm = document.forms["caseManagementEntryForm"];
     var nId = cmeFrm.noteId.value < 0 ? 0 : cmeFrm.noteId.value;
     var params = "method=autosave&demographicNo=" + demoNo + "&programId=" + programId + "&note_id=" + nId + "&note=" + encodeURIComponent($F(caseNote));
 
-        CarlosAjax.request(url, {
+        autoSaveXhr = CarlosAjax.request(url, {
                 method: 'post',
                 postBody: params,
                 onSuccess: function (req) {
+                    var statusEl = $("autosaveTime");
+                    if (!statusEl) { return; }
                     var d = new Date();
                     var min = d.getMinutes();
                     min = min < 10 ? "0" + min : min;
@@ -3019,14 +2828,27 @@ function autoSave() {
                     seconds = seconds < 10 ? "0" + seconds : seconds;
 
                     var fmtDate = "<i>" + msgDraftSaved + " " + d.getDate() + "-" + month[d.getMonth()] + "-" + d.getFullYear() + " " + d.getHours() + ":" + min + ":" + seconds + "<\/i>";
-                    $("autosaveTime").update(fmtDate);
+                    statusEl.update(fmtDate);
                 },
                 onFailure: function (req) {
+                    // status 0 = aborted by clearAutoSaveTimer during window close; not an error
+                    if (req.status === 0) { return; }
                     if (req.status == 409) {
                         lostNoteLock = true;
-                        var msg = "<i>Autosave cancelled due to note being edited in another window</i>";
-                        $("autosaveTime").update(msg);
+                        var lockEl = $("autosaveTime");
+                        if (lockEl) {
+                            lockEl.update("<i>Autosave cancelled due to note being edited in another window</i>");
+                        }
+                        return;
                     }
+                    // Non-409 failures were previously silently swallowed. Log so they
+                    // surface in browser consoles and remote logging (Sentry, etc.).
+                    if (typeof console !== "undefined" && console.error) {
+                        console.error("CaseManagement autoSave failed", req.status, req.statusText);
+                    }
+                },
+                onComplete: function () {
+                    autoSaveXhr = null;
                 }
             }
         );
@@ -3052,6 +2874,13 @@ function autoSave() {
 
     function clearAutoSaveTimer() {
         clearTimeout(autoSaveTimer);
+        // Abort any in-flight autosave so a late-landing POST cannot write a draft
+        // the user never consented to (e.g., firing at T=4999ms then window.close()
+        // at T=5000ms). See carlos-emr/carlos#1890.
+        if (autoSaveXhr && typeof autoSaveXhr.abort === "function") {
+            try { autoSaveXhr.abort(); } catch (ignored) { /* already done */ }
+            autoSaveXhr = null;
+        }
     }
 
     var unsavedNoteMsg;
@@ -3067,7 +2896,7 @@ function autoSave() {
         Event.stop(event);
         var rnd = Math.round(Math.random() * 1000);
         win = "win" + rnd;
-        var url = ctx + "/CaseManagementEntry.do?method=notehistory&noteId=" + noteId;
+        var url = ctx + "/CaseManagementEntry?method=notehistory&noteId=" + noteId;
         window.open(url, win, "scrollbars=yes, location=no, width=647, height=600", "");
         return false;
     }
@@ -3078,7 +2907,7 @@ function autoSave() {
     function showIssueHistory(demoNo, issueIds) {
         var rnd = Math.round(Math.random() * 1000);
         win = "win" + rnd;
-        var url = ctx + "/CaseManagementEntry.do?method=issuehistory&demographicNo=" + demoNo + "&issueIds=" + issueIds;
+        var url = ctx + "/CaseManagementEntry?method=issuehistory&demographicNo=" + demoNo + "&issueIds=" + issueIds;
         window.open(url, win, "scrollbars=yes, location=no, width=647, height=600", "");
         return false;
     }
@@ -3433,7 +3262,7 @@ function autoSave() {
             return false;
         }
 
-        var url = ctx + "/CaseManagementEntry.do";
+        var url = ctx + "/CaseManagementEntry";
         var frm = document.forms["caseManagementEntryForm"];
 
         frm.method.value = "print";
@@ -3601,10 +3430,6 @@ function autoSave() {
             clearTimeout(autoSaveTimer);
             deleteAutoSave();
 
-            if ($("notePasswd") != null) {
-                Element.remove("notePasswd");
-            }
-
                 jQuery('#' + caseNote).off('keyup', monitorCaseNote);
                 jQuery('#' + caseNote).off('paste');
             Element.stopObserving(caseNote, 'click', getActiveText);
@@ -3684,10 +3509,6 @@ function autoSave() {
                 var editAnchor = "<a title='Edit' id='edit" + nId + "' href='#' onclick='" + func + " return false;' style='float: right; margin-right: 5px;'>" + editLabel + "</a>";
                 var editId = "edit" + nId;
 
-                var attribName = "anno" + (new Date().getTime());
-                var attribAnchor = "<input id='anno" + nId + "' height='10px;' width='10px' type='image' src='" + ctx + "/encounter/graphics/annotation.png' title='" + annotationLabel + "' style='float: right; margin-right: 5px; margin-bottom: 3px;'" +
-                    "onclick=\"window.open('" + ctx + "/annotation/annotation.jsp?atbname=" + attribName + "&table_id=" + nId + "&display=EChartNote&demo=" + demographicNo + "','anwin','width=400,height=500');$('annotation_attribname').value='" + attribName + "'; return false;\">";
-
                 $(parent).insertAdjacentHTML('afterbegin', editAnchor);
                 $(editId).insertAdjacentHTML('afterend', input);
 
@@ -3695,7 +3516,6 @@ function autoSave() {
                 if (nId.substr(0, 1) != "0") {
                     Element.remove(printImg);
                     $(editId).insertAdjacentHTML('beforebegin', printimg);
-                    $(editId).insertAdjacentHTML('afterend', attribAnchor);
                     $(parent).insertAdjacentHTML('afterbegin', img);
                 }
 
@@ -3706,7 +3526,7 @@ function autoSave() {
             }
         }//else{
         var noteId = document.forms["caseManagementEntryForm"].noteId.value;
-        var url = '<%=request.getContextPath()%>/PMmodule/ClientSearch2.do?programId=' + programId + '&noteId=' + noteId + '&method=attachForm&demographicNo=' + demographicNo;
+        var url = '<%=request.getContextPath()%>/PMmodule/ClientSearch2?programId=' + programId + '&noteId=' + noteId + '&method=attachForm&demographicNo=' + demographicNo;
         popupPage(600, 700, 'group', url);
         //}
     }
@@ -3785,7 +3605,7 @@ function autoSave() {
         var params = Form.serialize(caseMgtEntryfrm);
         params += "&ajaxview=ajaxView&fullChart=" + fullChart;
 
-        var url = ctx + "/CaseManagementEntry.do";
+        var url = ctx + "/CaseManagementEntry";
 
         $("notCPP").update("Loading...");
 
@@ -3818,7 +3638,7 @@ function autoSave() {
         if (checked) {
             var forSure = window.confirm("Confirm that student participation consent has been granted.");
             if (forSure) {
-                jQuery.post(ctx + "/DemographicExtService.do",
+                jQuery.post(ctx + "/DemographicExtService",
                     {method: "saveNewValue", demographicNo: demographicNo, key: "informedConsent", value: "yes"},
                     function (data, textStatus) {
                         if (data != undefined && parseInt(data.value) > 0) {
@@ -3838,7 +3658,7 @@ function autoSave() {
         if (checked) {
             var forSure = window.confirm("Are you sure you would like to indicate that Informed Consent has been collected?");
             if (forSure) {
-                jQuery.post(ctx + "/DemographicExtService.do",
+                jQuery.post(ctx + "/DemographicExtService",
                     {method: "saveNewValue", demographicNo: demographicNo, key: "informedConsent", value: "yes"},
                     function (data, textStatus) {
                         if (data != undefined && parseInt(data.value) > 0) {
@@ -3874,4 +3694,3 @@ function autoSave() {
             activeCCWindows[x].close();
         }
     });
-

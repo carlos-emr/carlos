@@ -158,7 +158,7 @@ All DRL loading follows a filesystem-first, classpath-fallback pattern. The spec
 |-----------|--------------------------|--------|-------------------|
 | **Flowsheet rules** | `MEASUREMENT_DS_DIRECTORY` filesystem | -- | Classpath `/oscar/encounter/oscarMeasurements/flowsheets/` |
 | **Per-item DS rules** | `MEASUREMENT_DS_DIRECTORY` filesystem | -- | Classpath `.../flowsheets/decisionSupport/` |
-| **Prevention rules** | `PREVENTION_FILE` property (filesystem or `classpath:` prefix) | `ResourceStorage` database table (XML→DRL via `DSPreventionDrools`) | Classpath `/oscar/oscarPrevention/prevention.drl` |
+| **Prevention rules** | `PREVENTION_FILE` property (filesystem or `classpath:` prefix) | `ResourceStorage` database table (XML→DRL via `DSPreventionDrools`) | Classpath `/oscar/prevention/prevention.drl` |
 | **Workflow rules** | `WORKFLOW_DS_DIRECTORY` filesystem | -- | Classpath `/oscar/oscarWorkflow/rules/` |
 | **Clinical guidelines** | `RuleBaseFactory` cache (keyed by guideline ID) | Compiled on-demand from JPA entity XML | -- |
 
@@ -365,7 +365,7 @@ These rules are used by the Clinical Reports module (`ClinicalReports.xml`) for 
 
 ### 4. Prevention/Immunization Rules
 
-**Location**: `src/main/resources/oscar/oscarPrevention/prevention.drl`
+**Location**: `src/main/resources/oscar/prevention/prevention.drl`
 
 A single large DRL file containing all immunization and preventive care scheduling rules. Uses the `Prevention` fact class to evaluate patient age, vaccination history, and status flags.
 
@@ -373,7 +373,7 @@ A single large DRL file containing all immunization and preventive care scheduli
 
 1. **`PREVENTION_FILE` property** -- filesystem path or `classpath:` prefix
 2. **`ResourceStorage` database** -- XML converted to DRL via `DSPreventionDrools.createRuleBase(byte[])`
-3. **Classpath fallback** -- bundled `/oscar/oscarPrevention/prevention.drl`
+3. **Classpath fallback** -- bundled `/oscar/prevention/prevention.drl`
 
 **Coverage**: DTaP-IPV, Hib, Pneu-C, Rot, MMR/MMRV, MenC-C, HPV, VZ (Varicella), dTap, Td, Flu, HPV-CERVIX, PAP, MAM (Mammogram), FOBT/Colonoscopy, Smoking, BMD, PHV, Annual Physical, Obesity.
 
@@ -462,7 +462,7 @@ Referenced by `ClinicalReports.xml` for population health indicator reporting.
 
 | File | Location | Fact Class | Vaccine/Prevention Types |
 |------|----------|-----------|------------------------|
-| `prevention.drl` | `src/main/resources/oscar/oscarPrevention/` | Prevention | DTaP-IPV (6 rules), Tdap-IPV (1), Rot (2), Hib (6), Pneu-C (6), MMR (2), MMRV (1), MenC-C (3), HPV (1), VZ (4), dTap (1), Td (2), Flu (4), HPV-CERVIX (3), PAP (4+debug), MAM (5+debug), FOBT (4), Smoking (1), BMD (1), PHV (2), Annual Physical (2), Obesity (2) |
+| `prevention.drl` | `src/main/resources/oscar/prevention/` | Prevention | DTaP-IPV (6 rules), Tdap-IPV (1), Rot (2), Hib (6), Pneu-C (6), MMR (2), MMRV (1), MenC-C (3), HPV (1), VZ (4), dTap (1), Td (2), Flu (4), HPV-CERVIX (3), PAP (4+debug), MAM (5+debug), FOBT (4), Smoking (1), BMD (1), PHV (2), Annual Physical (2), Obesity (2) |
 
 ### Workflow DRL Files
 
@@ -699,7 +699,7 @@ The Drools subsystem was migrated from Drools 2.0 (XML rule format) to Drools 7.
 
 ## Test Coverage
 
-The Drools subsystem has 101 modern JUnit 5 tests (tagged `@Tag("drools")`) covering the core infrastructure and all production DRL files. Tests are located in `src/test-modern/java/io/github/carlos_emr/carlos/`.
+The Drools subsystem has 101 modern JUnit 5 tests (tagged `@Tag("drools")`) covering the core infrastructure and all production DRL files. Tests are located in `src/test/java/io/github/carlos_emr/carlos/`.
 
 ### Running Drools Tests
 

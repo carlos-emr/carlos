@@ -1,30 +1,24 @@
 /**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- * <p>
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- * <p>
- * This software was written for the
- * Department of Family Medicine
- * McMaster University
- * Hamilton
- * Ontario, Canada
- 
- * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
+ *
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 package io.github.carlos_emr.carlos.webserv.rest.conversion;
 
@@ -33,7 +27,6 @@ import java.util.List;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
-import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
@@ -50,6 +43,12 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Component;
 
 //this isn't working - not being injected
+/**
+ * CARLOS EMR component for {@code TicklerConverter}.
+ *
+ * <p>Keep this class focused on its Java-layer responsibility and avoid moving
+ * request or rendering behavior back into JSP scriptlets.</p>
+ */
 @Component
 public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
 
@@ -81,7 +80,7 @@ public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
         ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
         DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
         TicklerLinkDao ticklerLinkDao = SpringUtils.getBean(TicklerLinkDao.class);
-        ProgramDao programDao = SpringUtils.getBean(ClinicDAO.class);
+        ProgramDao programDao = SpringUtils.getBean(ProgramDao.class);
 
 
         TicklerTo1 d = new TicklerTo1();

@@ -67,7 +67,7 @@ class QuickTest {
     @SuppressWarnings("unchecked")
     static void setUpBeforeAll() throws Exception {
         try (InputStream is = QuickTest.class.getClassLoader()
-                .getResourceAsStream("oscar/oscarPrevention/PreventionItems.xml")) {
+                .getResourceAsStream("oscar/prevention/PreventionItems.xml")) {
             assertThat(is).as("PreventionItems.xml should be on the classpath").isNotNull();
             SAXBuilder parser = new SAXBuilder();
             doc = parser.build(is);

@@ -94,9 +94,8 @@ public class FrmBCINRRecord extends FrmRecord {
 
         if (existingID <= 0) {
 
-            String sql = "SELECT demographic_no, last_name, first_name, sex, address, city, province, postal, phone, phone2, year_of_birth, month_of_birth, date_of_birth, hin, family_doctor FROM demographic WHERE demographic_no = "
-                    + demographicNo;
-            ResultSet rs = DBHandler.GetSQL(sql);
+            ResultSet rs = DBHandler.GetPreSQL("SELECT demographic_no, last_name, first_name, sex, address, city, province, postal, phone, phone2, year_of_birth, month_of_birth, date_of_birth, hin, family_doctor FROM demographic WHERE demographic_no = ?",
+                    demographicNo);
             if (rs.next()) {
                 java.util.Date date = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), rs
                         .getString("month_of_birth"), Misc.getString(rs, "date_of_birth"));
@@ -119,15 +118,14 @@ public class FrmBCINRRecord extends FrmRecord {
             }
             rs.close();
         } else {
-            String sql = "SELECT * FROM formBCINR WHERE demographic_no = " + demographicNo + " AND ID = " + existingID;
+            String sql = "SELECT * FROM formBCINR WHERE demographic_no = ? AND ID = ?";
             FrmRecordHelp frh = new FrmRecordHelp();
             frh.setDateFormat(_dateFormat);
-            props = (frh).getFormRecord(sql);
+            props = (frh).getFormRecord(sql, demographicNo, existingID);
 
-            sql = "SELECT last_name, first_name, address, city, province, postal, phone,phone2, hin FROM demographic WHERE demographic_no = "
-                    + demographicNo;
             DBHelp db = new DBHelp();
-            ResultSet rs = DBHelp.searchDBRecord(sql);
+            ResultSet rs = DBHelp.searchDBRecord("SELECT last_name, first_name, address, city, province, postal, phone,phone2, hin FROM demographic WHERE demographic_no = ?",
+                    demographicNo);
             if (rs.next()) {
                 props.setProperty("c_surname_cur", Misc.getString(rs, "last_name"));
                 props.setProperty("c_givenName_cur", Misc.getString(rs, "first_name"));
@@ -165,8 +163,8 @@ public class FrmBCINRRecord extends FrmRecord {
         Properties props = new Properties();
         int cId = 0;
         if (existingID == 0) {
-            String sql = "SELECT ID FROM formBCINR WHERE demographic_no = " + demographicNo + " order by ID desc";
-            ResultSet rs = DBHelp.searchDBRecord(sql);
+            ResultSet rs = DBHelp.searchDBRecord("SELECT ID FROM formBCINR WHERE demographic_no = ? order by ID desc",
+                    demographicNo);
             if (rs.next()) {
                 cId = rs.getInt("ID");
             }
@@ -175,10 +173,10 @@ public class FrmBCINRRecord extends FrmRecord {
         }
 
         if (cId != 0) {
-            String sql = "SELECT * FROM formBCINR WHERE demographic_no = " + demographicNo + " AND ID = " + cId;
+            String sql = "SELECT * FROM formBCINR WHERE demographic_no = ? AND ID = ?";
             FrmRecordHelp frh = new FrmRecordHelp();
             frh.setDateFormat(_dateFormat);
-            props = (frh).getFormRecord(sql);
+            props = (frh).getFormRecord(sql, demographicNo, cId);
 
             for (int i = 21; i >= 1; i--) {
                 String labDate = props.getProperty("date" + i, "");
@@ -218,19 +216,16 @@ public class FrmBCINRRecord extends FrmRecord {
     public Vector getINRLabData(int demographic_no) throws SQLException {
         Vector ret = new Vector();
 
-        String sql = "select lab_no from patientLabRouting where lab_type = 'BCP' and demographic_no ="
-                + demographic_no + "  order by lab_no";
-        ResultSet rs = DBHandler.GetSQL(sql);
+        ResultSet rs = DBHandler.GetPreSQL("select lab_no from patientLabRouting where lab_type = 'BCP' and demographic_no = ? order by lab_no",
+                demographic_no);
         while (rs.next()) {
             int labNo = rs.getInt("lab_no");
-            sql = "select obr_id from hl7_obr obr, hl7_pid pid where obr.pid_id = pid.pid_id and pid.message_id ="
-                    + labNo;
-            ResultSet rs1 = DBHandler.GetSQL(sql);
+            ResultSet rs1 = DBHandler.GetPreSQL("select obr_id from hl7_obr obr, hl7_pid pid where obr.pid_id = pid.pid_id and pid.message_id = ?",
+                    labNo);
             if (rs1.next()) {
                 int obrId = rs1.getInt("obr_id");
-                sql = "select observation_identifier, observation_results, observation_date_time from hl7_obx where obr_id ="
-                        + obrId + " and observation_result_status='F'";
-                ResultSet rs2 = DBHandler.GetSQL(sql);
+                ResultSet rs2 = DBHandler.GetPreSQL("select observation_identifier, observation_results, observation_date_time from hl7_obx where obr_id = ? and observation_result_status='F'",
+                        obrId);
                 while (rs2.next()) {
                     String labTestName = rs2.getString("observation_identifier").substring(
                             rs2.getString("observation_identifier").indexOf("^") + 1);
@@ -269,11 +264,11 @@ public class FrmBCINRRecord extends FrmRecord {
      */
     public int saveFormRecord(Properties props) throws SQLException {
         String demographic_no = props.getProperty("demographic_no");
-        String sql = "SELECT * FROM formBCINR WHERE demographic_no=" + demographic_no + " AND ID=0";
+        String sql = "SELECT * FROM formBCINR WHERE demographic_no=? AND ID=0";
 
         FrmRecordHelp frh = new FrmRecordHelp();
         frh.setDateFormat(_dateFormat);
-        return ((frh).saveFormRecord(props, sql));
+        return ((frh).saveFormRecord(props, sql, demographic_no));
     }
 
     /**
@@ -295,10 +290,10 @@ public class FrmBCINRRecord extends FrmRecord {
      * @throws SQLException if a database access error occurs during record retrieval
      */
     public Properties getPrintRecord(int demographicNo, int existingID) throws SQLException {
-        String sql = "SELECT * FROM formBCINR WHERE demographic_no = " + demographicNo + " AND ID = " + existingID;
+        String sql = "SELECT * FROM formBCINR WHERE demographic_no = ? AND ID = ?";
         FrmRecordHelp frh = new FrmRecordHelp();
         frh.setDateFormat(_dateFormat);
-        return ((frh).getPrintRecord(sql));
+        return ((frh).getPrintRecord(sql, demographicNo, existingID));
     }
 
     /**

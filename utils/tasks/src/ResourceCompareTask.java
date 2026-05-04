@@ -84,7 +84,7 @@ public class ResourceCompareTask {
                 //Would still like to find all other exact phrases in english already mapped and use if it has a french version already
                 translatedText = Translate.translate(english.getProperty(s), getLanguage(firstLanguage), getLanguage(compareLanguage));
             } catch (Exception ex) {
-                ex.printStackTrace();
+                System.err.println("Translation failed for key: " + s + " - " + ex.getMessage());
             }
 
             PrintStream out = new PrintStream(System.out, true, "UTF-8");

@@ -40,6 +40,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Date;
 import java.util.Hashtable;
+import java.util.List;
 import java.util.ResourceBundle;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -83,6 +84,8 @@ import org.openpdf.text.pdf.PdfReader;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
@@ -105,7 +108,7 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * @see PathValidationUtils
  * @since 2006-07-27
  */
-public class AddEditDocument2Action extends ActionSupport {
+public class AddEditDocument2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -128,30 +131,40 @@ public class AddEditDocument2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
+        File uploadedDocFile = this.getDocFile();
+        if (uploadedDocFile == null) {
+            response.setHeader("oscar_error", props.getString("dms.addDocument.errorZeroSize"));
+            response.sendError(500, props.getString("dms.addDocument.errorZeroSize"));
+            return null;
+        }
+
         int numberOfPages = 0;
-        String fileName = MiscUtils.sanitizeFileName(this.getDocFile().getName());
-        String user = (String) request.getSession().getAttribute("user");
+        String originalFileName = filled(this.docFileFileName) ? this.docFileFileName : uploadedDocFile.getName();
+        String fileName = MiscUtils.sanitizeFileName(originalFileName);
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String user = loggedInInfo.getLoggedInProviderNo();
         EDoc newDoc = new EDoc("", "", fileName, "", user, user, this.getSource(), 'A', UtilDateUtilities.getToday("yyyy-MM-dd"), "", "", "demographic", "-1", 0);
         newDoc.setDocPublic("0");
         newDoc.setAppointmentNo(Integer.parseInt(this.getAppointmentNo()));
 
         // if the document was added in the context of a program
         ProgramManager2 programManager = SpringUtils.getBean(ProgramManager2.class);
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         ProgramProvider pp = programManager.getCurrentProgramInDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
         if (pp != null && pp.getProgramId() != null) {
             newDoc.setProgramId(pp.getProgramId().intValue());
         }
 
         // save local file;
-        if (this.getDocFile().length() == 0) {
+        if (uploadedDocFile.length() == 0) {
             response.setHeader("oscar_error", props.getString("dms.addDocument.errorZeroSize"));
             response.sendError(500, props.getString("dms.addDocument.errorZeroSize"));
             return null;
         }
-        File file = writeLocalFile(Files.newInputStream(this.getDocFile().toPath()), fileName); // write file to local dir
+        // Validate uploaded source is from an allowed temp directory before reading
+        File validatedSource = PathValidationUtils.validateUpload(uploadedDocFile);
+        File file = writeLocalFile(Files.newInputStream(validatedSource.toPath()), fileName); // write file to local dir
 
-        if (!file.exists() || file.length() < this.getDocFile().length()) {
+        if (!file.exists() || file.length() < validatedSource.length()) {
             response.setHeader("oscar_error", props.getString("dms.addDocument.errorNoWrite"));
             response.sendError(500, props.getString("dms.addDocument.errorNoWrite"));
             return null;
@@ -164,7 +177,7 @@ public class AddEditDocument2Action extends ActionSupport {
         }
         newDoc.setNumberOfPages(numberOfPages);
         String doc_no = EDocUtil.addDocumentSQL(newDoc);
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
+        LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
         String providerId = request.getParameter("providers");
 
         if (providerId != null) { // TODO: THIS NEEDS TO RUN THRU THE lab forwarding rules!
@@ -181,7 +194,8 @@ public class AddEditDocument2Action extends ActionSupport {
             Integer qid = Integer.parseInt(queueId.trim());
             Integer did = Integer.parseInt(doc_no.trim());
             queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
-            request.getSession().setAttribute("preferredQueue", queueId);
+            // nosemgrep: tainted-session-from-http-request -- queueId validated via Integer.parseInt and canonicalized to numeric string; stored after successful DAO operation
+            request.getSession().setAttribute("preferredQueue", String.valueOf(qid)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): qid is Integer.parseInt-validated queue ID
         }
 
         return null;
@@ -253,7 +267,7 @@ public class AddEditDocument2Action extends ActionSupport {
             // if add/edit success then send redirect, if failed send a forward (need the formdata and errors hashtables while trying to avoid POSTDATA messages)
             if (addDocument(request)) { // if success
                 String contextPath = request.getContextPath();
-                StringBuffer redirect = new StringBuffer(contextPath + "/documentManager/documentReport.jsp");
+                StringBuffer redirect = new StringBuffer(contextPath + "/documentManager/ViewDocumentReport");
                 redirect.append("?docerrors=docerrors"); // Allows the JSP to check if the document was just submitted
                 redirect.append("&function=").append(request.getParameter("function"));
                 redirect.append("&functionid=").append(request.getParameter("functionid"));
@@ -305,6 +319,10 @@ public class AddEditDocument2Action extends ActionSupport {
                 throw new Exception();
             }
             File docFile = this.getDocFile();
+            if (docFile == null) {
+                errors.put("uploaderror", "dms.error.uploadError");
+                throw new FileNotFoundException();
+            }
             if (docFile.length() == 0) {
                 errors.put("uploaderror", "dms.error.uploadError");
                 throw new FileNotFoundException();
@@ -356,7 +374,7 @@ public class AddEditDocument2Action extends ActionSupport {
 
             // ---
             String doc_no = EDocUtil.addDocumentSQL(newDoc);
-            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
+            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
             // add note if document is added under a patient
             String module = this.getFunction().trim();
             String moduleId = this.getFunctionId().trim();
@@ -398,7 +416,6 @@ public class AddEditDocument2Action extends ActionSupport {
                 cmn.setReporter_caisi_role(doctorRole.getId().toString());
 
                 cmn.setReporter_program_team("0");
-                cmn.setPassword("NULL");
                 cmn.setLocked(false);
                 cmn.setHistory(strNote);
                 cmn.setPosition(0);
@@ -463,13 +480,14 @@ public class AddEditDocument2Action extends ActionSupport {
             String reviewDateTime = filled(this.getReviewDateTime()) ? this.getReviewDateTime() : "";
 
             if (!filled(reviewerId) && this.getReviewDoc()) {
-                reviewerId = (String) request.getSession().getAttribute("user");
+                LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+                reviewerId = loggedInInfo.getLoggedInProviderNo();
                 reviewDateTime = UtilDateUtilities.DateToString(new Date(), EDocUtil.REVIEW_DATETIME_FORMAT);
                 if (this.getFunction() != null && this.getFunction().equals("demographic")) {
-                    LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.REVIEWED, LogConst.CON_DOCUMENT, this.getMode(),
+                    LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.REVIEWED, LogConst.CON_DOCUMENT, this.getMode(),
 request.getRemoteAddr(), this.getFunctionId());
                 } else {
-                    LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.REVIEWED, LogConst.CON_DOCUMENT, this.getMode(),
+                    LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.REVIEWED, LogConst.CON_DOCUMENT, this.getMode(),
 request.getRemoteAddr());
                 }
             }
@@ -519,16 +537,16 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             EDocUtil.editDocumentSQL(newDoc, this.getReviewDoc());
 
             if (this.getFunction() != null && this.getFunction().equals("demographic")) {
-                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, LogConst.CON_DOCUMENT, this.getMode(), request.getRemoteAddr(), this.getFunctionId());
+                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.UPDATE, LogConst.CON_DOCUMENT, this.getMode(), request.getRemoteAddr(), this.getFunctionId());
             } else {
-                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, LogConst.CON_DOCUMENT, this.getMode(), request.getRemoteAddr());
+                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.UPDATE, LogConst.CON_DOCUMENT, this.getMode(), request.getRemoteAddr());
 
             }
 
         } catch (Exception e) {
             request.setAttribute("docerrors", errors);
             request.setAttribute("editDocumentNo", this.getMode());
-            e.printStackTrace();
+            MiscUtils.getLogger().error("Failed to edit document", e);
             return "failEdit";
         }
         return "successEdit";
@@ -604,6 +622,40 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             IOUtils.closeQuietly(fin);
         }
         return ret;
+    }
+
+    /**
+     * Binds Struts 7 {@link UploadedFile} instances to this action. The {@code docFile}
+     * input takes precedence over {@code filedata}; once a {@code docFile} entry has been
+     * bound, any subsequent entries (including additional {@code filedata} entries) are
+     * ignored to ensure deterministic selection regardless of list ordering.
+     *
+     * @param uploadedFiles List&lt;UploadedFile&gt; the uploads provided by the Struts file
+     *                      upload interceptor, or {@code null} if none were posted
+     */
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles == null) {
+            return;
+        }
+
+        UploadedFile selected = null;
+        for (UploadedFile uploaded : uploadedFiles) {
+            String inputName = uploaded.getInputName();
+            if ("docFile".equals(inputName)) {
+                selected = uploaded;
+                break;
+            }
+            if (selected == null && "filedata".equals(inputName)) {
+                selected = uploaded;
+            }
+        }
+
+        if (selected != null) {
+            this.docFile = new File(selected.getAbsolutePath());
+            this.docFileFileName = selected.getOriginalName();
+            this.docFileContentType = selected.getContentType();
+        }
     }
 
     private boolean filled(String s) {
@@ -879,9 +931,17 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     private String docFileFileName;    
     private String docFileContentType; 
 
+    public String getDocFileFileName() {
+        return docFileFileName;
+    }
+
     @StrutsParameter
     public void setDocFileFileName(String docFileFileName) {
         this.docFileFileName = docFileFileName;
+    }
+
+    public String getDocFileContentType() {
+        return docFileContentType;
     }
 
     @StrutsParameter

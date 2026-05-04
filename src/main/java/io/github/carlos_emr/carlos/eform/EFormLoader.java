@@ -36,6 +36,7 @@ import jakarta.xml.bind.Unmarshaller;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 import io.github.carlos_emr.carlos.eform.data.DatabaseAP;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.eform.data.EFormApConfig;
@@ -126,14 +127,14 @@ public class EFormLoader {
         String formId = efm.getFid();
         String appointmentNo = efm.getAppointmentNo();
 
-        if (url.contains("efmformadd_data.jsp")) { //whole new eform
+        if (url.contains("efmformadd_data")) { //whole new eform
             url += "?fid=" + fid + "&demographic_no=" + demographicNo + "&appointment=" + appointmentNo;
         } else if (!StringUtils.isBlank(fdid)) { //filled eform, eform already linked
             url += "?fdid=" + fdid + "&appointment=" + appointmentNo;
         } else if (demographicNo.equals("-1")) { //eform viewed in admin
             url += "?fid=" + fid;
         } else { //filled eform, but create new eform link
-            url = url.replaceFirst("efmshowform_data.jsp", "efmformadd_data.jsp");
+            url = url.replaceFirst("efmshowform_data", "efmformadd_data");
             url += "?fid=" + fid + "&demographic_no=" + demographicNo + "&appointment=" + appointmentNo;
         }
         String link = "&eform_link=" + providerNo + "_" + demographicNo + "_" + formId + "_" + field;
@@ -181,12 +182,13 @@ public class EFormLoader {
             } else {
                 fs = new FileInputStream(configpath);
             }
-            JAXBContext ctx = JAXBContext.newInstance(EFormApConfig.class);
-            Unmarshaller unmarshaller = ctx.createUnmarshaller();
-            EFormApConfig config = (EFormApConfig) unmarshaller.unmarshal(fs);
-            fs.close();
-            for (DatabaseAP ap : config.getDatabaseAPs()) {
-                addDatabaseAP(ap);
+            try (InputStream autoClose = fs) {
+                JAXBContext ctx = JAXBContext.newInstance(EFormApConfig.class);
+                Unmarshaller unmarshaller = ctx.createUnmarshaller();
+                EFormApConfig config = (EFormApConfig) unmarshaller.unmarshal(XmlUtils.createSecureJaxbSource(autoClose));
+                for (DatabaseAP ap : config.getDatabaseAPs()) {
+                    addDatabaseAP(ap);
+                }
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);

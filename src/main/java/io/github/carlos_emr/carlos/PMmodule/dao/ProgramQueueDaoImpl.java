@@ -36,12 +36,12 @@ import java.util.List;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramQueue;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import org.springframework.transaction.annotation.Transactional;
-import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
+import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
 @Transactional
-public class ProgramQueueDaoImpl extends AbstractHibernateDao implements ProgramQueueDao {
+public class ProgramQueueDaoImpl extends AbstractJpaDao implements ProgramQueueDao {
 
     private Logger log = MiscUtils.getLogger();
 
@@ -51,7 +51,7 @@ public class ProgramQueueDaoImpl extends AbstractHibernateDao implements Program
             throw new IllegalArgumentException();
         }
 
-        ProgramQueue result = currentSession().get(ProgramQueue.class, queueId);
+        ProgramQueue result = entityManager().find(ProgramQueue.class, queueId);
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramQueue: queueId=" + queueId + ", found=" + (result != null));
@@ -67,7 +67,7 @@ public class ProgramQueueDaoImpl extends AbstractHibernateDao implements Program
         }
 
         String queryStr = " FROM ProgramQueue q WHERE q.ProgramId=?1 ORDER BY  q.Id  ";
-        List results = HqlQueryHelper.find(currentSession(), queryStr, programId);
+        List results = JpqlQueryHelper.find(entityManager(), queryStr, programId);
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramQueue: programId=" + programId + ", # of results=" + results.size());
@@ -82,7 +82,7 @@ public class ProgramQueueDaoImpl extends AbstractHibernateDao implements Program
             throw new IllegalArgumentException();
         }
 
-        List results = HqlQueryHelper.find(currentSession(),
+        List results = JpqlQueryHelper.find(entityManager(),
                 "from ProgramQueue pq where pq.ProgramId = ?1 and pq.Status = 'active' order by pq.ReferralDate",
                 Long.valueOf(programId));
 
@@ -100,9 +100,9 @@ public class ProgramQueueDaoImpl extends AbstractHibernateDao implements Program
         }
 
         if (programQueue.getId() == null) {
-            currentSession().persist(programQueue);
+            entityManager().persist(programQueue);
         } else {
-            currentSession().merge(programQueue);
+            entityManager().merge(programQueue);
         }
 
         if (log.isDebugEnabled()) {
@@ -122,7 +122,7 @@ public class ProgramQueueDaoImpl extends AbstractHibernateDao implements Program
 
         ProgramQueue result = null;
         String sSQL = "from ProgramQueue pq where pq.ProgramId = ?1 and pq.ClientId = ?2";
-        List results = HqlQueryHelper.find(currentSession(), sSQL, Long.valueOf(programId), Long.valueOf(clientId));
+        List results = JpqlQueryHelper.find(entityManager(), sSQL, Long.valueOf(programId), Long.valueOf(clientId));
 
         if (!results.isEmpty()) {
             result = (ProgramQueue) results.get(0);
@@ -147,7 +147,7 @@ public class ProgramQueueDaoImpl extends AbstractHibernateDao implements Program
         ProgramQueue result = null;
 
         String sSQL = "from ProgramQueue pq where pq.ProgramId = ?1 and pq.ClientId = ?2 and pq.Status='active'";
-        List results = HqlQueryHelper.find(currentSession(), sSQL, programId, demographicNo);
+        List results = JpqlQueryHelper.find(entityManager(), sSQL, programId, demographicNo);
         if (!results.isEmpty()) {
             result = (ProgramQueue) results.get(0);
         }

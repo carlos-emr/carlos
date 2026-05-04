@@ -50,10 +50,9 @@ public class FrmBCHPRecord extends FrmRecord {
 
         if (existingID <= 0) {
 
-            String sql = "SELECT demographic_no, last_name, first_name, phone, phone2, hin,provider_no FROM demographic WHERE demographic_no = "
-                    + demographicNo;
             String providerNo = null;
-            ResultSet rs = DBHandler.GetSQL(sql);
+            ResultSet rs = DBHandler.GetPreSQL("SELECT demographic_no, last_name, first_name, phone, phone2, hin,provider_no FROM demographic WHERE demographic_no = ?",
+                    demographicNo);
             if (rs.next()) {
                 props.setProperty("demographic_no", rs.getString("demographic_no"));
                 props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(),
@@ -78,14 +77,13 @@ public class FrmBCHPRecord extends FrmRecord {
 
             }
         } else {
-            String sql = "SELECT * FROM formBCHP WHERE demographic_no = " + demographicNo + " AND ID = " + existingID;
+            String sql = "SELECT * FROM formBCHP WHERE demographic_no = ? AND ID = ?";
             FrmRecordHelp frh = new FrmRecordHelp();
             frh.setDateFormat(_dateFormat);
-            props = (frh).getFormRecord(sql);
+            props = (frh).getFormRecord(sql, demographicNo, existingID);
 
-            sql = "SELECT last_name, first_name, address, city, province, postal, phone,phone2, hin FROM demographic WHERE demographic_no = "
-                    + demographicNo;
-            ResultSet rs = DBHelp.searchDBRecord(sql);
+            ResultSet rs = DBHelp.searchDBRecord("SELECT last_name, first_name, address, city, province, postal, phone,phone2, hin FROM demographic WHERE demographic_no = ?",
+                    demographicNo);
             if (rs.next()) {
                 props.setProperty("pg1_patientName_cur", rs.getString("last_name") + ", " + rs.getString("first_name"));
                 props.setProperty("pg1_phn_cur", rs.getString("hin"));
@@ -97,18 +95,18 @@ public class FrmBCHPRecord extends FrmRecord {
 
     public int saveFormRecord(Properties props) throws SQLException {
         String demographic_no = props.getProperty("demographic_no");
-        String sql = "SELECT * FROM formBCHP WHERE demographic_no=" + demographic_no + " AND ID=0";
+        String sql = "SELECT * FROM formBCHP WHERE demographic_no=? AND ID=0";
 
         FrmRecordHelp frh = new FrmRecordHelp();
         frh.setDateFormat(_dateFormat);
-        return ((frh).saveFormRecord(props, sql));
+        return ((frh).saveFormRecord(props, sql, demographic_no));
     }
 
     public Properties getPrintRecord(int demographicNo, int existingID) throws SQLException {
-        String sql = "SELECT * FROM formBCHP WHERE demographic_no = " + demographicNo + " AND ID = " + existingID;
+        String sql = "SELECT * FROM formBCHP WHERE demographic_no = ? AND ID = ?";
         FrmRecordHelp frh = new FrmRecordHelp();
         frh.setDateFormat(_dateFormat);
-        return ((frh).getPrintRecord(sql));
+        return ((frh).getPrintRecord(sql, demographicNo, existingID));
     }
 
     public String findActionValue(String submit) throws SQLException {

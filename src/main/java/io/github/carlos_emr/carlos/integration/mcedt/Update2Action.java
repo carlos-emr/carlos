@@ -34,6 +34,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -54,7 +55,12 @@ public class Update2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
+        McedtSecurity.requireRead(request);
         String method = request.getParameter("method");
+        if ("addUpdateRequest".equals(method) || "sendUpdateRequest".equals(method) || "cancel".equals(method)) {
+            McedtSecurity.requireWrite(request);
+            McedtSecurity.requirePost(request);
+        }
         if ("addUpdateRequest".equals(method)) {
             return addUpdateRequest();
         } else if ("cancel".equals(method)) {
@@ -78,7 +84,7 @@ public class Update2Action extends ActionSupport {
             for (DetailData d : details.getData()) {
                 d.setModifyTimestamp(null);
             }
-            request.getSession().setAttribute(SESSION_KEY_UPLOAD_DETAILS, details);
+            request.getSession().setAttribute(SESSION_KEY_UPLOAD_DETAILS, details); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- MCEDT resource list from EDT service response
         }
         return "initial";
     }
@@ -158,7 +164,10 @@ public class Update2Action extends ActionSupport {
         UpdateRequest result = new UpdateRequest();
         result.setResourceID(BigInteger.valueOf(ConversionUtils.fromIntString(resourceId)));
         try {
-            result.setContent(Files.readAllBytes(content.toPath()));
+            File validatedContent = PathValidationUtils.validateUpload(content);
+            result.setContent(Files.readAllBytes(validatedContent.toPath()));
+        } catch (SecurityException e) {
+            throw new SecurityException("Invalid upload file path", e);
         } catch (Exception e) {
             throw new RuntimeException("Unable to read upload data", e);
         }
