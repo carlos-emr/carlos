@@ -30,6 +30,7 @@
 --%>
 
 <%@ page import="java.nio.charset.StandardCharsets" %>
+<%@ page import="java.util.Objects" %>
 <%@page
         import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.lab.ca.on.*,io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues" %>
@@ -38,6 +39,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
@@ -76,6 +78,7 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="lab.cumulativeLab.title"/></title>
         <!--I18n-->
+        <%@ include file="/WEB-INF/jspf/bootstrap-css.jspf" %>
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
@@ -184,7 +187,7 @@
     <!--  -->
     <table class="MainTable" id="scrollNumber1">
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn">lab</td>
+            <td class="MainTableTopRowLeftColumn"><fmt:message key="lab.cumulativeLab.title"/></td>
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
                     <tr>
@@ -202,30 +205,33 @@
 
 
                 <div class="leftBox">
-                    <h3>&nbsp;Labs</h3>
+                    <h3>&nbsp;<fmt:message key="lab.cumulativeLab.labs"/></h3>
                     <div style="background-color: #EEEEFF;">
-                        <ul>
+                        <ul class="list-group">
                             <%
                                 for (int i = 0; i < prevList.size(); i++) {
                                     Hashtable h = (Hashtable) prevList.get(i);
-                                    String prevName = (String) h.get("testName");
-                                    String identCode = (String) h.get("identCode");
-                                    String identCodeEsc = "";
-                                    if (identCode != null)
-                                        identCodeEsc = identCode.replaceAll("&", "_amp_");
-                                    String prevNameEsc = SafeEncode.forJavaScript(prevName);
-
-                                    if (prevName == null) {
-                                        prevName = "";
-                                    }
+                                    String prevName = Objects.toString(h.get("testName"), "");
+                                    String labType = Objects.toString(h.get("labType"), "");
+                                    String identCode = Objects.toString(h.get("identCode"), "");
+                                    // Preserve legacy "_amp_" normalization: downstream consumers
+                                    // (CommonLabTestValues.findValuesForTest) reverse this on the
+                                    // server side, so '&' must be encoded the same way here.
+                                    String identCodeEsc = identCode.replaceAll("&", "_amp_");
+                                    String prevNameHtmlAttr = SafeEncode.forHtmlAttribute(prevName);
+                                    String prevNameJsAttr = SafeEncode.forJavaScriptAttribute(prevName);
+                                    String labTypeJsAttr = SafeEncode.forJavaScriptAttribute(labType);
+                                    String identCodeJsAttr = SafeEncode.forJavaScriptAttribute(identCodeEsc);
+                                    String displayNameHtml = SafeEncode.forHtmlContent(StringUtils.maxLenString(prevName, 13, 8, "..."));
                             %>
-                            <li style="margin-top: 2px;"><%-- a title="fade=[on] header=[<%=prevName%>] body=[]"      href="javascript: function myFunction() {return false; }"  onclick="javascript:addLabToProfile2('<%=h.get("labType")%>','<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>');" --%>
-                                <a title="fade=[on] header=[<%=prevName%>] body=[]"
-                                   href="javascript: function myFunction() {return false; }"
-                                   onclick="javascript:addLabToProfile2('<%=h.get("labType")%>','<%=prevNameEsc%>','<%= identCodeEsc %>');">
+                            <li class="list-group-item py-1 px-2"><%-- a title="fade=[on] header=[<%=prevName%>] body=[]"      href="javascript: function myFunction() {return false; }"  onclick="javascript:addLabToProfile2('<%=h.get("labType")%>','<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>');" --%>
+                                <button type="button"
+                                        class="btn btn-link p-0 text-start focus-ring"
+                                        aria-label="<%=prevNameHtmlAttr%>"
+                                        onclick="addLabToProfile2('<%=labTypeJsAttr%>','<%=prevNameJsAttr%>','<%= identCodeJsAttr %>');">
 
-                                    <%=StringUtils.maxLenString(prevName, 13, 8, "...")%>
-                                </a></li>
+                                     <%=displayNameHtml%>
+                                </button></li>
                             <%}%>
                         </ul>
                     </div>
