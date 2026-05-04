@@ -74,10 +74,12 @@
     <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/share/css/global.css"/>
 
     <fmt:message key="inboxmanager.document.documents" var="documentsLabel"/>
+    <fmt:message key="global.hl7" var="hl7Label"/>
     <script type="text/javascript">
         var contextpath = "${pageContext.servletContext.contextPath}";
         const ctx = contextpath;
         var documentLabel = '<carlos:encode value="${documentsLabel}" context="javaScript"/>';
+        var hl7Label = '<carlos:encode value="${hl7Label}" context="javaScript"/>';
     </script>
 
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/javascript/carlos-ajax.js"></script>
@@ -2072,7 +2074,7 @@
         }
 
         function createNewHL7Ele(patientId) {
-            var newEle = '<dt><a id="patient' + patientId + 'hl7s" href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showSubType(\'' + patientId + '\',\'HL7\');un_bold(this);" title="HL7s">HL7s(<span id="pLabNum_' + patientId + '">1</span>)</a></dt>';
+            var newEle = '<dt><a id="patient' + patientId + 'hl7s" href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showSubType(\'' + patientId + '\',\'HL7\');un_bold(this);" title="' + hl7Label + '">' + hl7Label + '(<span id="pLabNum_' + patientId + '">1</span>)</a></dt>';
             //oscarLog('newEle='+newEle);
             return newEle;
         }
