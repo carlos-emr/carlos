@@ -75,8 +75,8 @@ public class PendingDocumentsJspRegressionTest {
                 .contains("<fmt:message key=\"inboxmanager.document.queues\"/>")
                 .contains("<fmt:message key=\"inboxmanager.document.documents\"/>")
                 .contains("<fmt:message key=\"global.hl7\" var=\"hl7Label\"/>")
-                .contains("function filterPatientIdCharacters(patientId)")
-                .contains("var safePatientId = filterPatientIdCharacters(patientId);")
+                .contains("function normalizePatientNumber(patientId)")
+                .contains("var safePatientId = normalizePatientNumber(patientId);")
                 .doesNotContain(">Back</button>")
                 .doesNotContain(">Queues</th>")
                 .doesNotContain(">Documents</th>")
@@ -111,16 +111,16 @@ public class PendingDocumentsJspRegressionTest {
     @DisplayName("pending documents i18n keys should resolve in every shipped locale")
     void shouldDefineI18nKeys_forPendingDocumentsLabelsInEveryLocale() throws IOException {
         for (Map.Entry<String, Path> localeBundle : LOCALE_BUNDLES.entrySet()) {
-            assertThat(missingI18nKeys(localeBundle.getValue()))
-                    .as("oscarResources_%s.properties should define pending documents labels", localeBundle.getKey())
+            assertThat(missingOrBlankI18nKeys(localeBundle.getValue()))
+                    .as("oscarResources_%s.properties should define non-blank pending documents labels", localeBundle.getKey())
                     .isEmpty();
         }
     }
 
-    private static List<String> missingI18nKeys(Path bundlePath) throws IOException {
+    private static List<String> missingOrBlankI18nKeys(Path bundlePath) throws IOException {
         Properties bundle = loadBundle(bundlePath);
         return REQUIRED_I18N_KEYS.stream()
-                .filter(key -> !bundle.containsKey(key))
+                .filter(key -> bundle.getProperty(key, "").isBlank())
                 .toList();
     }
 
