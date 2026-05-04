@@ -160,8 +160,8 @@ class DemographicExportAction42ActionRequestMethodTest extends CarlosUnitTestBas
     }
 
     @Test
-    @DisplayName("should not display export UI for POST requests")
-    void shouldNotReturnSuccess_whenRequestMethodIsPost() throws Exception {
+    @DisplayName("should attempt export for POST requests")
+    void shouldAttemptExport_whenRequestMethodIsPost() throws Exception {
         when(request.getMethod()).thenReturn("POST");
         action.setDemographicNo("123");
         action.setTemplate(String.valueOf(DemographicExportAction42Action.E2E));
