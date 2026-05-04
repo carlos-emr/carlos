@@ -73,7 +73,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *   "providerNo": "10001", "startTime": "09:00", "duration": 15 }
  * </pre>
  * <pre>
- * { "found": false, "lookaheadDays": 180 }
+ * { "found": false, "lookaheadDays": {@value NextAppointmentSearchHelper#MAX_DAYS_TO_SEARCH} }
  * </pre>
  *
  * @since 2026-03-22
