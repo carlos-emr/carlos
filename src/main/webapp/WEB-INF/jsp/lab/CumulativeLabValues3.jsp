@@ -52,7 +52,7 @@
 <%@ taglib uri="jakarta.tags.core"      prefix="c"   %>
 <%@ taglib uri="jakarta.tags.fmt"       prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn"  %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos"                 prefix="carlos" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld"  prefix="oscar"    %>
 <%@ taglib uri="/WEB-INF/security.tld"   prefix="security" %>
 
@@ -245,7 +245,7 @@
 
 <div class="d-flex align-items-center justify-content-between mb-2 pb-2 border-bottom">
     <span class="fw-semibold small">
-        <oscar:nameage demographicNo="${e:forHtmlAttribute(demographicNo)}"/>
+        <oscar:nameage demographicNo="${carlos:forHtmlAttribute(demographicNo)}"/>
     </span>
     <span class="small text-muted">
         <a href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a>
@@ -264,10 +264,10 @@
                 <c:forEach items="${dateList}" var="dateEntry">
                     <th>
                         <a href="#"
-                           data-seg-id="${e:forHtmlAttribute(dateEntry['id'])}"
-                           data-provider-no="${e:forHtmlAttribute(providerNo)}"
-                           onclick="reportWindow('${e:forJavaScriptAttribute(ctx)}/lab/CA/ALL/ViewLabDisplay?segmentID=' + this.dataset.segId + '&amp;providerNo=' + this.dataset.providerNo); return false;">
-                            ${e:forHtml(dateEntry['formattedDate'])}
+                           data-seg-id="${carlos:forHtmlAttribute(dateEntry['id'])}"
+                           data-provider-no="${carlos:forHtmlAttribute(providerNo)}"
+                           onclick="reportWindow('${carlos:forJavaScriptAttribute(ctx)}/lab/CA/ALL/ViewLabDisplay?segmentID=' + this.dataset.segId + '&amp;providerNo=' + this.dataset.providerNo); return false;">
+                            ${carlos:forHtml(dateEntry['formattedDate'])}
                         </a>
                     </th>
                 </c:forEach>
@@ -285,18 +285,18 @@
                             </c:when>
                             <c:otherwise>
                                 <tr class="lab-section-header">
-                                    <td colspan="${3 + fn:length(dateList)}">${e:forHtml(row['testName'])}</td>
+                                    <td colspan="${3 + fn:length(dateList)}">${carlos:forHtml(row['testName'])}</td>
                                 </tr>
                             </c:otherwise>
                         </c:choose>
                     </c:when>
                     <c:otherwise>
                         <tr>
-                            <td>${e:forHtml(row['testName'])}</td>
-                            <td class="abn-${e:forHtmlAttribute(row['latestAbn'])}">${e:forHtml(row['latestVal'])}</td>
-                            <td>${e:forHtml(row['latestDate'])}</td>
+                            <td>${carlos:forHtml(row['testName'])}</td>
+                            <td class="abn-${carlos:forHtmlAttribute(row['latestAbn'])}">${carlos:forHtml(row['latestVal'])}</td>
+                            <td>${carlos:forHtml(row['latestDate'])}</td>
                             <c:forEach items="${row['cells']}" var="cell">
-                                <td class="abn-${e:forHtmlAttribute(cell['abn'])}">${e:forHtml(cell['val'])}</td>
+                                <td class="abn-${carlos:forHtmlAttribute(cell['abn'])}">${carlos:forHtml(cell['val'])}</td>
                             </c:forEach>
                         </tr>
                     </c:otherwise>
