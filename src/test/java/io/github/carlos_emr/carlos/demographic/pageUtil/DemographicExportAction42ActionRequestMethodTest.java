@@ -164,14 +164,15 @@ class DemographicExportAction42ActionRequestMethodTest extends CarlosUnitTestBas
     }
 
     @Test
-    @DisplayName("should audit export attempt for POST requests")
-    void shouldAuditExportAttempt_whenRequestMethodIsPost() throws Exception {
+    @DisplayName("should audit unsupported template for POST requests")
+    void shouldAuditExportAttempt_whenPostingUnsupportedTemplate() throws Exception {
         when(request.getMethod()).thenReturn("POST");
         action.setDemographicNo("123");
         action.setTemplate(String.valueOf(DemographicExportAction42Action.E2E));
 
-        action.execute();
+        String result = action.execute();
 
+        assertThat(result).isNotEqualTo(ActionSupport.SUCCESS);
         ArgumentCaptor<OscarLog> auditLogCaptor = ArgumentCaptor.forClass(OscarLog.class);
         logActionMock.verify(() -> LogAction.addLogSynchronous(auditLogCaptor.capture()));
         OscarLog auditLog = auditLogCaptor.getValue();
