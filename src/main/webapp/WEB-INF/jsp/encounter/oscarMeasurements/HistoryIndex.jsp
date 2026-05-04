@@ -29,23 +29,6 @@
 
 --%>
 
-<%
-    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
-    boolean authed = true;
-%>
-
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_measurement" rights="r" reverse="<%=true%>">
-    <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_measurement"); return;%>
-</security:oscarSec>
-
-<%
-    if (!authed) {
-        return;
-    }
-%>
-
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils"%>
 
 <%
