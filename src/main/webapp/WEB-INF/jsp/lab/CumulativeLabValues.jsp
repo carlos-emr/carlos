@@ -78,7 +78,7 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="lab.cumulativeLab.title"/></title>
         <!--I18n-->
-        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+        <%@ include file="/WEB-INF/jspf/bootstrap-css.jspf" %>
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
@@ -214,10 +214,14 @@
                                     String prevName = Objects.toString(h.get("testName"), "");
                                     String labType = Objects.toString(h.get("labType"), "");
                                     String identCode = Objects.toString(h.get("identCode"), "");
+                                    // Preserve legacy "_amp_" normalization: downstream consumers
+                                    // (CommonLabTestValues.findValuesForTest) reverse this on the
+                                    // server side, so '&' must be encoded the same way here.
+                                    String identCodeEsc = identCode.replaceAll("&", "_amp_");
                                     String prevNameHtmlAttr = SafeEncode.forHtmlAttribute(prevName);
                                     String prevNameJsAttr = SafeEncode.forJavaScriptAttribute(prevName);
                                     String labTypeJsAttr = SafeEncode.forJavaScriptAttribute(labType);
-                                    String identCodeJsAttr = SafeEncode.forJavaScriptAttribute(identCode);
+                                    String identCodeJsAttr = SafeEncode.forJavaScriptAttribute(identCodeEsc);
                                     String displayNameHtml = SafeEncode.forHtmlContent(StringUtils.maxLenString(prevName, 13, 8, "..."));
                             %>
                             <li class="list-group-item py-1 px-2"><%-- a title="fade=[on] header=[<%=prevName%>] body=[]"      href="javascript: function myFunction() {return false; }"  onclick="javascript:addLabToProfile2('<%=h.get("labType")%>','<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>');" --%>
