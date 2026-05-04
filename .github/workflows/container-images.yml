@@ -165,7 +165,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
     outputs:
       build_success: ${{ steps.test.outputs.success }}
     steps:
@@ -174,13 +173,6 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
-
-      - name: Log in to Container Registry
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build tomcat-dev container
         env:
@@ -219,34 +211,13 @@ jobs:
           docker stop test-tomcat && docker rm test-tomcat
           echo "success=true" >> "$GITHUB_OUTPUT"
 
-      - name: Push to registry
-        if: steps.test.outputs.success == 'true' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.force_rebuild == 'true'))
-        env:
-          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-tomcat-dev
-        run: |
-          # Tag with multiple tags
-          docker tag carlos-tomcat-dev:test "$IMAGE:latest"
-          docker tag carlos-tomcat-dev:test "$IMAGE:${{ github.sha }}"
-
-          # Push all tags
-          docker push "$IMAGE:latest"
-          docker push "$IMAGE:${{ github.sha }}"
-
-          echo "Pushed $IMAGE:latest"
-          echo "Pushed $IMAGE:${{ github.sha }}"
-
-  # ===========================================================================
-  # Build and push mariadb-dev container
-  # ===========================================================================
-  build-mariadb:
-    needs: check-containers
-    if: needs.check-containers.outputs.mariadb_needs_build == 'true'
+  publish-tomcat:
+    needs: [check-containers, build-tomcat]
+    if: needs.check-containers.outputs.tomcat_needs_build == 'true' && needs.build-tomcat.result == 'success' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.force_rebuild == 'true'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-    outputs:
-      build_success: ${{ steps.test.outputs.success }}
     steps:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -260,6 +231,40 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push tomcat-dev container
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-tomcat-dev
+          CONTENT_HASH: ${{ needs.check-containers.outputs.tomcat_hash }}
+        run: |
+          docker buildx build \
+            --push \
+            -t "$IMAGE:latest" \
+            -t "$IMAGE:${{ github.sha }}" \
+            --label "org.openosp.content-hash=$CONTENT_HASH" \
+            --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
+            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            .devcontainer/development
+          echo "Pushed $IMAGE:latest"
+          echo "Pushed $IMAGE:${{ github.sha }}"
+
+  # ===========================================================================
+  # Build and push mariadb-dev container
+  # ===========================================================================
+  build-mariadb:
+    needs: check-containers
+    if: needs.check-containers.outputs.mariadb_needs_build == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      build_success: ${{ steps.test.outputs.success }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
 
       - name: Build mariadb-dev container
         env:
@@ -343,32 +348,13 @@ jobs:
           docker stop test-mariadb && docker rm test-mariadb
           echo "success=true" >> "$GITHUB_OUTPUT"
 
-      - name: Push to registry
-        if: steps.test.outputs.success == 'true' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.force_rebuild == 'true'))
-        env:
-          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-mariadb-dev
-        run: |
-          docker tag carlos-mariadb-dev:test "$IMAGE:latest"
-          docker tag carlos-mariadb-dev:test "$IMAGE:${{ github.sha }}"
-
-          docker push "$IMAGE:latest"
-          docker push "$IMAGE:${{ github.sha }}"
-
-          echo "Pushed $IMAGE:latest"
-          echo "Pushed $IMAGE:${{ github.sha }}"
-
-  # ===========================================================================
-  # Build and push drugref container
-  # ===========================================================================
-  build-drugref:
-    needs: check-containers
-    if: needs.check-containers.outputs.drugref_needs_build == 'true'
+  publish-mariadb:
+    needs: [check-containers, build-mariadb]
+    if: needs.check-containers.outputs.mariadb_needs_build == 'true' && needs.build-mariadb.result == 'success' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.force_rebuild == 'true'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-    outputs:
-      build_success: ${{ steps.test.outputs.success }}
     steps:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -382,6 +368,40 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push mariadb-dev container
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-mariadb-dev
+          CONTENT_HASH: ${{ needs.check-containers.outputs.mariadb_hash }}
+        run: |
+          docker buildx build \
+            --push \
+            -t "$IMAGE:latest" \
+            -t "$IMAGE:${{ github.sha }}" \
+            --label "org.openosp.content-hash=$CONTENT_HASH" \
+            --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
+            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            -f .devcontainer/db/Dockerfile .
+          echo "Pushed $IMAGE:latest"
+          echo "Pushed $IMAGE:${{ github.sha }}"
+
+  # ===========================================================================
+  # Build and push drugref container
+  # ===========================================================================
+  build-drugref:
+    needs: check-containers
+    if: needs.check-containers.outputs.drugref_needs_build == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      build_success: ${{ steps.test.outputs.success }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
 
       - name: Build drugref container
         env:
@@ -440,17 +460,40 @@ jobs:
           docker stop test-drugref && docker rm test-drugref
           echo "success=true" >> "$GITHUB_OUTPUT"
 
-      - name: Push to registry
-        if: steps.test.outputs.success == 'true' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.force_rebuild == 'true'))
+  publish-drugref:
+    needs: [check-containers, build-drugref]
+    if: needs.check-containers.outputs.drugref_needs_build == 'true' && needs.build-drugref.result == 'success' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.force_rebuild == 'true'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push drugref container
         env:
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-drugref
+          CONTENT_HASH: ${{ needs.check-containers.outputs.drugref_hash }}
         run: |
-          docker tag carlos-drugref:test "$IMAGE:latest"
-          docker tag carlos-drugref:test "$IMAGE:${{ github.sha }}"
-
-          docker push "$IMAGE:latest"
-          docker push "$IMAGE:${{ github.sha }}"
-
+          docker buildx build \
+            --push \
+            -t "$IMAGE:latest" \
+            -t "$IMAGE:${{ github.sha }}" \
+            --label "org.openosp.content-hash=$CONTENT_HASH" \
+            --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
+            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            .devcontainer/drugref
           echo "Pushed $IMAGE:latest"
           echo "Pushed $IMAGE:${{ github.sha }}"
 
@@ -458,7 +501,7 @@ jobs:
   # Summary job - reports what happened
   # ===========================================================================
   summary:
-    needs: [check-containers, build-tomcat, build-mariadb, build-drugref]
+    needs: [check-containers, build-tomcat, build-mariadb, build-drugref, publish-tomcat, publish-mariadb, publish-drugref]
     if: always()
     runs-on: ubuntu-latest
     permissions:
@@ -468,10 +511,13 @@ jobs:
         env:
           TOMCAT_NEEDS_BUILD: ${{ needs.check-containers.outputs.tomcat_needs_build }}
           TOMCAT_RESULT: ${{ needs.build-tomcat.result }}
+          TOMCAT_PUBLISH_RESULT: ${{ needs.publish-tomcat.result }}
           MARIADB_NEEDS_BUILD: ${{ needs.check-containers.outputs.mariadb_needs_build }}
           MARIADB_RESULT: ${{ needs.build-mariadb.result }}
+          MARIADB_PUBLISH_RESULT: ${{ needs.publish-mariadb.result }}
           DRUGREF_NEEDS_BUILD: ${{ needs.check-containers.outputs.drugref_needs_build }}
           DRUGREF_RESULT: ${{ needs.build-drugref.result }}
+          DRUGREF_PUBLISH_RESULT: ${{ needs.publish-drugref.result }}
         run: |
           echo "========================================="
           echo "Container Image Build Summary"
@@ -480,20 +526,26 @@ jobs:
           echo "Tomcat-dev:"
           echo "  - Needs build: $TOMCAT_NEEDS_BUILD"
           echo "  - Build result: ${TOMCAT_RESULT:-skipped}"
+          echo "  - Publish result: ${TOMCAT_PUBLISH_RESULT:-skipped}"
           echo ""
           echo "MariaDB-dev:"
           echo "  - Needs build: $MARIADB_NEEDS_BUILD"
           echo "  - Build result: ${MARIADB_RESULT:-skipped}"
+          echo "  - Publish result: ${MARIADB_PUBLISH_RESULT:-skipped}"
           echo ""
           echo "DrugRef:"
           echo "  - Needs build: $DRUGREF_NEEDS_BUILD"
           echo "  - Build result: ${DRUGREF_RESULT:-skipped}"
+          echo "  - Publish result: ${DRUGREF_PUBLISH_RESULT:-skipped}"
           echo ""
 
           # Check for failures
           if [ "$TOMCAT_RESULT" == "failure" ] || \
              [ "$MARIADB_RESULT" == "failure" ] || \
-             [ "$DRUGREF_RESULT" == "failure" ]; then
+             [ "$DRUGREF_RESULT" == "failure" ] || \
+             [ "$TOMCAT_PUBLISH_RESULT" == "failure" ] || \
+             [ "$MARIADB_PUBLISH_RESULT" == "failure" ] || \
+             [ "$DRUGREF_PUBLISH_RESULT" == "failure" ]; then
             echo "One or more builds failed!"
             exit 1
           fi

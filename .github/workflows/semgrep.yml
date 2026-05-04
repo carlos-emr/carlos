@@ -40,7 +40,7 @@ jobs:
     name: Semgrep SAST Analysis
     runs-on: ubuntu-latest
     container:
-      image: semgrep/semgrep
+      image: semgrep/semgrep@sha256:7810f1d7884974ab6dda7bef8f4a2c8e165ea2142fd8260515d380e4f1407263
     env:
       HAS_SEMGREP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN != '' }}
     if: github.actor != 'dependabot[bot]'
