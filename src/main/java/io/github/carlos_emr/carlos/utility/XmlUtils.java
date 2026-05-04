@@ -340,13 +340,19 @@ public final class XmlUtils {
                 return null;
             }
 
-            InputStream byteStream = resourceClass.getResourceAsStream(resourcePrefix + systemId);
+            String resourcePath = resourcePrefix + systemId;
+            InputStream byteStream = resourceClass.getResourceAsStream(resourcePath);
             if (byteStream == null) {
-                logger.error(
-                        "Could not resolve allowlisted classpath schema import {} using {}",
-                        resourcePrefix + systemId,
-                        resourceClass.getName());
-                return null;
+                throw new IllegalStateException(
+                        "Missing allowlisted classpath schema import resource '"
+                                + resourcePath
+                                + "' for systemId '"
+                                + systemId
+                                + "' (baseURI='"
+                                + baseURI
+                                + "') using "
+                                + resourceClass.getName()
+                                + ". This usually indicates a packaging or configuration problem.");
             }
 
             return new ClasspathSchemaInput(publicId, systemId, baseURI, byteStream);
