@@ -238,7 +238,7 @@
                    objectName="_admin.*" rights="w" reverse="${ true }">
 
     <div id="lookUpListWrapper">
-        <c:import url="/admin/ViewLookupListsManageLookupLists"/>
+        <c:import url="/WEB-INF/jsp/admin/lookUpLists/manageLookUpLists.jsp"/>
     </div>
 </security:oscarSec>
 
