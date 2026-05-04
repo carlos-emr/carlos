@@ -319,8 +319,8 @@
                                     proLast = result.lastName();
                                     proOHIP = result.providerNo();
                             %>
-                            <option value="<%=proOHIP%>" <%=providerview.equals(proOHIP) ? "selected" : ""%>><%=proLast%>
-                                , <%=proFirst%>
+                            <option value="<carlos:encode value='<%= proOHIP %>' context='htmlAttribute'/>" <%=providerview.equals(proOHIP) ? "selected" : ""%>><carlos:encode value="<%= proLast %>" context="html"/>
+                                , <carlos:encode value="<%= proFirst %>" context="html"/>
                             </option>
                             <% } %>
                         </select>

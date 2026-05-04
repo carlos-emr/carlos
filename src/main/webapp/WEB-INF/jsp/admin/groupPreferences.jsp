@@ -33,6 +33,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@ page import="java.util.List" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -124,7 +125,7 @@
                                                     selected = " selected=\"selected\" ";
                                                 }
                                         %>
-                                        <option value="<%=serviceType%>" <%=selected%>><%=serviceTypeName%>
+                                        <option value="<carlos:encode value='<%= serviceType %>' context='htmlAttribute'/>" <%=selected%>><carlos:encode value="<%= serviceTypeName %>" context="html"/>
                                         </option>
                                         <% } %>
                                     </select>
@@ -146,7 +147,7 @@
                                     i++;
                             %>
                             <tr BGCOLOR="<%=i%2==0?"ivory":"white"%>">
-                                <td>&nbsp; <%=group%>
+                                <td>&nbsp; <carlos:encode value="<%= group %>" context="html"/>
                                 </td>
                                 <td ALIGN="center">
                                     <input type="checkbox" name="data" <%=selected%> value="<%=group%>">

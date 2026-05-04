@@ -61,8 +61,7 @@ RUN /usr/local/bin/apt-install \
     nano openssh-client vim-tiny \
     python3 python3-pip \
     inotify-tools \
-    fonts-roboto fonts-liberation fonts-noto-color-emoji \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    fonts-roboto fonts-liberation fonts-noto-color-emoji
 
 # Install Node.js (latest LTS)
 RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \

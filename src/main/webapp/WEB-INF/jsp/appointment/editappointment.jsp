@@ -1467,7 +1467,8 @@
             <%
                 java.text.SimpleDateFormat fm = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
                 for (int i = 0; i < cheader1s.size(); i++) {
-                    if (cheader1s.get(i).getPayProgram().matches(BillingOnConstants.BILLINGMATCHSTRING_3RDPARTY)) {
+                    String payProgram = cheader1s.get(i).getPayProgram();
+                    if (payProgram != null && payProgram.matches(BillingOnConstants.BILLINGMATCHSTRING_3RDPARTY)) {
                         BigDecimal payment = billingOnExtDao.getAccountVal(cheader1s.get(i).getId(), billingOnExtDao.KEY_PAYMENT);
                         BigDecimal discount = billingOnExtDao.getAccountVal(cheader1s.get(i).getId(), billingOnExtDao.KEY_DISCOUNT);
                         BigDecimal credit = billingOnExtDao.getAccountVal(cheader1s.get(i).getId(), billingOnExtDao.KEY_CREDIT);

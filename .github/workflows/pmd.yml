@@ -121,8 +121,11 @@ jobs:
           echo "### PMD Results" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           if [ -f pmd-report.sarif ]; then
-            total=$(jq '[.runs[].results[]?] | length' pmd-report.sarif)
-            echo "PMD produced ${total} SARIF finding(s)." >> "$GITHUB_STEP_SUMMARY"
+            if total=$(jq '[.runs[].results[]?] | length' pmd-report.sarif 2>/dev/null); then
+              echo "PMD produced ${total} SARIF finding(s)." >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "PMD SARIF report was generated, but could not be parsed." >> "$GITHUB_STEP_SUMMARY"
+            fi
           else
             echo "No PMD SARIF report was generated." >> "$GITHUB_STEP_SUMMARY"
           fi

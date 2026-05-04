@@ -534,7 +534,7 @@
     }
 
 %>
-<form style="reprocessBilling" action="${pageContext.request.contextPath}/billing/CA/BC/reprocessBill" method="post" onsubmit="return checkSubmitType()">
+<form name="reprocessBilling" action="${pageContext.request.contextPath}/billing/CA/BC/reprocessBill" method="post" onsubmit="return checkSubmitType()">
     <input type="hidden" name="update_date" value="<carlos:encode value='<%= UpdateDate %>' context="htmlAttribute"/>"/>
     <input type="hidden" name="demoNo" value="<carlos:encode value='<%= DemoNo %>' context="htmlAttribute"/>"/>
     <input type="hidden" name="billNumber" value="<carlos:encode value='<%= allFields.getProperty("billingNo", "") %>' context="htmlAttribute"/>"/>

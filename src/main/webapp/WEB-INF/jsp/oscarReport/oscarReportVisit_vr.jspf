@@ -25,6 +25,7 @@
 -->
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security"%>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
       String roleName$ = (String)session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
       boolean authed=true;
@@ -155,8 +156,8 @@ for(ReporterRow result : reportProviderDao.search_reportprovider("visitreport", 
 
     %>
 	<tr>
-		<td bgcolor="<%=bodd?"#EEEEFF":"white"%>"><%=oldteam.equals(team)?"":team%></td>
-		<td bgcolor="<%=bodd?"#EEEEFF":"white"%>"><%=p_no%> <%=p_last%>,<%=p_first%></td>
+		<td bgcolor="<%=bodd?"#EEEEFF":"white"%>"><carlos:encode value='<%= oldteam.equals(team) ? "" : team %>' context="html"/></td>
+		<td bgcolor="<%=bodd?"#EEEEFF":"white"%>"><carlos:encode value="<%= p_no %>" context="html"/> <carlos:encode value="<%= p_last %>" context="html"/>,<carlos:encode value="<%= p_first %>" context="html"/></td>
 		<td bgcolor="<%=bodd?"#EEEEFF":"white"%>"><%=visitcount[0]%></td>
 		<td bgcolor="<%=bodd?"#EEEEFF":"white"%>"><%=visitcount[1]%></td>
 		<td bgcolor="<%=bodd?"#EEEEFF":"white"%>"><%=visitcount[2]%></td>
