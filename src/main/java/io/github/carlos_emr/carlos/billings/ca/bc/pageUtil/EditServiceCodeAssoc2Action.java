@@ -35,8 +35,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class EditServiceCodeAssoc2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     private String svcCode;
     private String mode;
     private ServiceCodeAssociation serviceCodeAssociation;
@@ -67,6 +72,11 @@ public class EditServiceCodeAssoc2Action extends ActionSupport {
 
     @Override
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+
         // Set mode to "edit"
         this.mode = "edit";
 

@@ -29,20 +29,20 @@
 			width="50">
 			<Item name="TDLnew" title="NEW">
 				<Item name="TDLnewcase" title="CASE" location="NewCase.jsp" />
-				<Item name="TDLnewitem" title="ITEM" location="index.jsp" />
-				<Item name="TDLnewparty" title="PARTY" location="index.jsp" />
+				<Item name="TDLnewitem" title="ITEM" location="index" />
+				<Item name="TDLnewparty" title="PARTY" location="index" />
 			</Item>
 			<Item name="TDLopen" title="OPEN">
-				<Item name="TDLopencase" title="CASE" location="index.jsp" />
-				<Item name="TDLopenitem" title="ITEM" location="index.jsp" />
-				<Item name="TDLopenparty" title="PARTY" location="index.jsp" />
+				<Item name="TDLopencase" title="CASE" location="index" />
+				<Item name="TDLopenitem" title="ITEM" location="index" />
+				<Item name="TDLopenparty" title="PARTY" location="index" />
 			</Item>
-			<Item name="TDLexit" title="EXIT" location="index.jsp" />
+			<Item name="TDLexit" title="EXIT" location="index" />
 		</Menu>
 
 		<Menu name="ToDoListMenuEdit" title="EDIT">
-			<Item name="TDLselect" title="SELECT_ALL" location="index.jsp" />
-			<Item name="TDLprefs" title="USER_PREFERENCES" location="index.jsp" />
+			<Item name="TDLselect" title="SELECT_ALL" location="index" />
+			<Item name="TDLprefs" title="USER_PREFERENCES" location="index" />
 		</Menu>
 
 		<Menu name="Permissions" title="Permissions">

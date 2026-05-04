@@ -81,6 +81,7 @@ rule "INR 1"
     when
         m : MeasurementDSHelper()
         eval( m.getDataAsDouble() < 2 )
+        eval( !m.hasProblem() )
     then
         m.log("INR RULES IS GETTING RUN");
         m.setIndicationColor("LOW");
@@ -95,6 +96,7 @@ rule "INR 2"
         m : MeasurementDSHelper()
         eval( m.getDataAsDouble() >= 4 )
         eval( m.getDataAsDouble() < 5 )
+        eval( !m.hasProblem() )
     then
         m.log("INR RULES IS GETTING RUN");
         m.setIndicationColor("HIGH");
@@ -109,6 +111,7 @@ rule "INR 3"
     when
         m : MeasurementDSHelper()
         eval( m.getDataAsDouble() >= 5 )
+        eval( !m.hasProblem() )
     then
         m.log("INR RULES IS GETTING RUN");
         m.setIndicationColor("HIGH 1");

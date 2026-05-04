@@ -43,11 +43,16 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class DocumentDescriptionTemplate2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -57,6 +62,11 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
+
         String method = request.getParameter("method");
         if ("getDocumentDescriptionFromDocType".equals(method)) {
             return getDocumentDescriptionFromDocType();
@@ -119,7 +129,8 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         documentDescriptionTemplate.setDocType(docType);
         documentDescriptionTemplate.setProviderNo(providerNo);
         this.documentDescriptionTemplateDao.persist(documentDescriptionTemplate);
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, providerNo, request.getRemoteAddr(), null, "[" + docType + "] " + descriptionShortcut + " | " + description);
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LogAction.addLog(loggedInInfo != null ? loggedInInfo.getLoggedInProviderNo() : null, LogConst.ADD, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, LogSanitizer.sanitize(providerNo), request.getRemoteAddr(), null, "[" + LogSanitizer.sanitize(docType) + "] " + LogSanitizer.sanitize(descriptionShortcut) + " | " + LogSanitizer.sanitize(description));
         return null;
     }
 
@@ -138,7 +149,8 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         documentDescriptionTemplate.setId(id);
         documentDescriptionTemplate.setProviderNo(providerNo);
         this.documentDescriptionTemplateDao.merge(documentDescriptionTemplate);
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, providerNo, request.getRemoteAddr(), null, ids + " [" + docType + "] " + descriptionShortcut + " | " + description);
+        LoggedInInfo loggedInInfoUpdate = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LogAction.addLog(loggedInInfoUpdate != null ? loggedInInfoUpdate.getLoggedInProviderNo() : null, LogConst.UPDATE, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, LogSanitizer.sanitize(providerNo), request.getRemoteAddr(), null, LogSanitizer.sanitize(ids) + " [" + LogSanitizer.sanitize(docType) + "] " + LogSanitizer.sanitize(descriptionShortcut) + " | " + LogSanitizer.sanitize(description));
         return null;
     }
 
@@ -146,7 +158,8 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         String ids = request.getParameter("id");
         Integer id = Integer.valueOf(ids);
         this.documentDescriptionTemplateDao.remove(id);
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.DELETE, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, ids, request.getRemoteAddr());
+        LoggedInInfo loggedInInfoDelete = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LogAction.addLog(loggedInInfoDelete != null ? loggedInInfoDelete.getLoggedInProviderNo() : null, LogConst.DELETE, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, LogSanitizer.sanitize(ids), request.getRemoteAddr());
         return null;
     }
 
@@ -157,7 +170,8 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         if (DocumentDescriptionShorcut == null || !DocumentDescriptionShorcut.equals(UserProperty.USER)) {
             DocumentDescriptionShorcut = UserProperty.CLINIC;
         }
-        String provider = (String) request.getSession().getAttribute("user");
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String provider = loggedInInfo != null ? loggedInInfo.getLoggedInProviderNo() : null;
         UserProperty uProperty = userPropertyDAO.getProp(provider, UserProperty.DOCUMENT_DESCRIPTION_TEMPLATE);
         if (uProperty == null) {
             uProperty = new UserProperty();

@@ -70,24 +70,23 @@ public class EctDisplayEconsult2Action extends EctDisplayAction {
 
             //set left hand module heading and link 
             Dao.setLeftHeading(cmd);
-            StringBuilder eConsultDisplayUrl = new StringBuilder(String.format("..%1$s%2$s", File.separator, "econsult.do"));
+            StringBuilder eConsultDisplayUrl = new StringBuilder(String.format("..%1$s%2$s", File.separator, "econsult"));
             eConsultDisplayUrl.append(String.format("?%1$s=%2$s", "demographicNo", demographicNo));
             eConsultDisplayUrl.append(String.format("&%1$s=%2$s", "method", "frontend"));
             StringBuilder createNewEconsultUrl = new StringBuilder(eConsultDisplayUrl.toString());
             eConsultDisplayUrl.append(String.format("&%1$s=%2$s", "task", "patientSummary"));
-            String url = String.format("popupPage(700,960,'%1$s','%2$s');return false;", cmd, eConsultDisplayUrl);
-            Dao.setLeftURL(url);
+            Dao.setLeftPopup(700, 960, cmd, eConsultDisplayUrl.toString());
 
             //set the right hand heading link
             createNewEconsultUrl.append(String.format("&%1$s=%2$s", "task", "draft"));
-            url = String.format("popupPage(700,960,'%1$s','%2$s');return false;", "new " + cmd + demographicNo, createNewEconsultUrl);
-            Dao.setRightURL(url);
+            Dao.setRightPopup(700, 960, "new " + cmd + demographicNo, createNewEconsultUrl.toString());
             Dao.setRightHeadingID(cmd);
 
             // build a list of completed eConsult PDF's to be displayed under the heading.
             List<Document> econsults = consultationManager.getEconsultDocuments(loggedInInfo, Integer.parseInt(demographicNo));
             String documentDateString = "";
             String title = "";
+            String url;
             int hash = 0;
             StringBuilder eConsultDocumentUrl = null;
             int documentId = 0;
@@ -109,7 +108,7 @@ public class EctDisplayEconsult2Action extends EctDisplayAction {
 
                 // set the href path to the actual document.
                 eConsultDocumentUrl = new StringBuilder(request.getContextPath());
-                eConsultDocumentUrl.append(String.format("%1$s%2$s%3$s%4$s", File.separator, "documentManager", File.separator, "ManageDocument.do"));
+                eConsultDocumentUrl.append(String.format("%1$s%2$s%3$s%4$s", File.separator, "documentManager", File.separator, "ManageDocument"));
                 eConsultDocumentUrl.append(String.format("%1$s%2$s=%3$s", "?", "method", "display"));
                 eConsultDocumentUrl.append(String.format("%1$s%2$s=%3$s", "&", "doc_no", documentId));
                 eConsultDocumentUrl.append(String.format("%1$s%2$s=%3$s", "&", "providerNo", user));

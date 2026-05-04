@@ -29,74 +29,72 @@
     <package name="provider" namespace="/" extends="struts-default">
 
         <action name="web/inboxhub/Inboxhub" class="io.github.carlos_emr.carlos.inboxhub.display.ManageInboxhub2Action" method="execute">
-            <result name="success">/web/inboxhub/Inboxhub.jsp</result>
-            <result name="displayList">/web/inboxhub/InboxhubListMode.jsp</result>
-            <result name="displayView">/web/inboxhub/InboxhubViewMode.jsp</result>
-            <result name="unauthorized">/securityError.jsp</result>
-            <result name="error">/failure.jsp</result>
+            <result name="success">/WEB-INF/jsp/web/inboxhub/Inboxhub.jsp</result>
+            <result name="displayList">/WEB-INF/jsp/web/inboxhub/InboxhubListMode.jsp</result>
+            <result name="displayView">/WEB-INF/jsp/web/inboxhub/InboxhubViewMode.jsp</result>
+            <result name="unauthorized">/WEB-INF/jsp/error/securityError.jsp</result>
+            <result name="error">/WEB-INF/jsp/error/failure.jsp</result>
         </action>
         <action name="admin/ManageFax" class="io.github.carlos_emr.carlos.fax.admin.ConfigureFax2Action">
-            <result name="completed">/admin/manageFax.jsp</result>
         </action>
         <action name="admin/ManageFaxes" class="io.github.carlos_emr.carlos.fax.admin.ManageFaxes2Action">
-            <result name="faxstatus">/admin/faxStatusResults.jspf</result>
+            <result name="faxstatus">/WEB-INF/jsp/admin/faxStatusResults.jspf</result>
         </action>
         <action name="fax/faxAction" class="io.github.carlos_emr.carlos.fax.action.Fax2Action">
-            <result name="preview">/fax/CoverPage.jsp</result>
-            <result name="error">/errorpage.jsp</result>
-            <result name="CONSULTATION">/encounter/ViewRequest.do</result>
-            <result name="EFORM">/eform/efmshowform_data.jsp</result>
-            <result name="eFormError">/eform/efmshowform_data.jsp?error=true</result>
+            <result name="preview">/WEB-INF/jsp/fax/CoverPage.jsp</result>
+            <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
+            <result name="CONSULTATION">/encounter/ViewRequest</result>
+            <result name="EFORM">/eform/efmshowform_data</result>
+            <result name="eFormError">/eform/efmshowform_data?error=true</result>
         </action>
         <action name="admin/ManageEmails" class="io.github.carlos_emr.carlos.email.admin.ManageEmails2Action">
-            <result name="show">/admin/manageEmails.jsp</result>
-            <result name="emailstatus">/admin/emailStatusResults.jspf</result>
-            <result name="compose">/email/emailCompose.jsp</result>
+            <result name="show">/WEB-INF/jsp/admin/manageEmails.jsp</result>
+            <result name="emailstatus">/WEB-INF/jsp/admin/emailStatusResults.jspf</result>
+            <result name="compose">/WEB-INF/jsp/email/emailCompose.jsp</result>
         </action>
         <action name="email/emailComposeAction" class="io.github.carlos_emr.carlos.email.action.EmailCompose2Action">
-            <result name="compose">/email/emailCompose.jsp</result>
-            <result name="eFormError">/eform/efmshowform_data.jsp?error=true</result>
+            <result name="compose">/WEB-INF/jsp/email/emailCompose.jsp</result>
+            <result name="eFormError">/eform/efmshowform_data?error=true</result>
         </action>
         <action name="email/emailSendAction" class="io.github.carlos_emr.carlos.email.action.EmailSend2Action">
-            <result name="success">/email/emailCompose.jsp</result>
-            <result name="EFORM">/eform/efmshowform_data.jsp</result>
+            <result name="success">/WEB-INF/jsp/email/emailCompose.jsp</result>
+            <result name="EFORM">/eform/efmshowform_data</result>
         </action>
         <action name="setProviderStaleDate" class="io.github.carlos_emr.carlos.provider.web.ProviderProperty2Action" method="execute">
-            <result name="success">/provider/setNoteStaleDate.jsp</result>
-            <result name="gen">/provider/setGenProperty.jsp</result>
-            <result name="genRxPageSize">/provider/setGenRxPageSizeProperty.jsp</result>
-            <result name="genHl7LabResultPrefs">/provider/setHl7LabResultPrefs.jsp</result>
-            <result name="genRxDefaultQuantity">/provider/setGenRxDefaultQuantityProperty.jsp</result>
-            <result name="genRxProfileView">/provider/setGenRxProfileViewProperty.jsp</result>
-            <result name="genRxUseRx3">/provider/setToUseRx3.jsp</result>
-            <result name="genDefaultDocQueue">/provider/setDocDefaultQueue.jsp</result>
-            <result name="genShowPatientDOB">/provider/setShowPatientDOB.jsp</result>
-            <result name="genCppSingleLine">/provider/setCppSingleLine.jsp</result>
-            <result name="genAckCommentLab">/provider/setLabAckComment.jsp</result>
-            <result name="genLabRecallPrefs">/provider/setLabRecallPrefs.jsp</result>
-            <result name="genEncounterWindowSize">/provider/setEncounterWindowSize.jsp</result>
-            <result name="genQuickChartSize">/provider/setQuickChartSize.jsp</result>
-            <result name="genEDocBrowserInDocumentReport">/provider/setEDocBrowserInDocumentReport.jsp</result>
-            <result name="genEDocBrowserInMasterFile">/provider/setEDocBrowserInMasterFile.jsp</result>
-            <result name="genPatientNameLength">/provider/setPatientNameLength.jsp</result>
-            <result name="genDisplayDocumentAs">/provider/setDisplayDocumentAs.jsp</result>
-            <result name="genAppointmentCardPrefs">/provider/setAppointmentCardPrefs.jsp</result>
-            <result name="genDashboardPrefs">/provider/setDashboardPrefs.jsp</result>
-            <result name="genPreventionPrefs">/provider/setPreventionPrefs.jsp</result>
-            <result name="genLabMacroPrefs">/provider/setLabMacroPrefs.jsp</result>
+            <result name="success">/WEB-INF/jsp/provider/setNoteStaleDate.jsp</result>
+            <result name="gen">/WEB-INF/jsp/provider/setGenProperty.jsp</result>
+            <result name="genRxPageSize">/WEB-INF/jsp/provider/setGenRxPageSizeProperty.jsp</result>
+            <result name="genHl7LabResultPrefs">/WEB-INF/jsp/provider/setHl7LabResultPrefs.jsp</result>
+            <result name="genRxDefaultQuantity">/WEB-INF/jsp/provider/setGenRxDefaultQuantityProperty.jsp</result>
+            <result name="genRxProfileView">/WEB-INF/jsp/provider/setGenRxProfileViewProperty.jsp</result>
+            <result name="genDefaultDocQueue">/WEB-INF/jsp/provider/setDocDefaultQueue.jsp</result>
+            <result name="genShowPatientDOB">/WEB-INF/jsp/provider/setShowPatientDOB.jsp</result>
+            <result name="genCppSingleLine">/WEB-INF/jsp/provider/setCppSingleLine.jsp</result>
+            <result name="genAckCommentLab">/WEB-INF/jsp/provider/setLabAckComment.jsp</result>
+            <result name="genLabRecallPrefs">/WEB-INF/jsp/provider/setLabRecallPrefs.jsp</result>
+            <result name="genEncounterWindowSize">/WEB-INF/jsp/provider/setEncounterWindowSize.jsp</result>
+            <result name="genQuickChartSize">/WEB-INF/jsp/provider/setQuickChartSize.jsp</result>
+            <result name="genEDocBrowserInDocumentReport">/WEB-INF/jsp/provider/setEDocBrowserInDocumentReport.jsp</result>
+            <result name="genEDocBrowserInMasterFile">/WEB-INF/jsp/provider/setEDocBrowserInMasterFile.jsp</result>
+            <result name="genPatientNameLength">/WEB-INF/jsp/provider/setPatientNameLength.jsp</result>
+            <result name="genDisplayDocumentAs">/WEB-INF/jsp/provider/setDisplayDocumentAs.jsp</result>
+            <result name="genAppointmentCardPrefs">/WEB-INF/jsp/provider/setAppointmentCardPrefs.jsp</result>
+            <result name="genDashboardPrefs">/WEB-INF/jsp/provider/setDashboardPrefs.jsp</result>
+            <result name="genPreventionPrefs">/WEB-INF/jsp/provider/setPreventionPrefs.jsp</result>
+            <result name="genLabMacroPrefs">/WEB-INF/jsp/provider/setLabMacroPrefs.jsp</result>
         </action>
         <action name="setTicklerPreferences" class="io.github.carlos_emr.carlos.provider.web.ProviderProperty2Action" method="execute">
-            <result name="success">/provider/setTicklerPreferences.jsp</result>
-            <result name="complete">/provider/setTicklerPreferences.jsp</result>
-            <result name="error">/provider/setTicklerPreferences.jsp?error</result>
+            <result name="success">/WEB-INF/jsp/provider/setTicklerPreferences.jsp</result>
+            <result name="complete">/WEB-INF/jsp/provider/setTicklerPreferences.jsp</result>
+            <result name="error">/WEB-INF/jsp/provider/setTicklerPreferences.jsp?error</result>
         </action>
         <action name="provider/rxInteractionWarningLevel" class="io.github.carlos_emr.carlos.provider.web.ProviderRxInteractionWarningLevel2Action"/>
         <action name="Scratch" class="io.github.carlos_emr.carlos.scratch.Scratch2Action">
-            <result name="success">/scratch</result>
-            <result name="scratchPadVersion">/scratch/version.jsp</result>
+            <result name="success">/WEB-INF/jsp/scratch/index.jsp</result>
+            <result name="scratchPadVersion">/WEB-INF/jsp/scratch/version.jsp</result>
         </action>
         <action name="provider/UserPreference" class="io.github.carlos_emr.carlos.provider.web.UserPreference2Action">
-            <result name="form">/provider/UserPreferences.jsp</result>
+            <result name="form">/WEB-INF/jsp/provider/UserPreferences.jsp</result>
         </action>
         <action name="provider/providerSignatureImage" class="io.github.carlos_emr.carlos.provider.web.ProviderSignatureImage2Action"/>
         <action name="provider/providerSignatureStamp" class="io.github.carlos_emr.carlos.provider.web.ProviderSignatureStamp2Action">
@@ -109,13 +107,114 @@
         </result>
         </action>
         <action name="provider/CppPreferences" class="io.github.carlos_emr.carlos.provider.web.CppPreferences2Action">
-            <result name="form">/provider/cpp_preferences.jsp</result>
-            <result name="exit">/encounter/close.jsp</result>
+            <result name="form">/WEB-INF/jsp/provider/cpp_preferences.jsp</result>
+            <result name="exit">/WEB-INF/jsp/encounter/close.jsp</result>
         </action>
         <action name="DocumentDescriptionTemplate" class="io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action"/>
         <action name="PrinterList" class="io.github.carlos_emr.carlos.printer.PrinterList2Action"/>
         <action name="saveWorkView" class="io.github.carlos_emr.carlos.provider.web.ProviderView2Action" method="execute"/>
         <action name="Provider/showPersonal" class="io.github.carlos_emr.carlos.provider.web.DisplayPersonalInfoAppointment2Action"/>
 
+
+        <!-- ===== provider JSP gating actions (migration slice) =====
+             Each gate forwards to the moved JSP under /WEB-INF/jsp/provider/.
+             Mutation gates (AddStatus, SaveDemographicAccessory, SaveMyGroup,
+             ViewProviderUpdatePassword, ViewProviderUpdatePreference,
+             ViewPreferenceAction, ViewProviderPreferenceQuickLinks,
+             ViewObarChecklistEdit, ViewObarRiskEdit, ViewStoreApptInSession)
+             enforce POST-only in the Action class. -->
+        <action name="provider/AddStatus" class="io.github.carlos_emr.carlos.providers.gate.AddStatus2Action">
+            <result name="success">/WEB-INF/jsp/provider/provideraddstatus.jsp</result>
+        </action>
+        <action name="provider/SaveDemographicAccessory" class="io.github.carlos_emr.carlos.providers.gate.SaveDemographicAccessory2Action">
+            <result name="success">/WEB-INF/jsp/provider/providersavedemographicaccessory.jsp</result>
+        </action>
+        <action name="provider/SaveMyGroup" class="io.github.carlos_emr.carlos.providers.gate.SaveMyGroup2Action">
+            <result name="success">/WEB-INF/jsp/provider/providersavemygroup.jsp</result>
+        </action>
+        <action name="provider/providercontrol" class="io.github.carlos_emr.carlos.providers.gate.ViewProviderControl2Action">
+            <result name="success">/WEB-INF/jsp/provider/providercontrol.jsp</result>
+        </action>
+        <action name="provider/ViewChangePassword" class="io.github.carlos_emr.carlos.providers.gate.ViewChangePassword2Action">
+            <result name="success">/WEB-INF/jsp/provider/changePassword.jsp</result>
+        </action>
+        <action name="provider/ViewEditSignature" class="io.github.carlos_emr.carlos.providers.gate.ViewEditSignature2Action">
+            <result name="success">/WEB-INF/jsp/provider/editSignature.jsp</result>
+        </action>
+        <action name="provider/ViewErClerk" class="io.github.carlos_emr.carlos.providers.gate.ViewErClerk2Action">
+            <result name="success">/WEB-INF/jsp/provider/er_clerk.jsp</result>
+        </action>
+        <action name="provider/ViewFormALPHAprint" class="io.github.carlos_emr.carlos.providers.gate.ViewFormALPHAprint2Action">
+            <result name="success">/WEB-INF/jsp/provider/formALPHAprint.jsp</result>
+        </action>
+        <action name="provider/ViewFormALPHAprint1" class="io.github.carlos_emr.carlos.providers.gate.ViewFormALPHAprint12Action">
+            <result name="success">/WEB-INF/jsp/provider/formALPHAprint1.jsp</result>
+        </action>
+        <action name="provider/ViewMainMenu" class="io.github.carlos_emr.carlos.providers.gate.ViewMainMenu2Action">
+            <result name="success">/WEB-INF/jsp/provider/mainMenu.jsp</result>
+        </action>
+        <action name="provider/ViewObarChecklistEdit" class="io.github.carlos_emr.carlos.providers.gate.ViewObarChecklistEdit2Action">
+            <result name="success">/WEB-INF/jsp/provider/obarchecklistedit_99_12.jsp</result>
+        </action>
+        <action name="provider/ViewObarRiskEdit" class="io.github.carlos_emr.carlos.providers.gate.ViewObarRiskEdit2Action">
+            <result name="success">/WEB-INF/jsp/provider/obarriskedit_99_12.jsp</result>
+        </action>
+        <action name="provider/ViewPreferenceAction" class="io.github.carlos_emr.carlos.providers.gate.ViewPreferenceAction2Action">
+            <result name="success">/WEB-INF/jsp/provider/preference_action.jsp</result>
+        </action>
+        <action name="provider/ViewProviderDefaultDxCode" class="io.github.carlos_emr.carlos.providers.gate.ViewProviderDefaultDxCode2Action">
+            <result name="success">/WEB-INF/jsp/provider/providerDefaultDxCode.jsp</result>
+        </action>
+        <action name="provider/ViewProviderPreferenceQuickLinks" class="io.github.carlos_emr.carlos.providers.gate.ViewProviderPreferenceQuickLinks2Action">
+            <result name="success">/WEB-INF/jsp/provider/providerPreferenceQuickLinksAction.jsp</result>
+        </action>
+        <action name="provider/ViewProviderChangePassword" class="io.github.carlos_emr.carlos.providers.gate.ViewProviderChangePassword2Action">
+            <result name="success">/WEB-INF/jsp/provider/providerchangepassword.jsp</result>
+        </action>
+        <action name="provider/ViewProviderDisplayMyGroup" class="io.github.carlos_emr.carlos.providers.gate.ViewProviderDisplayMyGroup2Action">
+            <result name="success">/WEB-INF/jsp/provider/providerdisplaymygroup.jsp</result>
+        </action>
+        <action name="provider/ViewProviderEncounterHistory" class="io.github.carlos_emr.carlos.providers.gate.ViewProviderEncounterHistory2Action">
+            <result name="success">/WEB-INF/jsp/provider/providerencounterhistory.jsp</result>
+        </action>
+        <action name="provider/ViewProviderEncounterPrint" class="io.github.carlos_emr.carlos.providers.gate.ViewProviderEncounterPrint2Action">
+            <result name="success">/WEB-INF/jsp/provider/providerencounterprint.jsp</result>
+        </action>
+        <action name="provider/ViewProviderEncounterSingle" class="io.github.carlos_emr.carlos.providers.gate.ViewProviderEncounterSingle2Action">
+            <result name="success">/WEB-INF/jsp/provider/providerencountersingle.jsp</result>
+        </action>
+        <action name="provider/ViewProviderNewGroup" class="io.github.carlos_emr.carlos.providers.gate.ViewProviderNewGroup2Action">
+            <result name="success">/WEB-INF/jsp/provider/providernewgroup.jsp</result>
+        </action>
+        <action name="provider/ViewProviderPreference" class="io.github.carlos_emr.carlos.providers.gate.ViewProviderPreference2Action">
+            <result name="success">/WEB-INF/jsp/provider/providerpreference.jsp</result>
+        </action>
+        <action name="provider/ViewProviderUpdatePassword" class="io.github.carlos_emr.carlos.providers.gate.ViewProviderUpdatePassword2Action">
+            <result name="success">/WEB-INF/jsp/provider/providerupdatepassword.jsp</result>
+        </action>
+        <action name="provider/ViewProviderUpdatePreference" class="io.github.carlos_emr.carlos.providers.gate.ViewProviderUpdatePreference2Action">
+            <result name="success">/WEB-INF/jsp/provider/providerupdatepreference.jsp</result>
+        </action>
+        <action name="provider/ViewReceptionistFindProvider" class="io.github.carlos_emr.carlos.providers.gate.ViewReceptionistFindProvider2Action">
+            <result name="success">/WEB-INF/jsp/provider/receptionistfindprovider.jsp</result>
+        </action>
+        <action name="provider/ViewSchedulePageJs" class="io.github.carlos_emr.carlos.providers.gate.ViewSchedulePageJs2Action">
+            <result name="success">/WEB-INF/jsp/provider/schedulePage.js.jsp</result>
+        </action>
+        <action name="provider/ViewStoreApptInSession" class="io.github.carlos_emr.carlos.providers.gate.ViewStoreApptInSession2Action">
+            <result name="success">/WEB-INF/jsp/provider/storeApptInSession.jsp</result>
+        </action>
+        <action name="provider/ViewTabAlertsRefresh" class="io.github.carlos_emr.carlos.providers.gate.ViewTabAlertsRefresh2Action">
+            <result name="success">/WEB-INF/jsp/provider/tabAlertsRefresh.jsp</result>
+        </action>
+        <action name="provider/ViewVaccineProvider" class="io.github.carlos_emr.carlos.providers.gate.ViewVaccineProvider2Action">
+            <result name="success">/WEB-INF/jsp/provider/vaccine_provider.jsp</result>
+        </action>
+        <action name="provider/ViewAppointmentAdminDay" class="io.github.carlos_emr.carlos.providers.gate.ViewAppointmentAdminDay2Action">
+            <result name="success">/WEB-INF/jsp/provider/appointmentprovideradminday.jsp</result>
+        </action>
+        <action name="provider/ViewAppointmentAdminMonth" class="io.github.carlos_emr.carlos.providers.gate.ViewAppointmentAdminMonth2Action">
+            <result name="success">/WEB-INF/jsp/provider/appointmentprovideradminmonth.jsp</result>
+        </action>
     </package>
 </struts>

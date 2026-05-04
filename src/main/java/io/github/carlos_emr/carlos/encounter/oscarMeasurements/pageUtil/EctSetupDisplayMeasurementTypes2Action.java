@@ -57,7 +57,7 @@ public final class EctSetupDisplayMeasurementTypes2Action extends ActionSupport 
 
             EctMeasurementTypesBeanHandler hd = new EctMeasurementTypesBeanHandler();
             HttpSession session = request.getSession();
-            session.setAttribute("measurementTypes", hd);
+            session.setAttribute("measurementTypes", hd); // nosemgrep: tainted-session-from-http-request -- DAO result bean from EctMeasurementTypesBeanHandler
 
             return "continue";
 

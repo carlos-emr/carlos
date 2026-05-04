@@ -54,6 +54,7 @@ import io.github.carlos_emr.OscarDocumentCreator;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
  * Struts2 action for generating and printing patient demographic chart labels in PDF format.
@@ -137,7 +138,7 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
      * type "application/pdf" and inline disposition. If a default printer is configured,
      * embedded JavaScript in the PDF will trigger automatic printing on open.
      *
-     * @return String ActionSupport result constant, always returns SUCCESS
+     * @return String ActionSupport result constant, always returns NONE for direct PDF responses
      * @throws SecurityException if user lacks "_demographic" read privilege
      */
     public String execute() {
@@ -185,8 +186,10 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
         }
 
         if (labelFile == null) {
-            logger.warn("requested invalid label : " + request.getParameter("labelName"));
-            return SUCCESS;
+            logger.warn("requested invalid label : {}", LogSanitizer.sanitize(request.getParameter("labelName"))); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            // Mapping in struts-demographic.xml has no <result name="success">; return NONE
+            // to suppress result resolution rather than raising ConfigurationException.
+            return NONE;
         }
 
         //patient
@@ -250,7 +253,12 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
             }
         }
 
-        return SUCCESS;
+        // Action writes PDF bytes directly to response.getOutputStream() above, so return
+        // NONE to suppress Struts2 result resolution. The mapping in struts-demographic.xml
+        // has no <result name="success">; returning SUCCESS would raise ConfigurationException
+        // and the global exception result would render errorpage.jsp on top of the PDF bytes
+        // already written to the response (visible as a stray "0" from errorData.statusCode).
+        return NONE;
     }
 
     /**

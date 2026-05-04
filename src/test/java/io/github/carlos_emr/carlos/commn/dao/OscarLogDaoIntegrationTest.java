@@ -21,6 +21,9 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
@@ -31,6 +34,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.sql.Timestamp;
+import java.util.Date;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
@@ -55,8 +60,16 @@ public class OscarLogDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private OscarLogDao dao;
 
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
+
     private OscarLog createOscarLog(Integer demographicId, String providerNo, String action,
                                      String content, String contentId) throws Exception {
+        return createOscarLog(demographicId, providerNo, action, content, contentId, new Date());
+    }
+
+    private OscarLog createOscarLog(Integer demographicId, String providerNo, String action,
+                                     String content, String contentId, Date created) throws Exception {
         OscarLog log = new OscarLog();
         EntityDataGenerator.generateTestDataForModelClass(log);
         log.setDemographicId(demographicId);
@@ -65,8 +78,16 @@ public class OscarLogDaoIntegrationTest extends CarlosTestBase {
         log.setContent(content);
         log.setContentId(contentId);
         dao.persist(log);
-        hibernateTemplate.flush();
-        return log;
+        entityManager.flush();
+        // OscarLog does not expose a mutable timestamp setter and production writes use the current time,
+        // so the test updates the stored timestamp directly to create deterministic ordering assertions.
+        entityManager.createNativeQuery("update log set dateTime = ?1 where id = ?2")
+                .setParameter(1, new Timestamp(created.getTime()))
+                .setParameter(2, log.getId())
+                .executeUpdate();
+        entityManager.flush();
+        entityManager.clear();
+        return dao.find(log.getId());
     }
 
     @Nested
@@ -145,6 +166,74 @@ public class OscarLogDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(result).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("findForReport")
+    class FindForReport {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return matching logs when filtered by site providers")
+        void shouldReturnMatchingLogs_whenFilteredBySiteProviders() throws Exception {
+            Date now = new Date();
+
+            OscarLog newestMatch = createOscarLog(101, "prov1", "read", "admin", "1", new Date(now.getTime() + 1_000));
+            OscarLog olderMatch = createOscarLog(102, "prov2", "read", "admin", "2", new Date(now.getTime() - 1_000));
+            createOscarLog(103, "prov3", "read", "admin", "3", now);
+            createOscarLog(104, "prov1", "read", "login", "4", now);
+
+            List<OscarLog> result = dao.findForReport(
+                    new Date(now.getTime() - 10_000),
+                    new Date(now.getTime() + 10_000),
+                    "admin",
+                    null,
+                    List.of("prov1", "prov2"));
+
+            assertThat(result).extracting(OscarLog::getId)
+                    .containsExactly(newestMatch.getId(), olderMatch.getId());
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return provider logs when specific provider is requested")
+        void shouldReturnProviderLogs_whenSpecificProviderIsRequested() throws Exception {
+            Date now = new Date();
+
+            createOscarLog(201, "prov1", "read", "admin", "1", now);
+            OscarLog matchingLog = createOscarLog(202, "prov2", "read", "login", "2", now);
+            createOscarLog(203, "prov2", "read", "admin", "3", now);
+
+            List<OscarLog> result = dao.findForReport(
+                    new Date(now.getTime() - 10_000),
+                    new Date(now.getTime() + 10_000),
+                    "login",
+                    "prov2",
+                    null);
+
+            assertThat(result).extracting(OscarLog::getId)
+                    .containsExactly(matchingLog.getId());
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should treat plain content values as exact-match like patterns")
+        void shouldTreatPlainContentValues_asExactMatchLikePatterns() throws Exception {
+            Date now = new Date();
+
+            OscarLog exactMatch = createOscarLog(301, "prov1", "read", "admin", "1", now);
+            createOscarLog(302, "prov1", "read", "admin-extra", "2", now);
+
+            List<OscarLog> result = dao.findForReport(
+                    new Date(now.getTime() - 10_000),
+                    new Date(now.getTime() + 10_000),
+                    "admin",
+                    null,
+                    null);
+
+            assertThat(result).extracting(OscarLog::getId)
+                    .containsExactly(exactMatch.getId());
         }
     }
 }

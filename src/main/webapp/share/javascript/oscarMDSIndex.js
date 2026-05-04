@@ -45,6 +45,91 @@ function hideElement(el) {
 }
 
 /**
+ * Helper function to escape HTML special characters for safe interpolation
+ * into HTML strings. Prevents XSS when building HTML via string concatenation.
+ * @param {string} str - The string to escape
+ * @returns {string} The escaped string safe for HTML body and quoted attribute contexts
+ */
+function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+/**
+ * Sanitize HTML with DOMPurify while preserving same-origin event handlers.
+ *
+ * DOMPurify strips event handler attributes (onclick, etc.) by default, which
+ * is the correct security posture. However, AJAX-loaded same-origin JSP content
+ * uses inline handlers for UI functionality. This function registers a DOMPurify
+ * 'uponSanitizeAttribute' hook to capture event handler values during sanitization,
+ * before DOMPurify strips them. After sanitization completes, it re-attaches the
+ * captured handlers only to elements that survived DOMPurify's structural checks.
+ *
+ * Security model: server-side OWASP encoding is the primary XSS defense. DOMPurify
+ * provides defense-in-depth for HTML structure. Inline scripts from the AJAX response
+ * are handled separately by callers (extracted from a DOMPurify-sanitized copy that
+ * preserves script tags) — this function only sanitizes the non-script HTML structure.
+ *
+ * IMPORTANT SECURITY TRADE-OFF: This function intentionally bypasses DOMPurify's
+ * event handler protection. DOMPurify would normally strip onclick/ondblclick/onchange
+ * attributes, but we re-attach them because same-origin JSP content relies on inline
+ * handlers for UI functionality. This means DOMPurify provides NO defense-in-depth
+ * against XSS via inline event handlers — server-side OWASP encoding is the SOLE
+ * defense for handler content. DOMPurify still strips all event handler attributes
+ * except the three explicitly re-attached above (onclick, ondblclick, onchange).
+ * Adding more event attributes to EVENT_ATTRS weakens this protection.
+ *
+ * @param {string} html - Raw HTML string from same-origin AJAX response
+ * @param {Object} config - DOMPurify configuration (ADD_TAGS, ADD_ATTR, etc.)
+ * @returns {DocumentFragment} Sanitized DOM fragment with handlers re-attached
+ */
+function sanitizeWithHandlers(html, config) {
+    if (typeof DOMPurify === 'undefined') {
+        console.error('DOMPurify is required but not loaded. Returning empty fragment.');
+        return document.createDocumentFragment();
+    }
+
+    // These event attributes are intentionally re-attached after DOMPurify sanitization.
+    // Server-side OWASP encoding is the sole XSS defense for these handler values.
+    var EVENT_ATTRS = ['onclick', 'ondblclick', 'onchange'];
+    var handlerStore = [];
+
+    // Hook: capture event handler values during DOMPurify processing, before it strips them.
+    DOMPurify.addHook('uponSanitizeAttribute', function(node, data) {
+        if (EVENT_ATTRS.indexOf(data.attrName) !== -1) {
+            if (!node.__dpHandlers) {
+                node.__dpHandlers = {};
+                handlerStore.push(node);
+            }
+            node.__dpHandlers[data.attrName] = data.attrValue;
+        }
+    });
+
+    var fragment;
+    try {
+        fragment = DOMPurify.sanitize(html,
+            Object.assign({}, config, { RETURN_DOM_FRAGMENT: true }));
+    } catch (e) {
+        console.error('DOMPurify.sanitize() threw an error:', e);
+        fragment = document.createDocumentFragment();
+    } finally {
+        DOMPurify.removeAllHooks();
+    }
+
+    // Re-attach event handlers to elements that survived sanitization.
+    handlerStore.forEach(function(node) {
+        if (node.__dpHandlers && fragment.contains(node)) {
+            Object.keys(node.__dpHandlers).forEach(function(attr) {
+                node.setAttribute(attr, node.__dpHandlers[attr]);
+            });
+        }
+        delete node.__dpHandlers;
+    });
+
+    return fragment;
+}
+
+/**
  * Helper function to serialize form data to URL-encoded string
  * @param {HTMLFormElement|string} form - Form element or form ID
  * @returns {string}
@@ -101,8 +186,8 @@ function getCsrfToken() {
 /**
  * Helper function to make a POST request with form-urlencoded data.
  * Centralizes fetch boilerplate for form submissions.
- * Automatically includes the CSRF-TOKEN (if available and not already
- * present in data) required by CSRFGuard.
+ * Automatically includes the CSRF-TOKEN as an HTTP header (if a CSRF
+ * token input exists in the DOM) required by CSRFGuard.
  * @param {string} url - The URL to POST to
  * @param {string|Object|URLSearchParams} data - Form data as a URL-encoded string, a key-value object, or URLSearchParams instance
  * @returns {Promise<Response>}
@@ -132,27 +217,79 @@ function fetchGet(url) {
 }
 
 /**
- * Helper function to append HTML content to a container and execute any scripts.
- * Browsers don't execute scripts inserted via innerHTML/insertAdjacentHTML,
- * so this function parses the HTML, extracts script tags, and re-adds them
- * as real script elements to ensure execution.
+ * Helper function to append same-origin AJAX HTML and re-execute its scripts.
+ * Browsers don't execute scripts inserted via innerHTML/insertAdjacentHTML.
+ * This function sanitizes the HTML body with DOMPurify, inserts the safe HTML,
+ * then re-executes both inline and same-origin external scripts.
+ *
+ * Security model (defense-in-depth):
+ * 1. Server-side OWASP encoding is the primary XSS defense for all user data.
+ * 2. Scripts are extracted from DOMPurify-sanitized HTML (with WHOLE_DOCUMENT
+ *    and ADD_TAGS:['script']), which neutralizes mXSS and DOM-confusion attacks
+ *    that could create phantom script elements via parser inconsistencies.
+ * 3. External scripts are restricted to same-origin src attributes only.
+ * 4. The visible DOM is sanitized separately (scripts stripped, event handlers
+ *    re-attached only for onclick/ondblclick/onchange).
+ *
+ * Remaining risk: directly injected {@code <script>} tags survive the
+ * script-preserving sanitization pass. Server-side OWASP encoding (#1) is the
+ * defense against this vector. A future CSP nonce approach would close it fully.
+ *
+ * WARNING: This function executes scripts from the HTML response. Only use with
+ * trusted, same-origin server-rendered content (e.g., JSP AJAX responses). Never
+ * call with user-provided or cross-origin HTML.
+ *
  * @param {HTMLElement} container - The container element to append HTML to
- * @param {string} html - HTML string that may contain script tags
+ * @param {string} html - Same-origin server-rendered HTML that may contain script tags.
+ *     Must NOT contain user-provided HTML — server-side OWASP encoding is required.
  */
 function appendHtmlWithScripts(container, html) {
     if (!container || !html) return;
 
-    container.insertAdjacentHTML('beforeend', html);
+    // Fail closed: if DOMPurify is not loaded, show error to prevent XSS.
+    if (typeof DOMPurify === 'undefined') {
+        console.error('DOMPurify is required but not loaded. Content blocked to prevent XSS.');
+        var errorMsg = document.createElement('p');
+        errorMsg.textContent = 'Unable to display content safely. Please reload the page.';
+        errorMsg.style.color = 'red';
+        container.appendChild(errorMsg);
+        return;
+    }
 
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
+    // Extract scripts from DOMPurify-sanitized HTML to prevent mXSS bypass.
+    // WHOLE_DOCUMENT preserves <head> scripts; ADD_TAGS keeps <script> elements
+    // so they can be extracted. DOMPurify's mXSS protection (serialize + re-parse)
+    // neutralizes DOM-confusion attacks that could create phantom script elements.
+    var scriptSafeHtml = DOMPurify.sanitize(html, {
+        ADD_TAGS: ['script'],
+        WHOLE_DOCUMENT: true
+    });
+    var parser = new DOMParser();
+    var doc = parser.parseFromString(scriptSafeHtml, 'text/html');
+    var scripts = Array.from(doc.querySelectorAll('script'));
 
-    doc.querySelectorAll('script').forEach(script => {
-        const newScript = document.createElement('script');
-        if (script.src) {
-            newScript.src = script.src;
-        } else {
+    // Sanitize the HTML and re-attach same-origin event handlers to surviving elements.
+    var fragment = sanitizeWithHandlers(html, {
+        ADD_TAGS: ['input', 'select', 'option', 'textarea'],
+        ADD_ATTR: ['value', 'selected', 'checked', 'target']
+    });
+    container.appendChild(fragment);
+
+    // Re-execute scripts extracted from the sanitized response.
+    // External: only same-origin src. Inline: re-executed (trusted server content).
+    scripts.forEach(function(script) {
+        var newScript = document.createElement('script');
+        var src = script.getAttribute('src');
+        if (src) {
+            if ((src.startsWith('/') && !src.startsWith('//')) || src.startsWith(location.origin + '/')) {
+                newScript.src = src;
+            } else {
+                return; // skip cross-origin external scripts
+            }
+        } else if (script.textContent) {
             newScript.textContent = script.textContent;
+        } else {
+            return;
         }
         document.head.appendChild(newScript).parentNode.removeChild(newScript);
     });
@@ -160,7 +297,7 @@ function appendHtmlWithScripts(container, html) {
 
 function updateDocStatusInQueue(docid) {//change status of queue document link row to I=inactive
     console.log('in updateDocStatusInQueue, docid ' + docid);
-    const url = ctx + "/documentManager/inboxManage.do";
+    const url = ctx + "/documentManager/inboxManage";
     const data = "docid=" + docid + "&method=updateDocStatusInQueue";
 
     postForm(url, data)
@@ -427,7 +564,7 @@ function sendMRP(ele) {
         ele.checked = false;
     } else if (confirm('Send to Most Responsible Provider?')) {
         const type = checkType(doclabid);
-        const url = contextpath + "/oscarMDS/SendMRP.do";
+        const url = contextpath + "/oscarMDS/SendMRP";
         const data = 'demoId=' + demoId + '&docLabType=' + type + '&docLabId=' + doclabid;
 
         postForm(url, data)
@@ -453,14 +590,14 @@ function rotate180(id) {
     const displayDocumentAsEl = document.getElementById('displayDocumentAs_' + id);
     const displayDocumentAs = displayDocumentAsEl ? displayDocumentAsEl.value : '';
 
-    postForm(contextpath + "/documentManager/SplitDocument.do", "method=rotate180&document=" + id)
+    postForm(contextpath + "/documentManager/SplitDocument", "method=rotate180&document=" + id)
         .then(response => response.text())
         .then(data => {
             jQuery("#rotate180btn_" + id).prop('disabled', false);
             if (displayDocumentAs == "PDF") {
                 showPDF(id, contextpath);
             } else {
-                jQuery("#docImg_" + id).attr('src', contextpath + "/documentManager/ManageDocument.do?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
+                jQuery("#docImg_" + id).attr('src', contextpath + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
             }
         })
         .catch(error => console.error('Error:', error));
@@ -471,14 +608,14 @@ function rotate90(id) {
     const displayDocumentAsEl = document.getElementById('displayDocumentAs_' + id);
     const displayDocumentAs = displayDocumentAsEl ? displayDocumentAsEl.value : '';
 
-    postForm(contextpath + "/documentManager/SplitDocument.do", "method=rotate90&document=" + id)
+    postForm(contextpath + "/documentManager/SplitDocument", "method=rotate90&document=" + id)
         .then(response => response.text())
         .then(data => {
             jQuery("#rotate90btn_" + id).prop('disabled', false);
             if (displayDocumentAs == "PDF") {
                 showPDF(id, contextpath);
             } else {
-                jQuery("#docImg_" + id).attr('src', contextpath + "/documentManager/ManageDocument.do?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
+                jQuery("#docImg_" + id).attr('src', contextpath + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
             }
         })
         .catch(error => console.error('Error:', error));
@@ -491,13 +628,13 @@ function removeFirstPage(id) {
         const displayDocumentAsEl = document.getElementById('displayDocumentAs_' + id);
         const displayDocumentAs = displayDocumentAsEl ? displayDocumentAsEl.value : '';
 
-        postForm(contextpath + "/documentManager/SplitDocument.do", "method=removeFirstPage&document=" + id)
+        postForm(contextpath + "/documentManager/SplitDocument", "method=removeFirstPage&document=" + id)
             .then(response => response.text())
             .then(data => {
                 if (displayDocumentAs == "PDF") {
                     showPDF(id, contextpath);
                 } else {
-                    jQuery("#docImg_" + id).attr('src', contextpath + "/documentManager/ManageDocument.do?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
+                    jQuery("#docImg_" + id).attr('src', contextpath + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
                 }
                 const numPages = parseInt(jQuery("#numPages_" + id).text()) - 1;
                 jQuery("#numPages_" + id).text("" + numPages);
@@ -518,7 +655,7 @@ function removeFirstPage(id) {
 }
 
 function split(id) {
-    const loc = contextpath + "/oscarMDS/Split.jsp?document=" + id;
+    const loc = contextpath + "/oscarMDS/ViewSplit?document=" + id;
     popupStart(1400, 1400, loc, "Splitter");
 }
 
@@ -554,12 +691,17 @@ function reportWindow(page, height, width) {
         windowprops = "height=660, width=960, location=no, scrollbars=yes, menubars=no, toolbars=no, resizable=yes, top=0, left=0";
     }
     const popup = window.open(encodeURI(page), "labreport", windowprops);
-    popup.focus();
+    if (popup != null) {
+        if (popup.opener == null) {
+            popup.opener = self;
+        }
+        popup.focus();
+    }
 }
 
 function FileSelectedRows(files, searchProviderNo, status) {
     const filelabs = {"flaggedLabs": "{\"files\" : " + JSON.stringify(files) + "}"};
-    const url = ctx + "/oscarMDS/FileLabs.do";
+    const url = ctx + "/oscarMDS/FileLabs";
     bulkInboxAction(url, filelabs);
 }
 
@@ -606,7 +748,7 @@ function bulkInboxAction(url, filelabs) {
                     fileId = file.split(":")[0];
                     jQuery("#labdoc_" + fileId + " input[name='flaggedLabs']").attr("checked", false)
 
-                    if (url.includes("FileLabs.do")) {
+                    if (url.includes("FileLabs")) {
                         jQuery("#labdoc_" + fileId).remove();
                     }
                 }
@@ -666,11 +808,11 @@ function showDocLab(childId, docNo, providerNo, searchProviderNo, status, demoNa
     //alert(div);
     let url = '';
     if (type == 'DOC')
-        url = "../documentManager/showDocument.jsp";
+        url = "../documentManager/ViewShowDocument";
     else if (type == 'MDS')
         url = "";
     else if (type == 'HL7')
-        url = "../lab/CA/ALL/labDisplayAjax.jsp";
+        url = "../lab/CA/ALL/ViewLabDisplayAjax";
     else if (type == 'CML')
         url = "";
     else
@@ -1187,7 +1329,7 @@ function getPatientNameFromPatientId(patientId) {
     if (pn && pn != null) {
         return pn;
     } else {
-        const url = contextpath + "/documentManager/ManageDocument.do";
+        const url = contextpath + "/documentManager/ManageDocument";
         const data = 'method=getDemoNameAjax&demo_no=' + patientId;
 
         postForm(url, data)
@@ -1309,7 +1451,7 @@ function showThisPatientDocs(patientId, keepPrevious) {
 }
 
 function popupConsultation(segmentId) {
-    const page = contextpath + '/encounter/ViewRequest.do?segmentId=' + segmentId;
+    const page = contextpath + '/encounter/ViewRequest?segmentId=' + segmentId;
     const windowprops = "height=960,width=700,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
     const popup = window.open(page, msgConsReq, windowprops);
     if (popup != null) {
@@ -1325,7 +1467,7 @@ function checkType(docNo) {
 
 function ForwardSelectedRows(files, searchProviderNo, status) {
     const isListView = jQuery("input[name=isListView]").val();
-    const url = ctx + "/oscarMDS/SelectProvider.jsp";
+    const url = ctx + "/oscarMDS/ViewSelectProvider";
 
     // not sure why this is a parameter, but, just in case...
     const data = {
@@ -1341,7 +1483,23 @@ function ForwardSelectedRows(files, searchProviderNo, status) {
         method: "POST",
         data: data
     }).done(function (html) {
-        dialogContainer.html(html).dialog({
+        if (typeof DOMPurify === 'undefined') {
+            console.error('DOMPurify is required but not loaded. Forward dialog blocked to prevent XSS.');
+            dialogContainer.html('<p style="color:red">Unable to display content safely. Please reload the page.</p>');
+            return;
+        }
+        // Extract inline scripts before DOMPurify strips them.
+        var parser = new DOMParser();
+        var doc = parser.parseFromString(html, 'text/html');
+        var inlineScripts = Array.from(doc.querySelectorAll('script:not([src])')).filter(function(s) { return s.textContent; });
+
+        // Sanitize HTML and re-attach same-origin event handlers to surviving elements.
+        var fragment = sanitizeWithHandlers(html, {
+            ADD_TAGS: ['input', 'select', 'option', 'textarea'],
+            ADD_ATTR: ['value', 'selected', 'checked', 'multiple', 'id', 'name', 'type', 'class']
+        });
+
+        dialogContainer.empty().append(fragment).dialog({
             modal: true,
             width: 685,
             height: 355,
@@ -1372,12 +1530,24 @@ function ForwardSelectedRows(files, searchProviderNo, status) {
             open: function () {
                 // Applies Bootstrap 5 card styles if Bootstrap is included; otherwise, it will render as a normal jQuery dialog box.
                 styleDialogAsCard();
+                // Re-execute inline scripts from the same-origin JSP response.
+                // These define dialog functions (copyProvider, removeProvider) and initialize
+                // the provider autocomplete widget needed by the dialog's event handlers.
+                inlineScripts.forEach(function(script) {
+                    var newScript = document.createElement('script');
+                    newScript.textContent = script.textContent;
+                    document.head.appendChild(newScript).parentNode.removeChild(newScript);
+                });
             },
             close: function () {
                 jQuery(this).find("select[multiple]#fwdProviders").val('');
                 jQuery(this).find("select[multiple]#fwdFavorites").val('');
             }
         }).dialog("open");
+    }).fail(function (xhr, status, error) {
+        console.error('Forward dialog request failed:', status, error);
+        dialogContainer.html('<p style="color:red">Failed to load the forwarding dialog. Please reload the page and try again.</p>');
+        dialogContainer.dialog({ modal: true, title: "Error", buttons: { "Close": function() { jQuery(this).dialog("close"); } } });
     });
 }
 
@@ -1406,7 +1576,7 @@ function styleDialogAsCard() {
 }
 
 function forwardLabs(files, providers, favorites) {
-    const url = ctx + "/oscarMDS/ReportReassign.do";
+    const url = ctx + "/oscarMDS/ReportReassign";
 
         const filesArray = Array.isArray(files) ? files : [files];
 
@@ -1634,8 +1804,13 @@ function updatePatientDocLabNav(num, patientId) {
 }
 
 function createPatientDocLabEle(patientId, doclabid) {
-    const url = ctx + "/documentManager/ManageDocument.do";
-    const data = 'method=getDemoNameAjax&demo_no=' + patientId;
+    const url = ctx + "/documentManager/ManageDocument";
+    var safeId = parseInt(patientId, 10);
+    if (isNaN(safeId)) {
+        console.error('Invalid patientId passed to createPatientDocLabEle:', patientId);
+        return;
+    }
+    const data = 'method=getDemoNameAjax&demo_no=' + safeId;
 
     postForm(url, data)
         .then(response => response.json())
@@ -1643,19 +1818,20 @@ function createPatientDocLabEle(patientId, doclabid) {
         //oscarLog(json);
         if (json != null) {
             const patientName = json.demoName;//get name from id
-            addPatientId(patientId);
-            addPatientIdName(patientId, patientName);
-            let e = '<dt><img id="plus' + patientId + '" alt="plus" src="' + ctx + '/images/plus.png" onclick="showhideSubCat(\'plus\',\'' + patientId + '\');"/><img id="minus' + patientId + '" alt="minus" style="display:none;" src="' + ctx + '/images/minus.png" onclick="showhideSubCat(\'minus\',\'' + patientId + '\');"/>' +
-            '<a id="patient' + patientId + 'all" href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showThisPatientDocs(\'' + patientId + '\');un_bold(this);" title="' + patientName + '">' + patientName + ' (<span id="patientNumDocs' + patientId + '">1</span>)</a>' +
-            '<dl id="labdoc' + patientId + 'showSublist" style="display:none">';
+            const safeName = escapeHtml(patientName);
+            addPatientId(safeId);
+            addPatientIdName(safeId, patientName);
+            let e = '<dt><img id="plus' + safeId + '" alt="plus" src="' + ctx + '/images/plus.png" onclick="showhideSubCat(\'plus\',\'' + safeId + '\');"/><img id="minus' + safeId + '" alt="minus" style="display:none;" src="' + ctx + '/images/minus.png" onclick="showhideSubCat(\'minus\',\'' + safeId + '\');"/>' +
+            '<a id="patient' + safeId + 'all" href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showThisPatientDocs(\'' + safeId + '\');un_bold(this);" title="' + safeName + '">' + safeName + ' (<span id="patientNumDocs' + safeId + '">1</span>)</a>' +
+            '<dl id="labdoc' + safeId + 'showSublist" style="display:none">';
             const type = checkType(doclabid);
             let s;
             //oscarLog('type='+type);
             //oscarLog('eee='+e);
             if (type == 'DOC') {
-                s = createNewDocEle(patientId);
+                s = createNewDocEle(safeId);
             } else if (type == 'HL7') {
-                s = createNewHL7Ele(patientId);
+                s = createNewHL7Ele(safeId);
             } else {
                 return '';
             }
@@ -1673,13 +1849,23 @@ function createPatientDocLabEle(patientId, doclabid) {
 }
 
 function createNewDocEle(patientId) {
-    const newEle = '<dt><a id="patient' + patientId + 'docs" href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showSubType(\'' + patientId + '\',\'DOC\');un_bold(this);" title="Documents">Documents(<span id="pDocNum_' + patientId + '">1</span>)</a></dt>';
+    var safeId = parseInt(patientId, 10);
+    if (isNaN(safeId)) {
+        console.error('Invalid patientId passed to createNewDocEle:', patientId);
+        return '';
+    }
+    const newEle = '<dt><a id="patient' + safeId + 'docs" href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showSubType(\'' + safeId + '\',\'DOC\');un_bold(this);" title="Documents">Documents(<span id="pDocNum_' + safeId + '">1</span>)</a></dt>';
     //oscarLog('newEle='+newEle);
     return newEle;
 }
 
 function createNewHL7Ele(patientId) {
-    const newEle = '<dt><a id="patient' + patientId + 'hl7s" href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showSubType(\'' + patientId + '\',\'HL7\');un_bold(this);" title="HL7s">HL7s(<span id="pLabNum_' + patientId + '">1</span>)</a></dt>';
+    var safeId = parseInt(patientId, 10);
+    if (isNaN(safeId)) {
+        console.error('Invalid patientId passed to createNewHL7Ele:', patientId);
+        return '';
+    }
+    const newEle = '<dt><a id="patient' + safeId + 'hl7s" href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showSubType(\'' + safeId + '\',\'HL7\');un_bold(this);" title="HL7s">HL7s(<span id="pLabNum_' + safeId + '">1</span>)</a></dt>';
     //oscarLog('newEle='+newEle);
     return newEle;
 }
@@ -1713,7 +1899,7 @@ function decreaseCount(eleId) {
 }
 
 function updateDocumentAndNext(eleId) {//save doc info
-    const url = "../documentManager/ManageDocument.do"
+    const url = "../documentManager/ManageDocument"
     const formEl = document.getElementById(eleId);
     const data = serializeForm(formEl);
 
@@ -1733,14 +1919,14 @@ function updateDocumentAndNext(eleId) {//save doc info
             const msgBtnEl = document.getElementById("msgBtn_" + num);
             if (msgBtnEl) {
                 msgBtnEl.onclick = function () {
-                    popup(700, 960, contextpath + '/messenger/SendDemoMessage.do?demographic_no=' + patientId, 'msg');
+                    popup(700, 960, contextpath + '/messenger/SendDemoMessage?demographic_no=' + patientId, 'msg');
                 };
             }
 
             updateDocStatusInQueue(num);
 
             if (typeof _in_window !== 'undefined' && _in_window) {
-                if (typeof self.opener.removeReport !== 'undefined') {
+                if (self.opener && typeof self.opener.removeReport !== 'undefined') {
                     self.opener.removeReport(num);
                 }
                 window.close();
@@ -1770,7 +1956,7 @@ function updateDocument(eleId) {
     }
 
     //save doc info
-    const url = "../documentManager/ManageDocument.do";
+    const url = "../documentManager/ManageDocument";
     const formEl = document.getElementById(eleId);
     const data = serializeForm(formEl);
 
@@ -1797,12 +1983,12 @@ function updateDocument(eleId) {
                 const msgBtn = document.getElementById("msgBtn_" + num);
                 if (msgBtn) {
                     msgBtn.onclick = function () {
-                        popup(700, 960, contextpath + '/messenger/SendDemoMessage.do?demographic_no=' + patientId, 'msg');
+                        popup(700, 960, contextpath + '/messenger/SendDemoMessage?demographic_no=' + patientId, 'msg');
                     };
                 }
 
                 if (typeof _in_window !== 'undefined' && _in_window) {
-                    if (typeof self.opener.removeReport !== 'undefined') {
+                    if (self.opener && typeof self.opener.removeReport !== 'undefined') {
                         self.opener.removeReport(num);
                         success = true;
                     }
@@ -1890,7 +2076,7 @@ function updateStatus(formid) {//acknowledge
         if (demoId === '-1' || !saved) {
             alert('Document is not assigned and saved to a patient,please file it');
         } else {
-            const url = contextpath + "/oscarMDS/UpdateStatus.do";
+            const url = contextpath + "/oscarMDS/UpdateStatus";
             const formEl = document.getElementById(formid);
             const data = serializeFormToObject(formEl);
             console.log("Updating status. URL: " + url);
@@ -1902,7 +2088,7 @@ function updateStatus(formid) {//acknowledge
 					// Hide the parent <div> of the iframe only for new inbox previews loaded in an iframe
 					jQuery(window.frameElement).closest('.document-card.card').slideUp();
 				} else if (typeof _in_window !== 'undefined' && _in_window) {
-                    if (typeof self.opener.removeReport !== 'undefined') {
+                    if (self.opener && typeof self.opener.removeReport !== 'undefined') {
 						/**
 						 * When a user acknowledges any lab version, it automatically files away older versions
 						 * as well as the acknowledged version. This function removes those versions from the
@@ -1914,6 +2100,17 @@ function updateStatus(formid) {//acknowledge
 							self.opener.removeReport(id);
 							if (id === doclabid) break;
 						}
+                    }
+                    // Notify the Inboxhub to refresh its data after acknowledge.
+                    // Struts 7's CoopInterceptor sets Cross-Origin-Opener-Policy: same-origin on action responses,
+                    // which nulls window.opener on popups opened from Inboxhub. BroadcastChannel provides
+                    // reliable same-origin cross-window messaging that is unaffected by COOP.
+                    try {
+                        const bc = new BroadcastChannel('inboxhub-refresh');
+                        bc.postMessage('refresh');
+                        bc.close();
+                    } catch (e) {
+                        // BroadcastChannel unsupported — user must manually refresh the inbox
                     }
                     window.close();
                 } else {
@@ -1939,7 +2136,7 @@ function fileDoc(docId) {
             if (isFile) {
                 const type = 'DOC';
                 if (type) {
-                    const url = '../oscarMDS/FileLabs.do';
+                    const url = '../oscarMDS/FileLabs';
                     const data = 'method=fileLabAjax&flaggedLabId=' + docId + '&labType=' + type;
 
                     postForm(url, data)
@@ -1948,7 +2145,7 @@ function fileDoc(docId) {
                             updateDocStatusInQueue(docId);
 
                             if (typeof _in_window !== 'undefined' && _in_window) {
-                                if (typeof self.opener.removeReport !== 'undefined') {
+                                if (self.opener && typeof self.opener.removeReport !== 'undefined') {
                                     self.opener.removeReport(docId);
                                 }
 
@@ -1972,7 +2169,7 @@ function handleQueueListChange(queueListSelectElement, refileBtnElement, docCurr
 function refileDoc(id) {
     const queueListEl = document.getElementById('queueList_' + id);
     const queueId = queueListEl.options[queueListEl.selectedIndex].value;
-    const url = contextpath + "/documentManager/ManageDocument.do";
+    const url = contextpath + "/documentManager/ManageDocument";
     const data = 'method=refileDocumentAjax&documentId=' + id + "&queueId=" + queueId;
 
     postForm(url, data)
@@ -2005,7 +2202,7 @@ function addDocToList(provNo, provName, docId) {
 }
 
 function removeLink(docType, docId, providerNo, e) {
-    const url = "../documentManager/ManageDocument.do";
+    const url = "../documentManager/ManageDocument";
     const data = 'method=removeLinkFromDocument&docType=' + docType + '&docId=' + docId + '&providerNo=' + providerNo;
 
     postForm(url, data)
@@ -2147,7 +2344,7 @@ function showPDF(docid, cp) {
     //     width=getWidth()-650;
     // }
 
-    const url = cp + '/documentManager/ManageDocument.do?method=display&doc_no=' + encodeURIComponent(docid) + '&rand=' + Math.random() + '#view=fitV&page=1';
+    const url = cp + '/documentManager/ManageDocument?method=display&doc_no=' + encodeURIComponent(docid) + '&rand=' + Math.random() + '#view=fitV&page=1';
 
     const container = document.getElementById('docDispPDF_' + docid);
     if (container) {
@@ -2169,7 +2366,7 @@ function showPageImg(docid, pn, cp) {
         showPDF(docid, cp);
     } else if (docid && pn && cp) {
         const e = document.getElementById('docImg_' + docid);
-        const url = cp + '/documentManager/ManageDocument.do?method=viewDocPage&doc_no=' + docid + '&curPage=' + pn;
+        const url = cp + '/documentManager/ManageDocument?method=viewDocPage&doc_no=' + docid + '&curPage=' + pn;
         if (e) e.setAttribute('src', url);
     }
 }
@@ -2295,7 +2492,7 @@ function showNext(docid) {
 }
 
 function handleDocSave(docid, action) {
-    const url = contextpath + "/documentManager/inboxManage.do";
+    const url = contextpath + "/documentManager/inboxManage";
     const data = 'method=isDocumentLinkedToDemographic&docId=' + docid;
 
     postForm(url, data)
@@ -2309,7 +2506,7 @@ function handleDocSave(docid, action) {
                 if (action == 'addTickler') {
                     demoid = json.demoId;
                     if (demoid != null && demoid.length > 0)
-                        popupStart(450, 600, contextpath + '/tickler/ForwardDemographicTickler.do?docType=DOC&docId=' + docid + '&demographic_no=' + demoid, 'tickler')
+                        popupStart(450, 600, contextpath + '/tickler/ForwardDemographicTickler?docType=DOC&docId=' + docid + '&demographic_no=' + demoid, 'tickler')
                 }
             } else {
                 alert("Make sure demographic is linked and document changes saved!");
@@ -2326,7 +2523,7 @@ function addDocComment(docId, providerNo) {
     let comment = "";
     const text = jQuery("#comment_" + docId + "_" + providerNo);
     if (text.length > 0) {
-        comment = jQuery("#comment_" + docId + "_" + providerNo).html();
+        comment = jQuery("#comment_" + docId + "_" + providerNo).text();
         if (comment == null || comment == "no comment") {
             comment = "";
         }
@@ -2343,7 +2540,7 @@ function addDocComment(docId, providerNo) {
     if (ret) {
         const statusEl = document.getElementById("status_" + docId);
         if (statusEl) statusEl.value = 'N';
-        const url = ctx + "/oscarMDS/UpdateStatus.do";
+        const url = ctx + "/oscarMDS/UpdateStatus";
         const formid = "acknowledgeForm_" + docId;
         let data = serializeForm(formid);
         data += "&method=addComment";
@@ -2375,7 +2572,7 @@ function getDocComment(docId, providerNo, inQueueB) {
     let comment = "";
     const text = jQuery("#comment_" + docId + "_" + providerNo);
     if (text.length > 0) {
-        comment = jQuery("#comment_" + docId + "_" + providerNo).html();
+        comment = jQuery("#comment_" + docId + "_" + providerNo).text();
         if (comment == null || comment == "no comment") {
             comment = "";
         }

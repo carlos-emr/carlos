@@ -81,6 +81,24 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
     public String execute() throws Exception {
         String method = request.getParameter("method");
 
+        if (method == null || method.isBlank()) {
+            checkPrivilege(request, PRIVILEGE_READ);
+            return SUCCESS;
+        }
+
+        // Mutation methods require POST: any path that writes to
+        // dx_associations (clear, add, uploadFile, autoPopulate) must not
+        // be triggerable by a GET request.
+        if ("clearAssociations".equals(method)
+                || "addAssociation".equals(method)
+                || "uploadFile".equals(method)
+                || "autoPopulateAssociations".equals(method)) {
+            if (!"POST".equalsIgnoreCase(request.getMethod())) {
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                return NONE;
+            }
+        }
+
         if ("getAllAssociations".equals(method)) {
             getAllAssociations();
         } else if ("clearAssociations".equals(method)) {
@@ -267,7 +285,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
 
     private void checkPrivilege(HttpServletRequest request, String privilege) {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", privilege, null)) {
-            throw new RuntimeException("missing required sec object (_dxresearch)");
+            throw new SecurityException("missing required sec object (_dxresearch " + privilege + ")");
         }
     }
 

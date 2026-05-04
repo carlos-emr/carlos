@@ -32,11 +32,15 @@ import java.util.List;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.apache.logging.log4j.Logger;
+
 import io.github.carlos_emr.carlos.PMmodule.service.ClientManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.PMmodule.web.formbean.ClientSearchFormBean;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -46,8 +50,13 @@ import io.github.carlos_emr.carlos.services.LookupManager;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class ClientSearchAction22Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+    private static final Logger logger = MiscUtils.getLogger();
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -59,6 +68,11 @@ public class ClientSearchAction22Action extends ActionSupport {
     private CaseManagementNoteDAO caseManagementNoteDao = SpringUtils.getBean(CaseManagementNoteDAO.class);
 
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pmm_management", "r", null)) {
+            throw new SecurityException("missing required sec object (_pmm_management)");
+        }
+
         String method = request.getParameter("method");
         if ("attachForm".equals(method)) {
             return attachForm();
@@ -72,9 +86,9 @@ public class ClientSearchAction22Action extends ActionSupport {
 
     public String form() {
         if (clientManager.isOutsideOfDomainEnabled()) {
-            request.getSession().setAttribute("outsideOfDomainEnabled", "true");
+            request.getSession().setAttribute("outsideOfDomainEnabled", "true"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         } else {
-            request.getSession().setAttribute("outsideOfDomainEnabled", "false");
+            request.getSession().setAttribute("outsideOfDomainEnabled", "false"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         }
 
 
@@ -85,9 +99,9 @@ public class ClientSearchAction22Action extends ActionSupport {
 
     public String attachForm() {
         if (clientManager.isOutsideOfDomainEnabled()) {
-            request.getSession().setAttribute("outsideOfDomainEnabled", "true");
+            request.getSession().setAttribute("outsideOfDomainEnabled", "true"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         } else {
-            request.getSession().setAttribute("outsideOfDomainEnabled", "false");
+            request.getSession().setAttribute("outsideOfDomainEnabled", "false"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         }
 
         String noteId = request.getParameter("noteId");
@@ -103,8 +117,24 @@ public class ClientSearchAction22Action extends ActionSupport {
         if (noteId == null || noteId.trim().length() == 0) {
             //don't do anything?
         } else {
-            request.getSession().setAttribute("noteId", noteId);
-            request.setAttribute("noteId", noteId);
+            // Parse and validate noteId before storing in session (CWE-501: Trust Boundary Violation).
+            // Reject non-numeric values and confirm the note record exists in the database.
+            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+            String providerNo = (loggedInInfo != null) ? loggedInInfo.getLoggedInProviderNo() : "unknown";
+            try {
+                long parsedNoteId = Long.parseLong(noteId.trim());
+                CaseManagementNote note = caseManagementNoteDao.getNote(parsedNoteId);
+                if (note != null) {
+                    String validatedNoteId = String.valueOf(parsedNoteId);
+                    request.getSession().setAttribute("noteId", validatedNoteId); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+                    request.setAttribute("noteId", validatedNoteId);
+                } else {
+                    logger.warn("Rejected noteId that does not exist in database (trust boundary enforcement) - provider: {}", providerNo);
+                }
+            } catch (NumberFormatException e) {
+                // noteId is not a valid Long — do not store in session
+                logger.warn("Rejected non-numeric noteId parameter from session storage (trust boundary enforcement) - provider: {}", providerNo);
+            }
         }
 
 

@@ -52,8 +52,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
 import java.util.*;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class UserPreference2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -72,7 +75,6 @@ public class UserPreference2Action extends ActionSupport {
         defaults.put("pref." + UserProperty.SCHEDULE_PERIOD, "15");
         defaults.put("pref." + UserProperty.NEW_CME, "Enabled");
         defaults.put("pref." + UserProperty.ENCOUNTER_FORM_LENGTH, "3");
-        defaults.put("pref." + UserProperty.RX_USE_RX3, "yes");
     }
 
     public String getParameter(HttpServletRequest request, String name) {
@@ -104,6 +106,11 @@ public class UserPreference2Action extends ActionSupport {
 
     @Override
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", "w", null)) {
+            throw new SecurityException("missing required sec object (_pref)");
+        }
+
         if ("saveGeneral".equals(request.getParameter("method"))) {
             return saveGeneral();
         }
@@ -256,10 +263,6 @@ public class UserPreference2Action extends ActionSupport {
                 options.add(new LabelValueBean(String.valueOf(x), String.valueOf(x)));
             }
         }
-        if (key.equals("pref." + UserProperty.RX_USE_RX3)) {
-            options.add(new LabelValueBean("Yes", "yes"));
-            options.add(new LabelValueBean("No", "no"));
-        }
         if (key.equals("pref." + UserProperty.RX_SHOW_QR_CODE)) {
             options.add(new LabelValueBean("Yes", "yes"));
             options.add(new LabelValueBean("No", "no"));
@@ -399,9 +402,11 @@ public class UserPreference2Action extends ActionSupport {
         ArrayList<LabelValueBean> results = new ArrayList<LabelValueBean>();
 
         CtlBillingServiceDao ctlBillingServiceDao = (CtlBillingServiceDao) SpringUtils.getBean(CtlBillingServiceDao.class);
-        List<Object[]> cbsList = ctlBillingServiceDao.getUniqueServiceTypes();
-        for (Object[] cbs : cbsList) {
-            results.add(new LabelValueBean((String) cbs[1], (String) cbs[0]));
+        List<io.github.carlos_emr.carlos.billings.ca.on.dto.UniqueServiceTypeRow> cbsList =
+                ctlBillingServiceDao.getUniqueServiceTypes();
+        for (io.github.carlos_emr.carlos.billings.ca.on.dto.UniqueServiceTypeRow cbs : cbsList) {
+            // Note: legacy mapping read serviceTypeName as label and serviceType as value (cbs[1], cbs[0]).
+            results.add(new LabelValueBean(cbs.serviceTypeName(), cbs.serviceType()));
         }
         return results;
     }

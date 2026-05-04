@@ -1,0 +1,132 @@
+<%-- This page is included by "<%= request.getContextPath() %>/provider/ViewAppointmentAdminDay".
+     User defined JavaScript functions here can be found in the above file. --%>
+
+
+<%@ taglib uri="jakarta.tags.core" prefix="c"%>
+
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi"%>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.*"%>
+<%@ page import="io.github.carlos_emr.carlos.caisi.CaisiUtil" %>
+<%
+String questr=(String)session.getAttribute("infirmaryView_OscarQue"); 
+
+
+//remove "infirmaryView_programId" from querystring
+questr= CaisiUtil.removeAttr(questr,"infirmaryView_programId=");
+questr= CaisiUtil.removeAttr(questr,"infirmaryView_clientStatusId=");
+questr= CaisiUtil.removeAttr(questr,"viewall");
+questr += "&viewall=1";
+
+String providerurlString=request.getContextPath() + "/provider/providercontrol?"+questr;
+
+//remove "infirmaryView_isOscar" from querystring
+questr= CaisiUtil.removeAttr(questr,"infirmaryView_isOscar=");
+
+//remove "GoToCaisiViewFromOscarView" from querystring
+questr= CaisiUtil.removeAttr(questr,"GoToCaisiViewFromOscarView=");
+
+session.setAttribute("infirmaryView_OscarQue",questr);
+
+%>
+
+<script>
+function submitProgram(ctrl,isOscar) {
+	var url = "<carlos:encode value='<%= providerurlString %>' context="javaScriptBlock"/>"+"&infirmaryView_programId="+encodeURIComponent(ctrl.value)+"&GoToCaisiViewFromOscarView=true";
+	url = url.replace('infirmaryView_isOscar='+(!isOscar),'infirmaryView_isOscar='+isOscar);
+	document.location.href = url;
+}
+function submitStatus(ctrl) {// only place other than infirmaction.java to set infirmaryView_clientStatusId
+	var programCtrl = document.getElementById("bedprogram_no");
+	document.location.href = "<carlos:encode value='<%= providerurlString %>' context="javaScriptBlock"/>"+"&infirmaryView_programId="+encodeURIComponent(programCtrl.value)+"&infirmaryView_clientStatusId="+encodeURIComponent(ctrl.value)+"&GoToCaisiViewFromOscarView=true";
+}
+</script>
+
+<c:if test="${infirmaryView_isOscar != 'true'}">
+	<br>
+	<b>Program:</b>
+	<select id="bedprogram_no" name="bedprogram_no"
+		onchange="submitProgram(this,false)">
+		<%java.util.List programBean=(java.util.List)session.getAttribute("infirmaryView_programBeans");
+	String programId=(String)session.getAttribute(SessionConstants.CURRENT_PROGRAM_ID);
+	if (programBean.size()==0 || programId.equalsIgnoreCase("0")){%>
+		<option value="0" selected>-No assigned program-</option>
+		<%}else{ %>
+		<c:forEach var="pb" items="${infirmaryView_programBeans}">
+			<c:if test="${infirmaryView_programId == pb.value}">
+				<option value="<%=pb.getValue()%>" selected><%= pb.getLabel() %></option>
+			</c:if>
+			<c:if test="${infirmaryView_programId != pb.value}">
+				<option value="<%=pb.getValue()%>"><%= pb.getLabel() %></option>
+			</c:if>
+		</c:forEach>
+		<%} %>
+	</select>
+</c:if>
+<c:if test="${infirmaryView_isOscar != 'false'}">
+	<br>
+		<b>Program:</b>
+		<select id="bedprogram_no" name="bedprogram_no"
+			onchange="submitProgram(this,true)">
+			<%java.util.List programBean=(java.util.List)session.getAttribute("infirmaryView_programBeans");
+	String programId=(String)session.getAttribute(SessionConstants.CURRENT_PROGRAM_ID);
+	if (programBean.size()==0 || programId.equalsIgnoreCase("0")){%>
+			<option value="0" selected>-No assigned program-</option>
+			<%}else{ %>
+			<c:forEach var="pb" items="${infirmaryView_programBeans}">
+				<c:if test="${infirmaryView_programId == pb.value}">
+					<option value="<%=pb.getValue()%>" selected><%= pb.getLabel() %></option>
+				</c:if>
+				<c:if test="${infirmaryView_programId != pb.value}">
+					<option value="<%=pb.getValue()%>"><%= pb.getLabel() %></option>
+				</c:if>
+			</c:forEach>
+			<%} %>
+		</select>
+</c:if>
+
+<c:if test="${infirmaryView_isOscar != 'true'}">
+  &nbsp;
+  <select id="program_clientstatus" name="program_clientstatus"
+		onchange="submitStatus(this)">
+		<c:choose>
+			<c:when
+				test="${empty infirmaryView_clientStatusId or infirmaryView_clientStatusId == 0}">
+				<option value="0" selected>&nbsp;</option>
+			</c:when>
+			<c:otherwise>
+				<option value="0">&nbsp;</option>
+			</c:otherwise>
+		</c:choose>
+
+		<c:forEach var="status" items="${program_client_statuses}">
+			<c:choose>
+				<c:when test="${infirmaryView_clientStatusId == status.id}">
+					<option selected value="${carlos:forHtmlAttribute(status.id)}">${carlos:forHtml(status.name)}</option>
+				</c:when>
+				<c:otherwise>
+					<option value="${carlos:forHtmlAttribute(status.id)}">${carlos:forHtml(status.name)}</option>
+				</c:otherwise>
+			</c:choose>
+
+		</c:forEach>
+	</select>
+	<caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
+		<caisi:ProgramExclusiveView providerNo="<%=((LoggedInInfo)LoggedInInfo.getLoggedInInfoFromSession(request)).getLoggedInProviderNo()%>" value="no">
+			<a href='<%= request.getContextPath() %>/provider/providercontrol?infirmaryView_isOscar=true&GoToCaisiViewFromOscarView=false&<carlos:encode value='<%= (String) session.getAttribute("infirmaryView_OscarQue") %>' context="htmlAttribute"/>'>|
+			Oscar View</a>
+		</caisi:ProgramExclusiveView>
+	</caisi:isModuleLoad>
+</c:if>
+
+<c:if test="${infirmaryView_isOscar == 'true'}">
+	<caisi:ProgramExclusiveView providerNo="<%=((LoggedInInfo)LoggedInInfo.getLoggedInInfoFromSession(request)).getLoggedInProviderNo()%>" value="no">
+		<div align="right"><a
+			href='<%= request.getContextPath() %>/provider/providercontrol?infirmaryView_isOscar=false&GoToCaisiViewFromOscarView=true&<carlos:encode value='<%= (String) session.getAttribute("infirmaryView_OscarQue") %>' context="htmlAttribute"/>'>|
+		Case Management View</a></div>
+	</caisi:ProgramExclusiveView>
+</c:if>
+</td>
+</tr>
+</table>

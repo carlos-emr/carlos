@@ -37,6 +37,8 @@ import jakarta.servlet.http.HttpSession;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
@@ -58,15 +60,48 @@ public final class WLSetupDisplayPatientWaitingList2Action extends ActionSupport
             throw new RuntimeException("missing required sec object (_demographic)");
         }
 
-        String demographicNo = request.getParameter("demographic_no");
+        String rawDemographicNo = request.getParameter("demographic_no");
+        if (rawDemographicNo == null || rawDemographicNo.trim().isEmpty()) {
+            MiscUtils.getLogger().warn("WLSetupDisplayPatientWaitingList2Action: demographic_no parameter is missing");
+            addActionError("demographic_no is required");
+            return ERROR;
+        }
+
+        int demographicNoInt;
+        try {
+            demographicNoInt = Integer.parseInt(rawDemographicNo.trim());
+        } catch (NumberFormatException e) {
+            MiscUtils.getLogger().warn("WLSetupDisplayPatientWaitingList2Action: non-numeric demographic_no='{}'",
+                    LogSanitizer.sanitize(rawDemographicNo.trim()));
+            addActionError("Invalid demographic_no: must be numeric");
+            return ERROR;
+        }
+
+        if (demographicNoInt <= 0) {
+            MiscUtils.getLogger().warn("WLSetupDisplayPatientWaitingList2Action: non-positive demographic_no={}",
+                    demographicNoInt);
+            addActionError("Invalid demographic_no: must be a positive integer");
+            return ERROR;
+        }
+
+        // Use the validated integer string for all subsequent operations
+        String demographicNo = String.valueOf(demographicNoInt);
+
         DemographicData demoData = new DemographicData();
         Demographic demo = demoData.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demographicNo);
+        if (demo == null) {
+            MiscUtils.getLogger().warn("WLSetupDisplayPatientWaitingList2Action: demographic not found for demographicNo={}",
+                    demographicNoInt);
+            addActionError("Demographic record not found");
+            return ERROR;
+        }
+
         String demoInfo = demo.getLastName() + ", " + demo.getFirstName() + " " + demo.getSex() + " " + demo.getAge();
         WLPatientWaitingListBeanHandler hd = new WLPatientWaitingListBeanHandler(demographicNo);
         HttpSession session = request.getSession();
-        session.setAttribute("demoInfo", demoInfo);
-        session.setAttribute("patientWaitingList", hd);
-        session.setAttribute("demographicNo", demographicNo);
+        session.setAttribute("demoInfo", demoInfo); // nosemgrep: tainted-session-from-http-request -- composed from DAO-loaded Demographic fields (name, sex, age)
+        session.setAttribute("patientWaitingList", hd); // nosemgrep: tainted-session-from-http-request -- DAO-sourced bean handler built from validated demographicNo
+        session.setAttribute("demographicNo", demographicNo); // nosemgrep: tainted-session-from-http-request -- validated via Integer.parseInt and DAO existence check above
 
         return "continue";
     }

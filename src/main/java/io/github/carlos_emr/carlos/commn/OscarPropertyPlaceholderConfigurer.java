@@ -18,7 +18,7 @@
  * This software was written for
  * Centre for Research on Inner City Health, St. Michael's Hospital,
  * Toronto, Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -27,34 +27,44 @@
 
 package io.github.carlos_emr.carlos.commn;
 
-import java.util.Properties;
+import java.io.IOException;
 
 import io.github.carlos_emr.CarlosProperties;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.springframework.beans.factory.config.PropertyPlaceholderConfigurer;
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.BeanInitializationException;
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
+import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
+import org.springframework.core.env.MutablePropertySources;
+import org.springframework.core.env.PropertiesPropertySource;
 
-public class OscarPropertyPlaceholderConfigurer extends PropertyPlaceholderConfigurer {
+public class OscarPropertyPlaceholderConfigurer extends PropertySourcesPlaceholderConfigurer {
     private static Logger log = MiscUtils.getLogger();
 
-    /* (non-Javadoc)
-     * @see org.springframework.beans.factory.config.PropertyPlaceholderConfigurer#resolvePlaceholder(java.lang.String, java.util.Properties, int)
-     */
-    protected String resolvePlaceholder(String placeholder, Properties properties, int systemPropertiesMode) {
-        log.debug("resolvePlaceholder Start " + placeholder);
-        Properties props = CarlosProperties.getInstance();
-        if (props.containsKey(placeholder)) {
-            log.debug("setting property " + placeholder + " with " + props.getProperty(placeholder));
-            properties.setProperty(placeholder, props.getProperty(placeholder));
-        }
-        return super.resolvePlaceholder(placeholder, properties, systemPropertiesMode);
-    }
+    @Override
+    public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException {
+        log.debug("Initializing OscarPropertyPlaceholderConfigurer with CarlosProperties");
 
-    /* (non-Javadoc)
-     * @see org.springframework.beans.factory.config.PropertyPlaceholderConfigurer#resolvePlaceholder(java.lang.String, java.util.Properties)
-     */
-    protected String resolvePlaceholder(String placeholder, Properties properties) {
-        log.debug("resolvePlaceholder 2" + placeholder);
-        return super.resolvePlaceholder(placeholder, properties);
+        MutablePropertySources propertySources = new MutablePropertySources();
+
+        // CarlosProperties takes highest priority (matches old resolvePlaceholder behavior)
+        propertySources.addLast(new PropertiesPropertySource(
+                "carlosProperties", CarlosProperties.getInstance()));
+
+        // Local properties from locations (carlos.properties on classpath)
+        try {
+            propertySources.addLast(new PropertiesPropertySource(
+                    LOCAL_PROPERTIES_PROPERTY_SOURCE_NAME, mergeProperties()));
+        } catch (IOException ex) {
+            throw new BeanInitializationException("Could not load properties", ex);
+        }
+
+        // setPropertySources() replaces the default Environment sources, so JVM -D system
+        // properties and OS environment variables are intentionally excluded from ${...}
+        // placeholder resolution. All Spring XML placeholders resolve from CarlosProperties
+        // or carlos.properties only.
+        setPropertySources(propertySources);
+        super.postProcessBeanFactory(beanFactory);
     }
 }

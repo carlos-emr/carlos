@@ -53,6 +53,8 @@ import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.HRMResultsData;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.mds.data.CategoryData;
 import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
 
@@ -66,7 +68,12 @@ import java.util.*;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+
 public class DmsInboxManage2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -83,6 +90,11 @@ public class DmsInboxManage2Action extends ActionSupport {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "r", null)) {
+            throw new SecurityException("missing required sec object (_edoc)");
+        }
+
         String mtd = request.getParameter("method");
         if ("previewPatientDocLab".equals(mtd)) {
             return previewPatientDocLab();
@@ -183,7 +195,7 @@ public class DmsInboxManage2Action extends ActionSupport {
         HttpSession session = request.getSession();
         try {
             if (session.getAttribute("userrole") == null)
-                response.sendRedirect(request.getContextPath() + "/logout.jsp");
+                response.sendRedirect(request.getContextPath() + "/logoutPage");
         } catch (Exception e) {
             MiscUtils.getLogger().error("error", e);
         }
@@ -214,6 +226,18 @@ public class DmsInboxManage2Action extends ActionSupport {
         } else if (searchProviderNo == null) {
             searchProviderNo = providerNo;
         } // default to current providers
+
+        if (searchProviderNo != null && !searchProviderNo.equals(providerNo) && !"-1".equals(searchProviderNo)) {
+            try {
+                LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+                if (loggedInInfo != null) {
+                    LogAction.addLog(loggedInInfo, LogConst.READ, LogConst.CON_PROVIDER_INBOX, searchProviderNo, null,
+                            "Provider " + providerNo + " accessed inbox index for provider: " + searchProviderNo);
+                }
+            } catch (Exception e) {
+                MiscUtils.getLogger().error("Failed to audit cross-provider inbox access", e);
+            }
+        }
 
         boolean providerSearch = !"-1".equals(searchProviderNo);
 
@@ -262,7 +286,7 @@ public class DmsInboxManage2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         HttpSession session = request.getSession();
         try {
-            if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+            if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
         } catch (Exception e) {
             logger.error("Error", e);
         }
@@ -342,6 +366,17 @@ public class DmsInboxManage2Action extends ActionSupport {
         if (searchProviderNo == null) {
             searchProviderNo = providerNo;
         }
+
+        if (searchProviderNo != null && !searchProviderNo.equals(providerNo) && !"-1".equals(searchProviderNo)) {
+            try {
+                if (loggedInInfo != null) {
+                    LogAction.addLog(loggedInInfo, LogConst.READ, LogConst.CON_PROVIDER_INBOX, searchProviderNo, null,
+                            "Provider " + providerNo + " accessed inbox content for provider: " + searchProviderNo);
+                }
+            } catch (Exception e) {
+                MiscUtils.getLogger().error("Failed to audit cross-provider inbox access", e);
+            }
+        }
         String roleName = "";
         List<SecUserRole> roles = secUserRoleDao.getUserRoles(searchProviderNo);
         for (SecUserRole r : roles) {
@@ -387,7 +422,7 @@ public class DmsInboxManage2Action extends ActionSupport {
                 SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
                 newestLab = formatter.parse(request.getParameter("newestDate"));
             } catch (Exception e) {
-                logger.error("Couldn't parse date + " + request.getParameter("newestDate"), e);
+                logger.error("Couldn't parse date: {}", LogSanitizer.sanitize(request.getParameter("newestDate")), e);
             }
         }
 
@@ -713,7 +748,7 @@ public class DmsInboxManage2Action extends ActionSupport {
     public String getDocumentsInQueues() {
         HttpSession session = request.getSession();
         try {
-            if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+            if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
         } catch (Exception e) {
             logger.error("Error", e);
         }
@@ -731,6 +766,17 @@ public class DmsInboxManage2Action extends ActionSupport {
             searchProviderNo = providerNo;
         }
 
+        if (searchProviderNo != null && !searchProviderNo.equals(providerNo) && !"-1".equals(searchProviderNo)) {
+            try {
+                LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+                if (loggedInInfo != null) {
+                    LogAction.addLog(loggedInInfo, LogConst.READ, LogConst.CON_PROVIDER_INBOX, searchProviderNo, null,
+                            "Provider " + providerNo + " accessed document queues for provider: " + searchProviderNo);
+                }
+            } catch (Exception e) {
+                MiscUtils.getLogger().error("Failed to audit cross-provider inbox access", e);
+            }
+        }
         StringBuilder roleName = new StringBuilder();
         List<SecUserRole> roles = secUserRoleDao.getUserRoles(searchProviderNo);
         for (SecUserRole r : roles) {

@@ -1,0 +1,171 @@
+<%--
+
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for the
+    Department of Family Medicine
+    McMaster University
+    Hamilton
+    Ontario, Canada
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*,java.net.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
+
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.EncounterDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Encounter" %>
+<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%
+    EncounterDao encounterDao = SpringUtils.getBean(EncounterDao.class);
+%>
+
+
+<html>
+<head>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <title><fmt:message key="provider.providerencounterprint.title"/></title>
+    <script language="JavaScript">
+        <!--
+
+
+        //-->
+    </script>
+</head>
+<body bgproperties="fixed" onLoad="setfocus()" topmargin="0"
+      leftmargin="0" rightmargin="0">
+<center>
+    <table BORDER=0 width="100%">
+        <tr>
+            <td>
+
+                <table BORDER=0 NOSAVE width="100%">
+                    <TR>
+                        <%@ include file="/share/letterheader.htm" %>
+                        <TD WIDTH="20%" ALIGN="right" nowrap valign="top"><input
+                                type="button" name="Submit" value="<fmt:message key='provider.providerencounterprint.print'/>" onClick="window.print()">
+                            <input type="button" name="Submit2" value="<fmt:message key='provider.providerencounterprint.cancel'/>"
+                                   onClick="window.close()"></TD>
+                    </TR>
+                </TABLE>
+
+                <%
+                    Encounter enc = encounterDao.find(Integer.parseInt(request.getParameter("encounter_no")));
+                    String encounter_date = null, encounter_time = null, subject = null, content = null, provider_no = null;
+                    if (enc != null) {
+                        encounter_date = ConversionUtils.toDateString(enc.getEncounterDate());
+                        encounter_time = ConversionUtils.toTimeString(enc.getEncounterTime());
+                        provider_no = enc.getProviderNo();
+                        subject = enc.getSubject();
+                        content = enc.getContent();
+                    }
+                %>
+                <xml id="xml_list">
+                    <encounter><carlos:encode value='<%= content %>' context="xml"/>
+                    </encounter>
+                </xml>
+                <table width="100%" border="1" datasrc='#xml_list'>
+                    <tr>
+                        <td width="65%"><b><fmt:message key="provider.providerencounterprint.name"/>: </b><span datafld='xml_name'></td>
+                        <td><b><fmt:message key="provider.providerencounterprint.phone"/>: </b><span datafld='xml_hp'></td>
+                    </tr>
+                    <tr>
+                        <td colspan='2'><b><fmt:message key="provider.providerencounterprint.address"/>: </b><span datafld='xml_address'></td>
+                    </tr>
+                    <tr>
+                        <td width="50%"><b><fmt:message key="provider.providerencounterprint.dob"/></b>(yyyy/mm/dd): <span
+                                datafld='xml_dob'></td>
+                        <td><b><fmt:message key="provider.providerencounterprint.age"/>: </b><span datafld='xml_age'> <span
+                                datafld='xml_sex'></td>
+                    </tr>
+                    <tr>
+                        <td width="50%"><b><fmt:message key="provider.providerencounterprint.rosterStatus"/>: </b><span
+                                datafld='xml_roster'></td>
+                        <td><b><fmt:message key="provider.providerencounterprint.hin"/>: </b><span datafld='xml_hin'> <span
+                                datafld='xml_ver'></td>
+                    </tr>
+                    <tr>
+                        <td colspan='2'><b><fmt:message key="provider.providerencounterprint.familyDoctor"/>: </b><span datafld='xml_fd'></td>
+                    </tr>
+                </table>
+
+
+                <br>
+                <p>
+                <table width="100%" cellspacing="0" cellpadding="1" border="1"
+                       datasrc='#xml_list'>
+                    <tr>
+                        <td width="50%" valign="top"><b><fmt:message key="provider.providerencounterprint.problemList"/>:</b><br>
+                            <div datafld='xml_Problem_List'>
+                        </td>
+                        <td valign="top"><b><fmt:message key="provider.providerencounterprint.medication"/>:</b><br>
+                            <div datafld='xml_Medication'>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td valign="top"><b><fmt:message key="provider.providerencounterprint.allergyAlert"/>:</b><br>
+                            <div datafld='xml_Alert'>
+                        </td>
+                        <td valign="top"><b><fmt:message key="provider.providerencounterprint.familySocialHistory"/>:</b><br>
+                            <div datafld='xml_Family_Social_History'>
+                        </td>
+                    </tr>
+                </table>
+                <br>
+                <p>
+                        <%
+                        %>
+
+                <table width="100%" cellspacing="0" cellpadding="2" border="1"
+                       datasrc='#xml_list'>
+                    <%
+                        String encounterReason = (subject != null && subject.length() >= 2)
+                                ? subject.substring(2).replace("|", " ")
+                                : "";
+                    %>
+                    <tr>
+                        <td><carlos:encode value='<%= encounter_date %>' context="html"/> <carlos:encode value='<%= encounter_time %>' context="html"/><br>
+                            <b><fmt:message key="provider.providerencounterprint.reason"/>:</b><carlos:encode value='<%= encounterReason %>' context="html"/><br>
+                            <b><fmt:message key="provider.providerencounterprint.content"/>:</b>
+                            <div datafld='xml_content'>
+                        </td>
+                    </tr>
+                </table>
+                <br>
+                <table width="100%" cellspacing="0" cellpadding="0" border="0"
+                       datasrc='#xml_list'>
+                    <tr>
+                        <td><b><fmt:message key="provider.providerencounterprint.by"/>: </b><span datafld='xml_username'><br></td>
+                    </tr>
+                </table>
+
+            </td>
+        </tr>
+    </table>
+</center>
+</body>
+</html>

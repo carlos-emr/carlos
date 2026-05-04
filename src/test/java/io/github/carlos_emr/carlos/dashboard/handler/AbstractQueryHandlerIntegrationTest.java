@@ -21,17 +21,17 @@
  */
 package io.github.carlos_emr.carlos.dashboard.handler;
 
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import io.github.carlos_emr.carlos.dashboard.query.Parameter;
 import io.github.carlos_emr.carlos.dashboard.query.RangeLowerLimit;
 import io.github.carlos_emr.carlos.dashboard.query.RangeUpperLimit;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
-import org.hibernate.SessionFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.persistence.EntityManager;
@@ -49,12 +49,14 @@ import static org.assertj.core.api.Assertions.*;
  * <p>Since {@code AbstractQueryHandler} is abstract, these tests use a concrete
  * inner subclass ({@link TestQueryHandler}) that exposes protected methods for
  * verification. Tests cover query building, parameter substitution, range
- * replacement, query string filtering, and native SQL execution via Hibernate.</p>
+ * replacement, query string filtering, and native SQL execution via JPA.</p>
  *
- * <p>The {@code execute()} method opens its own Hibernate session and transaction,
- * so it does not participate in the Spring {@code @Transactional} test transaction.
- * Execution tests therefore use self-contained queries (e.g., {@code SELECT 1 AS result})
- * that do not depend on pre-existing test data.</p>
+ * <p>The {@code execute()} method uses {@code EntityManager.createNativeQuery()},
+ * so it participates in the Spring {@code @Transactional} test transaction.
+ * The {@link EntityManager} is injected into {@link TestQueryHandler} via
+ * {@link ReflectionTestUtils#setField} in {@link #setUp()}. Execution tests
+ * use self-contained queries (e.g., {@code SELECT 1 AS result}) that do not
+ * depend on pre-existing test data.</p>
  *
  * <p>The test is organized into five {@link Nested} inner classes, each covering a
  * distinct aspect of the query handler lifecycle:</p>
@@ -63,7 +65,7 @@ import static org.assertj.core.api.Assertions.*;
  *   <li>{@link ParameterSubstitution} - Named placeholder replacement with single/multi values</li>
  *   <li>{@link RangeSubstitution} - Upper and lower limit range placeholder replacement</li>
  *   <li>{@link BuildQuery} - End-to-end query building combining filtering and substitution</li>
- *   <li>{@link QueryExecution} - Native SQL execution via Hibernate, including error handling</li>
+ *   <li>{@link QueryExecution} - Native SQL execution via JPA, including error handling</li>
  * </ul>
  *
  * @since 2026-02-09
@@ -83,24 +85,14 @@ public class AbstractQueryHandlerIntegrationTest extends CarlosTestBase {
     /**
      * JPA EntityManager injected from the test persistence unit.
      *
-     * <p>Provides JPA-level access to the test database. While the tests in this
-     * class primarily exercise Hibernate-native APIs through {@link AbstractQueryHandler},
-     * the EntityManager is available for any JPA-based setup or verification that
-     * may be needed in the Spring-managed transactional context.</p>
+     * <p>Provides JPA-level access to the test database. Injected into the
+     * {@link TestQueryHandler} during {@link #setUp()} via
+     * {@link ReflectionTestUtils#setField} to wire the handler's inherited
+     * {@link AbstractJpaDao#entityManager()} to the Spring-managed transactional
+     * context.</p>
      */
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
-
-    /**
-     * Hibernate {@link SessionFactory} injected by Spring from the test application context.
-     *
-     * <p>This is the same {@code SessionFactory} used by {@link AbstractQueryHandler}
-     * (via its {@code HibernateDaoSupport} superclass) to open sessions and execute
-     * native SQL queries. It is injected into the {@link TestQueryHandler} during
-     * {@link #setUp()} to wire the handler to the test database.</p>
-     */
-    @Autowired
-    private SessionFactory sessionFactory;
 
     /**
      * Concrete test subclass of {@link AbstractQueryHandler} used to invoke
@@ -108,8 +100,8 @@ public class AbstractQueryHandlerIntegrationTest extends CarlosTestBase {
      * from the test class.
      *
      * <p>Initialized in {@link #setUp()} before each test with the Spring-managed
-     * {@link #sessionFactory} so that execution tests can open real Hibernate
-     * sessions against the test database.</p>
+     * {@link EntityManager} injected via {@link ReflectionTestUtils#setField},
+     * so that execution tests can run real queries against the test database.</p>
      */
     private TestQueryHandler queryHandler;
 
@@ -125,22 +117,23 @@ public class AbstractQueryHandlerIntegrationTest extends CarlosTestBase {
      * </ul>
      *
      * <p>No additional behavior is added beyond delegation. The handler inherits
-     * {@code HibernateDaoSupport} from its parent and uses the injected
-     * {@link SessionFactory} for database operations.</p>
+     * {@link AbstractJpaDao} from its parent, and the Spring-managed
+     * {@link EntityManager} is injected via {@link ReflectionTestUtils#setField}
+     * in {@link #setUp()}.</p>
      */
     static class TestQueryHandler extends AbstractQueryHandler {
 
         /**
          * Exposes the protected {@link AbstractQueryHandler#execute(String)} method for testing.
          *
-         * <p>The underlying method opens its own Hibernate {@code Session} and
-         * {@code Transaction}, executes the given native SQL, applies the
-         * {@code ALIAS_TO_ENTITY_MAP} result transformer, and returns the results
-         * as a list of {@code Map<String, Object>} entries.</p>
+         * <p>The underlying method uses JPA {@code EntityManager.createNativeQuery()},
+         * unwraps to a Hibernate {@code NativeQuery}, applies the tuple transformer
+         * that converts each row to a {@code Map<String, Object>} keyed by column
+         * alias, and returns the result list.</p>
          *
          * @param query String the native SQL query to execute
-         * @return List the result list from Hibernate, where each row is a
-         *         {@code Map<String, Object>} keyed by column alias
+         * @return List the result list where each row is a {@code Map<String, Object>}
+         *         keyed by column alias
          * @throws RuntimeException if the query fails (wraps the underlying exception)
          */
         public List<?> testExecute(String query) {
@@ -182,15 +175,17 @@ public class AbstractQueryHandlerIntegrationTest extends CarlosTestBase {
      * Initializes the test fixture before each test method.
      *
      * <p>Creates a fresh {@link TestQueryHandler} instance and injects the
-     * Spring-managed {@link SessionFactory} into it via the inherited
-     * {@code HibernateDaoSupport.setSessionFactory()} method. This ensures
-     * each test starts with a clean handler state (no residual parameters,
-     * ranges, columns, or cached query results from previous tests).</p>
+     * Spring-managed {@link EntityManager} into the inherited
+     * {@code AbstractJpaDao.entityManager} private field via
+     * {@link ReflectionTestUtils#setField}. This ensures each test starts with
+     * a clean handler state (no residual parameters, ranges, columns, or cached
+     * query results from previous tests) while routing database calls through
+     * the transactional test context.</p>
      */
     @BeforeEach
     void setUp() {
         queryHandler = new TestQueryHandler();
-        queryHandler.setSessionFactory(sessionFactory);
+        ReflectionTestUtils.setField(queryHandler, AbstractJpaDao.class, "entityManager", entityManager, EntityManager.class);
     }
 
     /**
@@ -639,16 +634,16 @@ public class AbstractQueryHandlerIntegrationTest extends CarlosTestBase {
      * <p>This group verifies the native SQL execution path and related accessor
      * behavior. Key considerations for these tests:</p>
      * <ul>
-     *   <li>The {@code execute(String)} method opens its own Hibernate
-     *       {@code Session} and {@code Transaction}, independent of the
-     *       Spring {@code @Transactional} test context. This means test data
-     *       inserted via the EntityManager is NOT visible to executed queries.</li>
-     *   <li>Tests therefore use self-contained queries (e.g., {@code SELECT 1})
+     *   <li>The {@code execute(String)} method runs via JPA
+     *       {@code EntityManager.createNativeQuery()}, within the Spring
+     *       {@code @Transactional} test context. The EntityManager is injected
+     *       into {@link TestQueryHandler} via reflection in {@link #setUp()}.</li>
+     *   <li>Tests use self-contained queries (e.g., {@code SELECT 1})
      *       that do not depend on pre-existing database rows.</li>
-     *   <li>The result transformer {@code ALIAS_TO_ENTITY_MAP} converts each
-     *       result row into a {@code Map<String, Object>} keyed by column alias.</li>
+     *   <li>The tuple transformer converts each result row into a
+     *       {@code Map<String, Object>} keyed by column alias.</li>
      *   <li>Invalid SQL should trigger a {@code RuntimeException} wrapping the
-     *       underlying Hibernate/database exception.</li>
+     *       underlying JPA/database exception.</li>
      * </ul>
      */
     @Nested
@@ -663,7 +658,7 @@ public class AbstractQueryHandlerIntegrationTest extends CarlosTestBase {
          * and requires no pre-existing data. The test validates that:</p>
          * <ol>
          *   <li>The result list is non-null and contains exactly one row</li>
-         *   <li>Each row is a {@code Map} (from the ALIAS_TO_ENTITY_MAP transformer)</li>
+         *   <li>Each row is a {@code Map} (from the tuple transformer)</li>
          *   <li>The map contains the expected {@code "result"} key matching the column alias</li>
          * </ol>
          */
@@ -721,10 +716,9 @@ public class AbstractQueryHandlerIntegrationTest extends CarlosTestBase {
          * {@link RuntimeException} with an appropriate error message.
          *
          * <p>The {@code execute(String)} method catches any exception from the
-         * Hibernate session, rolls back the transaction, logs the error, and
-         * wraps it in a {@code RuntimeException} with the message
-         * {@code "Error executing query"}. This test confirms that contract
-         * by passing a nonsensical string as SQL.</p>
+         * JPA layer, logs the error, and wraps it in a {@code RuntimeException}
+         * with the message {@code "Error executing query"}. This test confirms
+         * that contract by passing a nonsensical string as SQL.</p>
          */
         @Test
         @Tag("read")

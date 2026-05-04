@@ -134,7 +134,7 @@ public class MsgGenerate {
 
         // Execute the SQL query to retrieve data for this table
         String sql = this.constructSQL(cfgTable);
-        ResultSet rs = DBHandler.GetSQL(sql);
+        ResultSet rs = DBHandler.GetPreSQL(sql, this.demographicNo);
         ResultSetMetaData meta = rs.getMetaData();
 
         // Get the item and field configurations from the config
@@ -238,7 +238,7 @@ public class MsgGenerate {
         // Add FROM clause and demographic-specific WHERE clause
         sql += " FROM " + cfgTable.getAttribute("sqlFrom")
                 + " WHERE " + cfgTable.getAttribute("sqlLink")
-                + " = '" + this.demographicNo + "'";
+                + " = ?"; // demographicNo bound via GetPreSQL parameter
         
         // Add additional WHERE conditions if specified
         if (cfgTable.getAttribute("sqlWhere").length() > 0) {

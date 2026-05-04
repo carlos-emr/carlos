@@ -36,15 +36,13 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
- * Integration tests for {@link ProviderProperty2Action#save()} and
- * {@link ProviderProperty2Action#OscarMsgRecvd()}.
+ * Integration tests for {@link ProviderProperty2Action#save()}.
  *
- * <p>Validates the fix for Issue #3 (missing null session check in save())
- * and Issue #9 (null value parameter in OscarMsgRecvd).</p>
+ * <p>Validates the fix for Issue #3 (missing null session check in save()).</p>
  *
  * @since 2026-02-20
  */
-@DisplayName("ProviderProperty2Action Save/OscarMsgRecvd Tests")
+@DisplayName("ProviderProperty2Action Save Tests")
 @Tag("integration")
 @Tag("provider")
 class ProviderProperty2ActionSaveTest extends CarlosWebTestBase {
@@ -157,44 +155,4 @@ class ProviderProperty2ActionSaveTest extends CarlosWebTestBase {
         verify(mockUserPropertyDAO).saveProp(existingFormat);
     }
 
-    @Test
-    @DisplayName("should not save prop when OscarMsgRecvd value is null")
-    void shouldNotSaveProp_whenOscarMsgRecvdValueIsNull() throws Exception {
-        // Given - no "value" parameter (null)
-
-        // When
-        String result = executeActionMethod(action, "OscarMsgRecvd");
-
-        // Then - should not call saveProp since value is null
-        assertThat(result).isNull();
-        verify(mockUserPropertyDAO, never()).saveProp(anyString(), anyString(), anyString());
-    }
-
-    @Test
-    @DisplayName("should save prop when OscarMsgRecvd value is provided")
-    void shouldSaveProp_whenOscarMsgRecvdValueIsProvided() throws Exception {
-        // Given - value must be in H:m format (e.g., "9:0", "14:30")
-        addRequestParameter("value", "9:0");
-
-        // When
-        String result = executeActionMethod(action, "OscarMsgRecvd");
-
-        // Then
-        assertThat(result).isNull();
-        verify(mockUserPropertyDAO).saveProp(TEST_PROVIDER, UserProperty.OSCAR_MSG_RECVD, "9:0");
-    }
-
-    @Test
-    @DisplayName("should not save prop when OscarMsgRecvd value has invalid format")
-    void shouldNotSaveProp_whenOscarMsgRecvdValueHasInvalidFormat() throws Exception {
-        // Given - value is not in H:m format
-        addRequestParameter("value", "yes");
-
-        // When
-        String result = executeActionMethod(action, "OscarMsgRecvd");
-
-        // Then - should not call saveProp since value format is invalid
-        assertThat(result).isNull();
-        verify(mockUserPropertyDAO, never()).saveProp(anyString(), anyString(), anyString());
-    }
 }

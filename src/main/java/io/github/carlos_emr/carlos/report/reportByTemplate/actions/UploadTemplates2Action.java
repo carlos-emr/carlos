@@ -43,6 +43,8 @@ package io.github.carlos_emr.carlos.report.reportByTemplate.actions;
 import io.github.carlos_emr.carlos.services.security.SecurityManager;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -54,8 +56,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.List;
 
-public class UploadTemplates2Action extends ActionSupport {
+public class UploadTemplates2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -106,6 +109,14 @@ public class UploadTemplates2Action extends ActionSupport {
     }
 
     private File templateFile;
+
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
+            UploadedFile uploaded = uploadedFiles.get(0);
+            this.templateFile = new File(uploaded.getAbsolutePath());
+        }
+    }
 
     public File getTemplateFile() {
         return templateFile;

@@ -47,6 +47,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -54,6 +55,7 @@ import org.w3c.dom.NodeList;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.RouteReportResults;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
  * @author wrighd
@@ -85,26 +87,16 @@ public class PATHL7Handler implements MessageHandler {
             targetFile = PathValidationUtils.validateExistingPath(targetFile, baseDirFile);
 
             if (!targetFile.exists() || !targetFile.isFile()) {
-                logger.error("File does not exist or is not a regular file: " + fileName);
+                logger.error("File does not exist or is not a regular file: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 return null;
             }
 
-            DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
-            // Disable DTDs and external entities for XXE prevention
-            docFactory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            docFactory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-            docFactory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-            docFactory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-
-            // Disable XInclude
-            docFactory.setXIncludeAware(false);
-            // Disabled expansion of entity references
-            docFactory.setExpandEntityReferences(false);
+            DocumentBuilderFactory docFactory = XmlUtils.createSecureDocumentBuilderFactory();
             DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
             doc = docBuilder.parse(targetFile);
 
         } catch (IllegalArgumentException e) {
-            logger.error("Invalid file name: " + fileName, e);
+            logger.error("Invalid file name: {}", LogSanitizer.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return null;
         } catch (ParserConfigurationException e) {
             logger.error("Failed to configure XML parser", e);
@@ -126,7 +118,7 @@ public class PATHL7Handler implements MessageHandler {
                 }
             } catch (Exception e) {
                 logger.error("Could not upload PATHL7 message", e);
-                MiscUtils.getLogger().error("Error in Lab #" + (i + 1) + " in batch file " + fileName, e);
+                MiscUtils.getLogger().error("Error in Lab #{} in batch file {}", i + 1, LogSanitizer.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 MessageUploader.clean(fileId);
                 return null;
             }

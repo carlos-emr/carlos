@@ -31,6 +31,7 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
+import io.github.carlos_emr.carlos.allergy.dto.AllergyListItemDTO;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 
 import jakarta.persistence.Query;
@@ -162,5 +163,27 @@ public class AllergyDaoImpl extends AbstractDaoImpl<Allergy> implements AllergyD
         @SuppressWarnings("unchecked")
         List<Allergy> results = query.getResultList();
         return (results);
+    }
+
+    /**
+     * Returns lightweight allergy list DTOs for a demographic, ordered by entry date descending.
+     *
+     * @param demographicNo Integer the demographic identifier
+     * @return List&lt;AllergyListItemDTO&gt; ordered by entry date descending; empty if none found
+     * @since 2026-04-11
+     */
+    @Override
+    public List<AllergyListItemDTO> findAllergyDTOsByDemographicNo(Integer demographicNo) {
+        Query query = entityManager.createQuery("""
+                SELECT NEW io.github.carlos_emr.carlos.allergy.dto.AllergyListItemDTO(
+                    a.id, a.demographicNo, a.entryDate, a.description, a.reaction,
+                    a.archived, a.nonDrug, a.typeCode, a.startDate, a.severityOfReaction,
+                    a.onsetOfReaction, a.lifeStage, a.reactionType, a.providerNo)
+                FROM Allergy a
+                WHERE a.demographicNo = :demoNo
+                ORDER BY a.entryDate DESC
+                """);
+        query.setParameter("demoNo", demographicNo);
+        return query.getResultList();
     }
 }

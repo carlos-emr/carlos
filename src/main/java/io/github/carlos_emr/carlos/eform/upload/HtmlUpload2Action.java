@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -32,19 +32,31 @@ package io.github.carlos_emr.carlos.eform.upload;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+
+import org.apache.commons.io.FilenameUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.nio.file.Files;
+import java.util.List;
 
-public class HtmlUpload2Action extends ActionSupport {
+/**
+ * Struts 7.x action for uploading HTML eForm files.
+ *
+ * <p>Implements {@link UploadedFilesAware} as required by Struts 7.x's
+ * {@code ActionFileUploadInterceptor}.</p>
+ */
+public class HtmlUpload2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -56,9 +68,10 @@ public class HtmlUpload2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_eform)");
         }
         try {
-            String formHtmlStr = new String(Files.readAllBytes(formHtml.toPath()));
+            File validatedFormHtml = PathValidationUtils.validateUpload(formHtml);
+            String formHtmlStr = new String(Files.readAllBytes(validatedFormHtml.toPath()));
             formHtmlStr = formHtmlStr.replaceAll("\\\\n", "\\\\\\\\n");
-            String fileName = formHtml.getName();
+            String fileName = formHtmlFileName != null ? formHtmlFileName : formHtml.getName();
             EFormUtil.saveEForm(formName, subject, fileName, formHtmlStr, showLatestFormOnly, patientIndependent, roleType);
             request.setAttribute("status", "success");
             return SUCCESS;
@@ -69,14 +82,38 @@ public class HtmlUpload2Action extends ActionSupport {
 
     }
 
-    private File formHtml; // 上传的文件
-    private String formHtmlContentType; // 文件的 MIME 类型
-    private String formHtmlFileName; // 文件的原始名称
+    private File formHtml;
+    private String formHtmlContentType;
+    private String formHtmlFileName;
     private String formName;
     private String subject;
     private boolean showLatestFormOnly;
     private boolean patientIndependent;
     private String roleType;
+
+    /**
+     * Receives uploaded files from the Struts 7.x {@code ActionFileUploadInterceptor}.
+     * Extracts the first uploaded file (the eForm HTML) and stores it for processing.
+     */
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
+            UploadedFile uploaded = uploadedFiles.get(0);
+            this.formHtml = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
+            this.formHtmlContentType = uploaded.getContentType();
+            String rawName = uploaded.getOriginalName();
+            if (rawName != null) {
+                String sanitizedName = MiscUtils.sanitizeFileName(FilenameUtils.getName(rawName));
+                if (sanitizedName == null || sanitizedName.trim().isEmpty()) {
+                    this.formHtmlFileName = null;
+                } else {
+                    this.formHtmlFileName = sanitizedName;
+                }
+            } else {
+                this.formHtmlFileName = null;
+            }
+        }
+    }
 
     public File getFormHtml() {
         return formHtml;

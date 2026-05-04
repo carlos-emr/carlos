@@ -102,7 +102,6 @@ public class ProviderPropertyAction {
 
         // Prescription preferences (rx_page_size and rx_default_quantity can be cleared, so use saveAllowEmpty)
         saveAllowEmpty(request, propertyDAO, providerNo, UserProperty.RX_PAGE_SIZE, "rx_page_size");
-        saveCheckbox(request, propertyDAO, providerNo, UserProperty.RX_USE_RX3, "rx_use_rx3");
         saveCheckbox(request, propertyDAO, providerNo, UserProperty.RX_SHOW_PATIENT_DOB, "rx_show_patient_dob");
         saveAllowEmpty(request, propertyDAO, providerNo, UserProperty.RX_DEFAULT_QUANTITY, "rx_default_quantity");
 
@@ -143,7 +142,7 @@ public class ProviderPropertyAction {
         saveAllowEmpty(request, propertyDAO, providerNo, "rxPhone", "rxPhone");
         saveAllowEmpty(request, propertyDAO, providerNo, "faxnumber", "faxnumber");
 
-        // Provider colour is managed exclusively via setProviderColour.do / ProviderColourUpdater,
+        // Provider colour is managed exclusively via setProviderColour / ProviderColourUpdater,
         // which writes to the property table under "ProviderColour" via PropertyDao.
         // Both PropertyDao and UserPropertyDAO read from the same underlying property table,
         // so providerpreference.jsp can read it via UserPropertyDAO for display.

@@ -61,8 +61,13 @@ import io.github.carlos_emr.carlos.lab.ForwardingRules;
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class ForwardingRules2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -76,6 +81,11 @@ public class ForwardingRules2Action extends ActionSupport {
 
     public String execute()
             throws ServletException, IOException {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "w", null)) {
+            throw new SecurityException("missing required sec object (_lab)");
+        }
+
 
         String providerNo = request.getParameter("providerNo");
         String operation = request.getParameter("operation");
@@ -83,7 +93,7 @@ public class ForwardingRules2Action extends ActionSupport {
             operation = "";
         }
 
-        logger.info("ForwardingRules2Action performing: " + operation + " for providers: " + providerNo);
+        logger.info("ForwardingRules2Action performing: {} for providers: {}", LogSanitizer.sanitize(operation), LogSanitizer.sanitize(providerNo)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         if (operation.equals("update")) {
             String[] providerNums = request.getParameterValues("providerNums");
             if (providerNums == null) {
@@ -91,7 +101,7 @@ public class ForwardingRules2Action extends ActionSupport {
             }
             String status = request.getParameter("status");
 
-            logger.info("Updating Rules for providers " + Arrays.toString(providerNums) + "; Status is " + status);
+            logger.info("Updating Rules for providers {}; Status is {}", LogSanitizer.sanitize(Arrays.toString(providerNums)), LogSanitizer.sanitize(status)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             try {
                 // insert forwarding rules
                 if (providerNums != null && providerNums.length > 0) {
@@ -107,7 +117,7 @@ public class ForwardingRules2Action extends ActionSupport {
                         r.setFrwdProviderNo(providerNums[i]);
                         dao.persist(r);
 
-                        logger.info("Added rule: " + r);
+                        logger.info("Added rule: {}", LogSanitizer.sanitizeObject(r)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                     }
                 }
 
@@ -125,7 +135,7 @@ public class ForwardingRules2Action extends ActionSupport {
                         r.setFrwdProviderNo("0");
                         dao.persist(r);
 
-                        logger.info("Inserted a new rule: " + r);
+                        logger.info("Inserted a new rule: {}", LogSanitizer.sanitizeObject(r)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
 
                         // clear the rules if there is no forwarding and the user sets the
                         // status to New... since this is the default
@@ -140,7 +150,7 @@ public class ForwardingRules2Action extends ActionSupport {
                         result.setStatus(status);
                         dao.merge(result);
 
-                        logger.info("Set status to " + status + " for " + result);
+                        logger.info("Set status to {} for {}", LogSanitizer.sanitize(status), LogSanitizer.sanitizeObject(result)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                     }
                 }
             } catch (Exception e) {

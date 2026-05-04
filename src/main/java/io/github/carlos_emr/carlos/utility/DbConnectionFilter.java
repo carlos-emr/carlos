@@ -48,9 +48,13 @@ public class DbConnectionFilter implements jakarta.servlet.Filter {
     private static ThreadLocal<Connection> dbConnection = new ThreadLocal<Connection>();
 
     /**
-     * deprecated we should stop using raw jdbc connections. Don't write new code using raw jdbc, use JPA and native queries instead.
+     * @deprecated Raw JDBC connections obtained here bypass Spring's transaction
+     * management and run with {@code autoCommit=true}. Use JPA {@link jakarta.persistence.EntityManager}
+     * and {@link jakarta.persistence.EntityManager#createNativeQuery(String)} within an
+     * {@code @Transactional} context instead. Scheduled for removal once remaining
+     * non-DAO callers migrate.
      */
-    @Deprecated
+    @Deprecated(forRemoval = true)
     public static Connection getThreadLocalDbConnection() throws SQLException {
         Connection c = dbConnection.get();
         if (c == null || c.isClosed()) {
@@ -88,7 +92,6 @@ public class DbConnectionFilter implements jakarta.servlet.Filter {
 
     public static void releaseAllThreadDbResources() {
         releaseThreadLocalDbConnection();
-        SpringHibernateLocalSessionFactoryBean.releaseThreadSessions();
         OscarTrackingBasicDataSource.releaseThreadConnections();
     }
 

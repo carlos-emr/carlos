@@ -56,13 +56,11 @@ public class EctDisplayMsg2Action extends EctDisplayAction {
 
             //set link for lefthand module title
             String winName = "ViewMsg" + bean.demographicNo;
-            String url = "popupPage(600,900,'" + winName + "','" + request.getContextPath() + "/messenger/DisplayDemographicMessages.do?orderby=date&boxType=3&demographic_no=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&userName=" + bean.userName + "')";
-            Dao.setLeftURL(url);
+            Dao.setLeftPopup(600, 900, winName, request.getContextPath() + "/messenger/DisplayDemographicMessages?orderby=date&boxType=3&demographic_no=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&userName=" + bean.userName);
 
             //set the right hand heading link
             winName = "SendMsg" + bean.demographicNo;
-            url = "popupPage(700,960,'" + winName + "','" + request.getContextPath() + "/messenger/SendDemoMessage.do?demographic_no=" + bean.demographicNo + "'); return false;";
-            Dao.setRightURL(url);
+            Dao.setRightPopup(700, 960, winName, request.getContextPath() + "/messenger/SendDemoMessage?demographic_no=" + bean.demographicNo);
             Dao.setRightHeadingID(cmd);  //no menu so set div id to unique id for this action
 
             // set lefthand data link
@@ -70,6 +68,7 @@ public class EctDisplayMsg2Action extends EctDisplayAction {
             int msgId;
             String msgSubject;
             String msgDate;
+            String url;
             int hash;
 
             for (MessageTbl message : messageTblList) {
@@ -83,7 +82,7 @@ public class EctDisplayMsg2Action extends EctDisplayAction {
 
                 msgDate = new SimpleDateFormat("dd-M-yyyy", request.getLocale()).format(date);
 
-                url = "popupPage(600,900,'" + hash + "','" + request.getContextPath() + "/messenger/ViewMessage.do?from=encounter&boxType=0&messageID=" + msgId + "'); return false;";
+                url = "popupPage(600,900,'" + hash + "','" + request.getContextPath() + "/messenger/ViewMessage?from=encounter&boxType=0&messageID=" + msgId + "'); return false;";
                 item.setURL(url);
                 item.setTitle(StringUtils.maxLenString(msgSubject, MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES));
                 item.setLinkTitle(msgSubject + " " + msgDate);

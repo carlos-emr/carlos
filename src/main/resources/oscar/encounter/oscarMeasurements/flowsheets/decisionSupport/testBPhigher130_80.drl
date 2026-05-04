@@ -49,6 +49,7 @@ rule "BPo130"
         eval( m.setMeasurement("BP") == true )
         eval( m.getNumberFromSplit("/",0) > 130 )
         eval( m.getNumberFromSplit("/",1) > 80 )
+        eval( !m.hasProblem() )
     then
         m.log("BPo130 RULES IS GETTING RUN");
         m.setInRange(true);

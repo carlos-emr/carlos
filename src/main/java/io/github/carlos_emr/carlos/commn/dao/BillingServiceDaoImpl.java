@@ -1,32 +1,25 @@
 /**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
- * <p>
  * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- * <p>
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- * <p>
- * This software was written for
- * Centre for Research on Inner City Health, St. Michael's Hospital,
- * Toronto, Ontario, Canada
- * <p>
- * Modifications made by Magenta Health in 2024.
- 
- * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
+ *
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
@@ -41,6 +34,7 @@ import java.util.List;
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.NativeSql;
+import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
 import org.springframework.stereotype.Repository;
 
@@ -118,13 +112,15 @@ public class BillingServiceDaoImpl extends AbstractDaoImpl<BillingService> imple
         return list;
     }
 
-    public List<BillingService> finAllPrivateCodes() {
-        Query query = entityManager.createQuery("select bs from BillingService bs where bs.serviceCode LIKE ?1");
-        query.setParameter(1, "\\_%");
-
-
-        List<BillingService> list = query.getResultList();
-        return list;
+    public List<io.github.carlos_emr.carlos.billings.ca.on.dto.PrivateBillingCode> finAllPrivateCodes() {
+        // Private codes are prefixed with a literal "_". JPQL LIKE without an
+        // explicit ESCAPE clause is ambiguous across dialects (MySQL/MariaDB
+        // default-escape "\", H2 has none), so we match the leading underscore
+        // via SUBSTRING for portability.
+        String sql = "select new io.github.carlos_emr.carlos.billings.ca.on.dto.PrivateBillingCode(bs.serviceCode, bs.description) from BillingService bs where SUBSTRING(bs.serviceCode, 1, 1) = '_'";
+        jakarta.persistence.TypedQuery<io.github.carlos_emr.carlos.billings.ca.on.dto.PrivateBillingCode> query =
+                entityManager.createQuery(sql, io.github.carlos_emr.carlos.billings.ca.on.dto.PrivateBillingCode.class);
+        return query.getResultList();
     }
 
 
@@ -370,10 +366,10 @@ public class BillingServiceDaoImpl extends AbstractDaoImpl<BillingService> imple
         return query.getResultList();
     }
 
-    public List<Object[]> findBillingServiceAndCtlBillingServiceByMagic(String serviceType, String serviceGroup, Date billReferenceDate) {
-        String sql = "SELECT b, c FROM BillingService b, CtlBillingService c WHERE c.serviceCode = b.serviceCode AND c.status='A' AND c.serviceType = ?1 AND c.serviceGroup = ?2 AND b.billingserviceDate in (SELECT MAX(b2.billingserviceDate) FROM BillingService b2 WHERE b2.billingserviceDate <= ?3 AND b2.serviceCode = b.serviceCode) AND b.billingserviceNo = (SELECT MAX(b3.billingserviceNo) FROM BillingService b3 WHERE b3.billingserviceDate = b.billingserviceDate AND b3.serviceCode = b.serviceCode) ORDER BY c.serviceOrder";
-
-        Query query = entityManager.createQuery(sql);
+    public List<io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceCodeMagicRow> findBillingServiceAndCtlBillingServiceByMagic(String serviceType, String serviceGroup, Date billReferenceDate) {
+        String sql = "SELECT new io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceCodeMagicRow(b.serviceCode, b.description, b.value, b.percentage, b.displayStyle, b.sliFlag, c.serviceType, c.serviceGroupName) FROM BillingService b, CtlBillingService c WHERE c.serviceCode = b.serviceCode AND c.status='A' AND c.serviceType = ?1 AND c.serviceGroup = ?2 AND b.billingserviceDate in (SELECT MAX(b2.billingserviceDate) FROM BillingService b2 WHERE b2.billingserviceDate <= ?3 AND b2.serviceCode = b.serviceCode) AND b.billingserviceNo = (SELECT MAX(b3.billingserviceNo) FROM BillingService b3 WHERE b3.billingserviceDate = b.billingserviceDate AND b3.serviceCode = b.serviceCode) ORDER BY c.serviceOrder";
+        jakarta.persistence.TypedQuery<io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceCodeMagicRow> query =
+                entityManager.createQuery(sql, io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceCodeMagicRow.class);
         query.setParameter(1, serviceType);
         query.setParameter(2, serviceGroup);
         query.setParameter(3, billReferenceDate);
@@ -415,7 +411,7 @@ public class BillingServiceDaoImpl extends AbstractDaoImpl<BillingService> imple
             }
             Date tDate = b.getTerminationDate();
             if (tDate.before(serviceDate)) {
-                retval = "defunct";
+                retval = BillingONItem.DEFUNCT_FEE;
             }
         }
 

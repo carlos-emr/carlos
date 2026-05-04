@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<%--
+
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for the
+    Department of Family Medicine
+    McMaster University
+    Hamilton
+    Ontario, Canada
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%
+    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+    boolean authed = true;
+%>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing,_admin" rights="w" reverse="<%=true%>">
+    <%authed = false; %>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.billing");%>
+</security:oscarSec>
+<%
+    if (!authed) {
+        return;
+    }
+%>
+
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
+
+<%@ page
+        import="java.util.*,io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Billingreferral" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingreferralDao" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%
+    BillingreferralDao billingReferralDao = (BillingreferralDao) SpringUtils.getBean(BillingreferralDao.class);
+%>
+<html>
+
+    <head>
+        <title><fmt:message key="admin.admin.ManageReferralDoc"/></title>
+
+        <script type="text/javascript">
+
+            function isNumeric(strString) {
+                var validNums = "0123456789.";
+                var strChar;
+                var retval = true;
+
+                for (i = 0; i < strString.length && retval == true; i++) {
+                    strChar = strString.charAt(i);
+                    if (validNums.indexOf(strChar) == -1) {
+                        retval = false;
+                    }
+                }
+                return retval;
+            }
+
+            function checkUnits() {
+                if (!isNumeric(document.BillingAddCodeForm.value.value)) {
+                    alert("Price has to be a numeric value");
+                    document.BillingAddCodeForm.value.focus();
+                    return false;
+                }
+                return true;
+            }
+        </script>
+
+        <style>
+            table td {
+                font-size: 10px;
+            }
+        </style>
+
+    <body>
+    <h3><fmt:message key="admin.admin.ManageReferralDoc"/></h3>
+    <div class="container-fluid">
+
+        <%
+            String limit = request.getParameter("limit");
+            String lastname = request.getParameter("lastname");
+        %>
+        <form action="<%=request.getContextPath() %>/billing/CA/BC/AddReferralDoc" class="d-flex flex-wrap align-items-center gap-2"
+              name="referralDocform" id="referralDocform">
+            Last Name: <input type="text" name="lastname" value="<carlos:encode value='<%= StringUtils.noNull(lastname) %>' context="htmlAttribute"/>"/>
+            <select name="limit" class="form-select" title="limit results">
+                <option value="10" <%=selected(limit, "10")%>>10</option>
+                <option value="50" <%=selected(limit, "50")%>>50</option>
+                <option value="100" <%=selected(limit, "100")%>>100</option>
+            </select>
+            <input class="btn btn-primary" type="submit" value="Search"/>
+            <a href="<%=request.getContextPath() %>/billing/CA/BC/AddReferralDoc"
+               class="contentLink btn btn-info">Add Doctor</a>
+        </form>
+
+        <table class="table table-striped table-sm table-hover">
+            <thead>
+            <tr>
+                <!--th>id</th-->
+                <th>Billing#</th>
+                <th>Last Name</th>
+                <th>First Name</th>
+                <th>Specialty</th>
+                <th>Address1</th>
+                <th>Address2</th>
+                <th>City</th>
+                <th>Province</th>
+                <th>Postal</th>
+                <th>Phone</th>
+                <th>Fax</th>
+            </tr>
+            </thead>
+
+            <tbody>
+            <%
+                //ReferralBillingData rbd = new ReferralBillingData();
+                if (limit == null) limit = "10";
+                if (lastname == null) lastname = "%";
+                List<Billingreferral> alist = billingReferralDao.getBillingreferralByLastName(lastname);
+                for (int i = 0; i < alist.size(); i++) {
+                    Billingreferral billingReferral = alist.get(i);
+            %>
+            <tr>
+                <!--td><%=billingReferral.getBillingreferralNo()%></td-->
+                <td>
+                    <a href="<%=request.getContextPath() %>/billing/CA/BC/AddReferralDoc?id=<carlos:encode value='<%= String.valueOf(billingReferral.getBillingreferralNo()) %>' context="uriComponent"/>"
+                       class="contentLink"><carlos:encode value='<%= StringUtils.noNull(billingReferral.getReferralNo()) %>' context="html"/>
+                    </a></td>
+                <td><carlos:encode value='<%= StringUtils.noNull(billingReferral.getLastName()) %>' context="html"/></td>
+                <td><carlos:encode value='<%= StringUtils.noNull(billingReferral.getFirstName()) %>' context="html"/></td>
+                <td><carlos:encode value='<%= StringUtils.noNull(billingReferral.getSpecialty()) %>' context="html"/></td>
+                <td><carlos:encode value='<%= StringUtils.noNull(billingReferral.getAddress1()) %>' context="html"/></td>
+                <td><carlos:encode value='<%= StringUtils.noNull(billingReferral.getAddress2()) %>' context="html"/></td>
+                <td><carlos:encode value='<%= StringUtils.noNull(billingReferral.getCity()) %>' context="html"/></td>
+                <td><carlos:encode value='<%= StringUtils.noNull(billingReferral.getProvince()) %>' context="html"/></td>
+                <td><carlos:encode value='<%= StringUtils.noNull(billingReferral.getPostal()) %>' context="html"/></td>
+                <td><carlos:encode value='<%= StringUtils.noNull(billingReferral.getPhone()) %>' context="html"/></td>
+                <td><carlos:encode value='<%= StringUtils.noNull(billingReferral.getFax()) %>' context="html"/></td>
+            </tr>
+            <%}%>
+            </tbody>
+        </table>
+    </div>
+    <script>
+        registerFormSubmit('referralDocform', 'dynamic-content');
+
+        $(document).ready(function ($) {
+            $("a.contentLink").on("click", function (e) {
+                e.preventDefault();
+                $("#dynamic-content").load($(this).attr("href"),
+                    function (response, status, xhr) {
+                        if (status == "error") {
+                            var msg = "Sorry but there was an error: ";
+                            $("#dynamic-content").html(msg + xhr.status + " " + xhr.statusText);
+                        }
+                    }
+                );
+            });
+
+        });
+    </script>
+    </body>
+</html>
+<%!
+    String selected(String var, String constant) {
+        if (var != null && var.equals(constant)) {
+            return "selected";
+        } else {
+            return "";
+        }
+    }
+%>

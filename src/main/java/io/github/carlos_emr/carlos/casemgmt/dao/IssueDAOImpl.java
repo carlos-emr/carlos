@@ -41,24 +41,24 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.model.security.Secrole;
-import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
+import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
 @Transactional
-public class IssueDAOImpl extends AbstractHibernateDao implements IssueDAO {
+public class IssueDAOImpl extends AbstractJpaDao implements IssueDAO {
     private static Logger logger = MiscUtils.getLogger();
 
     @Override
     public Issue getIssue(Long id) {
-        return currentSession().get(Issue.class, id);
+        return entityManager().find(Issue.class, id);
     }
 
     @Override
     public List<Issue> getIssues() {
-        return (List<Issue>) HqlQueryHelper.find(currentSession(), "from Issue");
+        return (List<Issue>) JpqlQueryHelper.find(entityManager(), "from Issue");
     }
 
     @Override
@@ -69,12 +69,12 @@ public class IssueDAOImpl extends AbstractHibernateDao implements IssueDAO {
         String hql = "from Issue i where i.code in (:codes)";
         Map<String, Object> params = new HashMap<>();
         params.put("codes", Arrays.asList(codes));
-        return (List<Issue>) HqlQueryHelper.find(currentSession(), hql, params);
+        return (List<Issue>) JpqlQueryHelper.find(entityManager(), hql, params);
     }
 
     @Override
     public Issue findIssueByCode(String code) {
-        List<Issue> list = (List<Issue>) HqlQueryHelper.find(currentSession(), "from Issue i where i.code = ?1",
+        List<Issue> list = (List<Issue>) JpqlQueryHelper.find(entityManager(), "from Issue i where i.code = ?1",
                 code);
         if (list.size() > 0)
             return list.get(0);
@@ -84,7 +84,7 @@ public class IssueDAOImpl extends AbstractHibernateDao implements IssueDAO {
 
     @Override
     public Issue findIssueByTypeAndCode(String type, String code) {
-        List<Issue> list = (List<Issue>) HqlQueryHelper.find(currentSession(), "from Issue i where i.type=?1 and i.code = ?2",
+        List<Issue> list = (List<Issue>) JpqlQueryHelper.find(entityManager(), "from Issue i where i.type=?1 and i.code = ?2",
                 type, code);
         if (list.size() > 0)
             return list.get(0);
@@ -95,16 +95,16 @@ public class IssueDAOImpl extends AbstractHibernateDao implements IssueDAO {
     @Override
     public void saveIssue(Issue issue) {
         if (issue.getId() == null) {
-            currentSession().persist(issue);
+            entityManager().persist(issue);
         } else {
-            currentSession().merge(issue);
+            entityManager().merge(issue);
         }
     }
 
     @Deprecated
     @Override
     public void delete(Long issueId) {
-        currentSession().remove(getIssue(issueId));
+        entityManager().remove(getIssue(issueId));
     }
 
     @SuppressWarnings("unchecked")
@@ -113,7 +113,7 @@ public class IssueDAOImpl extends AbstractHibernateDao implements IssueDAO {
         search = "%" + search + "%";
         search = search.toLowerCase();
         String sql = "from Issue i where lower(i.code) like ?1 or lower(i.description) like ?2";
-        return (List<Issue>) HqlQueryHelper.find(currentSession(), sql, search, search);
+        return (List<Issue>) JpqlQueryHelper.find(entityManager(), sql, search, search);
     }
 
     @Override
@@ -130,7 +130,7 @@ public class IssueDAOImpl extends AbstractHibernateDao implements IssueDAO {
         String sql = "select i.id from Issue i where i.role in (:roleNames) order by sortOrderId";
         Map<String, Object> params = new HashMap<>();
         params.put("roleNames", roleNames);
-        return (List<Long>) HqlQueryHelper.find(currentSession(), sql, params);
+        return (List<Long>) JpqlQueryHelper.find(entityManager(), sql, params);
     }
 
     @SuppressWarnings("unchecked")
@@ -152,7 +152,7 @@ public class IssueDAOImpl extends AbstractHibernateDao implements IssueDAO {
         Map<String, Object> params = new HashMap<>();
         params.put("search", search);
         params.put("roleNames", roleNames);
-        return (List<Issue>) HqlQueryHelper.findWithPagination(currentSession(), hql, startIndex,
+        return (List<Issue>) JpqlQueryHelper.findWithPagination(entityManager(), hql, startIndex,
                 Math.min(numToReturn, AbstractDaoImpl.MAX_LIST_RETURN_SIZE), params);
     }
 
@@ -176,7 +176,7 @@ public class IssueDAOImpl extends AbstractHibernateDao implements IssueDAO {
         Map<String, Object> params = new HashMap<>();
         params.put("search", search);
         params.put("roleNames", roleNames);
-        List<Long> result = (List<Long>) HqlQueryHelper.find(currentSession(), hql, params);
+        List<Long> result = (List<Long>) JpqlQueryHelper.find(entityManager(), hql, params);
 
         if (result.size() > 0) {
             return result.get(0).intValue();
@@ -191,7 +191,7 @@ public class IssueDAOImpl extends AbstractHibernateDao implements IssueDAO {
         search = search.toLowerCase();
         String sql = "from Issue i where (lower(i.code) like ?1 or lower(i.description) like ?2)";
         logger.debug(sql);
-        return HqlQueryHelper.find(currentSession(), sql, search, search);
+        return JpqlQueryHelper.find(entityManager(), sql, search, search);
     }
 
     /**
@@ -208,7 +208,7 @@ public class IssueDAOImpl extends AbstractHibernateDao implements IssueDAO {
         if (type == null || type.equals("")) {
             codes = new ArrayList<String>();
         } else {
-            codes = (List<String>) HqlQueryHelper.find(currentSession(), "SELECT i.code FROM Issue i WHERE i.type = ?1",
+            codes = (List<String>) JpqlQueryHelper.find(entityManager(), "SELECT i.code FROM Issue i WHERE i.type = ?1",
                     type.toLowerCase());
         }
         return codes;

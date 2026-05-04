@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.commn.dao.ResourceStorageDao;
 import io.github.carlos_emr.carlos.commn.model.ResourceStorage;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
@@ -124,7 +125,7 @@ public class LimitedUseLookup {
                     }
                 }
 
-                SAXBuilder parser = new SAXBuilder();
+                SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
                 Document doc = parser.build(is);
                 Element root = doc.getRootElement();
                 Element formulary = root.getChild("formulary");

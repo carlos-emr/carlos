@@ -61,12 +61,9 @@ public final class EctSetupHistoryIndex2Action extends ActionSupport {
         }
 
         EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
-        request.getSession().setAttribute("EctSessionBean", bean);
 
         if (bean != null) {
             Integer demo = Integer.valueOf(bean.getDemographicNo());
-
-            request.getSession().setAttribute("EctSessionBean", bean);
 
             measurementsData = new EctMeasurementsDataBeanHandler(demo);
 

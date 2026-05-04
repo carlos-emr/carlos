@@ -125,13 +125,14 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             }
         }
 
-        // Skip Struts .do requests — Tomcat 11's RequestDispatcher.forward() closes
-        // the output stream after the first buffer flush, truncating responses > 8KB.
-        // The filter-mapping includes FORWARD dispatcher so this filter also runs when
-        // Struts forwards to the JSP, wrapping it to prevent truncation. AJAX sidebar
-        // calls use EctDisplayAction.include() which bypasses Struts results entirely.
+        // Skip outer Struts action requests — Tomcat 11's RequestDispatcher.forward()
+        // closes the output stream after the first buffer flush, truncating responses
+        // > 8KB. The filter-mapping includes FORWARD dispatcher so this filter also
+        // runs when Struts forwards to the JSP, wrapping it there to prevent
+        // truncation. AJAX sidebar calls use EctDisplayAction.include() which bypasses
+        // Struts results entirely.
         String servletPath = httpRequest.getServletPath();
-        if (servletPath != null && servletPath.endsWith(".do")) {
+        if (HttpMethodGuardFilter.isActionPath(servletPath)) {
             chain.doFilter(request, response);
             return;
         }
@@ -275,14 +276,14 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             // count from content.getBytes(encoding) may differ from what the writer sends if
             // the response encoding changes, causing client-side truncation from a mismatched
             // header. The container computes the correct length via chunked transfer encoding.
-            response.getWriter().write(content);
+            response.getWriter().write(content); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer, java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- trusted CSRF framework content
             response.getWriter().flush();
         } catch (IllegalStateException e) {
             // getWriter() failed because getOutputStream() was already called — use byte stream.
             // Content-Length is safe here since we write the exact same bytes array.
             byte[] bytes = content.getBytes(encoding);
             response.setContentLength(bytes.length);
-            response.getOutputStream().write(bytes);
+            response.getOutputStream().write(bytes); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- trusted CSRF framework content
             response.getOutputStream().flush();
         }
     }

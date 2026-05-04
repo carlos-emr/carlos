@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.integration.mcedt.McedtSecurity;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -50,13 +51,16 @@ public class User2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
+        McedtSecurity.requireRead(request);
         if ("changePassword".equals(request.getParameter("method"))) {
+            McedtSecurity.requireWrite(request);
+            McedtSecurity.requirePost(request);
             return changePassword();
         }
         if ("cancel".equals(request.getParameter("method"))) {
             return cancel();
         }
-        request.getSession().setAttribute("mcedtUsername", CarlosProperties.getInstance().getProperty("mcedt.service.user"));
+        request.getSession().setAttribute("mcedtUsername", CarlosProperties.getInstance().getProperty("mcedt.service.user")); // nosemgrep: tainted-session-from-http-request -- value from application properties
 
         if (request.getSession().getAttribute("isPassChange") != null) {
             request.getSession().removeAttribute("isPassChange");
@@ -75,9 +79,9 @@ public class User2Action extends ActionSupport {
             }
             prop.setValue(this.getPassword());
             userPropertyDAO.saveProp(prop);
-            request.getSession().setAttribute("isPassChange", "true");
+            request.getSession().setAttribute("isPassChange", "true"); // nosemgrep: tainted-session-from-http-request -- hardcoded literal
         } catch (Exception e) {
-            request.getSession().setAttribute("isPassChange", "false");
+            request.getSession().setAttribute("isPassChange", "false"); // nosemgrep: tainted-session-from-http-request -- hardcoded literal
         }
 
         return SUCCESS;

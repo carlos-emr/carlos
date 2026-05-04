@@ -1,33 +1,25 @@
 /**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- * <p>
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- * <p>
- * This software was written for the
- * Department of Family Medicine
- * McMaster University
- * Hamilton
- * Ontario, Canada
- 
- * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
+ *
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
  */
-
-
 package io.github.carlos_emr.carlos.lab.ca.on.CML;
 
 import java.io.BufferedReader;
@@ -64,7 +56,7 @@ public class ABCDParser {
     ArrayList<Atype> atypes = new ArrayList<Atype>();
 
     private PatientLabRoutingDao patientLabRoutingDao = SpringUtils.getBean(PatientLabRoutingDao.class);
-    private LabReportInformationDao labReportInformationDao = SpringUtils.getBean(LabReportInformation.class);
+    private LabReportInformationDao labReportInformationDao = SpringUtils.getBean(LabReportInformationDao.class);
     private LabPatientPhysicianInfoDao labPatientPhysicianInfoDao = SpringUtils.getBean(LabPatientPhysicianInfoDao.class);
     private LabTestResultsDao labTestResultsDao = SpringUtils.getBean(LabTestResultsDao.class);
 
@@ -154,33 +146,31 @@ public class ABCDParser {
 
         int count = 0;
         try {
+            int[] countHolder = new int[] { 0 };
 
             if (CarlosProperties.getInstance().getBooleanProperty("LAB_NOMATCH_NAMES", "yes")) {
-                sql = "select demographic_no from demographic where hin='" + hinMod + "' and " +
-                        " year_of_birth like '" + dobYear + "' and " +
-                        " month_of_birth like '" + dobMonth + "' and " +
-                        " date_of_birth like '" + dobDay + "' and " +
-                        " sex like '" + sex + "%' ";
+                sql = "select demographic_no from demographic where hin=? and "
+                        + " year_of_birth like ? and "
+                        + " month_of_birth like ? and "
+                        + " date_of_birth like ? and "
+                        + " sex like ? ";
+                demo = executePatientLookup(conn, sql, countHolder,
+                        hinMod, dobYear, dobMonth, dobDay, sex + "%");
             } else {
-                sql = "select demographic_no from demographic where hin='" + hinMod + "' and " +
-                        " last_name like '" + lastName.substring(0, 1) + "%' and " +
-                        " first_name like '" + firstName.substring(0, 1) + "%' and " +
-                        " year_of_birth like '" + dobYear + "' and " +
-                        " month_of_birth like '" + dobMonth + "' and " +
-                        " date_of_birth like '" + dobDay + "' and " +
-                        " sex like '" + sex + "%' ";
+                sql = "select demographic_no from demographic where hin=? and "
+                        + " last_name like ? and "
+                        + " first_name like ? and "
+                        + " year_of_birth like ? and "
+                        + " month_of_birth like ? and "
+                        + " date_of_birth like ? and "
+                        + " sex like ? ";
+                String lastNamePrefix = (lastName != null && !lastName.isEmpty()) ? lastName.substring(0, 1) + "%" : "%";
+                String firstNamePrefix = (firstName != null && !firstName.isEmpty()) ? firstName.substring(0, 1) + "%" : "%";
+                demo = executePatientLookup(conn, sql, countHolder,
+                        hinMod, lastNamePrefix, firstNamePrefix,
+                        dobYear, dobMonth, dobDay, sex + "%");
             }
-
-
-            MiscUtils.getLogger().debug(sql);
-            PreparedStatement pstmt = conn.prepareStatement(sql);
-            ResultSet rs = pstmt.executeQuery();
-            while (rs.next()) {
-                count++;
-                demo = Misc.getString(rs, "demographic_no");
-            }
-            rs.close();
-            pstmt.close();
+            count = countHolder[0];
         } catch (SQLException sqlE) {
             MiscUtils.getLogger().error("Error", sqlE);
         }
@@ -200,6 +190,26 @@ public class ABCDParser {
     }
     /////
 
+    /**
+     * Executes a parameterized patient lookup query and returns the demographic_no.
+     * Counts matching rows via the provided countHolder array (single-element int array).
+     */
+    private static String executePatientLookup(Connection conn, String sql, int[] countHolder, String... params) throws SQLException {
+        String demo = "0";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            for (int i = 0; i < params.length; i++) {
+                pstmt.setString(i + 1, params[i]);
+            }
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    countHolder[0]++;
+                    demo = Misc.getString(rs, "demographic_no");
+                }
+            }
+        }
+        return demo;
+    }
+
 
     private HashMap<String, String> getProviderHash(Connection conn) {
         logger.info("Init - provider Hash table");
@@ -207,7 +217,6 @@ public class ABCDParser {
         try {
             String sql = "select provider_no, ohip_no from provider where ohip_no != '' ";
             PreparedStatement pstmt = conn.prepareStatement(sql);
-            pstmt.executeQuery();
             ResultSet rs = pstmt.executeQuery();
 
             while (rs.next()) {

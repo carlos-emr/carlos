@@ -37,6 +37,8 @@ import jakarta.servlet.jsp.JspException;
 import jakarta.servlet.jsp.JspTagException;
 import jakarta.servlet.jsp.tagext.TagSupport;
 
+import org.owasp.encoder.Encode;
+
 public class CaseManagementLinkTag extends TagSupport {
 
     private Integer demographicNo;
@@ -71,24 +73,22 @@ public class CaseManagementLinkTag extends TagSupport {
         try {
             StringBuilder builder = new StringBuilder();
 
-            builder.append(req.getScheme()).append("://");
-            builder.append(req.getServerName()).append(":");
-            builder.append(req.getServerPort());
             builder.append(req.getContextPath()).append("/");
 
-            builder.append("encounter/IncomingEncounter.do").append("?");
-            builder.append("providerNo=").append(providerNo).append("&");
+            builder.append("encounter/IncomingEncounter").append("?");
+            builder.append("providerNo=").append(Encode.forUriComponent(providerNo != null ? providerNo : "")).append("&");
             builder.append("appointmentNo=").append(0).append("&");
-            builder.append("demographicNo=").append(demographicNo).append("&");
-            builder.append("curProviderNo=").append(providerNo).append("&");
+            builder.append("demographicNo=").append(Encode.forUriComponent(String.valueOf(demographicNo))).append("&");
+            builder.append("curProviderNo=").append(Encode.forUriComponent(providerNo != null ? providerNo : "")).append("&");
             builder.append("reason=").append("&");
-            builder.append("userName=").append(providerName).append("&");
-            builder.append("curDate=").append(placeDate).append("&");
-            builder.append("appointmentDate=").append(placeDate).append("&");
-            builder.append("startTime=").append(placeTime).append("&");
+            builder.append("userName=").append(Encode.forUriComponent(providerName != null ? providerName : "")).append("&");
+            builder.append("curDate=").append(Encode.forUriComponent(placeDate)).append("&");
+            builder.append("appointmentDate=").append(Encode.forUriComponent(placeDate)).append("&");
+            builder.append("startTime=").append(Encode.forUriComponent(placeTime)).append("&");
             builder.append("status=").append("T");
 
-            pageContext.getOut().write(builder.toString());
+            // HTML-encode the URL output since the tag renders in HTML context
+            pageContext.getOut().write(Encode.forHtmlAttribute(builder.toString()));
         } catch (IOException e) {
             throw new JspTagException("An IOException occurred.");
         }

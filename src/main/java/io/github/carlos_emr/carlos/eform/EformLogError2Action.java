@@ -7,7 +7,10 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.jsoup.internal.StringUtil;
-import org.apache.commons.text.StringEscapeUtils;
+import org.owasp.encoder.Encode;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 /**
  * Struts2 action for logging errors that occur during eForm processing.
@@ -23,7 +26,7 @@ import org.apache.commons.text.StringEscapeUtils;
  * <p><strong>Security Features:</strong></p>
  * <ul>
  *   <li>Validates formId is numeric to prevent injection attacks</li>
- *   <li>Sanitizes error messages using HTML entity encoding via StringEscapeUtils</li>
+ *   <li>Sanitizes error messages using HTML entity encoding via OWASP Encoder</li>
  *   <li>Performs null and empty checks on the formId parameter</li>
  * </ul>
  *
@@ -32,6 +35,8 @@ import org.apache.commons.text.StringEscapeUtils;
  * @since 2026-01-24
  */
 public class EformLogError2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -61,6 +66,11 @@ public class EformLogError2Action extends ActionSupport {
      * @throws Exception if an error occurs during error logging or parameter processing
      */
     public String execute() throws Exception {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", "r", null)) {
+            throw new SecurityException("missing required sec object (_eform)");
+        }
+
         String formId = request.getParameter("formId");
         String error = request.getParameter("error");
 
@@ -69,7 +79,7 @@ public class EformLogError2Action extends ActionSupport {
          */
 
          if (formId != null && !formId.isEmpty() && StringUtil.isNumeric(formId)) {
-		String sanitizedError = StringEscapeUtils.escapeHtml4(error);
+		String sanitizedError = Encode.forHtml(error);
 		EFormUtil.logError(Integer.parseInt(formId), sanitizedError);
 	 }
 

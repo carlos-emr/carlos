@@ -37,6 +37,8 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import org.owasp.encoder.Encode;
@@ -55,6 +57,7 @@ import java.io.InputStream;
 import java.io.PrintWriter;
 import java.util.Base64;
 import java.util.Iterator;
+import java.util.List;
 
 import org.springframework.dao.DataAccessException;
 
@@ -72,7 +75,7 @@ import org.springframework.dao.DataAccessException;
  *
  * @since 2026-03-09
  */
-public class ProviderSignatureStamp2Action extends ActionSupport {
+public class ProviderSignatureStamp2Action extends ActionSupport implements UploadedFilesAware {
 
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private final UserPropertyDAO userPropertyDAO = SpringUtils.getBean(UserPropertyDAO.class);
@@ -306,7 +309,7 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
                 sigFile = PathValidationUtils.validateExistingPath(sigFile, imageFolder);
                 if (sigFile.exists()) {
                     exists = true;
-                    imageUrl = request.getContextPath() + "/provider/providerSignatureImage.do";
+                    imageUrl = request.getContextPath() + "/provider/providerSignatureImage";
                 }
             } catch (SecurityException e) {
                 MiscUtils.getLogger().warn("Suspicious signature path during check for provider {}: {}", providerNo, e.getMessage());
@@ -323,7 +326,7 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
     }
 
     private static String buildSuccessJson(HttpServletRequest req) {
-        String imageUrl = req.getContextPath() + "/provider/providerSignatureImage.do";
+        String imageUrl = req.getContextPath() + "/provider/providerSignatureImage";
         return "{\"success\":true,\"imageUrl\":\"" + Encode.forJavaScript(imageUrl) + "\"}";
     }
 
@@ -379,7 +382,7 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
         resp.setHeader("X-Content-Type-Options", "nosniff");
         try {
             PrintWriter writer = resp.getWriter();
-            writer.write(json);
+            writer.write(json); // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- JSON API response with application/json content-type
             writer.flush();
         } catch (IOException e) {
             MiscUtils.getLogger().debug("Failed to write JSON response (client may have disconnected)", e);
@@ -390,6 +393,16 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
     private File image;
     private String imageFileName;
     private String imageFileContentType;
+
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
+            UploadedFile uploaded = uploadedFiles.get(0);
+            this.image = new File(uploaded.getAbsolutePath());
+            this.imageFileContentType = uploaded.getContentType();
+            this.imageFileName = uploaded.getOriginalName();
+        }
+    }
 
     public File getImage() { return image; }
 

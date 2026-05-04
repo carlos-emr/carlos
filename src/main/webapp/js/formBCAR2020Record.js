@@ -580,7 +580,7 @@ function toggleFieldRules(fieldName) {
 
 function reset() {
     document.forms[0].target = "";
-    document.forms[0].action = "../form/BCAR2020.do";
+    document.forms[0].action = "../form/BCAR2020";
 }
 
 function onSave() {
@@ -904,7 +904,7 @@ function appendNotify(field) {
             break;
     }
 
-    $('input[type="text"][name=' + field.name + ']').val(fieldMessage);
+    field.value = fieldMessage;
     alert(promptMessage);
 }
 
@@ -950,12 +950,12 @@ function calculateByLMP(field, ds = dtCh) {
 
         var dt = str_date.split(ds);
         var dd = dt[0];
-        var mm = eval(dt[1] - 1);
+        var mm = parseInt(dt[1], 10) - 1;
         var yyyy = dt[2];
 
         var calDate = new Date(yyyy, mm, dd);
 
-        calDate.setTime(eval(calDate.getTime() + (280 * 86400000)));
+        calDate.setTime(calDate.getTime() + (280 * 86400000));
 
         varMonth1 = calDate.getMonth() + 1;
         varMonth1 = varMonth1 > 9 ? varMonth1 : ("0" + varMonth1);
@@ -1175,7 +1175,7 @@ function dialogs(page) {
                 $("#printPg6").val($("#print_att").prop('checked'));
 
                 if ($("#printPg1").val() === "true" || $("#printPg2").val() === "true" || $("#printPg3").val() === "true" || $("#printPg4").val() === "true" || $("#printPg5").val() === "true" || $("#printPg6").val() === "true") {
-                    document.forms[0].action = "../form/BCAR2020.do?method=print";
+                    document.forms[0].action = "../form/BCAR2020?method=print";
                     $("#printBtn").trigger('click');
                 }
 
@@ -1192,7 +1192,11 @@ function dialogs(page) {
 }
 
 function onPageChange(pageNo) {
-    var url = pageNo !== '6' ? 'formBCAR2020pg' + pageNo + '.jsp?demographic_no=' + demographicNo + '&formId=' + formId + '&provNo=' + provNo : 'formBCAR2020Attachments.jsp?demographic_no=' + demographicNo + '&formId=' + formId + '&provNo=' + provNo;
+    var params = 'demographic_no=' + encodeURIComponent(demographicNo)
+        + '&formId=' + encodeURIComponent(formId)
+        + '&provNo=' + encodeURIComponent(provNo);
+    var page = pageNo !== '6' ? 'formBCAR2020pg' + pageNo + '.jsp' : 'formBCAR2020Attachments.jsp';
+    var url = page + '?' + params;
 
     var result = false;
     var isValid = validate();

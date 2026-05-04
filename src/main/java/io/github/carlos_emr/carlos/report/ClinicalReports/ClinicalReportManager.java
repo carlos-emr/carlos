@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.report.ClinicalReports;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Hashtable;
@@ -42,6 +43,7 @@ import org.jdom2.Document;
 import org.jdom2.Element;
 import org.jdom2.input.SAXBuilder;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
@@ -218,7 +220,7 @@ public class ClinicalReportManager {
                 }
 
                 try {
-                    SAXBuilder parser = new SAXBuilder();
+                    SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
                     Document doc = parser.build(is);
                     Element root = doc.getRootElement();
 
@@ -353,6 +355,13 @@ public class ClinicalReportManager {
                     }
                 } catch (Exception e) {
                     MiscUtils.getLogger().error("Error", e);
+                } finally {
+                    if (is != null) {
+                        try {
+                            is.close();
+                        } catch (IOException ignored) {
+                        }
+                    }
                 }
                 loaded = true;
             }

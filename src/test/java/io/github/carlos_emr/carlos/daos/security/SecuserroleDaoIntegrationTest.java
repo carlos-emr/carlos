@@ -768,22 +768,24 @@ public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
         }
 
         /**
-         * Verifies that {@code attachClean()} throws when called with a detached
-         * entity. In Hibernate 7, {@code session.lock()} rejects detached instances
-         * with a {@code DetachedObjectException} wrapped in {@code IllegalArgumentException}.
+         * Verifies that {@code attachClean()} reattaches a detached entity via JPA
+         * {@code merge()}. JPA has no direct equivalent of Hibernate
+         * {@code Session.lock(entity, LockMode.NONE)} for detached entities, so the
+         * implementation falls through to {@code merge()} (guarded by
+         * {@code entityManager().contains(instance)} to preserve the no-op contract
+         * for already-managed instances).
          */
         @Test
         @Tag("read")
-        @DisplayName("should throw when attaching clean on detached entity")
-        void shouldThrow_whenAttachingCleanOnDetachedEntity() {
+        @DisplayName("should reattach detached entity without throwing")
+        void shouldReattachDetachedEntity_viaMerge() {
             // Given - create, flush, then evict to make it detached
             Secuserrole role = createSecuserrole("AC200", "nurse", "ORG1");
             hibernateTemplate.flush();
             hibernateTemplate.evict(role);
 
-            // When / Then - Hibernate 7 rejects lock() on detached entities
-            assertThatThrownBy(() -> secuserroleDao.attachClean(role))
-                .isInstanceOf(RuntimeException.class);
+            // When / Then - attachClean must NOT throw for a detached entity
+            secuserroleDao.attachClean(role);
         }
     }
 
