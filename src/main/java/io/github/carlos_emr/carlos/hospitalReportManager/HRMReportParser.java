@@ -136,9 +136,13 @@ public class HRMReportParser {
                     HRMReportParser.class,
                     "/xsd/hrm/1.1.2/",
                     HRM_SCHEMA_IMPORTS));
-                File schemaFile = new ClassPathResource("/xsd/hrm/1.1.2/ontariomd_hrm.xsd").getFile();
-                Source schemaSource = new StreamSource(schemaFile);
-                Schema schema = factory.newSchema(schemaSource);
+                ClassPathResource schemaResource = new ClassPathResource("/xsd/hrm/1.1.2/ontariomd_hrm.xsd");
+                Schema schema;
+                try (java.io.InputStream schemaInputStream = schemaResource.getInputStream()) {
+                    Source schemaSource = new StreamSource(schemaInputStream);
+                    schemaSource.setSystemId(schemaResource.getURL().toExternalForm());
+                    schema = factory.newSchema(schemaSource);
+                }
 
                 // Unmarshal into JAXB model
                 JAXBContext jc = JAXBContext.newInstance(OmdCds.class);
