@@ -414,7 +414,7 @@
                                 NextAppointmentSearchResult result = results.get(x);
                         %>
                         <tr
-                         onclick="selectSlot('<%= SafeEncode.forJavaScript(result.getProviderNo()) %>','<%= result.getYear() %>','<%= result.getMonth() %>','<%= result.getDay() %>','<%= SafeEncode.forJavaScript(result.getStartTime()) %>','<%= SafeEncode.forJavaScript(result.getEndTime()) %>','<%= result.getDuration() %>');">
+                         onclick="selectSlot('<%= SafeEncode.forJavaScriptAttribute(result.getProviderNo()) %>','<%= result.getYear() %>','<%= result.getMonth() %>','<%= result.getDay() %>','<%= SafeEncode.forJavaScriptAttribute(result.getStartTime()) %>','<%= SafeEncode.forJavaScriptAttribute(result.getEndTime()) %>','<%= result.getDuration() %>');">
                             <td><%= dayFormatter.format(result.getDate()) %>
                             </td>
                             <td><%= timeFormatter.format(result.getDate()) %>
