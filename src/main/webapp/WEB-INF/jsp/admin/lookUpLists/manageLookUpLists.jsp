@@ -37,12 +37,12 @@
     <c:when test="${ not empty requestScope.lookupLists }">
         <c:forEach var="lookuplistit" items="${ requestScope.lookupLists }">
             <c:set value="${ lookuplistit }" var="lookuplist" scope="request"/>
-            <c:import url="./lookupList.jsp"/>
+            <c:import url="/admin/ViewLookupListsLookupList"/>
         </c:forEach>
     </c:when>
     <c:when test="${ not empty requestScope.lookupListSingle }">
         <c:set value="${ requestScope.lookupListSingle }" var="lookuplist" scope="request"/>
-        <c:import url="./lookupList.jsp"/>
+        <c:import url="/admin/ViewLookupListsLookupList"/>
     </c:when>
     <c:otherwise>
         <fmt:message key="admin.admin.lookuplists.nonfound"/>

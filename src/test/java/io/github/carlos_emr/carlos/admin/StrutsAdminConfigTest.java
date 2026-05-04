@@ -26,6 +26,7 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -47,6 +48,10 @@ class StrutsAdminConfigTest {
 
     private static final Path ADMIN_CONFIG = Path.of(
             "src", "main", "webapp", "WEB-INF", "classes", "struts-admin.xml");
+    private static final Path LOOKUP_LIST_INDEX_JSP = Path.of(
+            "src", "main", "webapp", "WEB-INF", "jsp", "admin", "lookUpLists", "index.jsp");
+    private static final Path LOOKUP_LIST_MANAGER_JSP = Path.of(
+            "src", "main", "webapp", "WEB-INF", "jsp", "admin", "lookUpLists", "manageLookUpLists.jsp");
     private static final int MAX_PARENT_SEARCH_DEPTH = 8;
 
     private static Document adminConfig;
@@ -71,6 +76,23 @@ class StrutsAdminConfigTest {
                 .isEqualTo("/WEB-INF/jsp/admin/lookUpLists/index.jsp");
     }
 
+    @Test
+    @DisplayName("lookup list JSP fragments should import through gated actions")
+    void shouldImportThroughGatedActions_forLookupListFragments() throws Exception {
+        String indexJsp = readProjectFile(LOOKUP_LIST_INDEX_JSP);
+        String managerJsp = readProjectFile(LOOKUP_LIST_MANAGER_JSP);
+
+        assertThat(indexJsp)
+                .as("lookupListManagerAction forwards to WEB-INF; nested fragments must use action gates, "
+                        + "not relative JSP imports")
+                .contains("<c:import url=\"/admin/ViewLookupListsManageLookupLists\"/>")
+                .doesNotContain("<c:import url=\"./manageLookUpLists.jsp\"/>");
+        assertThat(managerJsp)
+                .as("manageSingle for consultApptInst must include lookupList.jsp through its gated Struts action")
+                .contains("<c:import url=\"/admin/ViewLookupListsLookupList\"/>")
+                .doesNotContain("<c:import url=\"./lookupList.jsp\"/>");
+    }
+
     private Element findAction(String actionName) {
         NodeList actions = adminConfig.getElementsByTagName("action");
         for (int i = 0; i < actions.getLength(); i++) {
@@ -91,6 +113,10 @@ class StrutsAdminConfigTest {
             }
         }
         return "";
+    }
+
+    private static String readProjectFile(Path relativePath) throws Exception {
+        return Files.readString(resolveProjectPath(relativePath), StandardCharsets.UTF_8);
     }
 
     private static Document parse(Path configPath) throws Exception {
