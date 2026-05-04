@@ -50,14 +50,16 @@ class ImportDemographicDataAction42ActionUnitTest {
     @Test
     @DisplayName("should return false when uploaded filename is blank")
     void shouldReturnFalse_whenUploadedFilenameIsBlank() {
-        assertThat(ImportDemographicDataAction42Action.hasUploadedImportFile(new File("patient.xml"), " "))
+        // The helper only checks for a non-null File; no real file is required here.
+        assertThat(ImportDemographicDataAction42Action.hasUploadedImportFile(new File("dummy-upload"), " "))
                 .isFalse();
     }
 
     @Test
     @DisplayName("should return true when upload file and filename are present")
     void shouldReturnTrue_whenUploadFileAndFilenameArePresent() {
-        assertThat(ImportDemographicDataAction42Action.hasUploadedImportFile(new File("patient.xml"), "patient.xml"))
+        // The helper only checks for a non-null File; file existence/content is not under test.
+        assertThat(ImportDemographicDataAction42Action.hasUploadedImportFile(new File("dummy-upload"), "patient.xml"))
                 .isTrue();
     }
 }
