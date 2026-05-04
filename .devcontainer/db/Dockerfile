@@ -6,11 +6,22 @@ LABEL version=0.0.2
 LABEL description="OpenOSP-EMR Docker Image for Development Environment"
 
 # Install required packages
-RUN apt-get update && apt-get install -y dos2unix  \
-    && apt-get autoclean \
-    && apt-get clean \
-    && apt-get autoremove \
-    && rm -rf /var/lib/apt/lists/*
+RUN for attempt in 1 2 3; do \
+      if apt-get update -o Acquire::Retries=3 -o Acquire::http::Timeout=20 && \
+         DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends --fix-missing dos2unix; then \
+        apt-get autoremove -y \
+          && apt-get clean \
+          && rm -rf /var/lib/apt/lists/*; \
+        break; \
+      fi; \
+      echo "apt-get failed (attempt ${attempt}/3), retrying..."; \
+      apt-get clean || true; \
+      rm -rf /var/lib/apt/lists/*; \
+      if [ "$attempt" = 3 ]; then \
+        exit 1; \
+      fi; \
+      sleep 5; \
+    done
 
 # Adding required files
 # Currently this needs the database configuration for post-scripts from the OpenOSP-EMR

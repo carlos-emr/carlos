@@ -40,6 +40,7 @@ if(!authed) {
 %>
 
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ReportProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.projection.ReporterRow" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ReportProvider" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@page import="io.github.carlos_emr.MyDateFormat" %>
@@ -137,14 +138,11 @@ boolean bodd=true;
 
 
 
-for(Object[] result : reportProviderDao.search_reportprovider("visitreport", ohipNo)){
-	ReportProvider rp = (ReportProvider)result[0];
-	Provider provider = (Provider)result[1];
-	
-    p_last = provider.getLastName();
-    p_first = provider.getFirstName();
-    p_no = provider.getProviderNo();
-    team = rp.getTeam();
+for(ReporterRow result : reportProviderDao.search_reportprovider("visitreport", ohipNo)){
+    p_no = result.providerNo();
+    p_last = result.lastName();
+    p_first = result.firstName();
+    team = result.team();
 
     VisitReportData vrd = new VisitReportData();
     vrd.setDateBegin(dateBegin);

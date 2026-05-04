@@ -68,6 +68,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.web.PrescriptionQrCodeUIBean" %>
 <%@ page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.dto.UniqueServiceTypeRow" %>
 <%!
     // DAOs declared at class level -- thread-safe Spring singletons shared across all requests
     CtlBillingServiceDao ctlBillingServiceDao = SpringUtils.getBean(CtlBillingServiceDao.class);
@@ -1201,9 +1202,9 @@
                     <select name="default_servicetype" class="pref-input input-md">
                         <option value="no"><fmt:message key="provider.providerpreference.billing.noneOption"/></option><%
                         String def = providerPreference.getDefaultServiceType();
-                        for (Object[] result : ctlBillingServiceDao.getUniqueServiceTypes("A")) {
-                    %><option value="<carlos:encode value='<%= (String)result[0] %>' context="htmlAttribute"/>"
-                              <%=((String)result[0]).equals(def)?"selected":""%>><carlos:encode value='<%= (String)result[1] %>' context="html"/></option><%
+                        for (UniqueServiceTypeRow result : ctlBillingServiceDao.getUniqueServiceTypes("A")) {
+                    %><option value="<carlos:encode value='<%= result.serviceType() %>' context="htmlAttribute"/>"
+                              <%=result.serviceType().equals(def)?"selected":""%>><carlos:encode value='<%= result.serviceTypeName() %>' context="html"/></option><%
                         }
                     %></select>
                 </div>

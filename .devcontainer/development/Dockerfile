@@ -25,9 +25,34 @@ ARG DOCS_DEST="/var/lib/OscarDocument/oscar/document"
 
 WORKDIR /workspace
 
+# Retry wrapper for flaky package index mirrors in CI.
+RUN cat <<'EOF' > /usr/local/bin/apt-install
+#!/usr/bin/env bash
+set -eu
+set -o pipefail
+
+for attempt in 1 2 3; do
+  if apt-get update -o Acquire::Retries=3 -o Acquire::http::Timeout=20 && \
+     DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y --fix-missing "$@"; then
+    apt-get clean
+    rm -rf /var/lib/apt/lists/*
+    exit 0
+  fi
+
+  echo "apt install failed (attempt ${attempt}/3), retrying..."
+  apt-get clean || true
+  rm -rf /var/lib/apt/lists/*
+  if [ "$attempt" -eq 3 ]; then
+    exit 1
+  fi
+  sleep 5
+done
+EOF
+RUN chmod +x /usr/local/bin/apt-install
+
 # Install required packages including Playwright browser dependencies and clean up apt lists
 # Note: Ubuntu 24.04 uses t64 packages (time_t 64-bit migration)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN /usr/local/bin/apt-install \
     dos2unix curl git wget apt-transport-https ca-certificates gnupg jq lsb-release \
     libjpeg-turbo8 \
     locales iputils-ping gettext fontconfig libc6 libfreetype6 \
@@ -41,18 +66,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install Node.js (latest LTS)
 RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
-    && apt-get install -y nodejs \
+    && /usr/local/bin/apt-install nodejs \
     && node --version && npm --version
 
 # Install GitHub CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
     && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
-    && apt-get update \
-    && apt-get install -y gh
+    && /usr/local/bin/apt-install gh
 
 # Install Go
-RUN apt-get update && apt-get install -y golang-go
+RUN /usr/local/bin/apt-install golang-go
 
 # Install javadoc2md utility for converting Javadoc to Markdown
 RUN go install github.com/dburkart/javadoc2md/cmd/javadoc2md@latest
@@ -88,12 +112,12 @@ RUN npx playwright install --with-deps chromium firefox && \
     echo "✅ Playwright browsers installed (Chromium, Firefox)"
 
 # Install pipx and Aider AI coding assistant
-RUN apt-get update && apt-get install -y pipx && \
+RUN /usr/local/bin/apt-install pipx && \
     pipx install aider-chat && \
     pipx ensurepath
 
 # Install Postfix for mail testing with default values
-RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y postfix
+RUN /usr/local/bin/apt-install postfix
 
 # Configure Postfix for simple localhost operation
 RUN postconf -e 'myhostname=openo-dev.local' && \

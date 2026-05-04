@@ -39,6 +39,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup, io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroupPrimaryKey" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.CtlBillingService, io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.dto.UniqueServiceTypeRow" %>
 
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -113,16 +114,17 @@
                                     <select id="chosenForm" name="chosenForm" onChange="changeBillingForm()">
                                         <option value=""></option>
                                         <%
-                                            List<Object[]> forms = ctlBillingServiceDao.getUniqueServiceTypes();
-                                            for (Object[] form : forms) {
-                                                String serviceType = (String) form[0];
+                                            List<UniqueServiceTypeRow> forms = ctlBillingServiceDao.getUniqueServiceTypes();
+                                            for (UniqueServiceTypeRow form : forms) {
+                                                String serviceType = form.serviceType();
+                                                String serviceTypeName = form.serviceTypeName();
                                                 String selected = "";
                                                 if (serviceType.equals(request.getParameter("chosenForm"))) {
                                                     currentForm = serviceType;
                                                     selected = " selected=\"selected\" ";
                                                 }
                                         %>
-                                        <option value="<%=serviceType%>" <%=selected%>><%=(String) form[1]%>
+                                        <option value="<%=serviceType%>" <%=selected%>><%=serviceTypeName%>
                                         </option>
                                         <% } %>
                                     </select>
