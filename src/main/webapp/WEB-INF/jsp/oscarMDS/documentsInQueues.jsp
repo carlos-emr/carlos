@@ -2069,7 +2069,10 @@
 
         function normalizePatientNumber(patientId) {
             var patientIdText = String(patientId);
-            return /^-?\d+$/.test(patientIdText) ? patientIdText : '';
+            if (!/^-?\d+$/.test(patientIdText)) {
+                throw new Error('Invalid patient id');
+            }
+            return patientIdText;
         }
 
         function createNewDocEle(patientId) {

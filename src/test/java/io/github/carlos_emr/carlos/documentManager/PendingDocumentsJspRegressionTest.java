@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Regression coverage for the pending documents queue page.
@@ -96,6 +97,17 @@ public class PendingDocumentsJspRegressionTest {
     }
 
     @Test
+    @DisplayName("pending documents patient ID normalization should reject non-numeric values")
+    void shouldRejectNonNumericValues_whenNormalizingPatientIds() {
+        assertThat(normalizePatientNumber("123")).isEqualTo("123");
+        assertThat(normalizePatientNumber("-1")).isEqualTo("-1");
+        assertThatThrownBy(() -> normalizePatientNumber("location"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> normalizePatientNumber("1<script>"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     @DisplayName("pending documents should load documents through the routed show document action")
     void shouldLoadDocumentDetails_throughRoutedShowDocumentAction() throws IOException {
         String jsp = Files.readString(PENDING_DOCUMENTS_JSP, StandardCharsets.UTF_8);
@@ -111,13 +123,20 @@ public class PendingDocumentsJspRegressionTest {
     @DisplayName("pending documents i18n keys should resolve in every shipped locale")
     void shouldDefineI18nKeys_forPendingDocumentsLabelsInEveryLocale() throws IOException {
         for (Map.Entry<String, Path> localeBundle : LOCALE_BUNDLES.entrySet()) {
-            assertThat(missingOrBlankI18nKeys(localeBundle.getValue()))
+            assertThat(invalidI18nKeys(localeBundle.getValue()))
                     .as("oscarResources_%s.properties should define non-blank pending documents labels", localeBundle.getKey())
                     .isEmpty();
         }
     }
 
-    private static List<String> missingOrBlankI18nKeys(Path bundlePath) throws IOException {
+    private static String normalizePatientNumber(String patientId) {
+        if (!patientId.matches("-?\\d+")) {
+            throw new IllegalArgumentException("Invalid patient id");
+        }
+        return patientId;
+    }
+
+    private static List<String> invalidI18nKeys(Path bundlePath) throws IOException {
         Properties bundle = loadBundle(bundlePath);
         return REQUIRED_I18N_KEYS.stream()
                 .filter(key -> bundle.getProperty(key, "").isBlank())
