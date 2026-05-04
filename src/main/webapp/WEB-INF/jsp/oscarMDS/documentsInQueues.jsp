@@ -2067,14 +2067,20 @@
 
         }
 
+        function sanitizePatientId(patientId) {
+            return String(patientId).replace(/[^0-9-]/g, '');
+        }
+
         function createNewDocEle(patientId) {
-            var newEle = '<dt><a id="patient' + patientId + 'docs" href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showSubType(\'' + patientId + '\',\'DOC\');un_bold(this);" title="' + documentLabel + '">' + documentLabel + '(<span id="pDocNum_' + patientId + '">1</span>)</a></dt>';
+            var safePatientId = sanitizePatientId(patientId);
+            var newEle = '<dt><a id="patient' + safePatientId + 'docs" href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showSubType(\'' + safePatientId + '\',\'DOC\');un_bold(this);" title="' + documentLabel + '">' + documentLabel + '(<span id="pDocNum_' + safePatientId + '">1</span>)</a></dt>';
             //oscarLog('newEle='+newEle);
             return newEle;
         }
 
         function createNewHL7Ele(patientId) {
-            var newEle = '<dt><a id="patient' + patientId + 'hl7s" href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showSubType(\'' + patientId + '\',\'HL7\');un_bold(this);" title="' + hl7Label + '">' + hl7Label + '(<span id="pLabNum_' + patientId + '">1</span>)</a></dt>';
+            var safePatientId = sanitizePatientId(patientId);
+            var newEle = '<dt><a id="patient' + safePatientId + 'hl7s" href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showSubType(\'' + safePatientId + '\',\'HL7\');un_bold(this);" title="' + hl7Label + '">' + hl7Label + '(<span id="pLabNum_' + safePatientId + '">1</span>)</a></dt>';
             //oscarLog('newEle='+newEle);
             return newEle;
         }

@@ -68,6 +68,7 @@ public class PendingDocumentsJspRegressionTest {
                 .contains("<fmt:message key=\"inboxmanager.document.queues\"/>")
                 .contains("<fmt:message key=\"inboxmanager.document.documents\"/>")
                 .contains("<fmt:message key=\"global.hl7\" var=\"hl7Label\"/>")
+                .contains("return String(patientId).replace(/[^0-9-]/g, '');")
                 .doesNotContain(">Back</button>")
                 .doesNotContain(">Queues</th>")
                 .doesNotContain(">Documents</th>")
@@ -102,15 +103,17 @@ public class PendingDocumentsJspRegressionTest {
     @DisplayName("pending documents i18n keys should resolve in every shipped locale")
     void shouldDefineI18nKeys_forPendingDocumentsLabelsInEveryLocale() throws IOException {
         for (String locale : LOCALES) {
-            Properties bundle = loadBundle(locale);
-            List<String> missing = REQUIRED_I18N_KEYS.stream()
-                    .filter(key -> !bundle.containsKey(key))
-                    .toList();
-
-            assertThat(missing)
+            assertThat(missingI18nKeys(locale))
                     .as("oscarResources_%s.properties should define pending documents labels", locale)
                     .isEmpty();
         }
+    }
+
+    private static List<String> missingI18nKeys(String locale) throws IOException {
+        Properties bundle = loadBundle(locale);
+        return REQUIRED_I18N_KEYS.stream()
+                .filter(key -> !bundle.containsKey(key))
+                .toList();
     }
 
     private static Properties loadBundle(String locale) throws IOException {
