@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import io.github.carlos_emr.carlos.commn.model.BillingItemsNotLoadedException;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
@@ -1032,6 +1033,161 @@ public class BillingONCHeader1DaoIntegrationTest extends CarlosTestBase {
             // Then
             assertThat(h1.getId()).isPositive();
             assertThat(h2.getId()).isNotNull();
+        }
+    }
+
+    // ========================================================================
+    // findWithItems / findByDemoNoWithItems — JOIN FETCH companions added when
+    // BillingONCHeader1.billingItems was flipped from EAGER to LAZY.
+    // ========================================================================
+
+    @Nested
+    @DisplayName("findWithItems")
+    @Tag("read")
+    class FindWithItems {
+
+        @Test
+        @DisplayName("should return null when invoice does not exist")
+        void shouldReturnNull_whenInvoiceMissing() {
+            assertThat(billingONCHeader1Dao.findWithItems(999_999_999)).isNull();
+        }
+
+        @Test
+        @DisplayName("should return null when id is null")
+        void shouldReturnNull_whenIdIsNull() {
+            assertThat(billingONCHeader1Dao.findWithItems(null)).isNull();
+        }
+
+        @Test
+        @DisplayName("should populate billingItems collection in one query")
+        void shouldPopulateItems_inOneQuery() {
+            // Given
+            BillingONCHeader1 h = createAndPersist(DEMO_NO, PROVIDER_NO, "O", today);
+            createAndPersistItem(h.getId(), "A007", "789", today);
+            createAndPersistItem(h.getId(), "A008", "789", today);
+            entityManager.flush();
+            entityManager.clear(); // detach so a subsequent .find would lazy-init
+
+            // When
+            BillingONCHeader1 loaded = billingONCHeader1Dao.findWithItems(h.getId());
+
+            // Then
+            assertThat(loaded).isNotNull();
+            assertThat(loaded.getBillingItems()).hasSize(2);
+            assertThat(loaded.getBillingItems())
+                    .extracting(BillingONItem::getServiceCode)
+                    .containsExactlyInAnyOrder("A007", "A008");
+        }
+
+        @Test
+        @DisplayName("should return header with empty items when none exist")
+        void shouldReturnHeader_whenNoItems() {
+            BillingONCHeader1 h = createAndPersist(DEMO_NO, PROVIDER_NO, "O", today);
+            entityManager.flush();
+            entityManager.clear();
+
+            BillingONCHeader1 loaded = billingONCHeader1Dao.findWithItems(h.getId());
+
+            assertThat(loaded).isNotNull();
+            assertThat(loaded.getBillingItems()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("recomputeTotalFromItems should throw BillingItemsNotLoadedException on uninitialized LAZY proxy")
+        void shouldThrowBillingItemsNotLoadedException_whenLazyProxyUninitialized() {
+            // Given — header persisted with items, then re-loaded via plain
+            // find() (no JOIN FETCH) and detached. The billingItems collection
+            // is now a Hibernate PersistentBag in unloaded state. Accessing
+            // it outside an open session would throw LazyInitializationException
+            // historically; recomputeTotalFromItems explicitly distinguishes
+            // this case from "no items" by guarding with Hibernate.isInitialized
+            // and throwing a typed BillingItemsNotLoadedException.
+            BillingONCHeader1 h = createAndPersist(DEMO_NO, PROVIDER_NO, "O", today);
+            createAndPersistItem(h.getId(), "A007", "10.00", today);
+            entityManager.flush();
+            entityManager.clear();
+
+            // Plain find() — does NOT eagerly fetch billingItems.
+            BillingONCHeader1 reloaded = billingONCHeader1Dao.find(h.getId());
+            entityManager.detach(reloaded);
+
+            // When/Then — recomputeTotalFromItems must throw the typed exception
+            // rather than silently returning Optional.of(ZERO). The headerId
+            // round-trips through the exception so callers can recover via
+            // findWithItems(e.headerId()).
+            int expectedHeaderId = reloaded.getId();
+            assertThatThrownBy(reloaded::recomputeTotalFromItems)
+                    .isInstanceOf(BillingItemsNotLoadedException.class)
+                    .hasMessageContaining("LAZY proxy")
+                    .extracting(e -> ((BillingItemsNotLoadedException) e).headerId())
+                    .isEqualTo(expectedHeaderId);
+        }
+
+        @Test
+        @DisplayName("getBillingItems should also throw BillingItemsNotLoadedException on uninitialized LAZY proxy")
+        void shouldThrowBillingItemsNotLoadedException_fromGetterWhenLazyProxyUninitialized() {
+            // The getter has its own Hibernate.isInitialized guard distinct
+            // from recomputeTotalFromItems'. A regression that drops
+            // either guard would otherwise produce a raw
+            // LazyInitializationException from inside the unmodifiableList
+            // wrapper, which the calling JSP cannot turn into a sensible
+            // operator-facing message.
+            BillingONCHeader1 h = createAndPersist(DEMO_NO, PROVIDER_NO, "O", today);
+            createAndPersistItem(h.getId(), "A007", "10.00", today);
+            entityManager.flush();
+            entityManager.clear();
+
+            BillingONCHeader1 reloaded = billingONCHeader1Dao.find(h.getId());
+            entityManager.detach(reloaded);
+
+            int expectedHeaderId = reloaded.getId();
+            assertThatThrownBy(reloaded::getBillingItems)
+                    .isInstanceOf(BillingItemsNotLoadedException.class)
+                    .hasMessageContaining("LAZY proxy")
+                    .extracting(e -> ((BillingItemsNotLoadedException) e).headerId())
+                    .isEqualTo(expectedHeaderId);
+        }
+    }
+
+    @Nested
+    @DisplayName("findByDemoNoWithItems")
+    @Tag("read")
+    class FindByDemoNoWithItems {
+
+        @Test
+        @DisplayName("should return matching headers each with items populated")
+        void shouldReturnHeaders_withItems() {
+            // Given — two non-deleted headers for the demo, each with items
+            BillingONCHeader1 h1 = createAndPersist(DEMO_NO, PROVIDER_NO, "O", today);
+            createAndPersistItem(h1.getId(), "A001", "789", today);
+            BillingONCHeader1 h2 = createAndPersist(DEMO_NO, PROVIDER_NO, "S", yesterday);
+            createAndPersistItem(h2.getId(), "A002", "789", yesterday);
+            createAndPersistItem(h2.getId(), "A003", "789", yesterday);
+            entityManager.flush();
+            entityManager.clear();
+
+            // When
+            List<BillingONCHeader1> result =
+                    billingONCHeader1Dao.findByDemoNoWithItems(DEMO_NO, 0, 50);
+
+            // Then — DISTINCT keeps the parent count correct despite the
+            // one-row-per-child cartesian product from LEFT JOIN FETCH.
+            assertThat(result).hasSize(2);
+            int totalItems = result.stream().mapToInt(h -> h.getBillingItems().size()).sum();
+            assertThat(totalItems).isEqualTo(3);
+        }
+
+        @Test
+        @DisplayName("should exclude deleted headers")
+        void shouldExcludeDeletedHeaders_forActiveRows() {
+            createAndPersist(DEMO_NO, PROVIDER_NO, "D", today);
+            entityManager.flush();
+            entityManager.clear();
+
+            List<BillingONCHeader1> result =
+                    billingONCHeader1Dao.findByDemoNoWithItems(DEMO_NO, 0, 50);
+
+            assertThat(result).isEmpty();
         }
     }
 }

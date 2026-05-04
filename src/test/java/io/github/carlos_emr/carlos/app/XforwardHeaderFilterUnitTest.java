@@ -48,11 +48,26 @@ class XforwardHeaderFilterUnitTest {
     }
 
     @Test
-    @DisplayName("should honor first forwarded client IP when peer is trusted exactly")
-    void shouldHonorHeaderWhenPeerIsTrustedExactly() throws Exception {
+    @DisplayName("should strip trusted proxy hops from right side of X-Forwarded-For")
+    void shouldStripTrustedProxyHopsFromRight_whenPeerIsTrustedExactly() throws Exception {
         HttpServletRequest request = mock(HttpServletRequest.class);
         when(request.getRemoteAddr()).thenReturn("127.0.0.1");
         when(request.getHeader("X-Forwarded-For")).thenReturn("198.51.100.20, 127.0.0.1");
+
+        XforwardHeaderFilter.ModifyRemoteAddress wrapper =
+                new XforwardHeaderFilter.ModifyRemoteAddress(
+                        request, Set.of("127.0.0.1"), Set.of());
+
+        assertThat(wrapper.getRemoteAddr()).isEqualTo("198.51.100.20");
+    }
+
+    @Test
+    @DisplayName("should ignore spoofed leftmost X-Forwarded-For entries")
+    void shouldIgnoreSpoofedLeftmostEntries_whenTrustedProxyAppendsClient() throws Exception {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getRemoteAddr()).thenReturn("127.0.0.1");
+        when(request.getHeader("X-Forwarded-For"))
+                .thenReturn("203.0.113.200, 198.51.100.20");
 
         XforwardHeaderFilter.ModifyRemoteAddress wrapper =
                 new XforwardHeaderFilter.ModifyRemoteAddress(

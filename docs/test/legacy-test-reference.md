@@ -177,7 +177,7 @@ Province-specific billing functionality:
 The following tests are excluded from regular Maven test runs via Surefire plugin configuration:
 
 - **HinValidatorTest** - Health Insurance Number validation
-- **MCEDT Tests** (`**/*EDTTest.java`) - Medical Certificate Electronic Data Transfer
+- **MCEDT Tests** (`**/*EDTTest.java`) - Medical Claims Electronic Data Transfer
 - **AR2005 Tests** (`**/AR2005*.java`) - Annual Report 2005 related
 - **OntarioMDSpec4DataTest** - Ontario MD specification tests
 - **E2E Tests** (`org/oscarehr/e2e/**/*.java`) - End-to-end tests
@@ -214,7 +214,7 @@ See `/workspace/docs/Testing_Exclusion_of_MCEDT_and_HinValidator_tests.md` for f
 | **Execution Speed** | 5-15 minutes | < 4 seconds |
 | **Assertions** | JUnit assert methods | AssertJ fluent |
 | **Organization** | Package/class hierarchy | @Nested classes + files |
-| **Naming** | testMethodName() | should_action_when_condition() |
+| **Naming** | testMethodName() | shouldAction_whenCondition() |
 | **Spring Context** | Full applicationContextTest.xml | Optimized test contexts |
 | **Base Classes** | DaoTestFixtures | CarlosTestBase family |
 

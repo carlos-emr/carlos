@@ -21,7 +21,7 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.BillingONEAReport;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
@@ -149,11 +149,11 @@ public class BillingONEAReportDaoIntegrationTest extends CarlosTestBase {
             assertThat(result1).isInstanceOf(List.class);
             assertThat(result1).isEmpty();
 
-            List<BillingProviderData> data = new ArrayList<>();
-            BillingProviderData d = new BillingProviderData();
+            List<BillingProviderDto> data = new ArrayList<>();
+            BillingProviderDto d = new BillingProviderDto();
             EntityDataGenerator.generateTestDataForModelClass(d);
             data.add(d);
-            d = new BillingProviderData();
+            d = new BillingProviderDto();
             EntityDataGenerator.generateTestDataForModelClass(d);
             data.add(d);
             List<BillingONEAReport> result2 = dao.findByMagic(data, new Date(), new Date(), "REPORT");

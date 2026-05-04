@@ -545,14 +545,14 @@ src/test/.../commn/dao/CaisiFormQuestionDaoTest.java    # Tests CAISI forms
 Remove `when(facility.isIntegratorEnabled()).thenReturn(false)` mock setups from:
 
 ```
-src/test-modern/.../managers/DemographicUnitTestBase.java
-src/test-modern/.../managers/PrescriptionUnitTestBase.java
-src/test-modern/.../managers/AllergyUnitTestBase.java
-src/test-modern/.../managers/AppointmentUnitTestBase.java
-src/test-modern/.../managers/LabUnitTestBase.java
-src/test-modern/.../managers/MeasurementUnitTestBase.java
-src/test-modern/.../managers/PreventionUnitTestBase.java
-src/test-modern/.../managers/ScheduleUnitTestBase.java
+src/test/java/.../managers/DemographicUnitTestBase.java
+src/test/java/.../managers/PrescriptionUnitTestBase.java
+src/test/java/.../managers/AllergyUnitTestBase.java
+src/test/java/.../managers/AppointmentUnitTestBase.java
+src/test/java/.../managers/LabUnitTestBase.java
+src/test/java/.../managers/MeasurementUnitTestBase.java
+src/test/java/.../managers/PreventionUnitTestBase.java
+src/test/java/.../managers/ScheduleUnitTestBase.java
 ```
 
 Also remove any test methods that test integrator-specific behavior.

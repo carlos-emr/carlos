@@ -94,9 +94,6 @@
         <action name="lab/ViewCumulativeLabValues" class="io.github.carlos_emr.carlos.lab.gate.ViewCumulativeLabValues2Action">
             <result name="success">/WEB-INF/jsp/lab/CumulativeLabValues.jsp</result>
         </action>
-        <action name="lab/ViewCumulativeLabValues2" class="io.github.carlos_emr.carlos.lab.gate.ViewCumulativeLabValues22Action">
-            <result name="success">/WEB-INF/jsp/lab/CumulativeLabValues2.jsp</result>
-        </action>
         <action name="lab/ViewCumulativeLabValues3" class="io.github.carlos_emr.carlos.lab.gate.ViewCumulativeLabValues32Action">
             <result name="success">/WEB-INF/jsp/lab/CumulativeLabValues3.jsp</result>
         </action>

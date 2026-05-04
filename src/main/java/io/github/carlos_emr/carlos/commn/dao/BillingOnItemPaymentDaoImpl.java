@@ -1,38 +1,31 @@
 /**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- * <p>
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- * <p>
- * This software was written for the
- * Department of Family Medicine
- * McMaster University
- * Hamilton
- * Ontario, Canada
- * <p>
- * Modifications made by Magenta Health in 2024.
- 
- * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
+ *
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
 import java.math.BigDecimal;
 import java.util.List;
+import jakarta.persistence.NoResultException;
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.BillingOnItemPayment;
@@ -69,13 +62,21 @@ public class BillingOnItemPaymentDaoImpl extends AbstractDaoImpl<BillingOnItemPa
     }
 
     @Override
+    public int deleteByPaymentId(int paymentId) {
+        Query query = entityManager.createQuery(
+                "delete from BillingOnItemPayment boip where boip.billingOnPaymentId = ?1");
+        query.setParameter(1, paymentId);
+        return query.executeUpdate();
+    }
+
+    @Override
     public BigDecimal getAmountPaidByItemId(int itemId) {
         Query query = entityManager.createQuery("select sum(boip.paid) from BillingOnItemPayment boip where boip.billingOnItemId = ?1");
         query.setParameter(1, itemId);
         BigDecimal paid = null;
         try {
             paid = (BigDecimal) query.getSingleResult();
-        } catch (Exception e) {
+        } catch (NoResultException e) {
         }
 
         if (paid == null) {
@@ -103,6 +104,17 @@ public class BillingOnItemPaymentDaoImpl extends AbstractDaoImpl<BillingOnItemPa
     public List<BillingOnItemPayment> findByBillingNo(int billingNo) {
         Query query = entityManager.createQuery("select boip from BillingOnItemPayment boip where boip.ch1Id = ?1");
         query.setParameter(1, billingNo);
+        return query.getResultList();
+    }
+
+    @Override
+    public List<BillingOnItemPayment> findByBillingNos(List<Integer> billingNos) {
+        if (billingNos == null || billingNos.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        Query query = entityManager.createQuery(
+                "select boip from BillingOnItemPayment boip where boip.ch1Id in (?1) order by boip.ch1Id, boip.billingOnItemId");
+        query.setParameter(1, billingNos);
         return query.getResultList();
     }
 }

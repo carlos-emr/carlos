@@ -229,11 +229,13 @@ public class DemographicExportAction42Action extends ActionSupport {
     private static final String REPORTBINARY = "Binary";
     private static final String REPORTTEXT = "Text";
     private static final String RISKFACTOR = "Risk";
+    private static final String HTTP_METHOD_POST = "POST";
     public static final int CMS4 = 0;
     public static final int E2E = 1;
 
     /** Characters unsafe in filenames across common filesystems; used to sanitize patient name components. */
     private static final String UNSAFE_FILENAME_CHARS = "[/\\\\:*?\"<>|]";
+    private static final Set<String> ONTARIOMD_EXPORT_SCHEMA_IMPORTS = Set.of("EMR_Data_Migration_Schema_DT.xsd");
 
     /**
      * Allowlist of coding system names to their {@link AbstractCodeSystemDao} classes.
@@ -272,6 +274,11 @@ public class DemographicExportAction42Action extends ActionSupport {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographicExport", "r", null)) {
             throw new SecurityException("missing required security object (_demographicExport)");
+        }
+
+        boolean isExportSubmission = HTTP_METHOD_POST.equals(request.getMethod());
+        if (!isExportSubmission) {
+            return SUCCESS;
         }
 
         String setName = this.getPatientSet();
@@ -3684,6 +3691,11 @@ public class DemographicExportAction42Action extends ActionSupport {
         SchemaFactory xsdFactory;
         try {
             xsdFactory = XmlUtils.createSecureSchemaFactory(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+            // The OntarioMD export schema imports this bundled DT schema; all other imports remain blocked.
+            xsdFactory.setResourceResolver(XmlUtils.createClasspathSchemaResolver(
+                    DemographicExportAction42Action.class,
+                    "/omdDataMigration/",
+                    ONTARIOMD_EXPORT_SCHEMA_IMPORTS));
         } catch (SAXException e) {
             logger.error("Failed to create secure schema factory", e);
             return false;

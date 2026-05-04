@@ -1,7 +1,7 @@
-<!DOCTYPE html>
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -17,46 +17,36 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
-<%
-    String user_no = (String) session.getAttribute("user");
-    String asstProvider_no = "";
-    String color = "";
-    String premiumFlag = "";
-    String service_form = "", service_name = "";
-%>
-
-
+<%--
+  Purpose: Supports manageBillingLocation in the Ontario billing workflow.
+  Expected request model data includes: manageLocationModel.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
+<!DOCTYPE html>
+<%--
+    manageBillingLocation.jsp (view) - Ontario billing clinic-location admin.
+    Rendered by ManageBillingLocation2Action which:
+      - enforces _admin.billing w
+      - on `submit=Delete` (POST), removes the named clinic location
+      - resolves the location list + the three echoed parameters into
+        ${manageLocationModel}.
+    Pure presentation here.
+    @since 2006
+--%>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
-
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ include file="/WEB-INF/jsp/admin/dbconnection.jsp" %>
-
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ClinicLocation" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao" %>
-<%
-    ClinicLocationDao clinicLocationDao = (ClinicLocationDao) SpringUtils.getBean(ClinicLocationDao.class);
-%>
-<%
-    String clinicview = request.getParameter("billingform") == null ? oscarVariables.getProperty("default_view") : request.getParameter("billingform");
-    String reportAction = request.getParameter("reportAction") == null ? "" : request.getParameter("reportAction");
-
-    if (request.getParameter("submit") != null && request.getParameter("submit").equals("Delete")) {
-        clinicLocationDao.removeByClinicLocationNo(request.getParameter("location_no"));
-    }
-%>
 
 <html>
     <head>
         <title><fmt:message key="admin.admin.btnAddBillingLocation"/></title>
-        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
         <script language="JavaScript">
             <!--
 
@@ -78,7 +68,7 @@
 
             function valid(form) {
                 if (validateServiceType(form)) {
-                    form.action = "<%= request.getContextPath() %>/billing/CA/ON/DbManageBillingformAdd"
+                    form.action = "${pageContext.request.contextPath}/billing/CA/ON/DbManageBillingformAdd"
                     form.submit()
                 } else {
                 }
@@ -96,8 +86,9 @@
 
             function refresh() {
                 var u = self.location.href;
-                if (u.lastIndexOf("view=1") > 0) {
-                    self.location.href = u.substring(0, u.lastIndexOf("view=1")) + "view=0" + u.substring(eval(u.lastIndexOf("view=1") + 6));
+                var idx = u.lastIndexOf("view=1");
+                if (idx > 0) {
+                    self.location.href = u.substring(0, idx) + "view=0" + u.substring(idx + 6);
                 } else {
                     history.go(0);
                 }
@@ -156,40 +147,29 @@
                             <th>Action</th>
                         </tr>
 
-                        <%
-
-                            List<ClinicLocation> clinicLocations = clinicLocationDao.findByClinicNo(1);
-                            int rCount = 0;
-                            boolean bodd = false;
-                            String servicetype_name = "";
-
-                            if (clinicLocations.size() == 0) {
-                                out.println("failed!!!");
-                            } else {
-                        %>
-                        <%
-                            for (ClinicLocation clinicLocation : clinicLocations) {
-                                bodd = bodd ? false : true; //for the color of rows
-                        %>
-
-                        <tr>
-                            <form name="serviceform" method="post"
-                                  action="<%= request.getContextPath() %>/billing/CA/ON/ManageBillingLocation"
-                                  onsubmit="return confirmthis(<%=clinicLocation.getClinicLocationNo()%>);">
-                                <td align="center"><%=clinicLocation.getClinicLocationNo()%>
-                                </td>
-                                <td><%=clinicLocation.getClinicLocationName()%>
-                                </td>
-                                <td align="center"><input class="btn btn-secondary" type="submit" name="submit"
-                                                          value="Delete"/> <input type="hidden" name="location_no"
-                                                                                  value="<%=clinicLocation.getClinicLocationNo()%>"/>
-                                </td>
-                            </form>
-                        </tr>
-                        <%
-                                }
-                            }
-                        %>
+                        <c:choose>
+                            <c:when test="${empty manageLocationModel.locations}">
+                                <tr><td colspan="3">Unable to load billing locations.</td></tr>
+                            </c:when>
+                            <c:otherwise>
+                                <c:forEach var="clinicLocation" items="${manageLocationModel.locations}">
+                                    <tr>
+                                        <form name="serviceform" method="post"
+                                              action="${pageContext.request.contextPath}/billing/CA/ON/ManageBillingLocation"
+                                              onsubmit="return confirmthis('<carlos:encode value='${clinicLocation.clinicLocationNo}' context='javaScriptAttribute'/>');">
+                                            <td align="center"><carlos:encode value="${clinicLocation.clinicLocationNo}" context="html"/>
+                                            </td>
+                                            <td><carlos:encode value="${clinicLocation.clinicLocationName}" context="html"/>
+                                            </td>
+                                            <td align="center"><input class="btn btn-secondary" type="submit" name="submit"
+                                                                      value="Delete"/> <input type="hidden" name="location_no"
+                                                                                              value="<carlos:encode value='${clinicLocation.clinicLocationNo}' context='htmlAttribute'/>"/>
+                                            </td>
+                                        </form>
+                                    </tr>
+                                </c:forEach>
+                            </c:otherwise>
+                        </c:choose>
 
                     </table>
 
