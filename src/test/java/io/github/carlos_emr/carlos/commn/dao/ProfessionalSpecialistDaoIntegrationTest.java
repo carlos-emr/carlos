@@ -37,7 +37,7 @@ import static org.assertj.core.api.Assertions.*;
 
 /**
  * Integration tests for {@link ProfessionalSpecialistDao} covering
- * findAll, findByEDataUrlNotNull, findByFullName, findByLastName,
+ * findAll, findByFullName, findByLastName,
  * findBySpecialty, findByReferralNo, and getByReferralNo.
  *
  * <p>Migrated from legacy {@code ProfessionalSpecialistDaoTest} (JUnit 4 / DaoTestFixtures).</p>
@@ -85,33 +85,6 @@ public class ProfessionalSpecialistDaoIntegrationTest extends CarlosTestBase {
             assertThat(result.get(2)).isEqualTo(ps2);
         }
 
-        @Test
-        @Tag("read")
-        @DisplayName("should return only specialists with non-null eDataUrl ordered by last name")
-        void shouldReturnSpecialists_whenEDataUrlNotNull() throws Exception {
-            ProfessionalSpecialist ps1 = createSpecialist("FirstName2", "LastName2");
-            ps1.seteDataUrl("eData1");
-            dao.merge(ps1);
-
-            ProfessionalSpecialist ps2 = createSpecialist("FirstName3", "LastName3");
-            ps2.seteDataUrl("eData2");
-            dao.merge(ps2);
-
-            ProfessionalSpecialist ps3 = createSpecialist("FirstName1", "LastName1");
-            ps3.seteDataUrl("eData3");
-            dao.merge(ps3);
-
-            ProfessionalSpecialist ps4 = createSpecialist("FirstName4", "LastName4");
-            ps4.seteDataUrl(null);
-            dao.merge(ps4);
-
-            List<ProfessionalSpecialist> result = dao.findByEDataUrlNotNull();
-
-            assertThat(result).hasSize(3);
-            assertThat(result.get(0)).isEqualTo(ps3);
-            assertThat(result.get(1)).isEqualTo(ps1);
-            assertThat(result.get(2)).isEqualTo(ps2);
-        }
     }
 
     @Nested

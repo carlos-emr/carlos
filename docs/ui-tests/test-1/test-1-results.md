@@ -261,7 +261,7 @@ Test 1 validates the complete workflow for logging into CARLOS EMR and accessing
    - **Severity**: Low - core search functionality unaffected
 
 2. **`/oscar/js/custom/default/master.js`**
-   - **Location**: Demographic detail pages (`/demographic/demographiccontrol.jsp`)
+   - **Location**: Demographic detail pages (`/demographic/DemographicEdit.do`)
    - **Type**: Custom JavaScript configuration
    - **Impact**: Custom UI enhancements unavailable
    - **Severity**: Low - patient data display unaffected

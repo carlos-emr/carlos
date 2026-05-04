@@ -28,32 +28,24 @@ package io.github.carlos_emr.carlos.utility;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
+import java.io.ObjectInputFilter;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.security.KeyManagementException;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.util.Random;
-import javax.net.ssl.HostnameVerifier;
-import javax.net.ssl.HttpsURLConnection;
-import javax.net.ssl.KeyManager;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSession;
-import javax.net.ssl.SSLSocketFactory;
 
 import org.apache.commons.codec.EncoderException;
 import org.apache.commons.codec.language.RefinedSoundex;
 import org.apache.commons.lang3.StringUtils;
 
-import org.apache.log4j.xml.DOMConfigurator;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.utility.CxfClientUtils.TrustAllManager;
+import org.apache.logging.log4j.core.LoggerContext;
 
 /**
  * When using the shutdown hook...
@@ -86,6 +78,61 @@ public final class MiscUtils {
     private static boolean shutdownSignaled = false;
     private static Thread shutdownHookThread = null;
 
+    /** Maximum deserialization object graph depth to prevent stack-overflow bombs. */
+    private static final int MAX_DESER_DEPTH = 20;
+    /** Maximum object reference count to prevent reference-expansion bombs. */
+    private static final long MAX_DESER_REFS = 100_000L;
+    /** Maximum stream byte count (10 MB) to prevent oversized payload bombs. */
+    private static final long MAX_DESER_BYTES = 10_000_000L;
+    /** Maximum array length to prevent large-array allocation bombs. */
+    private static final int MAX_DESER_ARRAY = 10_000;
+
+    /**
+     * Restricts ObjectInputStream deserialization to safe classes only.
+     * Allows standard Java types and CARLOS domain objects; rejects everything else
+     * to prevent remote code execution via untrusted deserialized data.
+     *
+     * <p>Also enforces resource bounds (depth, references, stream bytes, array length)
+     * to mitigate deserialization bomb (DoS) attacks.
+     *
+     * <p>Array types are restricted to primitive arrays and object arrays whose
+     * component package is already on the allowlist. Multi-dimensional arrays
+     * ({@code name.startsWith("[[")}) are permitted at the descriptor level because
+     * the filter is also invoked for each element's class, providing defence-in-depth.
+     */
+    private static final ObjectInputFilter DESERIALIZATION_FILTER = filterInfo -> {
+        if (filterInfo.depth() > MAX_DESER_DEPTH ||
+            filterInfo.references() > MAX_DESER_REFS ||
+            filterInfo.streamBytes() > MAX_DESER_BYTES ||
+            (filterInfo.arrayLength() >= 0 && filterInfo.arrayLength() > MAX_DESER_ARRAY)) {
+            return ObjectInputFilter.Status.REJECTED;
+        }
+        if (filterInfo.serialClass() != null) {
+            String name = filterInfo.serialClass().getName();
+            if (name.startsWith("java.lang.") ||
+                name.startsWith("java.util.") ||
+                name.startsWith("java.io.") ||
+                name.startsWith("java.math.") ||
+                // Primitive array types: [B=byte[], [I=int[], [J=long[], [F=float[],
+                // [D=double[], [Z=boolean[], [C=char[], [S=short[]
+                name.equals("[B") || name.equals("[I") || name.equals("[J") || name.equals("[F") ||
+                name.equals("[D") || name.equals("[Z") || name.equals("[C") || name.equals("[S") ||
+                // Object arrays restricted to the same allowed package prefixes
+                name.startsWith("[Ljava.lang.") || name.startsWith("[Ljava.util.") ||
+                name.startsWith("[Ljava.io.") || name.startsWith("[Ljava.math.") ||
+                name.startsWith("[Lio.github.carlos_emr.carlos.") ||
+                // Multi-dimensional arrays; element classes are still checked individually
+                name.startsWith("[[") ||
+                name.startsWith("io.github.carlos_emr.carlos.")) {
+                return ObjectInputFilter.Status.ALLOWED;
+            }
+            return ObjectInputFilter.Status.REJECTED;
+        }
+        // Non-class invocations (metrics-only updates for depth/refs/bytes) —
+        // resource bounds already checked above, so allow them to proceed.
+        return ObjectInputFilter.Status.ALLOWED;
+    };
+
     public MiscUtils() {
     }
 
@@ -103,8 +150,18 @@ public final class MiscUtils {
             }
 
             String resolvedLocation = configLocation.replace("${contextName}", contextPath);
+
+            File configFile = new File(resolvedLocation);
+            if (!configFile.isFile() || !configFile.canRead()) {
+                getLogger().warn("log4j.override.configuration points to a missing or unreadable file: " + resolvedLocation);
+                return;
+            }
+
             getLogger().info("loading additional override logging configuration from : " + resolvedLocation);
-            DOMConfigurator.configureAndWatch(resolvedLocation);
+            // Auto-reload on file change requires monitorInterval="N" on the
+            // <Configuration> root element of the override XML.
+            LoggerContext ctx = (LoggerContext) LogManager.getContext(false);
+            ctx.setConfigLocation(configFile.toURI());
         }
 
     }
@@ -152,13 +209,23 @@ public final class MiscUtils {
 
     public static byte[] serialize(Serializable s) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        ObjectOutputStream oos = new ObjectOutputStream(baos);
-        oos.writeObject(s);
+        try (ObjectOutputStream oos = new ObjectOutputStream(baos)) {
+            oos.writeObject(s);
+        }
         return baos.toByteArray();
     }
 
-    public static Serializable deserialize(byte[] b) throws IOException, ClassNotFoundException {
-        return (Serializable) (new ObjectInputStream(new ByteArrayInputStream(b))).readObject();
+    // FP for deserialization scanners (CodeQL java/UnsafeDeserialization, Semgrep
+    // object-deserialization): DESERIALIZATION_FILTER blocks JDK gadget packages
+    // (java.net.*, com.sun.*, javax.naming.*, Spring, CommonsCollections) and restricts
+    // to java.lang/util/io/math + the project's own namespace. No project class defines
+    // a side-effecting readObject/readResolve (verified via grep). Filter set BEFORE
+    // readObject is called. Callers pass internally-serialized Integrator payloads.
+    public static Serializable deserialize(byte[] b) throws IOException, ClassNotFoundException { // lgtm[java/unsafe-deserialization]
+        try (ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(b))) {
+            ois.setObjectInputFilter(DESERIALIZATION_FILTER);
+            return (Serializable) ois.readObject(); // nosemgrep: java.lang.security.audit.object-deserialization.object-deserialization
+        }
     }
 
     public static void serializeToFile(Serializable s, String filename) throws IOException {
@@ -170,20 +237,21 @@ public final class MiscUtils {
         }
     }
 
-    public static Serializable deserializeFromFile(String filename) throws IOException, ClassNotFoundException {
-        InputStream is = MiscUtils.class.getResourceAsStream(filename);
-        if (is == null) {
-            is = new FileInputStream(filename);
+    // FP for deserialization scanners: same DESERIALIZATION_FILTER as deserialize(byte[])
+    // above; callers pass filenames that resolve to internal classpath resources or files
+    // written by the application itself (not user-uploaded bytes).
+    public static Serializable deserializeFromFile(String filename) throws IOException, ClassNotFoundException { // lgtm[java/unsafe-deserialization]
+        InputStream rawIs = MiscUtils.class.getResourceAsStream(filename);
+        if (rawIs == null) {
+            rawIs = new FileInputStream(filename);
         }
-
-        Serializable var2;
-        try {
-            var2 = (Serializable) (new ObjectInputStream((InputStream) is)).readObject();
-        } finally {
-            ((InputStream) is).close();
+        // Include rawIs in try-with-resources so it is closed even if
+        // ObjectInputStream construction throws (e.g. StreamCorruptedException).
+        try (InputStream is = rawIs;
+             ObjectInputStream ois = new ObjectInputStream(is)) {
+            ois.setObjectInputFilter(DESERIALIZATION_FILTER);
+            return (Serializable) ois.readObject(); // nosemgrep: java.lang.security.audit.object-deserialization.object-deserialization
         }
-
-        return var2;
     }
 
     public static byte[] readFileAsByteArray(String url) throws IOException {
@@ -236,19 +304,6 @@ public final class MiscUtils {
         }
     }
 
-    public static void setJvmDefaultSSLSocketFactoryAllowAllCertificates() throws NoSuchAlgorithmException, KeyManagementException {
-        TrustAllManager[] tam = new TrustAllManager[]{new TrustAllManager()};
-        SSLContext ctx = SSLContext.getInstance("TLS");
-        ctx.init((KeyManager[]) null, tam, new SecureRandom());
-        SSLSocketFactory sslSocketFactory = ctx.getSocketFactory();
-        HttpsURLConnection.setDefaultSSLSocketFactory(sslSocketFactory);
-        HostnameVerifier hostNameVerifier = new HostnameVerifier() {
-            public boolean verify(String host, SSLSession sslSession) {
-                return true;
-            }
-        };
-        HttpsURLConnection.setDefaultHostnameVerifier(hostNameVerifier);
-    }
 
     public static boolean soundex(String s1, String s2) throws EncoderException {
         return soundexScore(s1, s2) >= 4;

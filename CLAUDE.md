@@ -55,10 +55,8 @@
 make clean                    # Clean project and remove deployed app
 make install                  # Build and deploy without tests
 make install --run-tests      # Build, test, and deploy (all tests)
-make install --run-modern-tests     # Build and run only modern tests (JUnit 5)
-make install --run-legacy-tests     # Build and run only legacy tests (JUnit 4)
-make install --run-unit-tests       # Build and run only modern unit tests
-make install --run-integration-tests # Build and run only modern integration tests
+make install --run-unit-tests       # Build and run only unit tests
+make install --run-integration-tests # Build and run only integration tests
 server start/stop/restart     # Tomcat management
 server log                    # Tail application logs
 
@@ -78,44 +76,80 @@ gh pr create                 # GitHub pull request creation
 - PHI (Patient Health Information) must NEVER be logged or exposed
 - **Use `PathValidationUtils` for ALL file path operations** (see below)
 
+**What counts as PHI vs. internal identifiers:**
+- **PHI** (treat as sensitive): HIN/health card number, patient name, DOB, address, phone, diagnosis text, clinical notes, lab values, medication details — anything that identifies a real person or their care.
+- **NOT PHI** (safe in logs and operator-facing error context): `demographic_no` / `demoNo`, appointment IDs, billing IDs, provider numbers, internal surrogate keys. These are internal indexes scoped to this CARLOS instance — they do not identify a person outside the system and have no meaning without DB access (which is already gated by `SecurityInfoManager`). Including them in error context, exception payloads, and log messages is encouraged because they make incidents debuggable.
+
 ### OWASP Encoding — XSS Prevention
 
-The project includes two OWASP Encoder libraries (`pom.xml`):
-- **`encoder`** (1.4.0) — Java static methods: `Encode.forHtml()`, etc.
-- **`encoder-jakarta-jsp`** (1.4.0) — JSP EL functions: `${e:forHtml()}`, etc. (Jakarta EE edition)
+CARLOS provides null-safe wrappers around OWASP Encoder. **Use the CARLOS wrappers for all new code.**
 
-**Taglib declaration** (required once per JSP that uses EL functions):
+**Why the CARLOS wrapper?** `Encode.forHtmlContent(null)` returns the literal 4-character string `"null"` — `<e:forHtmlContent value='<%= x %>'/>` renders the word `null` in every cell where `x` is a nullable DB field. JSTL `<c:out>` rendered null as empty; the mass `<c:out>` → OWASP migration silently broke this. `<carlos:encode>`, `${carlos:forXxx(...)}`, and `SafeEncode.forXxx(...)` coalesce null to empty before delegating to OWASP.
+
+**CI enforces this.** `scripts/lint/check-encoder-null-safety.sh` runs on every PR and fails if new code uses `<e:forXxx>`, `${e:forXxx(...)}`, or `<%= Encode.forXxx(...) %>`.
+
+**Taglib declaration** (once per JSP that uses the tag or EL functions):
 ```jsp
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 ```
-
-> **Note**: The project uses `encoder-jakarta-jsp` (Jakarta EE), **not** the legacy `encoder-jsp`.
-> The Jakarta edition registers its TLD under `owasp.encoder.jakarta`, not the legacy URI
-> `https://www.owasp.org/index.php/OWASP_Java_Encoder_Project`. Using the wrong URI will
-> cause JSPC compilation failures in CI.
 
 **Quick-Reference — All Encoding Contexts:**
 
-| Context | EL Function (preferred in JSP) | Java / Scriptlet |
-|---------|-------------------------------|------------------|
-| HTML body | `${e:forHtml(value)}` | `Encode.forHtml(value)` |
-| HTML attribute | `${e:forHtmlAttribute(value)}` | `Encode.forHtmlAttribute(value)` |
-| JavaScript string | `${e:forJavaScript(value)}` | `Encode.forJavaScript(value)` |
-| JS in HTML attr | `${e:forJavaScriptAttribute(value)}` | `Encode.forJavaScriptAttribute(value)` |
-| CSS string | `${e:forCssString(value)}` | `Encode.forCssString(value)` |
-| URL path | `${e:forUri(value)}` | `Encode.forUri(value)` |
-| URL parameter | `${e:forUriComponent(value)}` | `Encode.forUriComponent(value)` |
+| Context | JSP Tag (preferred) | EL Function | Java / Scriptlet |
+|---------|--------------------|-------------|------------------|
+| HTML body | `<carlos:encode value="${v}"/>` | `${carlos:forHtmlContent(v)}` | `SafeEncode.forHtmlContent(v)` |
+| HTML attribute | `<carlos:encode value="${v}" context="htmlAttribute"/>` | `${carlos:forHtmlAttribute(v)}` | `SafeEncode.forHtmlAttribute(v)` |
+| JavaScript string | `<carlos:encode value="${v}" context="javaScript"/>` | `${carlos:forJavaScript(v)}` | `SafeEncode.forJavaScript(v)` |
+| JS in HTML attr | `<carlos:encode value="${v}" context="javaScriptAttribute"/>` | `${carlos:forJavaScriptAttribute(v)}` | `SafeEncode.forJavaScriptAttribute(v)` |
+| CSS string | `<carlos:encode value="${v}" context="cssString"/>` | `${carlos:forCssString(v)}` | `SafeEncode.forCssString(v)` |
+| URL path | `<carlos:encode value="${v}" context="uri"/>` | `${carlos:forUri(v)}` | `SafeEncode.forUri(v)` |
+| URL parameter | `<carlos:encode value="${v}" context="uriComponent"/>` | `${carlos:forUriComponent(v)}` | `SafeEncode.forUriComponent(v)` |
+
+`<carlos:encode>` supports the full OWASP context set. Default `context="html"` (forHtmlContent). See `src/main/webapp/WEB-INF/carlos-tag.tld` for the complete list.
 
 **When to use which:**
-- **JSP with JSTL/EL** (preferred): `${e:forHtml(value)}` — clean, no scriptlet needed, context-aware
-- **JSP with heavy scriptlets**: `<%= Encode.forHtml(value) %>` — when already in scriptlet context
-- **Java code** (Actions, Managers): `Encode.forHtml(value)` — direct static method call
+- **JSP tag** (preferred): `<carlos:encode value="${v}"/>` — declarative, null-safe, XSS-safe, context-selectable.
+- **EL function** (inline in attribute strings, URL components, JSON): `href="?id=${carlos:forUriComponent(v)}"` — use where a tag element can't fit.
+- **Java code / scriptlets**: `SafeEncode.forHtmlContent(v)` — drop-in replacement for `Encode.forHtmlContent(v)` with null-safety.
 
-**`${e:forHtml()}` replaces `<c:out>` and `fn:escapeXml()`:**
-- `<c:out>` and `fn:escapeXml()` only do basic XML entity escaping (`<>&"'`)
-- `${e:forHtml()}` uses OWASP Encoder which handles additional edge cases and provides context-specific variants for attributes, JS, CSS, URLs
-- `${e:forHtml()}` is a **drop-in replacement**: `<c:out value="${name}"/>` → `${e:forHtml(name)}`
-- **`<c:out>` is legacy** — still acceptable in existing code, but use `${e:forHtml()}` for all new code
+**Legacy forms — DO NOT use in new code:**
+- `<e:forHtmlContent>` and friends (renders null as literal `"null"`; silently drops if the taglib isn't declared).
+- `${e:forXxx(...)}` EL functions (same null bug).
+- `Encode.forXxx(...)` static calls (same null bug).
+- `<c:out>` and `fn:escapeXml()` (only basic XML entity escaping; not context-aware).
+
+The null-safe wrappers live in:
+- `src/main/java/io/github/carlos_emr/carlos/utility/SafeEncode.java`
+- `src/main/java/io/github/carlos_emr/carlos/utility/tld/CarlosEncodeTag.java`
+- `src/main/webapp/WEB-INF/carlos-tag.tld`
+
+Unit tests: `src/test/java/io/github/carlos_emr/carlos/utility/SafeEncodeUnitTest.java` and
+`src/test/java/io/github/carlos_emr/carlos/utility/tld/CarlosEncodeTagUnitTest.java`.
+
+A migration codemod script is kept at `scripts/migrate-to-carlos-encode.py` for rewriting any future `<e:...>` / `${e:...}` / `Encode.*` drift.
+
+### CSRF Token Bootstrapping on AJAX JSPs
+
+CSRFGuard's client script only injects the hidden `<input name="CSRF-TOKEN">` into a `<form>` whose `action` attribute is a real URL and whose method is non-GET. Pages that read the token via `document.querySelector('input[name="CSRF-TOKEN"]')` from AJAX (fetch/XHR) POSTs **will silently fail** if the page has no such form — the token comes out empty, the request is rejected with an HTML error page, and `response.json()` throws into a catch block the user never sees.
+
+**Rule:** any JSP that does AJAX POSTs reading `input[name="CSRF-TOKEN"]` must satisfy ONE of:
+- **(a)** contain at least one `<form action="<real URL>" method="post">` on the rendered page, OR
+- **(b)** include the canonical bootstrap fragment:
+
+  ```jsp
+  <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
+  ```
+
+  Place the include inside `<body>`. It pulls in `share/javascript/csrfTokenFetch.js`, adds a hidden CSRF-TOKEN input, and calls `fetchCsrfToken(contextPath)` on DOMContentLoaded.
+
+Don't rely on the "empty placeholder form" anti-pattern `<form id="csrfForm" style="display:none;"></form>` — CSRFGuard skips action-less forms, so the input never gets populated. Note also how CSRFGuard 4.5 (configured with `org.owasp.csrfguard.Ajax=true`, see `Owasp.CsrfGuard.properties`) validates tokens:
+
+- **AJAX / XHR requests** carrying `X-Requested-With: XMLHttpRequest` are validated via the `CSRF-TOKEN` request header. XHRs hijacked by CSRFGuard's injected client script get this header set automatically; `fetch()` calls are **not** hijacked and must set `CSRF-TOKEN` explicitly (e.g. reading it from the hidden `input[name="CSRF-TOKEN"]`).
+- **Classic form POSTs** (non-AJAX) are validated via the `CSRF-TOKEN` form-body parameter injected by CSRFGuard into the `<form>`.
+
+Header validation takes precedence over body-parameter validation when both are present.
+
+Reference implementations: `src/main/webapp/WEB-INF/jsp/lab/CA/ALL/labDisplay.jsp:564,939` and `src/main/webapp/WEB-INF/jsp/documentManager/showDocument.jsp:919,1169`.
 
 ### PathValidationUtils - File Path Security
 
@@ -170,12 +204,15 @@ PathValidationUtils.validateExistingPath(file, baseDir);
 ### 2Action Structure Template:
 ```java
 public class Example2Action extends ActionSupport {
-    HttpServletRequest request = ServletActionContext.getRequest();
-    HttpServletResponse response = ServletActionContext.getResponse();
+    private final SecurityInfoManager securityInfoManager;
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    public Example2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
 
     public String execute() {
+        HttpServletRequest request = ServletActionContext.getRequest();
+        HttpServletResponse response = ServletActionContext.getResponse();
         // MANDATORY security check
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_object", "r", null)) {
             throw new SecurityException("missing required sec object");
@@ -191,22 +228,96 @@ public class Example2Action extends ActionSupport {
 2. **Method-Based**: Route via `method` parameter (e.g., `SystemMessage2Action`)
 3. **Inheritance-Based**: Extend `EctDisplayAction` for encounter components
 
+### GET/HEAD Rejection Contract (mutator 2Actions)
+
+Any `*2Action` that performs a mutation MUST reject `GET`/`HEAD` before any
+side-effect fires (DAO persist, manager call, event publish, file write).
+The aggregated contract test that pins this for the in-scope slices is:
+
+`src/test/java/io/github/carlos_emr/carlos/app/contract/MutatorActionGetRejectionContractTest.java`
+
+**When you add a new mutator 2Action**, the contract test's discovery scan
+will fail the build until you register the class in one of three lists at
+the top of that file:
+
+- `unconditionalMutators()` — the action rejects GET regardless of request
+  params. The parameterized test drives GET against it directly.
+- `CONDITIONAL_MUTATORS` — the action rejects GET only when a
+  mutation-intent param is present (e.g. `submit=Save`, `statement=...`).
+  You must also add a focused `*2ActionTest` in the same slice that drives
+  a GET with mutation intent and asserts 405 or `SecurityException` plus
+  `verifyNoInteractions(...)` on the mutation dependency.
+- `NON_MUTATOR_GATES` — a read-scope gate that permits GET and only 405s
+  on truly unsupported methods like DELETE/PUT.
+
+**When a new slice is migrated**, extend `IN_SCOPE_PACKAGE_PREFIXES` with
+the slice's package prefix in the same PR that gates the first mutator
+JSP behind a 2Action.
+
 ### Struts 7.1.1 Notes
 
-All 458 *2Action files use `org.apache.struts2.ActionSupport` (the Struts 7 package location).
-The deprecated `com.opensymphony.xwork2.*` packages from Struts 6.x were migrated to
-`org.apache.struts2.*` as part of the Jakarta EE migration.
+`*2Action` files extend `org.apache.struts2.ActionSupport` (the Struts 7
+package location). The deprecated `com.opensymphony.xwork2.*` packages
+from Struts 6.x were migrated to `org.apache.struts2.*` as part of the
+Jakarta EE migration. A handful of gate / view actions extend
+specialized base classes; treat the Struts 7 `ActionSupport` as the
+default for new code.
 
 **Migration History**:
 - Struts 2.5.33 → 6.8.0 (January 2026, PR #88) — security fix for CVE-2025-64775
 - Struts 6.8.0 → 7.1.1 (March 2026) — Jakarta EE namespace migration, `com.opensymphony.xwork2.*` → `org.apache.struts2.*`
 - Caffeine 3.2.3 cache dependency required by Struts for internal caching
 
+### Direct Response Actions
+
+Actions that write directly to the servlet response, especially PDF, CSV,
+XLS, ZIP, image, and JSON responses via `response.getOutputStream()` or
+`response.getWriter()`, must terminate Struts processing with explicit
+`return NONE` after the response is written. Do not return `"success"`,
+another named result, or a bare `null` after streaming bytes. Named results
+will resolve to JSP forwards, and in CARLOS' Struts 7 direct-response paths a
+bare `null` is not reliable enough to prevent HTML error/page content from
+being written into binary downloads.
+
+Prefer separate action routes/classes for downloads and streamed responses
+instead of mixing page navigation and direct response writes in one
+method-dispatch action. If a legacy mixed action must remain, keep named
+results only for paths that have not written to the response yet, such as
+validation or authorization errors.
+
+For PDFs and other generated binary responses, buffer output before setting
+response headers where practical, validate that generated bytes are the
+expected content type (for PDFs, `%PDF`), and only then write to the servlet
+response. Any non-critical side effects such as "printed" comments or audit
+annotations must either happen before response headers/body are touched or be
+caught and logged after the binary write. An uncaught post-write exception can
+let Struts replace the download with an HTML error page.
+
+Direct-response actions must also own their error response. If generation
+fails before bytes are written, call `sendError(...)` or write a deliberate
+error response and return `NONE`; do not return an unmapped `failure`/`error`
+result. PR #2043 showed this surfaces in CARLOS as `CARLOS Error: 0` because
+`errorpage.jsp` has no real HTTP status after Struts result resolution fails.
+
+Track broader cleanup of legacy mixed direct-response actions in
+GitHub issue #2064.
+
+## Layer Names — class naming policy
+
+**Suffix == role + lifecycle.** Pick the most specific verb-suffix that fits; fall back to `*Service` only when nothing more specific applies. **Never** combine two role-suffixes (no `*LoaderService`, `*ServiceManager`).
+
+Sanctioned suffixes for new code:
+`*Action`, `*ViewModelAssembler`, `*ViewModel`, `*Loader`, `*Resolver`, `*Composer`, `*Validator`, `*Persister`, `*Calculator`, `*Parser`, `*ImportService`, `*Service`, `*Dao`, `*Dto`, `*Command`. Static-utility classes use a domain noun with no suffix.
+
+Forbidden in new code: `*Prep`, `*Manager`, `*Helper`, `*Utils`, compound suffixes except the sanctioned `*ImportService` file-import workflow suffix. DAOs may not inject other DAOs (cross-DAO orchestration goes in a `*Service`).
+
+Full policy + decision rules + retired-suffix migration guidance: **`docs/architecture/layer-names.md`**.
+
 ## Healthcare Domain Context
 
 **Core Medical Modules**:
 - **PMmodule/**: Program management and case management
-- **billing/**: Province-specific billing (BC, ON) with diagnostic codes
+- **billing/**: Province-specific billing (BC, ON) with diagnostic codes. Ontario-specific architecture, layer conventions, fetch policies, and refactor history are documented in **[`docs/billing-ontario-module.md`](docs/billing-ontario-module.md)** — read this before extending `billings/ca/on/**`.
 - **prescription/**: Drug management with ATC codes, interaction checking
 - **lab/**: HL7 lab results
 - **prevention/**: Immunization tracking with provincial schedules
@@ -223,10 +334,9 @@ The deprecated `com.opensymphony.xwork2.*` packages from Struts 6.x were migrate
 2. For quick iterations: `make install` (skips tests)
 3. Debug logging: `debug-on` → `server restart` → `debug-off`
 
-## Modern Test Framework (JUnit 5)
+## Test Framework (JUnit 5)
 **Key Features**:
-- **Parallel Structure**: `src/test-modern/` separate from legacy `src/test/`
-- **Zero Impact**: Legacy tests unchanged, both suites run automatically
+- **Single Structure**: All tests live under `src/test/`. The legacy JUnit 4 suite has been removed; the historical `src/test-modern/` directory has been collapsed into `src/test/`.
 - **Modern Stack**: JUnit 5, AssertJ, H2 in-memory database, BDD naming
 - **Spring Integration**: Full Spring context with transaction support
 - **Multi-File Architecture**: Component-first naming (`TicklerDao*Test`) for scalability
@@ -252,9 +362,9 @@ mvn test -Dgroups="create,update"  # Specific operations
 
 ### BDD Test Naming Convention
 
-Modern tests use BDD (Behavior-Driven Development) naming for clarity. Choose ONE style and use it consistently:
+Tests use BDD (Behavior-Driven Development) naming for clarity. Use one project-wide Java style:
 
-**Pattern: `should<Action>_<preposition><Condition>()` (RECOMMENDED for Java)**
+**Pattern: `should<Action>_<prepositionOrContext><Condition>()`**
 ```java
 void shouldReturnTickler_whenValidIdProvided()
 void shouldThrowException_whenTicklerNotFound()
@@ -264,8 +374,10 @@ void shouldConvertExtensionList_toMapKeyedByExtKey()
 void shouldReturnTrue_forOMedsCppCode()
 ```
 
-**Rules**: ONE underscore separator, camelCase throughout, `should` prefix required.
-The preposition after the underscore (`when`, `by`, `for`, `with`, `to`, `from`, etc.) should be whichever reads most naturally for the test scenario.
+**Rules**: exactly ONE underscore separator, camelCase throughout, `should` prefix required, and the segment after the underscore starts lowercase.
+The preposition/context after the underscore (`when`, `by`, `for`, `with`, `to`, `from`, etc.) should be whichever reads most naturally for the test scenario.
+There is no zero-underscore exception for "simple" tests; use a short context such as `_forDefaultCase`, `_forTypeContract`, or `_withValidInput`.
+Do not use pure camelCase (`shouldReturnTicklerWhenValidIdProvided`), snake_case (`should_return_tickler_when_valid_id_provided`), or multi-underscore names (`shouldReturnFoo_whenBar_andBaz`).
 
 **Benefits**: Self-documenting, clear failure messages, searchable
 
@@ -380,26 +492,32 @@ DAO method names can be misleading. For example, `getProviders(boolean active)` 
 ## Code Quality Standards
 
 **Security (CodeQL Integration)**:
-- OWASP Encoder for all JSP outputs — prefer `${e:forHtml()}` EL functions (see [OWASP Encoding](#owasp-encoding--xss-prevention))
+- Null-safe CARLOS encoder for all JSP outputs — prefer `<carlos:encode>` tag or `${carlos:forXxx()}` EL functions (see [OWASP Encoding](#owasp-encoding--xss-prevention))
 - Parameterized SQL queries (never concatenation)
 - File upload filename validation
 - CodeQL security scanning must pass
 
 **Spring Integration Pattern**:
 ```java
-private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
+private final SomeManager someManager;
+
+public Example2Action(SomeManager someManager) {
+    this.someManager = someManager;
+}
 ```
 
 **Documentation Standards**:
-- **JavaDoc Required**: All public classes and methods MUST have comprehensive JavaDoc
+- **JavaDoc Required**: Public entrypoint classes and non-obvious public/protected methods should have contract-level JavaDoc. Carrier DTOs, trivial records, getters/setters, and tiny private helpers do not need mechanical method-by-method JavaDoc.
 - **No @author Tags**: Do NOT add @author annotations (misleading after Bitbucket→GitHub migration)
 - **@since Tags**: Use git history to determine accurate dates: `git log --follow --format="%ai" <file> | tail -1`
-- **Parameter Documentation**: Include specific data types in @param tags (e.g., `@param id String the unique identifier`)
-- **Return Documentation**: Specify exact return types in @return tags (e.g., `@return List<Provider> list of healthcare providers`)
-- **Exception Documentation**: Document all thrown exceptions with @throws tags
+- **Parameter Documentation**: Use `@param` tags when the method contract is not obvious from the signature or when legacy field semantics matter
+- **Return Documentation**: Use `@return` tags when callers need help understanding shape, nullability, or compatibility expectations
+- **Exception Documentation**: Document thrown exceptions when failure modes are part of the caller contract
 - **Deprecation**: Use @deprecated with migration guidance to newer APIs
+- **Legacy DTOs**: Keep fields private and document compatibility behavior at the class level, especially fixed-width file shapes and money normalization. Avoid mechanical JavaDoc on trivial bean accessors.
 - **JSP Documentation**: Add comprehensive JSP comment blocks after copyright headers with purpose, features, parameters, and @since
-- **Inline Comments**: Add comments for complex logic on separate lines (not same line as code)
+- **Package-Level Docs**: Use `package-info.java` to document ownership boundaries and conventions for `assembler`, `command`, `dto`, and `support` packages
+- **Inline Comments**: Comment the why: legacy compatibility, security/compliance constraints, file-format offsets, transaction boundaries, and non-obvious control flow. Do not narrate obvious assignments or getters/setters.
 
 **Copyright Header Standards**:
 - **New Files**: Use CARLOS project header (see `docs/copyright-header-carlos.md`)
@@ -409,6 +527,13 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 - **Attribution**: See `NOTICE.md` for full project attribution and heritage documentation
 
 ## Healthcare Integration Standards
+
+**Billing Identifier Abbreviations**:
+- Java class/member names use Java-style acronym casing: `On`, `Ohip`, `Ra`, `Moh`, `Inr`, `Gst`, `Mri`, `Edt`, and `Obec`.
+- `Diag` is the only accepted non-official short form in billing identifiers.
+- Keep regular domain words spelled out: `ThirdParty`, `Specialist`, `Report`, `Payment`, and `Address`.
+- Do not introduce legacy compressed names such as `3rd`, `Dig`, `Db`, `Obj`, `Hlp`, `Bean`, or `Handler`.
+- Official prose, UI labels, external protocols, and Ministry/OHIP document names may keep uppercase acronyms like `OHIP`, `RA`, `MOH`, `INR`, and `GST`.
 
 **Standards & Protocols**:
 - **HL7 v2/v3**: Full message processing with MSH, PID, OBX, ORC, OBR segment handlers
@@ -420,7 +545,7 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 
 **Provincial Healthcare Systems**:
 - **Teleplan**: BC MSP billing system with specialized upload/download
-- **MCEDT**: Medical Certificate Electronic Data Transfer
+- **MCEDT**: Medical Claims Electronic Data Transfer
 - **DrugRef**: Drug reference database integration
 
 **Medical Forms Integration**:
@@ -442,7 +567,7 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 - `TargetColour` / `Recommendation` — generate DRL from flowsheet XML for color indicators and clinical reminders
 - `WorkFlowDS` — wraps `KieBase` for workflow rule execution (e.g., Rh pregnancy management)
 
-**Test Coverage**: Tests in `src/test-modern/` tagged `@Tag("drools")`. Run with `make install --run-unit-tests` or `mvn test -Dgroups="drools"`. See `docs/drools-decision-support-system.md#test-coverage` for details.
+**Test Coverage**: Tests under `src/test/` tagged `@Tag("drools")`. Run with `make install --run-unit-tests` or `mvn test -Dgroups="drools"`. See `docs/drools-decision-support-system.md#test-coverage` for details.
 
 ## Technology Stack Details
 
@@ -458,7 +583,7 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 ### Web Technologies
 - **Struts 7.1.1**: Modern actions (2Action pattern) using `org.apache.struts2.ActionSupport`
   - Upgraded from 6.8.0 (March 2026) - Jakarta EE namespace migration
-  - All 458 *2Action files migrated from `com.opensymphony.xwork2.*` to `org.apache.struts2.*`
+  - `*2Action` classes migrated from `com.opensymphony.xwork2.*` to `org.apache.struts2.*`
   - Requires Caffeine 3.2.3 cache dependency for internal caching
 - **Apache CXF 4.1.5**: Web services framework for healthcare integrations (Jakarta EE 10, upgrade to 4.2.x pending Jackson 3 migration)
 - **JSP/JSTL**: View layer with extensive medical form templates
@@ -469,7 +594,7 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 ### Security Libraries
 - **OWASP CSRFGuard 4.5 (Jakarta edition)**: CSRF protection with auto-injected tokens (see `docs/csrf-protection-architecture.md`)
 - **OWASP Encoder** (`encoder` 1.4.0): `Encode.*` static methods for Java code and JSP scriptlets
-- **OWASP Encoder JSP** (`encoder-jakarta-jsp` 1.4.0): `${e:forHtml()}` EL functions — preferred for JSP output encoding (taglib URI: `owasp.encoder.jakarta`)
+- **OWASP Encoder JSP** (`encoder-jakarta-jsp` 1.4.0): underlying tag library behind the CARLOS null-safe wrapper (TLD URI `owasp.encoder.jakarta.advanced`). Do not reference `<e:forXxx>` / `${e:forXxx()}` directly in new code — use `<carlos:encode>` / `${carlos:forXxx()}`.
 - **BCrypt**: Password hashing for provider authentication
 - **Bouncy Castle**: Cryptographic functions for PHI protection
 
@@ -551,12 +676,17 @@ CARLOS EMR uses a unique incremental migration approach from Struts 1.x to Strut
 - **Class Structure**:
   ```java
   public class Example2Action extends ActionSupport {
-      HttpServletRequest request = ServletActionContext.getRequest();
-      HttpServletResponse response = ServletActionContext.getResponse();
+      private final SecurityInfoManager securityInfoManager;
+      private final SomeManager someManager;
 
-      private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
+      public Example2Action(SecurityInfoManager securityInfoManager, SomeManager someManager) {
+          this.securityInfoManager = securityInfoManager;
+          this.someManager = someManager;
+      }
 
       public String execute() {
+          HttpServletRequest request = ServletActionContext.getRequest();
+          HttpServletResponse response = ServletActionContext.getResponse();
           // Security check pattern
           if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_object", "r", null)) {
               throw new SecurityException("missing required sec object");
@@ -598,12 +728,17 @@ HttpServletResponse response = ServletActionContext.getResponse();
 
 **Spring Integration**
 ```java
-private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-private TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
+private final SecurityInfoManager securityInfoManager;
+private final TicklerManager ticklerManager;
+
+public Some2Action(SecurityInfoManager securityInfoManager, TicklerManager ticklerManager) {
+    this.securityInfoManager = securityInfoManager;
+    this.ticklerManager = ticklerManager;
+}
 ```
-- Spring dependency injection via `SpringUtils.getBean()`
-- Maintains loose coupling with Spring container
-- No need for Struts2-Spring plugin complexity
+- Prefer constructor injection for new actions and services.
+- Legacy Struts-created routers that require a no-arg constructor may call `SpringUtils.getBean()` inside that constructor and expose a package-private test constructor.
+- Do not add new `field = SpringUtils.getBean(...)` shims.
 
 **Security Pattern (Required)**
 ```java
@@ -620,18 +755,18 @@ if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(re
 **Struts.xml Mapping**
 ```xml
 <action name="login" class="io.github.carlos_emr.carlos.login.Login2Action">
-    <result name="provider" type="redirect">/provider/providercontrol.jsp</result>
-    <result name="failure">/logout.jsp</result>
+    <result name="provider" type="redirect">/provider/providercontrol</result>
+    <result name="failure">/WEB-INF/jsp/login/logout.jsp</result>
 </action>
 ```
-- Maintains `.do` extension for backward compatibility
+- Uses extensionless action routes
 - Spring object factory integration: `<constant name="struts.objectFactory" value="spring"/>`
-- Mixed namespace support for gradual migration
+- View JSPs live under `/WEB-INF/jsp/**`
 
 **URL Compatibility**
-- Legacy URLs ending in `.do` continue to work
-- No changes required to existing JSP forms and links
-- Seamless user experience during migration
+- New code must use extensionless Struts routes
+- New view pages should not be exposed as public JSP entrypoints
+- Caller updates must target actions, not JSP files
 
 #### **Best Practices for 2Action Development**
 **1. Security First**
@@ -640,23 +775,37 @@ if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(re
 - Log security violations appropriately
 
 **2. Error Handling**
-- Use context-appropriate OWASP encoding when outputting user data:
-  - `Encode.forHtml()` / `${e:forHtml()}` - HTML body content
-  - `Encode.forHtmlAttribute()` / `${e:forHtmlAttribute()}` - HTML attribute values
-  - `Encode.forJavaScript()` / `${e:forJavaScript()}` - JavaScript string contexts
-  - `Encode.forJavaScriptAttribute()` / `${e:forJavaScriptAttribute()}` - JS in HTML attributes
-  - `Encode.forCssString()` / `${e:forCssString()}` - CSS string values
-  - `Encode.forUri()` / `${e:forUri()}` and `Encode.forUriComponent()` / `${e:forUriComponent()}` - URL paths/parameters
-- In JSP views, prefer the `${e:...}` EL functions over scriptlet calls (see [OWASP Encoding](#owasp-encoding--xss-prevention))
+- Use context-appropriate CARLOS null-safe encoding when outputting user data:
+  - `SafeEncode.forHtmlContent()` / `${carlos:forHtmlContent()}` / `<carlos:encode value="..."/>` - HTML body content
+  - `SafeEncode.forHtmlAttribute()` / `${carlos:forHtmlAttribute()}` / `<carlos:encode value="..." context="htmlAttribute"/>` - HTML attribute values
+  - `SafeEncode.forJavaScript()` / `${carlos:forJavaScript()}` / `<carlos:encode value="..." context="javaScript"/>` - JavaScript string contexts
+  - `SafeEncode.forJavaScriptAttribute()` / `${carlos:forJavaScriptAttribute()}` - JS in HTML attributes
+  - `SafeEncode.forCssString()` / `${carlos:forCssString()}` - CSS string values
+  - `SafeEncode.forUri()` / `${carlos:forUri()}` and `SafeEncode.forUriComponent()` / `${carlos:forUriComponent()}` - URL paths/parameters
+- In JSP views, prefer `<carlos:encode>` tag; use `${carlos:forXxx()}` EL functions for inline use inside attribute strings or URLs (see [OWASP Encoding](#owasp-encoding--xss-prevention))
 - Implement proper exception handling
 - Return appropriate result strings
 
 **3. Spring Integration**
-- Use `SpringUtils.getBean()` for dependency injection
+- Prefer constructor injection; reserve `SpringUtils.getBean()` for legacy compatibility shims that cannot be constructor-wired yet.
 - Leverage existing Spring-managed services
 - Maintain transactional boundaries
 
-**4. Healthcare Context**
+**4. View / Endpoint Design**
+- Put new JSP views under `src/main/webapp/WEB-INF/jsp/**`
+- Add new page entrypoints as Struts actions in the correct `struts-*.xml` file
+- Use extensionless routes such as `/login`, `/form/setupSelect`, `/eform/efmshowform_data`
+- Point action results at internal `WEB-INF` JSPs or other extensionless actions, not public JSP paths
+- For view-only pages, prefer a small gate action that enforces security and then forwards internally
+- When migrating a former public `index.jsp`, decide whether the old clean section-root URL
+  (for example `/administration/`) was part of the user-facing contract. Check nav links,
+  popup targets, generated menu URLs, and relative links, not just explicit `index.jsp`
+  references.
+- If that clean section-root URL was part of the contract, preserve it with a small
+  explicit compatibility mapping. Do not make `/section/index` the new preferred public URL,
+  and do not use a generic catch-all `append /index` rewrite.
+
+**5. Healthcare Context**
 - Include audit logging for patient data access
 - Follow PHI protection patterns
 - Use healthcare-specific validation
@@ -675,9 +824,13 @@ This migration pattern allows CARLOS EMR to modernize incrementally while mainta
 - `src/main/webapp/**` - Web resources (JSP, CSS, JS)
 
 ### Configuration Files
-- **Struts Configuration**:
-  - `struts.xml` - Struts2 configuration with `.do` extension and Spring integration
-  - Mixed Struts 1.x and 2.x action mappings
+- **Struts Configuration** (modular split):
+  - `struts.xml` - Parent config with global constants and `<include>` directives for 17 module files
+  - `struts-{admin,billing,clinical,demographic,document,eform,encounter,form,integration,lab,login,messenger,pmmodule,prescription,provider,report,scheduling}.xml` - Domain-specific action mappings
+  - Each module file declares its own uniquely-named package (e.g., `name="billing"`) with `namespace="/"` and `extends="struts-default"`
+  - New actions should be added to the appropriate domain-specific module file, not to `struts.xml`
+  - Canonical action routes are extensionless (`struts.action.extension=""`)
+  - Static assets are excluded from Struts by `struts.action.excludePattern`
 - **Database Configuration**:
   - Custom MySQL dialect: `OscarMySQL5Dialect`
   - Connection tracking: `OscarTrackingBasicDataSource`
@@ -987,8 +1140,9 @@ src/main/resources/applicationContext.xml           # Core Spring setup patterns
 src/main/resources/applicationContextREST.xml      # OAuth 1.0a implementation examples
 src/main/webapp/WEB-INF/web.xml                   # Security filter chain configuration
 
-# Struts Configuration
-src/main/webapp/WEB-INF/classes/struts.xml        # 2Action mapping examples
+# Struts Configuration (modular — 17 domain-specific files included from parent)
+src/main/webapp/WEB-INF/classes/struts.xml        # Parent config: constants + <include> directives
+src/main/webapp/WEB-INF/classes/struts-*.xml      # Domain-specific action mappings (admin, billing, etc.)
 src/main/java/io/github/carlos_emr/carlos/*/web/*2Action.java # 2Action implementation patterns
 
 # Database Configuration
@@ -1026,6 +1180,7 @@ src/main/java/io/github/carlos_emr/carlos/commn/dao/DemographicDao.java       # 
 # Provincial Healthcare Integration
 src/main/java/io/github/carlos_emr/carlos/billing/CA/BC/                      # BC-specific billing
 src/main/java/io/github/carlos_emr/carlos/billing/CA/ON/                      # Ontario-specific billing
+docs/billing-ontario-module.md                                                 # Ontario billing architecture, fetch policy, recipe
 src/main/java/io/github/carlos_emr/carlos/olis/                               # Ontario Labs integration
 
 # HL7 & FHIR Examples
@@ -1062,30 +1217,27 @@ database/mysql/SnomedCore/snomedinit.sql         # Medical terminology integrati
 
 ### Testing Patterns
 ```bash
-# Modern Test Framework (JUnit 5) - ACTIVE AND RECOMMENDED
-src/test-modern/java/io/github/carlos_emr/carlos/            # Modern JUnit 5 tests
-src/test-modern/java/io/github/carlos_emr/carlos/managers/   # Manager unit tests (DemographicManagerUnitTest)
-src/test-modern/java/io/github/carlos_emr/carlos/test/unit/  # Unit test base classes (CarlosUnitTestBase)
-src/test-modern/resources/                        # Modern test configurations
-docs/test/modern-test-framework-complete.md       # Complete test framework documentation
-docs/test/test-writing-guide.md                   # Test writing patterns and static mocking
-docs/test/endpoint-testing-guide.md               # REST & SOAP endpoint testing with CXF local transport
-
-# Legacy Test Examples (JUnit 4) - for reference only
-src/test/java/io/github/carlos_emr/carlos/                   # Legacy test structure
-src/test/resources/over_ride_config.properties    # Test configuration template
+# Test Framework (JUnit 5)
+src/test/java/io/github/carlos_emr/carlos/            # All tests live here
+src/test/java/io/github/carlos_emr/carlos/managers/   # Manager unit tests (DemographicManagerUnitTest)
+src/test/java/io/github/carlos_emr/carlos/test/unit/  # Unit test base classes (CarlosUnitTestBase)
+src/test/resources/                                   # Test configurations
+src/test/resources/over_ride_config.properties        # Test configuration template
+docs/test/modern-test-framework-complete.md           # Complete test framework documentation
+docs/test/test-writing-guide.md                       # Test writing patterns and static mocking
+docs/test/endpoint-testing-guide.md                   # REST & SOAP endpoint testing with CXF local transport
 ```
 
-#### Modern Test Framework - Critical Guidelines
+#### Test Framework - Critical Guidelines
 **IMPORTANT**: When writing tests, ALWAYS:
 1. **Examine the actual code first** - Read the DAO/Manager interfaces to see what methods actually exist
 2. **Test real methods only** - Never make up methods that don't exist in the codebase
 3. **Use actual method signatures** - Match the exact parameters and return types
 4. **Choose the right base class**:
-   - Integration tests: Extend `CarlosTestBase` (Spring context + database)
+   - Integration tests: Extend `CarlosTestBase` (Spring context + H2 database)
    - Unit tests: Extend `CarlosUnitTestBase` (mocked SpringUtils, no database)
    - Domain unit tests: Extend domain-specific bases like `DemographicUnitTestBase`
-5. **Follow BDD naming strictly**: `should<Action>_<preposition><Condition>` (camelCase, ONE underscore, e.g. `_when`, `_by`, `_for`, `_with`)
+5. **Follow BDD naming strictly**: `should<Action>_<prepositionOrContext><Condition>` (camelCase, exactly ONE underscore, suffix starts lowercase; e.g. `_when`, `_by`, `_for`, `_with`). Do not use zero-underscore or multi-underscore variants.
 6. **Check DAO interfaces** - Look at `*Dao.java` files to see available methods before writing tests
 7. **For Manager unit tests with static classes** (LogAction, etc.):
    - Register SpringUtils mocks FIRST, THEN create static mocks
@@ -1124,8 +1276,8 @@ For detailed examples and test development workflow, see **[Test Writing Guide](
 
 **Test Execution Commands:**
 ```bash
-# Run all modern tests
-mvn test                          # Runs modern tests first, then legacy
+# Run all tests
+mvn test
 
 # Run all integration tests for a DAO component
 mvn test -Dtest=TicklerDao*IntegrationTest  # All TicklerDao integration tests
@@ -1139,7 +1291,7 @@ mvn test -Dtest=DemographicManagerUnitTest         # All 117 Demographic manager
 mvn test -Dtest=*ManagerUnitTest                   # All manager unit tests
 
 # Run by test type (using tags)
-mvn test -Dgroups="unit"                # Fast unit tests only (129 tests)
+mvn test -Dgroups="unit"                # Fast unit tests only
 mvn test -Dgroups="integration"         # Integration tests only
 mvn test -Dgroups="manager"             # All manager layer tests
 
@@ -1149,7 +1301,7 @@ mvn test -Dgroups="demographic,security" # Demographic security tests
 mvn test -Dgroups="create,update"       # All create and update operations
 
 # Build with tests
-make install --run-tests          # Includes modern tests automatically
+make install --run-tests          # All tests
 make install --run-unit-tests     # Only unit tests (fast, no database)
 ```
 
@@ -1168,6 +1320,7 @@ make install --run-unit-tests     # Only unit tests (fast, no database)
 # Project Documentation
 docs/Password_System.md                           # Security architecture details
 docs/struts-actions-detailed.md                   # Action mapping documentation
+docs/struts-web-endpoints.md                      # Current Struts route + WEB-INF JSP guidance
 pom.xml                                            # Complete dependency list with versions
 README.md                                          # Project setup and overview
 ```
@@ -1176,6 +1329,7 @@ README.md                                          # Project setup and overview
 - **Security Patterns**: Check `SecurityInfoManager.java` and existing 2Action implementations
 - **Database Access**: Look at DAO implementations in `commn.dao` package
 - **Healthcare Standards**: Examine `hl7/` and `fhir/` packages for integration patterns
-- **Provincial Variations**: Study `billing/CA/BC/` vs `billing/CA/ON/` implementations
+- **Provincial Variations**: Study `billing/CA/BC/` vs `billing/CA/ON/` implementations. The Ontario module has a dedicated architecture doc — see [`docs/billing-ontario-module.md`](docs/billing-ontario-module.md) for layer conventions, entity domain methods, fetch policy (LAZY + JOIN FETCH companions), service/loader/persister suffix grammar, and the new-feature recipe.
 - **Spring Configuration**: Reference the multiple `applicationContext*.xml` files
 - **2Action Migration**: Compare legacy Action classes with their 2Action equivalents
+- **New JSP-backed pages**: Follow `docs/struts-web-endpoints.md`

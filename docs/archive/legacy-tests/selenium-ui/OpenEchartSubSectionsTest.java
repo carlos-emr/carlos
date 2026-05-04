@@ -209,6 +209,9 @@ public class OpenEchartSubSectionsTest extends BaseTest {
 
     // Test the open forms window successful scenario
     @Test
+    /**
+     * Tests the successful opening of the forms window in the Echart application.
+     */
     public void testOpenFormsWindowSuccessful() throws InterruptedException {
         EchartContext ctx = navigateToEchartForPatient7();
         try {

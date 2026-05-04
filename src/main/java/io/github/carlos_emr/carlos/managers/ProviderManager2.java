@@ -188,10 +188,6 @@ public class ProviderManager2 {
             settings.setTicklerWarningProvider(map.get("provider_for_tickler_warning").getValue());
         }
 
-        if (map.get("rx_use_rx3") != null) {
-            settings.setUseRx3("yes".equals(map.get("rx_use_rx3").getValue()) ? true : false);
-        }
-
         if (map.get("rx_show_patient_dob") != null) {
             settings.setShowPatientDob("yes".equals(map.get("rx_show_patient_dob").getValue()) ? true : false);
         }
@@ -408,9 +404,6 @@ public class ProviderManager2 {
             settings.setDisableCommentOnAck("yes".equals(map.get("lab_ack_comment").getValue()) ? true : false);
         }
 
-        if (map.get("disable_born_prompts") != null) {
-        }
-
         if (map.get("dashboard_share") != null) {
             settings.setDashboardShare("Y".equals(map.get("dashboard_share").getValue()) || "true".equals(map.get("dashboard_share").getValue()));
         }
@@ -553,8 +546,6 @@ public class ProviderManager2 {
         p.setValue(settings.getWorkloadManagement());
         p = getMappedOrNewProperty(map, "provider_for_tickler_warning", providerNo);
         p.setValue(settings.getTicklerWarningProvider());
-        p = getMappedOrNewProperty(map, "rx_use_rx3", providerNo);
-        p.setValue(settings.isUseRx3() ? "yes" : "no");
         p = getMappedOrNewProperty(map, "rx_show_patient_dob", providerNo);
         p.setValue(settings.isShowPatientDob() ? "yes" : "no");
         p = getMappedOrNewProperty(map, "rx_default_quantity", providerNo);
@@ -661,17 +652,12 @@ public class ProviderManager2 {
         p.setValue(settings.isDisableCommentOnAck() ? "yes" : "no");
 
 
-        p = getMappedOrNewProperty(map, "disable_born_prompts", providerNo);
         p = getMappedOrNewProperty(map, "dashboard_share", providerNo);
         p.setValue(String.valueOf(settings.isDashboardShare()));
 
         p = getMappedOrNewProperty(map, "hide_old_echart_link_in_appointment", providerNo);
         p.setValue(settings.isHideOldEchartLinkInAppointment() ? "Y" : "N");
 
-
-        if (map.get("rx_use_rx3") != null) {
-            settings.setUseRx3("yes".equals(map.get("rx_use_rx3").getValue()) ? true : false);
-        }
 
         if (map.get("rx_show_patient_dob") != null) {
             settings.setShowPatientDob("yes".equals(map.get("rx_show_patient_dob").getValue()) ? true : false);

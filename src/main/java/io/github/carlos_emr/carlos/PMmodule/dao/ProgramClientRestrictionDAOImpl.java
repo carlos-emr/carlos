@@ -37,9 +37,9 @@ import java.util.List;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramClientRestriction;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import org.springframework.beans.factory.annotation.Autowired;
-import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import org.springframework.transaction.annotation.Transactional;
-import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
+import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
 /**
  * DAO implementation for managing {@link ProgramClientRestriction} records.
@@ -56,7 +56,7 @@ import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
  * @see ProgramClientRestriction
  */
 @Transactional
-public class ProgramClientRestrictionDAOImpl extends AbstractHibernateDao implements ProgramClientRestrictionDAO {
+public class ProgramClientRestrictionDAOImpl extends AbstractJpaDao implements ProgramClientRestrictionDAO {
     private DemographicDao demographicDao;
     private ProgramDao programDao;
     private ProviderDao providerDao;
@@ -64,7 +64,7 @@ public class ProgramClientRestrictionDAOImpl extends AbstractHibernateDao implem
     public Collection<ProgramClientRestriction> find(int programId, int demographicNo) {
 
         String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = true and pcr.programId = ?1 and pcr.demographicNo = ?2 order by pcr.startDate";
-        List<ProgramClientRestriction> pcrs = (List<ProgramClientRestriction>) HqlQueryHelper.find(currentSession(), sSQL, programId, demographicNo);
+        List<ProgramClientRestriction> pcrs = (List<ProgramClientRestriction>) JpqlQueryHelper.find(entityManager(), sSQL, programId, demographicNo);
         for (ProgramClientRestriction pcr : pcrs) {
             setRelationships(pcr);
         }
@@ -73,19 +73,19 @@ public class ProgramClientRestrictionDAOImpl extends AbstractHibernateDao implem
 
     public void save(ProgramClientRestriction restriction) {
         if (restriction.getId() == null || restriction.getId() == 0) {
-            currentSession().persist(restriction);
+            entityManager().persist(restriction);
         } else {
-            currentSession().merge(restriction);
+            entityManager().merge(restriction);
         }
     }
 
     public ProgramClientRestriction find(int restrictionId) {
-        return setRelationships(currentSession().get(ProgramClientRestriction.class, restrictionId));
+        return setRelationships(entityManager().find(ProgramClientRestriction.class, restrictionId));
     }
 
     public Collection<ProgramClientRestriction> findForProgram(int programId) {
         String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = true and pcr.programId = ?1 order by pcr.demographicNo";
-        Collection<ProgramClientRestriction> pcrs = (Collection<ProgramClientRestriction>) HqlQueryHelper.find(currentSession(), sSQL, programId);
+        Collection<ProgramClientRestriction> pcrs = (Collection<ProgramClientRestriction>) JpqlQueryHelper.find(entityManager(), sSQL, programId);
         for (ProgramClientRestriction pcr : pcrs) {
             setRelationships(pcr);
         }
@@ -94,7 +94,7 @@ public class ProgramClientRestrictionDAOImpl extends AbstractHibernateDao implem
 
     public Collection<ProgramClientRestriction> findDisabledForProgram(int programId) {
         String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = false and pcr.programId = ?1 order by pcr.demographicNo";
-        Collection<ProgramClientRestriction> pcrs = (Collection<ProgramClientRestriction>) HqlQueryHelper.find(currentSession(), sSQL, programId);
+        Collection<ProgramClientRestriction> pcrs = (Collection<ProgramClientRestriction>) JpqlQueryHelper.find(entityManager(), sSQL, programId);
         for (ProgramClientRestriction pcr : pcrs) {
             setRelationships(pcr);
         }
@@ -103,7 +103,7 @@ public class ProgramClientRestrictionDAOImpl extends AbstractHibernateDao implem
 
     public Collection<ProgramClientRestriction> findForClient(int demographicNo) {
         String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = true and pcr.demographicNo = ?1 order by pcr.programId";
-        Collection<ProgramClientRestriction> pcrs = (Collection<ProgramClientRestriction>) HqlQueryHelper.find(currentSession(), sSQL, demographicNo);
+        Collection<ProgramClientRestriction> pcrs = (Collection<ProgramClientRestriction>) JpqlQueryHelper.find(entityManager(), sSQL, demographicNo);
         for (ProgramClientRestriction pcr : pcrs) {
             setRelationships(pcr);
         }
@@ -112,7 +112,7 @@ public class ProgramClientRestrictionDAOImpl extends AbstractHibernateDao implem
 
     public Collection<ProgramClientRestriction> findForClient(int demographicNo, int facilityId) {
         String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = true and pcr.demographicNo = ?1 and pcr.programId in (select s.id from Program s where s.facilityId = ?2 or s.facilityId is null) order by pcr.programId";
-        Collection<ProgramClientRestriction> pcrs = (Collection<ProgramClientRestriction>) HqlQueryHelper.find(currentSession(), sSQL, Integer.valueOf(demographicNo), facilityId);
+        Collection<ProgramClientRestriction> pcrs = (Collection<ProgramClientRestriction>) JpqlQueryHelper.find(entityManager(), sSQL, Integer.valueOf(demographicNo), facilityId);
         for (ProgramClientRestriction pcr : pcrs) {
             setRelationships(pcr);
         }
@@ -121,7 +121,7 @@ public class ProgramClientRestrictionDAOImpl extends AbstractHibernateDao implem
 
     public Collection<ProgramClientRestriction> findDisabledForClient(int demographicNo) {
         String sSQL = "from ProgramClientRestriction pcr where pcr.enabled = false and pcr.demographicNo = ?1 order by pcr.programId";
-        Collection<ProgramClientRestriction> pcrs = (Collection<ProgramClientRestriction>) HqlQueryHelper.find(currentSession(), sSQL, demographicNo);
+        Collection<ProgramClientRestriction> pcrs = (Collection<ProgramClientRestriction>) JpqlQueryHelper.find(entityManager(), sSQL, demographicNo);
         for (ProgramClientRestriction pcr : pcrs) {
             setRelationships(pcr);
         }

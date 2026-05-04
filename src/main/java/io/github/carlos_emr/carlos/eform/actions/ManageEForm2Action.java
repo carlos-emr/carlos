@@ -32,6 +32,8 @@ package io.github.carlos_emr.carlos.eform.actions;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -39,6 +41,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.eform.EFormExportZip;
 import io.github.carlos_emr.carlos.eform.data.EForm;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -49,7 +52,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class ManageEForm2Action extends ActionSupport {
+public class ManageEForm2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -86,6 +89,12 @@ public class ManageEForm2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_eform)");
         }
 
+        if (zippedForm == null) {
+            MiscUtils.getLogger().error("importEForm() called with no uploaded file; returning fail.");
+            request.setAttribute("importErrors", Collections.singletonList("No file was uploaded."));
+            return "fail";
+        }
+
         List<String> errors = Collections.emptyList();
         try (InputStream zippedFormStream = Files.newInputStream(zippedForm.toPath())) {
             request.setAttribute("input", "import");
@@ -101,7 +110,18 @@ public class ManageEForm2Action extends ActionSupport {
         }
     }
 
-    private File zippedForm; // 接收上传的文件
+    private File zippedForm;
+
+    /**
+     * Receives uploaded files from the Struts 7.x {@code ActionFileUploadInterceptor}.
+     */
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
+            UploadedFile uploaded = uploadedFiles.get(0);
+            this.zippedForm = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
+        }
+    }
 
     public File getZippedForm() {
         return zippedForm;

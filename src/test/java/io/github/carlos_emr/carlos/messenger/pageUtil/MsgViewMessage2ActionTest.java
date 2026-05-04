@@ -128,7 +128,7 @@ class MsgViewMessage2ActionTest extends CarlosWebTestBase {
 
         // Then - should redirect (return NONE)
         assertThat(result).isEqualTo(ActionSupport.NONE);
-        assertThat(getMockResponse().getRedirectedUrl()).contains("DisplayMessages.jsp");
+        assertThat(getMockResponse().getRedirectedUrl()).contains("DisplayMessages");
     }
 
     @Test
@@ -145,7 +145,7 @@ class MsgViewMessage2ActionTest extends CarlosWebTestBase {
 
         // Then
         assertThat(result).isEqualTo(ActionSupport.NONE);
-        assertThat(getMockResponse().getRedirectedUrl()).contains("DisplayMessages.jsp");
+        assertThat(getMockResponse().getRedirectedUrl()).contains("DisplayMessages");
     }
 
     @Test

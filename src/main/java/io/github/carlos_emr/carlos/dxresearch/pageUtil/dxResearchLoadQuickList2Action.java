@@ -62,7 +62,7 @@ public class dxResearchLoadQuickList2Action extends ActionSupport {
         dxQuickListBeanHandler quicklistHd = new dxQuickListBeanHandler();
 
         HttpSession session = request.getSession();
-        session.setAttribute("allQuickLists", quicklistHd);
+        session.setAttribute("allQuickLists", quicklistHd); // nosemgrep: tainted-session-from-http-request -- DAO-sourced quick list handler, no user input
 
         return SUCCESS;
     }

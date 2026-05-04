@@ -72,6 +72,7 @@ import io.github.carlos_emr.carlos.providers.data.ProviderData;
 import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
  * @author Ronnie
@@ -198,7 +199,7 @@ public class Util {
         try {
             f = PathValidationUtils.validateExistingPath(f, baseDir);
         } catch (SecurityException e) {
-            logger.error("Error! Attempted path traversal attack detected for file: " + filename);
+            logger.error("Error! Attempted path traversal attack detected for file: {}", LogSanitizer.sanitize(filename));
             return false;
         }
 
@@ -266,7 +267,7 @@ public class Util {
             
             // If the filename is empty or null after sanitization, reject the request
             if (safeFileName == null || safeFileName.trim().isEmpty()) {
-                logger.error("Invalid filename provided: " + fileName);
+                logger.error("Invalid filename provided: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 return;
             }
             
@@ -278,13 +279,13 @@ public class Util {
             try {
                 requestedFile = PathValidationUtils.validateExistingPath(requestedFile, documentDir);
             } catch (SecurityException e) {
-                logger.error("Path traversal attempt detected for file: " + fileName);
+                logger.error("Path traversal attempt detected for file: {}", LogSanitizer.sanitize(fileName));
                 return;
             }
 
             // Verify the file exists and is readable
             if (!requestedFile.exists() || !requestedFile.isFile() || !requestedFile.canRead()) {
-                logger.error("Error during file download: file does not exist or is not accessible - {}", fileName);
+                logger.error("Error during file download: file does not exist or is not accessible - {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 rsp.sendError(HttpServletResponse.SC_NOT_FOUND);
                 return;
             }
@@ -298,11 +299,11 @@ public class Util {
                 byte[] buf = new byte[8192];
                 int len;
                 while ((len = in.read(buf)) > 0) {
-                    out.write(buf, 0, len);
+                    out.write(buf, 0, len); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- application/octet-stream file download
                 }
             }
         } catch (IOException ex) {
-            logger.error("Error during file download: {}", fileName, ex);
+            logger.error("Error during file download: {}", LogSanitizer.sanitize(fileName), ex);
         }
     }
     
@@ -609,7 +610,7 @@ public class Util {
                     return false;
                 }
 
-                FileInputStream fin = new FileInputStream(f.getAbsolutePath());
+                FileInputStream fin = new FileInputStream(f.getAbsolutePath()); // codeql[java/path-injection] — validated by isPathWithinDirectory (PathValidationUtils) guard above
 
                 String dir = dirs.get(x);
 
@@ -676,24 +677,6 @@ public class Util {
         }
     }
 
-    static public void putPartialDate(cdsDtCihi.DateFullOrPartial dfp, CaseManagementNoteExt cme) {
-        if (cme != null) putPartialDate(dfp, cme.getDateValue(), cme.getValue());
-    }
-
-    static public void putPartialDate(cdsDtCihi.DateFullOrPartial dfp, Date dateValue, Integer tableName, Integer tableId, Integer fieldName) {
-        String format = null;
-        PartialDate pd = partialDateDao.getPartialDate(tableName, tableId, fieldName);
-        if (pd != null) format = pd.getFormat();
-        putPartialDate(dfp, dateValue, format);
-    }
-
-    static public void putPartialDate(cdsDtCihi.DateFullOrPartial dfp, Date dateValue, String format) {
-        if (dateValue != null) {
-            if (PartialDate.YEARONLY.equals(format)) dfp.setYearOnly(calDate(dateValue));
-            else if (PartialDate.YEARMONTH.equals(format)) dfp.setYearMonth(calDate(dateValue));
-            else dfp.setFullDate(calDate(dateValue));
-        }
-    }
 
     static public String readPartialDate(CaseManagementNoteExt cme) {
         String type = cme.getValue();
@@ -882,7 +865,7 @@ public class Util {
         
         // Final validation - ensure no path traversal characters remain
         if (sanitized.contains("..") || sanitized.contains("/") || sanitized.contains("\\")) {
-            logger.error("Invalid filename after sanitization: " + fileName);
+            logger.error("Invalid filename after sanitization: {}", LogSanitizer.sanitize(fileName));
             return "";
         }
         

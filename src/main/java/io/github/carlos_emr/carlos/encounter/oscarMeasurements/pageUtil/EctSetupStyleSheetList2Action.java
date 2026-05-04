@@ -61,7 +61,7 @@ public final class EctSetupStyleSheetList2Action extends ActionSupport {
             Collection allStyleSheets = sshd.getStyleSheetNameVector();
 
             HttpSession session = request.getSession();
-            session.setAttribute("allStyleSheets", allStyleSheets);
+            session.setAttribute("allStyleSheets", allStyleSheets); // nosemgrep: tainted-session-from-http-request -- DAO result list from EctStyleSheetBeanHandler
 
             return "continue";
 

@@ -64,4 +64,11 @@ public class ServiceSpecialistsDaoImpl extends AbstractDaoImpl<ServiceSpecialist
         query.setParameter(1, servId);
         return query.getResultList();
     }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public List<Object[]> findAllSpecialistsWithService() {
+        Query query = entityManager.createQuery("SELECT ser, pro, cs FROM ServiceSpecialists ser, ProfessionalSpecialist pro, ConsultationServices cs WHERE pro.id = ser.id.specId AND cs.serviceId = ser.id.serviceId ORDER BY pro.lastName, cs.serviceDesc");
+        return query.getResultList();
+    }
 }

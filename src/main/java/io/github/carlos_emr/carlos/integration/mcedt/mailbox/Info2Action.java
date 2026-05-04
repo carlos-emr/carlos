@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.integration.mcedt.DelegateFactory;
 import io.github.carlos_emr.carlos.integration.mcedt.McedtMessageCreator;
+import io.github.carlos_emr.carlos.integration.mcedt.McedtSecurity;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -58,8 +59,11 @@ public class Info2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
+        McedtSecurity.requireRead(request);
         String method = request.getParameter("method");
         if ("deleteFiles".equals(method)) {
+            McedtSecurity.requireWrite(request);
+            McedtSecurity.requirePost(request);
             return deleteFiles();
         } else if ("changeDisplay".equals(method)) {
             return changeDisplay();
@@ -88,14 +92,14 @@ public class Info2Action extends ActionSupport {
             EDTDelegate delegate = DelegateFactory.getEDTDelegateInstance(serviceId);
             Detail detail = delegate.info(resourceIds);
             request.setAttribute("detail", detail);
-            request.getSession().setAttribute("info", "true");
+            request.getSession().setAttribute("info", "true"); // nosemgrep: tainted-session-from-http-request -- hardcoded literal
 
             return SUCCESS;
         } catch (Exception e) {
             logger.error("Unable to load resource info ", e);
             String errorMessage = McedtMessageCreator.exceptionToString(e);
             addActionError(getText("updateAction.unspecified.errorLoading", new String[]{errorMessage}));
-            request.getSession().setAttribute("info", "false");
+            request.getSession().setAttribute("info", "false"); // nosemgrep: tainted-session-from-http-request -- hardcoded literal
             return SUCCESS;
         }
     }
@@ -123,7 +127,7 @@ public class Info2Action extends ActionSupport {
         }
         //get the updated list from mcedt and save to session
         List<DetailDataCustom> resourceList = getResourceList(request);
-        request.getSession().setAttribute("resourceListSent", resourceList);
+        request.getSession().setAttribute("resourceListSent", resourceList); // nosemgrep: tainted-session-from-http-request -- MCEDT resource list from EDT service response
         return SUCCESS;
     }
 
@@ -147,11 +151,11 @@ public class Info2Action extends ActionSupport {
                 if (result != null) {
                     resultSize = result.getResultSize();
                 }
-                request.getSession().setAttribute("resultSize", resultSize);
+                request.getSession().setAttribute("resultSize", resultSize); // nosemgrep: tainted-session-from-http-request -- computed list size, not from user input
 
                 if (request.getSession().getAttribute("resourceTypeList") == null) {
                     this.setTypeListResult(ActionUtils.getTypeList(request, delegate));
-                    request.getSession().setAttribute("resourceTypeList", this.getTypeListResult());
+                    request.getSession().setAttribute("resourceTypeList", this.getTypeListResult()); // nosemgrep: tainted-session-from-http-request -- MCEDT type list from EDT service response
                 } else {
                     this.setTypeListResult((TypeListResult) request.getSession().getAttribute("resourceTypeList"));
                 }
@@ -171,7 +175,7 @@ public class Info2Action extends ActionSupport {
 
                     if (resourceList.size() > 0) {
                         //Collections.sort(resourceList, DetailDataCustom.ResourceIdComparator);
-                        request.getSession().setAttribute("resourceListDL", resourceList);
+                        request.getSession().setAttribute("resourceListDL", resourceList); // nosemgrep: tainted-session-from-http-request -- MCEDT resource list from EDT service response
                     }
                 } else if (result == null) {
                     // No documents found
@@ -198,12 +202,13 @@ public class Info2Action extends ActionSupport {
         String currStatus = this.getStatus();
         if (prvStatus.equalsIgnoreCase(currStatus)) {
             this.setPageNo(1);
+            // nosemgrep: tainted-session-from-http-request -- currStatus from Struts @StrutsParameter, validated via getStatusAsResourceStatus() enum match in caller; only stored when matching previous session value
             request.getSession().setAttribute("resourceStatus", currStatus);
         }
 
         List<DetailDataCustom> resourceList = getResourceList(request);
 
-        request.getSession().setAttribute("resourceListSent", resourceList);
+        request.getSession().setAttribute("resourceListSent", resourceList); // nosemgrep: tainted-session-from-http-request -- MCEDT resource list from EDT service response
 
         return SUCCESS;
     }

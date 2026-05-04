@@ -30,8 +30,6 @@ package io.github.carlos_emr.carlos.integration.mcedt.mailbox;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.Date;
-
 import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -41,6 +39,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.integration.mcedt.DelegateFactory;
 import io.github.carlos_emr.carlos.integration.mcedt.McedtMessageCreator;
+import io.github.carlos_emr.carlos.integration.mcedt.McedtSecurity;
 
 import ca.ontario.health.edt.Detail;
 import ca.ontario.health.edt.DetailData;
@@ -61,6 +60,7 @@ public class Resource2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
+        McedtSecurity.requireRead(request);
         String method = request.getParameter("method");
         if ("loadDownloadList".equals(method)) {
             return loadDownloadList();
@@ -68,36 +68,6 @@ public class Resource2Action extends ActionSupport {
             return loadSentList();
         } else if ("changeDisplay".equals(method)) {
             return changeDisplay();
-        } 
-        //functions needed for the upload page
-        ActionUtils.removeSuccessfulUploads(request);
-        ActionUtils.removeUploadResponseResults(request);
-        ActionUtils.removeSubmitResponseResults(request);
-        Date startDate = ActionUtils.getOutboxTimestamp();
-        Date endDate = new Date();
-        if (startDate != null && endDate != null) {
-            ActionUtils.moveOhipToOutBox(startDate, endDate);
-            
-            /*
-             * The method ActionUtils.moveObecToOutBox is slow with many files in 'OscarDocument/oscar/document/'.
-             * To optimize, we will move OBEC files during generation rather than during MCEDT mailbox opening.
-             * See ObecData.writeFile() for details on the updated process.
-             */
-            // ActionUtils.moveObecToOutBox(startDate,endDate);
-
-            ActionUtils.setOutboxTimestamp(endDate);
-        }
-        ActionUtils.setUploadResourceId(request, new BigInteger("-1"));
-
-
-        if (request.getSession().getAttribute("resourceList") != null) {
-            request.getSession().removeAttribute("resourceList");
-        }
-        if (request.getSession().getAttribute("resourceID") != null) {
-            request.getSession().removeAttribute("resourceID");
-        }
-        if (request.getSession().getAttribute("info") != null) {
-            request.getSession().removeAttribute("info");
         }
         return SUCCESS;
     }
@@ -108,7 +78,7 @@ public class Resource2Action extends ActionSupport {
         List<DetailDataCustom> resourceList;
         try {
             resourceList = loadList(ResourceStatus.DOWNLOADABLE);
-            request.getSession().setAttribute("resourceListDL", resourceList);
+            request.getSession().setAttribute("resourceListDL", resourceList); // nosemgrep: tainted-session-from-http-request -- MCEDT resource list from EDT service response
         } catch (Exception e) {
             logger.error("Unable to load resource list ", e);
 
@@ -131,8 +101,8 @@ public class Resource2Action extends ActionSupport {
             }
             this.setStatus("UPLOADED");
             resourceList = loadList(ResourceStatus.UPLOADED);
-            request.getSession().setAttribute("resourceListSent", resourceList);
-            request.getSession().setAttribute("resourceStatus", "UPLOADED");
+            request.getSession().setAttribute("resourceListSent", resourceList); // nosemgrep: tainted-session-from-http-request -- MCEDT resource list from EDT service response
+            request.getSession().setAttribute("resourceStatus", "UPLOADED"); // nosemgrep: tainted-session-from-http-request -- hardcoded literal
         } catch (Exception e) {
             return "successUserSent";
         }
@@ -145,7 +115,7 @@ public class Resource2Action extends ActionSupport {
 
             if (request.getSession().getAttribute("resourceTypeList") == null) {
                 this.setTypeListResult(getTypeList(request, delegate));
-                request.getSession().setAttribute("resourceTypeList", this.getTypeListResult());
+                request.getSession().setAttribute("resourceTypeList", this.getTypeListResult()); // nosemgrep: tainted-session-from-http-request -- MCEDT type list from EDT service response
             } else {
                 this.setTypeListResult((TypeListResult) request.getSession().getAttribute("resourceTypeList"));
             }
@@ -177,7 +147,7 @@ public class Resource2Action extends ActionSupport {
                 BigInteger resultSize = null;
                 if (result != null)
                     resultSize = result.getResultSize();
-                request.getSession().setAttribute("resultSize", resultSize);
+                request.getSession().setAttribute("resultSize", resultSize); // nosemgrep: tainted-session-from-http-request -- computed list size, not from user input
 
                 if (result != null && result.getData() != null) {
 

@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 6.5//EN" "https://struts.apache.org/dtds/struts-6.5.dtd">
+<!--
+  Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+  This software is published under the GPL GNU General Public License.
+  This program is free software; you can redistribute it and/or
+  modify it under the terms of the GNU General Public License
+  as published by the Free Software Foundation; either version 2
+  of the License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+  CARLOS EMR Project
+  https://github.com/carlos-emr/carlos
+-->
+<!--
+    CARLOS EMR - Authentication Actions
+    Contains action mappings for login, logout, MFA, security records, and facility selection.
+-->
+<struts>
+    <package name="login" namespace="/" extends="struts-default">
+
+        <action name="index" class="io.github.carlos_emr.carlos.login.gate.ViewPublicPage2Action">
+            <result name="success">/WEB-INF/jsp/login/index.jsp</result>
+        </action>
+        <action name="logoutPage" class="io.github.carlos_emr.carlos.login.gate.ViewPublicPage2Action">
+            <result name="success">/WEB-INF/jsp/login/logout.jsp</result>
+        </action>
+        <action name="loginfailed" class="io.github.carlos_emr.carlos.login.gate.ViewPublicPage2Action">
+            <result name="success">/WEB-INF/jsp/login/loginfailed.jsp</result>
+        </action>
+        <action name="forcepasswordreset" class="io.github.carlos_emr.carlos.login.gate.ViewForcePasswordReset2Action">
+            <result name="success">/WEB-INF/jsp/login/forcepasswordreset.jsp</result>
+        </action>
+        <action name="location" class="io.github.carlos_emr.carlos.login.gate.ViewAuthenticatedPage2Action">
+            <result name="success">/WEB-INF/jsp/login/location.jsp</result>
+        </action>
+        <action name="select_facility" class="io.github.carlos_emr.carlos.login.gate.ViewAuthenticatedPage2Action">
+            <result name="success">/WEB-INF/jsp/login/select_facility.jsp</result>
+        </action>
+        <action name="securityError" class="io.github.carlos_emr.carlos.login.gate.ViewPublicPage2Action">
+            <result name="success">/WEB-INF/jsp/error/securityError.jsp</result>
+        </action>
+        <action name="errorpage" class="io.github.carlos_emr.carlos.login.gate.ViewPublicPage2Action">
+            <result name="success">/WEB-INF/jsp/error/errorpage.jsp</result>
+        </action>
+        <action name="failure" class="io.github.carlos_emr.carlos.login.gate.ViewPublicPage2Action">
+            <result name="success">/WEB-INF/jsp/error/failure.jsp</result>
+        </action>
+        <action name="closenreload" class="io.github.carlos_emr.carlos.login.gate.ViewPublicPage2Action">
+            <result name="success">/WEB-INF/jsp/common/closenreload.jsp</result>
+        </action>
+
+        <action name="logout" class="io.github.carlos_emr.carlos.login.Logout2Action">
+            <result name="success">/WEB-INF/jsp/login/index.jsp</result>
+        </action>
+        <action name="login" class="io.github.carlos_emr.carlos.login.Login2Action">
+            <result name="provider" type="redirect">/provider/providercontrol</result>
+            <result name="failure">/WEB-INF/jsp/login/logout.jsp</result>
+            <result name="error">/WEB-INF/jsp/login/loginfailed.jsp</result>
+            <result name="caisiPMM">/PMmodule/ProviderInfo</result>
+            <result name="forcepasswordreset">/WEB-INF/jsp/login/forcepasswordreset.jsp</result>
+            <result name="programLocation">/WEB-INF/jsp/login/location.jsp</result>
+            <result name="mfaHandler">/WEB-INF/jsp/mfa/mfa_handler.jsp</result>
+        </action>
+        <action name="securityRecord/mfa" class="io.github.carlos_emr.carlos.security.MfaActions2Action"/>
+
+        <action name="admin/uploadEntryText" class="io.github.carlos_emr.carlos.login.UploadLoginText2Action">
+            <result name="success">/WEB-INF/jsp/admin/uploadEntryText.jsp</result>
+        </action>
+        <action name="FacilityManager" class="io.github.carlos_emr.carlos.facility.FacilityManager2Action" method="execute">
+            <result name="list">/WEB-INF/jsp/admin/facility/ListFacilities.jsp</result>
+            <result name="edit">/WEB-INF/jsp/admin/facility/EditFacility.jsp</result>
+        </action>
+
+        <!--
+            Lightweight session-heartbeat endpoint. Pure Java (no <result>)
+            — writes {"valid": true|false} JSON directly. Replaces the
+            deleted /status/sessionHeartbeat.jsp and is whitelisted in
+            LoginFilter so stale browser tabs can discover an expired
+            session without being force-redirected to the login page.
+        -->
+        <action name="status/SessionHeartbeat" class="io.github.carlos_emr.carlos.status.action.SessionHeartbeat2Action"/>
+
+    </package>
+</struts>

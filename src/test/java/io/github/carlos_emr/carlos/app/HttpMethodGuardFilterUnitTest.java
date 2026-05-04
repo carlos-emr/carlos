@@ -82,7 +82,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should pass through POST to mutator action")
         void shouldPassThrough_forPostToMutatorAction() throws Exception {
             when(request.getMethod()).thenReturn("POST");
-            when(request.getRequestURI()).thenReturn("/carlos/tickler/addTickler.do");
+            when(request.getRequestURI()).thenReturn("/carlos/tickler/addTickler");
 
             filter.doFilter(request, response, chain);
 
@@ -111,7 +111,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should pass through GET to display action")
         void shouldPassThrough_forGetToDisplayAction() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/web/dashboard/display/DashboardDisplay.do");
+            when(request.getRequestURI()).thenReturn("/carlos/web/dashboard/display/DashboardDisplay");
             when(request.getParameter("method")).thenReturn(null);
 
             filter.doFilter(request, response, chain);
@@ -124,7 +124,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should pass through GET to view method parameter")
         void shouldPassThrough_forGetWithViewMethodParam() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/SystemMessage.do");
+            when(request.getRequestURI()).thenReturn("/carlos/SystemMessage");
             when(request.getParameter("method")).thenReturn("view");
 
             filter.doFilter(request, response, chain);
@@ -137,7 +137,23 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should pass through GET to edit action (edit loads forms via GET)")
         void shouldPassThrough_forGetToEditAction() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/tickler/EditTickler.do");
+            when(request.getRequestURI()).thenReturn("/carlos/tickler/EditTickler");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+        }
+
+        @Test
+        @DisplayName("should pass through GET to CreateDate (dual-purpose schedule action)")
+        void shouldPassThrough_forGetToCreateDateAction() throws Exception {
+            // CreateDate starts with "create" (a mutator prefix) but serves month-
+            // navigation reloads on GET (bFirstDisp=0). ScheduleCreateDate2Action
+            // enforces POST internally for real mutations (bFirstDisp=null|"1").
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/schedule/CreateDate");
             when(request.getParameter("method")).thenReturn(null);
 
             filter.doFilter(request, response, chain);
@@ -171,17 +187,30 @@ class HttpMethodGuardFilterUnitTest {
             verify(chain).doFilter(request, response);
             verify(response, never()).sendError(anyInt(), anyString());
         }
+
+        @Test
+        @DisplayName("should pass through GET to moveMOHFiles render action")
+        void shouldPassThrough_forGetToMoveMohFilesRenderAction() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/billing/CA/ON/moveMOHFiles");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+        }
     }
 
     @Nested
-    @DisplayName("GET requests to mutator .do actions")
+    @DisplayName("GET requests to mutator actions")
     class MutatorActions {
 
         @Test
         @DisplayName("should block GET to Add* action")
         void shouldBlock_forGetToAddAction() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/tickler/addTickler.do");
+            when(request.getRequestURI()).thenReturn("/carlos/tickler/addTickler");
             when(request.getParameter("method")).thenReturn(null);
 
             filter.doFilter(request, response, chain);
@@ -196,7 +225,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should block GET to Delete* action")
         void shouldBlock_forGetToDeleteAction() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/oscarRx/deleteRx.do");
+            when(request.getRequestURI()).thenReturn("/carlos/oscarRx/deleteRx");
             when(request.getParameter("method")).thenReturn(null);
 
             filter.doFilter(request, response, chain);
@@ -209,7 +238,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should block GET to Save* action")
         void shouldBlock_forGetToSaveAction() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/SaveAssoc.do");
+            when(request.getRequestURI()).thenReturn("/carlos/SaveAssoc");
             when(request.getParameter("method")).thenReturn(null);
 
             filter.doFilter(request, response, chain);
@@ -222,7 +251,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should block GET to Submit* action")
         void shouldBlock_forGetToSubmitAction() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/prevention/SubmitImmunization.do");
+            when(request.getRequestURI()).thenReturn("/carlos/prevention/SubmitImmunization");
             when(request.getParameter("method")).thenReturn(null);
 
             filter.doFilter(request, response, chain);
@@ -235,7 +264,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should block GET to Create* action")
         void shouldBlock_forGetToCreateAction() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/billing/CreateBillingReport.do");
+            when(request.getRequestURI()).thenReturn("/carlos/billing/CreateBillingReport");
             when(request.getParameter("method")).thenReturn(null);
 
             filter.doFilter(request, response, chain);
@@ -248,7 +277,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should block GET to Remove* action")
         void shouldBlock_forGetToRemoveAction() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/RemoveFromGroup.do");
+            when(request.getRequestURI()).thenReturn("/carlos/RemoveFromGroup");
             when(request.getParameter("method")).thenReturn(null);
 
             filter.doFilter(request, response, chain);
@@ -261,12 +290,28 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should block GET to Assign* action")
         void shouldBlock_forGetToAssignAction() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/web/dashboard/display/AssignTickler.do");
+            when(request.getRequestURI()).thenReturn("/carlos/web/dashboard/display/AssignTickler");
             when(request.getParameter("method")).thenReturn(null);
 
             filter.doFilter(request, response, chain);
 
             verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
+        @DisplayName("should block GET to DocumentErrorReportUpload")
+        void shouldBlock_forGetToDocumentErrorReportUpload() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/oscarBilling/DocumentErrorReportUpload");
+            when(request.getParameter("filename")).thenReturn("R1234567");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED,
+                    "GET requests are not allowed on this endpoint. Use POST.");
+            verify(response).setHeader("Allow", "POST");
             verify(chain, never()).doFilter(request, response);
         }
     }
@@ -279,7 +324,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should block GET with method=save on mixed action")
         void shouldBlock_forGetWithSaveMethodParam() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/SystemMessage.do");
+            when(request.getRequestURI()).thenReturn("/carlos/SystemMessage");
             when(request.getParameter("method")).thenReturn("save");
 
             filter.doFilter(request, response, chain);
@@ -292,7 +337,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should block GET with method=delete")
         void shouldBlock_forGetWithDeleteMethodParam() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/SomeAction.do");
+            when(request.getRequestURI()).thenReturn("/carlos/SomeAction");
             when(request.getParameter("method")).thenReturn("delete");
 
             filter.doFilter(request, response, chain);
@@ -305,7 +350,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should block GET with method=update")
         void shouldBlock_forGetWithUpdateMethodParam() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/SomeAction.do");
+            when(request.getRequestURI()).thenReturn("/carlos/SomeAction");
             when(request.getParameter("method")).thenReturn("update");
 
             filter.doFilter(request, response, chain);
@@ -318,7 +363,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should pass through GET with method=list (read operation)")
         void shouldPassThrough_forGetWithListMethodParam() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/SystemMessage.do");
+            when(request.getRequestURI()).thenReturn("/carlos/SystemMessage");
             when(request.getParameter("method")).thenReturn("list");
 
             filter.doFilter(request, response, chain);
@@ -331,7 +376,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should pass through GET with method=edit (loads form)")
         void shouldPassThrough_forGetWithEditMethodParam() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/SystemMessage.do");
+            when(request.getRequestURI()).thenReturn("/carlos/SystemMessage");
             when(request.getParameter("method")).thenReturn("edit");
 
             filter.doFilter(request, response, chain);
@@ -381,26 +426,18 @@ class HttpMethodGuardFilterUnitTest {
             verify(chain, never()).doFilter(request, response);
         }
 
-        // TODO: appointmentcontrol.jsp is a mutator dispatcher but is not yet in
-        //       PURE_MUTATOR_JSP_NAMES — add it to HttpMethodGuardFilter and restore
-        //       the blocking assertion (see production issue backlog).
-        @Test
-        @DisplayName("should pass through GET to appointmentcontrol.jsp (not yet in mutator list)")
-        void shouldPassThrough_forGetToAppointmentControlJsp() throws Exception {
-            when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/appointment/appointmentcontrol.jsp");
-
-            filter.doFilter(request, response, chain);
-
-            verify(chain).doFilter(request, response);
-            verify(response, never()).sendError(anyInt(), anyString());
-        }
+        // Note: the former appointmentcontrol dispatcher route has been removed.
+        // Edit/add appointment flows now target their final action endpoints directly.
+        // (ViewAppointment2Action gate). The public JSP path returns 404 at the
+        // servlet layer before this filter ever sees it, so the prior test was
+        // exercising a dead URL. End-to-end coverage of the gated action path lives in
+        // ViewAppointment2ActionTest.
 
         @Test
         @DisplayName("should block GET to PreventionManager.jsp with formAction=update")
         void shouldBlock_forGetToPreventionManagerWithUpdate() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/oscarPrevention/PreventionManager.jsp");
+            when(request.getRequestURI()).thenReturn("/carlos/prevention/PreventionManager.jsp");
             when(request.getParameter("formAction")).thenReturn("update");
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(Collections.singletonList("formAction")));
@@ -415,7 +452,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should pass through GET to PreventionManager.jsp without formAction")
         void shouldPassThrough_forGetToPreventionManagerWithoutFormAction() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/oscarPrevention/PreventionManager.jsp");
+            when(request.getRequestURI()).thenReturn("/carlos/prevention/PreventionManager.jsp");
             when(request.getParameter("formAction")).thenReturn(null);
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(Collections.emptyList()));
@@ -442,7 +479,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should block GET to Add2WaitingList.jsp (unconditional mutator)")
         void shouldBlock_forGetToAdd2WaitingListJsp() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/oscarWaitingList/Add2WaitingList.jsp");
+            when(request.getRequestURI()).thenReturn("/carlos/waitinglist/Add2WaitingList.jsp");
 
             filter.doFilter(request, response, chain);
 
@@ -451,10 +488,10 @@ class HttpMethodGuardFilterUnitTest {
         }
 
         @Test
-        @DisplayName("should block GET to setProviderAvailability.jsp with submit=save")
-        void shouldBlock_forGetToSetProviderAvailabilityWithSave() throws Exception {
+        @DisplayName("should block GET to admin JSP with submit=save")
+        void shouldBlock_forGetToAdminJspWithSave() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/admin/hamiltonPublicHealth/setProviderAvailability.jsp");
+            when(request.getRequestURI()).thenReturn("/carlos/admin/demographicmergerecord.jsp");
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(Collections.singletonList("submit")));
 
@@ -465,10 +502,10 @@ class HttpMethodGuardFilterUnitTest {
         }
 
         @Test
-        @DisplayName("should pass through GET to setProviderAvailability.jsp without mutator params")
-        void shouldPassThrough_forGetToSetProviderAvailabilityWithoutSave() throws Exception {
+        @DisplayName("should pass through GET to admin JSP without mutator params")
+        void shouldPassThrough_forGetToAdminJspWithoutSave() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/admin/hamiltonPublicHealth/setProviderAvailability.jsp");
+            when(request.getRequestURI()).thenReturn("/carlos/admin/demographicmergerecord.jsp");
             when(request.getParameterNames()).thenReturn(
                     Collections.enumeration(Collections.emptyList()));
 
@@ -487,7 +524,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should block GET to billingAddCode (BillingAddCode2Action)")
         void shouldBlock_forGetToBillingAddCode() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/billing/CA/BC/billingAddCode.do");
+            when(request.getRequestURI()).thenReturn("/carlos/billing/CA/BC/billingAddCode");
             when(request.getParameter("method")).thenReturn(null);
 
             filter.doFilter(request, response, chain);
@@ -500,7 +537,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should block GET to rbtAddToGroup (RBTAddToGroup2Action)")
         void shouldBlock_forGetToRbtAddToGroup() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/oscarReport/reportByTemplate/actions/rbtAddToGroup.do");
+            when(request.getRequestURI()).thenReturn("/carlos/oscarReport/reportByTemplate/actions/rbtAddToGroup");
             when(request.getParameter("method")).thenReturn(null);
 
             filter.doFilter(request, response, chain);
@@ -513,7 +550,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should block GET to ReportReassign (ReportReassign2Action)")
         void shouldBlock_forGetToReportReassign() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/oscarMDS/ReportReassign.do");
+            when(request.getRequestURI()).thenReturn("/carlos/oscarMDS/ReportReassign");
             when(request.getParameter("method")).thenReturn(null);
 
             filter.doFilter(request, response, chain);
@@ -526,7 +563,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should block GET to Forward (ReportReassign2Action lab forwarding)")
         void shouldBlock_forGetToForward() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/lab/CA/ALL/Forward.do");
+            when(request.getRequestURI()).thenReturn("/carlos/lab/CA/ALL/Forward");
             when(request.getParameter("method")).thenReturn(null);
 
             filter.doFilter(request, response, chain);
@@ -544,7 +581,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should block GET to delGroup (DeleteGroup2Action)")
         void shouldBlock_forGetToDelGroup() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/eforms/delGroup.do");
+            when(request.getRequestURI()).thenReturn("/carlos/eforms/delGroup");
             when(request.getParameter("method")).thenReturn(null);
 
             filter.doFilter(request, response, chain);
@@ -557,7 +594,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should block GET to DelService (EctConDeleteServices2Action)")
         void shouldBlock_forGetToDelService() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/encounter/DelService.do");
+            when(request.getRequestURI()).thenReturn("/carlos/encounter/DelService");
             when(request.getParameter("method")).thenReturn(null);
 
             filter.doFilter(request, response, chain);
@@ -570,7 +607,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should block GET to remFromGroup (RBTRemoveFromGroup2Action)")
         void shouldBlock_forGetToRemFromGroup() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/oscarReport/reportByTemplate/actions/remFromGroup.do");
+            when(request.getRequestURI()).thenReturn("/carlos/oscarReport/reportByTemplate/actions/remFromGroup");
             when(request.getParameter("method")).thenReturn(null);
 
             filter.doFilter(request, response, chain);
@@ -588,7 +625,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should block HEAD to mutator action")
         void shouldBlock_forHeadToMutatorAction() throws Exception {
             when(request.getMethod()).thenReturn("HEAD");
-            when(request.getRequestURI()).thenReturn("/carlos/tickler/addTickler.do");
+            when(request.getRequestURI()).thenReturn("/carlos/tickler/addTickler");
             when(request.getParameter("method")).thenReturn(null);
 
             filter.doFilter(request, response, chain);
@@ -601,7 +638,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should pass through HEAD to read-only action")
         void shouldPassThrough_forHeadToReadOnlyAction() throws Exception {
             when(request.getMethod()).thenReturn("HEAD");
-            when(request.getRequestURI()).thenReturn("/carlos/web/dashboard/display/DashboardDisplay.do");
+            when(request.getRequestURI()).thenReturn("/carlos/web/dashboard/display/DashboardDisplay");
             when(request.getParameter("method")).thenReturn(null);
 
             filter.doFilter(request, response, chain);
@@ -612,8 +649,8 @@ class HttpMethodGuardFilterUnitTest {
     }
 
     @Nested
-    @DisplayName("JSP confirmation pages (past-tense names should NOT be blocked)")
-    class JspConfirmationPages {
+    @DisplayName("Confirmation pages (past-tense names should NOT be blocked)")
+    class ConfirmationPages {
 
         @Test
         @DisplayName("should pass through GET to batchsaved.jsp (confirmation page)")
@@ -640,10 +677,10 @@ class HttpMethodGuardFilterUnitTest {
         }
 
         @Test
-        @DisplayName("should pass through GET to efmformmanagerdeleted.jsp (confirmation page)")
-        void shouldPassThrough_forGetToDeletedConfirmationJsp() throws Exception {
+        @DisplayName("should pass through GET to efmformmanagerdeleted (confirmation page)")
+        void shouldPassThrough_forGetToDeletedConfirmationAction() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/eform/efmformmanagerdeleted.jsp");
+            when(request.getRequestURI()).thenReturn("/carlos/eform/efmformmanagerdeleted");
 
             filter.doFilter(request, response, chain);
 
@@ -665,7 +702,7 @@ class HttpMethodGuardFilterUnitTest {
             filter.init(filterConfig);
 
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/tickler/AddTicklerView.do");
+            when(request.getRequestURI()).thenReturn("/carlos/tickler/AddTicklerView");
             when(request.getParameter("method")).thenReturn(null);
 
             filter.doFilter(request, response, chain);
@@ -678,16 +715,56 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should pass through GET to allow-listed mutator JSP")
         void shouldPassThrough_forAllowListedJsp() throws Exception {
             FilterConfig filterConfig = mock(FilterConfig.class);
-            when(filterConfig.getInitParameter("allowList")).thenReturn("annotation.jsp");
+            when(filterConfig.getInitParameter("allowList")).thenReturn("editDocument.jsp");
             filter.init(filterConfig);
 
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/annotation/annotation.jsp");
+            when(request.getRequestURI()).thenReturn("/carlos/documentManager/editDocument.jsp");
 
             filter.doFilter(request, response, chain);
 
             verify(chain).doFilter(request, response);
             verify(response, never()).sendError(anyInt(), anyString());
+        }
+    }
+
+    @Nested
+    @DisplayName("Prevention form view gate")
+    class PreventionFormViewGate {
+
+        @Test
+        @DisplayName("should pass through GET to prevention/ViewAddPreventionData")
+        void shouldPassThrough_forGetToViewAddPreventionData() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/prevention/ViewAddPreventionData");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+            verify(response, never()).sendError(anyInt());
+        }
+
+        @Test
+        @DisplayName("should pass through GET to prevention/ViewAddPreventionData with the exact failing URL parameters")
+        void shouldPassThrough_forGetToViewAddPreventionDataWithParams() throws Exception {
+            // Reproduces the original failing popup URL, now routed through the
+            // dedicated view gate instead of the POST-only AddPrevention action:
+            // /carlos/prevention/ViewAddPreventionData?4=4&prevention=Tuberculosis&demographic_no=1&prevResultDesc=
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/prevention/ViewAddPreventionData");
+            when(request.getParameter("method")).thenReturn(null);
+            when(request.getParameter("4")).thenReturn("4");
+            when(request.getParameter("prevention")).thenReturn("Tuberculosis");
+            when(request.getParameter("demographic_no")).thenReturn("1");
+            when(request.getParameter("prevResultDesc")).thenReturn("");
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+            verify(response, never()).sendError(anyInt());
         }
     }
 
@@ -698,26 +775,26 @@ class HttpMethodGuardFilterUnitTest {
         @Test
         @DisplayName("should extract simple action name from path")
         void shouldExtractSimpleActionName_fromPath() {
-            assertThat(HttpMethodGuardFilter.extractActionName("/tickler/addTickler.do"))
+            assertThat(HttpMethodGuardFilter.extractActionName("/tickler/addTickler"))
                     .isEqualTo("addTickler");
         }
 
         @Test
         @DisplayName("should extract nested action name from deep path")
         void shouldExtractNestedActionName_fromDeepPath() {
-            assertThat(HttpMethodGuardFilter.extractActionName("/web/dashboard/display/AssignTickler.do"))
+            assertThat(HttpMethodGuardFilter.extractActionName("/web/dashboard/display/AssignTickler"))
                     .isEqualTo("AssignTickler");
         }
 
         @Test
         @DisplayName("should extract action name without leading slash")
         void shouldExtractActionName_withoutLeadingSlash() {
-            assertThat(HttpMethodGuardFilter.extractActionName("logout.do"))
+            assertThat(HttpMethodGuardFilter.extractActionName("logout"))
                     .isEqualTo("logout");
         }
 
         @Test
-        @DisplayName("should return null for non-.do path")
+        @DisplayName("should return null for non- path")
         void shouldReturnNull_forNonDoPath() {
             assertThat(HttpMethodGuardFilter.extractActionName("/some/page.jsp"))
                     .isNull();
@@ -739,7 +816,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should pass through PUT requests")
         void shouldPassThrough_forPutRequests() throws Exception {
             when(request.getMethod()).thenReturn("PUT");
-            when(request.getRequestURI()).thenReturn("/carlos/tickler/addTickler.do");
+            when(request.getRequestURI()).thenReturn("/carlos/tickler/addTickler");
 
             filter.doFilter(request, response, chain);
 
@@ -751,7 +828,7 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should pass through DELETE requests")
         void shouldPassThrough_forDeleteRequests() throws Exception {
             when(request.getMethod()).thenReturn("DELETE");
-            when(request.getRequestURI()).thenReturn("/carlos/tickler/addTickler.do");
+            when(request.getRequestURI()).thenReturn("/carlos/tickler/addTickler");
 
             filter.doFilter(request, response, chain);
 

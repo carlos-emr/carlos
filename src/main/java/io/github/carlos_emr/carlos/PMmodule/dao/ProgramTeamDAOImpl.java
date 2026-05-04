@@ -37,12 +37,12 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramTeam;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.dao.EmptyResultDataAccessException;
-import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
-import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
+import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 import org.springframework.transaction.annotation.Transactional;
 
 @Transactional
-public class ProgramTeamDAOImpl extends AbstractHibernateDao implements ProgramTeamDAO {
+public class ProgramTeamDAOImpl extends AbstractJpaDao implements ProgramTeamDAO {
 
     private Logger log = MiscUtils.getLogger();
 
@@ -57,7 +57,7 @@ public class ProgramTeamDAOImpl extends AbstractHibernateDao implements ProgramT
             log.debug("teamExists: called with null teamId, returning false");
             return false;
         }
-        boolean exists = currentSession().get(ProgramTeam.class, teamId) != null;
+        boolean exists = entityManager().find(ProgramTeam.class, teamId) != null;
         log.debug("teamExists: " + exists);
 
         return exists;
@@ -77,7 +77,7 @@ public class ProgramTeamDAOImpl extends AbstractHibernateDao implements ProgramT
         if (teamName == null || teamName.length() <= 0) {
             throw new IllegalArgumentException();
         }
-        List teams = HqlQueryHelper.find(currentSession(),
+        List teams = JpqlQueryHelper.find(entityManager(),
                 "from ProgramTeam pt where pt.programId = ?1 and pt.name = ?2",
                 programId, teamName);
 
@@ -99,7 +99,7 @@ public class ProgramTeamDAOImpl extends AbstractHibernateDao implements ProgramT
             throw new IllegalArgumentException();
         }
 
-        ProgramTeam result = currentSession().get(ProgramTeam.class, id);
+        ProgramTeam result = entityManager().find(ProgramTeam.class, id);
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramTeam: id=" + id + ",found=" + (result != null));
@@ -120,7 +120,7 @@ public class ProgramTeamDAOImpl extends AbstractHibernateDao implements ProgramT
         }
 
         String sSQL = "from ProgramTeam tp where tp.programId = ?1";
-        List<ProgramTeam> results = (List<ProgramTeam>) HqlQueryHelper.find(currentSession(), sSQL, programId);
+        List<ProgramTeam> results = (List<ProgramTeam>) JpqlQueryHelper.find(entityManager(), sSQL, programId);
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramTeams: programId=" + programId + ",# of results=" + results.size());
@@ -141,9 +141,9 @@ public class ProgramTeamDAOImpl extends AbstractHibernateDao implements ProgramT
         }
 
         if (team.getId() == null) {
-            currentSession().persist(team);
+            entityManager().persist(team);
         } else {
-            currentSession().merge(team);
+            entityManager().merge(team);
         }
 
         if (log.isDebugEnabled()) {
@@ -167,7 +167,7 @@ public class ProgramTeamDAOImpl extends AbstractHibernateDao implements ProgramT
             throw new EmptyResultDataAccessException("No ProgramTeam found with id=" + id, 1);
         }
 
-        currentSession().remove(team);
+        entityManager().remove(team);
 
         if (log.isDebugEnabled()) {
             log.debug("deleteProgramTeam: id=" + id);

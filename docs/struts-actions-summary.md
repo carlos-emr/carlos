@@ -95,7 +95,7 @@ Document handling and storage.
 
 ## Other Notable Modules
 
-- **MCEDT** (15 actions) - Medical Care Electronic Data Transfer
+- **MCEDT** (15 actions) - Medical Claims Electronic Data Transfer
 - **Demographics** (14 actions) - Patient demographic management
 - **Forms** (12 actions) - Clinical forms processing
 - **Hospital Report Manager** (10 actions) - Hospital report integration
@@ -123,16 +123,77 @@ The following actions were removed as their corresponding Java classes no longer
 
 ## Technical Notes
 
-1. **Naming Convention**: All action classes use the `*2Action` suffix, suggesting a migration from an earlier Struts version
+1. **Naming Convention**: All action classes use the `*2Action` suffix, following the Struts 1.x to 2.x migration pattern
 2. **Package Structure**: Actions are organized by functional module under the `io.github.carlos_emr.carlos.*` package
-3. **Result Mappings**: Most actions define multiple result mappings for different outcomes (success, failure, error, etc.)
-4. **JSP Integration**: Actions primarily forward to JSP pages for view rendering
+3. **Route Shape**: Canonical action URLs are extensionless; new code should not introduce `.do` routes
+4. **Result Mappings**: Most actions define multiple result mappings for different outcomes (success, failure, error, etc.)
+5. **JSP Integration**: User-addressable JSPs should be behind Struts and rendered from `/WEB-INF/jsp/**`, not exposed as public JSP entrypoints
+
+## Configuration Architecture
+
+As of 2026-03, the monolithic `struts.xml` has been split into a modular structure:
+
+- **`struts.xml`** — Parent file containing global constants (`struts.objectFactory`, `struts.action.extension`, etc.) and `<include>` directives for 17 domain-specific module files
+- **`struts-{module}.xml`** — Each module file contains action mappings for one functional domain, with a unique package name (e.g., `name="billing"`)
+
+### Module Files
+
+| File | Package Name | Domain |
+|------|-------------|--------|
+| `struts-admin.xml` | `admin` | Administration, system messages, lookup lists |
+| `struts-billing.xml` | `billing` | BC and Ontario billing, payments |
+| `struts-clinical.xml` | `clinical` | Diagnosis research, prevention, case management, renal care |
+| `struts-demographic.xml` | `demographic` | Patient demographics, records, import/export |
+| `struts-document.xml` | `document` | Document management, MDS, hospital reports |
+| `struts-eform.xml` | `eform` | Electronic form creation and management |
+| `struts-encounter.xml` | `encounter` | Patient encounters, consultations, measurements |
+| `struts-form.xml` | `form` | Medical forms, dashboards, flowsheets |
+| `struts-integration.xml` | `integration` | DHIR, MCEDT, health card validation |
+| `struts-lab.xml` | `lab` | Laboratory results and uploads |
+| `struts-login.xml` | `login` | Authentication, MFA, facility selection |
+| `struts-messenger.xml` | `messenger` | Internal messaging and attachments |
+| `struts-pmmodule.xml` | `pmmodule` | Program management, provider profiles |
+| `struts-prescription.xml` | `prescription` | Prescriptions, drug search, allergies |
+| `struts-provider.xml` | `provider` | Provider preferences, inbox, email, fax |
+| `struts-report.xml` | `report` | Clinical and demographic reports |
+| `struts-scheduling.xml` | `scheduling` | Appointments, ticklers, waiting lists |
+
+### Adding New Actions
+
+Add new action mappings to the appropriate domain-specific module file. Each module file uses a unique package name but shares `namespace="/"` and `extends="struts-default"`. Package names **must** be unique across all module files — Struts silently drops actions from duplicate-named packages.
+
+### Direct-Response Actions
+
+Actions that stream response content directly, including PDFs, CSV/XLS
+exports, ZIP files, images, and JSON written through
+`response.getOutputStream()` or `response.getWriter()`, must return
+`ActionSupport.NONE` after the response is written. Do not return `success`,
+another named result, or a bare `null` after streaming bytes; named results
+will forward JSP/HTML content into the same response, and CARLOS' Struts 7
+direct-response paths need the explicit `NONE` no-result code for binary
+downloads.
+
+Prefer separate action routes/classes for page navigation and
+download/direct-response behavior. The legacy mixed-action cleanup is tracked
+in GitHub issue #2064.
+
+For generated binary responses, especially PDFs, buffer and validate the bytes
+before setting response headers where practical. Non-critical side effects that
+run after streaming, such as "printed" comments or audit annotations, must be
+caught and logged so Struts cannot replace the binary response with an HTML
+error page if that side effect fails.
+
+When generation fails before streaming starts, the direct-response action still
+owns the response: set an explicit HTTP error, then return `ActionSupport.NONE`.
+Do not return an unmapped `failure`/`error` result from a download route. PR
+#2043 documents the same Struts 7 behavior in label PDFs: failed result
+resolution can render `errorpage.jsp` with `CARLOS Error: 0` because no real
+HTTP status was set.
 
 ## Maintenance Recommendations
 
 1. **Orphaned Actions**: 18 additional orphaned actions remain that could be cleaned up
 2. **Module Consolidation**: Consider consolidating overlapping report modules (oscarReport vs report)
-4. **Documentation**: Add inline comments in struts.xml to document complex action workflows
 
 ---
-*Generated: 2025-08-21*
+*Generated: 2025-08-21, updated: 2026-03-31*

@@ -100,7 +100,7 @@ public class MsgReDisplayMessages2Action extends ActionSupport {
      * </ol>
      * 
      * @return String SUCCESS constant to redisplay the message list, or {@code null}
-     *         if the response was redirected (e.g., session timeout redirect to index.jsp)
+     *         if the response was redirected (e.g., session timeout redirect to index)
      * @throws IOException if there's an I/O error during redirect
      * @throws ServletException if there's a servlet processing error
      * @throws SecurityException if user lacks "_msg" write permissions, or if the session
@@ -123,7 +123,7 @@ public class MsgReDisplayMessages2Action extends ActionSupport {
 
         if (bean == null) {
             MiscUtils.getLogger().warn("MsgSessionBean is null in MsgReDisplayMessages2Action; redirecting to login.");
-            response.sendRedirect(request.getContextPath() + "/index.jsp");
+            response.sendRedirect(request.getContextPath() + "/index");
             return null;
         }
 

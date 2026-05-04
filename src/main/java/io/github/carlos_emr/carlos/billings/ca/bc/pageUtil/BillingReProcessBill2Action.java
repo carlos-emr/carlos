@@ -46,8 +46,10 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.MyDateFormat;
@@ -68,6 +70,8 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class BillingReProcessBill2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -79,9 +83,14 @@ public class BillingReProcessBill2Action extends ActionSupport {
     //Misc misc = new Misc();
     MSPReconcile msp = new MSPReconcile();
 
-    public String execute() throws IOException, ServletException {
-        if (request.getSession().getAttribute("user") == null) {
+    public String execute() throws IOException, ServletException {        if (request.getSession().getAttribute("user") == null) {
             return "Logout";
+        }
+
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
         }
 
         boolean massEdit = request.getParameter("billCheck") != null;
@@ -106,13 +115,13 @@ public class BillingReProcessBill2Action extends ActionSupport {
             DemographicData demoD = new DemographicData();
             Demographic demo = demoD.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demographicNo);
 
-            logger.debug("RETRIEVING Using " + billingmasterNo);
+            logger.debug("RETRIEVING Using {}", LogSanitizer.sanitize(billingmasterNo));
             Billingmaster billingmaster = billingmasterDAO.getBillingMasterByBillingMasterNo(billingmasterNo);
             Billing bill = billingmasterDAO.getBilling(billingmaster.getBillingNo());
 
 
             String billingType = bill.getBillingtype();
-            logger.debug("type " + billingType);
+            logger.debug("type {}", LogSanitizer.sanitize(billingType));
 
 
             BillingFormData billform = new BillingFormData();
@@ -236,11 +245,16 @@ public class BillingReProcessBill2Action extends ActionSupport {
                 String seqNum = frm.getDebitRequestSeqNum();
                 String dateRecieved = frm.getDebitRequestDate();
                 try {
+                    if (dateRecieved == null || dateRecieved.trim().isEmpty()) {
+                        throw new NumberFormatException("missing debit request date");
+                    }
                     dateRecieved = dateRecieved.trim();
                     Integer.parseInt(dateRecieved);
-                } catch (Exception e) {
-                    MiscUtils.getLogger().error("Error", e);
-                    dateRecieved = "";
+                } catch (NumberFormatException e) {
+                    throw new IllegalArgumentException(
+                            "BC debit request date is malformed ["
+                                    + LogSanitizer.sanitizeForDisplay(dateRecieved) + "]",
+                            e);
                 }
 
                 originalMSPNumber = constructOriginalMSPNumber(dataCenterId, seqNum, dateRecieved);
@@ -284,7 +298,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
                 //BillingCodeData bcd = new BillingCodeData();
                 //BillingService billingService = bcd.getBillingCodeByCode(billingServiceCode, new Date());
                 String codePrice = StringUtils.isNullOrEmpty(request.getParameter("billingAmount")) ? (StringUtils.isNullOrEmpty(frm.getBillingAmount()) ? "0.00" : frm.getBillingAmount()) : request.getParameter("billingAmount"); //billingService.getValue();
-                logger.debug("codePrice=" + codePrice + " amount on form " + request.getParameter("billingAmount"));
+                logger.debug("codePrice={} amount on form {}", LogSanitizer.sanitize(codePrice), LogSanitizer.sanitize(request.getParameter("billingAmount")));
 
                 if ("E".equals(payment_mode)) {
                     codePrice = "0.00";
@@ -297,7 +311,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
                 billingServicePrice = bdFee.toString();
             } catch (NumberFormatException e) {
                 MiscUtils.getLogger().error("Error", e);
-                throw new RuntimeException("BC BILLING - Exception when attempting to multiply Bill Amount by Unit ");
+                throw new RuntimeException("BC BILLING - Exception when attempting to multiply Bill Amount by Unit ", e);
             }
             bill.setProviderOhipNo(practitionerNo);
             bill.setBillingDate(MyDateFormat.getSysDate(serviceDate));
@@ -361,12 +375,12 @@ public class BillingReProcessBill2Action extends ActionSupport {
                 MiscUtils.getLogger().warn("warning", e);
             }
             bill.setProviderNo(providerNo);
-            logger.debug("WHAT IS BILL <ASTER " + billingmaster.getBillingmasterNo());
+            logger.debug("WHAT IS BILL <ASTER {}", LogSanitizer.sanitize(String.valueOf(billingmaster.getBillingmasterNo())));
             billingmasterDAO.update(billingmaster);
             billingmasterDAO.update(bill);
 
-            logger.debug("type 2" + bill.getBillingtype());
-            logger.debug("WHAT IS BILL <ASTER2 " + billingmaster.getBillingmasterNo());
+            logger.debug("type 2 {}", LogSanitizer.sanitize(bill.getBillingtype()));
+            logger.debug("WHAT IS BILL <ASTER2 {}", LogSanitizer.sanitize(String.valueOf(billingmaster.getBillingmasterNo())));
 
 
             if (!StringUtils.isNullOrEmpty(billingStatus)) {  //What if billing status is null?? the status just doesn't get updated but everything else does??'
@@ -399,13 +413,13 @@ public class BillingReProcessBill2Action extends ActionSupport {
 
             if (correspondenceCode.equals("N") || correspondenceCode.equals("B")) {
                 MSPBillingNote n = new MSPBillingNote();
-                n.addNote(billingmasterNo, (String) request.getSession().getAttribute("user"), frm.getNotes());
+                n.addNote(billingmasterNo, LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), frm.getNotes());
             }
 
             if (messageNotes != null) {
                 BillingNote n = new BillingNote();
                 if (n.hasNote(billingmasterNo) || !messageNotes.trim().equals("")) {
-                    n.addNote(billingmasterNo, (String) request.getSession().getAttribute("user"), messageNotes);
+                    n.addNote(billingmasterNo, LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), messageNotes);
                 }
             }
 
@@ -422,7 +436,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
     private String[] getServiceCodePrice(String billingServiceCode, boolean usePrefix) {
         String prepend = usePrefix ? "A" : "";
         String[] privateCodeRecord = SqlUtils.getRow(
-                "select value from billingservice where service_code = '" + prepend + billingServiceCode + "'");
+                "select value from billingservice where service_code = ?", prepend + billingServiceCode);
         return privateCodeRecord;
     }
 
@@ -433,9 +447,8 @@ public class BillingReProcessBill2Action extends ActionSupport {
      * @return String
      */
     private String getPersistedBillType(String billingmasterNo) {
-        String qry = "select billingstatus from billingmaster where billingmaster.billingmaster_no = " +
-                billingmasterNo;
-        String row[] = SqlUtils.getRow(qry);
+        String qry = "select billingstatus from billingmaster where billingmaster.billingmaster_no = ?";
+        String row[] = SqlUtils.getRow(qry, billingmasterNo);
         String ret = null;
         if (row != null) {
             ret = row[0];
@@ -450,7 +463,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
      */
     public String convertDate8Char(String s) {
         String sdate = "00000000", syear = "", smonth = "", sday = "";
-        logger.debug("s=" + s);
+        logger.debug("s={}", LogSanitizer.sanitize(s));
         if (s != null) {
 
             if (s.indexOf("-") != -1) {
@@ -467,13 +480,13 @@ public class BillingReProcessBill2Action extends ActionSupport {
                     sday = "0" + sday;
                 }
 
-                logger.debug("Year" + syear + " Month" + smonth + " Day" + sday);
+                logger.debug("Year{} Month{} Day{}", LogSanitizer.sanitize(syear), LogSanitizer.sanitize(smonth), LogSanitizer.sanitize(sday));
                 sdate = syear + smonth + sday;
 
             } else {
                 sdate = s;
             }
-            logger.debug("sdate:" + sdate);
+            logger.debug("sdate:{}", LogSanitizer.sanitize(sdate));
         } else {
             sdate = "00000000";
 

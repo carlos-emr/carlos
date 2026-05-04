@@ -96,7 +96,9 @@ public class CombinePDF2Action extends ActionSupport {
                 } catch (IOException ex) {
                     MiscUtils.getLogger().error("Error", ex);
                 }
-                return null;
+                // This branch streams the PDF directly; returning NONE prevents Struts from
+                // resolving the success result and appending a JSP/error page to the PDF.
+                return NONE;
             }
         }
         return SUCCESS;

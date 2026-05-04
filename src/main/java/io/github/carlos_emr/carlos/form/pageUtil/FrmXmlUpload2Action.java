@@ -32,6 +32,8 @@ package io.github.carlos_emr.carlos.form.pageUtil;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -45,10 +47,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.util.Enumeration;
+import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
-public class FrmXmlUpload2Action extends ActionSupport {
+public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -113,6 +116,16 @@ public class FrmXmlUpload2Action extends ActionSupport {
     private String file1FileName; // Name of the uploaded file
     private String file1ContentType; // Content type of the uploaded file
 
+
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
+            UploadedFile uploaded = uploadedFiles.get(0);
+            this.file1 = new File(uploaded.getAbsolutePath());
+            this.file1ContentType = uploaded.getContentType();
+            this.file1FileName = uploaded.getOriginalName();
+        }
+    }
 
     // Setters and Getters for file upload properties
     public File getFile1() {

@@ -38,6 +38,7 @@ import javax.xml.validation.SchemaFactory;
 //Replaced old CXF FileUtils and DOM parser imports with Java NIO for simpler UTF-8 file reads
 import java.nio.file.Files;
 import java.nio.charset.StandardCharsets;
+import java.util.Set;
 
 
 import org.apache.logging.log4j.Logger;
@@ -60,6 +61,9 @@ import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToProv
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.sax.SAXSource;
 
 import org.springframework.core.io.ClassPathResource;
 
@@ -73,6 +77,7 @@ import io.github.carlos_emr.CarlosProperties;
 public class HRMReportParser {
 
     private static Logger logger = MiscUtils.getLogger();
+    private static final Set<String> HRM_SCHEMA_IMPORTS = Set.of("ontariomd_hrm_dt.xsd");
 
     private HRMReportParser() {
     }
@@ -125,25 +130,34 @@ public class HRMReportParser {
                 }
 
                 // Load and compile the XSD schema
-                SchemaFactory factory = SchemaFactory
-                    .newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
-                File schemaFile = new ClassPathResource("/xsd/hrm/1.1.2/ontariomd_hrm.xsd").getFile();
-                Source schemaSource = new StreamSource(schemaFile);
-                Schema schema = factory.newSchema(schemaSource);
+                SchemaFactory factory = XmlUtils.createSecureSchemaFactory(
+                    XMLConstants.W3C_XML_SCHEMA_NS_URI);
+                factory.setResourceResolver(XmlUtils.createClasspathSchemaResolver(
+                    HRMReportParser.class,
+                    "/xsd/hrm/1.1.2/",
+                    HRM_SCHEMA_IMPORTS));
+                ClassPathResource schemaResource = new ClassPathResource("/xsd/hrm/1.1.2/ontariomd_hrm.xsd");
+                Schema schema;
+                try (java.io.InputStream schemaInputStream = schemaResource.getInputStream()) {
+                    Source schemaSource = new StreamSource(schemaInputStream);
+                    schemaSource.setSystemId(schemaResource.getURL().toExternalForm());
+                    schema = factory.newSchema(schemaSource);
+                }
 
                 // Unmarshal into JAXB model
                 JAXBContext jc = JAXBContext.newInstance(OmdCds.class);
                 Unmarshaller u = jc.createUnmarshaller();
                 u.setSchema(schema);
                 try (FileInputStream fileInputStream = new FileInputStream(tmpXMLholder)) {
-                    root = (OmdCds) u.unmarshal(fileInputStream);
+                    SAXSource secureSource = XmlUtils.createSecureJaxbSource(fileInputStream);
+                    root = (OmdCds) u.unmarshal(secureSource);
                 }
 
                 tmpXMLholder = null;
             } catch (FileNotFoundException e) {
                 logger.error("File Not Found " + e);
                 if (errors != null) errors.add(e);
-            } catch (SAXException e) {
+            } catch (SAXException | ParserConfigurationException e) {
                 logger.error("SAX ERROR PARSING XML " + e);
                 if (errors != null) errors.add(e);
             } catch (JAXBException e) {

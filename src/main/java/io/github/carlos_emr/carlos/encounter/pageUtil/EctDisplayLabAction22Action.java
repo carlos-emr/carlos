@@ -36,7 +36,6 @@ import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
@@ -72,8 +71,7 @@ public class EctDisplayLabAction22Action extends EctDisplayAction {
 
             // set link for lefthand module title
             String winName = "Labs" + bean.demographicNo;
-            String url = "popupPage(700,599,'" + winName + "','" + request.getContextPath() + "/lab/DemographicLab.jsp?demographicNo=" + bean.demographicNo + "'); return false;";
-            Dao.setLeftURL(url);
+            Dao.setLeftPopup(800, 1100, winName, request.getContextPath() + "/lab/ViewDemographicLab?demographicNo=" + bean.demographicNo);
 
             // we're going to display popup menu of 2 selections - row display and grid display
             String menuId = "2";
@@ -83,27 +81,15 @@ public class EctDisplayLabAction22Action extends EctDisplayAction {
 
             winName = "AllLabs" + bean.demographicNo;
 
-            if (CarlosProperties.getInstance().getBooleanProperty("HL7TEXT_LABS", "yes")) {
-                url = "popupPage(700,1000, '" + winName + "','" + request.getContextPath() + "/lab/CumulativeLabValues3.jsp?demographic_no=" + bean.demographicNo + "')";
-                Dao.addPopUpUrl(url);
-                Dao.addPopUpText(getText("encounter.LeftNavBar.LabMenuItem1"));
-                if (CarlosProperties.getInstance().getProperty("labs.hide_old_grid_display", "false").equals("false")) {
-                    url = "popupPage(700,1000, '" + winName + "','" + request.getContextPath() + "/lab/CumulativeLabValues2.jsp?demographic_no=" + bean.demographicNo + "')";
-                    Dao.addPopUpUrl(url);
-                    Dao.addPopUpText(getText("encounter.LeftNavBar.LabMenuItem1") + "-OLD");
-                }
-            } else {
-                url = "popupPage(700,1000, '" + winName + "','" + request.getContextPath() + "/lab/CumulativeLabValues2.jsp?demographic_no=" + bean.demographicNo + "')";
-                Dao.addPopUpUrl(url);
-                Dao.addPopUpText(getText("encounter.LeftNavBar.LabMenuItem1"));
-            }
-            url = "popupPage(700,1000, '" + winName + "','" + request.getContextPath() + "/lab/CumulativeLabValues.jsp?demographic_no=" + bean.demographicNo + "')";
-            Dao.addPopUpUrl(url);
+            Dao.addPopUpMenu(950, 1000, winName, request.getContextPath() + "/lab/ViewCumulativeLabValues3?demographic_no=" + bean.demographicNo);
+            Dao.addPopUpText(getText("encounter.LeftNavBar.LabMenuItem1"));
+            Dao.addPopUpMenu(700, 1000, winName, request.getContextPath() + "/lab/ViewCumulativeLabValues?demographic_no=" + bean.demographicNo);
             Dao.addPopUpText(getText("encounter.LeftNavBar.LabMenuItem2"));
 
             // now we add individual module items
             LabResultData result;
             String labDisplayName, label;
+            String url;
             // String bgcolour = "FFFFCC";
             StringBuilder func;
             int hash;
@@ -140,25 +126,25 @@ public class EctDisplayLabAction22Action extends EctDisplayAction {
                 if (result.isMDS()) {
                     if (label == null || label.equals("")) labDisplayName = result.getDiscipline();
                     else labDisplayName = label;
-                    url = request.getContextPath() + "/oscarMDS/SegmentDisplay.jsp?demographicId=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&segmentID=" + result.segmentID + "&multiID=" + result.multiLabId + "&status=" + result.getReportStatus();
+                    url = request.getContextPath() + "/oscarMDS/ViewSegmentDisplay?demographicId=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&segmentID=" + result.segmentID + "&multiID=" + result.multiLabId + "&status=" + result.getReportStatus();
                 } else if (result.isCML()) {
                     if (label == null || label.equals("")) labDisplayName = result.getDiscipline();
                     else labDisplayName = label;
-                    url = request.getContextPath() + "/lab/CA/ON/CMLDisplay.jsp?demographicId=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&segmentID=" + result.segmentID + "&multiID=" + result.multiLabId;
+                    url = request.getContextPath() + "/lab/CA/ON/ViewCMLDisplay?demographicId=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&segmentID=" + result.segmentID + "&multiID=" + result.multiLabId;
                 } else if (result.isHL7TEXT()) {
                     if (label == null || label.equals("")) {
                         labDisplayName = result.getDiscipline();
                     } else {
                         labDisplayName = label;
                     }
-                    url = request.getContextPath() + "/lab/CA/ALL/labDisplay.jsp?demographicId=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&segmentID=" + result.segmentID + "&multiID=" + result.multiLabId;
+                    url = request.getContextPath() + "/lab/CA/ALL/ViewLabDisplay?demographicId=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&segmentID=" + result.segmentID + "&multiID=" + result.multiLabId;
                 } else {
                     if (label == null || label.equals("")) {
                         labDisplayName = result.getDiscipline();
                     } else {
                         labDisplayName = label;
                     }
-                    url = request.getContextPath() + "/lab/CA/BC/labDisplay.jsp?demographicId=" + bean.demographicNo + "&segmentID=" + result.segmentID + "&providerNo=" + bean.providerNo + "&multiID=" + result.multiLabId;
+                    url = request.getContextPath() + "/lab/CA/BC/ViewLabDisplay?demographicId=" + bean.demographicNo + "&segmentID=" + result.segmentID + "&providerNo=" + bean.providerNo + "&multiID=" + result.multiLabId;
                 }
                 String labRead = "";
                 if (!oscarLogDao.hasRead(((String) request.getSession().getAttribute("user")), "lab", result.segmentID)) {

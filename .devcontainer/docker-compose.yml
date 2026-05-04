@@ -9,7 +9,8 @@ services:
       - "18000:8000"
     volumes:
       - m2-volume:/root/.m2
-      - ..:/workspace:cached
+      - gemini-config:/root/.gemini
+      - ..:/workspace
       - ../.devcontainer/db/db_data/:/db-data/
     env_file:
       - ./development/config/shared/local.env
@@ -17,6 +18,8 @@ services:
       LANG: en_US.UTF-8
       LANGUAGE: en_US:en
       TZ: America/Toronto
+      DISPLAY: ":0"
+      OAUTH_CALLBACK_PORT: "13579"
     networks:
       - carlos-network
     depends_on:
@@ -31,21 +34,32 @@ services:
       context: ./drugref
       dockerfile: Dockerfile
       args:
-        DRUGREF_REPO: ${DRUGREF_REPO:-https://github.com/open-osp/Open-Drugref.git}
-        DRUGREF_BRANCH: ${DRUGREF_BRANCH:-main}
+        DRUGREF_REPO: ${DRUGREF_REPO:-https://github.com/carlos-emr/drugref2026.git}
+        DRUGREF_BRANCH: ${DRUGREF_BRANCH:-master}
     ports:
       - "8180:8080"
     volumes:
       - ./development/config/shared/volumes/drugref2.properties:/root/drugref2.properties:ro
+      # Override the WAR's restrictive META-INF/context.xml (allow=127.0.0.1 only)
+      # with one that statically permits loopback + RFC1918/CGNAT/link-local/ULA
+      # ranges suitable for container networks. Tomcat's RemoteCIDRValve parses
+      # `allow` before system-property substitution, so the list is hardcoded
+      # in the descriptor below — edit drugref2.xml directly to tighten or
+      # widen the allow list.
+      - ./drugref/drugref2.xml:/usr/local/tomcat/conf/Catalina/localhost/drugref2.xml:ro
     environment:
       TZ: America/Toronto
+      # Pass-through for site-specific Tomcat tuning unrelated to the allow list
+      # (e.g. heap sizing, GC flags). The allow list itself is NOT configurable
+      # through this env var — see the comment on drugref2.xml.
+      CATALINA_OPTS: ${DRUGREF_CATALINA_OPTS:-}
     networks:
       - carlos-network
     depends_on:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/drugref2/DrugrefService?wsdl"]
+      test: ["CMD", "curl", "-fs", "-o", "/dev/null", "http://localhost:8080/drugref2/"]
       timeout: 10s
       retries: 5
       interval: 30s
@@ -84,6 +98,9 @@ volumes:
     driver: local
 
   m2-volume:
+    driver: local
+
+  gemini-config:
     driver: local
 
 networks:

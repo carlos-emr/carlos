@@ -1,0 +1,142 @@
+<%--
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    CARLOS EMR Project
+    https://github.com/carlos-emr/carlos
+--%>
+<%--
+  Page role: Renders `episodeList.jsp` for the CARLOS EMR workflow.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
+<!DOCTYPE html>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="java.text.SimpleDateFormat" %>
+<%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
+    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+%>
+
+<%@page import="java.util.*" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Episode" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.EpisodeDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+
+<%
+
+%>
+<html>
+    <head>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/DataTables/datatables.min.js"></script>
+
+        <title>Episode List</title>
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+        <link href="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
+
+        <style>
+            body {
+                text-align: center;
+            }
+
+            div#demo {
+                margin-left: auto;
+                margin-right: auto;
+                width: 90%;
+                text-align: left;
+            }
+        </style>
+        <script>
+            $(document).ready(function () {
+                $('#episodeTable').DataTable({
+                    "language": {
+                        "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json"
+                    }
+                    //  "aaSorting": [[ 1, "desc" ]]
+                });
+            });
+        </script>
+
+    </head>
+
+    <body>
+
+    <Br/>
+    <h2 style="text-align:center">Episode Listing</h2>
+    <br/>
+
+    <div id="demo">
+        <table id="episodeTable" class="table table-striped table-sm">
+            <thead>
+            <tr>
+                <th>Description</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Code</th>
+                <th>Coding System</th>
+                <th>Status</th>
+            </tr>
+            </thead>
+            <tbody>
+            <%
+                SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd");
+                List<Episode> episodes = (List<Episode>) request.getAttribute("episodes");
+
+                for (int x = 0; x < episodes.size(); x++) {
+                    Episode episode = episodes.get(x);
+
+                    String startDateStr = "";
+                    if (episode.getStartDate() != null) {
+                        startDateStr = dateFormatter.format(episode.getStartDate());
+                    }
+                    String endDateStr = "";
+                    if (episode.getEndDate() != null) {
+                        endDateStr = dateFormatter.format(episode.getEndDate());
+                    }
+
+            %>
+            <tr class="gradeB">
+                <td>
+                    <a href="<%=request.getContextPath()%>/Episode?method=edit&episode.id=<%=episode.getId()%>"><%=episode.getDescription() %>
+                    </a>
+                </td>
+                <td style="text-align:center"><%=startDateStr %>
+                </td>
+                <td style="text-align:center"><%=endDateStr %>
+                </td>
+                <td style="text-align:center"><%=episode.getCode() %>
+                </td>
+                <td style="text-align:center"><%=episode.getCodingSystem() %>
+                </td>
+                <td style="text-align:center"><%=episode.getStatus() %>
+                </td>
+            </tr>
+            <%
+                }
+            %>
+            </tbody>
+        </table>
+    </div>
+
+    <br/><br/>
+
+</html>

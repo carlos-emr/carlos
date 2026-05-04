@@ -243,7 +243,7 @@ public class EctValidation {
         List<MeasurementGroupStyle> styles = dao.findByGroupName(inputGroupName);
         for (MeasurementGroupStyle style : styles) {
             MeasurementCSSLocation location = cssDao.find(style.getCssId());
-            String place = "StreamStyleSheet.do?cssfilename="; // Streams by default
+            String place = "StreamStyleSheet?cssfilename="; // Streams by default
 
             // Use the following commented code in place of the above line to allow the
             // option of using the oscarMeasurement_css property to form the css path.
@@ -257,7 +257,7 @@ public class EctValidation {
              *    if(!place.endsWith("/"))
              *       place = new StringBuilder(place).insert(place.length(),"/").toString();
              * } else {
-             *    place = "StreamStyleSheet.do?cssfilename=";
+             *    place = "StreamStyleSheet?cssfilename=";
              * }
              */
             if (location != null) {

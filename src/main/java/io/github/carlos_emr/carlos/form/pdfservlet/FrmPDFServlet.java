@@ -29,13 +29,13 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.io.PrintWriter;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 
 import jakarta.servlet.ServletContext;
@@ -46,8 +46,10 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.CarlosProperties;
 import org.apache.logging.log4j.Logger;
+import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.carlos.form.FrmRecord;
@@ -71,7 +73,6 @@ import org.openpdf.text.pdf.PdfContentByte;
 import org.openpdf.text.pdf.PdfImportedPage;
 import org.openpdf.text.pdf.PdfReader;
 import org.openpdf.text.pdf.PdfWriter;
-
 /**
  * Servlet that generates PDF renditions of standard medical forms (Rourke growth charts,
  * BCAR antenatal records, and other configurable clinical forms).
@@ -137,6 +138,7 @@ public class FrmPDFServlet extends HttpServlet {
 
         ByteArrayOutputStream baosPDF = null;
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(req);
+        List<File> tempFiles = new ArrayList<>();
 
         try {
             File tmpFile = null;
@@ -146,17 +148,24 @@ public class FrmPDFServlet extends HttpServlet {
                 for (int x = 0; x < Integer.parseInt(req.getParameter("multiple")); x++) {
                     baosPDF = new ByteArrayOutputStream();
                     baosPDF = generatePDFDocumentBytes(req, this.getServletContext(), baosPDF, x);
-                    tmpFile = File.createTempFile("formpdf", String.valueOf((int) Math.random() * 10000));
-                    baosPDF.writeTo(new FileOutputStream(tmpFile));
-                    files.add(tmpFile.getAbsolutePath());
+                    File pageTmp = File.createTempFile("formpdf", ".pdf");
+                    tempFiles.add(pageTmp);
+                    try (FileOutputStream fos = new FileOutputStream(pageTmp)) {
+                        baosPDF.writeTo(fos);
+                    }
+                    files.add(pageTmp.getAbsolutePath());
                 }
-                tmpFile = File.createTempFile("formpdf", String.valueOf((int) Math.random() * 10000));
+                tmpFile = File.createTempFile("formpdf", ".pdf");
+                tempFiles.add(tmpFile);
                 ConcatPDF.concat(files, tmpFile.getAbsolutePath());
             } else {
                 baosPDF = new ByteArrayOutputStream();
                 baosPDF = generatePDFDocumentBytes(req, this.getServletContext(), baosPDF, 0);
-                tmpFile = File.createTempFile("formpdf", String.valueOf((int) Math.random() * 10000));
-                baosPDF.writeTo(new FileOutputStream(tmpFile));
+                tmpFile = File.createTempFile("formpdf", ".pdf");
+                tempFiles.add(tmpFile);
+                try (FileOutputStream fos = new FileOutputStream(tmpFile)) {
+                    baosPDF.writeTo(fos);
+                }
             }
             StringBuilder sbFilename = new StringBuilder();
             sbFilename.append("filename_");
@@ -187,8 +196,7 @@ public class FrmPDFServlet extends HttpServlet {
 
 
             ServletOutputStream sout = res.getOutputStream();
-            FileInputStream fis = new FileInputStream(tmpFile);
-            try {
+            try (FileInputStream fis = new FileInputStream(tmpFile)) {
                 byte[] buffer = new byte[64000];
                 int bytesRead = 0;
 
@@ -199,23 +207,33 @@ public class FrmPDFServlet extends HttpServlet {
 
                     sout.write(buffer, 0, bytesRead);
                 }
-            } finally {
-                fis.close();
             }
 
             LogAction.addLogSynchronous(loggedInInfo, "FrmPDFServlet", "formID=" + req.getParameter("formId") + ",form_class=" + req.getParameter("form_class"));
 
         } catch (DocumentException dex) {
-            res.setContentType("text/html");
-            PrintWriter writer = res.getWriter();
-            writer.println("Exception from: " + this.getClass().getName() + " " + dex.getClass().getName() + "<br>");
-            writer.println("<pre>");
-            writer.println(dex.getMessage());
-            writer.println("</pre>");
+            log.error("Document error generating form PDF", dex);
+            if (!res.isCommitted()) {
+                res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again or contact your system administrator.");
+            }
+        } catch (java.io.IOException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error in FrmPDFServlet", e);
+            if (!res.isCommitted()) {
+                res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again or contact your system administrator.");
+            }
         } finally {
             if (baosPDF != null) {
                 baosPDF.reset();
                 //baosPDF.close();
+            }
+            for (File tempFile : tempFiles) {
+                if (tempFile.exists() && !tempFile.delete()) {
+                    tempFile.deleteOnExit();
+                }
             }
         }
 
@@ -341,13 +359,17 @@ public class FrmPDFServlet extends HttpServlet {
                 props.setProperty(temp.toString(), req.getParameter(temp.toString()));
             }
 
-            if (req.getParameter("postProcessor" + suffix) != null) {
-                String className = "io.github.carlos_emr.carlos.form.pdfservlet." + req.getParameter("postProcessor" + suffix);
-                try {
-                    FrmPDFPostValueProcessor pp = (FrmPDFPostValueProcessor) Class.forName(className).newInstance();
-                    props = pp.process(props);
-                } catch (Exception e) {
-                    log.warn("Post-processor {} could not be loaded or failed during execution - form rendered without post-processing", className, e);
+            String postProcessorName = req.getParameter("postProcessor" + suffix);
+            if (postProcessorName != null) {
+                Optional<FrmPDFPostValueProcessor> pp = PostProcessorRegistry.resolve(postProcessorName);
+                if (pp.isPresent()) {
+                    try {
+                        props = pp.get().process(props);
+                    } catch (Exception e) {
+                        log.warn("Post-processor {} failed during execution - form rendered without post-processing", Encode.forJava(postProcessorName), e);
+                    }
+                } else {
+                    log.warn("Post-processor '{}' is not on the allowlist and will not be applied", Encode.forJava(postProcessorName));
                 }
             }
 
@@ -461,11 +483,11 @@ public class FrmPDFServlet extends HttpServlet {
             int n;
             try {
                 reader = new PdfReader(propFilename);
-                log.info("Found template at " + propFilename);
+                log.info("Found template at {}", LogSanitizer.sanitize(propFilename));
             } catch (Exception dex) {
-                log.debug("change path to inside oscar from :" + propFilename);
+                log.debug("change path to inside oscar from: {}", LogSanitizer.sanitize(propFilename));
                 reader = new PdfReader("/oscar/form/prop/" + template);
-                log.debug("Found template at /oscar/form/prop/" + template);
+                log.debug("Found template at /oscar/form/prop/{}", LogSanitizer.sanitize(template));
             }
 
             // retrieve the total number of pages
@@ -860,7 +882,7 @@ public class FrmPDFServlet extends HttpServlet {
         // Step 1: Extract just the filename, removing any directory paths
         String baseFilename = org.apache.commons.io.FilenameUtils.getName(cfgFilename);
         if (baseFilename == null || baseFilename.isEmpty()) {
-            log.warn("Invalid config filename after sanitization: " + cfgFilename);
+            log.warn("Invalid config filename after sanitization: {}", LogSanitizer.sanitize(cfgFilename));
             return ret;
         }
         

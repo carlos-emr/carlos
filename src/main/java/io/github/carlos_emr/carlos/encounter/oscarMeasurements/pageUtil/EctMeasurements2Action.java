@@ -33,7 +33,7 @@ import org.apache.struts2.ActionSupport;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.apache.commons.text.StringEscapeUtils;
+import org.owasp.encoder.Encode;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.validator.GenericValidator;
 import org.apache.struts2.ServletActionContext;
@@ -298,7 +298,7 @@ public class EctMeasurements2Action extends ActionSupport {
                 return null;
             }
 
-            response.sendRedirect(request.getContextPath() + "/encounter/oscarMeasurements/AddMeasurementData.jsp");
+            response.sendRedirect(request.getContextPath() + "/encounter/oscarMeasurements/ViewAddMeasurementData");
             return NONE;
         }
 
@@ -327,7 +327,6 @@ public class EctMeasurements2Action extends ActionSupport {
             cmn.setReporter_caisi_role(reporter_caisi_role);
 
             cmn.setReporter_program_team("0");
-            cmn.setPassword("NULL");
             cmn.setLocked(false);
             cmn.setHistory(textOnEncounter + "-----hi story----");
             cmn.setPosition(0);
@@ -347,7 +346,7 @@ public class EctMeasurements2Action extends ActionSupport {
             objectMapper.writeValue(response.getWriter(), json);
             return null;
         } else {
-            request.setAttribute("textOnEncounter", StringEscapeUtils.escapeEcmaScript(textOnEncounter));
+            request.setAttribute("textOnEncounter", Encode.forJavaScript(textOnEncounter));
             return SUCCESS;
         }
     }

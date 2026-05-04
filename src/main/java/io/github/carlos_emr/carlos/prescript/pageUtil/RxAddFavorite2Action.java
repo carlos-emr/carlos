@@ -91,7 +91,6 @@ public final class RxAddFavorite2Action extends ActionSupport {
         return "success";
     }
 
-    //used with rx3
     public String addFav2()
             throws IOException {
 

@@ -40,7 +40,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DefaultValue;
-import jakarta.ws.rs.FormParam;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -320,27 +319,6 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
         return response;
     }
-
-    /**
-     * Electronically sends a consultation referral request via HL7 to the configured remote system.
-     *
-     * @param requestId Integer the consultation request ID to transmit
-     * @return RestResponse with success confirmation or a user-facing error message
-     */
-    @POST
-    @Path("/eSendRequest")
-    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
-    @Produces(MediaType.APPLICATION_JSON)
-    public RestResponse<String> eSendRequest(@FormParam("requestId") Integer requestId) {
-        try {
-            consultationManager.doHl7Send(getLoggedInInfo(), requestId);
-            return RestResponse.successResponse("Referral Electronically Sent");
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error contacting remote server.", e);
-            return RestResponse.errorResponse("There was an error sending electronically, please try again or manually process the referral.");
-        }
-    }
-
 
     /********************************
      * Consultation Response methods *
@@ -683,7 +661,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
     private void getDocuments(List<EDoc> edocs, boolean attached, List<ConsultationAttachmentTo1> attachments) {
         for (EDoc edoc : edocs) {
-            String url = "documentManager/ManageDocument.do?method=display&doc_no=" + edoc.getDocId();
+            String url = "documentManager/ManageDocument?method=display&doc_no=" + edoc.getDocId();
             attachments.add(new ConsultationAttachmentTo1(ConversionUtils.fromIntString(edoc.getDocId()), ConsultationAttachmentTo1.TYPE_DOC, attached, edoc.getDescription(), url));
         }
     }
@@ -694,12 +672,12 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
             String url = null;
             if (lab.isMDS())
-                url = "oscarMDS/SegmentDisplay.jsp?demographicId=" + demographicNo + "&segmentID=" + lab.getSegmentID();
+                url = "oscarMDS/ViewSegmentDisplay?demographicId=" + demographicNo + "&segmentID=" + lab.getSegmentID();
             else if (lab.isCML())
-                url = "lab/CA/ON/CMLDisplay.jsp?demographicId=" + demographicNo + "&segmentID=" + lab.getSegmentID();
+                url = "lab/CA/ON/ViewCMLDisplay?demographicId=" + demographicNo + "&segmentID=" + lab.getSegmentID();
             else if (lab.isHL7TEXT())
-                url = "lab/CA/ALL/labDisplay.jsp?demographicId=" + demographicNo + "&segmentID=" + lab.getSegmentID();
-            else url = "lab/CA/BC/labDisplay.jsp?demographicId=" + demographicNo + "&segmentID=" + lab.getSegmentID();
+                url = "lab/CA/ALL/ViewLabDisplay?demographicId=" + demographicNo + "&segmentID=" + lab.getSegmentID();
+            else url = "lab/CA/BC/ViewLabDisplay?demographicId=" + demographicNo + "&segmentID=" + lab.getSegmentID();
 
             attachments.add(new ConsultationAttachmentTo1(ConversionUtils.fromIntString(lab.getLabPatientId()), ConsultationAttachmentTo1.TYPE_LAB, attached, displayName, url));
         }
@@ -739,7 +717,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
             if (attached == found) {
                 //if attached is wanted and attached found		OR
                 //if detached is wanted and attached not found
-                String url = "eform/efmshowform_data.jsp?fdid=" + eform.getId();
+                String url = "eform/efmshowform_data?fdid=" + eform.getId();
                 String displayName = eform.getFormName() + " " + eform.getFormDate();
                 attachments.add(new ConsultationAttachmentTo1(ConversionUtils.fromIntString(eform.getId()), ConsultationAttachmentTo1.TYPE_EFORM, attached, displayName, url));
             }

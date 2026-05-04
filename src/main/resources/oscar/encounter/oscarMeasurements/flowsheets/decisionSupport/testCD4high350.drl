@@ -49,6 +49,7 @@ rule "CD4"
         m : MeasurementDSHelper()
         eval( m.setMeasurement("CD4") == true )
         eval( m.getDataAsDouble() > 350 )
+        eval( !m.hasProblem() )
     then
         m.log("CD4 RULES IS GETTING RUN");
         m.setInRange(true);

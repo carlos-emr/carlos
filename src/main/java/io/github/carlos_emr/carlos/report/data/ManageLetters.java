@@ -49,6 +49,7 @@ import org.apache.logging.log4j.Logger;
 
 
 import io.github.carlos_emr.OscarDocumentCreator;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
  * @author jay
@@ -121,12 +122,13 @@ public class ManageLetters {
 
         if (r != null) {
             try {
+                // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary report file bytes written to stream, not HTML response
                 out.write(r.getReportFile(), 0, r.getReportFile().length);
             } catch (IOException e) {
                 logger.error("Error", e);
             }
         } else {
-            logger.error("Could not find letter for id: " + id);
+            logger.error("Could not find letter for id: {}", LogSanitizer.sanitize(id)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         }
 
     }

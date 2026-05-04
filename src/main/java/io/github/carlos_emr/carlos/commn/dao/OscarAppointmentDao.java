@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Set;
 
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
+import io.github.carlos_emr.carlos.appointment.dto.AppointmentListItemDTO;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentArchive;
 
@@ -126,7 +127,7 @@ public interface OscarAppointmentDao extends AbstractDao<Appointment> {
 
     public Appointment findByDate(Date appointmentDate);
 
-    public List<Object[]> findAppointmentAndProviderByAppointmentNo(Integer apptNo);
+    public List<io.github.carlos_emr.carlos.commn.dao.projection.AppointmentProviderRow> findAppointmentAndProviderByAppointmentNo(Integer apptNo);
 
     public List<Appointment> searchappointmentday(String providerNo, Date appointmentDate, Integer programId);
 
@@ -134,16 +135,6 @@ public interface OscarAppointmentDao extends AbstractDao<Appointment> {
                                                       String selectedSiteId);
 
     public List<Object[]> findAppointmentsByDemographicIds(Set<String> demoIds, Date from, Date to);
-
-    public List<Appointment> findPatientBilledAppointmentsByProviderAndAppointmentDate(
-            String providerNo,
-            Date startAppointmentDate,
-            Date endAppointmentDate);
-
-    public List<Appointment> findPatientUnbilledAppointmentsByProviderAndAppointmentDate(
-            String providerNo,
-            Date startAppointmentDate,
-            Date endAppointmentDate);
 
     public List<Appointment> findByProgramProviderDemographicDate(Integer programId, String providerNo,
                                                                   Integer demographicId, Date updatedAfterThisDateExclusive, int itemsToReturn);
@@ -158,8 +149,22 @@ public interface OscarAppointmentDao extends AbstractDao<Appointment> {
 
     public int updateApptStatus(String ids, String status);
 
+    public List<io.github.carlos_emr.carlos.commn.dao.projection.BillingOnNewReportUnbilledRow>
+    findBillingOnNewReportUnbilledRows(String providerNo, String startDate, String endDate);
+
     public List<Object[]> listAppointmentsByPeriodProvider(Date sDate, Date eDate, List<Integer> providerNos);
 
     public List<Object[]> listProviderAppointmentCounts(Date sDate, Date eDate);
 
+    /**
+     * Returns lightweight appointment DTOs for a provider on a given date, with
+     * pre-joined patient names from Demographic. Uses JPQL constructor expression
+     * projection (17 fields vs 37 on entity).
+     *
+     * @param date Date the appointment date
+     * @param providerNo String the provider number
+     * @return List of AppointmentListItemDTO for the provider's daily schedule
+     * @since 2026-04-11
+     */
+    public List<AppointmentListItemDTO> findDayAppointmentDTOs(Date date, String providerNo);
 }

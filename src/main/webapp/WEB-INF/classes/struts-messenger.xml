@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 6.5//EN" "https://struts.apache.org/dtds/struts-6.5.dtd">
+<!--
+  Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+  This software is published under the GPL GNU General Public License.
+  This program is free software; you can redistribute it and/or
+  modify it under the terms of the GNU General Public License
+  as published by the Free Software Foundation; either version 2
+  of the License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+  CARLOS EMR Project
+  https://github.com/carlos-emr/carlos
+-->
+<!--
+    CARLOS EMR - Messaging Actions
+    Contains action mappings for internal messaging, message composition, attachments, group administration, and demographic messaging.
+-->
+<struts>
+    <package name="messenger" namespace="/" extends="struts-default">
+
+        <action name="messenger/ImportDemographic" class="io.github.carlos_emr.carlos.messenger.pageUtil.ImportDemographic2Action">
+            <result name="success">/messenger/ViewMessage</result>
+        </action>
+
+        <action name="messenger/CreateMessage" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgCreateMessage2Action">
+            <result name="success">/WEB-INF/jsp/messenger/SentMessage.jsp</result>
+            <result name="error">/WEB-INF/jsp/messenger/CreateMessage.jsp</result>
+        </action>
+        <action name="messenger/ViewCreateMessage" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewCreateMessage2Action">
+            <result name="success">/WEB-INF/jsp/messenger/CreateMessage.jsp</result>
+        </action>
+        <action name="messenger/DisplayMessages" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgDisplayMessages2Action">
+            <result name="success">/WEB-INF/jsp/messenger/DisplayMessages.jsp</result>
+            <result name="demoMsg">/WEB-INF/jsp/messenger/DisplayDemographicMessages.jsp</result>
+        </action>
+        <action name="messenger/SendDemoMessage" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgSendDemographicMessage2Action">
+            <result name="success">/WEB-INF/jsp/messenger/CreateMessage.jsp</result>
+        </action>
+        <action name="messenger/DisplayDemographicMessages" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgDisplayDemographicMessages2Action">
+            <result name="demoMsg">/WEB-INF/jsp/messenger/DisplayDemographicMessages.jsp</result>
+            <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
+        </action>
+        <action name="messenger/ReDisplayMessages" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgReDisplayMessages2Action">
+            <result name="success">/WEB-INF/jsp/messenger/DisplayMessages.jsp</result>
+        </action>
+        <action name="messenger/ViewMessage" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewMessage2Action">
+            <result name="noRights">/WEB-INF/jsp/messenger/DisplayMessages.jsp</result>
+            <result name="success">/WEB-INF/jsp/messenger/ViewMessage.jsp</result>
+        </action>
+        <!-- DEPRECATED: This action is used by the legacy encounter page (encounter/Index.jsp) -->
+        <action name="messenger/ViewMessageByPosition" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewMessageByPosition2Action">
+            <result name="success">/messenger/ViewMessage</result>
+        </action>
+        <action name="messenger/Doc2PDF" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachPDF2Action">
+            <result name="success">/WEB-INF/jsp/messenger/selfCloseAndRefreshOpener.jsp</result>
+            <result name="attaching">/WEB-INF/jsp/messenger/generatePreviewPDF.jsp</result>
+        </action>
+        <action name="messenger/PreviewPDF" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgPreviewPDF2Action">
+            <result name="success">/WEB-INF/jsp/messenger/generatePreviewPDF.jsp</result>
+        </action>
+        <!--
+            Residue view gate — attachmentFrameset.jsp is the frameset host
+            for the PDF preview popup opened from CreateMessage.jsp. Enforces
+            _msg r at the frame-host layer; the framed PreviewPDF enforces
+            its own _msg r via MsgPreviewPDF2Action.
+        -->
+        <action name="messenger/attachmentFrameset" class="io.github.carlos_emr.carlos.messenger.gate.ViewAttachmentFrameset2Action">
+            <result name="success">/WEB-INF/jsp/messenger/attachmentFrameset.jsp</result>
+        </action>
+
+        <action name="messenger/AdjustAttachments" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgAdjustAttachments2Action"/>
+        <action name="messenger/Transfer/SelectItems" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgTransferSelectItems2Action">
+            <result name="success">/WEB-INF/jsp/messenger/Transfer/SelectItems.jsp</result>
+        </action>
+        <action name="messenger/Transfer/PostItems" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgTransferPostItems2Action"/>
+
+        <action name="messenger/HandleMessages" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgHandleMessages2Action">
+            <result name="success">/WEB-INF/jsp/messenger/DisplayMessages.jsp</result>
+            <result name="reply">/WEB-INF/jsp/messenger/CreateMessage.jsp</result>
+        </action>
+        <action name="messenger" class="io.github.carlos_emr.carlos.messenger.config.pageUtil.MsgMessengerAdmin2Action">
+            <result name="success">/WEB-INF/jsp/messenger/config/MessengerAdmin.jsp</result>
+            <result name="failure">/WEB-INF/jsp/messenger/config/MessengerAdmin.jsp</result>
+        </action>
+        <action name="messenger/AddGroup" class="io.github.carlos_emr.carlos.messenger.config.pageUtil.MsgMessengerCreateGroup2Action">
+            <result name="success">/WEB-INF/jsp/messenger/config/MessengerAdmin.jsp</result>
+        </action>
+        <action name="messenger/ViewAttach" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewAttachment2Action">
+            <result name="success">/WEB-INF/jsp/messenger/ViewAttachment.jsp</result>
+        </action>
+        <action name="messenger/ViewPDFAttach" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewPDFAttachment2Action">
+            <result name="success">/WEB-INF/jsp/messenger/ViewPDFAttachment.jsp</result>
+        </action>
+        <action name="messenger/ViewPDFFile" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewPDF2Action">
+            <result name="success">/WEB-INF/jsp/messenger/ViewPDFFile.jsp</result>
+        </action>
+
+        <action name="messenger/ClearMessage" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgClearMessage2Action">
+            <result name="success">/WEB-INF/jsp/messenger/CreateMessage.jsp</result>
+        </action>
+        <action name="messenger/WriteToEncounter" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgWriteToEncounter2Action">
+            <result name="success">/encounter/IncomingEncounter</result>
+        </action>
+
+    </package>
+</struts>

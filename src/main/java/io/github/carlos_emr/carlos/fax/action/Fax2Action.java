@@ -96,6 +96,9 @@ public class Fax2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String faxForward = transactionType;
 
+        if (faxFilePath != null && !faxFilePath.trim().isEmpty()) {
+            faxManager.validateFilePath(faxFilePath);
+        }
         faxManager.flush(loggedInInfo, faxFilePath);
 
 
@@ -103,14 +106,14 @@ public class Fax2Action extends ActionSupport {
 
         if (TransactionType.CONSULTATION.name().equalsIgnoreCase(transactionType)) {
             try {
-                response.sendRedirect(request.getContextPath() + "/encounter/ViewRequest.do?de=" + demographicNo + "&requestId=" + transactionId);
+                response.sendRedirect(request.getContextPath() + "/encounter/ViewRequest?de=" + demographicNo + "&requestId=" + transactionId);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
             return NONE;
         } else if (TransactionType.EFORM.name().equalsIgnoreCase(transactionType)) {
             try {
-                response.sendRedirect(request.getContextPath() + "/eform/efmshowform_data.jsp?fdid=" + transactionId + "&parentAjaxId=eforms");
+                response.sendRedirect(request.getContextPath() + "/eform/efmshowform_data?fdid=" + transactionId + "&parentAjaxId=eforms");
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -254,6 +257,14 @@ public class Fax2Action extends ActionSupport {
     public void getPreview() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "r", null)) {
+            try {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access denied");
+            } catch (IOException e) {
+                logger.error("Error sending forbidden response in getPreview", e);
+            }
+            return;
+        }
         String faxFilePath = request.getParameter("faxFilePath");
         String pageNumber = request.getParameter("pageNumber");
         String showAs = request.getParameter("showAs");
@@ -322,7 +333,7 @@ public class Fax2Action extends ActionSupport {
 
                 int data;
                 while ((data = bfis.read()) != -1) {
-                    outs.write(data);
+                    outs.write(data); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary fax document download
                 }
                 outs.flush();
             } catch (IOException e) {

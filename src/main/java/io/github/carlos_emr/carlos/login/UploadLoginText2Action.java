@@ -34,6 +34,8 @@ import io.github.carlos_emr.CarlosProperties;
 import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
 import io.github.carlos_emr.carlos.commn.model.Property;
@@ -41,6 +43,7 @@ import io.github.carlos_emr.carlos.commn.service.AcceptableUseAgreementManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -49,8 +52,10 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.util.List;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
-public class UploadLoginText2Action extends ActionSupport {
+public class UploadLoginText2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -72,7 +77,7 @@ public class UploadLoginText2Action extends ActionSupport {
         String validForever = request.getParameter("validForever");
         String foreverFrom = request.getParameter("foreverFrom");
 
-        _logger.debug("validDurationNumber " + validDurationNumber + " validDurationPeriod " + " validForever " + validForever + " foreverFrom " + foreverFrom);
+        _logger.debug("validDurationNumber={} validDurationPeriod={} validForever={} foreverFrom={}", LogSanitizer.sanitize(validDurationNumber), LogSanitizer.sanitize(validDurationPeriod), LogSanitizer.sanitize(validForever), LogSanitizer.sanitize(foreverFrom));
 
         PropertyDao propertyDao = SpringUtils.getBean(PropertyDao.class);
         Property prop = null;
@@ -85,7 +90,7 @@ public class UploadLoginText2Action extends ActionSupport {
             try {
                 Integer.parseInt(validDurationNumber);
             } catch (Exception e) {
-                _logger.error("Not an Int:" + validDurationNumber, e);
+                _logger.error("Not an Int:{}", LogSanitizer.sanitize(validDurationNumber), e);
             }
 
             if (validDurationPeriod != null && ("year".equals(validDurationPeriod) || "month".equals(validDurationPeriod) || "weeks".equals(validDurationPeriod) || "days".equals(validDurationPeriod))) {
@@ -93,7 +98,7 @@ public class UploadLoginText2Action extends ActionSupport {
                 prop.setName("aua_valid_duration");
                 prop.setValue(validDurationNumber + " " + validDurationPeriod);
             } else {
-                _logger.error("Not a valid Period :" + validDurationPeriod);
+                _logger.error("Not a valid Period :{}", LogSanitizer.sanitize(validDurationPeriod)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             }
         }
 
@@ -131,12 +136,25 @@ public class UploadLoginText2Action extends ActionSupport {
 
     private File importFile;
 
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
+            UploadedFile uploaded = uploadedFiles.get(0);
+            this.importFile = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
+        }
+    }
+
     public File getImportFile() {
         return importFile;
     }
 
     @StrutsParameter
     public void setImportFile(File importFile) {
-        this.importFile = importFile;
+        if (importFile != null) {
+            this.importFile = PathValidationUtils.validateUpload(importFile);
+        }
+        else {
+            this.importFile = null;
+        }
     }
 }

@@ -27,7 +27,6 @@
 
 package io.github.carlos_emr.carlos.PMmodule.web;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -43,7 +42,7 @@ import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.util.DateUtils;
-import org.apache.commons.text.StringEscapeUtils;
+import org.owasp.encoder.Encode;
 import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
@@ -76,6 +75,7 @@ import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.AdmissionDao;
 import io.github.carlos_emr.carlos.commn.dao.CdsClientFormDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -90,8 +90,11 @@ import io.github.carlos_emr.carlos.services.LookupManager;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class ClientManager2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -121,6 +124,11 @@ public class ClientManager2Action extends ActionSupport {
     }
 
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pmm_management", "w", null)) {
+            throw new SecurityException("missing required sec object (_pmm_management)");
+        }
+
         String method = request.getParameter("method");
         if ("admit".equals(method)) {
             return admit();
@@ -134,12 +142,8 @@ public class ClientManager2Action extends ActionSupport {
             return discharge_community();
         } else if ("discharge_community_select_program".equals(method)) {
             return discharge_community_select_program();
-        } else if ("nested_discharge_community_select_program".equals(method)) {
-            return nested_discharge_community_select_program();
         } else if ("discharge_select_program".equals(method)) {
             return discharge_select_program();
-        } else if ("nested_discharge_select_program".equals(method)) {
-            return nested_discharge_select_program();
         } else if ("getGeneralFormsReport".equals(method)) {
             return getGeneralFormsReport();
         } else if ("edit".equals(method)) {
@@ -294,11 +298,6 @@ public class ClientManager2Action extends ActionSupport {
         return "edit";
     }
 
-    public String nested_discharge_community_select_program() {
-        request.setAttribute("nestedReason", "true");
-        return discharge_community_select_program();
-    }
-
     public String discharge_select_program() {
         String id = request.getParameter("id");
         String admissionId = request.getParameter("admission.id");
@@ -316,13 +315,6 @@ public class ClientManager2Action extends ActionSupport {
             }
         }
 
-        return "edit";
-    }
-
-    public String nested_discharge_select_program() {
-        request.setAttribute("nestedReason", "true");
-        setEditAttributes(request, request.getParameter("id"));
-        request.setAttribute("do_discharge", Boolean.valueOf(true));
         return "edit";
     }
 
@@ -348,26 +340,24 @@ public class ClientManager2Action extends ActionSupport {
             }
         }
 
+        // Validate id is present and numeric before DAO lookup or session writes.
+        // Use \d{1,9} (not \d{1,10}) to prevent Integer.parseInt overflow
+        // (10-digit values can exceed Integer.MAX_VALUE = 2,147,483,647).
+        // Also require a positive value, since DemographicDaoImpl.getClientByDemographicNo
+        // throws IllegalArgumentException when demographicNo <= 0.
+        if (id == null || !id.matches("\\d{1,9}") || Integer.parseInt(id) <= 0) {
+            logger.warn("Invalid id rejected in edit: {}", LogSanitizer.sanitize(id)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            return ERROR;
+        }
+
         setEditAttributes(request, id);
 
         LogAction.log("read", "pmm client record", id, request);
 
-        String roles = (String) request.getSession().getAttribute("userrole");
-
-        // for Vaccine Provider
-        if (roles.indexOf("Vaccine Provider") != -1) {
-            try {
-                response.sendRedirect(request.getContextPath() + "/VaccineProviderReport.do?id=" + id);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-            return null;
-        }
-
         Demographic demographic = clientManager.getClientByDemographicNo(id);
-        request.getSession().setAttribute("clientGender", demographic.getSex());
-        request.getSession().setAttribute("clientAge", demographic.getAge());
-        request.getSession().setAttribute("demographicId", demographic.getDemographicNo());
+        request.getSession().setAttribute("clientGender", demographic.getSex()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        request.getSession().setAttribute("clientAge", demographic.getAge()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        request.getSession().setAttribute("demographicId", demographic.getDemographicNo()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
         return "edit";
     }
@@ -512,7 +502,7 @@ public class ClientManager2Action extends ActionSupport {
                 try {
                     p.setVacancyId(Integer.valueOf(vacancyIdParam.trim()));
                 } catch (NumberFormatException e) {
-                    logger.error("Invalid vacancyId parameter: {}", vacancyIdParam, e);
+                    logger.error("Invalid vacancyId parameter: {}", LogSanitizer.sanitize(vacancyIdParam), e);
                 }
             }
             request.setAttribute("program", program);
@@ -634,7 +624,7 @@ public class ClientManager2Action extends ActionSupport {
         this.setProgram(new Program());
         this.setReferral(new ClientReferral());
         setEditAttributes(request, "" + referral.getClientId());
-        LogAction.log("write", "referral", "" + referral.getClientId(), request);
+        LogAction.log("write", "referral", String.valueOf(referral.getClientId()), request);
 
         return "edit";
     }
@@ -669,7 +659,16 @@ public class ClientManager2Action extends ActionSupport {
 
     public String remove_joint_admission() {
         String clientId = request.getParameter("dependentClientId");
-        clientManager.removeJointAdmission(Integer.valueOf(clientId), (String) request.getSession().getAttribute("user"));
+        try {
+            // Session read via getAttribute("user"), not a session write.
+            // FP (CWE-501): reads authenticated provider from own session (set by Login2Action post-auth).
+            // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+            clientManager.removeJointAdmission(Integer.valueOf(clientId), (String) request.getSession().getAttribute("user"));
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid dependentClientId rejected in remove_joint_admission: {}", LogSanitizer.sanitize(clientId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            setEditAttributes(request, request.getParameter("clientId"));
+            return "edit";
+        }
         setEditAttributes(request, request.getParameter("clientId"));
         return "edit";
     }
@@ -917,7 +916,6 @@ public class ClientManager2Action extends ActionSupport {
             request.setAttribute("temporaryAdmissions", admissionManager.getCurrentTemporaryProgramAdmission(Integer.valueOf(demographicNo)));
             request.setAttribute("current_community_program", admissionManager.getCurrentCommunityProgramAdmission(Integer.valueOf(demographicNo)));
             request.setAttribute("dischargeReasons", lookupManager.LoadCodeList("DRN", true, null, null));
-            request.setAttribute("dischargeReasons2", ""/*lookupManager.LoadCodeList("DR2", true, null, null)*/);
         }
 
         /* Relations */
@@ -1018,19 +1016,19 @@ public class ClientManager2Action extends ActionSupport {
             else sb.append(DateFormatUtils.ISO_DATE_FORMAT.format(admission.getDischargeDate()));
             sb.append(" )");
         }
-        return (StringEscapeUtils.escapeHtml4(sb.toString()));
+        return (Encode.forHtml(sb.toString()));
     }
 
     public static String getEscapedProviderDisplay(String providerNo) {
         Provider provider = providerDao.getProvider(providerNo);
 
-        return (StringEscapeUtils.escapeHtml4(provider.getFormattedName()));
+        return (Encode.forHtml(provider.getFormattedName()));
     }
 
     public static String getEscapedDateDisplay(Date d) {
         String display = DateFormatUtils.ISO_DATE_FORMAT.format(d);
 
-        return (StringEscapeUtils.escapeHtml4(display));
+        return (Encode.forHtml(display));
     }
 
     @Autowired
@@ -1112,7 +1110,7 @@ public class ClientManager2Action extends ActionSupport {
         Program program = programDao.getProgram(admission.getProgramId());
 
         String displayString = program.getName() + " : " + DateFormatUtils.ISO_DATE_FORMAT.format(admission.getAdmissionDate());
-        return (StringEscapeUtils.escapeHtml4(displayString));
+        return (Encode.forHtml(displayString));
     }
 
     private ClientManagerFormBean view;

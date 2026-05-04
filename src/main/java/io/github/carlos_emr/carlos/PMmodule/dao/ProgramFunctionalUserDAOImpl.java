@@ -37,19 +37,19 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.FunctionalUserType;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramFunctionalUser;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import org.springframework.transaction.annotation.Transactional;
-import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
+import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
 @Transactional
-public class ProgramFunctionalUserDAOImpl extends AbstractHibernateDao implements ProgramFunctionalUserDAO {
+public class ProgramFunctionalUserDAOImpl extends AbstractJpaDao implements ProgramFunctionalUserDAO {
 
     private static Logger log = MiscUtils.getLogger();
 
     @Override
     public List<FunctionalUserType> getFunctionalUserTypes() {
         String sSQL = "from FunctionalUserType";
-        List<FunctionalUserType> results = (List<FunctionalUserType>) HqlQueryHelper.find(currentSession(), sSQL);
+        List<FunctionalUserType> results = (List<FunctionalUserType>) JpqlQueryHelper.find(entityManager(), sSQL);
 
         if (log.isDebugEnabled()) {
             log.debug("getFunctionalUserTypes: # of results=" + results.size());
@@ -63,7 +63,7 @@ public class ProgramFunctionalUserDAOImpl extends AbstractHibernateDao implement
             throw new IllegalArgumentException();
         }
 
-        FunctionalUserType result = currentSession().get(FunctionalUserType.class, id);
+        FunctionalUserType result = entityManager().find(FunctionalUserType.class, id);
 
         if (log.isDebugEnabled()) {
             log.debug("getFunctionalUserType: id=" + id + ",found=" + (result != null));
@@ -79,9 +79,9 @@ public class ProgramFunctionalUserDAOImpl extends AbstractHibernateDao implement
         }
 
         if (fut.getId() == null) {
-            currentSession().persist(fut);
+            entityManager().persist(fut);
         } else {
-            currentSession().merge(fut);
+            entityManager().merge(fut);
         }
 
         if (log.isDebugEnabled()) {
@@ -95,7 +95,7 @@ public class ProgramFunctionalUserDAOImpl extends AbstractHibernateDao implement
             throw new IllegalArgumentException();
         }
 
-        currentSession().remove(getFunctionalUserType(id));
+        entityManager().remove(getFunctionalUserType(id));
 
         if (log.isDebugEnabled()) {
             log.debug("deleteFunctionalUserType:" + id);
@@ -103,13 +103,14 @@ public class ProgramFunctionalUserDAOImpl extends AbstractHibernateDao implement
     }
 
     @Override
-    public List<FunctionalUserType> getFunctionalUsers(Long programId) {
+    public List<ProgramFunctionalUser> getFunctionalUsers(Long programId) {
         if (programId == null || programId.intValue() <= 0) {
             throw new IllegalArgumentException();
         }
 
         String sSQL = "from ProgramFunctionalUser pfu where pfu.ProgramId = ?1";
-        List<FunctionalUserType> results = (List<FunctionalUserType>) HqlQueryHelper.find(currentSession(), sSQL, programId);
+        @SuppressWarnings("unchecked")
+        List<ProgramFunctionalUser> results = (List<ProgramFunctionalUser>) JpqlQueryHelper.find(entityManager(), sSQL, programId);
 
         if (log.isDebugEnabled()) {
             log.debug("getFunctionalUsers: programId=" + programId + ",# of results=" + results.size());
@@ -123,7 +124,7 @@ public class ProgramFunctionalUserDAOImpl extends AbstractHibernateDao implement
             throw new IllegalArgumentException();
         }
 
-        ProgramFunctionalUser result = currentSession().get(ProgramFunctionalUser.class, id);
+        ProgramFunctionalUser result = entityManager().find(ProgramFunctionalUser.class, id);
 
         if (log.isDebugEnabled()) {
             log.debug("getFunctionalUser: id=" + id + ",found=" + (result != null));
@@ -139,9 +140,9 @@ public class ProgramFunctionalUserDAOImpl extends AbstractHibernateDao implement
         }
 
         if (pfu.getId() == null) {
-            currentSession().persist(pfu);
+            entityManager().persist(pfu);
         } else {
-            currentSession().merge(pfu);
+            entityManager().merge(pfu);
         }
 
         if (log.isDebugEnabled()) {
@@ -155,7 +156,7 @@ public class ProgramFunctionalUserDAOImpl extends AbstractHibernateDao implement
             throw new IllegalArgumentException();
         }
 
-        currentSession().remove(getFunctionalUser(id));
+        entityManager().remove(getFunctionalUser(id));
 
         if (log.isDebugEnabled()) {
             log.debug("deleteFunctionalUser:" + id);
@@ -186,7 +187,7 @@ public class ProgramFunctionalUserDAOImpl extends AbstractHibernateDao implement
 
         String sSQL = "select pfu.Id from ProgramFunctionalUser pfu where pfu.ProgramId = ?1 and pfu.UserTypeId = ?2";
         @SuppressWarnings("unchecked")
-        List<Long> results = (List<Long>) HqlQueryHelper.find(currentSession(), sSQL, programId, userTypeId);
+        List<Long> results = (List<Long>) JpqlQueryHelper.find(entityManager(), sSQL, programId, userTypeId);
 
         if (!results.isEmpty()) {
             result = results.get(0);

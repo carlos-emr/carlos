@@ -432,6 +432,7 @@ public final class LoginCheckLogin {
      * @deprecated Use List instead of Vector for thread-safe collections
      * @see #unlock for manually unlocking a blocked username/IP
      */
+    @Deprecated
     public Vector findLockList() {
         Vector ret = new Vector();
 

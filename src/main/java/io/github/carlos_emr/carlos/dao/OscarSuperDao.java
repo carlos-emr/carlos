@@ -30,19 +30,44 @@ package io.github.carlos_emr.carlos.dao;
 import java.util.List;
 import java.util.Map;
 
+import javax.sql.DataSource;
+
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.springframework.beans.factory.InitializingBean;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
 /**
  * Oscar super DAO implementation created to extract database access code from JSP files. This class should be extended by a scope named DAO class, i.e. AppointmentDao. Do not access methods of this class directly - use OscarSuperManager methods instead.
  *
  * @author Eugene Petruhin
  */
-public abstract class OscarSuperDao extends JdbcDaoSupport {
+public abstract class OscarSuperDao implements InitializingBean {
 
     protected static final Logger logger = MiscUtils.getLogger();
+
+    private JdbcTemplate jdbcTemplate;
+
+    public void setDataSource(DataSource dataSource) {
+        this.jdbcTemplate = new JdbcTemplate(dataSource);
+    }
+
+    @Override
+    public void afterPropertiesSet() {
+        if (this.jdbcTemplate == null) {
+            throw new IllegalArgumentException(
+                    "'dataSource' is required for " + getClass().getName());
+        }
+    }
+
+    protected JdbcTemplate getJdbcTemplate() {
+        if (jdbcTemplate == null) {
+            throw new IllegalStateException(
+                    "JdbcTemplate has not been initialized. Ensure setDataSource(DataSource) is called for " + getClass().getName());
+        }
+        return jdbcTemplate;
+    }
 
     protected abstract String[][] getDbQueries();
 

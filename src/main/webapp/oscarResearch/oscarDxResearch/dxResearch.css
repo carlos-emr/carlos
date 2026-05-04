@@ -47,7 +47,7 @@ table tr td {
 table td#displayDxCodeTable table tr th {
     font-weight: bold;
     color: white;
-    background-color: #6699cc;
+    background-color: var(--carlos-primary, #337ab7);
     padding: 10px 5px;
 }
 
@@ -61,7 +61,7 @@ table td#displayDxCodeTable table tr td {
 
 table td#displayDxCodeTable table tr td:last-of-type a {
     padding-left: 5px;
-    border-left: 2px #6699cc solid;
+    border-left: 2px var(--carlos-primary, #337ab7) solid;
 }
 
 table td#displayDxCodeTable table tr td:last-of-type a:first-of-type {
@@ -87,8 +87,25 @@ table#dxCodeQuicklist td.heading .panel {
     margin-bottom: 5px;
 }
 
+/* Active (unresolved) diagnosis entries — uses CARLOS primary blue
+   instead of generic "blue" (#0000FF) for visual consistency */
 .notResolved {
-    color: blue;
+    color: var(--carlos-primary, #337ab7);
+}
+
+/* Bootstrap list-group hover/active — match CARLOS primary blue.
+   Applied to the quick list item highlights in dxQuickList.jsp. */
+.list-group-item:hover,
+.list-group-item:focus {
+    color: var(--carlos-primary, #337ab7);
+}
+
+.list-group-item a {
+    color: var(--carlos-primary, #337ab7);
+}
+
+.list-group-item a:hover {
+    color: color-mix(in srgb, var(--carlos-primary, #337ab7) 75%, black);
 }
 
 #oscarDxHeader {

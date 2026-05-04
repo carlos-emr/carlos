@@ -75,9 +75,10 @@ public class CaseManagementIssueNotesDaoImpl implements CaseManagementIssueNotes
             placeholders.append("?").append(i + 1);
         }
 
+        // nosemgrep: jpa-sqli -- placeholders are generated positional params (?1, ?2, ...) from array length, bound via setParameter below
         String sql = "select note_id from casemgmt_issue_notes where id in (" + placeholders.toString() + ")";
 
-        Query query = entityManager.createNativeQuery(sql);
+        Query query = entityManager.createNativeQuery(sql); // nosemgrep: jpa-sqli — positional placeholders (?1,?2,...) generated from array length; values bound via setParameter
 
         for (int i = 0; i < issueId.length; i++) {
             query.setParameter(i + 1, issueId[i]);

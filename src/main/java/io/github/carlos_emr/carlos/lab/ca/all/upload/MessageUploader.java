@@ -39,6 +39,12 @@
 
 package io.github.carlos_emr.carlos.lab.ca.all.upload;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.*;
+import java.util.regex.Pattern;
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
@@ -57,13 +63,6 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.demographic.data.DemographicMerged;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
-
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.*;
-import java.util.regex.Pattern;
 
 public final class MessageUploader {
 
@@ -343,6 +342,10 @@ public final class MessageUploader {
         return index;
     }
 
+    // Allowed column names for provider search to prevent SQL injection
+    private static final java.util.Set<String> VALID_SEARCH_COLUMNS = java.util.Set.of(
+            "ohip_no", "provider_no", "last_name", "first_name", "practitioner_no");
+
     /**
      * Attempt to match the doctors from the lab to a providers
      */
@@ -356,11 +359,17 @@ public final class MessageUploader {
         String sqlSearchOn = "ohip_no";
 
         if (search_on != null && search_on.length() > 0) {
-            sqlSearchOn = search_on;
+            // Whitelist column name to prevent SQL injection (normalize before checking)
+            String normalized = search_on.trim().toLowerCase(java.util.Locale.ROOT);
+            if (VALID_SEARCH_COLUMNS.contains(normalized)) {
+                sqlSearchOn = normalized;
+            } else {
+                MiscUtils.getLogger().warn("providerRouteReport: rejected invalid search column, using default 'ohip_no'");
+            }
         }
 
         if (limit != null && limit.intValue() > 0) {
-            sqlLimit = " limit " + limit.toString();
+            sqlLimit = " limit " + limit.intValue(); // nosemgrep: formatted-sql-string -- integer value, not user string
         }
 
         if (orderByLength) {
@@ -378,12 +387,15 @@ public final class MessageUploader {
                                 practitionerNum.insert(0, "0");
                             }
                         }
-                        sql = "select provider_no from provider where " + sqlSearchOn + " = '" + practitionerNum.toString() + "'" + sqlOrderByLength + sqlLimit;
+                        sql = "select provider_no from provider where " + sqlSearchOn + " = ?" + sqlOrderByLength + sqlLimit; // nosemgrep: formatted-sql-string -- sqlSearchOn is whitelisted above
+                        pstmt = conn.prepareStatement(sql);
+                        pstmt.setString(1, practitionerNum.toString());
                     } else {
-                        sql = "select provider_no from provider where " + sqlSearchOn + " LIKE '" + ((String) docNums.get(i)) + "'" + sqlOrderByLength + sqlLimit;
+                        sql = "select provider_no from provider where " + sqlSearchOn + " LIKE ?" + sqlOrderByLength + sqlLimit; // nosemgrep: formatted-sql-string -- sqlSearchOn is whitelisted above
+                        pstmt = conn.prepareStatement(sql);
+                        pstmt.setString(1, (String) docNums.get(i));
                     }
-                    pstmt = conn.prepareStatement(sql);
-                    ResultSet rs = pstmt.executeQuery();
+                    ResultSet rs = pstmt.executeQuery(); // nosemgrep: formatted-sql-string — sqlSearchOn whitelisted above; practitionerNum bound via PreparedStatement
                     while (rs.next()) {
                         providerNums.add(Misc.getString(rs, "provider_no"));
                     }
@@ -441,38 +453,92 @@ public final class MessageUploader {
 
 
 			try {
-				if (hin.equalsIgnoreCase("UNKNOWN")) { hin = ""; }
+				if (hin != null && hin.equalsIgnoreCase("UNKNOWN")) { hin = ""; }
 				if (hin != null) {
 					hinMod = new String(hin);
-					if (hinMod.length() == 12) {
+                    // Ontario may be bare 10 digits or have the version code concacted 1234567890XX
+					// Quebec type hin look like HUTPyymmdd12 which is 12 characters
+					// BC hin MSP is a 9 digit code
+					if (hinMod.length() == 12 && StringUtils.isNumeric(hinMod.substring(0, 10))) {
+                        // strip the version code for Ontario
 						hinMod = hinMod.substring(0, 10);
 					}
 				}
 
-				if (dob != null && !dob.equals("") && !dob.equalsIgnoreCase("UNKNOWN")) {
+				if (dob != null && !dob.isEmpty() && !dob.equalsIgnoreCase("UNKNOWN")) {
 					String[] dobArray = dob.trim().split("-");
 					dobYear = dobArray[0];
 					dobMonth = dobArray[1];
 					dobDay = dobArray[2];
 				}
-
-				// only the first letter of names
+                
+				List<String> sqlParams = new ArrayList<>();
+                
+                // if no hin but there is a dob try for a complete match against the full name DOB and gender
+				if ((hinMod == null || hinMod.trim().isEmpty())
+						&& dob != null && !dob.isEmpty() && !dob.equalsIgnoreCase("UNKNOWN")
+						&& StringUtils.isNotBlank(lastName)
+						&& StringUtils.isNotBlank(firstName)
+						&& StringUtils.isNotBlank(sex)
+						&& !sex.equalsIgnoreCase("UNKNOWN")) {
+					// Avoid logging PHI (name/DOB/sex). Lab id and match outcome are sufficient diagnostics.
+					logger.debug("Attempting no-HIN demographic match by name+DOB+sex for lab " + labId);
+					sql = "select demographic_no, provider_no from demographic where year_of_birth like ? and month_of_birth like ? and date_of_birth like ? and ( sex like ? OR sex NOT IN ('F', 'M') ) and last_name = ? and first_name = ?";
+					sqlParams.add(dobYear);
+					sqlParams.add(dobMonth);
+					sqlParams.add(dobDay);
+					sqlParams.add(sex + "%");
+                    sqlParams.add(lastName);
+					sqlParams.add(firstName);
+				}
+                
+				// only the first letter of names used for LAB_NOMATCH_NAMES=no
 				if (!firstName.equals("")) firstName = firstName.substring(0, 1);
 				if (!lastName.equals("")) lastName = lastName.substring(0, 1);
 
 
-				// HIN is ALWAYS required for lab matching. Please do not revert this code. Previous iterations have caused fatal patient miss-matches.
+				/*
+				 * HIN is PREFERRED for lab matching to ensure patient safety. The provincial Health Insurance Number
+				 * uniquely identifies a patient within the healthcare system, preventing cross-patient result delivery
+				 * and fatal patient mismatches that occurred in previous iterations.
+				 *
+				 * A no-HIN matching path is allowed ONLY when an exact match is found on all three demographic identifiers:
+				 * full legal name (first and last), date of birth (year, month, day), and gender. Gender matching is applied
+				 * EXCEPT when the stored sex value is not 'M' or 'F' - those non-binary/unspecified stored values act as a
+				 * wildcard and permit a match with any incoming lab gender value.
+				 *
+				 * For HIN-based matching (below), the LAB_NOMATCH_NAMES property controls whether name verification is required
+				 * in addition to HIN + DOB + gender validation. When LAB_NOMATCH_NAMES is "no", only the first letter of names
+				 * is used for matching.
+				 */
 				if (hinMod != null && !hinMod.trim().isEmpty()) {
+                    // Gender matching allows the provided sex OR any stored sex value not explicitly 'F' or 'M'.
+                    // This permits matching when the stored demographic has non-binary/unspecified gender.
 					if (CarlosProperties.getInstance().getBooleanProperty("LAB_NOMATCH_NAMES", "yes")) {
-						sql = "select demographic_no, provider_no from demographic where hin='" + hinMod + "' and " + " year_of_birth like '" + dobYear + "' and " + " month_of_birth like '" + dobMonth + "' and " + " date_of_birth like '" + dobDay + "' and " + " sex like '" + sex + "%' ";
+						sql = "select demographic_no, provider_no from demographic where hin=? and year_of_birth like ? and month_of_birth like ? and date_of_birth like ? and ( sex like ? OR sex NOT IN ('F','M') )";
+						sqlParams.add(hinMod);
+						sqlParams.add(dobYear);
+						sqlParams.add(dobMonth);
+						sqlParams.add(dobDay);
+						sqlParams.add(sex + "%");
 					} else {
-						sql = "select demographic_no, provider_no from demographic where hin='" + hinMod + "' and " + " last_name like '" + lastName + "%' and " + " first_name like '" + firstName + "%' and " + " year_of_birth like '" + dobYear + "' and " + " month_of_birth like '" + dobMonth + "' and " + " date_of_birth like '" + dobDay + "' and " + " sex like '" + sex + "%' ";
+						sql = "select demographic_no, provider_no from demographic where hin=? and last_name like ? and first_name like ? and year_of_birth like ? and month_of_birth like ? and date_of_birth like ? and ( sex like ? OR sex NOT IN ('F','M') )";
+						sqlParams.add(hinMod);
+						sqlParams.add(lastName + "%");
+						sqlParams.add(firstName + "%");
+						sqlParams.add(dobYear);
+						sqlParams.add(dobMonth);
+						sqlParams.add(dobDay);
+						sqlParams.add(sex + "%");
 					}
-				}
+                }
 
 				if ( sql != null ) {
-					logger.debug(sql);
+					logger.debug("Matching patient demographics for lab routing");
 					PreparedStatement pstmt = conn.prepareStatement(sql);
+					for (int pi = 0; pi < sqlParams.size(); pi++) {
+						pstmt.setString(pi + 1, sqlParams.get(pi));
+					}
 					ResultSet rs = pstmt.executeQuery();
 					int count = 0;
 

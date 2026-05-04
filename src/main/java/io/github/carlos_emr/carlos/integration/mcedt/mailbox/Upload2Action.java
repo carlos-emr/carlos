@@ -30,12 +30,15 @@ package io.github.carlos_emr.carlos.integration.mcedt.mailbox;
 
 import ca.ontario.health.edt.*;
 import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.apache.cxf.helpers.FileUtils;
 import org.apache.logging.log4j.Logger;
-import org.apache.struts2.ServletActionContext;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.integration.mcedt.DelegateFactory;
 import io.github.carlos_emr.carlos.integration.mcedt.McedtMessageCreator;
+import io.github.carlos_emr.carlos.integration.mcedt.McedtSecurity;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.CarlosProperties;
@@ -53,7 +56,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
-public class Upload2Action extends ActionSupport {
+public class Upload2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -62,7 +65,14 @@ public class Upload2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
+        McedtSecurity.requireRead(request);
         String method = request.getParameter("method");
+        if ("cancelUpload".equals(method) || "removeSelected".equals(method) || "uploadToMcedt".equals(method)
+                || "submitToMcedt".equals(method) || "uploadSubmitToMcedt".equals(method)
+                || "deleteUpload".equals(method) || "addUpload".equals(method)) {
+            McedtSecurity.requireWrite(request);
+            McedtSecurity.requirePost(request);
+        }
         if ("cancelUpload".equals(method)) {
             return cancelUpload();
         } else if ("addNew".equals(method)) {
@@ -419,6 +429,19 @@ public class Upload2Action extends ActionSupport {
     private File addUploadFile;
     private String addUploadFileFileName;
     private String addUploadFileContentType;
+
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
+            UploadedFile uploaded = uploadedFiles.get(0);
+            this.addUploadFile = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
+            this.addUploadFileContentType = uploaded.getContentType();
+            this.addUploadFileFileName = uploaded.getOriginalName();
+            // Replicate side effects from the original setters
+            this.setFileName(uploaded.getOriginalName());
+            this.setResourceType(uploaded.getContentType());
+        }
+    }
 
     public String getDescription() {
         return description;

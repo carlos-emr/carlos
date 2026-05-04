@@ -139,7 +139,7 @@ public class MsgDisplayMessages2Action extends ActionSupport {
      * </ul>
      * 
      * @return String "success" to forward to the message display page, or {@code null}
-     *         if the response was redirected (e.g., session timeout redirect to index.jsp)
+     *         if the response was redirected (e.g., session timeout redirect to index)
      * @throws IOException if there's an I/O error during redirect
      * @throws ServletException if there's a servlet processing error
      * @throws SecurityException if no valid session exists, if the user lacks "_msg" read
@@ -177,7 +177,7 @@ public class MsgDisplayMessages2Action extends ActionSupport {
             bean = new MsgSessionBean();
             bean.setProviderNo(loggedInProviderNo);
             bean.setUserName(p.getFirstName() + " " + p.getLastName());
-            request.getSession().setAttribute("msgSessionBean", bean);
+            request.getSession().setAttribute("msgSessionBean", bean); // nosemgrep: tainted-session-from-http-request -- session bean built from authenticated providerNo and DAO-loaded provider name
         }
 
         // Process user actions based on button clicks
@@ -188,7 +188,7 @@ public class MsgDisplayMessages2Action extends ActionSupport {
                 displayMsgBean.setFilter(request.getParameter("searchString"));
             } else {
                 MiscUtils.getLogger().warn("DisplayMessagesBeanId is null in session during search; possible session timeout.");
-                response.sendRedirect(request.getContextPath() + "/index.jsp");
+                response.sendRedirect(request.getContextPath() + "/index");
                 return null;
             }
 
@@ -199,7 +199,7 @@ public class MsgDisplayMessages2Action extends ActionSupport {
                 displayMsgBean.clearFilter();
             } else {
                 MiscUtils.getLogger().warn("DisplayMessagesBeanId is null in session during clear search; possible session timeout.");
-                response.sendRedirect(request.getContextPath() + "/index.jsp");
+                response.sendRedirect(request.getContextPath() + "/index");
                 return null;
             }
             

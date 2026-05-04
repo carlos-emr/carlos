@@ -31,26 +31,17 @@
  */
 package io.github.carlos_emr.carlos.managers;
 
-import java.io.IOException;
 import java.nio.file.Path;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.security.SignatureException;
-import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.crypto.BadPaddingException;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
-import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.openpdf.text.DocumentException;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
+import io.github.carlos_emr.carlos.consultation.dto.ConsultationRequestListItemDTO;
 import io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequestExt;
@@ -68,7 +59,6 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationRequestSear
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationResponseSearchResult;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.OtnEconsult;
 
-import ca.uhn.hl7v2.HL7Exception;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 
 /**
@@ -264,26 +254,6 @@ public interface ConsultationManager {
     public boolean isConsultResponseEnabled();
 
     /**
-     * Sends a consultation request electronically via HL7 REF_I12 message, including
-     * all attached documents and lab results as ORU_R01 observations.
-     *
-     * @param loggedInInfo LoggedInInfo the current user's session info
-     * @param consultationRequestId Integer the consultation request ID to send
-     * @throws InvalidKeyException if the signing key is invalid
-     * @throws SignatureException if message signing fails
-     * @throws NoSuchAlgorithmException if the required crypto algorithm is unavailable
-     * @throws NoSuchPaddingException if the required padding scheme is unavailable
-     * @throws IllegalBlockSizeException if the block size is invalid for encryption
-     * @throws BadPaddingException if the padding is invalid during encryption
-     * @throws InvalidKeySpecException if the key specification is invalid
-     * @throws IOException if an I/O error occurs during transmission
-     * @throws HL7Exception if the HL7 message is malformed
-     * @throws ServletException if a servlet error occurs during transmission
-     * @throws DocumentException if an OpenPDF error occurs generating lab PDFs
-     */
-    public void doHl7Send(LoggedInInfo loggedInInfo, Integer consultationRequestId) throws InvalidKeyException, SignatureException, NoSuchAlgorithmException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeySpecException, IOException, HL7Exception, ServletException, DocumentException;
-
-    /**
      * Imports an OTN eConsult as a document attached to the specified demographic.
      *
      * @param loggedInInfo LoggedInInfo the current user's session info
@@ -410,4 +380,16 @@ public interface ConsultationManager {
      * @return Map mapping extension key to its String value
      */
     public Map<String, String> getExtValuesAsMap(List<ConsultationRequestExt> extras);
+
+    /**
+     * Returns lightweight consultation request DTOs for a demographic, eliminating
+     * 3 EAGER entity joins. Enforces {@code _con} read privilege.
+     *
+     * @param loggedInInfo LoggedInInfo the session context used for privilege checking
+     * @param demographicId Integer the patient demographic number
+     * @return List&lt;ConsultationRequestListItemDTO&gt; ordered by referral date descending
+     * @throws SecurityException if the caller lacks the {@code _con} read privilege
+     * @since 2026-04-11
+     */
+    List<ConsultationRequestListItemDTO> getConsultationDTOs(LoggedInInfo loggedInInfo, Integer demographicId);
 }

@@ -58,12 +58,23 @@ RUN apt-get update && apt-get install -y golang-go
 RUN go install github.com/dburkart/javadoc2md/cmd/javadoc2md@latest
 
 # Install Claude Code CLI (native binary) and Docusaurus
+ENV PATH="${PATH}:/root/.local/bin"
 RUN curl -fsSL https://claude.ai/install.sh | bash \
     && which npm && npm install -g @docusaurus/core @docusaurus/preset-classic
-ENV PATH="${PATH}:/root/.local/bin"
 
 # Install Gemini CLI.
-RUN npm install -g @google/gemini-cli
+# The gemini-browser script intercepts xdg-open so OAuth URLs display cleanly
+# in the terminal for copy-paste (containers can't open desktop browsers).
+RUN npm install -g @google/gemini-cli \
+    && ln -sf /scripts/gemini-browser /usr/local/bin/xdg-open
+
+# Install GitHub Copilot CLI (standalone coding agent with model selection)
+RUN npm install -g @github/copilot && \
+    echo "✅ GitHub Copilot CLI installed: $(copilot --version)"
+
+# Install OpenAI Codex CLI (standalone coding agent)
+RUN npm install -g @openai/codex && \
+    echo "✅ OpenAI Codex CLI installed: $(codex --version)"
 
 # Install Playwright globally first to ensure it's available
 # Version 1.56.0 has correct Ubuntu 24.04 t64 package names in its dependency list
@@ -158,12 +169,10 @@ RUN echo '#!/bin/bash' > /usr/local/bin/gpg-encrypt-wrapper \
     && echo 'exec /usr/bin/gpg "$1" -r "$3" --batch --yes --trust-model always -o "$2.pgp" "$2"' >> /usr/local/bin/gpg-encrypt-wrapper \
     && chmod +x /usr/local/bin/gpg-encrypt-wrapper 
 
-# Convert script files from DOS to Unix format (if necessary)
-RUN dos2unix /scripts/* \
-    && dos2unix /setup-dir/setup.sh
-
-# Make scripts executable and add to PATH
-RUN chmod +x /scripts/* /setup-dir/*.sh && /setup-dir/setup.sh
+# Convert script files from DOS to Unix format, make executable, and set up PATH
+RUN dos2unix /scripts/* /setup-dir/*.sh \
+    && chmod +x /scripts/* /setup-dir/*.sh \
+    && /setup-dir/setup.sh
 ENV PATH="/scripts:${PATH}"
 
 # Expose Tomcat port

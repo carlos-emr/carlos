@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 6.5//EN" "https://struts.apache.org/dtds/struts-6.5.dtd">
+<!--
+  Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+  This software is published under the GPL GNU General Public License.
+  This program is free software; you can redistribute it and/or
+  modify it under the terms of the GNU General Public License
+  as published by the Free Software Foundation; either version 2
+  of the License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+  CARLOS EMR Project
+  https://github.com/carlos-emr/carlos
+-->
+<!--
+    CARLOS EMR - Scheduling Actions
+    Contains action mappings for appointments, ticklers, waiting lists, notifications, contacts, and miscellaneous administrative, billing, reporting, and clinical actions.
+-->
+<struts>
+    <package name="scheduling" namespace="/" extends="struts-default">
+
+        <global-results>
+            <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
+            <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
+        </global-results>
+
+        <global-exception-mappings>
+            <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
+            <exception-mapping exception="java.lang.Exception" result="error"/>
+        </global-exception-mappings>
+
+        <action name="notification/create" class="io.github.carlos_emr.carlos.commn.web.ProviderNotification2Action"/>
+        <!--
+            Waiting-list actions. All JSPs live under /WEB-INF/jsp/waitinglist/
+            so the container blocks direct GETs. The mutation 2Actions below
+            (Add2WaitingList, RemoveFromWaitingList) replace scriptlet-driven
+            JSPs (Add2WaitingList.jsp, RemoveFromWaitingList.jsp) that
+            previously executed DB writes against any GET request with no
+            privilege check. Mutation paths require POST + _demographic w.
+        -->
+        <action name="waitinglist/SetupDisplayPatientWaitingList" class="io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayPatientWaitingList2Action">
+            <result name="continue">/WEB-INF/jsp/waitinglist/DisplayPatientWaitingList.jsp</result>
+            <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
+        </action>
+        <action name="waitinglist/SetupDisplayWaitingList" class="io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayWaitingList2Action">
+            <result name="continue">/WEB-INF/jsp/waitinglist/DisplayWaitingList.jsp</result>
+            <result name="failure">/WEB-INF/jsp/waitinglist/DisplayWaitingList.jsp</result>
+        </action>
+        <action name="waitinglist/WLEditWaitingListNameAction" class="io.github.carlos_emr.carlos.waitinglist.pageUtil.WLEditWaitingListName2Action">
+            <result name="continue">/WEB-INF/jsp/waitinglist/EditWaitingListName.jsp</result>
+            <result name="editSuccess">/waitinglist/SetupDisplayWaitingList</result>
+            <result name="failure">/WEB-INF/jsp/waitinglist/EditWaitingListName.jsp</result>
+        </action>
+        <action name="waitinglist/Add2WaitingList" class="io.github.carlos_emr.carlos.waitinglist.pageUtil.WLAdd2WaitingList2Action">
+        </action>
+        <action name="waitinglist/RemoveFromWaitingList" class="io.github.carlos_emr.carlos.waitinglist.pageUtil.WLRemoveFromWaitingList2Action">
+            <result name="success">/WEB-INF/jsp/waitinglist/removeFromWaitingListResult.jsp</result>
+        </action>
+        <action name="demographic/SearchDemographic" class="io.github.carlos_emr.carlos.commn.web.SearchDemographicAutoComplete2Action">
+            <result name="success">/WEB-INF/jsp/demographic/autocomplete.jsp</result>
+        </action>
+        <action name="demographic/FindNextAvailableSlot" class="io.github.carlos_emr.carlos.commn.web.FindNextAvailableSlot2Action"/>
+        <action name="provider/SearchProvider" class="io.github.carlos_emr.carlos.commn.web.SearchProviderAutoComplete2Action"/>
+        <action name="tickler/ForwardDemographicTickler" class="io.github.carlos_emr.carlos.tickler.pageUtil.ForwardDemographicTickler2Action">
+            <result name="success">/WEB-INF/jsp/tickler/ticklerAdd.jsp</result>
+        </action>
+        <action name="tickler/AddTickler" class="io.github.carlos_emr.carlos.tickler.pageUtil.AddTickler2Action">
+            <result name="close">/close.html</result>
+        </action>
+        <action name="tickler/DbTicklerAdd" class="io.github.carlos_emr.carlos.tickler.pageUtil.DbTicklerAdd2Action">
+            <result name="success">/WEB-INF/jsp/tickler/dbTicklerAdd.jsp</result>
+        </action>
+        <action name="tickler/DbTicklerDemoMain" class="io.github.carlos_emr.carlos.tickler.pageUtil.DbTicklerDemoMain2Action"/>
+        <action name="tickler/DbTicklerMain" class="io.github.carlos_emr.carlos.tickler.pageUtil.DbTicklerMain2Action"/>
+        <action name="tickler/ListTicklers" class="io.github.carlos_emr.carlos.tickler.pageUtil.TicklerList2Action"/>
+        <action name="searchProfessionalSpecialist" class="io.github.carlos_emr.carlos.contactRegistry.ProfessionalSpecialist2Action" method="search"/>
+        <action name="getProfessionalSpecialist" class="io.github.carlos_emr.carlos.contactRegistry.ProfessionalSpecialist2Action" method="get"/>
+        <action name="demographic/Contact" class="io.github.carlos_emr.carlos.commn.web.Contact2Action">
+            <result name="pForm">/WEB-INF/jsp/demographic/addEditProfessionalContact.jsp</result>
+            <result name="cForm">/WEB-INF/jsp/demographic/addEditContact.jsp</result>
+            <result name="view">/WEB-INF/jsp/demographic/viewContact.jsp</result>
+            <result name="manage">/WEB-INF/jsp/demographic/ManageContacts.jsp</result>
+            <result name="windowClose">/WEB-INF/jsp/demographic/close.jsp</result>
+            <result name="ajax">/WEB-INF/jsp/demographic/demographiceditdemographic.jsp</result>
+        </action>
+        <action name="PopulationReport" class="io.github.carlos_emr.carlos.commn.web.PopulationReport2Action" method="execute">
+            <result name="report">/WEB-INF/jsp/report/PopulationReport.jsp</result>
+        </action>
+        <action name="admin/ManageClinic" class="io.github.carlos_emr.carlos.commn.web.ClinicManage2Action" method="execute">
+            <result name="success">/WEB-INF/jsp/admin/clinicAdmin.jsp</result>
+        </action>
+        <action name="admin/ManageSites" class="io.github.carlos_emr.carlos.commn.web.SitesManage2Action" method="execute">
+            <result name="list">/WEB-INF/jsp/admin/sitesAdmin.jsp</result>
+            <result name="details">/WEB-INF/jsp/admin/sitesAdminDetail.jsp</result>
+        </action>
+        <action name="admin/ManageBillingReferral" class="io.github.carlos_emr.carlos.commn.web.BillingreferralEdit2Action">
+            <result name="list">/WEB-INF/jsp/admin/billingreferralAdmin.jsp</result>
+        </action>
+        <action name="report/DxresearchReport" class="io.github.carlos_emr.carlos.commn.web.DxresearchReport2Action" method="execute">
+            <result name="success">/WEB-INF/jsp/oscarReport/oscarReportDxReg.jsp</result>
+            <result name="editdesc">/WEB-INF/jsp/oscarReport/editCodeDesc.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/adminFlowsheet/FlowSheetCustomAction" class="io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/adminFlowsheet/EditFlowsheet.jsp</result>
+            <result name="newflowsheet">/WEB-INF/jsp/encounter/oscarMeasurements/adminFlowsheet/NewFlowsheet.jsp</result>
+        </action>
+        <action name="encounter/oscarMeasurements/FlowSheetDrugAction" class="io.github.carlos_emr.carlos.commn.web.FlowSheetDrug2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/TemplateFlowSheet.jsp</result>
+        </action>
+        <action name="appointment/AddRecord" class="io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentAddRecord2Action">
+            <result name="success">/WEB-INF/jsp/appointment/appointmentaddarecord.jsp</result>
+        </action>
+        <action name="appointment/UpdateRecord" class="io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentUpdateRecord2Action">
+            <result name="success">/WEB-INF/jsp/appointment/appointmentupdatearecord.jsp</result>
+        </action>
+        <action name="appointment/DeleteRecord" class="io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentDeleteRecord2Action">
+            <result name="success">/WEB-INF/jsp/appointment/appointmentdeletearecord.jsp</result>
+        </action>
+        <action name="appointment/CutRecord" class="io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentCutRecord2Action">
+            <result name="success">/WEB-INF/jsp/appointment/appointmentcutrecord.jsp</result>
+        </action>
+        <action name="appointment/apptStatusSetting" class="io.github.carlos_emr.carlos.appt.status.web.AppointmentStatus2Action" method="execute">
+            <result name="success">/WEB-INF/jsp/appointment/appointmentstatussetting.jsp</result>
+            <result name="edit">/WEB-INF/jsp/appointment/appointmentstatusedit.jsp</result>
+        </action>
+        <action name="appointment/appointmentTypeAction" class="io.github.carlos_emr.carlos.appt.web.AppointmentType2Action">
+            <result name="edit">/appointment/appointmentTypeAction?oper=edit</result>
+            <result name="success">/WEB-INF/jsp/appointment/appointmentTypeList.jsp</result>
+            <result name="failure">/WEB-INF/jsp/appointment/appointmentTypeList.jsp</result>
+            <result name="redirect" type="redirectAction">
+            <param name="actionName">appointmentTypeAction</param>
+            <param name="namespace">/appointment</param>
+        </result>
+        </action>
+
+        <!--
+            ===== appointment/ JSP view gates =====
+            Tail-interactive slice of the appointment module migration:
+            all public-path .jsp moved behind /WEB-INF/jsp/ and reached
+            only through these action gates. Closes the residue CVE
+            vectors where appointmentaddarecord/update/delete/cut.jsp
+            lived in both public and WEB-INF paths with divergent logic.
+        -->
+        <action name="appointment/addappointment" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentWrite2Action">
+            <result name="success">/WEB-INF/jsp/appointment/addappointment.jsp</result>
+        </action>
+        <action name="appointment/editappointment" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentWrite2Action">
+            <result name="success">/WEB-INF/jsp/appointment/editappointment.jsp</result>
+        </action>
+        <action name="appointment/appointmentsearch" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointment2Action">
+            <result name="success">/WEB-INF/jsp/appointment/appointmentsearch.jsp</result>
+        </action>
+        <action name="appointment/appointmentviewrecordcard" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointment2Action">
+            <result name="success">/WEB-INF/jsp/appointment/appointmentviewrecordcard.jsp</result>
+        </action>
+        <action name="appointment/appointmentaddrecordcard" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentWrite2Action">
+            <result name="success">/WEB-INF/jsp/appointment/appointmentaddrecordcard.jsp</result>
+        </action>
+        <action name="appointment/appointmentaddrecordprint" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentSelfPost2Action">
+            <result name="success">/WEB-INF/jsp/appointment/appointmentaddrecordprint.jsp</result>
+        </action>
+        <action name="appointment/appointmentcopyrecord" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentWrite2Action">
+            <result name="success">/WEB-INF/jsp/appointment/appointmentcopyrecord.jsp</result>
+        </action>
+        <action name="appointment/appointmentgrouprecords" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentSelfPost2Action">
+            <result name="success">/WEB-INF/jsp/appointment/appointmentgrouprecords.jsp</result>
+        </action>
+        <action name="appointment/appointmentrepeatbooking" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentSelfPost2Action">
+            <result name="success">/WEB-INF/jsp/appointment/appointmentrepeatbooking.jsp</result>
+        </action>
+        <action name="appointment/appointmenteditrepeatbooking" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentSelfPost2Action">
+            <result name="success">/WEB-INF/jsp/appointment/appointmenteditrepeatbooking.jsp</result>
+        </action>
+        <action name="appointment/printappointment" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointment2Action">
+            <result name="success">/WEB-INF/jsp/appointment/printappointment.jsp</result>
+        </action>
+        <action name="tickler/EditTickler" class="io.github.carlos_emr.carlos.tickler.pageUtil.EditTickler2Action">
+            <result name="close">/WEB-INF/jsp/tickler/ticklerEditSuccess.jsp</result>
+            <result name="failure">/WEB-INF/jsp/error/failure.jsp</result>
+            <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
+        </action>
+        <action name="tickler/EditTicklerTextSuggest" class="io.github.carlos_emr.carlos.tickler.pageUtil.EditTickler2Action">
+            <result name="close">/WEB-INF/jsp/common/closenreload.jsp</result>
+            <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
+        </action>
+        <action name="CodeSearch" class="io.github.carlos_emr.carlos.commn.web.CodeSearchService2Action"/>
+        <action name="Episode" class="io.github.carlos_emr.carlos.commn.web.Episode2Action">
+            <result name="list">/WEB-INF/jsp/episode/episodeList.jsp</result>
+            <result name="form">/WEB-INF/jsp/episode/episodeForm.jsp</result>
+            <result name="success">/WEB-INF/jsp/episode/success.jsp</result>
+        </action>
+        <action name="PageMonitoringService" class="io.github.carlos_emr.carlos.commn.web.PageMonitoring2Action"/>
+        <!--
+            Direct-response PDF actions intentionally use basicStack. The default
+            validation/workflow interceptors can rewrite a streamed NONE response to
+            input/error and render errorpage.jsp as "CARLOS Error: 0". See issue #2064.
+        -->
+        <action name="BillingInvoicePrint" class="io.github.carlos_emr.carlos.commn.web.BillingInvoicePrint2Action">
+            <interceptor-ref name="basicStack"/>
+        </action>
+        <action name="BillingInvoiceListPrint" class="io.github.carlos_emr.carlos.commn.web.BillingInvoiceListPrint2Action">
+            <interceptor-ref name="basicStack"/>
+        </action>
+        <action name="BillingInvoice" class="io.github.carlos_emr.carlos.commn.web.BillingInvoice2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/ON/billingONCorrection.jsp</result>
+            <result name="listSuccess">/WEB-INF/jsp/billing/CA/ON/billingONStatus.jsp</result>
+        </action>
+        <action name="BillingONReview" class="io.github.carlos_emr.carlos.commn.web.BillingONReview2Action"/>
+        <action name="admin/GroupPreference" class="io.github.carlos_emr.carlos.commn.web.GroupPreference2Action">
+            <result name="saved">/WEB-INF/jsp/admin/groupPreferences.jsp</result>
+            <result name="changedForm">/WEB-INF/jsp/admin/groupPreferences.jsp</result>
+        </action>
+        <action name="billing/CA/ON/ApplyPractitionerPremium" class="io.github.carlos_emr.carlos.commn.web.ApplyPractitionerPremium2Action">
+            <result name="success" type="chain">billing/CA/ON/ViewGenRADesc</result>
+            <result name="failure">/WEB-INF/jsp/error/failure.jsp</result>
+        </action>
+        <action name="demographicSupport" class="io.github.carlos_emr.carlos.commn.web.Demographic2Action"/>
+        <action name="DemographicExtService" class="io.github.carlos_emr.carlos.commn.web.DemographicExtService2Action"/>
+        <action name="printReferralLabelAction" class="io.github.carlos_emr.carlos.commn.web.PrintReferralLabel2Action"/>
+
+        <!-- Schedule Management Actions -->
+        <action name="schedule/TemplateSetting"
+                class="io.github.carlos_emr.carlos.schedule.web.ScheduleTemplateSetting2Action">
+            <result name="success">/WEB-INF/jsp/schedule/scheduletemplatesetting.jsp</result>
+        </action>
+        <action name="schedule/EditTemplate"
+                class="io.github.carlos_emr.carlos.schedule.web.ScheduleEditTemplate2Action">
+            <result name="success">/WEB-INF/jsp/schedule/scheduleedittemplate.jsp</result>
+        </action>
+        <action name="schedule/TemplateCodeSetting"
+                class="io.github.carlos_emr.carlos.schedule.web.ScheduleTemplateCodeSetting2Action">
+            <result name="success">/WEB-INF/jsp/schedule/scheduletemplatecodesetting.jsp</result>
+        </action>
+        <action name="schedule/HolidaySetting"
+                class="io.github.carlos_emr.carlos.schedule.web.ScheduleHolidaySetting2Action">
+            <result name="success">/WEB-INF/jsp/schedule/scheduleholidaysetting.jsp</result>
+        </action>
+        <action name="schedule/DateSave"
+                class="io.github.carlos_emr.carlos.schedule.web.ScheduleDateSave2Action">
+            <result name="success">/WEB-INF/jsp/schedule/scheduledatesave.jsp</result>
+        </action>
+        <action name="schedule/CreateDate"
+                class="io.github.carlos_emr.carlos.schedule.web.ScheduleCreateDate2Action">
+            <result name="success">/WEB-INF/jsp/schedule/schedulecreatedate.jsp</result>
+        </action>
+        <action name="schedule/TemplateApplying"
+                class="io.github.carlos_emr.carlos.schedule.web.ScheduleTemplateApplying2Action">
+            <result name="success">/WEB-INF/jsp/schedule/scheduletemplateapplying.jsp</result>
+        </action>
+        <action name="schedule/FlipView"
+                class="io.github.carlos_emr.carlos.schedule.web.ScheduleFlipView2Action">
+            <result name="success">/WEB-INF/jsp/schedule/scheduleflipview.jsp</result>
+        </action>
+        <action name="schedule/DisplayTemplate"
+                class="io.github.carlos_emr.carlos.schedule.web.ScheduleDisplayTemplate2Action">
+            <result name="success">/WEB-INF/jsp/schedule/scheduleDisplayTemplate.jsp</result>
+        </action>
+        <action name="schedule/DatePopup"
+                class="io.github.carlos_emr.carlos.schedule.web.ScheduleDatePopup2Action">
+            <result name="success">/WEB-INF/jsp/schedule/scheduledatepopup.jsp</result>
+        </action>
+        <action name="schedule/DateFinal"
+                class="io.github.carlos_emr.carlos.schedule.web.ScheduleDateFinal2Action">
+            <result name="success">/WEB-INF/jsp/schedule/scheduledatefinal.jsp</result>
+        </action>
+
+
+        <!-- ===== tickler JSP gating actions (migration slice) =====
+             SecurityException from any gate is routed by the package-level
+             global-exception-mapping to /WEB-INF/jsp/error/securityError.jsp; no per-action
+             error result needed. -->
+        <action name="tickler/ViewIndex" class="io.github.carlos_emr.carlos.tickler.gate.ViewIndex2Action">
+            <result name="success">/WEB-INF/jsp/tickler/index.jsp</result>
+        </action>
+        <action name="tickler/ViewTicklerDemoMain" class="io.github.carlos_emr.carlos.tickler.gate.ViewTicklerDemoMain2Action">
+            <result name="success">/WEB-INF/jsp/tickler/ticklerDemoMain.jsp</result>
+        </action>
+        <action name="tickler/ViewTicklerEdit" class="io.github.carlos_emr.carlos.tickler.gate.ViewTicklerEdit2Action">
+            <result name="success">/WEB-INF/jsp/tickler/ticklerEdit.jsp</result>
+        </action>
+        <action name="tickler/ViewTicklerMain" class="io.github.carlos_emr.carlos.tickler.gate.ViewTicklerMain2Action">
+            <result name="success">/WEB-INF/jsp/tickler/ticklerMain.jsp</result>
+        </action>
+        <action name="tickler/ViewTicklerSuggestedText" class="io.github.carlos_emr.carlos.tickler.gate.ViewTicklerSuggestedText2Action">
+            <result name="success">/WEB-INF/jsp/tickler/ticklerSuggestedText.jsp</result>
+        </action>
+        <action name="tickler/ViewAddTickler" class="io.github.carlos_emr.carlos.tickler.gate.ViewAddTickler2Action">
+            <result name="success">/WEB-INF/jsp/tickler/ticklerAdd.jsp</result>
+        </action>
+    </package>
+</struts>

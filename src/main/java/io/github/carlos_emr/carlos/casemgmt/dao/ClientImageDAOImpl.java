@@ -39,16 +39,16 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.casemgmt.model.ClientImage;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.QueueCache;
-import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import org.springframework.transaction.annotation.Transactional;
-import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
+import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
 /**
  * Anyone modifying get and set methods should take note of the dataCache and
  * add/remove items as appropriate.
  */
 @Transactional
-public class ClientImageDAOImpl extends AbstractHibernateDao implements ClientImageDAO {
+public class ClientImageDAOImpl extends AbstractJpaDao implements ClientImageDAO {
 
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -67,9 +67,9 @@ public class ClientImageDAOImpl extends AbstractHibernateDao implements ClientIm
             existing.setImage_data(clientImage.getImage_data());
             existing.setImage_type(clientImage.getImage_type());
             existing.setUpdate_date(new Date());
-            currentSession().merge(existing);
+            entityManager().merge(existing);
         } else {
-            currentSession().persist(clientImage);
+            entityManager().persist(clientImage);
         }
 
         // update cache
@@ -80,7 +80,7 @@ public class ClientImageDAOImpl extends AbstractHibernateDao implements ClientIm
     public void deleteClientImage(Integer clientId) {
         ClientImage clientImage = getClientImage(clientId);
         if (clientImage != null) {
-            currentSession().remove(clientImage);
+            entityManager().remove(clientImage);
             dataCache.remove(clientId);
         }
     }
@@ -95,8 +95,8 @@ public class ClientImageDAOImpl extends AbstractHibernateDao implements ClientIm
 
             // get from database
             @SuppressWarnings("unchecked")
-            List<ClientImage> results = (List<ClientImage>) HqlQueryHelper
-                    .find(currentSession(), "from ClientImage i where i.demographic_no=?1 order by update_date desc", clientId);
+            List<ClientImage> results = (List<ClientImage>) JpqlQueryHelper
+                    .find(entityManager(), "from ClientImage i where i.demographic_no=?1 order by update_date desc", clientId);
             if (results.size() > 0) {
                 clientImage = results.get(0);
 

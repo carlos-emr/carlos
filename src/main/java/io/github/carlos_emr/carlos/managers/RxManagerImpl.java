@@ -33,6 +33,7 @@
 package io.github.carlos_emr.carlos.managers;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 import io.github.carlos_emr.carlos.commn.dao.CtlSpecialInstructionsDao;
 import io.github.carlos_emr.carlos.commn.dao.DrugDao;
@@ -319,7 +320,7 @@ public class RxManagerImpl implements RxManager {
 
         if (d == null) { //make sure we have a drug to operate on.
 
-            logger.info("No drug with drugId: " + drugId + " found, failed to discontinue.");
+            logger.info("No drug with drugId: {} found, failed to discontinue.", LogSanitizer.sanitize(String.valueOf(drugId))); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
 
             return false;
 

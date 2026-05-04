@@ -1,0 +1,349 @@
+<%--
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+    Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    CARLOS EMR Project
+    https://github.com/carlos-emr/carlos
+--%>
+
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%
+    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+    boolean authed = true;
+%>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="r" reverse="<%=true%>">
+    <%authed = false; %>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_billing");%>
+</security:oscarSec>
+<%
+    if (!authed) {
+        return;
+    }
+%>
+
+
+<%
+    //
+    if (session.getAttribute("user") == null) {
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
+    }
+    String strLimit1 = "0";
+    String strLimit2 = "20";
+    if (request.getParameter("limit1") != null)
+        strLimit1 = request.getParameter("limit1");
+    if (request.getParameter("limit2") != null)
+        strLimit2 = request.getParameter("limit2");
+
+    int nItems = 0;
+    Vector vec = new Vector();
+    Properties prop = null;
+    String param = request.getParameter("param") == null ? "" : request.getParameter("param");
+    String param2 = request.getParameter("param2") == null ? "" : request.getParameter("param2");
+    String keyword = request.getParameter("keyword") == null ? "" : request.getParameter("keyword");
+
+    if (request.getParameter("submit") != null
+            && (request.getParameter("submit").equals("Search")
+            || request.getParameter("submit").equals("Next Page") || request.getParameter("submit")
+            .equals("Last Page"))) {
+        DBPreparedHandler dbObj = new DBPreparedHandler();
+        String search_mode = request.getParameter("search_mode") == null ? "search_name" : request
+                .getParameter("search_mode");
+        String orderBy = request.getParameter("orderby") == null ? "company_name" : request
+                .getParameter("orderby");
+
+        // Validate orderBy against allowlist to prevent SQL injection
+        java.util.Set<String> VALID_COLUMNS = java.util.Set.of("company_name", "attention", "address", "city", "province", "postcode", "telephone", "fax", "id");
+        if (!VALID_COLUMNS.contains(orderBy)) {
+            orderBy = "company_name";
+        }
+
+        String where = "";
+        java.util.List<String> params = new java.util.ArrayList<>();
+        if ("search_name".equals(search_mode)) {
+            String[] temp = keyword.split("\\,\\p{Space}*");
+            if (temp.length > 1) {
+                where = "company_name like ? and company_name like ?";
+                params.add(temp[0] + "%");
+                params.add(temp[1] + "%");
+            } else {
+                where = "company_name like ?";
+                params.add(temp[0] + "%");
+            }
+        } else {
+            // Validate search_mode column name
+            if (!VALID_COLUMNS.contains(search_mode)) {
+                search_mode = "company_name";
+            }
+            where = search_mode + " like ?";
+            params.add(keyword + "%");
+        }
+        String sql = "select * from billing_on_3rdPartyAddress where " + where + " order by " + orderBy;
+        // FP for java/Sqli scanners: orderBy and search_mode are validated against the
+        // VALID_COLUMNS allowlist above (fallback to "company_name" on mismatch); keyword is
+        // bound via ? placeholder in the PreparedStatement inside queryResults_paged.
+        ResultSet rs = dbObj.queryResults_paged(sql, params.toArray(new String[0]), Integer.parseInt(strLimit1)); // deepcode ignore SqlInjection: allowlisted + PreparedStatement // lgtm[java/sql-injection]
+        int idx = 0;
+        while (rs.next() && idx < Integer.parseInt(strLimit2)) {
+            prop = new Properties();
+            prop.setProperty("id", Misc.getString(rs, "id"));
+            prop.setProperty("attention", Misc.getString(rs, "attention"));
+            prop.setProperty("company_name", Misc.getString(rs, "company_name"));
+            prop.setProperty("address", Misc.getString(rs, "address"));
+            prop.setProperty("city", Misc.getString(rs, "city"));
+            prop.setProperty("province", Misc.getString(rs, "province"));
+            prop.setProperty("postcode", Misc.getString(rs, "postcode"));
+            prop.setProperty("telephone", Misc.getString(rs, "telephone"));
+            prop.setProperty("fax", Misc.getString(rs, "fax"));
+            vec.add(prop);
+            idx++;
+        }
+    }
+%>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"
+         import="java.util.*,java.sql.*,java.net.*" %>
+
+<%@ page import="org.apache.commons.text.WordUtils" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
+
+
+<%@page import="io.github.carlos_emr.Misc" %>
+<%@ page import="io.github.carlos_emr.carlos.db.DBPreparedHandler" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<html>
+    <head>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <title>Add/Edit 3rd Bill Address</title>
+        <link rel="stylesheet" type="text/css" href="billingON.css"/>
+        <script language="JavaScript">
+
+            <!--
+            function setfocus() {
+                this.focus();
+                document.forms[0].keyword.focus();
+                document.forms[0].keyword.select();
+            }
+
+            function check() {
+                document.forms[0].submit.value = "Search";
+                return true;
+            }
+
+            function setOpenerProperty(path, value) {
+                var tokens = path.match(/[^.\[\]'"]+/g);
+                if (!tokens || tokens.length === 0) return;
+                var obj = opener;
+                for (var i = 0; i < tokens.length - 1; i++) {
+                    if (obj == null) return;
+                    obj = obj[tokens[i]];
+                }
+                if (obj != null) obj[tokens[tokens.length - 1]] = value;
+            }
+
+            <%if(param.length()>0) {%>
+
+            function typeInData1(data) {
+                self.close();
+                setOpenerProperty('<carlos:encode value='<%= param %>' context="javaScriptBlock"/>', data);
+            }
+
+            <%if(param2.length()>0) {%>
+
+            function typeInData2(data1, data2) {
+                setOpenerProperty('<carlos:encode value='<%= param %>' context="javaScriptBlock"/>', data1);
+                setOpenerProperty('<carlos:encode value='<%= param2 %>' context="javaScriptBlock"/>', data2);
+                self.close();
+            }
+
+            <%}}%>
+            -->
+            function fillForm(attention, company_name, address, city, province, telephone, fax, post) {
+                var atten = '';
+                if (attention.length > 0) {
+                    atten = " Attn: " + attention
+                }
+                opener.document.forms[0].recipientName.value = company_name + atten;
+                opener.document.forms[0].recipientAddress.value = address;
+                opener.document.forms[0].recipientCity.value = city;
+                opener.document.forms[0].recipientProvince.value = province;
+                opener.document.forms[0].recipientPostal.value = post;
+                opener.focus();
+                self.close();
+            }
+        </script>
+    </head>
+    <body bgcolor="white" bgproperties="fixed" onload="setfocus()"
+          topmargin="0" leftmargin="0" rightmargin="0">
+    <table border="0" cellpadding="1" cellspacing="0" width="100%"
+           class="myDarkGreen">
+        <form method="post" name="titlesearch" action="<%= request.getContextPath() %>/billing/CA/BC/ViewOnSearch3rdBillAddr"
+              onSubmit="return check();">
+            <tr>
+                <td class="searchTitle" colspan="4"><font color="white">Search
+                    Address</font></td>
+            </tr>
+            <tr class="myYellow">
+                <td class="blueText" width="10%" nowrap><input type="radio"
+                                                               name="search_mode" value="search_name" checked> Name
+                </td>
+                <td class="blueText" nowrap><input type="radio"
+                                                   name="search_mode" value="postcode"> Postcode
+                </td>
+                <td class="blueText" nowrap><input type="radio"
+                                                   name="search_mode" value="telephone"> Tel.
+                </td>
+                <td valign="middle" rowspan="2" align="left"><input type="text"
+                                                                    name="keyword" value="" size="17" maxlength="100">
+                    <input
+                            type="hidden" name="orderby" value="company_name"> <input
+                            type="hidden" name="limit1" value="0"> <input type="hidden"
+                                                                          name="limit2" value="20"> <input type="hidden"
+                                                                                                           name="submit"
+                                                                                                           value='Search'>
+                    <input type="submit" value='Search'>
+                </td>
+            </tr>
+    </table>
+    <input type='hidden' name='param'
+           value="<carlos:encode value='<%= param %>' context="htmlAttribute"/>">
+    <input type='hidden' name='param2'
+           value="<carlos:encode value='<%= param2 %>' context="htmlAttribute"/>">
+    <table width="95%" border="0">
+        <tr>
+            <td align="left">Results based on keyword(s): <carlos:encode value='<%= keyword == null ? "" : keyword %>' context="html"/>
+            </td>
+        </tr>
+        </form>
+    </table>
+    <center>
+        <table width="100%" border="0" cellpadding="0" cellspacing="2"
+               class="myYellow">
+            <tr class="title">
+                <th width="20%">Attention</b></th>
+                <th width="20%">Company name</b></th>
+                <th width="25%">Address</b></th>
+                <th width="10%">City</b></th>
+                <th width="10%">Postcode</b></th>
+                <th>Phone</b></th>
+                <!--  >th width="20%">Fax</b></th-->
+            </tr>
+            <%
+                for (int i = 0; i < vec.size(); i++) {
+                    prop = (Properties) vec.get(i);
+                    String bgColor = i % 2 == 0 ? "#EEEEFF" : "ivory";
+                    String strOnClick = param.length() > 0 ? "typeInData1('"
+                            + SafeEncode.forJavaScript((prop.getProperty("attention", "").equals("") ? "" : (prop.getProperty("attention") + "\n")))
+                            + SafeEncode.forJavaScript(prop.getProperty("company_name", "").equals("") ? "" : (prop.getProperty("company_name") + "\n"))
+                            + SafeEncode.forJavaScript(prop.getProperty("address", "").equals("") ? "" : (prop.getProperty("address") + "\n"))
+                            + SafeEncode.forJavaScript(prop.getProperty("city", "").equals("") ? "" : (prop.getProperty("city") + " "))
+                            + SafeEncode.forJavaScript(prop.getProperty("province", "").equals("") ? "" : (prop.getProperty("province") + "\n"))
+                            + SafeEncode.forJavaScript(prop.getProperty("telephone", "").equals("") ? "" : (prop.getProperty("telephone") + "\n"))
+                            + SafeEncode.forJavaScript(prop.getProperty("fax", "").equals("") ? "" : (prop.getProperty("fax") + "\n"))
+                            + "')" : "typeInData1('"
+                            + SafeEncode.forJavaScript(prop.getProperty("city", "")) + "')";
+
+            %>
+            <tr align="center" bgcolor="<%=bgColor%>" align="center"
+                onMouseOver="this.style.cursor='hand';this.style.backgroundColor='pink';"
+                onMouseout="this.style.backgroundColor='<%=bgColor%>';"
+                onClick="fillForm('<%= str(prop.getProperty("attention", ""))%>','<%= str(prop.getProperty("company_name", ""))%>','<%= str(prop.getProperty("address", ""))%>','<%=  str(prop.getProperty("city", ""))%>','<%=  str(prop.getProperty("province", ""))%>','<%=  str(prop.getProperty("telephone", ""))%>','<%=  str(prop.getProperty("fax", ""))%>','<%=  str(prop.getProperty("postcode", ""))%>');">
+                <td><carlos:encode value='<%= prop.getProperty("attention", "") %>' context="html"/>
+                </td>
+                <td><carlos:encode value='<%= WordUtils.capitalize(prop.getProperty("company_name", "").toLowerCase()) %>' context="html"/>
+                </td>
+                <td><carlos:encode value='<%= WordUtils.capitalize(prop.getProperty("address", "").toLowerCase()) %>' context="html"/>
+                </td>
+                <td><carlos:encode value='<%= prop.getProperty("city", "") %>' context="html"/>
+                </td>
+                <td><carlos:encode value='<%= prop.getProperty("postcode", "") %>' context="html"/>
+                </td>
+                <td><carlos:encode value='<%= prop.getProperty("telephone", "") %>' context="html"/>
+                </td>
+                <%-- <td><e:forHtmlContent value='<%= prop.getProperty("fax", "") %>' /></td> --%>
+            </tr>
+            <%
+                }
+
+            %>
+        </table>
+
+        <%
+            nItems = vec.size();
+            int nLastPage = 0, nNextPage = 0;
+            nNextPage = Integer.parseInt(strLimit2) + Integer.parseInt(strLimit1);
+            nLastPage = Integer.parseInt(strLimit1) - Integer.parseInt(strLimit2);
+
+        %> <%
+        if (nItems == 0 && nLastPage <= 0) {
+
+    %> <fmt:message key="demographic.search.noResultsWereFound"/> <%
+        }
+    %>
+        <script language="JavaScript">
+            <!--
+            function last() {
+                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/BC/ViewOnSearch3rdBillAddr?param=<carlos:encode value='<%= URLEncoder.encode(param,"UTF-8") %>' context="javaScript"/>&param2=<carlos:encode value='<%= URLEncoder.encode(param2,"UTF-8") %>' context="javaScript"/>&keyword=<carlos:encode value='<%= URLEncoder.encode(StringUtils.noNull(request.getParameter("keyword")), "UTF-8") %>' context="javaScript"/>&search_mode=<carlos:encode value='<%= URLEncoder.encode(StringUtils.noNull(request.getParameter("search_mode")), "UTF-8") %>' context="javaScript"/>&orderby=<carlos:encode value='<%= URLEncoder.encode(StringUtils.noNull(request.getParameter("orderby")), "UTF-8") %>' context="javaScript"/>&limit1=<%=nLastPage%>&limit2=<carlos:encode value='<%= strLimit2 %>' context="javaScript"/>";
+                document.nextform.submit();
+            }
+
+            function next() {
+                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/BC/ViewOnSearch3rdBillAddr?param=<carlos:encode value='<%= URLEncoder.encode(param,"UTF-8") %>' context="javaScript"/>&param2=<carlos:encode value='<%= URLEncoder.encode(param2,"UTF-8") %>' context="javaScript"/>&keyword=<carlos:encode value='<%= URLEncoder.encode(StringUtils.noNull(request.getParameter("keyword")), "UTF-8") %>' context="javaScript"/>&search_mode=<carlos:encode value='<%= URLEncoder.encode(StringUtils.noNull(request.getParameter("search_mode")), "UTF-8") %>' context="javaScript"/>&orderby=<carlos:encode value='<%= URLEncoder.encode(StringUtils.noNull(request.getParameter("orderby")), "UTF-8") %>' context="javaScript"/>&limit1=<%=nNextPage%>&limit2=<carlos:encode value='<%= strLimit2 %>' context="javaScript"/>";
+                document.nextform.submit();
+            }
+
+            //-->
+        </SCRIPT>
+
+        <form method="post" name="nextform" action="<%= request.getContextPath() %>/billing/CA/BC/ViewOnSearch3rdBillAddr">
+            <%
+                if (nLastPage >= 0) {
+
+            %> <input type="submit" class="mbttn" name="submit"
+                      value="<fmt:message key="demographic.demographicsearch2apptresults.btnPrevPage"/>"
+                      onClick="last()"> <%
+            }
+            if (nItems == Integer.parseInt(strLimit2)) {
+
+        %> <input type="submit" class="mbttn" name="submit"
+                  value="<fmt:message key="demographic.demographicsearch2apptresults.btnNextPage"/>"
+                  onClick="next()"> <%
+            }
+        %>
+        </form>
+        <br>
+        <form method="post" action="<%= request.getContextPath() %>/billing/CA/BC/OnAddEdit3rdAddr"
+              style="display:inline">
+            <button type="submit" class="link-button"
+                    style="background:none;border:none;color:#0066cc;text-decoration:underline;cursor:pointer;padding:0;font:inherit;">
+                Add/Edit Address
+            </button>
+        </form></center>
+    </body>
+</html>
+<%!
+    String str(String d) {
+        if (d == null || d.trim().equals("")) {
+            return "";
+        }
+        return SafeEncode.forJavaScriptAttribute(d);
+    }
+%>

@@ -123,7 +123,7 @@ public interface ProgramManager {
 
     void deleteFunctionalUserType(String id);
 
-    List<FunctionalUserType> getFunctionalUsers(String programId);
+    List<ProgramFunctionalUser> getFunctionalUsers(String programId);
 
     ProgramFunctionalUser getFunctionalUser(String id);
 

@@ -59,10 +59,11 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
 
     public boolean isSentToValidProvider(String docNo) {//check if document attached to any existing providers
         if (docNo != null) {
-            int dn = Integer.parseInt(docNo.trim());
-            String sql = "select p from ProviderInboxItem p where p.labType='DOC' and p.labNo=" + dn;
             try {
+                int dn = Integer.parseInt(docNo.trim());
+                String sql = "select p from ProviderInboxItem p where p.labType='DOC' and p.labNo=:labNo";
                 Query query = entityManager.createQuery(sql);
+                query.setParameter("labNo", dn);
                 @SuppressWarnings("unchecked")
                 List<ProviderInboxItem> r = query.getResultList();
                 if (r != null && r.size() > 0) {
@@ -89,11 +90,13 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
 
     public boolean isSentToProvider(String docNo, String providerNo) {
         if (docNo != null && providerNo != null) {
-            int dn = Integer.parseInt(docNo.trim());
-            providerNo = providerNo.trim();
-            String sql = "select p from ProviderInboxItem p where p.labType='DOC' and p.labNo=" + dn + " and p.providerNo='" + providerNo + "'";
             try {
+                int dn = Integer.parseInt(docNo.trim());
+                providerNo = providerNo.trim();
+                String sql = "select p from ProviderInboxItem p where p.labType='DOC' and p.labNo=:labNo and p.providerNo=:providerNo";
                 Query query = entityManager.createQuery(sql);
+                query.setParameter("labNo", dn);
+                query.setParameter("providerNo", providerNo);
                 @SuppressWarnings("unchecked")
                 List<ProviderInboxItem> r = query.getResultList();
                 if (r != null && r.size() > 0) {
@@ -125,14 +128,14 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
         try {
             //
             if (demographicNo == null) {
-                sql = "select d from Document d, ProviderInboxItem p where d.documentNo=p.labNo and p.status like '%" + status + "%' " +
-                        " and p.labType='DOC' order by d.documentNo DESC";
+                sql = "select d from Document d, ProviderInboxItem p where d.documentNo=p.labNo and p.status like :status and p.labType='DOC' order by d.documentNo DESC";
             } else {
                 return labResults;
             }
 
             logger.debug(sql);
             Query query = entityManager.createQuery(sql);
+            query.setParameter("status", "%" + status + "%");
             @SuppressWarnings("unchecked")
             List<Document> result = query.getResultList();
             for (Document d : result) {
@@ -240,14 +243,15 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
         String sql = "";
         try {
             if (demographicNo == null || providerNo == null) {
-                sql = "select d from Document d, ProviderInboxItem p where d.documentNo=p.labNo and p.status like '%" + status + "%' and p.providerNo = '"
-                        + providerNo + "'" + " and p.labType='DOC' order by d.documentNo DESC";
+                sql = "select d from Document d, ProviderInboxItem p where d.documentNo=p.labNo and p.status like :status and p.providerNo = :providerNo and p.labType='DOC' order by d.documentNo DESC";
             } else {
                 return labResults;
             }
 
             logger.debug(sql);
             Query query = entityManager.createQuery(sql);
+            query.setParameter("status", "%" + status + "%");
+            query.setParameter("providerNo", providerNo);
             @SuppressWarnings("unchecked")
             List<Document> result = query.getResultList();
             for (Document d : result) {
@@ -350,16 +354,16 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
         try {
 
             if (demographicNo == null) {
-                sql = "select d from Document d, ProviderInboxItem p where d.documentNo=p.labNo and p.status like '%" + status + "%' and (p.providerNo like '" +
-                        (providerNo.equals("") ? "%" : providerNo) + "'" + " or p.providerNo='" + CommonLabResultData.NOT_ASSIGNED_PROVIDER_NO + "' ) " +
-                        " and p.labType='DOC' order by d.documentNo DESC";
-                        
+                sql = "select d from Document d, ProviderInboxItem p where d.documentNo=p.labNo and p.status like :status and (p.providerNo like :providerNo or p.providerNo=:unassigned) and p.labType='DOC' order by d.documentNo DESC";
             } else {
                 return labResults;
             }
 
             logger.debug(sql);
             Query query = entityManager.createQuery(sql);
+            query.setParameter("status", "%" + status + "%");
+            query.setParameter("providerNo", providerNo.equals("") ? "%" : providerNo);
+            query.setParameter("unassigned", CommonLabResultData.NOT_ASSIGNED_PROVIDER_NO);
             @SuppressWarnings("unchecked")
             List<Document> result = query.getResultList();
             for (Document d : result) {

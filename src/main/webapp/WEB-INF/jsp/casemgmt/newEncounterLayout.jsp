@@ -1,0 +1,879 @@
+<%--
+
+
+    Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for
+    Centre for Research on Inner City Health, St. Michael's Hospital,
+    Toronto, Ontario, Canada
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+
+<%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+
+<%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
+
+<%@page import="java.util.Enumeration" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*, io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO, io.github.carlos_emr.CarlosProperties" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.provider.web.CppPreferencesUIBean" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.common.Colour" %>
+<%@page import="java.util.List, java.util.Random" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean" %>
+
+
+<%
+    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+
+    String roleName = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+
+    EctSessionBean bean = null;
+    String beanName = "casemgmt_oscar_bean" + (String) request.getAttribute("demographicNo");
+
+    pageContext.setAttribute("providerNo", request.getParameter("providerNo"), PageContext.PAGE_SCOPE);
+    pageContext.setAttribute("demographicNo", request.getParameter("demographicNo"), PageContext.PAGE_SCOPE);
+
+    CaseManagementNoteExt cme = new CaseManagementNoteExt();
+
+    String frmName = "caseManagementEntryForm" + request.getParameter("demographicNo");
+    CaseManagementEntryFormBean cform = (CaseManagementEntryFormBean) session.getAttribute(frmName);
+
+    String encTimeMandatoryValue = CarlosProperties.getInstance().getProperty("ENCOUNTER_TIME_MANDATORY", "false");
+
+    CppPreferencesUIBean cppPreferences = new CppPreferencesUIBean(loggedInInfo.getLoggedInProviderNo());
+    cppPreferences.loadValues();
+    pageContext.setAttribute("cppPreferences", cppPreferences, PageContext.PAGE_SCOPE);
+%>
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>
+            Encounter
+        </title>
+        <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
+        <link rel="stylesheet" href="${carlos:forHtmlAttribute(ctx)}/css/encounterStyles.css?v=<%= System.currentTimeMillis() %>" type="text/css">
+
+        <link rel="stylesheet" type="text/css" href="${carlos:forHtmlAttribute(ctx)}/library/jquery/jquery-ui-1.14.2.min.css"/>
+        <link rel="stylesheet" type="text/css" href="${carlos:forHtmlAttribute(ctx)}/css/oscarRx.css">
+        <!-- calendar stylesheet -->
+        <link rel="stylesheet" type="text/css" media="all" href="${carlos:forHtmlAttribute(ctx)}/share/calendar/calendar.css"
+              title="win2k-cold-1">
+        <link rel="stylesheet" type="text/css" href="${carlos:forHtmlAttribute(ctx)}/css/print.css" media="print">
+
+        <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/library/jquery/jquery-3.7.1.min.js"></script>
+        <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/library/jquery/jquery-ui-1.14.2.min.js"></script>
+        <script type="text/javascript">jQuery.noConflict();</script>
+        <!-- Prototype.js/Scriptaculous removed — using prototype-compat.js shim + carlos-ajax.js (Phase 4d migration) -->
+        <!-- jQuery.noConflict() frees $ for the Prototype shim; use jQuery() or jQuery.ajax() for jQuery calls -->
+        <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/prototype-compat.js" type="text/javascript"></script>
+        <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/carlos-ajax.js" type="text/javascript"></script>
+        <!-- CSRFGuard must load AFTER prototype-compat.js so its XHR.send() interception
+             takes final precedence for automatic CSRF token injection -->
+        <script src="${carlos:forHtmlAttribute(ctx)}/csrfguard"></script>
+
+        <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/casemgmt/ViewNewEncounterLayoutJs?v=<%= System.currentTimeMillis() %>"></script>
+
+            <%-- for popup menu of forms --%>
+        <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/popupmenu.js" type="text/javascript"></script>
+        <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/menutility.js" type="text/javascript"></script>
+
+        <!-- main calendar program -->
+        <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/share/calendar/calendar.js"></script>
+
+        <!-- language for the calendar -->
+        <script type="text/javascript"
+        src="${carlos:forHtmlAttribute(ctx)}/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+
+        <!-- the following script defines the Calendar.setup helper function, which makes adding a calendar a matter of 1 or 2 lines of code. -->
+        <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/share/calendar/calendar-setup.js"></script>
+
+        <!-- js window size utility funcs -->
+        <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/share/javascript/screen.js"></script>
+
+        <!-- vanilla JS autocomplete select box (replaces Scriptaculous Autocompleter.SelectBox) -->
+        <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/share/javascript/select.js?v=<%= System.currentTimeMillis() %>"></script>
+
+        <script type="text/javascript">
+            var Colour = {
+                prevention: '<%=Colour.getInstance().prevention%>',
+                tickler: '<%=Colour.getInstance().tickler%>',
+                disease: '<%=Colour.getInstance().disease%>',
+                forms: '<%=Colour.getInstance().forms%>',
+                eForms: '<%=Colour.getInstance().eForms%>',
+                documents: '<%=Colour.getInstance().documents%>',
+                labs: '<%=Colour.getInstance().labs%>',
+                messages: '<%=Colour.getInstance().messages%>',
+                measurements: '<%=Colour.getInstance().measurements%>',
+                consultation: '<%=Colour.getInstance().consultation%>',
+                hrmDocuments: '<%=Colour.getInstance().hrmDocuments%>',
+                allergy: '<%=Colour.getInstance().allergy%>',
+                rx: '<%=Colour.getInstance().rx%>',
+                omed: '<%=Colour.getInstance().omed%>',
+                riskFactors: '<%=Colour.getInstance().riskFactors%>',
+                familyHistory: '<%=Colour.getInstance().familyHistory%>',
+                unresolvedIssues: '<%=Colour.getInstance().unresolvedIssues%>',
+                resolvedIssues: '<%=Colour.getInstance().resolvedIssues%>',
+                episode: '<%=Colour.getInstance().episode%>',
+                pregancies: '<%=Colour.getInstance().episode%>',
+                contacts: '<%=Colour.getInstance().contacts%>'
+            };
+        </script>
+
+
+<script type="text/javascript" src="${pageContext.request.contextPath}/js/validateTextInputs.js"></script>
+<!--js code for newCaseManagementView.jsp -->
+<script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/js/newCaseManagementView.js.jsp"></script>
+
+        <script type="text/javascript">
+
+            jQuery(document).on("ready", function () {
+                <%
+       if( loggedInInfo.getLoggedInProvider().getProviderType().equals("resident"))  {
+     %>
+
+
+                jQuery("input[name='reviewed']").change(function () {
+
+                        if (jQuery("input[name='reviewed']:checked").val() == "true") {
+                            if (jQuery(".supervisor").is(":visible")) {
+                                jQuery(".supervisor").slideUp(300);
+                            }
+                            jQuery(".reviewer").slideDown(600);
+                            jQuery("#reviewer").focus();
+
+                        } else {
+                            if (jQuery(".reviewer").is(":visible")) {
+                                jQuery(".reviewer").slideUp(300);
+                            }
+                            jQuery(".supervisor").slideDown(600);
+                            jQuery("#supervisor").focus();
+                        }
+                    }
+                );
+                <%}%>
+            });
+
+
+            function assembleMainChartParams(displayFullChart) {
+
+                var params = "method=edit&ajaxview=ajaxView&fullChart=" + displayFullChart;
+                <%
+                  Enumeration<String>enumerator = request.getParameterNames();
+                  String paramName, paramValue;
+                  while( enumerator.hasMoreElements() ) {
+                     paramName = enumerator.nextElement();
+                     if( paramName.equals("method") || paramName.equals("fullChart") ) {
+                         continue;
+                     }
+
+                     paramValue = request.getParameter(paramName);
+
+                 %>
+                params += "&" + encodeURIComponent("<carlos:encode value='<%= paramName %>' context="javaScriptBlock"/>")
+                        + "=" + encodeURIComponent("<carlos:encode value='<%= paramValue %>' context="javaScriptBlock"/>");
+                <%
+
+                 }
+               %>
+
+                return params;
+            }
+
+            function reorderNavBarElements(idToMove, afterThisId) {
+                var clone = jQuery("#" + idToMove).clone();
+                jQuery("#" + idToMove).remove();
+                clone.insertAfter(jQuery("#" + afterThisId));
+            }
+
+            function reorderNavBarElementsBefore(idToMove, beforeThisId) {
+                var clone = jQuery("#" + idToMove).clone();
+                jQuery("#" + idToMove).remove();
+                clone.insertBefore(jQuery("#" + beforeThisId));
+            }
+
+            function makeElement(type, attributes) {
+                var element = document.createElement(type);
+                if (attributes != null) {
+                    for (var i in attributes) {
+                        element.setAttribute(i, attributes[i]);
+                    }
+                }
+                return element;
+            }
+
+            function insertAfter(referenceNode, newNode) {
+                referenceNode.parentNode.insertBefore(newNode, referenceNode.nextSibling);
+            }
+
+
+            function addCppRow(rowNumber) {
+                if (!document.getElementById("divR" + rowNumber)) {
+                    var newDiv = makeElement('div', {'id': 'divR' + rowNumber});
+
+                    var i1 = makeElement('div', {'id': 'divR' + rowNumber + 'I1', 'class': 'topBox'});
+                    var i2 = makeElement('div', {'id': 'divR' + rowNumber + 'I2', 'class': 'topBox'});
+                    newDiv.appendChild(i1);
+                    newDiv.appendChild(i2);
+                    var prevRow = document.getElementById("divR" + (rowNumber - 1));
+                    insertAfter(prevRow, newDiv);
+                }
+            }
+
+            function removeCppRow(rowNumber) {
+                jQuery("#divR" + rowNumber).remove();
+            }
+
+            function hideCpp(title) {
+                jQuery("#" + title).remove();
+            }
+
+            function popColumn(url, div, params, navBar, navBarObj) {
+                params = "reloadURL=" + url + "&numToDisplay=6&cmd=" + params;
+
+                CarlosAjax.request(url, {
+                    method: 'post',
+                    postBody: params,
+                    evalScripts: true,
+                    onSuccess: function (transport) {
+                        $(div).update(transport.responseText);
+
+                        if ($("leftColLoader") != null)
+                            Element.remove("leftColLoader");
+
+                        if ($("rightColLoader") != null)
+                            Element.remove("rightColLoader");
+                    },
+                    onFailure: function (transport) {
+                        var el = document.getElementById(div);
+                        if (el) el.textContent = div + " Error: " + transport.status;
+                    }
+                });
+            };
+
+            function addLeftNavDiv(name) {
+                var div = document.createElement("div");
+                div.className = "leftBox";
+                div.style.display = "block";
+                div.style.visiblity = "hidden";
+                div.id = name;
+                $("leftNavBar").appendChild(div);
+
+            }
+
+            function addRightNavDiv(name) {
+                var div = document.createElement("div");
+                div.className = "leftBox";
+                div.style.display = "block";
+                div.style.visiblity = "hidden";
+                div.id = name;
+                $("rightNavBar").appendChild(div);
+
+            }
+
+            function removeNavDiv(name) {
+                var tmpEl = document.getElementById(name);
+                tmpEl.parentNode.removeChild(tmpEl);
+            }
+
+            function reloadNav(name) {
+                var url = jQuery("#" + name + " input[name='reloadUrl']").val();
+                popColumn(url, name, name, null, null);
+            }
+
+            // Listen for tickler refresh broadcasts from ticklerAdd/ticklerEdit popup windows
+            var ticklerChannel = null;
+            try {
+                ticklerChannel = new BroadcastChannel('carlos_tickler_refresh_<carlos:encode value='<%= request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "0" %>' context="javaScript"/>');
+                ticklerChannel.onmessage = function(event) {
+                    var data = event.data;
+                    if (data === 'refresh' || (data && data.action === 'refresh')) {
+                        try {
+                            reloadNav('tickler');
+                        } catch (reloadErr) {
+                            console.error('[newEncounterLayout] reloadNav failed:', reloadErr);
+                        }
+                    }
+                };
+                ticklerChannel.onmessageerror = function(event) {
+                    console.error('[newEncounterLayout] BroadcastChannel message deserialization error:', event);
+                };
+            } catch (e) {
+                console.warn('[newEncounterLayout] BroadcastChannel not available:', e);
+            }
+            window.addEventListener('unload', function() {
+                if (ticklerChannel) { ticklerChannel.close(); }
+            });
+
+            function addPrintOption(name, bean) {
+                var test1Str = "<img style=\"cursor: pointer;\" title=\"Print " + name + "\" id=\"img" + name + "\" alt=\"Print " + name + "\" onclick=\"return printInfo(this, 'extPrint" + name + "');\" src=\"" + ctx + "/encounter/graphics/printer.png\">&nbsp;" + name;
+                jQuery("#printDateRow").before("<tr><td></td><td>" + test1Str + "</tr></tr>");
+                jQuery("form[name='caseManagementEntryForm']").append("<input name=\"extPrint" + name + "\" id=\"extPrint" + name + "\" value=\"false\" type=\"hidden\"/>");
+                jQuery.ajax({
+                    type: 'POST',
+                    url: ctx + "/casemgmt/ExtPrintRegistry",
+                    data: {method: 'register', name: name, bean: bean},
+                    async: false,
+                    success: function (data) {
+                    }
+                });
+            }
+
+
+            <%
+                int appointmentNoVal = 0;
+                String appointmentNoParam = request.getParameter("appointmentNo");
+                if (appointmentNoParam != null && !appointmentNoParam.isEmpty()) {
+                    try { appointmentNoVal = Integer.parseInt(appointmentNoParam); } catch (NumberFormatException ignored) {}
+                }
+            %>
+            var appointmentNo = <%=appointmentNoVal%>;
+
+            var savedNoteId = 0;
+        </script>
+
+        <!-- set size of window if customized in preferences -->
+        <%
+            UserPropertyDAO uPropDao = SpringUtils.getBean(UserPropertyDAO.class);
+            String providerNo = loggedInInfo.getLoggedInProviderNo();
+            UserProperty widthP = uPropDao.getProp(providerNo, "encounterWindowWidth");
+            UserProperty heightP = uPropDao.getProp(providerNo, "encounterWindowHeight");
+            UserProperty maximizeP = uPropDao.getProp(providerNo, "encounterWindowMaximize");
+
+            if (maximizeP != null && maximizeP.getValue().equals("yes")) {%>
+        <script> jQuery(window).on('load', function () {
+            window.resizeTo(screen.width, screen.height);
+        });</script>
+        <% } else if (widthP != null && !widthP.getValue().isEmpty() && heightP != null && !heightP.getValue().isEmpty()) {
+            String width = widthP.getValue();
+            String height = heightP.getValue();%>
+        <script> jQuery(window).on('load', function () {
+            window.resizeTo(<%=width%>, <%=height%>)
+        }) </script>
+        <% } %>
+
+        <!-- Instead of importing cme.js using the CME tag (as done in Oscar19/OscarPro), we are opting to directly import cme.js without utilizing the CME tag. -->
+        <% if ("ocean".equals(CarlosProperties.getInstance().get("cme_js"))) {
+            int randomNo = new Random().nextInt();%>
+        <script id="mainScript"
+                src="${ pageContext.request.contextPath }/js/custom/ocean/cme.js?no-cache=<%=randomNo%>&autoRefresh=true"
+                ocean-host=<carlos:encode value='<%= CarlosProperties.getInstance().getProperty("ocean_host") %>' context="uriComponent"/>></script>
+        <% } %>
+
+        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
+        <title><fmt:message key="encounter.Index.title"/></title>
+        <script type="text/javascript">
+            ctx = "${carlos:forJavaScript(ctx)}";
+            demographicNo = "${carlos:forJavaScript(demographicNo)}";
+            providerNo = "${carlos:forJavaScript(providerNo)}";
+
+            socHistoryLabel = "encounter.socHistory.title";
+            medHistoryLabel = "encounter.medHistory.title";
+            onGoingLabel = "encounter.onGoing.title";
+            ;
+            remindersLabel = "encounter.reminders.title";
+            oMedsLabel = "encounter.oMeds.title";
+            famHistoryLabel = "encounter.famHistory.title";
+            riskFactorsLabel = "encounter.riskFactors.title";
+
+            quickChartMsg = "<fmt:message key="encounter.quickChart.msg"/>";
+            fullChartMsg = "<fmt:message key="encounter.fullChart.msg"/>";
+            insertTemplateError = "<fmt:message key="encounter.templateError.msg"/>";
+            unsavedNoteWarning = "<fmt:message key="encounter.unsavedNoteWarning.msg"/>";
+            sessionExpiredError = "<fmt:message key="encounter.sessionExpiredError.msg"/>";
+            filterError = "<fmt:message key="encounter.filterError.msg"/>";
+            pastObservationDateError = "<fmt:message key="encounter.pastObservationDateError.msg"/>";
+            encTimeError = "<fmt:message key="encounter.encounterTimeError.msg"/>";
+            encMinError = "<fmt:message key="encounter.encounterMinuteError.msg"/>";
+            assignIssueError = "<fmt:message key="encounter.assignIssueError.msg"/>";
+            assignObservationDateError = "<fmt:message key="encounter.assignObservationDateError.msg"/>";
+
+            encTimeMandatoryMsg = "<fmt:message key="encounter.encounterTimeMandatory.msg"/>";
+            encTimeMandatory = <%=encTimeMandatoryValue%>;
+
+            assignEncTypeError = "<fmt:message key="encounter.assignEncTypeError.msg"/>";
+            savingNoteError = "<fmt:message key="encounter.savingNoteError.msg"/>";
+            noteLockLostError = "<fmt:message key="encounter.noteLockLostError.msg"/>";
+            changeIssueMsg = "<fmt:message key="encounter.change.title"/>";
+            closeWithoutSaveMsg = "<fmt:message key="encounter.closeWithoutSave.msg"/>";
+            pickIssueMsg = "<fmt:message key="encounter.pickIssue.msg"/>";
+            assignIssueMsg = "<fmt:message key="encounter.assign.title"/>";
+            updateIssueError = "<fmt:message key="encounter.updateIssueError.msg"/>";
+            unsavedNoteMsg = "<fmt:message key="encounter.unsavedNote.msg"/>";
+            printDateMsg = "<fmt:message key="encounter.printDate.msg"/>";
+            printDateOrderMsg = "<fmt:message key="encounter.printDateOrder.msg"/>";
+            nothing2PrintMsg = "<fmt:message key="encounter.nothingToPrint.msg"/>";
+            editUnsignedMsg = "<fmt:message key="encounter.editUnsignedNote.msg"/>";
+            msgDraftSaved = "<fmt:message key="encounter.draftSaved.msg"/>";
+            editLabel = "<fmt:message key="encounter.edit.msgEdit"/>";
+            annotationLabel = "<fmt:message key="encounter.Index.btnAnnotation"/>";
+            month[0] = "<fmt:message key="share.CalendarPopUp.msgJan"/>";
+            month[1] = "<fmt:message key="share.CalendarPopUp.msgFeb"/>";
+            month[2] = "<fmt:message key="share.CalendarPopUp.msgMar"/>";
+            month[3] = "<fmt:message key="share.CalendarPopUp.msgApr"/>";
+            month[4] = "<fmt:message key="share.CalendarPopUp.msgMay"/>";
+            month[5] = "<fmt:message key="share.CalendarPopUp.msgJun"/>";
+            month[6] = "<fmt:message key="share.CalendarPopUp.msgJul"/>";
+            month[7] = "<fmt:message key="share.CalendarPopUp.msgAug"/>";
+            month[8] = "<fmt:message key="share.CalendarPopUp.msgSep"/>";
+            month[9] = "<fmt:message key="share.CalendarPopUp.msgOct"/>";
+            month[10] = "<fmt:message key="share.CalendarPopUp.msgNov"/>";
+            month[11] = "<fmt:message key="share.CalendarPopUp.msgDec"/>";
+
+
+            jQuery(window).on("load", function () {
+
+                viewFullChart(false);
+
+                var navBars = new navBarLoader();
+                navBars.load();
+
+                getPreferenceBasedEChart();
+
+                Calendar.setup({
+                    inputField: "printStartDate",
+                    ifFormat: "%d-%b-%Y",
+                    showsTime: false,
+                    button: "printStartDate_cal",
+                    singleClick: true,
+                    step: 1
+                });
+                Calendar.setup({
+                    inputField: "printEndDate",
+                    ifFormat: "%d-%b-%Y",
+                    showsTime: false,
+                    button: "printEndDate_cal",
+                    singleClick: true,
+                    step: 1
+                });
+
+                <c:url value="/CaseManagementEntry" var="issueURLCPP">
+                <c:param name="method" value="issueList"/>
+                <c:param name="demographicNo" value="${demographicNo}" />
+                <c:param name="providerNo" value="${providerNo}" />
+                <c:param name="all" value="true" />
+                </c:url>
+
+                <%--var issueAutoCompleterCPP = new Ajax.Autocompleter("issueAutocompleteCPP", "issueAutocompleteListCPP",--%>
+                <%--    "${e:forJavaScript(issueURLCPP)}", {minChars: 3, indicator: 'busy2', afterUpdateElement: addIssue2CPP,--%>
+                <%--	    onShow: autoCompleteShowMenuCPP, onHide: autoCompleteHideMenuCPP});--%>
+
+                <c:if test="${not empty DateError}">
+                    <script>
+                        alert("${DateError}");
+                    </script>
+                </c:if>
+
+            })
+
+            /*
+             * Show and hide CPP categories according to user preferences, and display Social History, Medical History, Ongoing Concerns, and Reminders at user-specified positions
+             */
+            function getPreferenceBasedEChart() {
+                const isCppPreferencesEnabled = '${carlos:forJavaScript(cppPreferences.enable)}';
+                if (isCppPreferencesEnabled !== 'on') {
+                    showIssueNotes();
+                    return;
+                }
+
+                const socialHxPosition = '${carlos:forJavaScript(cppPreferences.socialHxPosition)}';
+                const medicalHxPosition = '${carlos:forJavaScript(cppPreferences.medicalHxPosition)}';
+                const ongoingConcernsPosition = '${carlos:forJavaScript(cppPreferences.ongoingConcernsPosition)}';
+                const remindersPosition = '${carlos:forJavaScript(cppPreferences.remindersPosition)}';
+                showCustomIssueNotes(socialHxPosition, medicalHxPosition, ongoingConcernsPosition, remindersPosition);
+
+                const preventionsDisplay = '${carlos:forJavaScript(cppPreferences.preventionsDisplay)}';
+                const dxRegistryDisplay = '${carlos:forJavaScript(cppPreferences.dxRegistryDisplay)}';
+                const formsDisplay = '${carlos:forJavaScript(cppPreferences.formsDisplay)}';
+                const eformsDisplay = '${carlos:forJavaScript(cppPreferences.eformsDisplay)}';
+                const documentsDisplay = '${carlos:forJavaScript(cppPreferences.documentsDisplay)}';
+                const labsDisplay = '${carlos:forJavaScript(cppPreferences.labsDisplay)}';
+                const measurementsDisplay = '${carlos:forJavaScript(cppPreferences.measurementsDisplay)}';
+                const consultationsDisplay = '${carlos:forJavaScript(cppPreferences.consultationsDisplay)}';
+                const hrmDisplay = '${carlos:forJavaScript(cppPreferences.hrmDisplay)}';
+
+                const allergiesDisplay = '${carlos:forJavaScript(cppPreferences.allergiesDisplay)}';
+                const medicationsDisplay = '${carlos:forJavaScript(cppPreferences.medicationsDisplay)}';
+                const otherMedsDisplay = '${carlos:forJavaScript(cppPreferences.otherMedsDisplay)}';
+                const riskFactorsDisplay = '${carlos:forJavaScript(cppPreferences.riskFactorsDisplay)}';
+                const familyHxDisplay = '${carlos:forJavaScript(cppPreferences.familyHxDisplay)}';
+                const unresolvedIssuesDisplay = '${carlos:forJavaScript(cppPreferences.unresolvedIssuesDisplay)}';
+                const resolvedIssuesDisplay = '${carlos:forJavaScript(cppPreferences.resolvedIssuesDisplay)}';
+                const episodesDisplay = '${carlos:forJavaScript(cppPreferences.episodesDisplay)}';
+
+                // If any display variable is empty, it means that the corresponding cpp is hidden
+                if (!preventionsDisplay) {
+                    hideCpp('preventions');
+                }
+                if (!dxRegistryDisplay) {
+                    hideCpp('Dx');
+                }
+                if (!formsDisplay) {
+                    hideCpp('forms');
+                }
+                if (!eformsDisplay) {
+                    hideCpp('eforms');
+                }
+                if (!documentsDisplay) {
+                    hideCpp('docs');
+                }
+                if (!labsDisplay) {
+                    hideCpp('labs');
+                }
+                if (!measurementsDisplay) {
+                    hideCpp('measurements');
+                }
+                if (!consultationsDisplay) {
+                    hideCpp('consultation');
+                }
+                if (!hrmDisplay) {
+                    hideCpp('HRM');
+                }
+
+                if (!allergiesDisplay) {
+                    hideCpp('allergies');
+                }
+                if (!medicationsDisplay) {
+                    hideCpp('Rx');
+                }
+                if (!otherMedsDisplay) {
+                    hideCpp('OMeds');
+                }
+                if (!riskFactorsDisplay) {
+                    hideCpp('RiskFactors');
+                }
+                if (!familyHxDisplay) {
+                    hideCpp('FamHistory');
+                }
+                if (!unresolvedIssuesDisplay) {
+                    hideCpp('unresolvedIssues');
+                }
+                if (!resolvedIssuesDisplay) {
+                    hideCpp('resolvedIssues');
+                }
+                if (!episodesDisplay) {
+                    hideCpp('episode');
+                }
+            }
+
+            function doscroll() {
+                let bodyScroll = document.body.scrollHeight + 99999;
+                window.scrollTo(0, bodyScroll);
+            }
+
+            window.onbeforeunload = onClosing;
+
+
+        </script>
+    </head>
+    <body id="body" class="encounter-layout">
+    <jsp:include page="/images/spinner.jsp" flush="true"/>
+    <div id="header">
+        <jsp:include page="/WEB-INF/jsp/casemgmt/newEncounterHeader.jsp"/>
+    </div>
+
+    <div id="navigation-layout">
+        <div id="rightNavBar">
+            <jsp:include page="/WEB-INF/jsp/casemgmt/rightColumn.jsp"/>
+        </div>
+
+        <div id="leftNavBar">
+            <jsp:include page="/WEB-INF/jsp/casemgmt/newNavigation.jsp"/>
+        </div>
+
+        <div id="content">
+            <jsp:include page="/WEB-INF/jsp/casemgmt/newCaseManagementView.jsp"/>
+        </div>
+    </div>
+    <!-- hovering divs -->
+    <div id="showEditNote" class="showEdContent">
+        <form id="frmIssueNotes" action="" method="post"
+              onsubmit="return updateCPPNote();">
+            <input type="hidden" id="reloadUrl" name="reloadUrl" value="">
+            <input type="hidden" id="containerDiv" name="containerDiv" value="">
+            <input type="hidden" id="issueChange" name="issueChange" value="">
+            <input type="hidden" id="archived" name="archived" value="false">
+
+            <h3 id="winTitle"></h3>
+
+            <textarea cols="50" rows="15" id="noteEditTxt"
+                      name="value" class="boxsizingBorder"></textarea>
+            <br>
+
+            <table>
+                <tr id="Itemproblemdescription">
+                    <td><fmt:message key="encounter.problemdescription.title"/>:
+                    </td>
+                    <td><input type="text" id="problemdescription"
+                               name="problemdescription" value=""></td>
+                </tr>
+                <tr id="Itemstartdate">
+                    <td><fmt:message key="encounter.startdate.title"/>:</td>
+                    <td><input type="text" id="startdate" name="startdate"
+                               value="" size="12"> (YYYY-MM-DD)
+                    </td>
+                </tr>
+                <tr id="Itemresolutiondate">
+                    <td><fmt:message key="encounter.resolutionDate.title"/>:
+                    </td>
+                    <td><input type="text" id="resolutiondate"
+                               name="resolutiondate" value="" size="12"> (YYYY-MM-DD)
+                    </td>
+                </tr>
+                <tr id="Itemprocedure">
+                    <td><fmt:message key="encounter.procedure.title"/>:
+                    </td>
+                    <td><input type="text" id="procedure"
+                               name="procedure" value=""></td>
+                </tr>
+                <tr id="Itemageatonset">
+                    <td><fmt:message key="encounter.ageAtOnset.title"/>:</td>
+                    <td><input type="text" id="ageatonset" name="ageatonset"
+                               value="" size="2"></td>
+                </tr>
+
+                <tr id="Itemproceduredate">
+                    <td><fmt:message key="encounter.procedureDate.title"/>:
+                    </td>
+                    <td><input type="text" id="proceduredate" name="proceduredate"
+                               value="" size="12"> (YYYY-MM-DD)
+                    </td>
+                </tr>
+                <tr id="Itemtreatment">
+                    <td><fmt:message key="encounter.treatment.title"/>:</td>
+                    <td><input type="text" id="treatment" name="treatment"
+                               value=""></td>
+                </tr>
+                <tr id="Itemproblemstatus">
+                    <td><fmt:message key="encounter.problemStatus.title"/>:
+                    </td>
+                    <td><input type="text" id="problemstatus" name="problemstatus"
+                               value="" size="8"> <fmt:message key="encounter.problemStatusExample.msg"/></td>
+                </tr>
+                <tr id="Itemexposuredetail">
+                    <td><fmt:message key="encounter.exposureDetail.title"/>:
+                    </td>
+                    <td><input type="text" id="exposuredetail"
+                               name="exposuredetail" value=""></td>
+                </tr>
+                <tr id="Itemrelationship">
+                    <td><fmt:message key="encounter.relationship.title"/>:
+                    </td>
+                    <td><input type="text" id="relationship" name="relationship"
+                               value=""></td>
+                </tr>
+                <tr id="Itemlifestage">
+                    <td><fmt:message key="encounter.lifestage.title"/>:</td>
+                    <td><select name="lifestage" id="lifestage">
+                        <option value="">
+                            <fmt:message key="encounter.lifestage.opt.notset"/>
+                        </option>
+                        <option value="N">
+                            <fmt:message key="encounter.lifestage.opt.newborn"/>
+                        </option>
+                        <option value="I">
+                            <fmt:message key="encounter.lifestage.opt.infant"/>
+                        </option>
+                        <option value="C">
+                            <fmt:message key="encounter.lifestage.opt.child"/>
+                        </option>
+                        <option value="T">
+                            <fmt:message key="encounter.lifestage.opt.adolescent"/>
+                        </option>
+                        <option value="A">
+                            <fmt:message key="encounter.lifestage.opt.adult"/>
+                        </option>
+                    </select></td>
+                </tr>
+                <tr id="Itemhidecpp">
+                    <td><fmt:message key="encounter.hidecpp.title"/>:</td>
+                    <td><select id="hidecpp" name="hidecpp">
+                        <option value="0">No</option>
+                        <option value="1">Yes</option>
+                    </select></td>
+                </tr>
+            </table>
+            <div class="control-panel">
+                <input type="hidden" id="startTag" value='<fmt:message key="encounter.Index.startTime"/>'>
+                <input type="hidden" id="endTag" value='<fmt:message key="encounter.Index.endTime"/>'>
+                <br> <span style="float: right; margin-right: 10px;">
+				<input
+                        type="image"
+                        src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/copy.png"
+                        title='<fmt:message key="encounter.Index.btnCopy"/>'
+                        onclick="copyCppToCurrentNote(); return false;"> <input type="image"
+                                                                   src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/edit-cut.png"
+                                                                   title='<fmt:message key="encounter.Index.btnArchive"/>'
+                                                                   onclick="$('archived').value='true';"
+                                                                   style="padding-right: 10px;">
+				<input type="image"
+                       src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/note-save.png"
+                       title='<fmt:message key="encounter.Index.btnSignSave"/>'
+                       onclick="$('archived').value='false';" style="padding-right: 10px;">
+				<input type="image"
+                       src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/system-log-out.png"
+                       title='<fmt:message key="global.btnExit"/>'
+                       onclick="this.focus();if($('channel'))$('channel').style.visibility='visible';$('showEditNote').style.display='none';return false;">
+			</span>
+                <label for="position">
+                    <fmt:message key="encounter.Index.btnPosition"/>
+                </label>
+                <select id="position" name="position">
+                    <option id="popt0" value="0">1</option>
+                </select>
+            </div>
+            <div id="issueNoteInfo"></div>
+            <div id="issueListCPP"
+                 style="background-color: #FFFFFF; height: 200px; width: 350px; position: absolute; z-index: 1; display: none; overflow: auto;">
+                <div class="enTemplate_name_auto_complete issueAutocompleteList"
+                     id="issueAutocompleteListCPP"
+                     style="position: relative; left: 0; display: none;"></div>
+            </div>
+            <div class="add-issues">
+                <label for="issueAutocompleteCPP">
+                    <fmt:message key="encounter.Index.assnIssue"/>
+                </label>
+                &nbsp;<input tabindex="100" type="text" id="issueAutocompleteCPP" class="issueAutocomplete"
+                             name="issueSearch" style="z-index: 2;" size="25">&nbsp; <span
+                    id="busy2" style="display: none"><img
+                    style="position: absolute;"
+                    src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/busy.gif"
+                    alt="<fmt:message key="encounter.Index.btnWorking"/>"></span>
+            </div>
+        </form>
+    </div>
+    <div id="printOps" class="printOps">
+        <h3 style="margin-bottom: 5px; text-align: center;">
+            <fmt:message key="encounter.Index.PrintDialog"/>
+        </h3>
+        <form id="frmPrintOps" action="" onsubmit="return false;">
+            <table id="printElementsTable">
+                <tr>
+                    <td><input type="radio" id="printopSelected" name="printop"
+                               value="selected">
+                        <fmt:message key="encounter.Index.PrintSelect"/></td>
+                    <td>
+                        <security:oscarSec roleName="<%=roleName%>"
+                                           objectName="_newCasemgmt.cpp" rights="r" reverse="false">
+                            <img style="cursor: pointer;"
+                                 title="<fmt:message key="encounter.print.title"/>"
+                                 id='imgPrintCPP'
+                                 alt="<fmt:message key="encounter.togglePrintCPP.title"/>"
+                                 onclick="return printInfo(this,'printCPP');"
+                                 src='${carlos:forHtmlAttribute(ctx)}/encounter/graphics/printer.png'>&nbsp;<fmt:message key="encounter.cpp.title"/>
+                        </security:oscarSec>
+                    </td>
+                </tr>
+                <tr>
+                    <td><input type="radio" id="printopAll" name="printop"
+                               value="all">
+                        <fmt:message key="encounter.Index.PrintAll"/></td>
+                    <td><img style="cursor: pointer;"
+                             title="<fmt:message key="encounter.print.title"/>"
+                             id='imgPrintRx'
+                             alt="<fmt:message key="encounter.togglePrintRx.title"/>"
+                             onclick="return printInfo(this, 'printRx');"
+                             src='${carlos:forHtmlAttribute(ctx)}/encounter/graphics/printer.png'>&nbsp;<fmt:message key="encounter.Rx.title"/></td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td><img style="cursor: pointer;"
+                             title="<fmt:message key="encounter.print.title"/>"
+                             id='imgPrintLabs'
+                             alt="<fmt:message key="encounter.togglePrintLabs.title"/>"
+                             onclick="return printInfo(this, 'printLabs');"
+                             src='${carlos:forHtmlAttribute(ctx)}/encounter/graphics/printer.png'>&nbsp;<fmt:message key="encounter.Labs.title"/></td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td><img style="cursor: pointer;"
+                             title="<fmt:message key="encounter.print.title"/>"
+                             id='imgPrintPreventions'
+                             alt="<fmt:message key="encounter.togglePrintPreventions.title"/>"
+                             onclick="return printInfo(this, 'printPreventions');"
+                             src='${carlos:forHtmlAttribute(ctx)}/encounter/graphics/printer.png'>&nbsp;<fmt:message key="encounter.Preventions.title"/></td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td><img style="cursor: pointer;"
+                             title="<fmt:message key="encounter.print.title"/>"
+                             id='imgPrintAllergies'
+                             alt="<fmt:message key="encounter.togglePrintAllergies.title"/>"
+                             onclick="return printInfo(this, 'printAllergies');"
+                             src='${carlos:forHtmlAttribute(ctx)}/encounter/graphics/printer.png'>&nbsp;<fmt:message key="encounter.Allergies.title"/></td>
+                </tr>
+                <!--  extension point -->
+                <tr id="printDateRow">
+                    <td><input type="radio" id="printopDates" name="printop"
+                               value="dates">
+                        <fmt:message key="encounter.Index.PrintDates"/>&nbsp;<a
+                                style="font-variant: small-caps;" href="#"
+                                onclick="return printToday(event);"><fmt:message key="encounter.Index.PrintToday"/></a></td>
+                    <td></td>
+                </tr>
+            </table>
+
+            <div style="float: left; margin-left: 5px; width: 30px;">
+                <fmt:message key="encounter.Index.PrintFrom"/>
+                :
+            </div>
+            <img src="${carlos:forHtmlAttribute(ctx)}/images/cal.gif"
+                 id="printStartDate_cal" alt="calendar">&nbsp;<input
+                type="text" id="printStartDate" name="printStartDate"
+                ondblclick="this.value='';"
+                style="font-style: italic; border: 1px solid #7682b1; width: 125px; background-color: #FFFFFF;"
+                readonly value=""><br>
+            <div style="float: left; margin-left: 5px; width: 30px;">
+                <fmt:message key="encounter.Index.PrintTo"/>
+                :
+            </div>
+            <img src="${carlos:forHtmlAttribute(ctx)}/images/cal.gif"
+                 id="printEndDate_cal" alt="calendar">&nbsp;<input type="text"
+                                                                   id="printEndDate" name="printEndDate"
+                                                                   ondblclick="this.value='';"
+                                                                   style="font-style: italic; border: 1px solid #7682b1; width: 125px; background-color: #FFFFFF;"
+                                                                   readonly value=""><br>
+            <div style="margin-top: 5px; text-align: center">
+                <input type="submit" id="printOp" style="border: 1px solid #7682b1;"
+                       value="Print" onclick="return printNotes();">
+
+                <input type="submit" id="cancelprintOp"
+                       style="border: 1px solid #7682b1;" value="Cancel"
+                       onclick="$('printOps').style.display='none';"> <input
+                    type="submit" id="clearprintOp" style="border: 1px solid #7682b1;"
+                    value="Clear"
+                    onclick="$('printOps').style.display='none'; return clearAll(event);">
+            </div>
+
+        </form>
+    </div>
+    <div id="encounterModal"></div>
+
+    </body>
+</html>

@@ -467,7 +467,7 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
     /**
      * Tests for getCurrentTeamProviders(String providerNo).
      *
-     * <p>This method uses parameterized HQL via {@code HqlQueryHelper.find()} to find
+     * <p>This method uses parameterized JPQL via {@code JpqlQueryHelper.find()} to find
      * active providers with non-empty OHIP numbers on the same team as the given provider.
      * Parameters are bound via {@code ?1} and {@code ?2} positional syntax.</p>
      */
@@ -684,6 +684,27 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
                 .extracting(Provider::getProviderNo)
                 .contains("T001", "T002", "T003")
                 .doesNotContain("T004");
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty list for non-numeric programId")
+        void shouldReturnEmptyList_forNonNumericProgramId() {
+            // Regression guard: non-numeric programId must NOT silently widen
+            // to all active providers (which was the pre-fix behavior).
+            List<Provider> results = providerDao.getActiveProviders(null, "not-a-number");
+
+            assertThat(results).isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty list for empty-string programId")
+        void shouldReturnEmptyList_forEmptyStringProgramId() {
+            // Empty string hits the NumberFormatException branch (Long.valueOf("") throws).
+            List<Provider> results = providerDao.getActiveProviders(null, "");
+
+            assertThat(results).isEmpty();
         }
     }
 

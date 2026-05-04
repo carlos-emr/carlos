@@ -41,9 +41,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
+
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
@@ -61,6 +66,11 @@ import org.w3c.dom.Node;
 
 public class SearchConfig {
     protected static Logger logger = MiscUtils.getLogger();
+
+    private static final int GCM_IV_LENGTH_BYTES = 12;
+    private static final int GCM_TAG_LENGTH_BITS = 128;
+    private static final int GCM_TAG_LENGTH_BYTES = GCM_TAG_LENGTH_BITS / 8;
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private int daysToSearchAheadLimit = 10; //Number of days it searches before giving up. ie search for the next 60 days before giving up
     private int numberOfAppointmentOptionsToReturn = 10; //Number of appts that seems like it gives a reasonable choice.
@@ -618,26 +628,35 @@ public class SearchConfig {
         secretKey = keyGenerator.generateKey();
     }
 
-    public String encrypt(String toEncyrpt) throws Exception {
-        if (secretKey == null) return toEncyrpt;
-        Cipher cipher = Cipher.getInstance("AES");
-        cipher.init(Cipher.ENCRYPT_MODE, secretKey);
+    public String encrypt(String toEncrypt) throws Exception {
+        if (secretKey == null) return toEncrypt;
+        byte[] iv = new byte[GCM_IV_LENGTH_BYTES];
+        SECURE_RANDOM.nextBytes(iv);
 
-        byte[] unencryptedByteArray = toEncyrpt.getBytes("UTF8");
-        byte[] encryptedBytes = cipher.doFinal(unencryptedByteArray);
-        byte[] encodedBytes = Base64.encodeBase64(encryptedBytes);
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey, new GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv));
+        byte[] ciphertext = cipher.doFinal(toEncrypt.getBytes(StandardCharsets.UTF_8));
 
-        return new String(encodedBytes);
+        ByteBuffer out = ByteBuffer.allocate(iv.length + ciphertext.length).put(iv).put(ciphertext);
+        return new String(Base64.encodeBase64(out.array()), StandardCharsets.UTF_8);
     }
 
     public String decrypt(String toDecrypt) throws Exception {
-        if (secretKey == null) return (toDecrypt);
+        if (secretKey == null) return toDecrypt;
+        byte[] raw = Base64.decodeBase64(toDecrypt.getBytes(StandardCharsets.UTF_8));
+        if (raw.length < GCM_IV_LENGTH_BYTES + GCM_TAG_LENGTH_BYTES) {
+            throw new IllegalArgumentException("Ciphertext too short: expected at least "
+                    + (GCM_IV_LENGTH_BYTES + GCM_TAG_LENGTH_BYTES) + " bytes, got " + raw.length);
+        }
+        ByteBuffer in = ByteBuffer.wrap(raw);
+        byte[] iv = new byte[GCM_IV_LENGTH_BYTES];
+        in.get(iv);
+        byte[] ciphertext = new byte[in.remaining()];
+        in.get(ciphertext);
 
-        byte[] encryptedData = Base64.decodeBase64(toDecrypt.getBytes());
-        Cipher cipher = Cipher.getInstance("AES");
-        cipher.init(Cipher.DECRYPT_MODE, secretKey);
-        byte[] unencryptedByteArray = cipher.doFinal(encryptedData);
-        return new String(unencryptedByteArray, "UTF8");
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.DECRYPT_MODE, secretKey, new GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv));
+        return new String(cipher.doFinal(ciphertext), StandardCharsets.UTF_8);
     }
 
     public BookingType getBookingType(AppointmentType appointmentType, String providerNo) {

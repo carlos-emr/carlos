@@ -46,6 +46,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,6 +57,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.lab.FileUploadCheck;
@@ -65,9 +67,11 @@ import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
-public class InsideLabUpload2Action extends ActionSupport {
+public class InsideLabUpload2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -81,7 +85,21 @@ public class InsideLabUpload2Action extends ActionSupport {
     private List<File> importFiles;
     private List<String> importFilesFileName;
     private List<String> importFilesContentType;
-    
+
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
+            this.importFiles = new ArrayList<>();
+            this.importFilesFileName = new ArrayList<>();
+            this.importFilesContentType = new ArrayList<>();
+            for (UploadedFile uploaded : uploadedFiles) {
+                this.importFiles.add(PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath())));
+                this.importFilesFileName.add(uploaded.getOriginalName());
+                this.importFilesContentType.add(uploaded.getContentType());
+            }
+        }
+    }
+
     @Override
     public String execute() {
         if (importFiles == null || importFiles.isEmpty()) {

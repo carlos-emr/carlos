@@ -235,16 +235,14 @@ public class TicklerManagerImpl implements TicklerManager {
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         List<TicklerLink> links = ticklerLinkDao.getLinkByTableId("HL7", Long.valueOf(labId));
-
-        ArrayList<Tickler> results = new ArrayList<Tickler>();
-
+        ArrayList<Integer> ticklerNos = new ArrayList<Integer>(links.size());
         for (TicklerLink link : links) {
-            List<Tickler> ticklers = ticklerDao.findByTicklerNoAssignedTo(link.getTicklerNo(), providerNo, demoNo);
-            for (Tickler tickler : ticklers) {
-                results.add(tickler);
+            if (link.getTicklerNo() != null) {
+                ticklerNos.add(link.getTicklerNo());
             }
         }
 
+        ArrayList<Tickler> results = new ArrayList<Tickler>(ticklerDao.findByTicklerNosAssignedTo(ticklerNos, providerNo, demoNo));
         Collections.sort(results, Tickler.StatusAscComparator);
         return results;
     }
@@ -252,19 +250,15 @@ public class TicklerManagerImpl implements TicklerManager {
     @Override
     public List<Tickler> getTicklerByLabIdAnyProvider(LoggedInInfo loggedInInfo, int labId, Integer demoNo) {
         checkPrivilege(loggedInInfo, PRIVILEGE_READ);
-        String providerNo = loggedInInfo.getLoggedInProviderNo();
-
         List<TicklerLink> links = ticklerLinkDao.getLinkByTableId("HL7", Long.valueOf(labId));
-
-        ArrayList<Tickler> results = new ArrayList<Tickler>();
-
+        ArrayList<Integer> ticklerNos = new ArrayList<Integer>(links.size());
         for (TicklerLink link : links) {
-            List<Tickler> ticklers = ticklerDao.findByTicklerNoDemo(link.getTicklerNo(), demoNo);
-            for (Tickler tickler : ticklers) {
-                results.add(tickler);
+            if (link.getTicklerNo() != null) {
+                ticklerNos.add(link.getTicklerNo());
             }
         }
 
+        ArrayList<Tickler> results = new ArrayList<Tickler>(ticklerDao.findByTicklerNosDemo(ticklerNos, demoNo));
         Collections.sort(results, Tickler.StatusAscComparator);
         return results;
     }

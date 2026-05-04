@@ -179,10 +179,10 @@ public class ProviderLabRoutingDaoImpl extends AbstractDaoImpl<ProviderLabRoutin
 
     @Override
     public List<Integer> findLastRoutingIdGroupedByProviderAndCreatedByDocCreator(String docCreator) {
-        Query query = entityManager.createQuery("SELECT max(r.id) FROM ProviderLabRoutingModel r, Document d "+
-        "WHERE d.documentNo=r.labNo AND d.doccreator= ?1 AND r.providerNo!=0 AND r.providerNo!=-1 " +
-                "AND r.providerNo IS NOT NULL group by r.providerNo");
-        query.setParameter(1, docCreator);
+        Query query = entityManager.createQuery("SELECT max(r.id) FROM ProviderLabRoutingModel r, Document d WHERE d.documentNo = r.labNo AND d.doccreator = :docCreator AND r.providerNo != :zero AND r.providerNo != :negOne AND r.providerNo IS NOT NULL GROUP BY r.providerNo");
+        query.setParameter("docCreator", docCreator);
+        query.setParameter("zero", "0");
+        query.setParameter("negOne", "-1");
         return query.getResultList();
     }
 
