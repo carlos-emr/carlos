@@ -26,6 +26,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 import org.junit.jupiter.api.DisplayName;
@@ -48,7 +49,13 @@ public class PendingDocumentsJspRegressionTest {
             Path.of("src/main/webapp/WEB-INF/jsp/oscarMDS/documentsInQueues.jsp");
     private static final Path STRUTS_DOCUMENT_XML =
             Path.of("src/main/webapp/WEB-INF/classes/struts-document.xml");
-    private static final List<String> LOCALES = List.of("en", "fr", "es", "pt_BR", "pl");
+    private static final Map<String, Path> LOCALE_BUNDLES = Map.of(
+            "en", Path.of("src/main/resources/oscarResources_en.properties"),
+            "fr", Path.of("src/main/resources/oscarResources_fr.properties"),
+            "es", Path.of("src/main/resources/oscarResources_es.properties"),
+            "pt_BR", Path.of("src/main/resources/oscarResources_pt_BR.properties"),
+            "pl", Path.of("src/main/resources/oscarResources_pl.properties")
+    );
     private static final List<String> REQUIRED_I18N_KEYS = List.of(
             "inboxmanager.documentsInQueues",
             "inboxmanager.document.queues",
@@ -68,7 +75,8 @@ public class PendingDocumentsJspRegressionTest {
                 .contains("<fmt:message key=\"inboxmanager.document.queues\"/>")
                 .contains("<fmt:message key=\"inboxmanager.document.documents\"/>")
                 .contains("<fmt:message key=\"global.hl7\" var=\"hl7Label\"/>")
-                .contains("return String(patientId).replace(/[^0-9-]/g, '');")
+                .contains("function filterPatientIdCharacters(patientId)")
+                .contains("var safePatientId = filterPatientIdCharacters(patientId);")
                 .doesNotContain(">Back</button>")
                 .doesNotContain(">Queues</th>")
                 .doesNotContain(">Documents</th>")
@@ -102,25 +110,23 @@ public class PendingDocumentsJspRegressionTest {
     @Test
     @DisplayName("pending documents i18n keys should resolve in every shipped locale")
     void shouldDefineI18nKeys_forPendingDocumentsLabelsInEveryLocale() throws IOException {
-        for (String locale : LOCALES) {
-            assertThat(missingI18nKeys(locale))
-                    .as("oscarResources_%s.properties should define pending documents labels", locale)
+        for (Map.Entry<String, Path> localeBundle : LOCALE_BUNDLES.entrySet()) {
+            assertThat(missingI18nKeys(localeBundle.getValue()))
+                    .as("oscarResources_%s.properties should define pending documents labels", localeBundle.getKey())
                     .isEmpty();
         }
     }
 
-    private static List<String> missingI18nKeys(String locale) throws IOException {
-        Properties bundle = loadBundle(locale);
+    private static List<String> missingI18nKeys(Path bundlePath) throws IOException {
+        Properties bundle = loadBundle(bundlePath);
         return REQUIRED_I18N_KEYS.stream()
                 .filter(key -> !bundle.containsKey(key))
                 .toList();
     }
 
-    private static Properties loadBundle(String locale) throws IOException {
+    private static Properties loadBundle(Path bundlePath) throws IOException {
         Properties bundle = new Properties();
-        try (var reader = Files.newBufferedReader(
-                Path.of("src/main/resources/oscarResources_" + locale + ".properties"),
-                StandardCharsets.UTF_8)) {
+        try (var reader = Files.newBufferedReader(bundlePath, StandardCharsets.UTF_8)) {
             bundle.load(reader);
         }
         return bundle;
