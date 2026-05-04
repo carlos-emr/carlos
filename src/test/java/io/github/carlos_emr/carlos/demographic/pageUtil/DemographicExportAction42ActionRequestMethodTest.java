@@ -28,9 +28,12 @@ import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
 import io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao;
 import io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao;
 import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
+import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentCommentDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -43,6 +46,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
@@ -160,15 +164,20 @@ class DemographicExportAction42ActionRequestMethodTest extends CarlosUnitTestBas
     }
 
     @Test
-    @DisplayName("should attempt export for POST requests")
-    void shouldAttemptExport_whenRequestMethodIsPost() throws Exception {
+    @DisplayName("should audit export attempt for POST requests")
+    void shouldAuditExportAttempt_whenRequestMethodIsPost() throws Exception {
         when(request.getMethod()).thenReturn("POST");
         action.setDemographicNo("123");
         action.setTemplate(String.valueOf(DemographicExportAction42Action.E2E));
 
-        String result = action.execute();
+        action.execute();
 
-        assertThat(result).isNotEqualTo(ActionSupport.SUCCESS);
+        ArgumentCaptor<OscarLog> auditLogCaptor = ArgumentCaptor.forClass(OscarLog.class);
+        logActionMock.verify(() -> LogAction.addLogSynchronous(auditLogCaptor.capture()));
+        OscarLog auditLog = auditLogCaptor.getValue();
+        assertThat(auditLog.getAction()).isEqualTo(LogConst.EXPORT);
+        assertThat(auditLog.getContent()).isEqualTo(LogConst.CON_DEMOGRAPHIC);
+        assertThat(auditLog.getData()).contains("Exported 1 records", "outcome=fail", "ids=123");
         verify(securityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), isNull());
         verify(securityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_demographicExport"), eq("r"), isNull());
     }
