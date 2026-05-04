@@ -228,6 +228,32 @@ public class Example2Action extends ActionSupport {
 2. **Method-Based**: Route via `method` parameter (e.g., `SystemMessage2Action`)
 3. **Inheritance-Based**: Extend `EctDisplayAction` for encounter components
 
+### GET/HEAD Rejection Contract (mutator 2Actions)
+
+Any `*2Action` that performs a mutation MUST reject `GET`/`HEAD` before any
+side-effect fires (DAO persist, manager call, event publish, file write).
+The aggregated contract test that pins this for the in-scope slices is:
+
+`src/test/java/io/github/carlos_emr/carlos/app/contract/MutatorActionGetRejectionContractTest.java`
+
+**When you add a new mutator 2Action**, the contract test's discovery scan
+will fail the build until you register the class in one of three lists at
+the top of that file:
+
+- `unconditionalMutators()` — the action rejects GET regardless of request
+  params. The parameterized test drives GET against it directly.
+- `CONDITIONAL_MUTATORS` — the action rejects GET only when a
+  mutation-intent param is present (e.g. `submit=Save`, `statement=...`).
+  You must also add a focused `*2ActionTest` in the same slice that drives
+  a GET with mutation intent and asserts 405 or `SecurityException` plus
+  `verifyNoInteractions(...)` on the mutation dependency.
+- `NON_MUTATOR_GATES` — a read-scope gate that permits GET and only 405s
+  on truly unsupported methods like DELETE/PUT.
+
+**When a new slice is migrated**, extend `IN_SCOPE_PACKAGE_PREFIXES` with
+the slice's package prefix in the same PR that gates the first mutator
+JSP behind a 2Action.
+
 ### Struts 7.1.1 Notes
 
 `*2Action` files extend `org.apache.struts2.ActionSupport` (the Struts 7
