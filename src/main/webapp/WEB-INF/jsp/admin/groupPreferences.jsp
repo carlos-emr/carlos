@@ -150,7 +150,7 @@
                                 <td>&nbsp; <carlos:encode value="<%= group %>" context="html"/>
                                 </td>
                                 <td ALIGN="center">
-                                    <input type="checkbox" name="data" <%=selected%> value="<%=group%>">
+                                    <input type="checkbox" name="data" <%=selected%> value="<carlos:encode value='<%= group %>' context='htmlAttribute'/>">
                             </tr>
                             <% } %>
                         </table>

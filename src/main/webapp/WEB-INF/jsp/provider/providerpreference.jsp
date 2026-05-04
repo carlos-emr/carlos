@@ -215,7 +215,7 @@
 
 %>
 <!DOCTYPE html>
-<html lang="${pageContext.request.locale.language}">
+<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
 <head>
     <meta charset="utf-8">
     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>

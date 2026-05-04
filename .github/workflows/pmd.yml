@@ -54,7 +54,6 @@ permissions:
 
 env:
   PMD_VERSION: '7.13.0'
-  PMD_DIR: 'pmd-bin-7.13.0'
 
 jobs:
   pmd:
@@ -74,7 +73,7 @@ jobs:
       - name: Cache PMD installation
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
-          path: ${{ env.PMD_DIR }}
+          path: pmd-bin-${{ env.PMD_VERSION }}
           key: pmd-${{ runner.os }}-${{ runner.arch }}-${{ env.PMD_VERSION }}
           restore-keys: |
             pmd-${{ runner.os }}-${{ runner.arch }}-
@@ -83,6 +82,7 @@ jobs:
       - name: Download PMD
         run: |
           set -euo pipefail
+          PMD_DIR="pmd-bin-${PMD_VERSION}"
           if [ ! -d "${PMD_DIR}" ]; then
             echo "Downloading PMD ${PMD_VERSION}..."
             PMD_ZIP="pmd-dist-${PMD_VERSION}-bin.zip"
@@ -97,6 +97,7 @@ jobs:
       - name: Run PMD
         run: |
           set -euo pipefail
+          PMD_DIR="pmd-bin-${PMD_VERSION}"
           "${PMD_DIR}/bin/pmd" check \
             --dir src/main/java \
             --dir src/test/java \

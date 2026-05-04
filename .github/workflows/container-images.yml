@@ -237,14 +237,28 @@ jobs:
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-tomcat-dev
           CONTENT_HASH: ${{ needs.check-containers.outputs.tomcat_hash }}
         run: |
+          echo "Building carlos-tomcat-dev container for publish..."
           docker buildx build \
-            --push \
-            -t "$IMAGE:latest" \
-            -t "$IMAGE:${{ github.sha }}" \
+            --load \
+            -t carlos-tomcat-dev:publish \
             --label "org.openosp.content-hash=$CONTENT_HASH" \
             --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
             --label "org.opencontainers.image.revision=${{ github.sha }}" \
             .devcontainer/development
+
+          echo "Testing publish image starts correctly..."
+          docker run -d --name publish-tomcat carlos-tomcat-dev:publish tail -f /dev/null
+          sleep 5
+          docker exec publish-tomcat mvn --version
+          docker exec publish-tomcat java --version
+          docker exec publish-tomcat ls -la /usr/local/tomcat/
+          docker exec publish-tomcat node --version
+          docker stop publish-tomcat && docker rm publish-tomcat
+
+          docker tag carlos-tomcat-dev:publish "$IMAGE:latest"
+          docker tag carlos-tomcat-dev:publish "$IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:latest"
+          docker push "$IMAGE:${{ github.sha }}"
           echo "Pushed $IMAGE:latest"
           echo "Pushed $IMAGE:${{ github.sha }}"
 
@@ -374,14 +388,66 @@ jobs:
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-mariadb-dev
           CONTENT_HASH: ${{ needs.check-containers.outputs.mariadb_hash }}
         run: |
+          echo "Building carlos-mariadb-dev container for publish..."
           docker buildx build \
-            --push \
-            -t "$IMAGE:latest" \
-            -t "$IMAGE:${{ github.sha }}" \
+            --load \
+            -t carlos-mariadb-dev:publish \
             --label "org.openosp.content-hash=$CONTENT_HASH" \
             --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
             --label "org.opencontainers.image.revision=${{ github.sha }}" \
             -f .devcontainer/db/Dockerfile .
+
+          echo "Testing publish image starts correctly..."
+          docker run -d --name publish-mariadb \
+            -e MYSQL_ROOT_PASSWORD=testpassword \
+            carlos-mariadb-dev:publish
+
+          ready=false
+          for i in {1..30}; do
+            if docker exec publish-mariadb mysqladmin ping -h localhost -u root -ptestpassword 2>/dev/null; then
+              ready=true
+              break
+            fi
+            echo "Waiting for MariaDB... ($i/30)"
+            sleep 2
+          done
+
+          if [ "$ready" != "true" ]; then
+            docker logs publish-mariadb
+            docker stop publish-mariadb && docker rm publish-mariadb
+            exit 1
+          fi
+
+          initialized=false
+          for i in {1..90}; do
+            if docker logs publish-mariadb 2>&1 | grep -q "Database initialization complete!"; then
+              provider_count=$(docker exec publish-mariadb mysql -N -u root -ptestpassword -e "SELECT COUNT(*) FROM oscar.provider;" 2>/dev/null || echo 0)
+              if [ "$provider_count" -gt 0 ]; then
+                initialized=true
+                break
+              fi
+            fi
+            echo "Waiting for database initialization... ($i/90)"
+            sleep 2
+          done
+
+          if [ "$initialized" != "true" ]; then
+            docker logs publish-mariadb
+            docker stop publish-mariadb && docker rm publish-mariadb
+            exit 1
+          fi
+
+          docker exec publish-mariadb mysql --version
+          docker exec publish-mariadb ls -la /database/mysql/
+          docker exec publish-mariadb mysql -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "oscar" > /dev/null
+          docker exec publish-mariadb mysql -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "oscar_test" > /dev/null
+          docker exec publish-mariadb mysql -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "drugref2" > /dev/null
+          docker stop publish-mariadb && docker rm publish-mariadb
+
+          docker tag carlos-mariadb-dev:publish "$IMAGE:latest"
+          docker tag carlos-mariadb-dev:publish "$IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:latest"
+          docker push "$IMAGE:${{ github.sha }}"
           echo "Pushed $IMAGE:latest"
           echo "Pushed $IMAGE:${{ github.sha }}"
 
@@ -486,14 +552,46 @@ jobs:
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-drugref
           CONTENT_HASH: ${{ needs.check-containers.outputs.drugref_hash }}
         run: |
+          echo "Building carlos-drugref container for publish..."
           docker buildx build \
-            --push \
-            -t "$IMAGE:latest" \
-            -t "$IMAGE:${{ github.sha }}" \
+            --load \
+            -t carlos-drugref:publish \
             --label "org.openosp.content-hash=$CONTENT_HASH" \
             --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
             --label "org.opencontainers.image.revision=${{ github.sha }}" \
             .devcontainer/drugref
+
+          echo "Testing publish image starts correctly..."
+          docker run -d --name publish-drugref -p 8081:8080 carlos-drugref:publish
+          ready=false
+          for i in {1..30}; do
+            http_code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/ 2>/dev/null || echo "000")
+            if [ "$http_code" != "000" ]; then
+              ready=true
+              break
+            fi
+            if ! docker ps | grep -q publish-drugref; then
+              docker logs publish-drugref
+              exit 1
+            fi
+            echo "Waiting for Tomcat... ($i/30)"
+            sleep 2
+          done
+
+          if [ "$ready" != "true" ]; then
+            docker logs publish-drugref
+            docker stop publish-drugref && docker rm publish-drugref
+            exit 1
+          fi
+
+          docker exec publish-drugref java --version
+          docker exec publish-drugref ls -la /usr/local/tomcat/webapps/
+          docker stop publish-drugref && docker rm publish-drugref
+
+          docker tag carlos-drugref:publish "$IMAGE:latest"
+          docker tag carlos-drugref:publish "$IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:latest"
+          docker push "$IMAGE:${{ github.sha }}"
           echo "Pushed $IMAGE:latest"
           echo "Pushed $IMAGE:${{ github.sha }}"
 
