@@ -80,8 +80,13 @@ public class Scratch2Action extends JSONAction {
 
         String providerNo =  (String) request.getSession().getAttribute("user");
         String pNo = request.getParameter("providerNo");
-                
-        if (providerNo.equals(pNo)){
+
+        if (providerNo == null || providerNo.trim().isEmpty()) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return null;
+        }
+
+        if (isRequestForSessionProvider(providerNo, pNo)){
         String id = request.getParameter("id");
         String scratchPad = request.getParameter("scratchpad");
         String windowId = request.getParameter("windowId");
@@ -155,9 +160,9 @@ public class Scratch2Action extends JSONAction {
 			jsonResponse(jsonObject);
 
         }else {
-        	MiscUtils.getLogger().error("Scratch pad trying to save data for user {} but session user is {}",
-        		Encode.forJava(pNo), Encode.forJava(providerNo));
-        	response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+			MiscUtils.getLogger().warn("Scratch pad trying to save data for user {} but session user is {}",
+				Encode.forJava(pNo), Encode.forJava(providerNo));
+			response.setStatus(HttpServletResponse.SC_FORBIDDEN);
         }
         
         return null;      
@@ -200,5 +205,13 @@ public class Scratch2Action extends JSONAction {
 		String s1 = scratchPad == null ? "" : scratchPad.trim();
 		String s2 = returnText == null ? "" : returnText.trim();
 		return !s1.equals(s2);
+	}
+
+	static boolean isRequestForSessionProvider(String sessionProviderNo, String requestProviderNo) {
+		return sessionProviderNo != null
+			&& !sessionProviderNo.trim().isEmpty()
+			&& (requestProviderNo == null
+				|| requestProviderNo.trim().isEmpty()
+				|| sessionProviderNo.equals(requestProviderNo));
 	}
 }
