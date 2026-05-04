@@ -73,23 +73,21 @@ public class ReportProviderDaoImpl extends AbstractDaoImpl<ReportProvider> imple
     }
 
     @Override
-    public List<Object[]> search_reportprovider(String action) {
-        String sql = "select r, p from ReportProvider r, Provider p where r.providerNo=p.ProviderNo and r.status<>'D' and r.action=?1 order by r.team";
-        Query query = entityManager.createQuery(sql);
+    public List<io.github.carlos_emr.carlos.commn.dao.projection.ReporterRow> search_reportprovider(String action) {
+        String sql = "select new io.github.carlos_emr.carlos.commn.dao.projection.ReporterRow(p.ProviderNo, p.FirstName, p.LastName) from ReportProvider r, Provider p where r.providerNo=p.ProviderNo and r.status<>'D' and r.action=?1 order by r.team";
+        jakarta.persistence.TypedQuery<io.github.carlos_emr.carlos.commn.dao.projection.ReporterRow> query =
+                entityManager.createQuery(sql, io.github.carlos_emr.carlos.commn.dao.projection.ReporterRow.class);
         query.setParameter(1, action);
-
-        List<Object[]> results = query.getResultList();
-        return results;
+        return query.getResultList();
     }
 
     @Override
-    public List<Object[]> search_reportprovider(String action, String providerNo) {
-        String sql = "select r, p from ReportProvider r, Provider p where r.providerNo=p.ProviderNo and r.status<>'D' and r.action=?1 and p.ProviderNo like ?2 order by r.team";
-        Query query = entityManager.createQuery(sql);
+    public List<io.github.carlos_emr.carlos.commn.dao.projection.ReporterRow> search_reportprovider(String action, String providerNo) {
+        String sql = "select new io.github.carlos_emr.carlos.commn.dao.projection.ReporterRow(p.ProviderNo, p.FirstName, p.LastName) from ReportProvider r, Provider p where r.providerNo=p.ProviderNo and r.status<>'D' and r.action=?1 and p.ProviderNo like ?2 order by r.team";
+        jakarta.persistence.TypedQuery<io.github.carlos_emr.carlos.commn.dao.projection.ReporterRow> query =
+                entityManager.createQuery(sql, io.github.carlos_emr.carlos.commn.dao.projection.ReporterRow.class);
         query.setParameter(1, action);
         query.setParameter(2, providerNo);
-
-        List<Object[]> results = query.getResultList();
-        return results;
+        return query.getResultList();
     }
 }

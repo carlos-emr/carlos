@@ -1,0 +1,120 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.billings.ca.on.viewmodel;
+
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingViewStrings;
+
+import java.util.Collections;
+import java.util.List;
+
+/**
+ * Immutable view model for {@code billingONHistory.jsp}, the patient
+ * billing-history popup with DataTables-powered listing.
+ *
+ * <p>Populated by
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOnHistoryViewModelAssembler#assemble}
+ * (invoked from
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingOnHistory2Action})
+ * and exposed to the JSP as request attribute {@code historyModel}.</p>
+ *
+ * <p>Captures the patient display block (resolved server-side to keep PHI
+ * out of the URL), the billing-history rows, and the {@code warnOnDeleteBill}
+ * flag the legacy JSP read directly from {@code CarlosProperties}.</p>
+ *
+ * @since 2026-04-25
+ */
+public final class BillingOnHistoryViewModel {
+
+    /**
+     * One pre-resolved billing-history row. The legacy JSP rendered
+     * conditional unbill links and a balance column; both are pre-computed
+     * here so the JSP body becomes pure presentation.
+     */
+    public record HistoryRow(
+            String invoiceId,
+            String providerLastFirst,
+            String billingDate,
+            String billType,
+            String serviceCode,
+            String dx,
+            String balance,
+            boolean balanceShown,
+            String total,
+            String status,
+            boolean unbillLinkShown,
+            boolean canEdit) { }
+
+    private final String demographicNo;
+    private final String patientDisplayName;
+    private final boolean warnOnDeleteBill;
+    private final List<HistoryRow> rows;
+    /**
+     * Set when the demographic name lookup fails while the row query still
+     * succeeds. This is separate from {@link #partial}: the history table may
+     * be complete, but the patient label is not trustworthy enough for an
+     * operator to distinguish "not found" from "not visible".
+     */
+    private final boolean patientNameUnavailable;
+    /**
+     * Set by the assembler when {@code loadRows} caught a RuntimeException
+     * mid-iteration. The JSP renders a "data may be incomplete" banner so
+     * operators don't conclude the patient has fewer historical bills than
+     * were issued (which would invite re-billing).
+     */
+    private final boolean partial;
+
+    private BillingOnHistoryViewModel(Builder b) {
+        this.demographicNo = BillingViewStrings.nullToEmpty(b.demographicNo);
+        this.patientDisplayName = BillingViewStrings.nullToEmpty(b.patientDisplayName);
+        this.warnOnDeleteBill = b.warnOnDeleteBill;
+        this.rows = b.rows == null ? Collections.emptyList() : List.copyOf(b.rows);
+        this.patientNameUnavailable = b.patientNameUnavailable;
+        this.partial = b.partial;
+    }
+
+    public static Builder builder() { return new Builder(); }
+
+    public String getDemographicNo() { return demographicNo; }
+    public String getPatientDisplayName() { return patientDisplayName; }
+    public boolean isWarnOnDeleteBill() { return warnOnDeleteBill; }
+    public List<HistoryRow> getRows() { return rows; }
+    public boolean isPatientNameUnavailable() { return patientNameUnavailable; }
+    public boolean isPartial() { return partial; }
+
+    public static final class Builder {
+        private String demographicNo;
+        private String patientDisplayName;
+        private boolean warnOnDeleteBill;
+        private List<HistoryRow> rows;
+        private boolean patientNameUnavailable;
+        private boolean partial;
+
+        public Builder demographicNo(String v) { this.demographicNo = v; return this; }
+        public Builder patientDisplayName(String v) { this.patientDisplayName = v; return this; }
+        public Builder warnOnDeleteBill(boolean v) { this.warnOnDeleteBill = v; return this; }
+        public Builder rows(List<HistoryRow> v) { this.rows = v; return this; }
+        public Builder patientNameUnavailable(boolean v) { this.patientNameUnavailable = v; return this; }
+        public Builder partial(boolean v) { this.partial = v; return this; }
+
+        public BillingOnHistoryViewModel build() { return new BillingOnHistoryViewModel(this); }
+    }
+}

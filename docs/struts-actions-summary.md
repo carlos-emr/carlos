@@ -95,7 +95,7 @@ Document handling and storage.
 
 ## Other Notable Modules
 
-- **MCEDT** (15 actions) - Medical Care Electronic Data Transfer
+- **MCEDT** (15 actions) - Medical Claims Electronic Data Transfer
 - **Demographics** (14 actions) - Patient demographic management
 - **Forms** (12 actions) - Clinical forms processing
 - **Hospital Report Manager** (10 actions) - Hospital report integration
@@ -161,6 +161,34 @@ As of 2026-03, the monolithic `struts.xml` has been split into a modular structu
 ### Adding New Actions
 
 Add new action mappings to the appropriate domain-specific module file. Each module file uses a unique package name but shares `namespace="/"` and `extends="struts-default"`. Package names **must** be unique across all module files — Struts silently drops actions from duplicate-named packages.
+
+### Direct-Response Actions
+
+Actions that stream response content directly, including PDFs, CSV/XLS
+exports, ZIP files, images, and JSON written through
+`response.getOutputStream()` or `response.getWriter()`, must return
+`ActionSupport.NONE` after the response is written. Do not return `success`,
+another named result, or a bare `null` after streaming bytes; named results
+will forward JSP/HTML content into the same response, and CARLOS' Struts 7
+direct-response paths need the explicit `NONE` no-result code for binary
+downloads.
+
+Prefer separate action routes/classes for page navigation and
+download/direct-response behavior. The legacy mixed-action cleanup is tracked
+in GitHub issue #2064.
+
+For generated binary responses, especially PDFs, buffer and validate the bytes
+before setting response headers where practical. Non-critical side effects that
+run after streaming, such as "printed" comments or audit annotations, must be
+caught and logged so Struts cannot replace the binary response with an HTML
+error page if that side effect fails.
+
+When generation fails before streaming starts, the direct-response action still
+owns the response: set an explicit HTTP error, then return `ActionSupport.NONE`.
+Do not return an unmapped `failure`/`error` result from a download route. PR
+#2043 documents the same Struts 7 behavior in label PDFs: failed result
+resolution can render `errorpage.jsp` with `CARLOS Error: 0` because no real
+HTTP status was set.
 
 ## Maintenance Recommendations
 

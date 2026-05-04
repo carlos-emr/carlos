@@ -1,42 +1,33 @@
-<%--  
-/*
- * 
- * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved. *
- * This software is published under the GPL GNU General Public License. 
- * This program is free software; you can redistribute it and/or 
- * modify it under the terms of the GNU General Public License 
- * as published by the Free Software Foundation; either version 2 
- * of the License, or (at your option) any later version. * 
- * This program is distributed in the hope that it will be useful, 
- * but WITHOUT ANY WARRANTY; without even the implied warranty of 
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
- * GNU General Public License for more details. * * You should have received a copy of the GNU General Public License 
- * along with this program; if not, write to the Free Software 
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. * 
- * 
- * <OSCAR TEAM>
- * 
- * This software was written for the 
- * Department of Family Medicine 
- * McMaster University 
- * Hamilton 
- * Ontario, Canada 
- */
+<%--
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
 
-    Now maintained by the CARLOS EMR Project (2026+).
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
-
-<%@page import="java.util.List" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao" %>
-<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%--
+  Fragment role: Provides the `manageBillingform_add.jspf` include for the Ontario billing workflow.
+  The caller owns request setup; keep data access in Java assemblers/services
+  and use CARLOS encoding helpers for dynamic output rendered here.
+--%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-
-<% String errorMessage = request.getParameter("errorMessage"); %>
 
 <form name="servicetypeform" method="post">
 <table width="92%" border="0" height="285">
@@ -46,9 +37,9 @@
 		<table width="100%" border="0">
 			<tr>
 				<th colspan="2" class="white"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingform_add.msgAdd"/></th>
-			</tr>			
+			</tr>
 			<tr>
-				<td width="50%" class="white">			
+				<td width="50%" class="white">
 				<font color="red">
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingform_add.formServiceID"/> : </font></td>
 				<td width="50%" class="white"><input type="text" name="typeid"
@@ -102,22 +93,18 @@
 					onClick="valid(this.form)"></td>
 				<td class="white">&nbsp;</td>
 			</tr>
-			
-			<% 			
-			 if (errorMessage != null && errorMessage.length() > 0) {
-			%>
+
+			<c:if test="${not empty manageBillingformModel.requestParamEchoes['errorMessage']}">
 				<tr>
 				    <td class="white">&nbsp;</td>
-					<td width="50%" class="white">			
-					<font color="red" size="2"> <carlos:encode value='<%= StringUtils.noNull(errorMessage) %>' context="html"/>
+					<td width="50%" class="white">
+					<font color="red" size="2">
+						<carlos:encode value="${manageBillingformModel.requestParamEchoes['errorMessage']}" context="html"/>
 					</font></td>
-					
-				</tr>				
-			</tr>
-				
-			<% }
-			%>
-			
+
+				</tr>
+			</c:if>
+
 		</table>
 		</td>
 
@@ -131,35 +118,30 @@
 				<th colspan="2" valign="top" bgcolor="white"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingform_add.msgExistType"/></th>
 			</tr>
 
-			<% 
-
-	List<Object[]> uniqueServiceTypeList =  ctlBillingServiceDao.getUniqueServiceTypes();		
-			
-	int rCount = 0;
-	boolean bodd=false;
-
-	if(uniqueServiceTypeList == null) {
-		out.println("failed!!!"); 
-	} else {
-	    for(Object[] service : uniqueServiceTypeList)
-	    {
-	      
-	    	%>
-
-	    				<tr>
-	    					<td width="30%" valign="top" class="black"><a href=#
-	    						onClick='manageType("<%=service[0]%>","<%=service[1]%>");return false;'
-	    						title="Manage Billing Form"><%=service[0]%></a> 
-	    					</td>
-	    					<td class="black"><a href=#
-	    						onClick='manageType("<%=service[0]%>","<%=service[1]%>");return false;'
-	    						title="Manage Billing Form"><%=service[1]%></a>
-	    					</td>
-	    				</tr>
-	    				<%
-	   }
-}
-%>
+			<c:choose>
+				<c:when test="${not manageBillingformModel.uniqueServiceTypesLoaded}">
+						<tr><td colspan="2">Unable to load billing service types.</td></tr>
+				</c:when>
+				<c:otherwise>
+					<%-- manageType(...) receives the service-type id/name pair exactly as
+					     rendered here; the right-hand list is a navigation aid into the
+					     left-hand form, not an independent data source. --%>
+					<c:forEach var="serviceRow" items="${manageBillingformModel.uniqueServiceTypes}">
+						<tr>
+							<td width="30%" valign="top" class="black">
+								<a href="#"
+										onClick='manageType("<carlos:encode value="${serviceRow.typeId}" context="javaScriptAttribute"/>","<carlos:encode value="${serviceRow.typeName}" context="javaScriptAttribute"/>");return false;'
+									title="Manage Billing Form"><carlos:encode value="${serviceRow.typeId}" context="html"/></a>
+							</td>
+							<td class="black">
+								<a href="#"
+										onClick='manageType("<carlos:encode value="${serviceRow.typeId}" context="javaScriptAttribute"/>","<carlos:encode value="${serviceRow.typeName}" context="javaScriptAttribute"/>");return false;'
+									title="Manage Billing Form"><carlos:encode value="${serviceRow.typeName}" context="html"/></a>
+							</td>
+						</tr>
+					</c:forEach>
+				</c:otherwise>
+			</c:choose>
 
 		</table>
 

@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,95 +17,17 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
-
-<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@page import="java.util.Date" %>
-<%@page import="io.github.carlos_emr.carlos.utility.DateRange" %>
-<%@ page import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.billing.ca.on.OHIP.*, java.net.*"
-         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.OHIP.ExtractBean" %>
-<%@ page import="io.github.carlos_emr.SxmlMisc" %>
-
-<%
-    ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
-%>
-
-<%
-    String errorMsg = "";
-    int PROVIDER_BILLINGNO_LENGTH = 6;
-    int PROVIDER_SPECIALTYCODE_LENGTH = 2;
-    int PROVIDER_GROUPNO_LENGTH = 4;
-
-    int bCount = 1;
-    String batchCount = "0";
-    String provider = request.getParameter("providers");
-    if (provider.length() != PROVIDER_BILLINGNO_LENGTH) errorMsg = "The providers's billing code is not correct!<br>";
-
-    String proOHIP = "";
-    String specialty_code;
-    String billinggroup_no;
-
-    DateRange dateRange = null;
-    String htmlValue = "";
-
-
-    Date dateBegin = ConversionUtils.fromDateString(request.getParameter("xml_vdate"));
-    Date dateEnd = ConversionUtils.fromDateString(request.getParameter("xml_appointment_date"));
-    if (dateEnd == null) {
-        dateEnd = ConversionUtils.fromDateString(request.getParameter("curDate"));
-    }
-
-    dateRange = new DateRange(dateBegin, dateEnd);
-
-    for (Provider p : providerDao.getActiveProviders()) {
-        if (p.getOhipNo() != null && !p.getOhipNo().isEmpty()) {
-            proOHIP = p.getOhipNo();
-            billinggroup_no = SxmlMisc.getXmlContent(p.getComments(), "<xml_p_billinggroup_no>", "</xml_p_billinggroup_no>");
-            specialty_code = SxmlMisc.getXmlContent(p.getComments(), "<xml_p_specialty_code>", "</xml_p_specialty_code>");
-
-            if (specialty_code == null || specialty_code.compareTo("") == 0 || specialty_code.compareTo("null") == 0 || specialty_code.length() != PROVIDER_SPECIALTYCODE_LENGTH) {
-                //error msg here
-                errorMsg += "The providers's specialty code is not correct!<br>";
-                specialty_code = "00";
-            }
-
-            if (billinggroup_no == null || billinggroup_no.compareTo("") == 0 || billinggroup_no.compareTo("null") == 0 || billinggroup_no.length() != PROVIDER_GROUPNO_LENGTH) {
-                //error msg here
-                errorMsg += "The providers's group no is not correct!<br>";
-                billinggroup_no = "0000";
-            }
-
-            ExtractBean extract = new ExtractBean();
-            //extract.setOscarHome(oscar_home);
-            extract.seteFlag("0");
-            extract.setDateRange(dateRange);
-            extract.setOhipVer(request.getParameter("verCode"));
-            extract.setProviderNo(proOHIP);
-            extract.setOhipCenter(request.getParameter("billcenter"));
-            extract.setGroupNo(billinggroup_no);
-            extract.setSpecialty(specialty_code);
-            extract.setBatchCount(String.valueOf(bCount));
-            extract.dbQuery();
-
-            htmlValue = "<font color='red'>" + errorMsg + "</font>" + extract.getHtmlValue();
-        }
-    }
-
-
-    request.setAttribute("html", htmlValue);
-%>
-
-<jsp:forward page='/billing/CA/ON/ViewBillingOHIPsimulation'>
-    <jsp:param name="xml_appointment_date" value='<%=dateEnd%>'/>
-    <jsp:param name="xml_v_date" value='<%=dateBegin%>'/>
-    <jsp:param name="provider" value='<%= provider %>'/>
-</jsp:forward>
+<%--
+  Purpose: Supports genSimulation in the Ontario billing workflow.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.service.OhipReportGenerationService" %>
+<%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%-- Empty stub. ViewGenSimulation2Action enforces _billing r and runs the
+     dry-run extract via OhipReportGenerationService.generateSimulation
+     (eFlag="0", no persist), stashes the HTML preview on the request as
+     "html", then chains to ViewBillingOHIPsimulation. --%>

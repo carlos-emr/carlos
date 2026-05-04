@@ -501,7 +501,7 @@
         <div>
             <div class="input-group">
                 <input type="text" placeholder="<fmt:message key="admin.providerrole.formSearch"/>" name="keyword"
-                       value="<carlos:encode value='<%= keyword %>' context="html"/>"/>
+                       value="<carlos:encode value='<%= keyword %>' context="htmlAttribute"/>"/>
                 <input type="submit" class="btn btn-primary" name="search" value="<fmt:message key='admin.providerrole.filter'/>" >
             </div>
         </div>

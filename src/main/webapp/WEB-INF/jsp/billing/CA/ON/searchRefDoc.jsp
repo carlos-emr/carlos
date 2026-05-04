@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2007 Peter Hutten-Czapski based on OSCAR general requirements
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,204 +17,72 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-    This software was written for the
-    Department of Family Medicine
-    McMaster University
-    Hamilton
-    Ontario, Canada
-
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
-
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao" %>
-<%
-    ProfessionalSpecialistDao professionalSpecialistDao = (ProfessionalSpecialistDao) SpringUtils.getBean(ProfessionalSpecialistDao.class);
-%>
-<%
-    if (session.getAttribute("user") == null) {
-        response.sendRedirect(request.getContextPath() + "/logoutPage");
-    }
-    String strLimit1 = "0";
-    String strLimit2 = "10";
-    if (request.getParameter("limit1") != null) strLimit1 = request.getParameter("limit1");
-    if (request.getParameter("limit2") != null) strLimit2 = request.getParameter("limit2");
-
-    Properties prop = null;
-    ArrayList<Properties> alist = new ArrayList<Properties>();
-    String param = request.getParameter("param") == null ? "" : request.getParameter("param");
-    String param2 = request.getParameter("param2") == null ? "" : request.getParameter("param2");
-    String toname = request.getParameter("toname") == null ? "" : request.getParameter("toname");
-    String toaddress1 = request.getParameter("toaddress1") == null ? "" : request.getParameter("toaddress1");
-    String tophone = request.getParameter("tophone") == null ? "" : request.getParameter("tophone");
-    String tofax = request.getParameter("tofax") == null ? "" : request.getParameter("tofax");
-    String keyword = request.getParameter("keyword");
-
-    // Safely extract form index + element name from full JS path expressions like
-    // "document.forms[0].elements['fieldname'].value" or "document.forms[1].elements['fieldname'].value"
-    // passed by callers (e.g. billingON.jsp uses forms[0], billingONCorrection.jsp uses forms[1])
-    // Allows dots in element names (e.g. "pref.default_dx_code" from UserPreferences.jsp)
-    java.util.regex.Pattern pathPattern = java.util.regex.Pattern.compile(
-        "^document\\.forms\\[(\\d+)\\]\\.elements\\['([a-zA-Z0-9_.]+)'\\]\\.value$");
-    String[] paramParts = extractJsPath(pathPattern, param, "param");
-    String paramFormIdx = paramParts != null ? paramParts[0] : null;
-    String paramField = paramParts != null ? paramParts[1] : null;
-
-    String[] param2Parts = extractJsPath(pathPattern, param2, "param2");
-    String param2FormIdx = param2Parts != null ? param2Parts[0] : null;
-    String param2Field = param2Parts != null ? param2Parts[1] : null;
-
-    String[] tonameParts = extractJsPath(pathPattern, toname, "toname");
-    String tonameFormIdx = tonameParts != null ? tonameParts[0] : null;
-    String tonameField = tonameParts != null ? tonameParts[1] : null;
-
-    String[] toaddress1Parts = extractJsPath(pathPattern, toaddress1, "toaddress1");
-    String toaddress1FormIdx = toaddress1Parts != null ? toaddress1Parts[0] : null;
-    String toaddress1Field = toaddress1Parts != null ? toaddress1Parts[1] : null;
-
-    String[] tophoneParts = extractJsPath(pathPattern, tophone, "tophone");
-    String tophoneFormIdx = tophoneParts != null ? tophoneParts[0] : null;
-    String tophoneField = tophoneParts != null ? tophoneParts[1] : null;
-
-    String[] tofaxParts = extractJsPath(pathPattern, tofax, "tofax");
-    String tofaxFormIdx = tofaxParts != null ? tofaxParts[0] : null;
-    String tofaxField = tofaxParts != null ? tofaxParts[1] : null;
-    List<ProfessionalSpecialist> professionalSpecialists = null;
-
-    if (request.getParameter("submit") != null && (request.getParameter("submit").equals("Search")
-            || request.getParameter("submit").equals("Next Page") || request.getParameter("submit").equals("Last Page"))) {
-
-
-        String search_mode = request.getParameter("search_mode") == null ? "search_name" : request.getParameter("search_mode");
-        String orderBy = request.getParameter("orderby") == null ? "last_name,first_name" : request.getParameter("orderby");
-        String where = "";
-
-
-        if ("search_name".equals(search_mode)) {
-            String[] temp = keyword.split("\\,\\p{Space}*");
-
-            if (temp.length > 1) {
-                professionalSpecialists = professionalSpecialistDao.findByFullName(temp[0], temp[1]);
-            } else {
-                professionalSpecialists = professionalSpecialistDao.findByLastName(temp[0]);
-            }
-        } else if ("specialty".equals(search_mode)) {
-            professionalSpecialists = professionalSpecialistDao.findBySpecialty(keyword);
-        } else if ("referral_no".equals(search_mode)) {
-            professionalSpecialists = professionalSpecialistDao.findByReferralNo(keyword);
-        }
-    }
-
-    if (professionalSpecialists == null) {
-        professionalSpecialists = professionalSpecialistDao.findAll();
-    }
-    if (professionalSpecialists != null) {
-        for (ProfessionalSpecialist professionalSpecialist : professionalSpecialists) {
-            prop = new Properties();
-            prop.setProperty("referral_no", (professionalSpecialist.getReferralNo() != null ? professionalSpecialist.getReferralNo() : ""));
-            prop.setProperty("last_name", (professionalSpecialist.getLastName() != null ? professionalSpecialist.getLastName() : ""));
-            prop.setProperty("first_name", (professionalSpecialist.getFirstName() != null ? professionalSpecialist.getFirstName() : ""));
-            prop.setProperty("specialty", (professionalSpecialist.getSpecialtyType() != null ? professionalSpecialist.getSpecialtyType() : ""));
-            prop.setProperty("phone", (professionalSpecialist.getPhoneNumber() != null ? professionalSpecialist.getPhoneNumber() : ""));
-            prop.setProperty("to_fax", (professionalSpecialist.getFaxNumber() != null ? professionalSpecialist.getFaxNumber() : ""));
-            prop.setProperty("to_name", "Dr. " + professionalSpecialist.getFirstName() + " " + professionalSpecialist.getLastName());
-            prop.setProperty("to_address", (professionalSpecialist.getStreetAddress() != null ? professionalSpecialist.getStreetAddress() : ""));
-            alist.add(prop);
-        }
-    }
-
-%>
-
-<%@ page import="java.util.ArrayList" %>
-<%@ page import="java.util.List" %>
-<%@ page import="java.util.Properties" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-
-<%!
-    /**
-     * Extracts form index and element name from a JS path expression like
-     * "document.forms[0].elements['fieldname'].value".
-     * @return String[]{formIdx, elementName} or null if value is empty or doesn't match
-     */
-    private String[] extractJsPath(java.util.regex.Pattern pattern, String value, String paramName) {
-        if (value == null || value.isEmpty()) return null;
-        java.util.regex.Matcher m = pattern.matcher(value);
-        if (m.matches()) return new String[]{m.group(1), m.group(2)};
-        String truncated = value.length() > 120 ? value.substring(0, 120) + "..." : value;
-        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
-            "searchRefDoc.jsp: '" + paramName + "' did not match expected JS path format: '"
-            + truncated + "' (length=" + value.length() + ")");
-        return null;
-    }
-%>
-
+<%--
+  Purpose: Supports searchRefDoc in the Ontario billing workflow.
+  Expected request model data includes: refDocModel.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
-
-
 <!DOCTYPE html>
 <html>
     <head>
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
+        <base href="<carlos:encode value='${pageContext.request.scheme}' context='htmlAttribute'/>://<carlos:encode value='${pageContext.request.serverName}' context='htmlAttribute'/>:<carlos:encode value='${pageContext.request.serverPort}' context='htmlAttribute'/><carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/">
         <title><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.optChooseSpec"/></title>
-        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap 2.3.1 -->
-        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
-        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css"
+        <link href="<carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap 2.3.1 -->
+        <link href="<carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+        <link href="<carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css"
               rel="stylesheet">
-        <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
-        <script src="${pageContext.request.contextPath}/library/DataTables/datatables.min.js"></script>
-        <!-- DataTables 1.13.4 -->
+        <script src="<carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="<carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
 
         <script>
-            <%if(paramField != null && param2Field != null) {%>
+            <c:if test="${refDocModel.showTypeInData2}">
 
             function typeInData2(data1, data2) {
-                opener.document.forms[<%= paramFormIdx %>].elements["<carlos:encode value='<%= paramField %>' context="javaScriptBlock"/>"].value = data1;
-                opener.document.forms[<%= param2FormIdx %>].elements["<carlos:encode value='<%= param2Field %>' context="javaScriptBlock"/>"].value = data2;
+                opener.document.forms[<carlos:encode value='${refDocModel.fld1.formIdx}' context='javaScript'/>].elements["<carlos:encode value='${refDocModel.fld1.fieldId}' context='javaScriptBlock'/>"].value = data1;
+                opener.document.forms[<carlos:encode value='${refDocModel.fld2.formIdx}' context='javaScript'/>].elements["<carlos:encode value='${refDocModel.fld2.fieldId}' context='javaScriptBlock'/>"].value = data2;
                 self.close();
             }
 
-            <%} else if(param2Field != null) {%>
+            </c:if>
+            <c:if test="${refDocModel.showTypeInData2Param2Only}">
 
             function typeInData2(data1, data2) {
-                opener.document.forms[<%= param2FormIdx %>].elements["<carlos:encode value='<%= param2Field %>' context="javaScriptBlock"/>"].value = data2;
+                opener.document.forms[<carlos:encode value='${refDocModel.fld2.formIdx}' context='javaScript'/>].elements["<carlos:encode value='${refDocModel.fld2.fieldId}' context='javaScriptBlock'/>"].value = data2;
                 self.close();
             }
 
-            <%}%>
+            </c:if>
 
             function typeInData3(billno, toname, toaddress, tophone, tofax) {
                 var fieldsSet = false;
-                <%if(paramField != null) {%>
-                opener.document.forms[<%= paramFormIdx %>].elements["<carlos:encode value='<%= paramField %>' context="javaScriptBlock"/>"].value = billno;
+                <c:if test="${not empty refDocModel.fld1.fieldId}">
+                opener.document.forms[<carlos:encode value='${refDocModel.fld1.formIdx}' context='javaScript'/>].elements["<carlos:encode value='${refDocModel.fld1.fieldId}' context='javaScriptBlock'/>"].value = billno;
                 fieldsSet = true;
-                <%}
-                  if(tonameField != null) {%>
-                opener.document.forms[<%= tonameFormIdx %>].elements["<carlos:encode value='<%= tonameField %>' context="javaScriptBlock"/>"].value = toname;
+                </c:if>
+                <c:if test="${not empty refDocModel.fld3.fieldId}">
+                opener.document.forms[<carlos:encode value='${refDocModel.fld3.formIdx}' context='javaScript'/>].elements["<carlos:encode value='${refDocModel.fld3.fieldId}' context='javaScriptBlock'/>"].value = toname;
                 fieldsSet = true;
-                <%}
-                  if(toaddress1Field != null) {%>
-                opener.document.forms[<%= toaddress1FormIdx %>].elements["<carlos:encode value='<%= toaddress1Field %>' context="javaScriptBlock"/>"].value = toaddress;
+                </c:if>
+                <c:if test="${not empty refDocModel.fld4.fieldId}">
+                opener.document.forms[<carlos:encode value='${refDocModel.fld4.formIdx}' context='javaScript'/>].elements["<carlos:encode value='${refDocModel.fld4.fieldId}' context='javaScriptBlock'/>"].value = toaddress;
                 fieldsSet = true;
-                <%}
-                  if(tophoneField != null) {%>
-                opener.document.forms[<%= tophoneFormIdx %>].elements["<carlos:encode value='<%= tophoneField %>' context="javaScriptBlock"/>"].value = tophone;
+                </c:if>
+                <c:if test="${not empty refDocModel.fld5.fieldId}">
+                opener.document.forms[<carlos:encode value='${refDocModel.fld5.formIdx}' context='javaScript'/>].elements["<carlos:encode value='${refDocModel.fld5.fieldId}' context='javaScriptBlock'/>"].value = tophone;
                 fieldsSet = true;
-                <%}
-                  if(tofaxField != null) {%>
-                opener.document.forms[<%= tofaxFormIdx %>].elements["<carlos:encode value='<%= tofaxField %>' context="javaScriptBlock"/>"].value = tofax;
+                </c:if>
+                <c:if test="${not empty refDocModel.fld6.fieldId}">
+                opener.document.forms[<carlos:encode value='${refDocModel.fld6.formIdx}' context='javaScript'/>].elements["<carlos:encode value='${refDocModel.fld6.fieldId}' context='javaScriptBlock'/>"].value = tofax;
                 fieldsSet = true;
-                <%}%>
+                </c:if>
                 if (!fieldsSet) {
                     alert("Error: Unable to transfer referral doctor data to the billing form. Please close this window and try again.");
                     return;
@@ -227,14 +96,14 @@
                     "lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "<fmt:message key="encounter.LeftNavBar.AllLabs"/>"]],
                     "order": [],
                     "language": {
-                        "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json"
+                        "url": "<carlos:encode value='${pageContext.request.contextPath}' context='javaScriptAttribute'/>/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json"
                     }
                 });
             });
         </script>
     </head>
     <body>
-    <h3><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.optChooseSpec"/></h3>&nbsp;<carlos:encode value='<%= keyword == null ? "" : keyword %>' context="html"/>&nbsp;<input
+    <h3><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.optChooseSpec"/></h3>&nbsp;<carlos:encode value='${refDocModel.keyword}' context='html'/>&nbsp;<input
             type="button" class="btn-link" value="<fmt:message key="report.reportindex.formAllProviders"/>"
             onclick="location = location.href.replace(/(\?|\&)(keyword)([^&]*)/, '').replace(/(\?|\&)(submit)([^&]*)/, '');">
     <div class="container-fluid">
@@ -250,43 +119,26 @@
             </tr>
             </thead>
             <tbody>
-            <%
-                for (int i = 0; i < alist.size(); i++) {
-                    prop = (Properties) alist.get(i);
-                    String bgColor = i % 2 == 0 ? "#f9f9f9" : "#ffffff";
-                    String strOnClick;
-                    // When param2 was provided and matched (two-field update), use typeInData2;
-                    // otherwise fall back to typeInData3 for multi-field update
-                    if (param2Field != null) {
-                        strOnClick = "typeInData2('" + SafeEncode.forJavaScriptAttribute(prop.getProperty("referral_no", "")) + "','" + SafeEncode.forJavaScriptAttribute(prop.getProperty("last_name", "") + "," + prop.getProperty("first_name", "")) + "')";
-                    } else {
-                        strOnClick = "typeInData3('" + SafeEncode.forJavaScriptAttribute(prop.getProperty("referral_no", "")) + "', '" + SafeEncode.forJavaScriptAttribute(prop.getProperty("to_name", "")) + "', '" + SafeEncode.forJavaScriptAttribute(prop.getProperty("to_address", "")) + "', '" + SafeEncode.forJavaScriptAttribute(prop.getProperty("phone", "")) + "', '" + SafeEncode.forJavaScriptAttribute(prop.getProperty("to_fax", "")) + "')";
-                    }
-            %>
-            <tr style="background-color:<%=bgColor%>"
-                onmouseover="this.style.cursor='pointer';this.style.backgroundColor='LightBlue';"
-                onmouseout="this.style.backgroundColor='<%=bgColor%>'"
-                onClick="<%=strOnClick%>">
-                <td><carlos:encode value='<%= prop.getProperty("referral_no", "") %>' context="html"/>
-                </td>
-                <td><carlos:encode value='<%= prop.getProperty("last_name", "") %>' context="html"/>
-                </td>
-                <td><carlos:encode value='<%= prop.getProperty("first_name", "") %>' context="html"/>
-                </td>
-                <td><carlos:encode value='<%= prop.getProperty("specialty", "") %>' context="html"/>
-                </td>
-                <td title="<fmt:message key="encounter.oscarConsultationRequest.config.EditSpecialists.fax"/> <carlos:encode value='<%= prop.getProperty("to_fax", "") %>' context="html"/>"><carlos:encode value='<%= prop.getProperty("phone", "") %>' context="html"/>
-                </td>
-                <td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
-                    title="<carlos:encode value='<%= prop.getProperty("to_address", "") %>' context="htmlAttribute"/>"><carlos:encode value='<%= prop.getProperty("to_address", "") %>' context="html"/>
-                </td>
-            </tr>
-            <% } %>
+            <c:forEach var="sp" items="${refDocModel.specialists}" varStatus="ctr">
+                <c:set var="bgColor" value="${ctr.index % 2 == 0 ? '#f9f9f9' : '#ffffff'}"/>
+                <tr style="background-color:<carlos:encode value='${bgColor}' context='cssString'/>"
+                    onmouseover="this.style.cursor='pointer';this.style.backgroundColor='LightBlue';"
+                    onmouseout="this.style.backgroundColor='<carlos:encode value="${bgColor}" context="javaScriptAttribute"/>'"
+                    onClick="<carlos:encode value='${sp.onClickHandler}' context='javaScriptAttribute'/>">
+                    <td><carlos:encode value='${sp.referralNo}' context='html'/></td>
+                    <td><carlos:encode value='${sp.surname}' context='html'/></td>
+                    <td><carlos:encode value='${sp.givenName}' context='html'/></td>
+                    <td><carlos:encode value='${sp.specialty}' context='html'/></td>
+                    <td title="<fmt:message key="encounter.oscarConsultationRequest.config.EditSpecialists.fax"/> <carlos:encode value='${sp.fax}' context='htmlAttribute'/>"><carlos:encode value='${sp.phone}' context='html'/></td>
+                    <td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
+                        title="<carlos:encode value='${sp.address}' context='htmlAttribute'/>"><carlos:encode value='${sp.address}' context='html'/></td>
+                </tr>
+            </c:forEach>
             </tbody>
         </table>
         <br>
         <a class="btn btn-secondary"
-           href="${pageContext.request.contextPath}/encounter/oscarConsultationRequest/config/ViewEditSpecialists"><fmt:message key="encounter.oscarConsultationRequest.config.EditSpecialists.title"/></a>
+           href="<carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/encounter/oscarConsultationRequest/config/ViewEditSpecialists"><fmt:message key="encounter.oscarConsultationRequest.config.EditSpecialists.title"/></a>
 
     </div>
     </body>

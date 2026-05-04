@@ -1,6 +1,23 @@
 /**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  * Copyright (c) 2026. CARLOS EMR Project. All Rights Reserved.
- * Maintained by the CARLOS EMR Project (2026+).
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.billing.CA.ON;
@@ -60,11 +77,35 @@ class BillingOnJspRoutingTest {
         assertThat(billingOn).doesNotContain("ctx + \"/billing/CA/ON/ViewBillingDigSearchAjax\"");
         assertThat(billingOn).doesNotContain("ctx + \"/billing/CA/ON/ViewBillingCodeSearchAjax\"");
 
+        // reportINR.jsp was refactored from a scriptlet-built `inrBillingAction`
+        // to a ViewModel-supplied `reportInrModel.inrBillingActionUrl` rendered
+        // through `${carlos:forHtmlAttribute(...)}`. The original
+        // /billing/CA/ON/ViewInr* routes are still constructed (now in the
+        // ViewInrReport2Action assembler) and remain context-path-aware.
         String reportInr = readJspContent(BILLING_ON_JSP_DIR.resolve("inr/reportINR.jsp"));
-        assertThat(reportInr).contains("String inrBillingAction = request.getContextPath()");
-        assertThat(reportInr).contains("/billing/CA/ON/ViewInrOnGenINRbilling");
-        assertThat(reportInr).contains("/billing/CA/ON/ViewInrGenINRbilling");
-        assertThat(reportInr).contains("action=\"<%= inrBillingAction %>\"");
+        assertThat(reportInr).contains("${carlos:forHtmlAttribute(reportInrModel.inrBillingActionUrl)}");
+    }
+
+    @Test
+    void shouldRenderPartialWarnings_forPaymentAndShortcutHistory() throws IOException {
+        String billingOnPayment = readJspContent(BILLING_ON_JSP_DIR.resolve("billingONPayment.jsp"));
+        assertThat(billingOnPayment).contains("paymentModel.paymentsPartial");
+        assertThat(billingOnPayment).contains("Payment totals may be incomplete.");
+
+        String billingShortcutPg1 = readJspContent(BILLING_ON_JSP_DIR.resolve("billingShortcutPg1.jsp"));
+        assertThat(billingShortcutPg1).contains("shortcutPg1Model.historyPartial");
+        assertThat(billingShortcutPg1).contains("shortcutPg1Model.historyPartialRowCount");
+        assertThat(billingShortcutPg1).contains("Billing history may be incomplete.");
+    }
+
+    @Test
+    void shouldRenderReviewAlertsInJspMarkup_insteadOfEscapedViewModelHtml() throws IOException {
+        String billingOnReview = readJspContent(BILLING_ON_JSP_DIR.resolve("billingONReview.jsp"));
+
+        assertThat(billingOnReview).contains("reviewModel.reviewAlerts");
+        assertThat(billingOnReview).contains("class=\"alert alert-danger\"");
+        assertThat(billingOnReview).contains("reviewModel.demoHeaderLine");
+        assertThat(billingOnReview).doesNotContain("reviewModel.wrongMessage");
     }
 
     private String readJspContent(Path path) throws IOException {
