@@ -51,6 +51,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="java.util.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<fmt:message key="inboxmanager.document.documents" var="documentsLabel"/>
 <!DOCTYPE HTML >
 
 <html>
@@ -76,6 +77,7 @@
     <script type="text/javascript">
         var contextpath = "${pageContext.servletContext.contextPath}";
         const ctx = contextpath;
+        var documentLabel = '${carlos:forJavaScript(documentsLabel)}';
     </script>
 
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/javascript/carlos-ajax.js"></script>
@@ -2392,7 +2394,6 @@
 </head>
 
 <body>
-<fmt:message key="inboxmanager.document.documents" var="documentsLabel"/>
 <%
     HashMap queueIdNames = (HashMap) request.getAttribute("queueIdNames");//each queue id has a corresponding name
     HashMap queueDocNos = (HashMap) request.getAttribute("queueDocNos");//one queue id is linked to a list of docs
@@ -2458,7 +2459,6 @@
     var providerNo = '<carlos:encode value='<%= providerNo %>' context="javaScriptBlock"/>';
 
     var searchProviderNo = '<carlos:encode value='<%= searchProviderNo %>' context="javaScriptBlock"/>';
-    var documentLabel = '${carlos:forJavaScript(documentsLabel)}';
     var types = ['DOC'];
 
     var contextpath = '${pageContext.servletContext.contextPath}';

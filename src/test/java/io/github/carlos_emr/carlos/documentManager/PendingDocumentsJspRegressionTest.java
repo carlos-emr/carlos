@@ -74,6 +74,7 @@ class PendingDocumentsJspRegressionTest {
         assertThat(jsp)
                 .contains("var docDesc = $('docDesc_' + current_first_doclab);")
                 .contains("if (docDesc) {")
+                .containsPattern("(?s)if \\(docDesc\\) \\{\\s*docDesc\\.focus\\(\\);\\s*}")
                 .doesNotContain("$('docDesc_' + current_first_doclab).focus();");
     }
 
