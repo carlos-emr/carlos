@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,17 +17,13 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-    This software was written for the
-    Department of Family Medicine
-    McMaster University
-    Hamilton
-    Ontario, Canada
-
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
+--%>
+<%--
+  Page role: Renders `errorpage.jsp` for the error handling workflow.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
 --%>
 <%--
   Purpose: Displays a CARLOS-branded error page for unhandled HTTP and server errors.
@@ -43,11 +40,15 @@
   @since 2026-03
 --%>
 <%@ page isErrorPage="true" %>
+<%-- Log the captured exception so JSP-render failures don't disappear into a
+     generic "CARLOS Error" page with nothing in catalina.out. The logic
+     lives in ErrorPageLogger so it can be unit-tested without a JSP
+     container; this scriptlet is a 1-line dispatcher. --%>
+<% io.github.carlos_emr.carlos.utility.ErrorPageLogger.logIfPresent(exception, request); %>
 <!-- only true can access exception object -->
 <%@ taglib uri='jakarta.tags.core' prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:message key="messenger.config.MessengerAdmin.goBack" var="btnBackTitle"/>
 <fmt:message key="provider.appointmentProviderAdminDay.schedView" var="btnExitTitle"/>

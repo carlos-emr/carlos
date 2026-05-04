@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,260 +17,35 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<html>
+<%--
+  Purpose: Supports billingOHIPsimulation in the Ontario billing workflow.
+  Expected request model data includes: simulationModel.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ page import="io.github.carlos_emr.carlos.utility.DateRange" %>
-<%! boolean bMultisites = IsPropertiesOn.isMultisitesEnable(); %>
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ page import="java.math.*, java.util.*, io.github.carlos_emr.carlos.util.*" %>
-<%
-    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
-    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
-    boolean isTeamBillingOnly = false;
-    boolean isSiteAccessPrivacy = false;
-    boolean isTeamAccessPrivacy = false;
-%>
-<security:oscarSec objectName="_team_billing_only" roleName="<%=roleName$ %>" rights="r" reverse="false">
-    <% isTeamBillingOnly = true; %>
-</security:oscarSec>
-<security:oscarSec objectName="_site_access_privacy" roleName="<%=roleName$%>" rights="r" reverse="false">
-    <%isSiteAccessPrivacy = true; %>
-</security:oscarSec>
-<security:oscarSec objectName="_team_access_privacy" roleName="<%=roleName$%>" rights="r" reverse="false">
-    <%isTeamAccessPrivacy = true; %>
-</security:oscarSec>
-
-<%
-    String user_no = (String) session.getAttribute("user");
-%>
-
-
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, java.net.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
-<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.*" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingReviewPrep" %>
-<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
-<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<html>
 <jsp:useBean id="SxmlMisc" class="io.github.carlos_emr.SxmlMisc" scope="session"/>
 
 <head>
     <title><fmt:message key="admin.admin.btnSimulationOHIPDiskette"/></title>
-    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
-    <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet">
-    <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
-    <%
-        GregorianCalendar now = new GregorianCalendar();
-        int curYear = now.get(Calendar.YEAR);
-        int curMonth = (now.get(Calendar.MONTH) + 1);
-        int curDay = now.get(Calendar.DAY_OF_MONTH);
-
-        String nowDate = UtilDateUtilities.DateToString(new java.util.Date()); //"yyyy-MM-dd HH:mm"
-        String monthCode = BillingDataHlp.propMonthCode.getProperty("" + curMonth);
-
-        CarlosProperties props = CarlosProperties.getInstance();
-        String billCenter = props.getProperty("billcenter", "").trim();
-        String healthOffice = BillingDataHlp.propBillingCenter.getProperty(billCenter);
-
-        boolean summaryView = "on".equals(request.getParameter("summaryView"));
-
-        if (request.getParameter("submit") != null && request.getParameter("submit").equals("Create Report")) {
-            String errorMsg = "";
-            int PROVIDER_BILLINGNO_LENGTH = 6;
-            int PROVIDER_SPECIALTYCODE_LENGTH = 2;
-            int PROVIDER_GROUPNO_LENGTH = 4;
-            int errorCount = 0;
-            int bCount = 1;
-            String batchCount = "0";
-            BigDecimal bigTotal = new BigDecimal((double) 0).setScale(2, BigDecimal.ROUND_HALF_UP);
-            int recordCount = 0;
-            String pro = request.getParameter("providers");
-            BillingProviderData proObj;
-            ArrayList<String> providers = new ArrayList<String>();
-            String htmlValue = "";
-
-            if (bMultisites) {
-                DateRange dateRange = null;
-                String proOHIP = "";
-                String specialty_code;
-                String billinggroup_no;
-                String dateBegin = request.getParameter("xml_vdate");
-                String dateEnd = request.getParameter("xml_appointment_date");
-                if (dateEnd.compareTo("") == 0) dateEnd = request.getParameter("curDate");
-                if (dateBegin.compareTo("") == 0) {
-                    dateRange = new DateRange(null, ConversionUtils.fromDateString(dateEnd));
-                } else {
-                    dateRange = new DateRange(ConversionUtils.fromDateString(dateBegin), ConversionUtils.fromDateString(dateEnd));
-                }
-                proObj = (new JdbcBillingPageUtil()).getProviderObj(pro);
-
-                if (proObj.getOhipNo().length() != PROVIDER_BILLINGNO_LENGTH)
-                    errorMsg = "The providers's billing code is not correct!<br>";
-
-                proOHIP = proObj.getOhipNo();
-                billinggroup_no = proObj.getBillingGroupNo();
-                specialty_code = proObj.getSpecialtyCode();
-
-                if (specialty_code.length() != PROVIDER_SPECIALTYCODE_LENGTH) {
-                    errorMsg += "The providers's specialty code is not correct!<br>";
-                    specialty_code = "00";
-                }
-
-                if (billinggroup_no.length() != PROVIDER_GROUPNO_LENGTH) {
-                    errorMsg += "The providers's group no is not correct!<br>";
-                    billinggroup_no = "0000";
-                }
-
-                JdbcBillingCreateBillingFile dbObj = new JdbcBillingCreateBillingFile();
-                dbObj.setContextPath(request.getContextPath());
-                dbObj.setEFlag("0");
-                dbObj.setDateRange(dateRange);
-                dbObj.setProviderNo(pro);
-                BillingBatchHeaderData bhObj = new BillingBatchHeaderData();
-                //bhObj.setId(bid);
-                //bhObj.setDisk_id("" + rs.getInt("disk_id"));
-                //bhObj.setTransc_id(rs.getString("transc_id"));
-                //bhObj.setRec_id(rs.getString("rec_id"));
-                bhObj.setSpec_id("   ");
-                bhObj.setMoh_office(" ");
-                //bhObj.setBatch_id(rs.getString("batch_id"));
-                //bhObj.setOperator(rs.getString("operator"));
-                bhObj.setGroup_num(billinggroup_no);
-                bhObj.setProvider_reg_num(proOHIP);
-                bhObj.setSpecialty(specialty_code);
-                //bhObj.setH_count(rs.getString("h_count"));
-                //bhObj.setR_count(rs.getString("r_count"));
-                //bhObj.setT_count(rs.getString("t_count"));
-                //bhObj.setBatch_date(rs.getString("batch_date"));
-
-                dbObj.setBatchHeaderObj(bhObj);
-                dbObj.createSiteBillingFileStr(LoggedInInfo.getLoggedInInfoFromSession(request), "0", new String[]{"O", "W", "I"});
-                htmlValue = "<font color='red'>" + errorMsg + "</font>" + dbObj.getHtmlValue();
-            } else {
-                if ("all".equals(pro)) {
-                    BillingReviewPrep prep = new BillingReviewPrep();
-                    List<String> providerStr = null;
-                    if (isTeamBillingOnly || isTeamAccessPrivacy) {
-                        providerStr = prep.getTeamProviderBillingStr(user_no);
-                    } else if (isSiteAccessPrivacy) {
-                        providerStr = prep.getSiteProviderBillingStr(user_no);
-                    } else {
-                        providerStr = prep.getProviderBillingStr();
-                    }
-                    for (int i = 0; i < providerStr.size(); i++) {
-                        providers.add((providerStr.get(i)).split("\\|")[0]);
-                    }
-                } else {
-                    providers.add(pro);
-                }
-
-                for (String provider : providers) {
-                    errorMsg = "";
-                    proObj = (new JdbcBillingPageUtil()).getProviderObj(provider);
-
-                    if (proObj.getOhipNo().length() != PROVIDER_BILLINGNO_LENGTH)
-                        errorMsg = "The billing code (" + proObj.getOhipNo() + ") for providers (" + provider + ") is not correct!<br>";
-
-                    String proOHIP = "";
-                    String specialty_code;
-                    String billinggroup_no;
-                    DateRange dateRange = null;
-
-                    String dateBegin = request.getParameter("xml_vdate");
-                    String dateEnd = request.getParameter("xml_appointment_date");
-                    if (dateEnd.compareTo("") == 0) dateEnd = request.getParameter("curDate");
-                    if (dateBegin.compareTo("") == 0) {
-                        dateRange = new DateRange(null, ConversionUtils.fromDateString(dateEnd));
-                    } else {
-                        dateRange = new DateRange(ConversionUtils.fromDateString(dateBegin), ConversionUtils.fromDateString(dateEnd));
-                    }
-
-                    proOHIP = proObj.getOhipNo();
-                    billinggroup_no = proObj.getBillingGroupNo();
-                    specialty_code = proObj.getSpecialtyCode();
-
-                    if (specialty_code.length() != PROVIDER_SPECIALTYCODE_LENGTH) {
-                        errorMsg += "The specialty code (" + specialty_code + ") for providers (" + provider + ") is not correct!<br>";
-                        specialty_code = "00";
-                    }
-
-                    if (billinggroup_no.length() != PROVIDER_GROUPNO_LENGTH) {
-                        errorMsg += "The group no (" + billinggroup_no + ") for providers (" + provider + ") is not correct!<br>";
-                        billinggroup_no = "0000";
-                    }
-
-                    JdbcBillingCreateBillingFile dbObj = new JdbcBillingCreateBillingFile();
-                    dbObj.setContextPath(request.getContextPath());
-                    dbObj.setEFlag("0");
-                    dbObj.setDateRange(dateRange);
-                    dbObj.setProviderNo(provider);
-                    BillingBatchHeaderData bhObj = new BillingBatchHeaderData();
-                    bhObj.setSpec_id("   ");
-                    bhObj.setMoh_office(" ");
-                    bhObj.setGroup_num(billinggroup_no);
-                    bhObj.setProvider_reg_num(proOHIP);
-                    bhObj.setSpecialty(specialty_code);
-                    dbObj.setBatchHeaderObj(bhObj);
-                    dbObj.errorMsg += errorMsg;
-
-                    dbObj.createBillingFileStr(LoggedInInfo.getLoggedInInfoFromSession(request), "0", new String[]{"O", "W", "I"}, true, null, summaryView);
-                    if (dbObj.getRecordCount() > 0 || !"".equals(dbObj.errorMsg) || !"".equals(dbObj.errorFatalMsg)) {
-                        recordCount += dbObj.getRecordCount();
-                        bigTotal = bigTotal.add(dbObj.getBigTotal());
-                        htmlValue += dbObj.getHtmlValue();
-                    }
-                    errorCount += "".equals(dbObj.errorMsg) ? 0 : dbObj.errorMsg.split("<br>").length;
-                    errorCount += "".equals(dbObj.errorFatalMsg) ? 0 : dbObj.errorFatalMsg.split("<br>").length;
-                    dbObj.errorMsg = "";
-                }
-
-                String billingTable = htmlValue;
-                htmlValue = "\n<table class='table table-hover table-sm'>\n"
-                        + "<thead>";
-                if (summaryView) {
-                    htmlValue += "\n<tr><th >OHIP NO</th><th >Number of Records</th><th >Total Billed</th><th colspan='9'></th></tr></thead>";
-                } else {
-                    htmlValue += "<tr><th >OHIP NO</th><th >Acct NO</th>"
-                            + "<th >Name</th><th >RO</th><th >DOB</th><th >Sex</th><th >Health #</th>"
-                            + "<th >Billdate</th><th >Code</th>"
-                            + "<th >Billed</th>"
-                            + "<th >DX</th><th align='right' >Comment</th></tr></thead>";
-
-
-                }
-                htmlValue += "<tbody>" + billingTable;
-                htmlValue += "\n<tr><td colspan='12' >&nbsp;</td></tr><tr><td colspan='4'>"
-                        + recordCount
-                        + " RECORDS PROCESSED, "
-                        + errorCount
-                        + " ERROR" + (errorCount > 1 ? "S" : "") + "</td><td colspan='8'>TOTAL: "
-                        + bigTotal.toString()
-                        + "\n</td></tr>";
-                htmlValue += "</tbody></table>";
-            }
-            request.setAttribute("html", htmlValue);
-        }
-    %>
-
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
+    <link href="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.css" rel="stylesheet">
+    <script src="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.js"></script>
 
     <script type="text/javascript" language="JavaScript">
         <!--
         function openBrWindow(theURL, winName, features) {
             window.open(theURL, winName, features);
         }
-
 
         function checkData() {
             var b = true;
@@ -312,69 +88,42 @@
     <h3><fmt:message key="admin.admin.btnSimulationOHIPDiskette"/></h3>
 
     <form name="serviceform" id="serviceform"
-          action="<%=request.getContextPath() %>/billing/CA/ON/ViewBillingOHIPsimulation">
+          action="${pageContext.request.contextPath}/billing/CA/ON/ViewBillingOHIPsimulation">
         <div class="row card card-body bg-body-tertiary d-print-none">
 
             <input type="hidden" name="submit" value="Create Report">
 
             Bill Center:
-            <input type="hidden" name="billcenter" value="<carlos:encode value='<%= billCenter %>' context="htmlAttribute"/>">
-            <carlos:encode value='<%= healthOffice %>' context="html"/>
+            <input type="hidden" name="billcenter" value="<carlos:encode value='${simulationModel.billCenter}' context='htmlAttribute'/>">
+            <carlos:encode value="${simulationModel.healthOffice}" context="html"/>
 
             <button type='button' name='print' value='Print' class="btn float-end" onClick='window.print()'><i
                     class="fa-solid fa-print"></i> Print
             </button>
             <br/>
 
-
-            <%
-                String providerview = request.getParameter("providers") == null ? user_no : request.getParameter("providers");
-                String xml_vdate = request.getParameter("xml_vdate") == null ? "" : request.getParameter("xml_vdate");
-                String xml_appointment_date = request.getParameter("xml_appointment_date") == null ? nowDate : request.getParameter("xml_appointment_date");
-            %>
-
-
-            <input type="hidden" name="monthCode" value="<carlos:encode value='<%= monthCode %>' context="htmlAttribute"/>">
+            <input type="hidden" name="monthCode" value="<carlos:encode value='${simulationModel.monthCode}' context='htmlAttribute'/>">
             <input type="hidden" name="verCode" value="V03">
-            <input type="hidden" name="curUser" value="<carlos:encode value='<%= user_no %>' context="htmlAttribute"/>">
-            <input type="hidden" name="curDate" value="<carlos:encode value='<%= nowDate %>' context="htmlAttribute"/>">
-
+            <input type="hidden" name="curUser" value="<carlos:encode value='${simulationModel.userNo}' context='htmlAttribute'/>">
+            <input type="hidden" name="curDate" value="<carlos:encode value='${simulationModel.nowDate}' context='htmlAttribute'/>">
 
             <div class="col-md-12" style="margin:4px;">
 
                 <div class="col-md-3">
                     Select Provider<br>
                     <select name="providers">
-                        <% if (bMultisites) { %>
-                        <option value="all">Select Providers</option>
-                        <% } else { %>
-                        <option value="all">All Providers</option>
-                        <% } %>
-                        <%
-                            BillingReviewPrep prep = new BillingReviewPrep();
-
-
-                            List providerStr;
-
-                            if (isTeamBillingOnly || isTeamAccessPrivacy) {
-                                providerStr = prep.getTeamProviderBillingStr(user_no);
-                            } else if (isSiteAccessPrivacy) {
-                                providerStr = prep.getSiteProviderBillingStr(user_no);
-                            } else {
-                                providerStr = prep.getProviderBillingStr();
-                            }
-
-                            for (int i = 0; i < providerStr.size(); i++) {
-                                String temp[] = ((String) providerStr.get(i)).split("\\|");
-                        %>
-                        <option value="<carlos:encode value='<%= temp[0] %>' context="htmlAttribute"/>"
-                                <%=providerview.equals(temp[0]) ? "selected" : (providerStr.size() == 1 ? "selected" : "")%>><carlos:encode value='<%= temp[1] %>' context="html"/>
-                            ,
-                            <carlos:encode value='<%= temp[2] %>' context="html"/>
-                        </option>
-                        <%
-                            }
-                        %>
+                        <c:choose>
+                            <c:when test="${simulationModel.multisites}"><option value="all">Select Providers</option></c:when>
+                            <c:otherwise><option value="all">All Providers</option></c:otherwise>
+                        </c:choose>
+                        <c:forEach var="opt" items="${simulationModel.providers}">
+                            <c:set var="isSelected" value="${simulationModel.providerView eq opt.providerNo or fn:length(simulationModel.providers) == 1}"/>
+                            <option value="<carlos:encode value='${opt.providerNo}' context='htmlAttribute'/>"
+                                    ${isSelected ? 'selected' : ''}><carlos:encode value="${opt.lastName}" context="html"/>
+                                ,
+                                <carlos:encode value="${opt.firstName}" context="html"/>
+                            </option>
+                        </c:forEach>
                     </select>
                 </div><!--span3-->
 
@@ -382,28 +131,27 @@
                     From:<br>
                     <div class="input-group">
                         <input type="text" name="xml_vdate" id="xml_vdate" class="form-control"
-                               value="<carlos:encode value='<%= xml_vdate %>' context="htmlAttribute"/>" style="width:90px" autocomplete="off"/>
+                               value="<carlos:encode value='${simulationModel.startDate}' context='htmlAttribute'/>" style="width:90px" autocomplete="off"/>
                         <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                     </div>
                 </div>
-
 
                 <div class="col-md-2">
                     To:<br>
                     <div class="input-group">
                         <input type="text" name="xml_appointment_date" id="xml_appointment_date"
-                               class="form-control" value="<carlos:encode value='<%= xml_appointment_date %>' context="htmlAttribute"/>" style="width:90px"
+                               class="form-control" value="<carlos:encode value='${simulationModel.endDate}' context='htmlAttribute'/>" style="width:90px"
                                autocomplete="off"/>
                         <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                     </div>
                 </div>
 
-                <% if (!bMultisites) { %>
+                <c:if test="${not simulationModel.multisites}">
                 <div class="col-md-2" style="min-width:140px"><br><input type="checkbox" name="summaryView"
-                                                                      id="summaryView" <%= summaryView ? "checked" : "" %> />Summary
+                                                                      id="summaryView" ${simulationModel.summaryView ? 'checked' : ''} />Summary
                     View
                 </div>
-                <% } %>
+                </c:if>
 
                 <div class="col-md-2">
                     <br>
@@ -411,13 +159,11 @@
                     </button>
                 </div>
 
-
             </div> <!--span12-->
 
             <div class="col-md-11">
 
                 <br>
-
 
             </div><!--span12-->
 
@@ -426,11 +172,57 @@
 
 </div><!--container-->
 
-<%=request.getAttribute("html") == null ? "" : request.getAttribute("html")%>
+<c:set var="preview" value="${simulationModel.preview}"/>
+<c:if test="${preview.present}">
+    <c:if test="${not empty preview.errorMessages}">
+        <div class="text-danger">
+            <c:forEach var="message" items="${preview.errorMessages}">
+                <carlos:encode value="${message}" context="html"/><br/>
+            </c:forEach>
+        </div>
+    </c:if>
+
+    <c:choose>
+        <c:when test="${preview.multisite}">
+            <%-- Legacy OhipClaimFileService rows are encoded at source. --%>
+            ${preview.bodyMarkup}
+        </c:when>
+        <c:otherwise>
+            <table class="table table-hover table-sm">
+                <thead>
+                <c:choose>
+                    <c:when test="${preview.summaryView}">
+                        <tr><th>OHIP NO</th><th>Number of Records</th><th>Total Billed</th><th colspan="9"></th></tr>
+                    </c:when>
+                    <c:otherwise>
+                        <tr><th>OHIP NO</th><th>Acct NO</th><th>Name</th><th>RO</th><th>DOB</th><th>Sex</th>
+                            <th>Health #</th><th>Billdate</th><th>Code</th><th>Billed</th><th>DX</th>
+                            <th align="right">Comment</th></tr>
+                    </c:otherwise>
+                </c:choose>
+                </thead>
+                <tbody>
+                <%-- Legacy OhipClaimFileService rows are encoded at source. --%>
+                ${preview.bodyMarkup}
+                <tr><td colspan="12">&nbsp;</td></tr>
+                <tr><td colspan="4">
+                    ${preview.recordCount} RECORDS PROCESSED, ${preview.errorCount} ERROR<c:if test="${preview.errorCount gt 1}">S</c:if>
+                </td><td colspan="8">TOTAL: <carlos:encode value="${preview.total}" context="html"/></td></tr>
+                </tbody>
+            </table>
+        </c:otherwise>
+    </c:choose>
+</c:if>
 
 <script type="text/javascript">
 
-    registerFormSubmit('serviceform', 'dynamic-content');
+    // registerFormSubmit is defined on the administration/index.jsp parent
+    // page where this view is normally loaded into a dynamic-content area.
+    // Guard for standalone loads (direct URL) so a missing wrapper doesn't
+    // throw a ReferenceError on every render.
+    if (typeof registerFormSubmit === 'function') {
+        registerFormSubmit('serviceform', 'dynamic-content');
+    }
 
     flatpickr("#xml_vdate", {dateFormat: "Y-m-d", allowInput: true});
     flatpickr("#xml_appointment_date", {dateFormat: "Y-m-d", allowInput: true});
@@ -447,7 +239,6 @@
         }
     }
 
-
     document.querySelectorAll(".xlink").forEach(function (el) {
         el.addEventListener('click', function (e) {
             var source = this.getAttribute('rel');
@@ -459,4 +250,3 @@
 </script>
 </body>
 </html>
-

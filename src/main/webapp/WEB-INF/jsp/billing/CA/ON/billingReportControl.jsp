@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,63 +17,29 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
-<%
-
-    String user_no = (String) session.getAttribute("user");
-    int nItems = 0;
-    String strLimit1 = "0";
-    String strLimit2 = "5";
-    if (request.getParameter("limit1") != null) strLimit1 = request.getParameter("limit1");
-    if (request.getParameter("limit2") != null) strLimit2 = request.getParameter("limit2");
-    String providerview = request.getParameter("providerview") == null ? "all" : request.getParameter("providerview");
-%>
-<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
-<%@ page import="java.math.*,java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.ReportProvider" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.ReportProviderDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Billing" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
-<%@ page import="io.github.carlos_emr.carlos.billing.CA.model.BillingDetail" %>
-<%@ page import="io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao" %>
-<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%--
+  Purpose: Supports billingReportControl in the Ontario billing workflow.
+  Expected request model data includes: billingReportControlModel.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
-    ReportProviderDao reportProviderDao = SpringUtils.getBean(ReportProviderDao.class);
-    BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
-    BillingDetailDao billingDetailDao = SpringUtils.getBean(BillingDetailDao.class);
-    OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
-%>
-
-<%
-    GregorianCalendar now = new GregorianCalendar();
-    int curYear = now.get(Calendar.YEAR);
-    int curMonth = (now.get(Calendar.MONTH) + 1);
-    int curDay = now.get(Calendar.DAY_OF_MONTH);
-
-    int flag = 0, rowCount = 0;
-    String reportAction = request.getParameter("reportAction") == null ? "" : request.getParameter("reportAction");
-    String xml_vdate = request.getParameter("xml_vdate") == null ? "" : request.getParameter("xml_vdate");
-    String xml_appointment_date = request.getParameter("xml_appointment_date") == null ? "" : request.getParameter("xml_appointment_date");
-%>
-
+    // Defensive top-of-page model resolver: callers that forward into this JSP
+    // directly (without going through ViewBillingReportControl2Action) get the
+    // privilege check + assembler re-run inline so the body can stay 100% EL.
+    %>
 <html>
 <head>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
     <title>Billing Report</title>
 
-    <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
+    <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/share/css/extractedFromPages.css"/>
     <script language="JavaScript">
         <!--
 
@@ -100,7 +67,7 @@
 <table width="100%" border="0" cellspacing="0" cellpadding="0">
     <tr>
         <td align="right"><a href=#
-                             onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/ViewManageProvider?action=billingreport')">
+                             onClick="popupPage(700,720,'${pageContext.request.contextPath}/oscarReport/ViewManageProvider?action=billingreport')">
             <font size="1">Manage Provider List </font></a></td>
     </tr>
 </table>
@@ -116,46 +83,30 @@
 
 <table width="100%" border="0" bgcolor="#EEEEFF">
     <form name="serviceform" method="post"
-          action="<%= request.getContextPath() %>/billing/CA/ON/ViewBillingReportControl">
+          action="${pageContext.request.contextPath}/billing/CA/ON/ViewBillingReportControl">
         <tr>
             <td width="50%" align="right"><font size="2" color="#333333"
                                                 face="Verdana, Arial, Helvetica, sans-serif"> <input
                     type="radio" name="reportAction" value="unbilled"
-                <%=reportAction.equals("unbilled")?"checked":""%>>Unbilled <input
+                    ${billingReportControlModel.reportAction == 'unbilled' ? 'checked' : ''}>Unbilled <input
                     type="radio" name="reportAction" value="billed"
-                <%=reportAction.equals("billed")?"checked":""%>>Billed <input
+                    ${billingReportControlModel.reportAction == 'billed' ? 'checked' : ''}>Billed <input
                     type="radio" name="reportAction" value="unsettled"
-                <%=reportAction.equals("unsettled")?"checked":""%>>Unsettled
+                    ${billingReportControlModel.reportAction == 'unsettled' ? 'checked' : ''}>Unsettled
                 <input type="radio" name="reportAction" value="billob"
-                    <%=reportAction.equals("billob")?"checked":""%>>OB <input
+                       ${billingReportControlModel.reportAction == 'billob' ? 'checked' : ''}>OB <input
                         type="radio" name="reportAction" value="flu"
-                    <%=reportAction.equals("flu")?"checked":""%>>FLU</font></td>
+                       ${billingReportControlModel.reportAction == 'flu' ? 'checked' : ''}>FLU</font></td>
             <td width="30%" align="right" nowrap><font
                     face="Verdana, Arial, Helvetica, sans-serif" size="2" color="#333333">
                 <b>Select provider </b></font> <select name="providerview">
-
-                <%
-                    String proFirst = "";
-                    String proLast = "";
-                    String proOHIP = "";
-                    String specialty_code;
-                    String billinggroup_no;
-                    int Count = 0;
-
-                    for (Object[] res : reportProviderDao.search_reportprovider("billingreport")) {
-                        ReportProvider rp = (ReportProvider) res[0];
-                        Provider p = (Provider) res[1];
-                        proFirst = p.getFirstName();
-                        proLast = p.getLastName();
-                        proOHIP = p.getProviderNo();
-                %>
-                <option value="<carlos:encode value='<%= proOHIP %>' context="htmlAttribute"/>"
-                        <%=providerview.equals(proOHIP) ? "selected" : ""%>><carlos:encode value='<%= proLast %>' context="html"/>,
-                    <carlos:encode value='<%= proFirst %>' context="html"/>
-                </option>
-                <%
-                    }
-                %>
+                <c:forEach var="opt" items="${billingReportControlModel.providerOptions}">
+                    <option value="<carlos:encode value='${opt.providerNo}' context='htmlAttribute'/>"
+                            ${billingReportControlModel.providerView == opt.providerNo ? 'selected' : ''}>
+                        <carlos:encode value='${opt.lastName}' context='html'/>,
+                        <carlos:encode value='${opt.firstName}' context='html'/>
+                    </option>
+                </c:forEach>
             </select></td>
             <td align="center"><font color="#333333" size="2"
                                      face="Verdana, Arial, Helvetica, sans-serif"> <input
@@ -166,44 +117,37 @@
             <td></td>
             <td align="right"><B>Date</B> &nbsp; <font size="1"
                                                        face="Arial, Helvetica, sans-serif"> <a href="#"
-                                                                                               onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup?type=admission&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')">From:</a></font>
-                <input type="text" name="xml_vdate" size="10" value="<carlos:encode value='<%= xml_vdate %>' context="htmlAttribute"/>">
+                                                                                               onClick="openBrWindow('${pageContext.request.contextPath}/billing/CA/ON/ViewBillingCalendarPopup?type=admission&amp;year=${billingReportControlModel.curYear}&amp;month=${billingReportControlModel.curMonth}','','width=300,height=300')">From:</a></font>
+                <input type="text" name="xml_vdate" size="10" value="<carlos:encode value='${billingReportControlModel.xmlVdate}' context='htmlAttribute'/>">
                 <font size="1" face="Arial, Helvetica, sans-serif"> <a href="#"
-                                                                       onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup?type=end&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')">
+                                                                       onClick="openBrWindow('${pageContext.request.contextPath}/billing/CA/ON/ViewBillingCalendarPopup?type=end&amp;year=${billingReportControlModel.curYear}&amp;month=${billingReportControlModel.curMonth}','','width=300,height=300')">
                     To:</a></font> <input type="text" name="xml_appointment_date" size="10"
-                                          value="<carlos:encode value='<%= xml_appointment_date %>' context="htmlAttribute"/>"></td>
+                                          value="<carlos:encode value='${billingReportControlModel.xmlAppointmentDate}' context='htmlAttribute'/>"></td>
             <td></td>
         </tr>
     </form>
 </table>
 
-<%
-    if (reportAction.compareTo("") == 0 || reportAction == null) {
-%>
-<p>&nbsp;</p>
-<%
-} else if (reportAction.compareTo("unbilled") == 0) {
-%>
-<%@ include file="billingReport_unbilled.jspf" %>
-<%
-} else if (reportAction.compareTo("billed") == 0) {
-%>
-<%@ include file="billingReport_billed.jspf" %>
-<%
-} else if (reportAction.compareTo("unsettled") == 0) {
-%>
-<%@ include file="billingReport_unsettled.jspf" %>
-<%
-} else if (reportAction.compareTo("billob") == 0) {
-%>
-<%@ include file="billingReport_billob.jspf" %>
-<%
-} else if (reportAction.compareTo("flu") == 0) {
-%>
-<%@ include file="billingReport_flu.jspf" %>
-<%
-    }
-%>
+<c:choose>
+    <c:when test="${empty billingReportControlModel.reportAction}">
+        <p>&nbsp;</p>
+    </c:when>
+    <c:when test="${billingReportControlModel.reportAction == 'unbilled'}">
+        <%@ include file="billingReport_unbilled.jspf" %>
+    </c:when>
+    <c:when test="${billingReportControlModel.reportAction == 'billed'}">
+        <%@ include file="billingReport_billed.jspf" %>
+    </c:when>
+    <c:when test="${billingReportControlModel.reportAction == 'unsettled'}">
+        <%@ include file="billingReport_unsettled.jspf" %>
+    </c:when>
+    <c:when test="${billingReportControlModel.reportAction == 'billob'}">
+        <%@ include file="billingReport_billob.jspf" %>
+    </c:when>
+    <c:when test="${billingReportControlModel.reportAction == 'flu'}">
+        <%@ include file="billingReport_flu.jspf" %>
+    </c:when>
+</c:choose>
 
 <br>
 

@@ -245,11 +245,16 @@ public class BillingReProcessBill2Action extends ActionSupport {
                 String seqNum = frm.getDebitRequestSeqNum();
                 String dateRecieved = frm.getDebitRequestDate();
                 try {
+                    if (dateRecieved == null || dateRecieved.trim().isEmpty()) {
+                        throw new NumberFormatException("missing debit request date");
+                    }
                     dateRecieved = dateRecieved.trim();
                     Integer.parseInt(dateRecieved);
-                } catch (Exception e) {
-                    MiscUtils.getLogger().error("Error", e);
-                    dateRecieved = "";
+                } catch (NumberFormatException e) {
+                    throw new IllegalArgumentException(
+                            "BC debit request date is malformed ["
+                                    + LogSanitizer.sanitizeForDisplay(dateRecieved) + "]",
+                            e);
                 }
 
                 originalMSPNumber = constructOriginalMSPNumber(dataCenterId, seqNum, dateRecieved);
@@ -306,7 +311,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
                 billingServicePrice = bdFee.toString();
             } catch (NumberFormatException e) {
                 MiscUtils.getLogger().error("Error", e);
-                throw new RuntimeException("BC BILLING - Exception when attempting to multiply Bill Amount by Unit ");
+                throw new RuntimeException("BC BILLING - Exception when attempting to multiply Bill Amount by Unit ", e);
             }
             bill.setProviderOhipNo(practitionerNo);
             bill.setBillingDate(MyDateFormat.getSysDate(serviceDate));

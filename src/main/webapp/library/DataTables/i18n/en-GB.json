@@ -1,3 +1,4 @@
+<%@ page contentType="application/json; charset=UTF-8" %>
 {
     "emptyTable": "No data available in table",
     "info": "Showing _START_ to _END_ of _TOTAL_ entries",
