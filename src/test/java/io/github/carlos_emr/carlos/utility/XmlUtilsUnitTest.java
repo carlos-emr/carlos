@@ -33,6 +33,7 @@ import javax.xml.validation.Schema;
 import javax.xml.validation.SchemaFactory;
 import java.io.StringReader;
 import java.net.URL;
+import java.util.Collections;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -124,6 +125,17 @@ class XmlUtilsUnitTest extends CarlosUnitTestBase {
                 XmlUtilsUnitTest.class,
                 "/omdDataMigration/",
                 Set.of("../EMR_Data_Migration_Schema_DT.xsd")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("simple file name");
+    }
+
+    @Test
+    @DisplayName("should reject null allowlisted schema import names")
+    void shouldRejectAllowlistedSchemaImportNames_whenNull() {
+        assertThatThrownBy(() -> XmlUtils.createClasspathSchemaResolver(
+                XmlUtilsUnitTest.class,
+                "/omdDataMigration/",
+                Collections.singleton(null)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("simple file name");
     }

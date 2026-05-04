@@ -321,8 +321,7 @@ public final class XmlUtils {
         Objects.requireNonNull(resourceDirectory, "resourceDirectory");
         Objects.requireNonNull(allowedSystemIds, "allowedSystemIds");
 
-        Set<String> allowedNames = Set.copyOf(allowedSystemIds);
-        for (String allowedName : allowedNames) {
+        for (String allowedName : allowedSystemIds) {
             if (allowedName == null
                     || allowedName.isBlank()
                     || allowedName.contains("/")
@@ -332,6 +331,7 @@ public final class XmlUtils {
                 throw new IllegalArgumentException("Allowed schema import must be a simple file name");
             }
         }
+        Set<String> allowedNames = Set.copyOf(allowedSystemIds);
 
         String resourcePrefix = normalizeClasspathResourceDirectory(resourceDirectory);
         return (_type, _namespaceURI, publicId, systemId, baseURI) -> {
