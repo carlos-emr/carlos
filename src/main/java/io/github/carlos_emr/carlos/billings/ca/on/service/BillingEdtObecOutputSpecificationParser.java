@@ -1,0 +1,168 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.billings.ca.on.service;
+
+import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.List;
+import java.util.ArrayList;
+import org.apache.commons.lang3.StringUtils;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingEdtObecOutputSpecificationRecordDto;
+import io.github.carlos_emr.carlos.commn.dao.BatchEligibilityDao;
+import io.github.carlos_emr.carlos.commn.model.BatchEligibility;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+/**
+ * Parses fixed-format Ontario EDT OBEC output specification files.
+ *
+ * <p>The parser models report data so callers can inspect and render records
+ * without duplicating report conventions in JSPs.</p>
+ */
+
+public class BillingEdtObecOutputSpecificationParser {
+
+    private final BatchEligibilityDao batchEligibilityDao;
+    private final DemographicManager demographicManager;
+    private final ProviderDao providerDao;
+
+    ArrayList<BillingEdtObecOutputSpecificationRecordDto> edtObecOutputSpecificationRecords = new ArrayList<BillingEdtObecOutputSpecificationRecordDto>();
+    public boolean verdict = true;
+    // Tracks how many non-empty records were encountered before a parse
+    // failure cleared the DTO list, so the upload UI can still report file
+    // scope accurately on all-or-nothing failures.
+    private int attemptedRecordCount;
+
+    public BillingEdtObecOutputSpecificationParser(LoggedInInfo loggedInInfo, FileInputStream file,
+                                                        BatchEligibilityDao batchEligibilityDao,
+                                                        DemographicManager demographicManager,
+                                                        ProviderDao providerDao) {
+        this(loggedInInfo, file, batchEligibilityDao, demographicManager, providerDao, "unknown");
+    }
+
+    public BillingEdtObecOutputSpecificationParser(LoggedInInfo loggedInInfo, FileInputStream file,
+                                                        BatchEligibilityDao batchEligibilityDao,
+                                                        DemographicManager demographicManager,
+                                                        ProviderDao providerDao,
+                                                        String sourceName) {
+        this.batchEligibilityDao = batchEligibilityDao;
+        this.demographicManager = demographicManager;
+        this.providerDao = providerDao;
+        init(loggedInInfo, file, sourceName);
+    }
+
+    public boolean init(LoggedInInfo loggedInInfo, FileInputStream file) {
+        return init(loggedInInfo, file, "unknown");
+    }
+
+    public boolean init(LoggedInInfo loggedInInfo, FileInputStream file, String sourceName) {
+
+        String nextline;
+        int lineNumber = 0;
+
+        try (BufferedReader input = new BufferedReader(new InputStreamReader(file))) {
+
+            while ((nextline = input.readLine()) != null) {
+                lineNumber++;
+
+                if (nextline.length() > 2) {
+                    attemptedRecordCount++;
+
+                    String obecHIN = nextline.substring(0, 10);
+                    String obecVer = nextline.substring(10, 12);
+                    String obecResponse = nextline.substring(12, 14);
+                    BillingEdtObecOutputSpecificationRecordDto osBean = new BillingEdtObecOutputSpecificationRecordDto(obecHIN, obecVer, obecResponse);
+
+                    List<Demographic> demos = demographicManager.searchByHealthCard(loggedInInfo, obecHIN);
+                    if (!demos.isEmpty()) {
+                        Demographic demo = demos.get(0);
+                        osBean.setLastName(demo.getLastName());
+                        osBean.setFirstName(demo.getFirstName());
+                        osBean.setDOB(demo.getDateOfBirth());
+                        osBean.setSex(demo.getSex());
+
+                        Provider provider = providerDao.getProvider(StringUtils.trimToNull(demo.getProviderNo()));
+
+                        if (provider != null) {
+                            osBean.setIdentifier(provider.getLastName());
+                        }
+                    }
+                    BatchEligibility batchEligibility = batchEligibilityDao.find(Integer.parseInt(obecResponse));
+
+                    if (batchEligibility != null) {
+                        osBean.setMOH(batchEligibility.getMOHResponse());
+                    }
+
+                    if (nextline.length() > 14) {
+                        //osBean.setIdentifier(nextline.substring(14,18));
+                        //osBean.setSex(nextline.substring(18,19));
+                        //osBean.setDOB(nextline.substring(19,27));
+                        osBean.setExpiry(nextline.substring(27, 35));
+                        //osBean.setLastName(nextline.substring(35,65));
+                        //osBean.setFirstName(nextline.substring(65,85));
+                        osBean.setSecondName(nextline.substring(85, 105));
+                        //osBean.setMOH(nextline.substring(105,207));
+                    }
+
+                    edtObecOutputSpecificationRecords.add(osBean);
+                }
+            }
+        } catch (IOException ioe) {
+            // Symmetric closure with the other batch parsers — IOException
+            // now flips verdict false AND SIOOBE branch logs.
+            verdict = false;
+            edtObecOutputSpecificationRecords.clear();
+            MiscUtils.getLogger().error(
+                    "EDT/OBEC parse failed (file={}, line={}, IOException), verdict=false",
+                    LogSanitizer.sanitize(sourceName), lineNumber, ioe);
+        } catch (StringIndexOutOfBoundsException ioe) {
+            verdict = false;
+            edtObecOutputSpecificationRecords.clear();
+            MiscUtils.getLogger().error(
+                    "EDT/OBEC parse failed (file={}, line={}, malformed record layout), verdict=false",
+                    LogSanitizer.sanitize(sourceName), lineNumber, ioe);
+        } catch (NumberFormatException nfe) {
+            verdict = false;
+            edtObecOutputSpecificationRecords.clear();
+            MiscUtils.getLogger().error(
+                    "EDT/OBEC parse failed (file={}, line={}, nonnumeric response code), verdict=false",
+                    LogSanitizer.sanitize(sourceName), lineNumber, nfe);
+        }
+        return verdict;
+    }
+
+    public java.util.List<BillingEdtObecOutputSpecificationRecordDto> getEdtObecOutputSpecificationRecords() {
+        return edtObecOutputSpecificationRecords;
+    }
+
+    public int getAttemptedRecordCount() {
+        return attemptedRecordCount;
+    }
+
+}

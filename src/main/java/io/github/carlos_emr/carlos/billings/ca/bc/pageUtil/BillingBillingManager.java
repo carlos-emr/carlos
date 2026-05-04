@@ -1,30 +1,24 @@
 /**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- * <p>
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- * <p>
- * This software was written for the
- * Department of Family Medicine
- * McMaster University
- * Hamilton
- * Ontario, Canada
- 
- * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
+ *
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 
@@ -32,12 +26,13 @@ import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
-import io.github.carlos_emr.carlos.billings.ca.on.administration.GstControl2Action;
+import io.github.carlos_emr.carlos.billings.ca.service.GstSettingsService;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
@@ -47,11 +42,23 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+/**
+ * Legacy BC billing form backing bean.
+ *
+ * <p>The Struts action populates this object for JSP rendering and billing
+ * calculations. Keep request handling, privilege checks, and database work in
+ * the action/service layer when changing this flow.</p>
+ */
 
 
 public class BillingBillingManager implements Serializable {
     private String billTtype;
-    private String gstPercent = (new GstControl2Action()).readDatabase().getProperty("gstPercent", "");
+    private String gstPercent = readCurrentGstPercent();
+
+    private static String readCurrentGstPercent() {
+        BigDecimal v = SpringUtils.getBean(GstSettingsService.class).getCurrentPercent();
+        return v == null ? "" : v.toPlainString();
+    }
 
     public BillingItem[] getBillingItem(String[] service, String service1, String service2, String service3, String service1unit, String service2unit, String service3unit) {
         BillingItem[] arr = {};
@@ -359,7 +366,12 @@ public class BillingBillingManager implements Serializable {
                         this.percentage = 100.00;
                     }
                 } catch (NumberFormatException eNum) {
-                    this.percentage = 100;
+                    throw new IllegalArgumentException(
+                            "BC BillingBillingManager: invalid percentage on service "
+                                    + LogSanitizer.sanitizeForDisplay(bs.getServiceCode())
+                                    + " (gstPercent=" + LogSanitizer.sanitizeForDisplay(gstPercent)
+                                    + ", bsPercentage=" + LogSanitizer.sanitizeForDisplay(bs.getPercentage()) + ")",
+                            eNum);
                 }
             }
         }

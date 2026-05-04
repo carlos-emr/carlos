@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,34 +17,31 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
-<%@ page import="java.sql.*, java.util.*,java.net.*, io.github.carlos_emr.MyDateFormat" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-
+<%--
+  Purpose: Supports billingDigUpdate in the Ontario billing workflow.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
+<%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
-    DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
-%>
+    // BillingDiagUpdate2Action enforces _billing w + POST and runs the
+    // DiagnosticCodeDao.merge mutation through a persister; this JSP just
+    // shows the success/error banner. Defensive fallback: if a caller forwards
+    // here without going through the action, show the error banner — never
+    // re-trigger the mutation.
+    %>
 <html>
 <head>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
     <script LANGUAGE="JavaScript">
         <!--
         function start() {
             this.focus();
-        }
-
-        function closeit() {
-            //self.opener.refresh();
-            //self.close();
         }
 
         //-->
@@ -59,36 +57,17 @@
                 ADD A BILLING RECORD</font></th>
         </tr>
     </table>
-    <%
-        boolean error = false;
-        String code = request.getParameter("update");
-        code = code.substring(code.length() - 3);
 
-        try {
-            List<DiagnosticCode> dcodes = diagnosticCodeDao.findByDiagnosticCode(code);
-            for (DiagnosticCode dcode : dcodes) {
-                dcode.setDescription(request.getParameter(code));
-                diagnosticCodeDao.merge(dcode);
-            }
-        } catch (Exception ex) {
-            error = true;
-            MiscUtils.getLogger().error("Error", ex);
-        }
-    %>
-
-    <%
-        if (!error) {
-    %>
-    <p>
-    <h1>Successful Addition of a billing Record.</h1></p>
-    <%
-    } else {
-    %>
-    <p>
-    <h1>Sorry, addition has failed.</h1></p>
-    <%
-        }
-    %>
+    <c:choose>
+        <c:when test="${not digUpdateModel.error}">
+            <p>
+            <h1>Successful Addition of a billing Record.</h1></p>
+        </c:when>
+        <c:otherwise>
+            <p>
+            <h1>Sorry, addition has failed.</h1></p>
+        </c:otherwise>
+    </c:choose>
     <p></p>
     <hr width="90%"></hr>
     <form><input type="button" value="Close this window"

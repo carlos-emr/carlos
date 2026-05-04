@@ -26,8 +26,13 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -47,6 +52,16 @@ class StrutsAdminConfigTest {
 
     private static final Path ADMIN_CONFIG = Path.of(
             "src", "main", "webapp", "WEB-INF", "classes", "struts-admin.xml");
+    private static final Path LOOKUP_LIST_INDEX_JSP = Path.of(
+            "src", "main", "webapp", "WEB-INF", "jsp", "admin", "lookUpLists", "index.jsp");
+    private static final Path LOOKUP_LIST_MANAGER_JSP = Path.of(
+            "src", "main", "webapp", "WEB-INF", "jsp", "admin", "lookUpLists", "manageLookUpLists.jsp");
+    private static final String LOOKUP_LIST_MANAGER_FRAGMENT =
+            "/WEB-INF/jsp/admin/lookUpLists/manageLookUpLists.jsp";
+    private static final String LOOKUP_LIST_ITEM_FRAGMENT = "/WEB-INF/jsp/admin/lookUpLists/lookupList.jsp";
+    private static final Pattern C_IMPORT_URL_PATTERN = Pattern.compile(
+            "<c:import\\b[^>]*\\burl\\s*=\\s*\"([^\"]+)\"",
+            Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
     private static final int MAX_PARENT_SEARCH_DEPTH = 8;
 
     private static Document adminConfig;
@@ -71,6 +86,21 @@ class StrutsAdminConfigTest {
                 .isEqualTo("/WEB-INF/jsp/admin/lookUpLists/index.jsp");
     }
 
+    @Test
+    @DisplayName("lookup list JSP fragments should import protected JSPs without action dispatch")
+    void shouldImportProtectedJspFragments_forLookupListFragments() throws Exception {
+        String indexJsp = readProjectFile(LOOKUP_LIST_INDEX_JSP);
+        String managerJsp = readProjectFile(LOOKUP_LIST_MANAGER_JSP);
+
+        assertThat(extractImportUrls(indexJsp))
+                .as("lookupListManagerAction forwards to WEB-INF; nested fragments must use absolute "
+                        + "protected JSP imports, not relative paths or extra action dispatches")
+                .containsExactly(LOOKUP_LIST_MANAGER_FRAGMENT);
+        assertThat(extractImportUrls(managerJsp))
+                .as("both lookupLists and manageSingle branches must include lookupList.jsp directly")
+                .containsExactly(LOOKUP_LIST_ITEM_FRAGMENT, LOOKUP_LIST_ITEM_FRAGMENT);
+    }
+
     private Element findAction(String actionName) {
         NodeList actions = adminConfig.getElementsByTagName("action");
         for (int i = 0; i < actions.getLength(); i++) {
@@ -91,6 +121,19 @@ class StrutsAdminConfigTest {
             }
         }
         return "";
+    }
+
+    private static String readProjectFile(Path relativePath) throws Exception {
+        return Files.readString(resolveProjectPath(relativePath), StandardCharsets.UTF_8);
+    }
+
+    private static List<String> extractImportUrls(String jspSource) {
+        Matcher matcher = C_IMPORT_URL_PATTERN.matcher(jspSource);
+        List<String> urls = new ArrayList<>();
+        while (matcher.find()) {
+            urls.add(matcher.group(1));
+        }
+        return urls;
     }
 
     private static Document parse(Path configPath) throws Exception {

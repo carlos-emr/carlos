@@ -29,13 +29,33 @@
 
 --%>
 
+<%-- ========== PAGE IMPORTS ========== --%>
+<%@ page import="java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicArchiveDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicArchive" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.Util" %>
+<%@ page import="org.apache.commons.lang3.StringUtils" %>
+<%@ page import="org.apache.commons.lang3.math.NumberUtils" %>
+
+<%-- ========== TAGLIB DECLARATIONS ========== --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+
+<%-- ========== SECURITY CHECK ========== --%>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="r" reverse="<%=true%>">
-    <%authed = false; %>
+    <%authed = false;%>
     <%response.sendRedirect(request.getContextPath() + "/securityError?type=_demographic");%>
 </security:oscarSec>
 <%
@@ -44,254 +64,228 @@
     }
 %>
 
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%-- ========== BUSINESS LOGIC ========== --%>
+<%
+    // Get Spring beans
+    ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
+    DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
+    DemographicArchiveDao demoArchiveDao = SpringUtils.getBean(DemographicArchiveDao.class);
 
-<%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicArchiveDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.DemographicArchive" %>
-<%@page import="java.util.List" %>
-<%@page import="java.util.Date" %>
-<%@page import="io.github.carlos_emr.carlos.util.DateUtils" %>
-<%@page import="io.github.carlos_emr.carlos.util.StringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.demographic.pageUtil.Util" %>
-<html>
-    <head>
-        <title><fmt:message key="demographic.enrollementhistory.enrollmentHistory"/></title>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
-        <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
-        <script>
-            jQuery.noConflict();
-        </script>
-        <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
-        <script>
-            var ctx = '<%=request.getContextPath()%>';
-        </script>
+    // Read request parameters
+    String demographicNo = request.getParameter("demographicNo");
 
-        <title><fmt:message key="demographic.enrollementhistory.enrollmentHistory"/></title>
-        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
-
-        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
-
-
-    </head>
-
-    <%
-        String demographicNo = request.getParameter("demographicNo");
-        ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
-
-        //load demographic
-        DemographicDao demographicDao = (DemographicDao) SpringUtils.getBean(DemographicDao.class);
-        Demographic demographic = demographicDao.getClientByDemographicNo(Integer.valueOf(demographicNo));
-
-        //load current roster status
-        String rosterStatus = demographic.getRosterStatus();
-        Date rosterDate = demographic.getRosterDate();
-        Date rosterTermDate = demographic.getRosterTerminationDate();
-    %>
-
-    <body class="BodyStyle" vlink="#0000FF">
-
-    <table class="MainTable" id="scrollNumber1" name="encounterTable">
-        <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn"><fmt:message key="demographic.enrollementhistory.enrollmentHistory"/></td>
-            <td class="MainTableTopRowRightColumn">
-                <table class="TopStatusBar">
-                    <tr>
-                        <td><%=demographic.getFormattedName() %> (<%=demographic.getFormattedDob()%>)</td>
-                        <td>&nbsp;</td>
-                        <td style="text-align: right"><a target="_blank"
-                                href="http://www.oscarmanual.org/search?SearchableText=appointment history"><fmt:message key="demographic.enrollementhistory.help"/></a>
-                            | <a href="javascript:popupStart(300,400,'About.jsp')">
-                                <fmt:message key="global.about"/></a> | <a href="javascript:popupStart(300,400,'License.jsp')">
-                                <fmt:message key="global.license"/></a>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableLeftColumn" valign="top">
-                &nbsp;
-            </td>
-            <td class="MainTableRightColumn">
-                <% if (!org.apache.commons.lang3.StringUtils.isEmpty(demographic.getRosterStatus())) { %>
-                <h2><fmt:message key="demographic.enrollementhistory.currentEnrollmentStatus"/></h2>
-                <br/>
-                <table style="width:5%">
-                    <tr>
-                        <td nowrap="nowrap"><b><fmt:message key="demographic.enrollementhistory.status"/></b>:</td>
-                        <td nowrap="nowrap"><%=demographic.getRosterStatusDisplay()%>
-                        </td>
-                    </tr>
-                    <% if ("RO".equals(demographic.getRosterStatus()) || "TE".equals(demographic.getRosterStatus())) { %>
-                    <tr>
-                        <td nowrap="nowrap"><b><fmt:message key="demographic.enrollementhistory.dateRostered"/></b>:</td>
-                        <td nowrap="nowrap"><%=DateUtils.formatDate(demographic.getRosterDate(), request.getLocale())%>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td nowrap="nowrap"><b><fmt:message key="demographic.enrollementhistory.enrolledTo"/></b>:</td>
-                        <td nowrap="nowrap"><%=providerDao.getProviderName(demographic.getRosterEnrolledTo())%>
-                        </td>
-                    </tr>
-                    <% } %>
-
-                    <% if ("TE".equals(demographic.getRosterStatus())) { %>
-                    <tr>
-                        <td nowrap="nowrap"><b><fmt:message key="demographic.enrollementhistory.dateTerminated"/></b>:</td>
-                        <td nowrap="nowrap"><%=DateUtils.formatDate(demographic.getRosterTerminationDate(), request.getLocale())%>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td nowrap="nowrap"><b><fmt:message key="demographic.enrollementhistory.terminationReason"/></b>:</td>
-                        <td nowrap="nowrap"><%=Util.rosterTermReasonProperties.getReasonByCode(demographic.getRosterTerminationReason()) %>
-                        </td>
-                    </tr>
-                    <% } %>
-                </table>
-
-                <br/>
-
-                <h2><fmt:message key="demographic.enrollementhistory.patientEnrollmentHistory"/></h2>
-                <br/>
-
-                <table width="80%">
-                    <%
-                        DemographicArchiveDao demoArchiveDao = (DemographicArchiveDao) SpringUtils.getBean(DemographicArchiveDao.class);
-                        List<DemographicArchive> archiveList = demoArchiveDao.findByDemographicNoChronologically(demographic.getDemographicNo());
-
-                        String currentRosterStatus = null;
-
-                        boolean printedHeaders = false;
-
-                        String lastRosterStatusDisplay = null;
-                        String lastRosterDateDisplay = null;
-                        String lastRosterEnrolledToDisplay = null;
-                        String lastRosterTerminationDateDisplay = null;
-                        String lastRosterTerminationReasonDisplay = null;
-
-                        for (DemographicArchive da : archiveList) {
-                            String itemRosterStatus = da.getRosterStatus();
-
-                            //has any field changed.
-                            if (itemRosterStatus != null && !itemRosterStatus.equals(currentRosterStatus)) {
-                                String iRosterStatus = da.getRosterStatus();
-
-                                if ("".equals(iRosterStatus)) {
-                                    continue;
-                                }
-
-
-                                String iRosterEnrolledTo = da.getRosterEnrolledTo();
-                                Provider enrolledToProvider = providerDao.getProvider(iRosterEnrolledTo);
-
-                                Date iRosterDate = da.getRosterDate();
-                                Date iRosterTermination = da.getRosterTerminationDate();
-                                String iRosterTerminationReason = da.getRosterTerminationReason();
-
-                                String dRosterStatus = getRosterStatusDisplay(iRosterStatus);
-                                String dRosterEnrolledTo = enrolledToProvider != null ? enrolledToProvider.getFormattedName() : "N/A";
-                                String dRosterDate = DateUtils.formatDate(iRosterDate, request.getLocale());
-                                String dRosterTerminationDate = iRosterTermination != null ? DateUtils.formatDate(iRosterTermination, request.getLocale()) : "";
-                                String dRosterTerminationReason = iRosterTerminationReason != null && Util.rosterTermReasonProperties.getReasonByCode(iRosterTerminationReason) != null ? Util.rosterTermReasonProperties.getReasonByCode(iRosterTerminationReason) : "";
-
-                                //all same?
-                                if (dRosterStatus.equals(lastRosterStatusDisplay) && dRosterEnrolledTo.equals(lastRosterEnrolledToDisplay) && dRosterDate.equals(lastRosterDateDisplay) && dRosterTerminationDate.equals(lastRosterTerminationDateDisplay) && dRosterTerminationReason.equals(lastRosterTerminationReasonDisplay)) {
-                                    continue;
-                                }
-                    %>
-                    <%
-                        if (!printedHeaders) {
-                            printedHeaders = true;
-                    %>
-                    <tr>
-                        <th><fmt:message key="demographic.enrollementhistory.dateOfRecord"/></th>
-                        <th><fmt:message key="demographic.enrollementhistory.status"/></th>
-                        <th><fmt:message key="demographic.enrollementhistory.enrolledTo"/></th>
-                        <th><fmt:message key="demographic.enrollementhistory.dateRostered"/></th>
-                        <th><fmt:message key="demographic.enrollementhistory.dateTerminated"/></th>
-                        <th><fmt:message key="demographic.enrollementhistory.terminationReason"/></th>
-                    </tr>
-                    <%
-                        }
-                    %>
-
-                    <tr>
-                        <td><%=DateUtils.formatDate(da.getLastUpdateDate(), request.getLocale())%>
-                        </td>
-                        <td><%=dRosterStatus %>
-                        </td>
-                        <td><%=dRosterEnrolledTo %>
-                        </td>
-                        <td><%=dRosterDate %>
-                        </td>
-                        <td><%=dRosterTerminationDate %>
-                        </td>
-                        <td><%=dRosterTerminationReason %>
-                        </td>
-                    </tr>
-                    <%
-
-                                lastRosterStatusDisplay = dRosterStatus;
-                                lastRosterEnrolledToDisplay = dRosterEnrolledTo;
-                                lastRosterDateDisplay = dRosterDate;
-                                lastRosterTerminationDateDisplay = dRosterTerminationDate;
-                                lastRosterTerminationReasonDisplay = dRosterTerminationReason;
-                            }
-
-                        }
-                    %>
-
-
-                    <% } else { %>
-                    <table>
-                        <tr>
-                            <td><fmt:message key="demographic.enrollementhistory.noEnrollmentDataFound"/></td>
-                        </tr>
-                    </table>
-                    <% } %>
-
-                </table>
-
-                <br/>
-
-                <input type="button" value="close" onClick="window.close()"/>
-            </td>
-        </tr>
-
-    </table>
-    </body>
-</html>
-
-
-<%!
-    String getRosterStatusDisplay(String rosterStatus) {
-        String rs = org.apache.commons.lang3.StringUtils.trimToNull(rosterStatus);
-        if (rs != null) {
-            if ("RO".equals(rs)) {
-                return "ROSTERED";
-            }
-            if ("TE".equals(rs)) {
-                return "TERMINATED";
-            }
-            if ("FS".equals(rs)) {
-                return "FEE FOR SERVICE";
-            }
-            return rs;
-        } else {
-            return "";
-        }
+    int demographicId = NumberUtils.toInt(demographicNo, -1);
+    Demographic demographic = demographicId > 0
+            ? demographicDao.getClientByDemographicNo(demographicId)
+            : null;
+    if (demographic == null) {
+        response.sendError(404);
+        return;
     }
 
+    // Build history rows — deduplicate consecutive identical entries
+    List<Map<String, String>> historyRows = new ArrayList<>();
+    String lastRosterStatusDisplay = null;
+    String lastRosterDateDisplay = null;
+    String lastRosterEnrolledToDisplay = null;
+    String lastRosterTerminationDateDisplay = null;
+    String lastRosterTerminationReasonDisplay = null;
 
+    List<DemographicArchive> archiveList = demoArchiveDao.findByDemographicNoChronologically(demographic.getDemographicNo());
+
+    for (DemographicArchive da : archiveList) {
+        String itemRosterStatus = da.getRosterStatus();
+        if (itemRosterStatus == null || "".equals(itemRosterStatus)) {
+            continue;
+        }
+
+        String iRosterEnrolledTo = da.getRosterEnrolledTo();
+        Provider enrolledToProvider = providerDao.getProvider(iRosterEnrolledTo);
+
+        String dRosterEnrolledTo = enrolledToProvider != null ? enrolledToProvider.getFormattedName() : "N/A";
+        String dRosterDate = DateUtils.formatDate(da.getRosterDate(), request.getLocale());
+        String dRosterTerminationDate = da.getRosterTerminationDate() != null
+                ? DateUtils.formatDate(da.getRosterTerminationDate(), request.getLocale()) : "";
+        String dRosterTerminationReason = "";
+        if (da.getRosterTerminationReason() != null) {
+            String reason = Util.rosterTermReasonProperties.getReasonByCode(da.getRosterTerminationReason());
+            if (reason != null) dRosterTerminationReason = reason;
+        }
+
+        // Compute a stable display value for deduplication comparison
+        String dRosterStatusDisplay;
+        if ("RO".equals(itemRosterStatus)) dRosterStatusDisplay = "ROSTERED";
+        else if ("TE".equals(itemRosterStatus)) dRosterStatusDisplay = "TERMINATED";
+        else if ("FS".equals(itemRosterStatus)) dRosterStatusDisplay = "FEE FOR SERVICE";
+        else dRosterStatusDisplay = itemRosterStatus;
+
+        // Skip if all fields are identical to the previous printed row
+        if (dRosterStatusDisplay.equals(lastRosterStatusDisplay)
+                && dRosterEnrolledTo.equals(lastRosterEnrolledToDisplay)
+                && dRosterDate.equals(lastRosterDateDisplay)
+                && dRosterTerminationDate.equals(lastRosterTerminationDateDisplay)
+                && dRosterTerminationReason.equals(lastRosterTerminationReasonDisplay)) {
+            continue;
+        }
+
+        Map<String, String> row = new LinkedHashMap<>();
+        row.put("dateOfRecord", DateUtils.formatDate(da.getLastUpdateDate(), request.getLocale()));
+        row.put("rosterStatusCode", itemRosterStatus);
+        row.put("enrolledTo", dRosterEnrolledTo);
+        row.put("dateRostered", dRosterDate);
+        row.put("dateTerminated", dRosterTerminationDate);
+        row.put("terminationReason", dRosterTerminationReason);
+        historyRows.add(row);
+
+        lastRosterStatusDisplay = dRosterStatusDisplay;
+        lastRosterEnrolledToDisplay = dRosterEnrolledTo;
+        lastRosterDateDisplay = dRosterDate;
+        lastRosterTerminationDateDisplay = dRosterTerminationDate;
+        lastRosterTerminationReasonDisplay = dRosterTerminationReason;
+    }
+
+    // Current enrollment status info
+    String currentRosterStatus = demographic.getRosterStatus();
+    String currentEnrolledToName = providerDao.getProviderName(demographic.getRosterEnrolledTo());
+    String currentRosterDate = DateUtils.formatDate(demographic.getRosterDate(), request.getLocale());
+    String currentTermDate = demographic.getRosterTerminationDate() != null
+            ? DateUtils.formatDate(demographic.getRosterTerminationDate(), request.getLocale()) : "";
+    String currentTermReason = "";
+    if (demographic.getRosterTerminationReason() != null) {
+        String r = Util.rosterTermReasonProperties.getReasonByCode(demographic.getRosterTerminationReason());
+        if (r != null) currentTermReason = r;
+    }
+
+    // Set page context attributes for JSTL
+    pageContext.setAttribute("ctx", request.getContextPath());
+    pageContext.setAttribute("demographic", demographic);
+    pageContext.setAttribute("hasEnrollmentStatus", !StringUtils.isEmpty(currentRosterStatus));
+    pageContext.setAttribute("historyRows", historyRows);
+    pageContext.setAttribute("hasHistory", !historyRows.isEmpty());
+    pageContext.setAttribute("currentRosterStatus", currentRosterStatus != null ? currentRosterStatus : "");
+    pageContext.setAttribute("currentEnrolledToName", currentEnrolledToName != null ? currentEnrolledToName : "");
+    pageContext.setAttribute("currentRosterDate", currentRosterDate != null ? currentRosterDate : "");
+    pageContext.setAttribute("currentTermDate", currentTermDate);
+    pageContext.setAttribute("currentTermReason", currentTermReason);
 %>
 
+<fmt:setBundle basename="oscarResources"/>
 
+<!DOCTYPE html>
+<html lang="${pageContext.request.locale.language}">
+<head>
+    <meta charset="UTF-8">
+    <title><fmt:message key="demographic.enrollementhistory.enrollmentHistory"/></title>
+    <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+    <link rel="stylesheet" type="text/css" href="${ctx}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css">
+    <script type="text/javascript" src="${ctx}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
+    <script type="text/javascript" src="${ctx}/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
+    <script>
+        jQuery(document).ready(function () {
+            jQuery('#enrollmentHistoryTbl').DataTable({
+                searching: false,
+                pageLength: 25,
+                language: {
+                    url: '${ctx}/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json'
+                }
+            });
+        });
+    </script>
+</head>
+<body>
+<div class="container mt-2">
+
+    <div class="page-header-bar d-flex align-items-center justify-content-between py-2 mb-3 border-bottom" id="header">
+        <div class="d-flex align-items-center gap-2">
+            <i class="fa-solid fa-file-medical"></i>
+            <span class="fw-semibold"><fmt:message key="demographic.enrollementhistory.enrollmentHistory"/></span>
+        </div>
+        <div class="text-muted small">
+            <carlos:encode value="${demographic.formattedName}" context="html"/>
+            (<carlos:encode value="${demographic.formattedDob}" context="html"/>)
+        </div>
+    </div>
+
+    <div class="bg-light border rounded p-3">
+
+        <c:if test="${hasEnrollmentStatus}">
+            <h5 class="mb-3"><fmt:message key="demographic.enrollementhistory.currentEnrollmentStatus"/></h5>
+            <dl class="row mb-4">
+                <dt class="col-sm-4"><fmt:message key="demographic.enrollementhistory.status"/>:</dt>
+                <dd class="col-sm-8">
+                    <c:choose>
+                        <c:when test="${currentRosterStatus eq 'RO'}"><fmt:message key="demographic.enrollementhistory.Rostered"/></c:when>
+                        <c:when test="${currentRosterStatus eq 'TE'}"><fmt:message key="demographic.enrollementhistory.terminated"/></c:when>
+                        <c:when test="${currentRosterStatus eq 'FS'}"><fmt:message key="demographic.enrollementhistory.feeforservice"/></c:when>
+                        <c:otherwise><carlos:encode value="${currentRosterStatus}" context="html"/></c:otherwise>
+                    </c:choose>
+                </dd>
+
+                <c:if test="${currentRosterStatus eq 'RO' or currentRosterStatus eq 'TE'}">
+                    <dt class="col-sm-4"><fmt:message key="demographic.enrollementhistory.dateRostered"/>:</dt>
+                    <dd class="col-sm-8"><carlos:encode value="${currentRosterDate}" context="html"/></dd>
+                    <dt class="col-sm-4"><fmt:message key="demographic.enrollementhistory.enrolledTo"/>:</dt>
+                    <dd class="col-sm-8"><carlos:encode value="${currentEnrolledToName}" context="html"/></dd>
+                </c:if>
+
+                <c:if test="${currentRosterStatus eq 'TE'}">
+                    <dt class="col-sm-4"><fmt:message key="demographic.enrollementhistory.dateTerminated"/>:</dt>
+                    <dd class="col-sm-8"><carlos:encode value="${currentTermDate}" context="html"/></dd>
+                    <dt class="col-sm-4"><fmt:message key="demographic.enrollementhistory.terminationReason"/>:</dt>
+                    <dd class="col-sm-8"><carlos:encode value="${currentTermReason}" context="html"/></dd>
+                </c:if>
+            </dl>
+        </c:if>
+
+        <h5 class="mb-3"><fmt:message key="demographic.enrollementhistory.patientEnrollmentHistory"/></h5>
+
+        <c:choose>
+            <c:when test="${hasHistory}">
+                <table id="enrollmentHistoryTbl" class="table table-striped table-hover table-sm">
+                    <thead>
+                        <tr>
+                            <th><fmt:message key="demographic.enrollementhistory.dateOfRecord"/></th>
+                            <th><fmt:message key="demographic.enrollementhistory.status"/></th>
+                            <th><fmt:message key="demographic.enrollementhistory.enrolledTo"/></th>
+                            <th><fmt:message key="demographic.enrollementhistory.dateRostered"/></th>
+                            <th><fmt:message key="demographic.enrollementhistory.dateTerminated"/></th>
+                            <th><fmt:message key="demographic.enrollementhistory.terminationReason"/></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <c:forEach items="${historyRows}" var="row">
+                            <tr>
+                                <td><carlos:encode value="${row.dateOfRecord}" context="html"/></td>
+                                <td>
+                                    <c:choose>
+                                        <c:when test="${row.rosterStatusCode eq 'RO'}"><fmt:message key="demographic.enrollementhistory.Rostered"/></c:when>
+                                        <c:when test="${row.rosterStatusCode eq 'TE'}"><fmt:message key="demographic.enrollementhistory.terminated"/></c:when>
+                                        <c:when test="${row.rosterStatusCode eq 'FS'}"><fmt:message key="demographic.enrollementhistory.feeforservice"/></c:when>
+                                        <c:otherwise><carlos:encode value="${row.rosterStatusCode}" context="html"/></c:otherwise>
+                                    </c:choose>
+                                </td>
+                                <td><carlos:encode value="${row.enrolledTo}" context="html"/></td>
+                                <td><carlos:encode value="${row.dateRostered}" context="html"/></td>
+                                <td><carlos:encode value="${row.dateTerminated}" context="html"/></td>
+                                <td><carlos:encode value="${row.terminationReason}" context="html"/></td>
+                            </tr>
+                        </c:forEach>
+                    </tbody>
+                </table>
+            </c:when>
+            <c:otherwise>
+                <p class="text-muted"><fmt:message key="demographic.enrollementhistory.noEnrollmentDataFound"/></p>
+            </c:otherwise>
+        </c:choose>
+
+        <div class="mt-3">
+            <button type="button" class="btn btn-secondary" onclick="window.close()">
+                <fmt:message key="global.btnClose"/>
+            </button>
+        </div>
+
+    </div><%-- end bg-light --%>
+
+</div><%-- end container --%>
+</body>
+</html>

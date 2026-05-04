@@ -50,7 +50,7 @@ public class YourComponentIntegrationTest extends CarlosTestBase {
 
     @Test
     @DisplayName("should perform expected behavior when condition met")
-    void should_performExpectedBehavior_when_conditionMet() {
+    void shouldPerformExpectedBehavior_whenConditionMet() {
         // Given
         Entity entity = createTestEntity();
 
@@ -195,17 +195,9 @@ Located in `src/test-modern/resources/`:
 Use BDD-style naming for clarity:
 
 ```java
-// Pattern 1: should_expectedBehavior_when_condition
+// Pattern: should<Action>_<prepositionOrContext><Condition>
 @Test
-void should_returnActiveTicklers_when_demographicNumberProvided() { }
-
-// Pattern 2: methodName_scenario_expectedOutcome
-@Test
-void findById_validId_returnsTickler() { }
-
-// Pattern 3: shouldExpectedBehavior (simple cases)
-@Test
-void shouldLoadSpringContext() { }
+void shouldReturnActiveTicklers_whenDemographicNumberProvided() { }
 ```
 
 ### Test Organization
@@ -216,14 +208,14 @@ void shouldLoadSpringContext() { }
 @DisplayName("Validation Logic")
 class ValidationLogic {
     @Test
-    void should_validateRequiredFields() { }
+    void shouldValidateRequiredFields_whenInputMissing() { }
 }
 
 @Nested
 @DisplayName("Business Operations")
 class BusinessOperations {
     @Test
-    void should_persistValidEntity() { }
+    void shouldPersistValidEntity_withValidInput() { }
 }
 ```
 
@@ -255,7 +247,7 @@ public abstract class TicklerTestBase extends CarlosTestBase {
 @Test
 @Transactional
 @Rollback
-void should_persistAndRetrieveEntity() {
+void shouldPersistAndRetrieveEntity_withRollback() {
     // Database changes are automatically rolled back
 }
 ```
@@ -295,7 +287,7 @@ public class TicklerDaoIntegrationTest extends CarlosDaoTestBase {
     }
 
     @Test
-    void should_findActiveTicklers() {
+    void shouldFindActiveTicklers_forDefaultQuery() {
         // Given - setup test data
         Tickler tickler = createAndPersistTickler();
 
@@ -326,7 +318,7 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
     }
 
     @Test
-    void should_validateBeforePersisting() {
+    void shouldValidate_beforePersisting() {
         // Test business logic with mocked dependencies
     }
 }
