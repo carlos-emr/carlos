@@ -402,7 +402,7 @@
             <form method="POST" action="<%= request.getContextPath() %>/messenger/AdjustAttachments"><input
                     type="hidden" name="xmlDoc"
                     value="<%= SafeEncode.forHtmlAttribute(MsgCommxml.encode64(MsgCommxml.toXML(root))) %>"/> <input
-                    type="hidden" name="id" value="<%= SafeEncode.forHtmlAttribute(String.valueOf(request.getAttribute("attId"))) %>"/>
+                    type="hidden" name="id" value="<%= SafeEncode.forHtmlAttribute((String) request.getAttribute("attId")) %>"/>
 
 <table class="MainTable" id="scrollNumber1" name="encounterTable">
 
