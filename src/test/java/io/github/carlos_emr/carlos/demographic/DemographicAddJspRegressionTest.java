@@ -46,7 +46,7 @@ class DemographicAddJspRegressionTest {
 
     @Test
     @DisplayName("should not import non-existent SpringUtils package")
-    void shouldNotImportInvalidSpringUtilsPackage_forAddPatientPage() throws IOException {
+    void shouldNotImportInvalidSpringUtilsPackage_whenJspIsLoaded() throws IOException {
         String jsp = Files.readString(ADD_JSP, StandardCharsets.UTF_8);
 
         assertThat(jsp)
