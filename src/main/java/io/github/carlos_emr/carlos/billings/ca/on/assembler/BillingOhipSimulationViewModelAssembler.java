@@ -32,6 +32,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingBatchHeaderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOhipSimulationViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.service.OhipClaimFileService;
@@ -144,25 +145,29 @@ public class BillingOhipSimulationViewModelAssembler {
     private List<BillingOhipSimulationViewModel.ProviderOption> loadProviders(
             String userNo, boolean teamBillingOnly, boolean siteAccessPrivacy,
             boolean teamAccessPrivacy) {
-        @SuppressWarnings("rawtypes")
-        List providerStr;
-        if (teamBillingOnly || teamAccessPrivacy) {
-            providerStr = reviewPrep.getTeamProviderBillingStr(userNo);
-        } else if (siteAccessPrivacy) {
-            providerStr = reviewPrep.getSiteProviderBillingStr(userNo);
-        } else {
-            providerStr = reviewPrep.getProviderBillingStr();
-        }
         List<BillingOhipSimulationViewModel.ProviderOption> out = new ArrayList<>();
-        for (Object o : providerStr) {
-            String[] temp = ((String) o).split("\\|");
-            String providerNo = temp.length > 0 ? temp[0] : "";
-            String last = temp.length > 1 ? temp[1] : "";
-            String first = temp.length > 2 ? temp[2] : "";
+        for (ProviderDropdownEntry provider : loadProviderEntries(
+                userNo, teamBillingOnly, siteAccessPrivacy, teamAccessPrivacy)) {
             out.add(new BillingOhipSimulationViewModel.ProviderOption(
-                    providerNo, last, first));
+                    provider.providerNo(), provider.lastName(), provider.firstName()));
         }
         return out;
+    }
+
+    // Provider rows are typed records now; keep this central so the dropdown
+    // and "all providers" simulation paths cannot drift back to pipe parsing.
+    private List<ProviderDropdownEntry> loadProviderEntries(
+            String userNo, boolean teamBillingOnly, boolean siteAccessPrivacy,
+            boolean teamAccessPrivacy) {
+        List<ProviderDropdownEntry> providerEntries;
+        if (teamBillingOnly || teamAccessPrivacy) {
+            providerEntries = reviewPrep.getTeamProviderBillingStr(userNo);
+        } else if (siteAccessPrivacy) {
+            providerEntries = reviewPrep.getSiteProviderBillingStr(userNo);
+        } else {
+            providerEntries = reviewPrep.getProviderBillingStr();
+        }
+        return providerEntries == null ? List.of() : providerEntries;
     }
 
     private BillingOhipSimulationViewModel.SimulationPreview buildMultisitePreview(
@@ -214,17 +219,9 @@ public class BillingOhipSimulationViewModelAssembler {
         String pro = request.getParameter("providers");
         List<String> providerList = new ArrayList<>();
         if ("all".equals(pro)) {
-            @SuppressWarnings("rawtypes")
-            List providerStr;
-            if (teamBillingOnly || teamAccessPrivacy) {
-                providerStr = reviewPrep.getTeamProviderBillingStr(userNo);
-            } else if (siteAccessPrivacy) {
-                providerStr = reviewPrep.getSiteProviderBillingStr(userNo);
-            } else {
-                providerStr = reviewPrep.getProviderBillingStr();
-            }
-            for (Object s : providerStr) {
-                providerList.add(((String) s).split("\\|")[0]);
+            for (ProviderDropdownEntry provider : loadProviderEntries(
+                    userNo, teamBillingOnly, siteAccessPrivacy, teamAccessPrivacy)) {
+                providerList.add(provider.providerNo());
             }
         } else {
             providerList.add(pro);
