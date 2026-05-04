@@ -51,7 +51,6 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="java.util.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<fmt:message key="inboxmanager.document.documents" var="documentsLabel"/>
 <!DOCTYPE HTML >
 
 <html>
@@ -74,6 +73,7 @@
           href="${pageContext.servletContext.contextPath}/share/css/OscarStandardLayout.css">
     <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/share/css/global.css"/>
 
+    <fmt:message key="inboxmanager.document.documents" var="documentsLabel"/>
     <script type="text/javascript">
         var contextpath = "${pageContext.servletContext.contextPath}";
         const ctx = contextpath;
