@@ -71,7 +71,7 @@ jobs:
           # Find keys added to English properties in this PR
           NEW_EN_KEYS=$(git diff origin/${{ github.base_ref }}...HEAD \
             -- src/main/resources/oscarResources_en.properties \
-            | grep '^+' | grep -v '^+++' | grep -Ev '^+[[:space:]]*[#!]' \
+            | grep '^+' | grep -v '^+++' | grep -Ev '^\+[[:space:]]*[#!]' \
             | sed 's/^+//' | sed -E 's/[[:space:]]*[=:].*//' | sed 's/[[:space:]]*$//' \
             | grep -v '^$' | sort -u)
 
