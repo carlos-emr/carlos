@@ -140,7 +140,7 @@ public class PrintDemoLabel2Action extends ActionSupport {
      * Content-Type: application/pdf and Content-Disposition: inline, causing
      * the browser to display the PDF inline rather than prompting for download.</p>
      *
-     * @return String always returns SUCCESS after streaming the PDF
+     * @return String always returns NONE after streaming the PDF
      * @throws SecurityException if the current user lacks "_demographic" read privilege
      */
     public String execute() {

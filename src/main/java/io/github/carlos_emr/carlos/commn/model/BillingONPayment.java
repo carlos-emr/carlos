@@ -1,30 +1,24 @@
 /**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- * <p>
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- * <p>
- * This software was written for the
- * Department of Family Medicine
- * McMaster University
- * Hamilton
- * Ontario, Canada
- 
- * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
+ *
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
 package io.github.carlos_emr.carlos.commn.model;
@@ -55,7 +49,11 @@ public class BillingONPayment extends AbstractModel<Integer> implements Serializ
     @Column(name = "payment_id", nullable = false)
     private Integer id;
 
-    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    // LAZY: every caller that mutates this collection (BillingOnClaimPersister,
+    // BillingONPaymentDaoImpl) does so on a freshly created entity or inside
+    // an open Hibernate session, so lazy initialisation works correctly. No
+    // outside-session readers exist as of 2026-04-27.
+    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JoinColumn(name = "payment_id", referencedColumnName = "payment_id")
     private List<BillingONExt> billingONExtItems = new ArrayList<BillingONExt>();
 
@@ -185,11 +183,35 @@ public class BillingONPayment extends AbstractModel<Integer> implements Serializ
     }
 
     /**
-     * This comparator sorts EncounterForm ascending based on the formName
+     * Ascending payment-date order. Null payment dates sort last so callers
+     * that didn't filter pre-persist rows don't get an NPE in the middle of
+     * a comparator-driven sort.
      */
-    public static final Comparator<BillingONPayment> BILLING_ON_PAYMENT_COMPARATOR = new Comparator<BillingONPayment>() {
-        public int compare(BillingONPayment p1, BillingONPayment p2) {
-            return (p1.getPaymentDate().compareTo(p2.getPaymentDate()));
+    public static final Comparator<BillingONPayment> BILLING_ON_PAYMENT_COMPARATOR =
+            Comparator.comparing(BillingONPayment::getPaymentDate,
+                    Comparator.nullsLast(Comparator.naturalOrder()));
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        BillingONPayment that = (BillingONPayment) o;
+        // Id-based when both persisted; identity otherwise. Mirrors the
+        // BillingONItem fix from this PR — but unlike BillingONItem there is
+        // no natural-key alternative, so two transient instances are only
+        // equal when they're the same object.
+        if (id == null || that.id == null) {
+            return false;
         }
-    };
+        return id.equals(that.id);
+    }
+
+    @Override
+    public int hashCode() {
+        // Stable across persist for a single instance (id is set once),
+        // contract-correct: any two .equals() instances share id therefore
+        // share hash. Transient instances all hash to 0 — they only equal
+        // themselves anyway, so collisions on 0 are harmless.
+        return id != null ? id.hashCode() : 0;
+    }
 }

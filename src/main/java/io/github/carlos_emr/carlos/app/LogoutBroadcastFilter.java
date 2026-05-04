@@ -137,7 +137,7 @@ public class LogoutBroadcastFilter implements Filter {
                 return Integer.parseInt(limitProp.trim());
             } catch (NumberFormatException e) {
                 logger.warn("Invalid INACTIVITY_LIMIT_MINS value '{}', using default {}",
-                        limitProp, DEFAULT_INACTIVITY_LIMIT_MINS);
+                        limitProp, DEFAULT_INACTIVITY_LIMIT_MINS, e);
             }
         }
         return DEFAULT_INACTIVITY_LIMIT_MINS;

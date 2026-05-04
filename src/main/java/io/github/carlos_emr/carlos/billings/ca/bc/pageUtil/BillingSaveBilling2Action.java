@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -224,12 +225,7 @@ public class BillingSaveBilling2Action extends ActionSupport {
 
     private Billing getBillingObj(final BillingSessionBean bean, final Date curDate, final char billingAccountStatus) {
 
-        int apptNo = 0;
-        try {
-            apptNo = Integer.parseInt(bean.getApptNo());
-        } catch (Exception e) {
-            apptNo = 0;
-        }
+        int apptNo = parseOptionalAppointmentNo(bean.getApptNo());
 
 
         Billing bill = new Billing();
@@ -300,13 +296,29 @@ public class BillingSaveBilling2Action extends ActionSupport {
 
 
     String moneyFormat(String str) {
-        String moneyStr = "0.00";
-        try {
-            moneyStr = new java.math.BigDecimal(str).movePointLeft(2).toString();
-        } catch (Exception moneyException) {
-            MiscUtils.getLogger().warn("warning", moneyException);
+        if (str == null || str.trim().isEmpty()) {
+            return "0.00";
         }
-        return moneyStr;
+        try {
+            return new java.math.BigDecimal(str.trim()).movePointLeft(2).toString();
+        } catch (NumberFormatException moneyException) {
+            throw new IllegalArgumentException(
+                    "BC billing amount is malformed [" + LogSanitizer.sanitizeForDisplay(str) + "]",
+                    moneyException);
+        }
+    }
+
+    private static int parseOptionalAppointmentNo(String raw) {
+        if (raw == null || raw.trim().isEmpty()) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(raw.trim());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(
+                    "BC appointment number is malformed [" + LogSanitizer.sanitizeForDisplay(raw) + "]",
+                    e);
+        }
     }
 
     /**

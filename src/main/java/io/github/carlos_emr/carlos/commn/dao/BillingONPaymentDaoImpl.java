@@ -1,38 +1,29 @@
 /**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- * <p>
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- * <p>
- * This software was written for the
- * Department of Family Medicine
- * McMaster University
- * Hamilton
- * Ontario, Canada
- * <p>
- * Modifications made by Magenta Health in 2024.
- 
- * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
+ *
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
@@ -44,38 +35,19 @@ import jakarta.persistence.Query;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONExt;
 import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
-import org.springframework.beans.factory.annotation.Autowired;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 
 import io.github.carlos_emr.carlos.util.DateUtils;
 
+/**
+ * Hibernate-backed implementation of {@link BillingONPaymentDao}.
+ */
 @Repository
 public class BillingONPaymentDaoImpl extends AbstractDaoImpl<BillingONPayment> implements BillingONPaymentDao {
-    @Autowired
-    private BillingONExtDao billingONExtDao;
-
-    @Autowired
-    private BillingONCHeader1Dao billingONCHeader1Dao;
-
     public BillingONPaymentDaoImpl() {
         super(BillingONPayment.class);
-    }
-
-    public void setBillingONExtDao(BillingONExtDao billingONExtDao) {
-        this.billingONExtDao = billingONExtDao;
-    }
-
-    public void setBillingONCHeader1Dao(BillingONCHeader1Dao billingONCHeader1Dao) {
-        this.billingONCHeader1Dao = billingONCHeader1Dao;
-    }
-
-    public BillingONExtDao getBillingONExtDao() {
-        return this.billingONExtDao;
-    }
-
-    public BillingONCHeader1Dao getBillingONCHeader1Dao() {
-        return this.billingONCHeader1Dao;
     }
 
     public List<BillingONPayment> listPaymentsByBillingNo(Integer billingNo) {
@@ -83,6 +55,37 @@ public class BillingONPaymentDaoImpl extends AbstractDaoImpl<BillingONPayment> i
         query.setParameter(1, billingNo);
         List<BillingONPayment> payments = query.getResultList();
         return payments;
+    }
+
+    @Override
+    public BillingONPayment findWithExtItems(Integer paymentId) {
+        if (paymentId == null) {
+            return null;
+        }
+        // LEFT JOIN FETCH eagerly initializes the LAZY billingONExtItems
+        // collection in a single query. Mirrors BillingONCHeader1Dao.findWithItems.
+        Query query = entityManager.createQuery(
+                "SELECT DISTINCT bp FROM BillingONPayment bp LEFT JOIN FETCH bp.billingONExtItems WHERE bp.id = ?1");
+        query.setParameter(1, paymentId);
+        List<BillingONPayment> rows = query.getResultList();
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    @Override
+    public List<BillingONPayment> find3rdPartyPaymentsByBillingNoWithExtItems(Integer billingNo) {
+        // DISTINCT keeps the parent count correct when LEFT JOIN FETCH produces
+        // one row per child ext item; the ext-items collection is still
+        // populated correctly in each returned entity.
+        Query query = entityManager.createQuery(
+                "SELECT DISTINCT bp FROM BillingONPayment bp "
+                        + "LEFT JOIN FETCH bp.billingONExtItems "
+                        + "LEFT JOIN FETCH bp.billingONCheader1 "
+                        + "WHERE bp.billingNo = ?1 ORDER BY bp.id ASC");
+        query.setParameter(1, billingNo);
+
+        @SuppressWarnings("unchecked")
+        List<BillingONPayment> results = query.getResultList();
+        return results;
     }
 
     public List<BillingONPayment> listPaymentsByBillingNoDesc(Integer billingNo) {
@@ -130,11 +133,16 @@ public class BillingONPaymentDaoImpl extends AbstractDaoImpl<BillingONPayment> i
 
     public String getTotalSumByBillingNoWeb(String billingNo) {
         Query query = entityManager.createQuery("select sum(bp.total_payment) from BillingONPayment bp where bp.billingNo = ?1 group by bp.billingONCheader1");
-        BigDecimal paymentsSum = null;
+        BigDecimal paymentsSum;
         try {
             query.setParameter(1, Integer.parseInt(billingNo));
             paymentsSum = (BigDecimal) query.getSingleResult();
-        } catch (Exception ex) {
+        } catch (NoResultException ex) {
+            // Expected: a billing row with no payments yet — return zero formatted as currency.
+            paymentsSum = new BigDecimal(0);
+        } catch (NumberFormatException ex) {
+            MiscUtils.getLogger().error("Non-numeric billingNo {} passed to getTotalSumByBillingNoWeb",
+                    LogSanitizer.sanitize(billingNo), ex);
             paymentsSum = new BigDecimal(0);
         }
         NumberFormat currency = NumberFormat.getCurrencyInstance(Locale.US);
@@ -143,11 +151,16 @@ public class BillingONPaymentDaoImpl extends AbstractDaoImpl<BillingONPayment> i
 
     public String getPaymentsRefundByBillingNoWeb(String billingNo) {
         Query query = entityManager.createQuery("select -sum(bp.total_payment) from BillingONPayment bp where bp.billingNo = ?1 and bp.total_payment<0 group by bp.billingONCheader1");
-        BigDecimal paymentsSum = null;
+        BigDecimal paymentsSum;
         try {
             query.setParameter(1, Integer.parseInt(billingNo));
             paymentsSum = (BigDecimal) query.getSingleResult();
-        } catch (Exception ex) {
+        } catch (NoResultException ex) {
+            // Expected: no refund rows on this bill — render zero.
+            paymentsSum = new BigDecimal(0);
+        } catch (NumberFormatException ex) {
+            MiscUtils.getLogger().error("Non-numeric billingNo {} passed to getPaymentsRefundByBillingNoWeb",
+                    LogSanitizer.sanitize(billingNo), ex);
             paymentsSum = new BigDecimal(0);
         }
         NumberFormat currency = NumberFormat.getCurrencyInstance();
@@ -159,7 +172,8 @@ public class BillingONPaymentDaoImpl extends AbstractDaoImpl<BillingONPayment> i
         try {
             query.setParameter(1, Integer.valueOf(billingNo));
             return (Integer) query.getSingleResult();
-        } catch (Exception e) {
+        } catch (NoResultException e) {
+            // Expected: bill has no payment row yet — caller treats 0 as "no payment".
             return 0;
         }
     }
@@ -206,30 +220,39 @@ public class BillingONPaymentDaoImpl extends AbstractDaoImpl<BillingONPayment> i
     }
 
     public List<BillingONPayment> find3rdPartyPaymentsByBillingNo(Integer billingNo) {
-        String sql = "select bPay from BillingONPayment bPay where bPay.billingNo = ?1 order by bPay.id asc";
+        String sql = "select bPay from BillingONPayment bPay "
+                + "left join fetch bPay.billingONCheader1 "
+                + "where bPay.billingNo = ?1 order by bPay.id asc";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, billingNo);
 
         @SuppressWarnings("unchecked")
         List<BillingONPayment> results = query.getResultList();
-
-        List<BillingONPayment> returnList = new ArrayList<BillingONPayment>();
-
-        for (BillingONPayment payment : results) {
-            if (payment.getBillingNo() != null) {
-                BillingONCHeader1 cheader1 = billingONCHeader1Dao.find(payment.getBillingNo());
-                payment.setBillingOnCheader1(cheader1);
-            }
-            returnList.add(payment);
-        }
-
-        return returnList;
+        return results;
     }
 
     public List<BillingONPayment> find3rdPartyPayRecordsByBill(BillingONCHeader1 bCh1, Date startDate, Date endDate) {
         String sql = "select bPay from BillingONPayment bPay where bPay.billingNo = ?1 and bPay.paymentdate >= ?2 and bPay.paymentdate < ?3 order by bPay.paymentdate";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, bCh1.getId());
+        query.setParameter(2, startDate);
+        query.setParameter(3, endDate);
+
+        @SuppressWarnings("unchecked")
+        List<BillingONPayment> results = query.getResultList();
+
+        Collections.sort(results, BillingONPayment.BILLING_ON_PAYMENT_COMPARATOR);
+        return results;
+    }
+
+    @Override
+    public List<BillingONPayment> find3rdPartyPayRecordsByBills(List<Integer> billingNos, Date startDate, Date endDate) {
+        if (billingNos == null || billingNos.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        String sql = "select bPay from BillingONPayment bPay where bPay.billingNo in (?1) and bPay.paymentdate >= ?2 and bPay.paymentdate < ?3 order by bPay.billingNo, bPay.paymentdate";
+        Query query = entityManager.createQuery(sql);
+        query.setParameter(1, billingNos);
         query.setParameter(2, startDate);
         query.setParameter(3, endDate);
 
@@ -260,9 +283,6 @@ public class BillingONPaymentDaoImpl extends AbstractDaoImpl<BillingONPayment> i
             amtPaid = amtPaid.subtract(paidAmt);
 
         bCh1.setPaid(amtPaid);
-
-        BillingONCHeader1Dao bCh1Dao = (BillingONCHeader1Dao) SpringUtils.getBean(BillingONCHeader1Dao.class);
-        bCh1Dao.merge(bCh1);
     }
 
     private void addPaymentItems(BillingONPayment billingPayment, BillingONCHeader1 bCh1, Locale locale, Date payDate, String payType, BigDecimal paidAmt, String payMethod, String providerNo) {

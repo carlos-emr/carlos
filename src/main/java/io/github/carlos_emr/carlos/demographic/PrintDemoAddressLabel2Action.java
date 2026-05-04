@@ -117,7 +117,7 @@ public class PrintDemoAddressLabel2Action extends ActionSupport {
      * ${user.home}/Addresslabel.xml, falls back to classpath resource
      * /oscar/oscarDemographic/Addresslabel.xml if custom template not found.</p>
      *
-     * @return String "success" constant from ActionSupport indicating successful execution
+     * @return String NONE constant after streaming the direct PDF response
      * @throws SecurityException if the user lacks "_demographic" read privilege
      */
     public String execute() {

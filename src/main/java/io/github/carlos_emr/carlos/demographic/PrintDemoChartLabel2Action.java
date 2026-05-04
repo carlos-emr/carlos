@@ -138,7 +138,7 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
      * type "application/pdf" and inline disposition. If a default printer is configured,
      * embedded JavaScript in the PDF will trigger automatic printing on open.
      *
-     * @return String ActionSupport result constant, always returns SUCCESS
+     * @return String ActionSupport result constant, always returns NONE for direct PDF responses
      * @throws SecurityException if user lacks "_demographic" read privilege
      */
     public String execute() {

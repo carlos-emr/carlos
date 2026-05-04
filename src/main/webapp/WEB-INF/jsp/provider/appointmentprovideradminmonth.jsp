@@ -993,7 +993,7 @@
                         popupOscarRx(700, 687, '<%= request.getContextPath() %>/admin/ViewAdmin');
                         return false;  //run code for 'A'dmin
                     case <fmt:message key="global.billingShortcut"/> :
-                        popupOscarRx(600, 1024, '<%= request.getContextPath() %>/billing/CA/<%=prov%>/billingReportCenter.jsp?displaymode=billreport&providerview=<%=curUser_no%>');
+                        popupOscarRx(600, 1024, '<%= request.getContextPath() %>/billing/CA/<%=prov%>/ViewBillingReportCenter?displaymode=billreport&providerview=<%=curUser_no%>');
                         return false;  //code for 'B'illing
                     case <fmt:message key="global.calendarShortcut"/> :
                         popupOscarRx(425, 430, '<%= request.getContextPath() %>/share/CalendarPopup?urlfrom=<%= request.getContextPath() %>/provider/providercontrol&year=<%=strYear%>&month=<%=strMonth%>&param=<%=URLEncoder.encode("&view=0&displaymode=day&dboperation=searchappointmentday","UTF-8")%>');
