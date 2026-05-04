@@ -1516,6 +1516,7 @@ insert into `secObjectName` (`objectName`) values ('_admin.backup');
 insert into `secObjectName` (`objectName`,`description`,`orgapplicable`) values('_admin.measurements', 'access to customize measurements',0);
 insert into `secObjectName` (`objectName`) values ('_admin.messenger');
 insert into `secObjectName` (`objectName`) values ('_admin.eform');
+insert into `secObjectName` (`objectName`) values ('_admin.eformreporttool');
 insert into `secObjectName` (`objectName`) values ('_admin.encounter');
 insert into `secObjectName` (`objectName`) values ('_admin.misc');
 insert into `secObjectName` (`objectName`,`description`,`orgapplicable`) values('_admin.flowsheet','Manage Flowsheets',0);
@@ -1709,7 +1710,7 @@ insert into `secObjPrivilege` values('doctor','_pregnancy','o',0,'999998');
 insert into `secObjPrivilege` values('doctor','_newCasemgmt.episode','o',0,'999998');
 insert into `secObjPrivilege` values('doctor','_episode','o',0,'999998');
 insert into `secObjPrivilege` values('doctor','_newCasemgmt.photo','x',0,'999998');
-insert into `secObjPrivilege` values('doctor','_hrm','o',0,'999998');
+insert into `secObjPrivilege` values('doctor','_hrm','x',0,'999998');
 insert into `secObjPrivilege` values('doctor','_eform','x',0,'999998');
 insert into `secObjPrivilege` values('doctor','_form','x',0,'999998');
 insert into `secObjPrivilege` values('doctor','_measurement','x',0,'999998');
@@ -1745,6 +1746,9 @@ insert into `secObjPrivilege` values('admin','_admin.fax.restart','x',0,'999998'
 insert into `secObjPrivilege` values('admin','_admin.userCreatedForms','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_admin.measurements','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_admin.flowsheet','x',0,'999998');
+insert into `secObjPrivilege` values('admin','_admin.eformreporttool','x',0,'999998');
+insert into `secObjPrivilege` values('admin','_admin.billing','x',0,'999998');
+insert into `secObjPrivilege` values('admin','_admin.misc','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_appointment','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_appointment.doctorLink','x',0,'999998');
 insert into `secObjPrivilege` values('admin','_pmm.addProgram','x',0,'999998');
@@ -2591,6 +2595,7 @@ insert into `secObjPrivilege` values('admin','_dashboardCommonLink','o',0,'99999
 
 
 insert into `secObjectName` (`objectName`) values ('_admin.auditLogPurge');
+insert into `secObjPrivilege` values('admin','_admin.auditLogPurge','x',0,'999998');
 
 INSERT INTO `tickler_category` VALUES (\N, 'To Call In', 'Call this patient in for a follow-up visit', b'1'), (\N, 'Reminder Note', 'Send a reminder note to this patient', b'1'), (\N, 'Follow-up Billing', 'Follow-up Additional Billing', b'1');
 

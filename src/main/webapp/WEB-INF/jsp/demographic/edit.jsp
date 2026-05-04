@@ -312,7 +312,6 @@
                 msgWrongReferral:             '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgWrongReferral") %>' context="javaScriptBlock"/>',
                 msgPromptStatus:              '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgPromptStatus") %>' context="javaScriptBlock"/>',
                 msgInvalidEntry:              '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgInvalidEntry") %>' context="javaScriptBlock"/>',
-                updateCBIReminder:            '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.updateCBIReminder") %>' context="javaScriptBlock"/>',
                 btnCancel:                    '<carlos:encode value='<%= oscarResources.getString("global.btnCancel") %>' context="javaScriptBlock"/>',
                 btnBack:                      '<carlos:encode value='<%= oscarResources.getString("global.btnBack") %>' context="javaScriptBlock"/>',
                 msgConfirmClearConsent:       '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgConfirmClearConsent") %>' context="javaScriptBlock"/>',
@@ -796,11 +795,6 @@
                 });
 
             });
-
-
-            function showCbiReminder() {
-                return confirm(i18n.updateCBIReminder);
-            }
 
 
             var addressHistory = "";

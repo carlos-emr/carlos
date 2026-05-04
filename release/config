@@ -57,7 +57,6 @@ billregion=ON
 billcenter=G
 signature_tablet=no
 ENABLE_EDIT_APPT_STATUS=yes
-appt_intake_form=off
 new_flowsheet_enabled=true
 NEW_CONTACTS_UI=true
 enableFax=false
@@ -110,27 +109,7 @@ ONEDT_ARCHIVE=${SRC}${DOCS}/${PROGRAM}/onEDTDocs/archive/
 
 ModuleNames=REST
 onare_labreqver=10
-born_env=T
-born_sftp_host=127.0.0.1
-born_sftp_port=22
-born_sftp_username=test
-born_sftp_password=test
-born_sftp_remote_dir=/
-born18m_env=T
-born18m_orgcode=mcmaster
-born18m_sftp_host=127.0.0.1
-born18m_sftp_port=22
-born18m_sftp_username=test
-born18m_sftp_password=test
-born18m_sftp_remote_dir=/
-born18m_eform_rourke="Rourke Baby Record"
-born18m_eform_ndds="Nipissing District Developmental Screen"
-born18m_eform_report18m="Summary Report: 18-month Well Baby Visit"
-born18m_upload_hour=01
 showRxChartNo=false
-redirectstudysite_default_baseURL=http://competeii.mcmaster.ca/PDSsecurity/login.asp
-redirectstudysite_default_username=yilee18
-redirectstudysite_default_password=
 web_service_client_connection_timeout_ms=1500
 web_service_client_received_timeout_ms=3000
 default_bill_center=
@@ -373,8 +352,6 @@ echo "For a new install from console so probe for some settings" >>$LOG_FILE
 	db_reset carlos-emr/eyeform || true
 	db_set carlos-emr/eyeform false || true
 	eyeform=false
-	db_set carlos-emr/appt_intake_form true || true
-	appt_intake_form="on"
 
 	db_go || true
 
@@ -472,7 +449,6 @@ else
 	-e 's/\(^billcenter =\)/#\1/' \
 	-e 's/\(^SINGLE_PAGE_CHART\)/#\1/' \
 	-e 's/\(^signature_tablet\)/#\1/' \
-	-e 's/\(^appt_intake_form\)/#\1/' \
 	-e 's/\(^new_flowsheet_enabled\)/#\1/' \
 	-e 's/\(^enableFax\)/#\1/' \
 	-e 's/\(^HL7_COMPLETED_DIR\)/#\1/' \

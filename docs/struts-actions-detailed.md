@@ -170,14 +170,6 @@ Immunization setup and configuration.
 | DeleteImmunizationSets | io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmDeleteImmunizationSet2Action | Deletes immunization sets |
 | ImmunizationSetDisplay | io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmImmunizationSetDisplay2Action | Displays immunization set configurations |
 
-## CVC Module
-
-Clinical validation and connectivity testing.
-
-| Action Name | Class Name | Description |
-|-------------|------------|-------------|
-| cvc | io.github.carlos_emr.carlos.integration.born.CVCTester2Action | Tests BORN CVC integration connectivity |
-
 ## Default Module
 
 Default encounter configurations.

@@ -414,18 +414,11 @@
                                             check == 3 ? ", " : check == 2 ? "" : " ",
                                             patientProvince,
                                             patientPostal);
-
-                                    String ptChartNo = "";
-                                    if (props.getProperty("showRxChartNo", "").equalsIgnoreCase("true")) {
-                                        ptChartNo = patient.getChartNo() == null ? "" : patient.getChartNo();
-                                    }
                                 %>
                                 <input type="hidden" name="patientCityPostal"
                                        value="<carlos:encode value='<%= patientCityPostal %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" name="patientHIN"
                                        value="<carlos:encode value='<%= patientHin %>' context="htmlAttribute"/>"/>
-                                <input type="hidden" name="patientChartNo"
-                                       value="<carlos:encode value='<%= ptChartNo %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" name="bandNumber" value="${ bandNumber }"/>
                                 <input type="hidden" name="patientPhone"
                                        value="<fmt:message key="RxPreview.msgTel"/>: <carlos:encode value='<%= patientPhone %>' context="html"/>"/>
@@ -523,9 +516,6 @@
 												<fmt:message key="io.github.carlos_emr.carlos.rx.hin"/><carlos:encode value='<%= patientHin %>' context="html"/>
 											<% } %>
 										</b><br>
-										<% if (props.getProperty("showRxChartNo", "").equalsIgnoreCase("true")) { %>
-											<fmt:message key="io.github.carlos_emr.carlos.rx.chartNo"/><%=ptChartNo%>
-										<% } %>
 								</span>
                                 <span style="float:right">
 									<%= RxUtil.DateToString(rxDate, "MMMM d, yyyy", request.getLocale()) %>

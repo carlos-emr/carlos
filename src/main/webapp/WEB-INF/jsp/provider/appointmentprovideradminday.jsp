@@ -280,7 +280,6 @@
     String default_pmm = null;
     String programId_oscarView = null;
 //    String ocanWarningWindow = null;
-//    String cbiReminderWindow = null;
     String caisiBillingPreferenceNotDelete = null;
 //    String tklerProviderNo = null;
 
@@ -293,10 +292,6 @@
 //
 //    if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isCaisiEnable() && io.github.carlos_emr.carlos.commn.IsPropertiesOn.propertiesOn("OCAN_warning_window")) {
 //        ocanWarningWindow = (String) session.getAttribute("ocanWarningWindow");
-//    }
-//
-//    if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isCaisiEnable() && io.github.carlos_emr.carlos.commn.IsPropertiesOn.propertiesOn("CBI_REMINDER_WINDOW")) {
-//        cbiReminderWindow = (String) session.getAttribute("cbiReminderWindow");
 //    }
 
     //Hide old echart link

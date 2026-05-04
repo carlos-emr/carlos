@@ -187,8 +187,8 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
 
         if (labelFile == null) {
             logger.warn("requested invalid label : {}", LogSanitizer.sanitize(request.getParameter("labelName"))); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
-            // This action streams PDFs directly and its Struts mapping has no success result.
-            // Returning SUCCESS makes Struts render the global error page over the response as "0".
+            // Mapping in struts-demographic.xml has no <result name="success">; return NONE
+            // to suppress result resolution rather than raising ConfigurationException.
             return NONE;
         }
 
@@ -253,8 +253,11 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
             }
         }
 
-        // This action streams the PDF directly and its Struts mapping has no success result.
-        // Returning SUCCESS makes Struts render the global error page over the PDF as "0".
+        // Action writes PDF bytes directly to response.getOutputStream() above, so return
+        // NONE to suppress Struts2 result resolution. The mapping in struts-demographic.xml
+        // has no <result name="success">; returning SUCCESS would raise ConfigurationException
+        // and the global exception result would render errorpage.jsp on top of the PDF bytes
+        // already written to the response (visible as a stray "0" from errorData.statusCode).
         return NONE;
     }
 

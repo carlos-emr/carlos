@@ -22,24 +22,31 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * View gate for {@code lab/CumulativeLabValues2.jsp}. Enforces {@code _lab}
- * {@code r} privilege before forwarding to the JSP at its
- * {@code /WEB-INF/jsp/lab/} location. Part of the lab module
- * security-hardening migration (2Action gate pattern from #1109, #1629,
- * #1632, #1644, #1662, #1663, #1665, #1666).
+ * View gate for {@code oscarMDS/CreateLab.jsp}. Enforces {@code _lab}
+ * {@code w} privilege before forwarding to the JSP. Separates the GET
+ * (display form) path from the POST (submit form) path handled by
+ * {@code SubmitLabByForm2Action} at {@code oscarMDS/SubmitLab}.
  *
- * @since 2026-04-13
+ * @since 2026-05-01
  */
-public final class ViewCumulativeLabValues22Action extends ActionSupport {
+public final class ViewCreateLab2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-
+    
+    /**
+     * Enforces the create-lab view gate and forwards to the configured success result.
+     *
+     * `@return` {`@link` `#SUCCESS`} when the caller has required lab write privilege
+     * `@throws` Exception when action processing fails
+     */
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "r", null)) {
+        if (loggedInInfo == null) {
+            throw new SecurityException("missing LoggedInInfo");
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "w", null)) {
             throw new SecurityException("missing required sec object (_lab)");
         }
 
