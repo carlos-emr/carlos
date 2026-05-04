@@ -26,7 +26,7 @@ ARG DOCS_DEST="/var/lib/OscarDocument/oscar/document"
 WORKDIR /workspace
 
 # Retry wrapper for flaky package index mirrors in CI.
-RUN cat <<'EOF' > /usr/local/bin/apt-install
+RUN cat <<'EOF' > /usr/local/bin/apt-install && chmod +x /usr/local/bin/apt-install
 #!/usr/bin/env bash
 set -eu
 set -o pipefail
@@ -48,7 +48,6 @@ for attempt in 1 2 3; do
   sleep 5
 done
 EOF
-RUN chmod +x /usr/local/bin/apt-install
 
 # Install required packages including Playwright browser dependencies and clean up apt lists
 # Note: Ubuntu 24.04 uses t64 packages (time_t 64-bit migration)
