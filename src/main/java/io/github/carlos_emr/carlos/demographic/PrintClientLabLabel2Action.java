@@ -131,7 +131,9 @@ public class PrintClientLabLabel2Action extends ActionSupport {
         } finally {
             IOUtils.closeQuietly(ins);
         }
-        return SUCCESS;
+        // This action streams the PDF directly and its Struts mapping has no success result.
+        // Returning SUCCESS makes Struts render the global error page over the PDF as "0".
+        return NONE;
     }
 
     private StringBuilder getHeader(HttpServletResponse response) {

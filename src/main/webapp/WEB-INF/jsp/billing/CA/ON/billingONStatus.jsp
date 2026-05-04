@@ -76,9 +76,7 @@
                 //     document.invoiceForm.method.value="sendListEmail";
                 // } else
 
-                if (methodName == "print") {
-                    document.invoiceForm.method.value = "getListPrintPDF";
-                }
+                // PDF download uses a dedicated direct-response Struts action.
                 document.invoiceForm.submit();
             }
 
@@ -533,8 +531,7 @@
             </div>
             <!-- end card card-body bg-body-tertiary -->
         </form>
-        <form name="invoiceForm" action="${pageContext.request.contextPath}/BillingInvoice">
-            <input type="hidden" name="method" value="">
+        <form name="invoiceForm" action="${pageContext.request.contextPath}/BillingInvoiceListPrint">
             <c:choose>
                 <c:when test="${statusModel.statusType eq '_'}">
                     <table class="table" id="rejectTbl">

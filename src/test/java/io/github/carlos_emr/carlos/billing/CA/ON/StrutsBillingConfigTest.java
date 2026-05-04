@@ -29,6 +29,7 @@ import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
@@ -52,6 +53,8 @@ class StrutsBillingConfigTest {
 
     private static final Path STRUTS_BILLING_XML =
             Path.of("src/main/webapp/WEB-INF/classes/struts-billing.xml");
+    private static final Path STRUTS_SCHEDULING_XML =
+            Path.of("src/main/webapp/WEB-INF/classes/struts-scheduling.xml");
 
     @Test
     void shouldResolveEveryConfiguredExceptionMappingClass_viaCollaborator() throws Exception {
@@ -87,6 +90,14 @@ class StrutsBillingConfigTest {
                 .containsEntry("billingFileWriteError", BillingFileWriteException.class.getName());
     }
 
+    @Test
+    void shouldKeepInvoicePdfActions_outOfStrutsWorkflowResultDispatch() throws Exception {
+        Document doc = parse(STRUTS_SCHEDULING_XML);
+
+        assertDirectPdfActionUsesBasicStack(doc, "BillingInvoicePrint");
+        assertDirectPdfActionUsesBasicStack(doc, "BillingInvoiceListPrint");
+    }
+
     private Map<String, String> collectExceptionMappings() throws Exception {
         Document doc = parse(STRUTS_BILLING_XML);
         NodeList mappings = doc.getElementsByTagName("exception-mapping");
@@ -97,6 +108,31 @@ class StrutsBillingConfigTest {
             }
         }
         return out;
+    }
+
+    private void assertDirectPdfActionUsesBasicStack(Document doc, String actionName) {
+        Element action = findAction(doc, actionName)
+                .orElseThrow(() -> new AssertionError(
+                        "struts-scheduling.xml must declare action " + actionName));
+        NodeList interceptorRefs = action.getElementsByTagName("interceptor-ref");
+
+        assertThat(interceptorRefs.getLength())
+                .as("%s must explicitly opt out of defaultStack validation/workflow", actionName)
+                .isEqualTo(1);
+        assertThat(((Element) interceptorRefs.item(0)).getAttribute("name"))
+                .as("%s must use basicStack so direct PDF responses cannot be rewritten to input/error results", actionName)
+                .isEqualTo("basicStack");
+    }
+
+    private Optional<Element> findAction(Document doc, String actionName) {
+        NodeList actions = doc.getElementsByTagName("action");
+        for (int i = 0; i < actions.getLength(); i++) {
+            if (actions.item(i) instanceof Element element
+                    && actionName.equals(element.getAttribute("name"))) {
+                return Optional.of(element);
+            }
+        }
+        return Optional.empty();
     }
 
     private Document parse(Path configPath) throws Exception {

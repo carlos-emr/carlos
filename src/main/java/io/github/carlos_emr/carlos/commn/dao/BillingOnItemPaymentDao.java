@@ -35,6 +35,8 @@ public interface BillingOnItemPaymentDao extends AbstractDao<BillingOnItemPaymen
 
     List<BillingOnItemPayment> getItemsByPaymentId(int paymentId);
 
+    int deleteByPaymentId(int paymentId);
+
     BigDecimal getAmountPaidByItemId(int itemId);
 
     List<BillingOnItemPayment> getItemPaymentByInvoiceNoItemId(Integer ch1_id, Integer item_id);

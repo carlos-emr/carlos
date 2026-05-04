@@ -55,8 +55,8 @@
         <c:forEach var="itemData" items="${itemDataList}" varStatus="idx">
             <tr align="center">
                 <td>${carlos:forHtml(itemData.patientName)}</td>
-                <td>${carlos:forHtml(itemData.ch1_id)}</td>
-                <td>${carlos:forHtml(itemData.service_code)}</td>
+                <td>${carlos:forHtml(itemData.claimHeaderId)}</td>
+                <td>${carlos:forHtml(itemData.serviceCode)}</td>
                 <td>${carlos:forHtml(itemData.paid)}</td>
                 <td>${carlos:forHtml(itemData.discount)}</td>
                 <td>${carlos:forHtml(itemData.credit)}</td>

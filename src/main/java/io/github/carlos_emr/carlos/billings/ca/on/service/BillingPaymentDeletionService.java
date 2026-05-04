@@ -31,19 +31,22 @@ import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao;
+import io.github.carlos_emr.carlos.commn.dao.BillingOnItemPaymentDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
 
 /**
- * Atomic deletion of a third-party payment row + the cascading header / ext
- * updates. The four writes (payment.remove, header.merge, ext payment-key
- * update, ext refund-key update) used to live inline in
+ * Atomic deletion of a third-party payment row, its item-payment allocation
+ * rows, and the cascading header / ext updates. These writes
+ * (item-payment delete, payment.remove, header.merge, ext payment-key update,
+ * ext refund-key update) used to live inline in
  * {@code BillingOnPayments2Action.deletePayment} with no @Transactional
- * boundary — a mid-sequence failure left the header `paid` total stale and
- * the ext keys out of sync with the underlying payment table.
+ * boundary — a mid-sequence failure left the header `paid` total stale, the
+ * item-payment allocations orphaned, and the ext keys out of sync with the
+ * underlying payment table.
  *
  * <p>Lifting them into a single {@code @Transactional} method gives us
- * rollback semantics: if any of the four writes fails, none of them takes
+ * rollback semantics: if any of the writes fails, none of them takes
  * effect.</p>
  *
  * @since 2026-04-30
@@ -55,13 +58,16 @@ public class BillingPaymentDeletionService {
     private final BillingONPaymentDao billingONPaymentDao;
     private final BillingONCHeader1Dao billingClaimDao;
     private final BillingONExtDao billingONExtDao;
+    private final BillingOnItemPaymentDao billingOnItemPaymentDao;
 
     public BillingPaymentDeletionService(BillingONPaymentDao billingONPaymentDao,
                                          BillingONCHeader1Dao billingClaimDao,
-                                         BillingONExtDao billingONExtDao) {
+                                         BillingONExtDao billingONExtDao,
+                                         BillingOnItemPaymentDao billingOnItemPaymentDao) {
         this.billingONPaymentDao = billingONPaymentDao;
         this.billingClaimDao = billingClaimDao;
         this.billingONExtDao = billingONExtDao;
+        this.billingOnItemPaymentDao = billingOnItemPaymentDao;
     }
 
     /**
@@ -91,6 +97,7 @@ public class BillingPaymentDeletionService {
                     + " not found for paymentId=" + paymentId);
         }
 
+        billingOnItemPaymentDao.deleteByPaymentId(paymentId);
         billingONPaymentDao.remove(paymentId);
 
         BigDecimal paid = money(billingONPaymentDao.getPaymentsSumByBillingNo(billingNo));
@@ -123,7 +130,8 @@ public class BillingPaymentDeletionService {
      * Distinct exception so the calling action can render the up-to-date
      * payment list (a likely concurrent-edit / stale-page scenario) rather
      * than the generic failure page that any other DAO error would produce.
-     * {@link BillingOnPayments2Action#deletePayment} catches this explicitly.
+     * {@link io.github.carlos_emr.carlos.billings.ca.on.web.BillingOnPayments2Action#deletePayment()}
+     * catches this explicitly.
      */
     public static class PaymentNotFoundException extends RuntimeException {
         private static final long serialVersionUID = 1L;

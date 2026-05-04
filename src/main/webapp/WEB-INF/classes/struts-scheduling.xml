@@ -199,6 +199,17 @@
             <result name="success">/WEB-INF/jsp/episode/success.jsp</result>
         </action>
         <action name="PageMonitoringService" class="io.github.carlos_emr.carlos.commn.web.PageMonitoring2Action"/>
+        <!--
+            Direct-response PDF actions intentionally use basicStack. The default
+            validation/workflow interceptors can rewrite a streamed NONE response to
+            input/error and render errorpage.jsp as "CARLOS Error: 0". See issue #2064.
+        -->
+        <action name="BillingInvoicePrint" class="io.github.carlos_emr.carlos.commn.web.BillingInvoicePrint2Action">
+            <interceptor-ref name="basicStack"/>
+        </action>
+        <action name="BillingInvoiceListPrint" class="io.github.carlos_emr.carlos.commn.web.BillingInvoiceListPrint2Action">
+            <interceptor-ref name="basicStack"/>
+        </action>
         <action name="BillingInvoice" class="io.github.carlos_emr.carlos.commn.web.BillingInvoice2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingONCorrection.jsp</result>
             <result name="listSuccess">/WEB-INF/jsp/billing/CA/ON/billingONStatus.jsp</result>

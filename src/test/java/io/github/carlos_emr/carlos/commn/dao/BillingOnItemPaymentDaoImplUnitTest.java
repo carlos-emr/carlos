@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @DisplayName("BillingOnItemPaymentDaoImpl")
@@ -59,5 +60,18 @@ class BillingOnItemPaymentDaoImplUnitTest {
         assertThatThrownBy(() -> dao.getAmountPaidByItemId(123))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("database unavailable");
+    }
+
+    @Test
+    void shouldDeleteAllItemPaymentRows_forPaymentId() {
+        when(query.executeUpdate()).thenReturn(2);
+
+        int deleted = dao.deleteByPaymentId(123);
+
+        assertThat(deleted).isEqualTo(2);
+        verify(entityManager).createQuery(
+                "delete from BillingOnItemPayment boip where boip.billingOnPaymentId = ?1");
+        verify(query).setParameter(1, 123);
+        verify(query).executeUpdate();
     }
 }

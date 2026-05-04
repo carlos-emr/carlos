@@ -62,6 +62,14 @@ public class BillingOnItemPaymentDaoImpl extends AbstractDaoImpl<BillingOnItemPa
     }
 
     @Override
+    public int deleteByPaymentId(int paymentId) {
+        Query query = entityManager.createQuery(
+                "delete from BillingOnItemPayment boip where boip.billingOnPaymentId = ?1");
+        query.setParameter(1, paymentId);
+        return query.executeUpdate();
+    }
+
+    @Override
     public BigDecimal getAmountPaidByItemId(int itemId) {
         Query query = entityManager.createQuery("select sum(boip.paid) from BillingOnItemPayment boip where boip.billingOnItemId = ?1");
         query.setParameter(1, itemId);

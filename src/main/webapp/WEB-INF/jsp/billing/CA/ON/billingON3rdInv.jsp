@@ -56,10 +56,7 @@
     <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
     <script type="text/javascript">
         function submitForm(methodName) {
-            // The sendEmail() method in BillingInvoice2Action.java is not supported.
-            if (methodName == "print") {
-                document.forms[0].method.value = "getPrintPDF";
-            }
+            // PDF download uses a dedicated direct-response Struts action.
             document.forms[0].submit();
         }
     </script>
@@ -73,8 +70,7 @@
         One or more billed amounts on this invoice could not be parsed and were rendered as zero. Re-export the invoice after correcting the underlying billing rows.
     </div>
 </c:if>
-<form action="${pageContext.request.contextPath}/BillingInvoice" method="post">
-    <input type="hidden" name="method" value=""/>
+<form action="${pageContext.request.contextPath}/BillingInvoicePrint" method="post">
     <input type="hidden" name="invoiceNo" id="invoiceNo" value="<carlos:encode value="${invoiceModel.invoiceNoStr}" context="htmlAttribute"/>"/>
     <div class="doNotPrint">
         <div class="titleBar">

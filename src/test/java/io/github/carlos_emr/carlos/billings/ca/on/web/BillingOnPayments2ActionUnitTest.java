@@ -22,6 +22,8 @@
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
@@ -568,5 +570,17 @@ class BillingOnPayments2ActionUnitTest extends CarlosUnitTestBase {
 
         // Same blank-page bug fix — null lookup must surface as "failure".
         assertThat(result).isEqualTo("failure");
+    }
+
+    @Test
+    void shouldRenderViewPaymentJsp_againstBillingClaimItemRecordProperties() throws Exception {
+        String jsp = Files.readString(Path.of(
+                "src/main/webapp/WEB-INF/jsp/billing/CA/ON/billingON3rdViewPayment.jsp"));
+
+        assertThat(jsp)
+                .contains("itemData.claimHeaderId")
+                .contains("itemData.serviceCode")
+                .doesNotContain("itemData.ch1_id")
+                .doesNotContain("itemData.service_code");
     }
 }

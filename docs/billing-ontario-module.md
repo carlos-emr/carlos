@@ -571,6 +571,24 @@ All Ontario billing action mappings live in
   (e.g., `<result name="closeReload" type="chain">...</result>`).
 - Cross-province dispatch uses `type="chain"` (preserves request, session,
   and original query params; no extra HTTP hop).
+- Direct-response billing actions that write PDF/CSV/XLS/JSON bytes to
+  `response.getOutputStream()` or `response.getWriter()` must return
+  `ActionSupport.NONE` after writing. Returning a named result after the
+  response is written lets Struts forward a JSP into the same response and can
+  corrupt downloads; in CARLOS' Struts 7 direct-response paths, use explicit
+  `NONE` rather than a bare `null`. Prefer separate page and download action
+  routes when touching legacy mixed actions; broader cleanup is tracked in
+  GitHub issue #2064.
+- Invoice PDF actions should generate and validate PDF bytes before setting
+  response headers. Post-download bookkeeping, such as writing the "printed"
+  billing comment, is non-critical to the browser response; run it before the
+  response is committed or catch/log failures after writing so Struts cannot
+  render an HTML error page into the PDF download.
+- If invoice PDF generation fails before any bytes are streamed, send an
+  explicit HTTP error and return `ActionSupport.NONE`. Returning an unmapped
+  `failure` result from a direct-response route lets Struts render the generic
+  error JSP; PR #2043 showed this appears as `CARLOS Error: 0` when no actual
+  HTTP status is set.
 
 ### 8.3 CSRF & encoding
 

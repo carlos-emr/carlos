@@ -138,7 +138,7 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
      * type "application/pdf" and inline disposition. If a default printer is configured,
      * embedded JavaScript in the PDF will trigger automatic printing on open.
      *
-     * @return String ActionSupport result constant, always returns SUCCESS
+     * @return String ActionSupport result constant, always returns NONE for direct PDF responses
      * @throws SecurityException if user lacks "_demographic" read privilege
      */
     public String execute() {
@@ -187,7 +187,9 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
 
         if (labelFile == null) {
             logger.warn("requested invalid label : {}", LogSanitizer.sanitize(request.getParameter("labelName"))); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
-            return SUCCESS;
+            // This action streams PDFs directly and its Struts mapping has no success result.
+            // Returning SUCCESS makes Struts render the global error page over the response as "0".
+            return NONE;
         }
 
         //patient
@@ -251,7 +253,9 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
             }
         }
 
-        return SUCCESS;
+        // This action streams the PDF directly and its Struts mapping has no success result.
+        // Returning SUCCESS makes Struts render the global error page over the PDF as "0".
+        return NONE;
     }
 
     /**

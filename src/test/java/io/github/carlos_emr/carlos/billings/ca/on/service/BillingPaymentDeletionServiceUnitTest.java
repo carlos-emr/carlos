@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao;
+import io.github.carlos_emr.carlos.commn.dao.BillingOnItemPaymentDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
 
@@ -76,6 +77,7 @@ class BillingPaymentDeletionServiceUnitTest {
     private BillingONPaymentDao paymentDao;
     private BillingONCHeader1Dao headerDao;
     private BillingONExtDao extDao;
+    private BillingOnItemPaymentDao itemPaymentDao;
     private BillingPaymentDeletionService service;
 
     @BeforeEach
@@ -83,7 +85,8 @@ class BillingPaymentDeletionServiceUnitTest {
         paymentDao = mock(BillingONPaymentDao.class);
         headerDao = mock(BillingONCHeader1Dao.class);
         extDao = mock(BillingONExtDao.class);
-        service = new BillingPaymentDeletionService(paymentDao, headerDao, extDao);
+        itemPaymentDao = mock(BillingOnItemPaymentDao.class);
+        service = new BillingPaymentDeletionService(paymentDao, headerDao, extDao, itemPaymentDao);
     }
 
     private BillingONPayment paymentWithHeader(int billingNo, int demoNo) {
@@ -114,20 +117,23 @@ class BillingPaymentDeletionServiceUnitTest {
 
         service.deletePayment(101);
 
-        // 1. payment removed
+        // 1. child item-payment rows removed before the parent payment row.
+        verify(itemPaymentDao).deleteByPaymentId(101);
+        // 2. payment removed
         verify(paymentDao).remove(101);
-        InOrder lockThenDelete = inOrder(headerDao, paymentDao);
+        InOrder lockThenDelete = inOrder(headerDao, itemPaymentDao, paymentDao);
         lockThenDelete.verify(headerDao).findForUpdate(42);
+        lockThenDelete.verify(itemPaymentDao).deleteByPaymentId(101);
         lockThenDelete.verify(paymentDao).remove(101);
-        // 2. header rebalanced — net paid is payments (80) minus refunds (10).
+        // 3. header rebalanced — net paid is payments (80) minus refunds (10).
         BillingONCHeader1 ch1 = payment.getBillingONCheader1();
         assertThat(ch1.getPaid()).isEqualByComparingTo("70.00");
         verify(headerDao).merge(ch1);
-        // 3. ext payment-key stores the same net paid total as the header.
+        // 4. ext payment-key stores the same net paid total as the header.
         verify(extDao).setExtItem(eq(42), eq(7),
                 eq(BillingONExtDao.KEY_PAYMENT), eq("70.00"),
                 any(Date.class), eq('1'));
-        // 4. ext refund-key stores the positive refund total for audit/display.
+        // 5. ext refund-key stores the positive refund total for audit/display.
         verify(extDao).setExtItem(eq(42), eq(7),
                 eq(BillingONExtDao.KEY_REFUND), eq("10.00"),
                 any(Date.class), eq('1'));
@@ -142,6 +148,7 @@ class BillingPaymentDeletionServiceUnitTest {
                 .hasMessageContaining("99");
 
         verify(paymentDao, never()).remove(anyInt());
+        verify(itemPaymentDao, never()).deleteByPaymentId(anyInt());
         verify(headerDao, never()).merge(any());
         verify(extDao, never()).setExtItem(anyInt(), anyInt(), any(), any(), any(), anyChar());
     }
@@ -162,7 +169,8 @@ class BillingPaymentDeletionServiceUnitTest {
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("simulated DAO failure");
 
-        // Payment remove DID happen (the rollback is Spring's job, not ours).
+        // Row deletes DID happen (the rollback is Spring's job, not ours).
+        verify(itemPaymentDao, times(1)).deleteByPaymentId(101);
         verify(paymentDao, times(1)).remove(101);
         // Ext writes did NOT happen — exception aborted the sequence.
         verify(extDao, never()).setExtItem(anyInt(), anyInt(), any(), any(), any(), anyChar());
