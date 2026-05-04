@@ -55,7 +55,7 @@
 
 <html>
 <head>
-    <title>Documents In Queues</title>
+    <title><fmt:message key="inboxmanager.documentsInQueues"/></title>
 
     <link rel="stylesheet" type="text/css"
           href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.theme-1.14.2.min.css"/>
@@ -1945,7 +1945,10 @@
                 var doc_lab = checkType(current_first_doclab);
                 if (doc_lab == 'DOC') {
                     //oscarLog('docDesc_'+current_first_doclab);
-                    $('docDesc_' + current_first_doclab).focus();
+                    var docDesc = $('docDesc_' + current_first_doclab);
+                    if (docDesc) {
+                        docDesc.focus();
+                    }
                 } else if (doc_lab == 'HL7') {
                     //do nothing
                 }
@@ -2061,7 +2064,7 @@
         }
 
         function createNewDocEle(patientId) {
-            var newEle = '<dt><a id="patient' + patientId + 'docs" href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showSubType(\'' + patientId + '\',\'DOC\');un_bold(this);" title="Documents">Documents(<span id="pDocNum_' + patientId + '">1</span>)</a></dt>';
+            var newEle = '<dt><a id="patient' + patientId + 'docs" href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showSubType(\'' + patientId + '\',\'DOC\');un_bold(this);" title="' + documentLabel + '">' + documentLabel + '(<span id="pDocNum_' + patientId + '">1</span>)</a></dt>';
             //oscarLog('newEle='+newEle);
             return newEle;
         }
@@ -2389,6 +2392,7 @@
 </head>
 
 <body>
+<fmt:message key="inboxmanager.document.documents" var="documentsLabel"/>
 <%
     HashMap queueIdNames = (HashMap) request.getAttribute("queueIdNames");//each queue id has a corresponding name
     HashMap queueDocNos = (HashMap) request.getAttribute("queueDocNos");//one queue id is linked to a list of docs
@@ -2415,12 +2419,12 @@
     <%= (request.getParameter("fname") == null ? "" : "<input type=\"hidden\" name=\"fname\" value=\"" + SafeEncode.forHtmlAttribute(request.getParameter("fname")) + "\">") %>
     <%= (request.getParameter("hnum") == null ? "" : "<input type=\"hidden\" name=\"hnum\" value=\"" + SafeEncode.forHtmlAttribute(request.getParameter("hnum")) + "\">") %>
     <input type="hidden" name="selectedProviders">
-    <button type="button" class="btn btn-secondary btn-sm" style="font-size:14px !important;" onclick="window.close();">Back</button>
+    <button type="button" class="btn btn-secondary btn-sm" style="font-size:14px !important;" onclick="window.close();"><fmt:message key="global.btnBack"/></button>
 </div>
 <table id="pendingDocs" width="100%">
     <tr>
-        <th style="background:#f5f5f5;border-bottom:1px solid #ddd;padding:6px 10px;font-size:12px;">Queues</th>
-        <th style="background:#f5f5f5;border-bottom:1px solid #ddd;padding:6px 10px;font-size:12px;">Documents</th>
+        <th style="background:#f5f5f5;border-bottom:1px solid #ddd;padding:6px 10px;font-size:12px;"><fmt:message key="inboxmanager.document.queues"/></th>
+        <th style="background:#f5f5f5;border-bottom:1px solid #ddd;padding:6px 10px;font-size:12px;"><fmt:message key="inboxmanager.document.documents"/></th>
     </tr>
     <tr>
         <td valign="top" id="queueNames" width="10%">
@@ -2454,6 +2458,7 @@
     var providerNo = '<carlos:encode value='<%= providerNo %>' context="javaScriptBlock"/>';
 
     var searchProviderNo = '<carlos:encode value='<%= searchProviderNo %>' context="javaScriptBlock"/>';
+    var documentLabel = '${carlos:forJavaScript(documentsLabel)}';
     var types = ['DOC'];
 
     var contextpath = '${pageContext.servletContext.contextPath}';
