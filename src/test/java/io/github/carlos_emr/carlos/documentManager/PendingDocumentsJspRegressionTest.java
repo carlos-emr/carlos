@@ -40,7 +40,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("Pending documents JSP regressions")
 @Tag("unit")
 @Tag("document")
-class PendingDocumentsJspRegressionTest {
+public class PendingDocumentsJspRegressionTest {
 
     private static final Path PENDING_DOCUMENTS_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/oscarMDS/documentsInQueues.jsp");
@@ -53,7 +53,7 @@ class PendingDocumentsJspRegressionTest {
 
     @Test
     @DisplayName("pending documents page chrome should use i18n message keys")
-    void shouldUseI18nMessages_forPendingDocumentsChrome() throws IOException {
+    void shouldUseI18nMessages_forPendingDocumentsPageLabels() throws IOException {
         String jsp = Files.readString(PENDING_DOCUMENTS_JSP, StandardCharsets.UTF_8);
 
         assertThat(jsp)

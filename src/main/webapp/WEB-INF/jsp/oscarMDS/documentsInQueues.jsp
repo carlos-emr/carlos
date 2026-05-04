@@ -77,7 +77,7 @@
     <script type="text/javascript">
         var contextpath = "${pageContext.servletContext.contextPath}";
         const ctx = contextpath;
-        var documentLabel = '${carlos:forJavaScript(documentsLabel)}';
+        var documentLabel = '<carlos:encode value="${documentsLabel}" context="javaScript"/>';
     </script>
 
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/javascript/carlos-ajax.js"></script>
