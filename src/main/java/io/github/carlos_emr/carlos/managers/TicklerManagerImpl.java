@@ -350,7 +350,7 @@ public class TicklerManagerImpl implements TicklerManager {
             // if this providers wrote the tickler, they should see it..doesn't matter
             // about the role based access
             if (!add) {
-                if (Objects.equals(providerNo, t.getCreator())) {
+                if (Objects.equals(t.getCreator(), providerNo)) {
                     add = true;
                 }
 
