@@ -48,6 +48,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.CarlosProperties;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
@@ -141,7 +142,6 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
 
         int numberOfPages = 0;
         File validatedSource = PathValidationUtils.validateUpload(uploadedDocFile);
-        Path validatedSourcePath = resolveValidatedUploadPath(validatedSource);
 
         String originalFileName = resolveUploadedFileName(validatedSource, this.docFileFileName);
         String fileName = MiscUtils.sanitizeFileName(originalFileName);
@@ -158,7 +158,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             newDoc.setProgramId(pp.getProgramId().intValue());
         }
 
-        long expectedFileSize = Files.size(validatedSourcePath);
+        long expectedFileSize = validatedSource.length();
         // save local file;
         if (expectedFileSize == 0) {
             response.setHeader("oscar_error", props.getString("dms.addDocument.errorZeroSize"));
@@ -167,7 +167,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         }
         // The upload source was validated above; keep all subsequent file I/O scoped to the
         // validated temp file reference and use try-with-resources for explicit stream cleanup.
-        try (InputStream inputStream = Files.newInputStream(validatedSourcePath)) {
+        try (InputStream inputStream = openValidatedUploadInputStream(validatedSource)) {
             File file = writeLocalFile(inputStream, fileName); // write file to local dir
 
             if (!isWrittenUploadComplete(file, expectedFileSize)) {
@@ -331,8 +331,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 throw new FileNotFoundException();
             }
             File validatedDocFile = PathValidationUtils.validateUpload(docFile);
-            Path validatedDocPath = resolveValidatedUploadPath(validatedDocFile);
-            long expectedFileSize = Files.size(validatedDocPath);
+            long expectedFileSize = validatedDocFile.length();
             if (expectedFileSize == 0) {
                 errors.put("uploaderror", "dms.error.uploadError");
                 throw new FileNotFoundException();
@@ -351,7 +350,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
 
             // save local file
             File writtenFile;
-            try (InputStream inputStream = Files.newInputStream(validatedDocPath)) {
+            try (InputStream inputStream = openValidatedUploadInputStream(validatedDocFile)) {
                 writtenFile = writeLocalFile(inputStream, fileName2);
             }
             if (!isWrittenUploadComplete(writtenFile, expectedFileSize)) {
@@ -527,12 +526,11 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
             // if the update behavior is true, get the file name
             if (updateFileContent) {
-                Path validatedDocPath = resolveValidatedUploadPath(validatedDocFile);
-                long expectedFileSize = Files.size(validatedDocPath);
+                long expectedFileSize = validatedDocFile.length();
                 fileName = MiscUtils.sanitizeFileName(newDoc.getFileName());
                 // save local file
                 File writtenFile;
-                try (InputStream inputStream = Files.newInputStream(validatedDocPath)) {
+                try (InputStream inputStream = openValidatedUploadInputStream(validatedDocFile)) {
                     writtenFile = writeLocalFile(inputStream, fileName);
                 }
                 if (!isWrittenUploadComplete(writtenFile, expectedFileSize)) {
@@ -688,7 +686,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             // Validate once when binding the Struts 7 upload so the action only stores
             // temp files from approved locations. Business methods re-validate again
             // immediately before file I/O for defense in depth and static-analysis visibility.
-            File validatedUpload = PathValidationUtils.validateUpload(new File(selected.getAbsolutePath()));
+            File validatedUpload = PathValidationUtils.validateUpload(resolveUploadedContentFile(selected));
             this.docFile = validatedUpload;
             this.docFileFileName = resolveUploadedFileName(validatedUpload, selected.getOriginalName());
             this.docFileContentType = selected.getContentType();
@@ -714,34 +712,29 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     }
 
     /**
-     * Resolves an already-validated upload file to a canonical path for file reads.
-     * Enforces canonical containment within the configured document upload directory.
+     * Resolves the filesystem-backed content from Struts' upload abstraction.
      *
-     * @param validatedUpload File the upload file previously returned by {@link PathValidationUtils#validateUpload(File)}
-     * @return Path the canonical upload path
-     * @throws IOException if canonical resolution fails or containment checks fail
+     * @param uploadedFile UploadedFile the selected Struts upload
+     * @return File the upload content file to validate
      */
-    private Path resolveValidatedUploadPath(File validatedUpload) throws IOException {
-        if (validatedUpload == null || !validatedUpload.exists() || !validatedUpload.isFile()) {
-            throw new IOException("Invalid upload file");
+    private File resolveUploadedContentFile(UploadedFile uploadedFile) {
+        Object content = uploadedFile.getContent();
+        if (content instanceof File uploadFile) {
+            return uploadFile;
         }
 
-        File canonicalUpload = validatedUpload.getCanonicalFile();
+        throw new SecurityException("Uploaded content is not backed by a file");
+    }
 
-        String uploadRoot = CarlosProperties.getInstance().getProperty("OscarDocumentDir", "");
-        if (uploadRoot == null || uploadRoot.trim().isEmpty()) {
-            throw new IOException("Upload directory is not configured");
-        }
-
-        File canonicalRoot = new File(uploadRoot).getCanonicalFile();
-        Path rootPath = canonicalRoot.toPath();
-        Path uploadPath = canonicalUpload.toPath();
-
-        if (!uploadPath.startsWith(rootPath)) {
-            throw new IOException("Upload path is outside configured upload directory");
-        }
-
-        return uploadPath;
+    /**
+     * Opens a stream for a previously validated upload file.
+     *
+     * @param validatedUpload File returned by {@link PathValidationUtils#validateUpload(File)}
+     * @return InputStream for the upload content
+     * @throws IOException if the stream cannot be opened
+     */
+    private InputStream openValidatedUploadInputStream(File validatedUpload) throws IOException {
+        return FileUtils.openInputStream(validatedUpload); // codeql[java/path-injection] -- caller passes only PathValidationUtils.validateUpload(...) results
     }
 
     /**

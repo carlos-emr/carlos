@@ -136,7 +136,7 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
 
         UploadedFile uploadedFile = mock(UploadedFile.class);
         when(uploadedFile.getInputName()).thenReturn("filedata");
-        when(uploadedFile.getAbsolutePath()).thenReturn(tempUploadFile.getAbsolutePath());
+        when(uploadedFile.getContent()).thenReturn(tempUploadFile);
         when(uploadedFile.getOriginalName()).thenReturn("html5-upload.pdf");
         when(uploadedFile.getContentType()).thenReturn("application/pdf");
 
@@ -155,7 +155,7 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
 
         UploadedFile uploadedFile = mock(UploadedFile.class);
         when(uploadedFile.getInputName()).thenReturn("docFile");
-        when(uploadedFile.getAbsolutePath()).thenReturn(tempUploadFile.getAbsolutePath());
+        when(uploadedFile.getContent()).thenReturn(tempUploadFile);
         when(uploadedFile.getOriginalName()).thenReturn(null);
         when(uploadedFile.getContentType()).thenReturn("application/pdf");
 
@@ -174,7 +174,7 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
 
         UploadedFile uploadedFile = mock(UploadedFile.class);
         when(uploadedFile.getInputName()).thenReturn("docFile");
-        when(uploadedFile.getAbsolutePath()).thenReturn(tempUploadFile.getAbsolutePath());
+        when(uploadedFile.getContent()).thenReturn(tempUploadFile);
         when(uploadedFile.getOriginalName()).thenReturn("/");
         when(uploadedFile.getContentType()).thenReturn("application/pdf");
 
@@ -194,13 +194,13 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         try {
             UploadedFile filedataUpload = mock(UploadedFile.class);
             when(filedataUpload.getInputName()).thenReturn("filedata");
-            when(filedataUpload.getAbsolutePath()).thenReturn(filedataTemp.getAbsolutePath());
+            when(filedataUpload.getContent()).thenReturn(filedataTemp);
             when(filedataUpload.getOriginalName()).thenReturn("html5-upload.pdf");
             when(filedataUpload.getContentType()).thenReturn("application/pdf");
 
             UploadedFile docFileUpload = mock(UploadedFile.class);
             when(docFileUpload.getInputName()).thenReturn("docFile");
-            when(docFileUpload.getAbsolutePath()).thenReturn(tempUploadFile.getAbsolutePath());
+            when(docFileUpload.getContent()).thenReturn(tempUploadFile);
             when(docFileUpload.getOriginalName()).thenReturn("echart-upload.pdf");
             when(docFileUpload.getContentType()).thenReturn("application/pdf");
 
