@@ -244,7 +244,7 @@ jobs:
               updated_epoch=$(date -d "$updated_at" +%s)
               comment_confirmed_at="$updated_at"
               comment_confirmed_epoch="$updated_epoch"
-              if [ "$created_epoch" -gt "$updated_epoch" ]; then
+              if [ "$updated_epoch" -lt "$created_epoch" ]; then
                 comment_confirmed_at="$created_at"
                 comment_confirmed_epoch="$created_epoch"
               fi
