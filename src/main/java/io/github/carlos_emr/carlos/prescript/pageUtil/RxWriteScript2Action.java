@@ -412,14 +412,16 @@ public final class RxWriteScript2Action extends ActionSupport {
         if (randomId == null || !randomId.matches("\\d+")) {
             logger.warn("listPreviousInstructions: invalid randomId={}", Encode.forJava(randomId));
             bean.setListMedHistory(new ArrayList<>());
-            return null;
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid randomId");
+            return NONE;
         }
         // create Prescription
         RxPrescriptionData.Prescription rx = bean.getStashItem2(Integer.parseInt(randomId));
         if (rx == null) {
             logger.warn("listPreviousInstructions: no stash item found for randomId={}", Encode.forJava(randomId));
             bean.setListMedHistory(new ArrayList<>());
-            return null;
+            response.sendError(HttpServletResponse.SC_NOT_FOUND, "Prescription not found");
+            return NONE;
         }
         List<HashMap<String, String>> retList = new ArrayList();
         retList = RxUtil.getPreviousInstructions(rx);
