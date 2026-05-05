@@ -200,7 +200,7 @@ public class CaseManagementIssue extends BaseObject {
     /**
      * deprecated too inefficient and too many dependencies use CaseManagementIssueNotesDao
      */
-    @jakarta.persistence.ManyToMany(fetch = jakarta.persistence.FetchType.LAZY)
+    @jakarta.persistence.ManyToMany(fetch = jakarta.persistence.FetchType.LAZY, targetEntity = CaseManagementNote.class)
     @jakarta.persistence.JoinTable(name = "casemgmt_issue_notes", joinColumns = @jakarta.persistence.JoinColumn(name = "id"), inverseJoinColumns = @jakarta.persistence.JoinColumn(name = "note_id"))
     public Set getNotes() {
         return notes;
