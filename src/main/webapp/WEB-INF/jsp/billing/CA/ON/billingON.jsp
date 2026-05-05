@@ -957,7 +957,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                 <tr>
                                     <td style="white-space:nowrap; width: 33%; text-align: center" class="xmyPink"><b><fmt:message key="oscar.billing.ca.on.billingON.codeTimePercent"/></b><br/>
                                         <c:forEach var="i" begin="0" end="5">
-                                            <input type="text" name="serviceCode${i}" class="form-control form-control-sm d-inline-block w-auto"
+                                            <input type="text" name="serviceCode${i}" class="form-control form-control-sm d-inline-block w-50"
                                                    value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"serviceCode\".concat(i)]}' context='htmlAttribute'/>"
                                                    onBlur="upCaseCtrl(this)"/>x
                                             <input type="text" name="serviceUnit${i}" size="2" maxlength="4"
@@ -969,7 +969,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                         </c:forEach></td>
                                     <td style="white-space:nowrap; width: 33%; text-align: center" class="xmyPink"><b><fmt:message key="oscar.billing.ca.on.billingON.codeTimePercent"/></b><br/>
                                         <c:forEach var="i" begin="6" end="11">
-                                            <input type="text" name="serviceCode${i}" class="form-control form-control-sm d-inline-block w-auto"
+                                            <input type="text" name="serviceCode${i}" class="form-control form-control-sm d-inline-block w-50"
                                                    value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"serviceCode\".concat(i)]}' context='htmlAttribute'/>"
                                                    onBlur="upCaseCtrl(this)"/>x
                                             <input type="text" name="serviceUnit${i}" size="2" maxlength="2"
