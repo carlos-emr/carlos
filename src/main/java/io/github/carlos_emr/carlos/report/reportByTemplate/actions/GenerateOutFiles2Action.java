@@ -57,6 +57,8 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class GenerateOutFiles2Action extends ActionSupport {
+    private static final int MAX_CSV_EXPORT_LENGTH = 5 * 1024 * 1024;
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -67,23 +69,26 @@ public class GenerateOutFiles2Action extends ActionSupport {
             throw new SecurityException("Insufficient Privileges");
         }
 
-        String csv = (String) request.getSession().getAttribute("csv");
-        if (csv == null) {
-            csv = request.getParameter("csv");
-        }
+        String csv = request.getParameter("csv");
         String action = request.getParameter("getCSV");
         if (action != null) {
+            if (!validateCsv(csv)) {
+                return NONE;
+            }
             response.setContentType("application/octet-stream");
             response.setHeader("Content-Disposition", "attachment; filename=\"oscarReport.csv\"");
             try {
-                response.getWriter().write(csv); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer, java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- application/octet-stream CSV export from session data
+                response.getWriter().write(csv); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer, java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- application/octet-stream CSV export data
             } catch (Exception ioe) {
                 MiscUtils.getLogger().error("Error", ioe);
             }
-            return null;
+            return NONE;
         }
         action = request.getParameter("getXLS");
         if (action != null) {
+            if (!validateCsv(csv)) {
+                return NONE;
+            }
             MiscUtils.getLogger().debug("Generating Spread Sheet file for the 'report by template' module ..");
             response.setContentType("application/octet-stream");
             response.setHeader("Content-Disposition", "attachment; filename=\"oscarReport.xls\"");
@@ -123,9 +128,21 @@ public class GenerateOutFiles2Action extends ActionSupport {
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error", e);
             }
-            return null;
+            return NONE;
         }
         return SUCCESS;
+    }
+
+    private boolean validateCsv(String csv) {
+        if (csv == null) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return false;
+        }
+        if (csv.length() > MAX_CSV_EXPORT_LENGTH) {
+            response.setStatus(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
+            return false;
+        }
+        return true;
     }
 
 }

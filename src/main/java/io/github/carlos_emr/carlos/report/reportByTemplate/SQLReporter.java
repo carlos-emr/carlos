@@ -59,10 +59,10 @@ public class SQLReporter implements Reporter {
 
     /**
      * Maximum number of characters ({@code String.length()}) of CSV data that may be
-     * stored in the HTTP session. Prevents memory exhaustion when large report results
-     * are generated. Value: 5,242,880 characters (5&nbsp;×&nbsp;1024&nbsp;×&nbsp;1024).
+     * carried forward to the export form. Prevents very large report results from
+     * being retained in server-side or client-side request state.
      */
-    static final int MAX_CSV_SESSION_LENGTH = 5 * 1024 * 1024;
+    static final int MAX_CSV_EXPORT_LENGTH = 5 * 1024 * 1024;
 
     /** Value of {@link ReportTemplates#getActive()} that indicates an active template. */
     private static final int ACTIVE_STATUS = 1;
@@ -133,13 +133,12 @@ public class SQLReporter implements Reporter {
         String[] result = executeQuery(sql, sqlParams, false);
 
         String csv = result[1];
-        if (csv.length() > MAX_CSV_SESSION_LENGTH) {
-            MiscUtils.getLogger().warn("generateReport: CSV result for template '{}' exceeds session size limit ({} chars); not storing in session", LogSanitizer.sanitize(templateId), csv.length()); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+        if (csv.length() > MAX_CSV_EXPORT_LENGTH) {
+            MiscUtils.getLogger().warn("generateReport: CSV result for template '{}' exceeds export size limit ({} chars); not exposing CSV download", LogSanitizer.sanitize(templateId), csv.length()); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             request.setAttribute("errormsg", "Warning: Report result is too large to download as CSV. Please narrow your search criteria.");
             csv = "";
         }
 
-        request.getSession().setAttribute("csv", csv); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- csv is generated from executeQuery() results for a validated report template, not copied directly from request parameters
         request.setAttribute("csv", csv);
         request.setAttribute("sql", sql);
         request.setAttribute("reportobject", curReport);
