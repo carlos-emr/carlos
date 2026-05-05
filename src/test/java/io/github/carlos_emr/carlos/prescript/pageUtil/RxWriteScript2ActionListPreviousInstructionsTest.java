@@ -130,7 +130,7 @@ class RxWriteScript2ActionListPreviousInstructionsTest extends CarlosUnitTestBas
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(bean.getListMedHistory()).isEmpty();
-        verify(mockResponse).sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid randomId");
+        verify(mockResponse).sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid randomId: digits only");
     }
 
     @Test
@@ -142,7 +142,7 @@ class RxWriteScript2ActionListPreviousInstructionsTest extends CarlosUnitTestBas
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(bean.getListMedHistory()).isEmpty();
-        verify(mockResponse).sendError(HttpServletResponse.SC_NOT_FOUND, "Prescription not found");
+        verify(mockResponse).sendError(HttpServletResponse.SC_NOT_FOUND, "Prescription not found for randomId: 42");
     }
 
     @Test

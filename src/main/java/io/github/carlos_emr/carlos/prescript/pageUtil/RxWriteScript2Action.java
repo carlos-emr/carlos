@@ -412,7 +412,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         if (randomId == null || !randomId.matches("\\d+")) {
             logger.warn("listPreviousInstructions: invalid randomId={}", Encode.forJava(randomId));
             bean.setListMedHistory(new ArrayList<>());
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid randomId");
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid randomId: digits only");
             return NONE;
         }
         // create Prescription
@@ -420,7 +420,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         if (rx == null) {
             logger.warn("listPreviousInstructions: no stash item found for randomId={}", Encode.forJava(randomId));
             bean.setListMedHistory(new ArrayList<>());
-            response.sendError(HttpServletResponse.SC_NOT_FOUND, "Prescription not found");
+            response.sendError(HttpServletResponse.SC_NOT_FOUND, "Prescription not found for randomId: " + randomId);
             return NONE;
         }
         List<HashMap<String, String>> retList = new ArrayList();
