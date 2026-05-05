@@ -97,7 +97,7 @@
         <!-- Drools 10.x KIE API (upgraded from 7.74.1.Final for Jakarta EE compatibility) -->
         <drools.version>10.1.0</drools.version>
         <!-- Spring -->
-        <spring.version>7.0.6</spring.version>
+        <spring.version>7.0.7</spring.version>
         <spring-security.version>7.0.4</spring-security.version>
         <!-- Struts -->
         <struts.version>7.1.1</struts.version>
