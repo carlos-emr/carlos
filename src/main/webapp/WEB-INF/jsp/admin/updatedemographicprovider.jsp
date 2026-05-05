@@ -283,7 +283,7 @@
         <div class="card card-body bg-body-tertiary">
             <table class="table table-striped  table-sm">
                 <FORM NAME="ADDMRP" METHOD="post"
-                      ACTION="updatedemographicprovider.jsp">
+                      ACTION="<%= request.getContextPath() %>/admin/UpdateDemographicProvider">
                     <tr>
                         <td>
                             <b><fmt:message key="admin.updatedemographicprovider.msgMrp"/></b>
@@ -346,7 +346,7 @@
         <div class="card card-body bg-body-tertiary">
             <table class="table table-striped  table-sm">
                 <FORM NAME="ADDAPPT1" METHOD="post"
-                      ACTION="updatedemographicprovider.jsp">
+                      ACTION="<%= request.getContextPath() %>/admin/UpdateDemographicProvider">
                     <tr>
                         <td>
                             <b><fmt:message key="admin.updatedemographicprovider.msgNurse"/></b>
@@ -410,7 +410,7 @@
         <div class="card card-body bg-body-tertiary">
             <table class="table table-striped  table-sm">
                 <FORM NAME="ADDAPPT2" METHOD="post"
-                      ACTION="updatedemographicprovider.jsp">
+                      ACTION="<%= request.getContextPath() %>/admin/UpdateDemographicProvider">
                     <tr>
                         <td><b><fmt:message key="admin.updatedemographicprovider.msgMidwife"/></b></td>
                     </tr>
@@ -476,7 +476,7 @@
         <div class="card card-body bg-body-tertiary">
             <table class="table table-striped  table-sm">
                 <FORM NAME="ADDAPPT" METHOD="post"
-                      ACTION="updatedemographicprovider.jsp">
+                      ACTION="<%= request.getContextPath() %>/admin/UpdateDemographicProvider">
                     <tr>
                         <td><b><fmt:message key="admin.updatedemographicprovider.msgResident"/></b></td>
                     </tr>

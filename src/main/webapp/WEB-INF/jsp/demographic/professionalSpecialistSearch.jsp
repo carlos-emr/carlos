@@ -228,7 +228,7 @@
             //-->
         </SCRIPT>
 
-        <form method="post" name="nextform" action="searchRefDoc.jsp">
+        <form method="post" name="nextform" action="<%= request.getContextPath() %>/demographic/ViewProfessionalSpecialistSearch">
             <%
                 if (nLastPage >= 0) {
             %> <input type="submit" class="mbttn" name="submit"
