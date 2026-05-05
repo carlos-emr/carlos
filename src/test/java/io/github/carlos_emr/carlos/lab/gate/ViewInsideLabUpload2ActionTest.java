@@ -48,6 +48,7 @@ class ViewInsideLabUpload2ActionTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
+    private AutoCloseable mocks;
     @Mock private SecurityInfoManager mockSecurityInfoManager;
     @Mock private LoggedInInfo mockLoggedInInfo;
     private MockHttpServletRequest mockRequest;
@@ -56,7 +57,7 @@ class ViewInsideLabUpload2ActionTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() {
-        MockitoAnnotations.openMocks(this);
+        mocks = MockitoAnnotations.openMocks(this);
         mockRequest = new MockHttpServletRequest();
         mockResponse = new MockHttpServletResponse();
         mockRequest.setMethod("GET");
@@ -73,9 +74,10 @@ class ViewInsideLabUpload2ActionTest extends CarlosUnitTestBase {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws Exception {
         if (loggedInInfoMock != null) loggedInInfoMock.close();
         if (servletActionContextMock != null) servletActionContextMock.close();
+        if (mocks != null) mocks.close();
     }
 
     @Test
@@ -87,7 +89,7 @@ class ViewInsideLabUpload2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldReturnSuccess_onHead_whenPrivilegeGranted() throws Exception {
+    void shouldReturnSuccess_whenHeadRequest() throws Exception {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_lab"), eq("w"), isNull()))
                 .thenReturn(true);
         mockRequest.setMethod("HEAD");
@@ -101,13 +103,13 @@ class ViewInsideLabUpload2ActionTest extends CarlosUnitTestBase {
                 .thenReturn(null);
 
         assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class)
-                .hasMessageContaining("lab/CA/ALL/insideLabUpload");
+                .hasMessageContaining("lab/CA/ALL/ViewInsideLabUpload");
     }
 
     @Test
     void shouldThrow_whenPrivilegeMissing() {
         assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class)
-                .hasMessageContaining("lab/CA/ALL/insideLabUpload");
+                .hasMessageContaining("lab/CA/ALL/ViewInsideLabUpload");
     }
 
     @Test

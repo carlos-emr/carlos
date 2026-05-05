@@ -55,7 +55,7 @@ public final class ViewInsideLabUpload2Action extends ActionSupport {
      * success result.
      *
      * @return {@link #SUCCESS} when the caller is authenticated and has
-     *         {@code _lab w}; {@link #NONE} after sending {@code 405} when
+     *         {@code _lab w}; {@link #NONE} after setting {@code 405} when
      *         the request is not GET/HEAD
      * @throws Exception when action processing fails
      */
@@ -67,13 +67,13 @@ public final class ViewInsideLabUpload2Action extends ActionSupport {
         String method = request.getMethod();
         if (!"GET".equalsIgnoreCase(method) && !"HEAD".equalsIgnoreCase(method)) {
             response.setHeader("Allow", "GET, HEAD");
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null || !securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "w", null)) {
-            throw new SecurityException("missing required security object for lab/CA/ALL/insideLabUpload");
+            throw new SecurityException("missing required sec object (_lab w) for lab/CA/ALL/ViewInsideLabUpload");
         }
         return SUCCESS;
     }
