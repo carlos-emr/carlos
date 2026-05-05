@@ -42,6 +42,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import org.apache.struts2.ServletActionContext;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billing.CA.ON.util.EDTFolder;
@@ -287,7 +288,8 @@ public class MoveMohFiles2Action extends ActionSupport {
         String zname = req.getParameter("unzipfile");
         try {
             if (zname != null && !zname.isEmpty()) {
-                File safeZipFile = PathValidationUtils.validatePath(zname, new File(folderPath));
+                String safeZipName = FilenameUtils.getName(zname);
+                File safeZipFile = PathValidationUtils.validatePath(safeZipName, new File(folderPath));
                 Boolean unzipDone = zip.unzipXML(folderPath, safeZipFile.getName());
                 if (!unzipDone) {
                     unzipMSG = "(Cannot unzip)";
@@ -403,6 +405,7 @@ public class MoveMohFiles2Action extends ActionSupport {
             logger.warn("Rejected decoded file path: {}", LogSanitizer.sanitize(fileName));
             return null;
         }
+        String safeFileName = FilenameUtils.getName(fileName);
 
         // Sanitize + validate-within-allowed-directory in one step rather than
         // constructing the File from raw user input and validating after-the-
@@ -411,7 +414,7 @@ public class MoveMohFiles2Action extends ActionSupport {
         // File construction. validateFileLocation() below remains as a
         // defence-in-depth check.
         try {
-            return PathValidationUtils.validatePath(fileName, new File(folderPath));
+            return PathValidationUtils.validatePath(safeFileName, new File(folderPath));
         } catch (SecurityException e) {
             logger.warn("Rejected file path: {} in {}",
                     LogSanitizer.sanitize(fileName), LogSanitizer.sanitize(folderPath), e);
