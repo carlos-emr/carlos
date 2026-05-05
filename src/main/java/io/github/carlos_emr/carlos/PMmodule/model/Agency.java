@@ -162,7 +162,7 @@ public class Agency implements Serializable {
     /**
      * Return the value associated with the column: intake_indepth_state
      */
-    @jakarta.persistence.Column(name = "intake_indepth_state", length = 2, nullable = false)
+    @jakarta.persistence.Column(name = "intake_indepth_state", length = 3, nullable = false)
     public String getIntakeIndepthState() {
         return intakeIndepthState;
     }
