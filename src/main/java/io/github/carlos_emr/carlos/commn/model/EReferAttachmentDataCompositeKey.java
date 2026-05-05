@@ -5,6 +5,13 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import java.io.Serializable;
 import java.util.Objects;
+/**
+ * EReferAttachmentDataCompositeKey provides functionality and data models for the EReferAttachmentDataCompositeKey domain.
+ *
+ * <p>This class is part of the CARLOS EMR system.
+ *
+ * @since 2026
+ */
 
 public class EReferAttachmentDataCompositeKey implements Serializable {
     @ManyToOne

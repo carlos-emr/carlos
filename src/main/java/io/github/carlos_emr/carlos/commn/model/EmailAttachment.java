@@ -5,6 +5,13 @@ import jakarta.persistence.*;
 
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 
+/**
+ * EmailAttachment provides functionality and data models for the EmailAttachment domain.
+ *
+ * <p>This class is part of the CARLOS EMR system.
+ *
+ * @since 2026
+ */
 @Entity
 @Table(name = "emailAttachment")
 public class EmailAttachment extends AbstractModel<Integer> {

@@ -5,6 +5,13 @@ import io.github.carlos_emr.carlos.commn.model.converter.EmailConfigTypeConverte
 import jakarta.persistence.*;
 import java.util.List;
 
+/**
+ * EmailConfig provides functionality and data models for the EmailConfig domain.
+ *
+ * <p>This class is part of the CARLOS EMR system.
+ *
+ * @since 2026
+ */
 @Entity
 @Table(name = "emailConfig")
 public class EmailConfig extends AbstractModel<Integer> {

@@ -9,6 +9,13 @@ import io.github.carlos_emr.carlos.commn.dao.EReferAttachmentDataDaoImpl;
 import io.github.carlos_emr.carlos.commn.model.EReferAttachment;
 import io.github.carlos_emr.carlos.commn.model.EReferAttachmentData;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+/**
+ * OceanEReferralAttachmentUtil provides functionality and data models for the OceanEReferralAttachmentUtil domain.
+ *
+ * <p>This class is part of the CARLOS EMR system.
+ *
+ * @since 2026
+ */
 
 public class OceanEReferralAttachmentUtil {
     private static EReferAttachmentDataDaoImpl eReferAttachmentDataDao = SpringUtils.getBean(EReferAttachmentDataDaoImpl.class);

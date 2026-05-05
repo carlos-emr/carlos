@@ -5,6 +5,13 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 
+/**
+ * DuplicateHinException provides functionality and data models for the DuplicateHinException domain.
+ *
+ * <p>This class is part of the CARLOS EMR system.
+ *
+ * @since 2026
+ */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "DuplicateHinException")
 public class DuplicateHinException implements Serializable

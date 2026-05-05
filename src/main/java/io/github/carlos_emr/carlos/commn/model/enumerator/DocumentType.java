@@ -1,4 +1,11 @@
 package io.github.carlos_emr.carlos.commn.model.enumerator;
+/**
+ * DocumentType provides functionality and data models for the DocumentType domain.
+ *
+ * <p>This class is part of the CARLOS EMR system.
+ *
+ * @since 2026
+ */
 
 public enum DocumentType {
     EFORM("E", "eForm"),

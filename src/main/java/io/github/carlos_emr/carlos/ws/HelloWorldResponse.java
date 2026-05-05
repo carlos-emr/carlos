@@ -6,6 +6,13 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 
+/**
+ * HelloWorldResponse provides functionality and data models for the HelloWorldResponse domain.
+ *
+ * <p>This class is part of the CARLOS EMR system.
+ *
+ * @since 2026
+ */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "helloWorldResponse", propOrder = { "_return" })
 public class HelloWorldResponse implements Serializable

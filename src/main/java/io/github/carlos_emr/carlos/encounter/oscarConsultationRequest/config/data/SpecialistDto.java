@@ -1,4 +1,11 @@
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.data;
+/**
+ * SpecialistDto provides functionality and data models for the SpecialistDto domain.
+ *
+ * <p>This class is part of the CARLOS EMR system.
+ *
+ * @since 2026
+ */
 
 public class SpecialistDto {
     private Integer specId;

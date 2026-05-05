@@ -5,6 +5,13 @@ import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import java.io.IOException;
 import java.util.Calendar;
+/**
+ * JsDateSerializer provides functionality and data models for the JsDateSerializer domain.
+ *
+ * <p>This class is part of the CARLOS EMR system.
+ *
+ * @since 2026
+ */
 
 public class JsDateSerializer extends JsonSerializer<java.sql.Date> {
     @Override

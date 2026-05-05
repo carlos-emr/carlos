@@ -17,6 +17,13 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import java.util.Properties;
 import java.util.Vector;
+/**
+ * GstReport provides functionality and data models for the GstReport domain.
+ *
+ * <p>This class is part of the CARLOS EMR system.
+ *
+ * @since 2026
+ */
 
 public class GstReport {
 

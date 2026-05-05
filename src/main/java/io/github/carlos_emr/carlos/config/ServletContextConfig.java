@@ -7,6 +7,13 @@ import jakarta.servlet.ServletContext;
 
 import org.springframework.web.context.ServletContextAware;
 
+/**
+ * ServletContextConfig provides functionality and data models for the ServletContextConfig domain.
+ *
+ * <p>This class is part of the CARLOS EMR system.
+ *
+ * @since 2026
+ */
 @Configuration
 public class ServletContextConfig implements ServletContextAware {
 

@@ -10,6 +10,13 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 
+/**
+ * MatchingClientParameters provides functionality and data models for the MatchingClientParameters domain.
+ *
+ * <p>This class is part of the CARLOS EMR system.
+ *
+ * @since 2026
+ */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "matchingClientParameters", propOrder = { "maxEntriesToReturn", "minScore", "firstName", "lastName", "birthDate", "hin" })
 public class MatchingClientParameters implements Serializable

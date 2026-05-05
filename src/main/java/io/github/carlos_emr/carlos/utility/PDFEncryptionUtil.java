@@ -8,6 +8,13 @@ import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.encryption.AccessPermission;
 import org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy;
+/**
+ * PDFEncryptionUtil provides functionality and data models for the PDFEncryptionUtil domain.
+ *
+ * <p>This class is part of the CARLOS EMR system.
+ *
+ * @since 2026
+ */
 
 public class PDFEncryptionUtil {
     public static Path encryptPDF(Path pdfPath, String password) throws IOException {

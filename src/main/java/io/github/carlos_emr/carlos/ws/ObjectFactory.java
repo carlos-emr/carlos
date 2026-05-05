@@ -5,6 +5,13 @@ import jakarta.xml.bind.JAXBElement;
 import javax.xml.namespace.QName;
 import jakarta.xml.bind.annotation.XmlRegistry;
 
+/**
+ * ObjectFactory provides functionality and data models for the ObjectFactory domain.
+ *
+ * <p>This class is part of the CARLOS EMR system.
+ *
+ * @since 2026
+ */
 @XmlRegistry
 public class ObjectFactory
 {
