@@ -47,8 +47,6 @@ import static org.mockito.Mockito.when;
 @Tag("lab")
 class ViewInsideLabUpload2ActionTest extends CarlosUnitTestBase {
 
-    private static final String VIEW_ROUTE = "lab/CA/ALL/ViewInsideLabUpload";
-
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
     private SecurityInfoManager mockSecurityInfoManager;
@@ -79,7 +77,7 @@ class ViewInsideLabUpload2ActionTest extends CarlosUnitTestBase {
 
     @ParameterizedTest
     @ValueSource(strings = {"GET", "HEAD"})
-    void shouldReturnSuccess_whenSafeMethodRequest(String method) throws Exception {
+    void shouldReturnSuccess_whenDisplayMethodRequest(String method) throws Exception {
         stubLabWritePrivilege(true);
         mockRequest.setMethod(method);
 
@@ -91,13 +89,13 @@ class ViewInsideLabUpload2ActionTest extends CarlosUnitTestBase {
         stubLoggedInInfo(null);
 
         assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class)
-                .hasMessageContaining(VIEW_ROUTE);
+                .hasMessageContaining(ViewInsideLabUpload2Action.VIEW_ROUTE);
     }
 
     @Test
     void shouldThrow_whenPrivilegeMissing() {
         assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class)
-                .hasMessageContaining(VIEW_ROUTE);
+                .hasMessageContaining(ViewInsideLabUpload2Action.VIEW_ROUTE);
     }
 
     @Test

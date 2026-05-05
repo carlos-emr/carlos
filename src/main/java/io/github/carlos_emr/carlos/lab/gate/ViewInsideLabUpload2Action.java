@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  */
 public final class ViewInsideLabUpload2Action extends ActionSupport {
 
+    static final String VIEW_ROUTE = "lab/CA/ALL/ViewInsideLabUpload";
     private static final String HTTP_GET = "GET";
     private static final String HTTP_HEAD = "HEAD";
     private static final String ALLOW_PAGE_DISPLAY_METHODS = HTTP_GET + ", " + HTTP_HEAD;
@@ -65,8 +66,8 @@ public final class ViewInsideLabUpload2Action extends ActionSupport {
      * Test seam that avoids static Spring lookup in focused unit tests.
      * Package-private visibility keeps production callers on the
      * Spring-backed default constructor while allowing same-package tests to
-     * inject a mock, which keeps this focused gate test smaller than
-     * registering a {@link SpringUtils} mock.
+     * inject a mock without registering a {@link SpringUtils} mock through
+     * {@code CarlosUnitTestBase}.
      *
      * @param securityInfoManager security manager used for the view-gate check
      */
@@ -112,7 +113,7 @@ public final class ViewInsideLabUpload2Action extends ActionSupport {
     private void requireLabUploadAccess(HttpServletRequest request) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null || !securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "w", null)) {
-            throw new SecurityException("missing required sec object (_lab w) for lab/CA/ALL/ViewInsideLabUpload");
+            throw new SecurityException("missing required sec object (_lab w) for " + VIEW_ROUTE);
         }
     }
 }
