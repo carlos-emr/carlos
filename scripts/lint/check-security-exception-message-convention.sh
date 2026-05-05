@@ -21,7 +21,7 @@ else
   targets=("$REPO_ROOT/src")
 fi
 
-if ! violations=$(grep -RInE 'missing required sec object:[[:space:]]*[^)]' "${targets[@]}" 2>/dev/null); then
+if ! violations=$(grep -RInE 'missing required sec object:[[:space:]]*($|[^)])' "${targets[@]}" 2>/dev/null); then
   echo "SecurityException message convention: PASS"
   exit 0
 fi
