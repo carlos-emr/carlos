@@ -77,7 +77,6 @@
         let saveTimeout = null;
         let currentText = "";
         let lastSavedText = "";
-        const SCRATCH_FORM_ID = 'scratch';
         const scratchSaveUrl = "${carlos:forJavaScript(scratchUrl)}";
 
         function setDirty(){
@@ -112,7 +111,7 @@
                 return;
             }
             isSaving = true;
-            let scratchForm = document.getElementById(SCRATCH_FORM_ID);
+            let scratchForm = document.getElementById('scratch');
             if (!scratchForm) {
                 isSaving = false;
                 showErrorMessage('Scratchpad form not found. Please refresh the page.');

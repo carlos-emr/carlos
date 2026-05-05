@@ -31,6 +31,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -91,8 +92,12 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
 
         Scratch2Action action = createAction(request, response);
 
+        ArgumentCaptor<ScratchPad> scratchPadCaptor = ArgumentCaptor.forClass(ScratchPad.class);
+
         assertThat(action.execute()).isNull();
-        verify(scratchPadDao).persist(any(ScratchPad.class));
+        verify(scratchPadDao).persist(scratchPadCaptor.capture());
+        assertThat(scratchPadCaptor.getValue().getProviderNo()).isEqualTo("999998");
+        assertThat(scratchPadCaptor.getValue().getText()).isEqualTo("test note");
         assertThat(json.toString()).contains("\"id\":\"1\"", "\"text\":\"test note\"", "\"windowId\":\"window-1\"");
     }
 
