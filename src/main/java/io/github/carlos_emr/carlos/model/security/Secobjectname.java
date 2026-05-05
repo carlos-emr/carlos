@@ -32,6 +32,9 @@ package io.github.carlos_emr.carlos.model.security;
  * @author JZhang
  */
 
+@jakarta.persistence.Entity
+@jakarta.persistence.Table(name = "secObjectName")
+@jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
 public class Secobjectname implements java.io.Serializable {
 
     // Fields
@@ -66,6 +69,9 @@ public class Secobjectname implements java.io.Serializable {
     }
 
     // Property accessors
+    @jakarta.persistence.Id
+
+    @jakarta.persistence.Column(name = "objectName")
 
     public String getObjectname() {
         return this.objectname;
@@ -74,6 +80,7 @@ public class Secobjectname implements java.io.Serializable {
     public void setObjectname(String objectname) {
         this.objectname = objectname;
     }
+    @jakarta.persistence.Column(name = "description")
 
     public String getDescription() {
         return this.description;
@@ -82,6 +89,7 @@ public class Secobjectname implements java.io.Serializable {
     public void setDescription(String description) {
         this.description = description;
     }
+    @jakarta.persistence.Column(name = "orgapplicable")
 
     public Integer getOrgapplicable() {
         return this.orgapplicable;

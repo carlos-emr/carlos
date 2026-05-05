@@ -35,6 +35,8 @@ import java.util.List;
  * This is the object class that relates to the secUserRole table.
  * Any customizations belong here.
  */
+// Not a JPA @Entity: the secUserRole table is owned by io.github.carlos_emr.carlos.model.security.Secuserrole
+// which uses an auto-increment id PK.  SecUserRole is a POJO/DTO used by SecUserRoleDao.
 public class SecUserRole implements Serializable {
 
     private int hashCode = Integer.MIN_VALUE; // primary key
@@ -65,7 +67,6 @@ public class SecUserRole implements Serializable {
     protected void initialize() {
         //empty
     }
-
     public String getRoleName() {
         return this._roleName;
     }
@@ -79,7 +80,6 @@ public class SecUserRole implements Serializable {
         this._roleName = _roleName;
         this.hashCode = Integer.MIN_VALUE;
     }
-
     public boolean getActive() {
         return this._active;
     }
@@ -93,7 +93,6 @@ public class SecUserRole implements Serializable {
         this._active = _active;
         this.hashCode = Integer.MIN_VALUE;
     }
-
     public String getProviderNo() {
         return this._providerNo;
     }
@@ -170,7 +169,6 @@ public class SecUserRole implements Serializable {
 
         return (sb.toString());
     }
-
     public String getOrgCd() {
         return orgCd;
     }
@@ -178,7 +176,6 @@ public class SecUserRole implements Serializable {
     public void setOrgCd(String orgCd) {
         this.orgCd = orgCd;
     }
-
     public Date getLastUpdateDate() {
         return lastUpdateDate;
     }
@@ -188,4 +185,25 @@ public class SecUserRole implements Serializable {
     }
 
 
+
+    public static class JpaId implements java.io.Serializable {
+        public String roleName;
+        public String providerNo;
+        public boolean active;
+
+        public JpaId() {
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof JpaId other)) return false;
+            return java.util.Objects.equals(roleName, other.roleName) && java.util.Objects.equals(providerNo, other.providerNo) && java.util.Objects.equals(active, other.active);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(roleName, providerNo, active);
+        }
+    }
 }

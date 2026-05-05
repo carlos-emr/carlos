@@ -30,6 +30,9 @@ import io.github.carlos_emr.Misc;
 import java.util.Calendar;
 import java.util.List;
 
+@jakarta.persistence.Entity
+@jakarta.persistence.Table(name = "LookupCodeValue")
+@jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
 public class LookupCodeValue {
     private String prefix;
     private String code;
@@ -55,6 +58,7 @@ public class LookupCodeValue {
 
     private int orderByIndex;
     private List associates;
+    @jakarta.persistence.Transient
 
     public List getAssociates() {
         return associates;
@@ -63,6 +67,7 @@ public class LookupCodeValue {
     public void setAssociates(List associates) {
         this.associates = associates;
     }
+    @jakarta.persistence.Column(name = "active")
 
     public boolean isActive() {
         return active;
@@ -71,6 +76,9 @@ public class LookupCodeValue {
     public void setActive(boolean active) {
         this.active = active;
     }
+    @jakarta.persistence.Id
+
+    @jakarta.persistence.Column(name = "code")
 
     public String getCode() {
         return code;
@@ -79,6 +87,7 @@ public class LookupCodeValue {
     public void setCode(String code) {
         this.code = code;
     }
+    @jakarta.persistence.Column(name = "codeTree")
 
     public String getCodeTree() {
         return codeTree;
@@ -87,10 +96,12 @@ public class LookupCodeValue {
     public void setCodeTree(String codeTree) {
         this.codeTree = codeTree;
     }
+    @jakarta.persistence.Column(name = "description")
 
     public String getDescription() {
         return description;
     }
+    @jakarta.persistence.Transient
 
     public String getDescriptionJs() {
         return Misc.getStringJs(description);
@@ -99,6 +110,7 @@ public class LookupCodeValue {
     public void setDescription(String description) {
         this.description = description;
     }
+    @jakarta.persistence.Transient
 
     public String getNote() {
         return note;
@@ -107,6 +119,7 @@ public class LookupCodeValue {
     public void setNote(String note) {
         this.note = note;
     }
+    @jakarta.persistence.Column(name = "orderByIndex")
 
     public int getOrderByIndex() {
         return orderByIndex;
@@ -115,6 +128,7 @@ public class LookupCodeValue {
     public void setOrderByIndex(int orderByIndex) {
         this.orderByIndex = orderByIndex;
     }
+    @jakarta.persistence.Column(name = "parentCode")
 
     public String getParentCode() {
         return parentCode;
@@ -123,6 +137,7 @@ public class LookupCodeValue {
     public void setParentCode(String parentCode) {
         this.parentCode = parentCode;
     }
+    @jakarta.persistence.Transient
 
     public boolean isSelectable() {
         return selectable;
@@ -131,6 +146,7 @@ public class LookupCodeValue {
     public void setSelectable(boolean selectable) {
         this.selectable = selectable;
     }
+    @jakarta.persistence.Transient
 
     public String getShortDesc() {
         return shortDesc;
@@ -139,6 +155,7 @@ public class LookupCodeValue {
     public void setShortDesc(String shortDesc) {
         this.shortDesc = shortDesc;
     }
+    @jakarta.persistence.Column(name = "prefix")
 
     public String getPrefix() {
         return prefix;
@@ -147,10 +164,12 @@ public class LookupCodeValue {
     public void setPrefix(String prefix) {
         this.prefix = prefix;
     }
+    @jakarta.persistence.Transient
 
     public String getCodeId() {
         return this.prefix + ":" + this.code;
     }
+    @jakarta.persistence.Column(name = "buf1")
 
     public String getBuf1() {
         return buf1;
@@ -159,6 +178,7 @@ public class LookupCodeValue {
     public void setBuf1(String buf1) {
         this.buf1 = buf1;
     }
+    @jakarta.persistence.Transient
 
     public String getBuf2() {
         return buf2;
@@ -167,6 +187,7 @@ public class LookupCodeValue {
     public void setBuf2(String buf2) {
         this.buf2 = buf2;
     }
+    @jakarta.persistence.Transient
 
     public Calendar getLastUpdateDate() {
         return lastUpdateDate;
@@ -175,6 +196,7 @@ public class LookupCodeValue {
     public void setLastUpdateDate(Calendar lastUpdateDate) {
         this.lastUpdateDate = lastUpdateDate;
     }
+    @jakarta.persistence.Transient
 
     public String getLastUpdateUser() {
         return lastUpdateUser;
@@ -183,6 +205,7 @@ public class LookupCodeValue {
     public void setLastUpdateUser(String lastUpdateUser) {
         this.lastUpdateUser = lastUpdateUser;
     }
+    @jakarta.persistence.Transient
 
     public String getBuf3() {
         return buf3;
@@ -191,6 +214,7 @@ public class LookupCodeValue {
     public void setBuf3(String buf3) {
         this.buf3 = buf3;
     }
+    @jakarta.persistence.Transient
 
     public String getBuf4() {
         return buf4;
@@ -199,6 +223,7 @@ public class LookupCodeValue {
     public void setBuf4(String buf4) {
         this.buf4 = buf4;
     }
+    @jakarta.persistence.Transient
 
     public String getBuf5() {
         return buf5;
@@ -207,6 +232,7 @@ public class LookupCodeValue {
     public void setBuf5(String buf5) {
         this.buf5 = buf5;
     }
+    @jakarta.persistence.Transient
 
     public String getBuf6() {
         return buf6;
@@ -215,6 +241,7 @@ public class LookupCodeValue {
     public void setBuf6(String buf6) {
         this.buf6 = buf6;
     }
+    @jakarta.persistence.Transient
 
     public String getBuf7() {
         return buf7;
@@ -223,6 +250,7 @@ public class LookupCodeValue {
     public void setBuf7(String buf7) {
         this.buf7 = buf7;
     }
+    @jakarta.persistence.Transient
 
     public String getBuf8() {
         return buf8;
@@ -231,6 +259,7 @@ public class LookupCodeValue {
     public void setBuf8(String buf8) {
         this.buf8 = buf8;
     }
+    @jakarta.persistence.Transient
 
     public String getBuf9() {
         return buf9;
@@ -239,6 +268,7 @@ public class LookupCodeValue {
     public void setBuf9(String buf9) {
         this.buf9 = buf9;
     }
+    @jakarta.persistence.Column(name = "codecsv")
 
     public String getCodecsv() {
         return codecsv;

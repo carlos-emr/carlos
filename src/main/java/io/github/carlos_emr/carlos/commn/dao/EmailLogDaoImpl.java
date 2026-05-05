@@ -86,7 +86,7 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
     public List<EmailLog> getEmailStatusByDateDemographicSenderStatus(Date dateBegin, Date dateEnd, String demographicNo, String senderEmailAddress, String emailStatus) {
         String hql = "SELECT el FROM EmailLog el JOIN el.emailConfig ec JOIN el.demographic d JOIN el.provider p " +
                 "WHERE 1=1 " +
-                "AND el.demographic.DemographicNo = IFNULL(?1, el.demographic.DemographicNo) " +
+                "AND el.demographic.demographicNo = IFNULL(?1, el.demographic.demographicNo) " +
                 "AND el.status = IFNULL(?2, el.status) " +
                 "AND el.fromEmail = IFNULL(?3, el.fromEmail) " +
                 "AND DATE(el.timestamp) BETWEEN DATE(?4) AND DATE(?5) " +

@@ -32,6 +32,9 @@ import java.util.Date;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
+@jakarta.persistence.Entity
+@jakarta.persistence.Table(name = "casemgmt_note_ext")
+@jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
 public class CaseManagementNoteExt {
 
     // Key Value constants ***All date value key must be in format "XXX Date"
@@ -56,6 +59,11 @@ public class CaseManagementNoteExt {
     private String keyVal;
     private String value;
     private Date dateValue;
+    @jakarta.persistence.Id
+
+    @jakarta.persistence.GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY)
+
+    @jakarta.persistence.Column(name = "id")
 
     public Long getId() {
         return this.id;
@@ -64,6 +72,7 @@ public class CaseManagementNoteExt {
     public void setId(Long id) {
         this.id = id;
     }
+    @jakarta.persistence.Column(name = "note_id")
 
     public Long getNoteId() {
         return this.noteId;
@@ -72,6 +81,7 @@ public class CaseManagementNoteExt {
     public void setNoteId(Long noteId) {
         this.noteId = noteId;
     }
+    @jakarta.persistence.Column(name = "key_val")
 
     public String getKeyVal() {
         return this.keyVal;
@@ -80,6 +90,7 @@ public class CaseManagementNoteExt {
     public void setKeyVal(String keyVal) {
         this.keyVal = keyVal;
     }
+    @jakarta.persistence.Column(name = "`value`")
 
     public String getValue() {
         return this.value;
@@ -88,10 +99,12 @@ public class CaseManagementNoteExt {
     public void setValue(String value) {
         this.value = value;
     }
+    @jakarta.persistence.Column(name = "date_value")
 
     public Date getDateValue() {
         return this.dateValue;
     }
+    @jakarta.persistence.Transient
 
     public String getDateValueStr() {
         return UtilDateUtilities.DateToString(this.dateValue, "yyyy-MM-dd");

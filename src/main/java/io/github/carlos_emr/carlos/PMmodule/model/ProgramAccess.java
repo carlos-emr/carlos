@@ -42,27 +42,16 @@ import io.github.carlos_emr.carlos.commn.model.AbstractModel;
   */
  @Entity
  @Table(name = "program_access")
- public class ProgramAccess extends AbstractModel<Long> {
+ @jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
+public class ProgramAccess extends AbstractModel<Long> {
 
      private int hashCode = Integer.MIN_VALUE; // primary key
 
-     @Id
-     @Column(name = "id")
      private Long _id;
-
-     @Column(name = "program_id")
      private Long _programId;
-
-     @Column(name = "access_type_id")
      private String _accessTypeId;
-
-     @Column(name = "all_roles")
      private boolean _allRoles;
-
-     @Column(name = "access_type")
      private AccessType _accessType;
-
-     @Column(name = "roles")
      private Set<Secrole> _roles;
  
      // constructors
@@ -80,6 +69,9 @@ import io.github.carlos_emr.carlos.commn.model.AbstractModel;
  
  
      @Override
+     @jakarta.persistence.Id
+     @jakarta.persistence.GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY)
+     @jakarta.persistence.Column(name = "id")
      public Long getId() {
          return _id;
      }
@@ -97,6 +89,7 @@ import io.github.carlos_emr.carlos.commn.model.AbstractModel;
       * Gets the program ID.
       * @return the program ID
       */
+     @jakarta.persistence.Column(name = "program_id")
      public Long getProgramId() {
          return _programId;
      }
@@ -113,6 +106,7 @@ import io.github.carlos_emr.carlos.commn.model.AbstractModel;
       * Gets the access type ID.
       * @return the access type ID
       */
+     @jakarta.persistence.Column(name = "access_type_id")
      public String getAccessTypeId() {
          return _accessTypeId;
      }
@@ -129,6 +123,7 @@ import io.github.carlos_emr.carlos.commn.model.AbstractModel;
       * Checks if all roles have this access.
       * @return true, if all roles have this access
       */
+     @jakarta.persistence.Column(name = "all_roles")
      public boolean isAllRoles() {
          return _allRoles;
      }
@@ -145,6 +140,8 @@ import io.github.carlos_emr.carlos.commn.model.AbstractModel;
       * Gets the access type.
       * @return the access type
       */
+     @jakarta.persistence.ManyToOne(fetch = jakarta.persistence.FetchType.EAGER)
+     @jakarta.persistence.JoinColumn(name = "access_type_id", insertable = false, updatable = false)
      public AccessType getAccessType() {
          return this._accessType;
      }
@@ -161,6 +158,8 @@ import io.github.carlos_emr.carlos.commn.model.AbstractModel;
       * Gets the roles that have this access.
       * @return the roles
       */
+     @jakarta.persistence.ManyToMany(fetch = jakarta.persistence.FetchType.EAGER)
+     @jakarta.persistence.JoinTable(name = "program_access_roles", joinColumns = @jakarta.persistence.JoinColumn(name = "id"), inverseJoinColumns = @jakarta.persistence.JoinColumn(name = "role_id"))
      public java.util.Set<Secrole> getRoles() {
          return this._roles;
      }

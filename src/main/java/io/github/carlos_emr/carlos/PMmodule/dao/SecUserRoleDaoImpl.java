@@ -31,20 +31,43 @@
 
 package io.github.carlos_emr.carlos.PMmodule.dao;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.SecUserRole;
+import io.github.carlos_emr.carlos.model.security.Secuserrole;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
+/**
+ * DAO for the secUserRole table.  Uses {@link Secuserrole} (the canonical JPA entity
+ * with auto-increment PK) internally and converts to/from the {@link SecUserRole} DTO
+ * that the interface exposes.
+ */
 @Transactional
 public class SecUserRoleDaoImpl extends AbstractJpaDao implements SecUserRoleDao {
 
     private static Logger log = MiscUtils.getLogger();
+
+    /** Convert a {@code Secuserrole} JPA entity to the DTO used by callers. */
+    private static SecUserRole toDTO(Secuserrole s) {
+        if (s == null) return null;
+        SecUserRole r = new SecUserRole(s.getRoleName(), s.getProviderNo());
+        r.setActive(s.getActiveyn() != null && s.getActiveyn() == 1);
+        r.setOrgCd(s.getOrgcd());
+        r.setLastUpdateDate(s.getLastUpdateDate());
+        return r;
+    }
+
+    private static List<SecUserRole> toDTOList(List<Secuserrole> entities) {
+        List<SecUserRole> out = new ArrayList<>(entities.size());
+        for (Secuserrole e : entities) out.add(toDTO(e));
+        return out;
+    }
 
     @Override
     public List<SecUserRole> getUserRoles(String providerNo) {
@@ -52,33 +75,31 @@ public class SecUserRoleDaoImpl extends AbstractJpaDao implements SecUserRoleDao
             throw new IllegalArgumentException();
         }
 
-        String sSQL = "from SecUserRole s where s.ProviderNo = ?1";
+        String sSQL = "from Secuserrole s where s.providerNo = ?1";
         @SuppressWarnings("unchecked")
-        List<SecUserRole> results = (List<SecUserRole>) JpqlQueryHelper.find(entityManager(), sSQL, providerNo);
+        List<Secuserrole> entities = (List<Secuserrole>) JpqlQueryHelper.find(entityManager(), sSQL, providerNo);
 
         if (log.isDebugEnabled()) {
-            log.debug("getUserRoles: providerNo=" + providerNo + ",# of results=" + results.size());
+            log.debug("getUserRoles: providerNo=" + providerNo + ",# of results=" + entities.size());
         }
 
-        return results;
+        return toDTOList(entities);
     }
 
     @Override
     public List<SecUserRole> getSecUserRolesByRoleName(String roleName) {
-        String sSQL = "from SecUserRole s where s.RoleName = ?1";
+        String sSQL = "from Secuserrole s where s.roleName = ?1";
         @SuppressWarnings("unchecked")
-        List<SecUserRole> results = (List<SecUserRole>) JpqlQueryHelper.find(entityManager(), sSQL, roleName);
-
-        return results;
+        List<Secuserrole> entities = (List<Secuserrole>) JpqlQueryHelper.find(entityManager(), sSQL, roleName);
+        return toDTOList(entities);
     }
 
     @Override
     public List<SecUserRole> findByRoleNameAndProviderNo(String roleName, String providerNo) {
-        String sSQL = "from SecUserRole s where s.RoleName = ?1 and s.ProviderNo=?2";
+        String sSQL = "from Secuserrole s where s.roleName = ?1 and s.providerNo=?2";
         @SuppressWarnings("unchecked")
-        List<SecUserRole> results = (List<SecUserRole>) JpqlQueryHelper.find(entityManager(), sSQL, roleName, providerNo);
-
-        return results;
+        List<Secuserrole> entities = (List<Secuserrole>) JpqlQueryHelper.find(entityManager(), sSQL, roleName, providerNo);
+        return toDTOList(entities);
     }
 
     @Override
@@ -87,13 +108,10 @@ public class SecUserRoleDaoImpl extends AbstractJpaDao implements SecUserRoleDao
             throw new IllegalArgumentException();
         }
 
-        boolean result = false;
-        String sSQL = "from SecUserRole s where s.ProviderNo = ?1 and s.RoleName = 'admin'";
+        String sSQL = "from Secuserrole s where s.providerNo = ?1 and s.roleName = 'admin'";
         @SuppressWarnings("unchecked")
-        List<SecUserRole> results = (List<SecUserRole>) JpqlQueryHelper.find(entityManager(), sSQL, providerNo);
-        if (!results.isEmpty()) {
-            result = true;
-        }
+        List<Secuserrole> entities = (List<Secuserrole>) JpqlQueryHelper.find(entityManager(), sSQL, providerNo);
+        boolean result = !entities.isEmpty();
 
         if (log.isDebugEnabled()) {
             log.debug("hasAdminRole: providerNo=" + providerNo + ",result=" + result);
@@ -104,21 +122,26 @@ public class SecUserRoleDaoImpl extends AbstractJpaDao implements SecUserRoleDao
 
     @Override
     public SecUserRole find(Long id) {
-        return entityManager().find(SecUserRole.class, id);
+        return toDTO(entityManager().find(Secuserrole.class, id.intValue()));
     }
 
     @Override
     public void save(SecUserRole sur) {
         sur.setLastUpdateDate(new Date());
-        entityManager().persist(sur);
+        Secuserrole entity = new Secuserrole();
+        entity.setProviderNo(sur.getProviderNo());
+        entity.setRoleName(sur.getRoleName());
+        entity.setActiveyn(sur.getActive() ? 1 : 0);
+        entity.setOrgcd(sur.getOrgCd());
+        entity.setLastUpdateDate(sur.getLastUpdateDate());
+        entityManager().persist(entity);
     }
 
     @Override
     public List<String> getRecordsAddedAndUpdatedSinceTime(Date date) {
-        String sSQL = "select p.ProviderNo From SecUserRole p WHERE p.lastUpdateDate > ?1";
+        String sSQL = "select p.providerNo From Secuserrole p WHERE p.lastUpdateDate > ?1";
         @SuppressWarnings("unchecked")
         List<String> records = (List<String>) JpqlQueryHelper.find(entityManager(), sSQL, date);
-
         return records;
     }
 

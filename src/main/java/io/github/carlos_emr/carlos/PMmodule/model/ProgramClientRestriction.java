@@ -36,6 +36,9 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 /**
  * Service restriction
  */
+@jakarta.persistence.Entity
+@jakarta.persistence.Table(name = "program_client_restriction")
+@jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
 public class ProgramClientRestriction implements Serializable {
 
     private Integer id;
@@ -69,10 +72,12 @@ public class ProgramClientRestriction implements Serializable {
         this.program = program;
         this.client = client;
     }
+    @jakarta.persistence.Column(name = "provider_no", length = 6)
 
     public String getProviderNo() {
         return providerNo;
     }
+    @jakarta.persistence.Transient
 
     public long getDaysRemaining() {
         return (this.getEndDate().getTime() - this.getStartDate().getTime()) / 1000 / 60 / 60 / 24;
@@ -81,6 +86,11 @@ public class ProgramClientRestriction implements Serializable {
     public void setProviderNo(String providerNo) {
         this.providerNo = providerNo;
     }
+    @jakarta.persistence.Id
+
+    @jakarta.persistence.GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY)
+
+    @jakarta.persistence.Column(name = "id")
 
     public Integer getId() {
         return id;
@@ -89,6 +99,7 @@ public class ProgramClientRestriction implements Serializable {
     public void setId(Integer id) {
         this.id = id;
     }
+    @jakarta.persistence.Column(name = "program_id")
 
     public int getProgramId() {
         return programId;
@@ -97,6 +108,7 @@ public class ProgramClientRestriction implements Serializable {
     public void setProgramId(int programId) {
         this.programId = programId;
     }
+    @jakarta.persistence.Column(name = "demographic_no")
 
     public int getDemographicNo() {
         return demographicNo;
@@ -105,6 +117,9 @@ public class ProgramClientRestriction implements Serializable {
     public void setDemographicNo(int demographicNo) {
         this.demographicNo = demographicNo;
     }
+    @jakarta.persistence.Temporal(jakarta.persistence.TemporalType.TIMESTAMP)
+
+    @jakarta.persistence.Column(name = "start_date", nullable = false)
 
     public Date getStartDate() {
         return startDate;
@@ -113,6 +128,9 @@ public class ProgramClientRestriction implements Serializable {
     public void setStartDate(Date startDate) {
         this.startDate = startDate;
     }
+    @jakarta.persistence.Temporal(jakarta.persistence.TemporalType.TIMESTAMP)
+
+    @jakarta.persistence.Column(name = "end_date", nullable = false)
 
     public Date getEndDate() {
         return endDate;
@@ -121,6 +139,7 @@ public class ProgramClientRestriction implements Serializable {
     public void setEndDate(Date endDate) {
         this.endDate = endDate;
     }
+    @jakarta.persistence.Column(name = "is_enabled", nullable = false)
 
     public boolean isEnabled() {
         return enabled;
@@ -129,6 +148,7 @@ public class ProgramClientRestriction implements Serializable {
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
     }
+    @org.hibernate.annotations.Formula("(select a.description from lst_service_restriction a where a.id=comments)")
 
     public String getComments() {
         return comments;
@@ -137,6 +157,7 @@ public class ProgramClientRestriction implements Serializable {
     public void setComments(String comments) {
         this.comments = comments;
     }
+    @jakarta.persistence.Transient
 
     public Program getProgram() {
         return program;
@@ -145,6 +166,7 @@ public class ProgramClientRestriction implements Serializable {
     public void setProgram(Program program) {
         this.program = program;
     }
+    @jakarta.persistence.Transient
 
     public Demographic getClient() {
         return client;
@@ -153,6 +175,7 @@ public class ProgramClientRestriction implements Serializable {
     public void setClient(Demographic client) {
         this.client = client;
     }
+    @jakarta.persistence.Transient
 
     public Provider getProvider() {
         return provider;
@@ -176,6 +199,7 @@ public class ProgramClientRestriction implements Serializable {
     public int hashCode() {
         return (id ^ (id >>> 32));
     }
+    @jakarta.persistence.Column(name = "comments", length = 255, nullable = false)
 
     public String getCommentId() {
         return commentId;
@@ -184,6 +208,7 @@ public class ProgramClientRestriction implements Serializable {
     public void setCommentId(String commentId) {
         this.commentId = commentId;
     }
+    @jakarta.persistence.Column(name = "early_termination_provider")
 
     public String getEarlyTerminationProvider() {
         return earlyTerminationProvider;

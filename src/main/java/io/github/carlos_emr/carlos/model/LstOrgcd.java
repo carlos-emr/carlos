@@ -32,6 +32,9 @@ package io.github.carlos_emr.carlos.model;
  * @author JZhang
  */
 
+@jakarta.persistence.Entity
+@jakarta.persistence.Table(name = "lst_orgcd")
+@jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
 public class LstOrgcd implements java.io.Serializable {
 
     // Fields
@@ -45,6 +48,7 @@ public class LstOrgcd implements java.io.Serializable {
     private String codecsv;
 
     // Constructors
+    @jakarta.persistence.Column(name = "codecsv")
 
     public String getCodecsv() {
         return codecsv;
@@ -82,6 +86,9 @@ public class LstOrgcd implements java.io.Serializable {
     }
 
     // Property accessors
+    @jakarta.persistence.Id
+
+    @jakarta.persistence.Column(name = "code")
 
     public String getCode() {
         return this.code;
@@ -90,6 +97,7 @@ public class LstOrgcd implements java.io.Serializable {
     public void setCode(String code) {
         this.code = code;
     }
+    @jakarta.persistence.Column(name = "description")
 
     public String getDescription() {
         return this.description;
@@ -98,6 +106,7 @@ public class LstOrgcd implements java.io.Serializable {
     public void setDescription(String description) {
         this.description = description;
     }
+    @jakarta.persistence.Column(name = "activeyn")
 
     public Integer getActiveyn() {
         return this.activeyn;
@@ -106,6 +115,7 @@ public class LstOrgcd implements java.io.Serializable {
     public void setActiveyn(Integer activeyn) {
         this.activeyn = activeyn;
     }
+    @jakarta.persistence.Column(name = "orderbyindex")
 
     public Integer getOrderbyindex() {
         return this.orderbyindex;
@@ -114,6 +124,7 @@ public class LstOrgcd implements java.io.Serializable {
     public void setOrderbyindex(Integer orderbyindex) {
         this.orderbyindex = orderbyindex;
     }
+    @jakarta.persistence.Column(name = "codetree")
 
     public String getCodetree() {
         return this.codetree;
@@ -122,6 +133,7 @@ public class LstOrgcd implements java.io.Serializable {
     public void setCodetree(String codetree) {
         this.codetree = codetree;
     }
+    @jakarta.persistence.Column(name = "fullcode")
 
     public String getFullcode() {
         return this.fullcode;

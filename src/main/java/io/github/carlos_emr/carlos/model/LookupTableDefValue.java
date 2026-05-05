@@ -25,6 +25,9 @@
  */
 package io.github.carlos_emr.carlos.model;
 
+@jakarta.persistence.Entity
+@jakarta.persistence.Table(name = "app_lookuptable")
+@jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
 public class LookupTableDefValue {
     String moduleId;
     String moduleName;
@@ -37,6 +40,7 @@ public class LookupTableDefValue {
     int treeCodeLength;
     boolean hasActive;
     boolean hasDisplayOrder;
+    @jakarta.persistence.Column(name = "readonly")
 
     public boolean isReadonly() {
         return readonly;
@@ -45,6 +49,7 @@ public class LookupTableDefValue {
     public void setReadonly(boolean readonly) {
         this.readonly = readonly;
     }
+    @jakarta.persistence.Column(name = "activeyn")
 
     public boolean isActive() {
         return active;
@@ -53,6 +58,7 @@ public class LookupTableDefValue {
     public void setActive(boolean active) {
         this.active = active;
     }
+    @jakarta.persistence.Column(name = "description")
 
     public String getDescription() {
         return description;
@@ -61,6 +67,11 @@ public class LookupTableDefValue {
     public void setDescription(String description) {
         this.description = description;
     }
+    @jakarta.persistence.Id
+
+    @jakarta.persistence.GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY)
+
+    @jakarta.persistence.Column(name = "tableId")
 
     public String getTableId() {
         return tableId;
@@ -69,6 +80,7 @@ public class LookupTableDefValue {
     public void setTableId(String tableId) {
         this.tableId = tableId;
     }
+    @jakarta.persistence.Column(name = "table_name")
 
     public String getTableName() {
         return tableName;
@@ -77,6 +89,7 @@ public class LookupTableDefValue {
     public void setTableName(String tableName) {
         this.tableName = tableName;
     }
+    @jakarta.persistence.Column(name = "treecode_length")
 
     public int getTreeCodeLength() {
         return treeCodeLength;
@@ -85,6 +98,7 @@ public class LookupTableDefValue {
     public void setTreeCodeLength(int treeCodeLength) {
         this.treeCodeLength = treeCodeLength;
     }
+    @org.hibernate.annotations.Formula("(select t.description from lst_field_category t where t.id=moduleId)")
 
     public String getModuleName() {
         return moduleName;
@@ -93,6 +107,7 @@ public class LookupTableDefValue {
     public void setModuleName(String moduleName) {
         this.moduleName = moduleName;
     }
+    @jakarta.persistence.Column(name = "moduleid")
 
     public String getModuleId() {
         return moduleId;
@@ -101,6 +116,7 @@ public class LookupTableDefValue {
     public void setModuleId(String moduleId) {
         this.moduleId = moduleId;
     }
+    @jakarta.persistence.Column(name = "istree")
 
     public boolean isTree() {
         return tree;
@@ -109,6 +125,7 @@ public class LookupTableDefValue {
     public void setTree(boolean tree) {
         this.tree = tree;
     }
+    @org.hibernate.annotations.Formula("(select count(*) from app_lookuptable_fields t1 where t1.tableId=tableId and t1.genericidx=3)")
 
     public boolean isHasActive() {
         return hasActive;
@@ -117,6 +134,7 @@ public class LookupTableDefValue {
     public void setHasActive(boolean hasActive) {
         this.hasActive = hasActive;
     }
+    @org.hibernate.annotations.Formula("(select count(*) from app_lookuptable_fields t2 where t2.tableId=tableId and t2.genericidx=4)")
 
     public boolean isHasDisplayOrder() {
         return hasDisplayOrder;

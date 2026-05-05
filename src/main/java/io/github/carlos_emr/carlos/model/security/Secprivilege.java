@@ -32,6 +32,9 @@ package io.github.carlos_emr.carlos.model.security;
  * @author JZhang
  */
 
+@jakarta.persistence.Entity
+@jakarta.persistence.Table(name = "secPrivilege")
+@jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
 public class Secprivilege implements java.io.Serializable {
 
     // Fields
@@ -66,6 +69,9 @@ public class Secprivilege implements java.io.Serializable {
     }
 
     // Property accessors
+    @jakarta.persistence.Id
+
+    @jakarta.persistence.Column(name = "id")
 
     public Integer getId() {
         return this.id;
@@ -74,6 +80,7 @@ public class Secprivilege implements java.io.Serializable {
     public void setId(Integer id) {
         this.id = id;
     }
+    @jakarta.persistence.Column(name = "privilege")
 
     public String getPrivilege() {
         return this.privilege;
@@ -82,6 +89,7 @@ public class Secprivilege implements java.io.Serializable {
     public void setPrivilege(String privilege) {
         this.privilege = privilege;
     }
+    @jakarta.persistence.Column(name = "description")
 
     public String getDescription() {
         return this.description;

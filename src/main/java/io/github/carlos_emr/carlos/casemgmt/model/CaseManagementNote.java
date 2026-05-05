@@ -45,6 +45,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 
 
+@jakarta.persistence.Entity
+@jakarta.persistence.Table(name = "casemgmt_note")
+@jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
 public class CaseManagementNote extends BaseObject {
 
     private Long id;
@@ -92,6 +95,7 @@ public class CaseManagementNote extends BaseObject {
     private CaseManagementNoteLink cmnLink = null;
     private boolean cmnLinkRetrieved = false;
 
+    @jakarta.persistence.Transient
     public Map<String, Object> getMap() {
         HashMap<String, Object> map = new HashMap<String, Object>();
 
@@ -152,6 +156,7 @@ public class CaseManagementNote extends BaseObject {
     public CaseManagementNote() {
         update_date = new Date();
     }
+    @jakarta.persistence.Transient
 
     public String getAuditString() {
         StringBuilder auditStr = new StringBuilder(getNote());
@@ -167,6 +172,7 @@ public class CaseManagementNote extends BaseObject {
         }
         return auditStr.toString();
     }
+    @jakarta.persistence.Column(name = "billing_code")
 
     public String getBilling_code() {
         return billing_code;
@@ -175,6 +181,7 @@ public class CaseManagementNote extends BaseObject {
     public void setBilling_code(String billing_code) {
         this.billing_code = billing_code;
     }
+    @jakarta.persistence.Column(name = "demographic_no")
 
     public String getDemographic_no() {
         return demographic_no;
@@ -183,6 +190,7 @@ public class CaseManagementNote extends BaseObject {
     public void setDemographic_no(String demographic_no) {
         this.demographic_no = demographic_no;
     }
+    @jakarta.persistence.Column(name = "encounter_type")
 
     public String getEncounter_type() {
         return encounter_type;
@@ -191,6 +199,11 @@ public class CaseManagementNote extends BaseObject {
     public void setEncounter_type(String encounter_type) {
         this.encounter_type = encounter_type;
     }
+    @jakarta.persistence.Id
+
+    @jakarta.persistence.GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY)
+
+    @jakarta.persistence.Column(name = "note_id")
 
     public Long getId() {
         return id;
@@ -199,6 +212,7 @@ public class CaseManagementNote extends BaseObject {
     public void setId(Long id) {
         this.id = id;
     }
+    @jakarta.persistence.Column(name = "note")
 
     public String getNote() {
         return note;
@@ -207,6 +221,7 @@ public class CaseManagementNote extends BaseObject {
     public void setNote(String note) {
         this.note = note;
     }
+    @jakarta.persistence.Column(name = "signed")
 
     public boolean isSigned() {
         return signed;
@@ -215,6 +230,7 @@ public class CaseManagementNote extends BaseObject {
     public void setSigned(boolean signed) {
         this.signed = signed;
     }
+    @jakarta.persistence.Column(name = "signing_provider_no")
 
     public String getSigning_provider_no() {
         return signing_provider_no;
@@ -223,6 +239,7 @@ public class CaseManagementNote extends BaseObject {
     public void setSigning_provider_no(String signing_provider_no) {
         this.signing_provider_no = signing_provider_no;
     }
+    @jakarta.persistence.Column(name = "update_date")
 
     public Date getUpdate_date() {
         return update_date;
@@ -231,6 +248,7 @@ public class CaseManagementNote extends BaseObject {
     public void setUpdate_date(Date update_date) {
         this.update_date = update_date;
     }
+    @org.hibernate.annotations.Formula("(select min(cmn.update_date) from casemgmt_note cmn where cmn.uuid = uuid)")
 
     public Date getCreate_date() {
         return create_date;
@@ -239,6 +257,7 @@ public class CaseManagementNote extends BaseObject {
     public void setCreate_date(Date create_date) {
         this.create_date = create_date;
     }
+    @jakarta.persistence.Column(name = "observation_date")
 
     public Date getObservation_date() {
         return this.observation_date;
@@ -247,6 +266,7 @@ public class CaseManagementNote extends BaseObject {
     public void setObservation_date(Date observation_date) {
         this.observation_date = observation_date;
     }
+    @jakarta.persistence.Column(name = "provider_no")
 
     public String getProviderNo() {
         return providerNo;
@@ -257,6 +277,7 @@ public class CaseManagementNote extends BaseObject {
     }
 
     // nys
+    @jakarta.persistence.Column(name = "program_no")
     public String getProgram_no() {
         return program_no;
     }
@@ -264,6 +285,11 @@ public class CaseManagementNote extends BaseObject {
     public void setProgram_no(String program_no) {
         this.program_no = program_no;
     }
+    @jakarta.persistence.ManyToOne(fetch = jakarta.persistence.FetchType.EAGER)
+
+    @jakarta.persistence.JoinColumn(name = "provider_no", insertable = false, updatable = false)
+
+    @org.hibernate.annotations.NotFound(action = org.hibernate.annotations.NotFoundAction.IGNORE)
 
     public Provider getProvider() {
         return provider;
@@ -276,6 +302,8 @@ public class CaseManagementNote extends BaseObject {
     /**
      * deprecated too inefficient and too many dependencies use CaseManagementIssueNotesDao
      */
+    @jakarta.persistence.ManyToMany(fetch = jakarta.persistence.FetchType.EAGER)
+    @jakarta.persistence.JoinTable(name = "casemgmt_issue_notes", joinColumns = @jakarta.persistence.JoinColumn(name = "note_id"), inverseJoinColumns = @jakarta.persistence.JoinColumn(name = "id"))
     public Set<CaseManagementIssue> getIssues() {
         return issues;
     }
@@ -286,6 +314,9 @@ public class CaseManagementNote extends BaseObject {
     public void setIssues(Set issues) {
         this.issues = issues;
     }
+    @jakarta.persistence.OneToMany(fetch = jakarta.persistence.FetchType.EAGER)
+
+    @jakarta.persistence.JoinColumn(name = "note_id", insertable = false, updatable = false)
 
     public Set getExtend() {
         return extend;
@@ -294,6 +325,7 @@ public class CaseManagementNote extends BaseObject {
     public void setExtend(Set extend) {
         this.extend = extend;
     }
+    @jakarta.persistence.Transient
 
     public List<Provider> getEditors() {
         return editors;
@@ -302,6 +334,7 @@ public class CaseManagementNote extends BaseObject {
     public void setEditors(List editors) {
         this.editors = editors;
     }
+    @jakarta.persistence.Column(name = "include_issue_innote")
 
     public boolean isIncludeissue() {
         return includeissue;
@@ -310,6 +343,7 @@ public class CaseManagementNote extends BaseObject {
     public void setIncludeissue(boolean includeissue) {
         this.includeissue = includeissue;
     }
+    @jakarta.persistence.Column(name = "reporter_caisi_role")
 
     public String getReporter_caisi_role() {
         return reporter_caisi_role;
@@ -318,6 +352,7 @@ public class CaseManagementNote extends BaseObject {
     public void setReporter_caisi_role(String reporter_caisi_role) {
         this.reporter_caisi_role = reporter_caisi_role;
     }
+    @jakarta.persistence.Column(name = "reporter_program_team")
 
     public String getReporter_program_team() {
         return reporter_program_team;
@@ -326,6 +361,7 @@ public class CaseManagementNote extends BaseObject {
     public void setReporter_program_team(String reporter_program_team) {
         this.reporter_program_team = reporter_program_team;
     }
+    @jakarta.persistence.Column(name = "history")
 
     public String getHistory() {
         return history;
@@ -334,10 +370,12 @@ public class CaseManagementNote extends BaseObject {
     public void setHistory(String history) {
         this.history = history;
     }
+    @org.hibernate.annotations.Formula("(select p.name from program p where p.id = program_no)")
 
     public String getProgramName() {
         return programName;
     }
+    @org.hibernate.annotations.Formula("(select r.role_name from secRole r where r.role_no = reporter_caisi_role)")
 
     public String getRoleName() {
         return roleName;
@@ -354,6 +392,7 @@ public class CaseManagementNote extends BaseObject {
     public void setUuid(String uuid) {
         this.uuid = uuid;
     }
+    @jakarta.persistence.Column(name = "uuid")
 
     public String getUuid() {
         return this.uuid;
@@ -362,10 +401,12 @@ public class CaseManagementNote extends BaseObject {
     public void setRevision(String rev) {
         this.revision = rev;
     }
+    @org.hibernate.annotations.Formula("(select count(cmn.uuid) from casemgmt_note cmn where cmn.uuid = uuid)")
 
     public String getRevision() {
         return this.revision;
     }
+    @jakarta.persistence.Transient
 
     public String getProviderName() {
         if (getProvider() == null) {
@@ -373,6 +414,7 @@ public class CaseManagementNote extends BaseObject {
         }
         return getProvider().getFormattedName();
     }
+    @jakarta.persistence.Transient
 
     public String getProviderNameFirstLast() {
         if (getProvider() == null) {
@@ -441,6 +483,7 @@ public class CaseManagementNote extends BaseObject {
         };
 
     }
+    @jakarta.persistence.Transient
 
     public boolean getHasHistory() {
         if (getHistory() != null) {
@@ -450,6 +493,7 @@ public class CaseManagementNote extends BaseObject {
         }
         return false;
     }
+    @jakarta.persistence.Column(name = "locked")
 
     public boolean isLocked() {
         return locked;
@@ -458,6 +502,7 @@ public class CaseManagementNote extends BaseObject {
     public void setLocked(boolean locked) {
         this.locked = locked;
     }
+    @jakarta.persistence.Column(name = "archived")
 
     public boolean isArchived() {
         return archived;
@@ -466,6 +511,7 @@ public class CaseManagementNote extends BaseObject {
     public void setArchived(boolean archived) {
         this.archived = archived;
     }
+    @jakarta.persistence.Transient
 
     public String getStatus() {
         String status;
@@ -479,6 +525,7 @@ public class CaseManagementNote extends BaseObject {
         }
         return status;
     }
+    @jakarta.persistence.Column(name = "position")
 
     public int getPosition() {
         return position;
@@ -487,6 +534,7 @@ public class CaseManagementNote extends BaseObject {
     public void setPosition(int position) {
         this.position = position;
     }
+    @jakarta.persistence.Transient
 
     public boolean isRemote() {
         return remote;
@@ -495,6 +543,7 @@ public class CaseManagementNote extends BaseObject {
     public void setRemote(boolean isRemote) {
         this.remote = isRemote;
     }
+    @jakarta.persistence.Transient
 
     public String getFacilityName() {
         return facilityName;
@@ -503,18 +552,22 @@ public class CaseManagementNote extends BaseObject {
     public void setFacilityName(String facilityName) {
         this.facilityName = facilityName;
     }
+    @jakarta.persistence.Transient
 
     public boolean isDocumentNote() {
         return isLinkTo(CaseManagementNoteLink.DOCUMENT);
     }
+    @jakarta.persistence.Transient
 
     public boolean isEmailNote() {
         return isLinkTo(CaseManagementNoteLink.EMAIL);
     }
+    @jakarta.persistence.Transient
 
     public boolean isRxAnnotation() {
         return isLinkTo(CaseManagementNoteLink.DRUGS);
     }
+    @jakarta.persistence.Transient
 
     public boolean isEformData() {
         return isLinkTo(CaseManagementNoteLink.EFORMDATA);
@@ -546,6 +599,8 @@ public class CaseManagementNote extends BaseObject {
         return null;
     }
 
+    @jakarta.persistence.Column(name = "appointmentNo")
+
 
     public int getAppointmentNo() {
         return appointmentNo;
@@ -554,6 +609,7 @@ public class CaseManagementNote extends BaseObject {
     public void setAppointmentNo(int appointmentNo) {
         this.appointmentNo = appointmentNo;
     }
+    @jakarta.persistence.Column(name = "hourOfEncounterTime")
 
     public Integer getHourOfEncounterTime() {
         return hourOfEncounterTime;
@@ -562,6 +618,7 @@ public class CaseManagementNote extends BaseObject {
     public void setHourOfEncounterTime(Integer hourOfEncounterTime) {
         this.hourOfEncounterTime = hourOfEncounterTime;
     }
+    @jakarta.persistence.Column(name = "minuteOfEncounterTime")
 
     public Integer getMinuteOfEncounterTime() {
         return minuteOfEncounterTime;
@@ -570,6 +627,7 @@ public class CaseManagementNote extends BaseObject {
     public void setMinuteOfEncounterTime(Integer minuteOfEncounterTime) {
         this.minuteOfEncounterTime = minuteOfEncounterTime;
     }
+    @jakarta.persistence.Column(name = "hourOfEncTransportationTime")
 
     public Integer getHourOfEncTransportationTime() {
         return hourOfEncTransportationTime;
@@ -578,6 +636,7 @@ public class CaseManagementNote extends BaseObject {
     public void setHourOfEncTransportationTime(Integer hourOfEncTransportationTime) {
         this.hourOfEncTransportationTime = hourOfEncTransportationTime;
     }
+    @jakarta.persistence.Column(name = "minuteOfEncTransportationTime")
 
     public Integer getMinuteOfEncTransportationTime() {
         return minuteOfEncTransportationTime;

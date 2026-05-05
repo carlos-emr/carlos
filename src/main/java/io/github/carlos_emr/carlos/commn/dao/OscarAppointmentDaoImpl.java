@@ -414,7 +414,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
     @Override
     public List<Object[]> findAppointments(Date sDate, Date eDate) {
-        String sql = "SELECT a, d FROM Appointment a, Demographic d WHERE a.demographicNo = d.DemographicNo AND d.Hin <> '' AND a.appointmentDate >= ?1 AND a.appointmentDate <= ?2 AND (UPPER(d.HcType) = 'ONTARIO' OR d.HcType='ON') GROUP BY d.DemographicNo ORDER BY d.LastName";
+        String sql = "SELECT a, d FROM Appointment a, Demographic d WHERE a.demographicNo = d.demographicNo AND d.hin <> '' AND a.appointmentDate >= ?1 AND a.appointmentDate <= ?2 AND (UPPER(d.hcType) = 'ONTARIO' OR d.hcType='ON') GROUP BY d.demographicNo ORDER BY d.lastName";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, sDate == null ? new Date(Long.MIN_VALUE) : sDate);
         query.setParameter(2, eDate == null ? new Date(Long.MAX_VALUE) : eDate);
@@ -423,7 +423,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
     @Override
     public List<Object[]> findPatientAppointments(String providerNo, Date from, Date to) {
-        String baseHql = "SELECT d, a, p FROM Demographic d, Appointment a, Provider p WHERE a.demographicNo = d.DemographicNo AND a.providerNo = p.ProviderNo ";
+        String baseHql = "SELECT d, a, p FROM Demographic d, Appointment a, Provider p WHERE a.demographicNo = d.demographicNo AND a.providerNo = p.providerNo ";
         StringBuilder sql = new StringBuilder(baseHql);
 
         List<Object> params = new ArrayList<>();
@@ -514,7 +514,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
     @Override
     public List<Object[]> search_appt_future(Integer demographicNo, Date from, Date to) {
-        String baseHql = "SELECT a, p FROM Appointment a, Provider p WHERE a.providerNo = p.ProviderNo and a.demographicNo = ?1 and a.appointmentDate >= ?2 and a.appointmentDate < ?3 order by a.appointmentDate desc, a.startTime desc";
+        String baseHql = "SELECT a, p FROM Appointment a, Provider p WHERE a.providerNo = p.providerNo and a.demographicNo = ?1 and a.appointmentDate >= ?2 and a.appointmentDate < ?3 order by a.appointmentDate desc, a.startTime desc";
         StringBuilder sql = new StringBuilder(baseHql);
 
         Query query = entityManager.createQuery(sql.toString());
@@ -527,7 +527,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
     @Override
     public List<Object[]> search_appt_past(Integer demographicNo, Date from, Date to) {
-        String baseHql = "SELECT a, p FROM Appointment a, Provider p WHERE a.providerNo = p.ProviderNo and a.demographicNo = ?1 and a.appointmentDate < ?2 and a.appointmentDate > ?3 order by a.appointmentDate desc, a.startTime desc";
+        String baseHql = "SELECT a, p FROM Appointment a, Provider p WHERE a.providerNo = p.providerNo and a.demographicNo = ?1 and a.appointmentDate < ?2 and a.appointmentDate > ?3 order by a.appointmentDate desc, a.startTime desc";
         StringBuilder sql = new StringBuilder(baseHql);
 
         Query query = entityManager.createQuery(sql.toString());
@@ -559,7 +559,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
     @Override
     public List<Object[]> search_appt_data1(String providerNo, Date appointmentDate, Date startTime, Date endTime,
                                             Date createDateTime, String creator, Integer demographicNo) {
-        String sql = "SELECT app, prov FROM Provider prov, Appointment app where app.providerNo = prov.ProviderNo and app.providerNo=?1 and app.appointmentDate=?2 and app.startTime=?3 and app.endTime=?4 and app.createDateTime=?5 and app.creator=?6 and app.demographicNo=?7 order by app.id desc";
+        String sql = "SELECT app, prov FROM Provider prov, Appointment app where app.providerNo = prov.providerNo and app.providerNo=?1 and app.appointmentDate=?2 and app.startTime=?3 and app.endTime=?4 and app.createDateTime=?5 and app.creator=?6 and app.demographicNo=?7 order by app.id desc";
         Query query = entityManager.createQuery(sql);
         query.setMaxResults(1);
         query.setParameter(1, providerNo);
@@ -575,7 +575,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
     @Override
     public List<Object[]> export_appt(Integer demographicNo) {
-        String sql = "select app, prov from Appointment app, Provider prov where app.providerNo = prov.ProviderNo and app.demographicNo = ?1";
+        String sql = "select app, prov from Appointment app, Provider prov where app.providerNo = prov.providerNo and app.demographicNo = ?1";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, demographicNo);
 
@@ -624,9 +624,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
     @Override
     public List<io.github.carlos_emr.carlos.commn.dao.projection.AppointmentProviderRow> findAppointmentAndProviderByAppointmentNo(Integer apptNo) {
-        // Provider.hbm.xml maps the field with PascalCase HBM property names
-        // (ProviderNo, OhipNo); HQL must use the exact name from the mapping.
-        String sql = "SELECT new io.github.carlos_emr.carlos.commn.dao.projection.AppointmentProviderRow(a.location, a.providerNo, p.OhipNo) FROM Appointment a, Provider p WHERE a.providerNo = p.ProviderNo AND a.id = ?1";
+        // Provider is annotation-mapped with JavaBean property names; HQL uses providerNo and ohipNo.
+        String sql = "SELECT new io.github.carlos_emr.carlos.commn.dao.projection.AppointmentProviderRow(a.location, a.providerNo, p.ohipNo) FROM Appointment a, Provider p WHERE a.providerNo = p.providerNo AND a.id = ?1";
         jakarta.persistence.TypedQuery<io.github.carlos_emr.carlos.commn.dao.projection.AppointmentProviderRow> query =
                 entityManager.createQuery(sql, io.github.carlos_emr.carlos.commn.dao.projection.AppointmentProviderRow.class);
         query.setParameter(1, apptNo);
@@ -849,8 +848,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
     /**
      * Returns lightweight appointment list DTOs for a provider's day schedule.
-     * Uses HBM-mapped PascalCase property names ({@code d.DemographicNo}, {@code d.LastName},
-     * {@code d.FirstName}) as defined in {@code Demographic.hbm.xml}.
+     * Uses annotation-mapped Demographic JavaBean property names ({@code d.demographicNo}, {@code d.lastName}, {@code d.firstName}).
      *
      * @param date Date the appointment date to query
      * @param providerNo String the provider number to filter by
@@ -859,16 +857,15 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
      */
     @Override
     public List<AppointmentListItemDTO> findDayAppointmentDTOs(Date date, String providerNo) {
-        // HBM-mapped Demographic uses PascalCase property names (DemographicNo, LastName,
-        // FirstName) per Demographic.hbm.xml; HQL must reference the HBM name attribute.
+        // Demographic is annotation-mapped with JavaBean property names; HQL uses demographicNo, lastName, and firstName.
         Query query = entityManager.createQuery("""
                 SELECT NEW io.github.carlos_emr.carlos.appointment.dto.AppointmentListItemDTO(
                     a.id, a.providerNo, a.appointmentDate, a.startTime, a.endTime,
                     a.name, a.demographicNo, a.status, a.type, a.reason, a.location,
                     a.notes, a.urgency, a.remarks, a.reasonCode,
-                    d.LastName, d.FirstName)
+                    d.lastName, d.firstName)
                 FROM Appointment a
-                LEFT JOIN Demographic d ON d.DemographicNo = a.demographicNo
+                LEFT JOIN Demographic d ON d.demographicNo = a.demographicNo
                 WHERE a.appointmentDate = :date AND a.providerNo = :providerNo
                 ORDER BY a.startTime
                 """);

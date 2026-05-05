@@ -31,7 +31,7 @@ import io.github.carlos_emr.carlos.utility.DtoFormatUtils;
 
 /**
  * Lightweight DTO for clinical note list views. Eliminates the 3 EAGER/lazy=false
- * relationships in the HBM mapping (provider, issues set, extend set) and avoids
+ * relationships in the CaseManagementNote entity (provider, issues set, extend set) and avoids
  * loading the full note text, history, and formula-computed properties.
  *
  * <p>Pre-joins provider name via LEFT JOIN to Provider. Omits: note text (LOB),
@@ -55,7 +55,7 @@ public class CaseManagementNoteListDTO implements Serializable {
     private Date observationDate;
     /**
      * Demographic number as stored on the underlying entity. {@code CaseManagementNote.demographic_no}
-     * is typed as {@code String} in the HBM mapping (unlike most other demographic-linked
+     * is typed as {@code String} on CaseManagementNote (unlike most other demographic-linked
      * entities which use {@code Integer}), so this field mirrors that type to avoid
      * an unnecessary parse at the DAO boundary.
      */
@@ -85,7 +85,7 @@ public class CaseManagementNoteListDTO implements Serializable {
      * @param id Long note row identifier
      * @param updateDate Date last-update timestamp
      * @param observationDate Date clinical observation date
-     * @param demographicNo String demographic surrogate key (String per HBM mapping)
+     * @param demographicNo String demographic surrogate key
      * @param signed boolean signature flag
      * @param providerNo String authoring provider number
      * @param signingProviderNo String signing provider number (may differ from authoring provider)

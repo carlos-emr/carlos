@@ -84,9 +84,9 @@ public class TicklersDaoImpl extends AbstractDaoImpl<Tickler> implements Tickler
                     + " t.serviceDate >= '" + DateFormatUtils.ISO_DATETIME_FORMAT.format(ticklerQuery.getStartDate())
                     + "' and t.serviceDate <= '" + DateFormatUtils.ISO_DATETIME_FORMAT.format(ticklerQuery.getEndDate())
                     + "' ");
-            sql.append("and d.DemographicNo = cast(t.demographicNo as integer) ");
+            sql.append("and d.demographicNo = cast(t.demographicNo as integer) ");
 
-            sql.append(" and d.ProviderNo IN (");
+            sql.append(" and d.providerNo IN (");
             String[] mrps = ticklerQuery.getMrps();
             for (int x = 0; x < mrps.length; x++) {
                 if (x > 0) {

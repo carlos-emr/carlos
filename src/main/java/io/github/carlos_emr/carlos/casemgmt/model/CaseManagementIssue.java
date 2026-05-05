@@ -45,6 +45,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.model.security.Secrole;
 
+@jakarta.persistence.Entity
+@jakarta.persistence.Table(name = "casemgmt_issue")
+@jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
 public class CaseManagementIssue extends BaseObject {
 
     private ProgramProviderDAO programProviderDao = (ProgramProviderDAO) SpringUtils.getBean(ProgramProviderDAO.class);
@@ -114,6 +117,7 @@ public class CaseManagementIssue extends BaseObject {
         this.setNotes(cMgmtIssue.getNotes());
         this.setIssue(cMgmtIssue.getIssue());
     }
+    @jakarta.persistence.Column(name = "acute")
 
     public boolean isAcute() {
         return acute;
@@ -122,6 +126,7 @@ public class CaseManagementIssue extends BaseObject {
     public void setAcute(boolean acute) {
         this.acute = acute;
     }
+    @jakarta.persistence.Column(name = "certain")
 
     public boolean isCertain() {
         return certain;
@@ -130,6 +135,7 @@ public class CaseManagementIssue extends BaseObject {
     public void setCertain(boolean certain) {
         this.certain = certain;
     }
+    @jakarta.persistence.Column(name = "demographic_no")
 
     public Integer getDemographic_no() {
         return demographic_no;
@@ -138,6 +144,11 @@ public class CaseManagementIssue extends BaseObject {
     public void setDemographic_no(Integer demographic_no) {
         this.demographic_no = demographic_no;
     }
+    @jakarta.persistence.Id
+
+    @jakarta.persistence.GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY)
+
+    @jakarta.persistence.Column(name = "id")
 
     public Long getId() {
         return id;
@@ -150,6 +161,8 @@ public class CaseManagementIssue extends BaseObject {
     /**
      * deprecated too inefficient and too many dependencies use IssueDao
      */
+    @jakarta.persistence.ManyToOne(fetch = jakarta.persistence.FetchType.EAGER)
+    @jakarta.persistence.JoinColumn(name = "issue_id", insertable = false, updatable = false)
     public Issue getIssue() {
         return issue;
     }
@@ -160,6 +173,7 @@ public class CaseManagementIssue extends BaseObject {
     public void setIssue(Issue issue) {
         this.issue = issue;
     }
+    @jakarta.persistence.Column(name = "issue_id")
 
     public long getIssue_id() {
         return issue_id;
@@ -168,6 +182,7 @@ public class CaseManagementIssue extends BaseObject {
     public void setIssue_id(long issue_id) {
         this.issue_id = issue_id;
     }
+    @jakarta.persistence.Column(name = "major")
 
     public boolean isMajor() {
         return major;
@@ -178,12 +193,15 @@ public class CaseManagementIssue extends BaseObject {
     }
 
     /*
-     * public boolean isMedical_diagnosis() { return medical_diagnosis; } public void setMedical_diagnosis(boolean medical_diagnosis) { this.medical_diagnosis = medical_diagnosis; }
+     *    @jakarta.persistence.Transient
+    public boolean isMedical_diagnosis() { return medical_diagnosis; } public void setMedical_diagnosis(boolean medical_diagnosis) { this.medical_diagnosis = medical_diagnosis; }
      */
 
     /**
      * deprecated too inefficient and too many dependencies use CaseManagementIssueNotesDao
      */
+    @jakarta.persistence.ManyToMany(fetch = jakarta.persistence.FetchType.LAZY)
+    @jakarta.persistence.JoinTable(name = "casemgmt_issue_notes", joinColumns = @jakarta.persistence.JoinColumn(name = "id"), inverseJoinColumns = @jakarta.persistence.JoinColumn(name = "note_id"))
     public Set getNotes() {
         return notes;
     }
@@ -194,6 +212,7 @@ public class CaseManagementIssue extends BaseObject {
     public void setNotes(Set notes) {
         this.notes = notes;
     }
+    @jakarta.persistence.Column(name = "resolved")
 
     public boolean isResolved() {
         return resolved;
@@ -202,6 +221,7 @@ public class CaseManagementIssue extends BaseObject {
     public void setResolved(boolean resolved) {
         this.resolved = resolved;
     }
+    @jakarta.persistence.Column(name = "type")
 
     public String getType() {
         return type;
@@ -210,6 +230,7 @@ public class CaseManagementIssue extends BaseObject {
     public void setType(String type) {
         this.type = type;
     }
+    @jakarta.persistence.Column(name = "update_date")
 
     public Date getUpdate_date() {
         return update_date;
@@ -218,6 +239,7 @@ public class CaseManagementIssue extends BaseObject {
     public void setUpdate_date(Date update_date) {
         this.update_date = update_date;
     }
+    @jakarta.persistence.Column(name = "program_id")
 
     public Integer getProgram_id() {
         return program_id;

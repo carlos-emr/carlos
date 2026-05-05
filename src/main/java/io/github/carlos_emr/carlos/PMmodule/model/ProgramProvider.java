@@ -38,6 +38,9 @@ import io.github.carlos_emr.carlos.model.security.Secrole;
  * This is the object class that relates to the program_provider table.
  * Any customizations belong here.
  */
+@jakarta.persistence.Entity
+@jakarta.persistence.Table(name = "program_provider")
+@jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
 public class ProgramProvider implements Serializable {
 
     private int hashCode = Integer.MIN_VALUE; // primary key
@@ -67,6 +70,7 @@ public class ProgramProvider implements Serializable {
     /**
      * @return Returns the programName.
      */
+    @jakarta.persistence.Transient
     public String getProgramName() {
         return programName;
     }
@@ -77,6 +81,9 @@ public class ProgramProvider implements Serializable {
     public void setProgramName(String programName) {
         this.programName = programName;
     }
+    @jakarta.persistence.ManyToOne(fetch = jakarta.persistence.FetchType.EAGER)
+
+    @jakarta.persistence.JoinColumn(name = "program_id", insertable = false, updatable = false)
 
     public Program getProgram() {
         return program;
@@ -95,6 +102,9 @@ public class ProgramProvider implements Serializable {
      * generator-class="native"
      * column="id"
      */
+    @jakarta.persistence.Id
+    @jakarta.persistence.GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY)
+    @jakarta.persistence.Column(name = "id")
     public Long getId() {
         return _id;
     }
@@ -112,6 +122,7 @@ public class ProgramProvider implements Serializable {
     /**
      * Return the value associated with the column: program_id
      */
+    @jakarta.persistence.Column(name = "program_id")
     public Long getProgramId() {
         return _programId;
     }
@@ -128,6 +139,7 @@ public class ProgramProvider implements Serializable {
     /**
      * Return the value associated with the column: provider_no
      */
+    @jakarta.persistence.Column(name = "provider_no", length = 11)
     public String getProviderNo() {
         return _providerNo;
     }
@@ -144,6 +156,7 @@ public class ProgramProvider implements Serializable {
     /**
      * Return the value associated with the column: role_id
      */
+    @jakarta.persistence.Column(name = "role_id")
     public Long getRoleId() {
         return _roleId;
     }
@@ -160,6 +173,8 @@ public class ProgramProvider implements Serializable {
     /**
      * column=role_id
      */
+    @jakarta.persistence.ManyToOne(fetch = jakarta.persistence.FetchType.EAGER)
+    @jakarta.persistence.JoinColumn(name = "role_id", insertable = false, updatable = false)
     public Secrole getRole() {
         return this._role;
     }
@@ -176,6 +191,8 @@ public class ProgramProvider implements Serializable {
     /**
      * column=provider_no
      */
+    @jakarta.persistence.ManyToOne(fetch = jakarta.persistence.FetchType.EAGER)
+    @jakarta.persistence.JoinColumn(name = "provider_no", insertable = false, updatable = false)
     public Provider getProvider() {
         return this._provider;
     }
@@ -192,6 +209,8 @@ public class ProgramProvider implements Serializable {
     /**
      * Return the value associated with the column: teams
      */
+    @jakarta.persistence.ManyToMany(fetch = jakarta.persistence.FetchType.EAGER)
+    @jakarta.persistence.JoinTable(name = "program_provider_team", joinColumns = @jakarta.persistence.JoinColumn(name = "id"), inverseJoinColumns = @jakarta.persistence.JoinColumn(name = "team_id"))
     public java.util.Set<ProgramTeam> getTeams() {
         return this._teams;
     }

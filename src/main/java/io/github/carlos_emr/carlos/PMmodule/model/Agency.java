@@ -33,6 +33,9 @@ import java.util.Map;
 /**
  * This is the object class that relates to the agency table. Any customizations belong here.
  */
+@jakarta.persistence.Entity
+@jakarta.persistence.Table(name = "agency")
+@jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
 public class Agency implements Serializable {
 
     private static Agency localAgency;
@@ -88,6 +91,9 @@ public class Agency implements Serializable {
     /**
      * Return the unique identifier of this class generator-class="native" column="id"
      */
+    @jakarta.persistence.Id
+    @jakarta.persistence.GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY)
+    @jakarta.persistence.Column(name = "id")
     public Long getId() {
         return id;
     }
@@ -105,6 +111,7 @@ public class Agency implements Serializable {
     /**
      * Return the value associated with the column: intake_quick
      */
+    @jakarta.persistence.Column(name = "intake_quick", nullable = false)
     public Integer getIntakeQuick() {
         return intakeQuick;
     }
@@ -121,6 +128,7 @@ public class Agency implements Serializable {
     /**
      * Return the value associated with the column: intake_quick_state
      */
+    @jakarta.persistence.Column(name = "intake_quick_state", length = 2, nullable = false)
     public String getIntakeQuickState() {
         return intakeQuickState;
     }
@@ -137,6 +145,7 @@ public class Agency implements Serializable {
     /**
      * Return the value associated with the column: intake_indepth
      */
+    @jakarta.persistence.Column(name = "intake_indepth")
     public Integer getIntakeIndepth() {
         return intakeIndepth;
     }
@@ -153,6 +162,7 @@ public class Agency implements Serializable {
     /**
      * Return the value associated with the column: intake_indepth_state
      */
+    @jakarta.persistence.Column(name = "intake_indepth_state", length = 2, nullable = false)
     public String getIntakeIndepthState() {
         return intakeIndepthState;
     }
