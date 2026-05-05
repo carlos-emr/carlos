@@ -151,7 +151,7 @@
 
             <fieldset>
                 <legend>Med List</legend>
-                <form action="rx/chartDrugProfile.jsp">
+                <form action="<%= request.getContextPath() %>/rx/ViewChartDrugProfile">
                     <input type="hidden" name="labType" value="<carlos:encode value='<%= labType %>' context="htmlAttribute"/>"/>
                     <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demographicNo %>' context="htmlAttribute"/>"/>
                     <input type="hidden" name="testName" value="<carlos:encode value='<%= testName %>' context="htmlAttribute"/>"/>
