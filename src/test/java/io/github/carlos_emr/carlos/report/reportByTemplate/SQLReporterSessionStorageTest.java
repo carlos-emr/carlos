@@ -46,7 +46,7 @@ class SQLReporterSessionStorageTest {
                 Path.of("src/main/java/io/github/carlos_emr/carlos/report/reportByTemplate/SQLReporter.java"),
                 StandardCharsets.UTF_8);
 
-        assertThat(source).doesNotContain("getSession().setAttribute(\"csv\"");
+        assertThat(source).doesNotContainPattern("getSession\\(\\)\\s*\\.\\s*setAttribute\\(\\s*\"csv\"");
         assertThat(source).contains("MAX_CSV_EXPORT_LENGTH");
     }
 }

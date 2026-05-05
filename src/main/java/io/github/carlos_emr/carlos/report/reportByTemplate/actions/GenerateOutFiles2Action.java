@@ -135,10 +135,12 @@ public class GenerateOutFiles2Action extends ActionSupport {
 
     private boolean validateCsv(String csv) {
         if (csv == null) {
+            MiscUtils.getLogger().warn("GenerateOutFiles2Action: missing CSV export payload");
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return false;
         }
         if (csv.length() > MAX_CSV_EXPORT_LENGTH) {
+            MiscUtils.getLogger().warn("GenerateOutFiles2Action: CSV export payload exceeds size limit ({} chars)", csv.length());
             response.setStatus(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
             return false;
         }
