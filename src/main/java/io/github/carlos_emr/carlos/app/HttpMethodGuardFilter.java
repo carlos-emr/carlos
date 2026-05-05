@@ -99,7 +99,12 @@ public class HttpMethodGuardFilter implements Filter {
     private static final Set<String> MUTATOR_ACTION_NAMES = Set.of(
             "billingaddcode",         // BillingAddCode2Action (starts with "billing", not "add")
             "reprocessbill",          // BillingReProcessBill2Action
-            "movemohfiles",           // ArchiveMOHFile2Action
+            // moveMOHFiles is dual-purpose: GET renders the file listing,
+            // POST archives selected files. The action self-gates POST when
+            // the `mohFile` mutation-intent parameter is present, so we don't
+            // need the filter-level block; including it here would 405 the
+            // legitimate render path.
+            "documenterrorreportupload", // MOH report upload/import/apply endpoint; action also gates mutating prefixes
             "newmeasurementmap",      // EctAddMeasurementMap2Action
             "remapmeasurementmap",    // EctRemoveMeasurementMap2Action
             "setupaddmeasurementgroup",      // EctSetupAddMeasurementGroup2Action
@@ -145,7 +150,7 @@ public class HttpMethodGuardFilter implements Filter {
                                           // action name 'createdate' matches the unconditional
                                           // "create" mutator prefix, so we exempt it here and rely
                                           // on the action's own POST check for mutations.
-            "addappointment"              // ViewAppointmentWrite2Action — view gate that loads the
+            "addappointment"             // ViewAppointmentWrite2Action — view gate that loads the
                                           // add-appointment form. The name starts with "add" so it
                                           // matches MUTATOR_ACTION_PREFIXES, but the action itself
                                           // only renders a JSP — the actual write goes through

@@ -29,95 +29,115 @@
 
 --%>
 
-<%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
-<%@page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
-<%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.WebUtils"%>
+
 <%
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.*" %>
-<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.*" %>
-<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*" %>
-<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.*" %>
-<%@ page import="java.util.Vector" %>
-<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
-<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementMapConfig" %>
-<%
-    EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
-    MeasurementMapConfig measurementMapConfig = new MeasurementMapConfig();
-%>
 
-<html>
+<fmt:setBundle basename="oscarResources"/>
 
-    <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:message key="encounter.Index.oldMeasurements"/>
-        </title>
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-
-    </head>
-
-
-    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
+<!DOCTYPE html>
+<html lang="${pageContext.request.locale.language}">
+<head>
+    <meta charset="UTF-8">
+    <title><fmt:message key="encounter.Index.oldMeasurements"/></title>
+    <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+    <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css">
+    <script type="text/javascript" src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
     <style type="text/css" media="print">
-        .noprint {
-            display: none;
-        }
-
+        .noprint { display: none; }
     </style>
-    <body topmargin="0" leftmargin="0" vlink="#0000FF"
-          onload="window.focus();">
-    <% 
+    <script>
+        jQuery(document).ready(function () {
+            jQuery('#measurementsHistoryTbl').DataTable({
+                searching: true,
+                pageLength: 25,
+                language: {
+                    url: '${pageContext.request.contextPath}/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json'
+                }
+            });
+        });
+    </script>
+</head>
+<body>
+<div class="container mt-2">
+
+    <%-- Session-level error and info messages --%>
+    <%=WebUtils.popErrorAndInfoMessagesAsHtml(session)%>
+
+ <% 
     java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
     if (actionErrors != null && !actionErrors.isEmpty()) {
 %>
-    <div class="action-errors">
+    <div class="alert alert-danger">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
+                <li><carlos:encode value="<%= error %>" context="html"/></li>
             <% } %>
         </ul>
     </div>
 <% } %>
-    <%=WebUtils.popErrorAndInfoMessagesAsHtml(session)%>
 
-    <div style="display:inline-block; text-align:center">
-        <fmt:message key="encounter.oscarMeasurements.oldmesurementindex"/>
-
-        <table>
-            <tr>
-                <th align="left" class="Header" width="20"><fmt:message key="encounter.oscarMeasurements.displayHistory.headingType"/>
-                </th>
-                <th align="left" class="Header" width="200"><fmt:message key="encounter.oscarMeasurements.typedescription"/></th>
-                <th align="left" class="Header" width="50"></th>
-            </tr>
-            <c:if test="${not empty measurementsData}">
-                <c:forEach var="data" items="${measurementsData.measurementsDataVector}" varStatus="ctr">
-                    <tr class="data">
-                        <td width="20">${data.type}</td>
-                        <td width="200">${data.typeDescription}</td>
-                        <td width="50"><a href="#"
-                                          name='<fmt:message key="encounter.Index.oldMeasurements"/>'
-                                          onClick="popupPage(300,800,'encounter/oscarMeasurements/SetupDisplayHistory?type=${data.type}'); return false;">more...</a></td>
-                    </tr>
-                </c:forEach>
-            </c:if>
-        </table>
-
-        <input type="button" name="Button" value="<fmt:message key="global.btnPrint"/>" onClick="window.print()">
-        <input type="button" name="Button" value="<fmt:message key="global.btnClose"/>" onClick="window.close()">
-        <c:if test="${not empty type}">
-            <input type="hidden" name="type" value="${type}"/>
-        </c:if>
-
-
+    <div class="page-header-bar d-flex align-items-center justify-content-between py-2 mb-3 border-bottom" id="header">
+        <div class="d-flex align-items-center gap-2">
+            <i class="fa-solid fa-chart-line"></i>
+            <span class="fw-semibold"><fmt:message key="encounter.Index.oldMeasurements"/></span>
+        </div>
     </div>
 
-    </body>
+    <div class="bg-light border rounded p-3">
+
+        <p class="text-muted mb-3"><fmt:message key="encounter.oscarMeasurements.oldmesurementindex"/></p>
+
+        <c:if test="${not empty measurementsData}">
+            <table id="measurementsHistoryTbl" class="table table-striped table-hover table-sm">
+                <thead>
+                    <tr>
+                        <th><fmt:message key="encounter.oscarMeasurements.displayHistory.headingType"/></th>
+                        <th><fmt:message key="encounter.oscarMeasurements.typedescription"/></th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <c:forEach var="data" items="${measurementsData.measurementsDataVector}">
+                        <tr>
+                            <td><carlos:encode value="${data.type}" context="html"/></td>
+                            <td><carlos:encode value="${data.typeDescription}" context="html"/></td>
+                            <td>
+                                <a href="#"
+                                   onclick="popupPage(300,800,'${pageContext.request.contextPath}/encounter/oscarMeasurements/SetupDisplayHistory?type=${carlos:forUriComponent(data.type)}'); return false;">
+                                    <fmt:message key="encounter.oscarMeasurements.historyIndex.btnMore"/>
+                                </a>
+                            </td>
+                        </tr>
+                    </c:forEach>
+                </tbody>
+            </table>
+        </c:if>
+
+        <div class="mt-3 noprint d-flex gap-2">
+            <button type="button" class="btn btn-secondary" onclick="window.print()">
+                <fmt:message key="global.btnPrint"/>
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="window.close()">
+                <fmt:message key="global.btnClose"/>
+            </button>
+        </div>
+
+        <c:if test="${not empty type}">
+            <input type="hidden" name="type" value="<carlos:encode value='${type}' context='htmlAttribute'/>"/>
+        </c:if>
+
+    </div><%-- end bg-light --%>
+
+</div><%-- end container --%>
+</body>
 </html>

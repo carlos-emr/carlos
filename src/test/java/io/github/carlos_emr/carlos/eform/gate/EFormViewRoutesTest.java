@@ -40,6 +40,19 @@ class EFormViewRoutesTest {
     }
 
     @Test
+    void shouldResolveRichTextLetterTemplateRoutes_toSameInternalView() {
+        assertThat(EFormViewRoutes.resolve("eform/efmformrtl_templates"))
+                .isEqualTo(new EFormViewRoutes.Route(
+                        "/WEB-INF/jsp/eform/efmformrtl_templates.jsp",
+                        EFormViewRoutes.Privilege.EFORM_READ));
+
+        assertThat(EFormViewRoutes.resolve("eform/efmformrtl_templates.jsp"))
+                .isEqualTo(new EFormViewRoutes.Route(
+                        "/WEB-INF/jsp/eform/efmformrtl_templates.jsp",
+                        EFormViewRoutes.Privilege.EFORM_READ));
+    }
+
+    @Test
     void shouldResolveNonJspViews() {
         assertThat(EFormViewRoutes.resolve("eform/Eform_dbtags"))
                 .isEqualTo(new EFormViewRoutes.Route(

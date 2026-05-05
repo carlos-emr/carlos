@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,19 +17,14 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-    This software was written for the
-    Department of Family Medicine
-    McMaster University
-    Hamilton
-    Ontario, Canada
-
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
-<!DOCTYPE html>
+<%--
+  Page role: Renders `ticklerMain.jsp` for the CARLOS EMR workflow.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
@@ -152,17 +148,25 @@
     List<Provider> providers = providerDao.getActiveProviders();
     java.util.ResourceBundle oscarBundle = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
 %>
-
-<html>
+<c:set var="flatpickrLanguage" value="${pageContext.request.locale.language == 'es' || pageContext.request.locale.language == 'fr' || pageContext.request.locale.language == 'pl' || pageContext.request.locale.language == 'pt' ? pageContext.request.locale.language : 'en'}"/>
+<!DOCTYPE html>
+<html lang="${flatpickrLanguage}">
     <head>
         <title><fmt:message key="tickler.ticklerMain.managerHeading"/></title>
 
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <script type="text/javascript" src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
-        <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css">
-        <script type="text/javascript" src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
-        <script type="text/javascript" src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
+        <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css">
+        <script type="text/javascript" src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
+        <script type="text/javascript" src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
         <link rel="stylesheet" type="text/css" media="print" href="<%= request.getContextPath() %>/css/print.css"/>
+
+        <!-- Flatpickr -->
+        <script type="text/javascript" src="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.js"></script>
+        <c:if test="${flatpickrLanguage != 'en'}">
+        <script type="text/javascript" src="${pageContext.request.contextPath}/library/flatpickr/l10n/${carlos:forUriComponent(flatpickrLanguage)}.js"></script>
+        </c:if>
+        <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.css">
 
         <style>
             /* Comment rows */
@@ -275,6 +279,11 @@
             @media print {
                 .searchBox, .page-header-bar { display: none; }
             }
+
+            @media screen {
+                .yesprint { display: none; }
+            }
+
         </style>
         <script type="application/javascript">
 
@@ -593,8 +602,16 @@
             }
 
             function allYear() {
-                document.serviceform.xml_appointment_date.value = "8888-12-31";
-                document.serviceform.xml_vdate.value = "1900-01-01";
+                if (window._ticklerToPicker) {
+                    window._ticklerToPicker.setDate("8888-12-31", true);
+                } else {
+                    document.serviceform.xml_appointment_date.value = "8888-12-31";
+                }
+                if (window._ticklerFromPicker) {
+                    window._ticklerFromPicker.setDate("1900-01-01", true);
+                } else {
+                    document.serviceform.xml_vdate.value = "1900-01-01";
+                }
             }
 
             function Check(e) { e.checked = true; }
@@ -671,7 +688,72 @@
             });
 
         </script>
+        <script>
+          document.addEventListener("DOMContentLoaded", function () {
+            const localeCode = "${carlos:forJavaScript(flatpickrLanguage)}";
+            const fromPickerOptions = {
+              dateFormat: "Y-m-d",
+              allowInput: true,
+              onChange: syncFrom,
+              onClose: syncFrom
+            };
+            const toPickerOptions = {
+              dateFormat: "Y-m-d",
+              allowInput: true,
+              onChange: syncTo,
+              onClose: syncTo
+            };
 
+            const hasRequestedLocale = localeCode !== "en"
+              && window.flatpickr
+              && flatpickr.l10ns
+              && flatpickr.l10ns[localeCode];
+
+            if (hasRequestedLocale) {
+               fromPickerOptions.locale = localeCode;
+               toPickerOptions.locale = localeCode;
+             }
+
+            const fromPicker = flatpickr("#xml_vdate", fromPickerOptions);
+            const toPicker = flatpickr("#xml_appointment_date", toPickerOptions);
+            // Expose pickers so allYear() can update Flatpickr state, not just .value
+            window._ticklerFromPicker = fromPicker;
+            window._ticklerToPicker = toPicker;
+        
+            function syncFrom(selectedDates, dateStr, instance) {
+              const fromDate = instance.selectedDates[0];
+              const toDate = toPicker.selectedDates[0];
+        
+              if (fromDate) {
+                toPicker.set("minDate", fromDate);
+        
+                // auto-correct if To < From
+                if (toDate && toDate < fromDate) {
+                  toPicker.setDate(fromDate, true);
+                }
+              } else {
+                toPicker.set("minDate", null);
+              }
+            }
+        
+            function syncTo(selectedDates, dateStr, instance) {
+              const toDate = instance.selectedDates[0];
+              const fromDate = fromPicker.selectedDates[0];
+        
+              if (toDate) {
+                fromPicker.set("maxDate", toDate);
+        
+                // auto-correct if From > To
+                if (fromDate && fromDate > toDate) {
+                  fromPicker.setDate(toDate, true);
+                }
+              } else {
+                fromPicker.set("maxDate", null);
+              }
+            }
+        
+          });
+        </script>
     </head>
 
     <body>
@@ -706,15 +788,17 @@
                 <div class="row mb-2">
                     <label for="xml_vdate" class="col-sm-3 col-form-label"><fmt:message key="tickler.ticklerMain.formFrom"/></label>
                     <div class="col-sm-9">
-                        <input type="date" class="form-control" name="xml_vdate" id="xml_vdate"
+                        <input type="text" class="form-control" name="xml_vdate" id="xml_vdate" placeholder="<fmt:message key="yyyy-mm-dd"/>"
                                value="<carlos:encode value='<%= xml_vdate %>' context="htmlAttribute"/>">
+
                     </div>
                 </div>
                 <div class="row mb-2">
                     <label for="xml_appointment_date" class="col-sm-3 col-form-label"><fmt:message key="tickler.ticklerMain.formTo"/></label>
                     <div class="col-sm-9">
-                        <input type="date" class="form-control" name="xml_appointment_date" id="xml_appointment_date"
+                        <input type="text" class="form-control" name="xml_appointment_date" id="xml_appointment_date" placeholder="<fmt:message key="yyyy-mm-dd"/>"
                                value="<carlos:encode value='<%= xml_appointment_date %>' context="htmlAttribute"/>">
+
                     </div>
                 </div>
                 <div class="row mb-2">

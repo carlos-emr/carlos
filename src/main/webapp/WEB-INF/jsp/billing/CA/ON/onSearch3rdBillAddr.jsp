@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,82 +17,23 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.Billing3rdPartyAddressDao" %>
-<%@page import="io.github.carlos_emr.carlos.billing.CA.ON.model.Billing3rdPartyAddress" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%
-    //
-    if (session.getAttribute("user") == null) {
-        response.sendRedirect(request.getContextPath() + "/logoutPage");
-    }
-    String strLimit1 = request.getParameter("limit1") == null ? "1" : request.getParameter("limit1");
-    String strLimit2 = request.getParameter("limit2") == null ? "25" : request.getParameter("limit2");
-
-    int nItems = 0;
-    Vector vec = new Vector();
-    Properties prop = null;
-    String param = request.getParameter("param") == null ? "" : request.getParameter("param");
-    String param2 = request.getParameter("param2") == null ? "" : request.getParameter("param2");
-    String keyword = request.getParameter("keyword");
-
-    if (request.getParameter("submit") != null
-            && (request.getParameter("submit").equals("Search")
-            || request.getParameter("submit").equals("Next Page") || request.getParameter("submit")
-            .equals("Last Page"))) {
-        String searchModeParam = request.getParameter("search_mode");
-        String orderByParam = request.getParameter("orderby");
-
-        // Keep search mode validation separate from order-by validation so DAO search semantics are preserved.
-        java.util.Set<String> VALID_ORDER_BY_COLUMNS = java.util.Set.of("company_name", "attention", "address", "city", "province", "postcode", "telephone", "fax", "id");
-        java.util.Set<String> VALID_SEARCH_MODES = java.util.Set.of(
-                "search_name",
-                "company_name",
-                "attention",
-                "address",
-                "city",
-                "province",
-                "postcode",
-                "telephone",
-                "fax");
-        if (orderByParam == null || !VALID_ORDER_BY_COLUMNS.contains(orderByParam)) { orderByParam = "company_name"; }
-        if (searchModeParam == null || !VALID_SEARCH_MODES.contains(searchModeParam)) { searchModeParam = "search_name"; }
-
-        Billing3rdPartyAddressDao dao = SpringUtils.getBean(Billing3rdPartyAddressDao.class);
-        for (Billing3rdPartyAddress ba : dao.findAddresses(searchModeParam, orderByParam, keyword, strLimit1, strLimit2)) { // deepcode ignore SqlInjection: searchModeParam and orderByParam validated against dedicated DAO-compatible allowlists above
-            prop = new Properties();
-            prop.setProperty("id", "" + ba.getId());
-            prop.setProperty("attention", ba.getAttention());
-            prop.setProperty("company_name", ba.getCompanyName());
-            prop.setProperty("address", ba.getAddress());
-            prop.setProperty("city", ba.getCity());
-            prop.setProperty("province", ba.getProvince());
-            prop.setProperty("postcode", ba.getPostalCode());
-            prop.setProperty("telephone", ba.getTelephone());
-            prop.setProperty("fax", ba.getFax());
-            vec.add(prop);
-        }
-    }
-%>
-<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"
-         import="java.util.*,java.sql.*,java.net.*" %>
-<%@ page import="org.apache.commons.text.WordUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%--
+  Purpose: Supports onSearch3rdBillAddr in the Ontario billing workflow.
+  Expected request model data includes: searchAddrModel.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
-
 <html>
     <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
         <title>Add/Edit 3rd Bill Address</title>
         <link rel="stylesheet" type="text/css" href="billingON.css"/>
         <script language="JavaScript">
@@ -118,34 +60,34 @@
                 if (obj != null) obj[tokens[tokens.length - 1]] = value;
             }
 
-            <%if(param.length()>0) {%>
+            <c:if test="${searchAddrModel.paramProvided}">
 
             function typeInData1(data) {
                 if (opener.updateElement != undefined) {
-                    opener.updateElement('<carlos:encode value='<%= param %>' context="javaScriptBlock"/>', data);
+                    opener.updateElement('<carlos:encode value="${searchAddrModel.param}" context="javaScriptBlock"/>', data);
                 } else {
-                    setOpenerProperty('<carlos:encode value='<%= param %>' context="javaScriptBlock"/>', data);
+                    setOpenerProperty('<carlos:encode value="${searchAddrModel.param}" context="javaScriptBlock"/>', data);
                 }
 
                 self.close();
             }
 
-            <%if(param2.length()>0) {%>
+            <c:if test="${searchAddrModel.param2Provided}">
 
             function typeInData2(data1, data2) {
-                setOpenerProperty('<carlos:encode value='<%= param %>' context="javaScriptBlock"/>', data1);
-                setOpenerProperty('<carlos:encode value='<%= param2 %>' context="javaScriptBlock"/>', data2);
+                setOpenerProperty('<carlos:encode value="${searchAddrModel.param}" context="javaScriptBlock"/>', data1);
+                setOpenerProperty('<carlos:encode value="${searchAddrModel.param2}" context="javaScriptBlock"/>', data2);
                 self.close();
             }
 
-            <%}}%>
-
+            </c:if>
+            </c:if>
 
         </script>
     </head>
     <body bgcolor="white" bgproperties="fixed" onload="setfocus()" topmargin="0" leftmargin="0" rightmargin="0">
 
-    <form method="post" name="titlesearch" action="/billing/CA/ON/ViewOnSearch3rdBillAddr" onSubmit="return check();">
+    <form method="post" name="titlesearch" action="${pageContext.request.contextPath}/billing/CA/ON/ViewOnSearch3rdBillAddr" onSubmit="return check();">
         <table border="0" cellpadding="1" cellspacing="0" width="100%" class="myDarkGreen">
             <tr>
                 <td class="searchTitle" colspan="4"><font color="white">Search
@@ -174,12 +116,12 @@
             </tr>
         </table>
         <input type='hidden' name='param'
-               value="<carlos:encode value='<%= param %>' context="htmlAttribute"/>">
+               value="<carlos:encode value='${searchAddrModel.param}' context='htmlAttribute'/>">
         <input type='hidden' name='param2'
-               value="<carlos:encode value='<%= param2 %>' context="htmlAttribute"/>">
+               value="<carlos:encode value='${searchAddrModel.param2}' context='htmlAttribute'/>">
         <table width="95%" border="0">
             <tr>
-                <td align="left">Results based on keyword(s): <carlos:encode value='<%= keyword == null ? "" : keyword %>' context="html"/>
+                <td align="left">Results based on keyword(s): <carlos:encode value='${searchAddrModel.keyword}' context='html'/>
                 </td>
             </tr>
         </table>
@@ -196,91 +138,63 @@
                 <!--  >th width="20%">Fax</b></th-->
             </tr>
 
-            <%
-                for (int i = 0; i < vec.size(); i++) {
-                    prop = (Properties) vec.get(i);
-                    String bgColor = i % 2 == 0 ? "#EEEEFF" : "ivory";
-                    String strOnClick = param.length() > 0 ? "typeInData1('"
-                            + SafeEncode.forJavaScript((prop.getProperty("attention", "").equals("") ? "" : (prop.getProperty("attention") + "\n")))
-                            + SafeEncode.forJavaScript(prop.getProperty("company_name", "").equals("") ? "" : (prop.getProperty("company_name") + "\n"))
-                            + SafeEncode.forJavaScript(prop.getProperty("address", "").equals("") ? "" : (prop.getProperty("address") + "\n"))
-                            + SafeEncode.forJavaScript(prop.getProperty("city", "").equals("") ? "" : (prop.getProperty("city") + " "))
-                            + SafeEncode.forJavaScript(prop.getProperty("province", "").equals("") ? "" : (prop.getProperty("province") + " "))
-                            + SafeEncode.forJavaScript(prop.getProperty("postcode", "").equals("") ? "" : (prop.getProperty("postcode") + "\n"))
-                            + SafeEncode.forJavaScript(prop.getProperty("telephone", "").equals("") ? "" : (prop.getProperty("telephone") + "\n"))
-                            + SafeEncode.forJavaScript(prop.getProperty("fax", "").equals("") ? "" : (prop.getProperty("fax") + "\n"))
-                            + "')" : "typeInData1('"
-                            + SafeEncode.forJavaScript(prop.getProperty("city", "")) + "')";
-
-            %>
-            <tr align="center" bgcolor="<%=bgColor%>"
-                onMouseOver="this.style.cursor='pointer';this.style.backgroundColor='pink';"
-                onMouseout="this.style.backgroundColor='<%=bgColor%>';"
-                onClick="<carlos:encode value='<%= strOnClick %>' context="javaScriptAttribute"/>">
-                <td><carlos:encode value='<%= prop.getProperty("attention", "") %>' context="html"/>
-                </td>
-                <td><carlos:encode value='<%= WordUtils.capitalize(prop.getProperty("company_name", "").toLowerCase()) %>' context="html"/>
-                </td>
-                <td><carlos:encode value='<%= WordUtils.capitalize(prop.getProperty("address", "").toLowerCase()) %>' context="html"/>
-                </td>
-                <td><carlos:encode value='<%= prop.getProperty("city", "") %>' context="html"/>
-                </td>
-                <td><carlos:encode value='<%= prop.getProperty("postcode", "") %>' context="html"/>
-                </td>
-                <td><carlos:encode value='<%= prop.getProperty("telephone", "") %>' context="html"/>
-                </td>
-                <!--td><carlos:encode value='<%= prop.getProperty("fax", "") %>' context="html"/></td-->
-            </tr>
-            <%
-                }
-
-            %>
+            <c:forEach var="addr" items="${searchAddrModel.addresses}" varStatus="ctr">
+                <c:set var="bgColor" value="${ctr.index % 2 == 0 ? '#EEEEFF' : 'ivory'}"/>
+                <tr align="center" bgcolor="${bgColor}"
+                    onMouseOver="this.style.cursor='pointer';this.style.backgroundColor='pink';"
+                    onMouseout="this.style.backgroundColor='<carlos:encode value="${bgColor}" context="javaScriptAttribute"/>';"
+                    onClick="<carlos:encode value='${addr.onClickHandler}' context='javaScriptAttribute'/>">
+                    <td><carlos:encode value='${addr.attention}' context='html'/>
+                    </td>
+                    <td><carlos:encode value='${addr.companyNameDisplay}' context='html'/>
+                    </td>
+                    <td><carlos:encode value='${addr.addressDisplay}' context='html'/>
+                    </td>
+                    <td><carlos:encode value='${addr.city}' context='html'/>
+                    </td>
+                    <td><carlos:encode value='${addr.postcode}' context='html'/>
+                    </td>
+                    <td><carlos:encode value='${addr.telephone}' context='html'/>
+                    </td>
+                </tr>
+            </c:forEach>
         </table>
 
-        <%
-            nItems = vec.size();
-            int nLastPage = 0, nNextPage = 0;
-            nNextPage = Integer.parseInt(strLimit2) + Integer.parseInt(strLimit1);
-            nLastPage = Integer.parseInt(strLimit1) - Integer.parseInt(strLimit2);
-
-        %> <%
-        if (nItems == 0 && nLastPage <= 0) {
-
-    %> <fmt:message key="demographic.search.noResultsWereFound"/> <%
-        }
-    %>
+        <c:if test="${searchAddrModel.showNoResults}"><fmt:message key="demographic.search.noResultsWereFound"/></c:if>
         <script language="JavaScript">
             <!--
             function last() {
-                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/ON/ViewOnSearch3rdBillAddr?param=<carlos:encode value='<%= URLEncoder.encode(param,"UTF-8") %>' context="javaScript"/>&param2=<carlos:encode value='<%= URLEncoder.encode(param2,"UTF-8") %>' context="javaScript"/>&keyword=<carlos:encode value='<%= URLEncoder.encode(StringUtils.noNull(request.getParameter("keyword")), "UTF-8") %>' context="javaScript"/>&search_mode=<carlos:encode value='<%= URLEncoder.encode(StringUtils.noNull(request.getParameter("search_mode")), "UTF-8") %>' context="javaScript"/>&orderby=<carlos:encode value='<%= URLEncoder.encode(StringUtils.noNull(request.getParameter("orderby")), "UTF-8") %>' context="javaScript"/>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
+                document.nextform.action = "${pageContext.request.contextPath}/billing/CA/ON/ViewOnSearch3rdBillAddr?param=<carlos:encode value='${searchAddrModel.param}' context='uriComponent'/>&param2=<carlos:encode value='${searchAddrModel.param2}' context='uriComponent'/>&keyword=<carlos:encode value='${searchAddrModel.keyword}' context='uriComponent'/>&search_mode=<carlos:encode value='${searchAddrModel.searchMode}' context='uriComponent'/>&orderby=<carlos:encode value='${searchAddrModel.orderBy}' context='uriComponent'/>&limit1=${searchAddrModel.prevPageLimit1}&limit2=<carlos:encode value='${searchAddrModel.limit2}' context='uriComponent'/>";
                 document.nextform.submit();
             }
 
             function next() {
-                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/ON/ViewOnSearch3rdBillAddr?param=<carlos:encode value='<%= URLEncoder.encode(param,"UTF-8") %>' context="javaScript"/>&param2=<carlos:encode value='<%= URLEncoder.encode(param2,"UTF-8") %>' context="javaScript"/>&keyword=<carlos:encode value='<%= URLEncoder.encode(StringUtils.noNull(request.getParameter("keyword")), "UTF-8") %>' context="javaScript"/>&search_mode=<carlos:encode value='<%= URLEncoder.encode(StringUtils.noNull(request.getParameter("search_mode")), "UTF-8") %>' context="javaScript"/>&orderby=<carlos:encode value='<%= URLEncoder.encode(StringUtils.noNull(request.getParameter("orderby")), "UTF-8") %>' context="javaScript"/>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
+                document.nextform.action = "${pageContext.request.contextPath}/billing/CA/ON/ViewOnSearch3rdBillAddr?param=<carlos:encode value='${searchAddrModel.param}' context='uriComponent'/>&param2=<carlos:encode value='${searchAddrModel.param2}' context='uriComponent'/>&keyword=<carlos:encode value='${searchAddrModel.keyword}' context='uriComponent'/>&search_mode=<carlos:encode value='${searchAddrModel.searchMode}' context='uriComponent'/>&orderby=<carlos:encode value='${searchAddrModel.orderBy}' context='uriComponent'/>&limit1=${searchAddrModel.nextPageLimit1}&limit2=<carlos:encode value='${searchAddrModel.limit2}' context='uriComponent'/>";
                 document.nextform.submit();
             }
 
             //-->
         </SCRIPT>
 
-        <form method="post" name="nextform" action="/billing/CA/ON/ViewOnSearch3rdBillAddr">
-            <%
-                if (nLastPage >= 0) {
-
-            %> <input type="submit" class="mbttn" name="submit"
-                      value="<fmt:message key="demographic.demographicsearch2apptresults.btnPrevPage"/>"
-                      onClick="last()"> <%
-            }
-            if (nItems == Integer.parseInt(strLimit2)) {
-
-        %> <input type="submit" class="mbttn" name="submit"
-                  value="<fmt:message key="demographic.demographicsearch2apptresults.btnNextPage"/>"
-                  onClick="next()"> <%
-            }
-        %>
+        <form method="post" name="nextform" action="${pageContext.request.contextPath}/billing/CA/ON/ViewOnSearch3rdBillAddr">
+            <c:if test="${searchAddrModel.showPrevPage}">
+                <input type="submit" class="mbttn" name="submit"
+                       value="<fmt:message key="demographic.demographicsearch2apptresults.btnPrevPage"/>"
+                       onClick="last()">
+            </c:if>
+            <c:if test="${searchAddrModel.showNextPage}">
+                <input type="submit" class="mbttn" name="submit"
+                       value="<fmt:message key="demographic.demographicsearch2apptresults.btnNextPage"/>"
+                       onClick="next()">
+            </c:if>
         </form>
         <br>
-        <a href="/billing/CA/ON/OnAddEdit3rdAddr">Add/Edit Address</a></center>
+        <form method="post" action="${pageContext.request.contextPath}/billing/CA/ON/OnAddEdit3rdAddr"
+              style="display:inline">
+            <button type="submit" class="link-button"
+                    style="background:none;border:none;color:#0066cc;text-decoration:underline;cursor:pointer;padding:0;font:inherit;">
+                Add/Edit Address
+            </button>
+        </form></center>
     </body>
 </html>

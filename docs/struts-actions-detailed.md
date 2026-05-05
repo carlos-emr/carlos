@@ -30,10 +30,10 @@ Administrative functions for system configuration, user management, and maintena
 | admin/GenerateTraceabilityReportAction | io.github.carlos_emr.carlos.admin.traceability.GenerateTraceabilityReport2Action | Generates system traceability reports for compliance |
 | admin/GenerateTraceAction | io.github.carlos_emr.carlos.admin.traceability.GenerateTrace2Action | Creates audit trails for data changes |
 | admin/GroupPreference | io.github.carlos_emr.carlos.commn.web.GroupPreference2Action | Manages user group preferences and settings |
-| admin/GstControl | io.github.carlos_emr.carlos.billings.ca.on.administration.GstControl2Action | Controls GST/HST billing settings for Ontario |
+| admin/GstControl | io.github.carlos_emr.carlos.billings.ca.on.web.GstControl2Action | Controls GST/HST billing settings for Ontario |
 | admin/ManageBillingReferral | io.github.carlos_emr.carlos.commn.web.BillingreferralEdit2Action | Manages billing referral configurations |
 | admin/ManageClinic | io.github.carlos_emr.carlos.commn.web.ClinicManage2Action | Administers clinic information and settings |
-| admin/manageCSSStyles | io.github.carlos_emr.carlos.billing.CA.ON.web.ManageCSS2Action | Manages custom CSS styles for billing forms |
+| admin/manageCSSStyles | io.github.carlos_emr.carlos.billings.ca.on.web.ManageCss2Action | Manages custom CSS styles for billing forms |
 | admin/ManageEmails | io.github.carlos_emr.carlos.email.admin.ManageEmails2Action | Configures email server settings and templates |
 | admin/ManageFaxes | io.github.carlos_emr.carlos.fax.admin.ManageFaxes2Action | Manages fax server configurations |
 | admin/ManageFax | io.github.carlos_emr.carlos.fax.admin.ConfigureFax2Action | Configures individual fax settings |
@@ -101,19 +101,31 @@ Comprehensive billing management for various Canadian provinces.
 | billing/CA/BC/viewformwcb | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewWCB2Action | Views WCB forms |
 | billing/CA/BC/viewReceivePaymentAction | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewReceivePayment2Action | Views payment records |
 | billing/CA/ON/ApplyPractitionerPremium | io.github.carlos_emr.carlos.commn.web.ApplyPractitionerPremium2Action | Applies practitioner premiums for Ontario |
-| billing/CA/ON/BatchBill | io.github.carlos_emr.carlos.billing.CA.ON.web.BatchBill2Action | Processes batch billing for Ontario |
-| billing/CA/ON/benefitScheduleChange | io.github.carlos_emr.carlos.billings.ca.on.OHIP.ScheduleOfBenefitsUpdate2Action | Updates OHIP benefit schedules |
-| billing/CA/ON/benefitScheduleUpload | io.github.carlos_emr.carlos.billings.ca.on.OHIP.ScheduleOfBenefitsUpload2Action | Uploads OHIP benefit schedules |
-| billing/CA/ON/billingON3rdPayments | io.github.carlos_emr.carlos.billing.CA.ON.web.BillingONPayments2Action | Manages third-party payments for Ontario |
-| billing/CA/ON/BillingONCorrection | io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingCorrection2Action | Handles billing corrections for Ontario |
-| billing/ca/on/DisplayInvoiceLogo | io.github.carlos_emr.carlos.billing.CA.ON.util.DisplayInvoiceLogo2Action | Displays invoice logos for Ontario |
-| billing/CA/ON/endYearStatement | io.github.carlos_emr.carlos.billings.ca.on.pageUtil.PatientEndYearStatement2Action | Generates end-of-year patient statements |
-| billing/CA/ON/managePaymentType | io.github.carlos_emr.carlos.billings.ca.on.pageUtil.PaymentType2Action | Manages payment types for Ontario |
-| billing/CA/ON/moveMOHFiles | io.github.carlos_emr.carlos.billing.CA.ON.web.ArchiveMOHFile2Action | Archives MOH billing files |
-| billing/CA/ON/moveMOHFiles | io.github.carlos_emr.carlos.billing.CA.ON.web.MoveMOHFiles2Action | Moves MOH billing files |
+| billing/CA/ON/BatchBill | io.github.carlos_emr.carlos.billings.ca.on.web.BatchBill2Action | Processes batch billing for Ontario |
+| billing/CA/ON/benefitScheduleChange | io.github.carlos_emr.carlos.billings.ca.on.web.ScheduleOfBenefitsUpdate2Action | Updates OHIP benefit schedules |
+| billing/CA/ON/benefitScheduleUpload | io.github.carlos_emr.carlos.billings.ca.on.web.ScheduleOfBenefitsUpload2Action | Uploads OHIP benefit schedules |
+| billing/CA/ON/billingON3rdPayments | io.github.carlos_emr.carlos.billings.ca.on.web.BillingOnPayments2Action | Manages third-party payments for Ontario |
+| billing/CA/ON/BillingONCorrection | io.github.carlos_emr.carlos.billings.ca.on.web.BillingCorrection2Action | Handles billing corrections for Ontario |
+| billing/CA/ON/DbManageBillingformAdd | io.github.carlos_emr.carlos.billings.ca.on.web.ManageBillingFormAdd2Action | Adds Ontario billing-form codes |
+| billing/CA/ON/DbManageBillingformBilltype | io.github.carlos_emr.carlos.billings.ca.on.web.ManageBillingFormBillTypeSave2Action | Saves Ontario billing-form bill-type associations |
+| billing/CA/ON/DbManageBillingformDelete | io.github.carlos_emr.carlos.billings.ca.on.web.ManageBillingFormDelete2Action | Deletes Ontario billing-form codes |
+| billing/CA/ON/DbManageBillingformDx | io.github.carlos_emr.carlos.billings.ca.on.web.ManageBillingFormDiag2Action | Saves Ontario billing-form diagnostic codes |
+| billing/CA/ON/DbManageBillingformPremium | io.github.carlos_emr.carlos.billings.ca.on.web.ManageBillingFormPremium2Action | Saves Ontario billing-form premium codes |
+| billing/CA/ON/DbManageBillingformPremiumDelete | io.github.carlos_emr.carlos.billings.ca.on.web.ManageBillingFormPremiumDelete2Action | Deletes Ontario billing-form premium codes |
+| billing/CA/ON/DbManageBillingformService | io.github.carlos_emr.carlos.billings.ca.on.web.ManageBillingFormService2Action | Saves Ontario billing-form service codes |
+| billing/ca/on/DisplayInvoiceLogo | io.github.carlos_emr.carlos.billing.CA.ON.util.DisplayInvoiceLogo2Action | Displays invoice logos for Ontario; legacy namespace holdout pending cross-province move |
+| billing/CA/ON/endYearStatement | io.github.carlos_emr.carlos.billings.ca.on.web.PatientEndYearStatement2Action | Generates end-of-year patient statements |
+| billing/CA/ON/endYearStatement/demosearch | io.github.carlos_emr.carlos.billings.ca.on.web.DemoSearchEndYearStatement2Action | Searches demographics for end-of-year statements |
+| billing/CA/ON/endYearStatement/pdf | io.github.carlos_emr.carlos.billings.ca.on.web.PrintEndYearStatementPdf2Action | Prints end-of-year statement PDFs |
+| billing/CA/ON/endYearStatement/search | io.github.carlos_emr.carlos.billings.ca.on.web.SearchEndYearStatement2Action | Searches end-of-year patient statements |
+| billing/CA/ON/managePaymentType | io.github.carlos_emr.carlos.billings.ca.on.web.PaymentType2Action | Manages payment types for Ontario |
+| billing/CA/ON/moveMOHFiles | io.github.carlos_emr.carlos.billings.ca.on.web.MoveMohFiles2Action | Moves, unzips, and archives MOH billing files; legacy archive-only handling is folded into this route |
+| billing/CA/ON/ViewBenefitScheduleUpload | io.github.carlos_emr.carlos.billings.ca.on.web.ViewBenefitScheduleUpload2Action | Displays the OHIP benefit-schedule upload form |
+| billing/CA/ON/ViewBillingOB2 | io.github.carlos_emr.carlos.billings.ca.on.web.BillingOB2View2Action | Displays the Ontario obstetrics billing view |
+| billing/CA/ON/ViewBillingONReview | io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingOnReview2Action | Reviews Ontario billing submissions |
 | BillingInvoice | io.github.carlos_emr.carlos.commn.web.BillingInvoice2Action | Generates billing invoices |
-| BillingONReview | io.github.carlos_emr.carlos.commn.web.BillingONReview2Action | Reviews Ontario billing submissions |
-| billing | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.Billing2Action | Main billing interface |
+| billing | io.github.carlos_emr.carlos.billings.ca.pageUtil.Billing2Action | Cross-province billing entry router (BC → billing/CA/BC/billingSetup; ON → billing/CA/ON/billingView) |
+| billing/CA/BC/billingSetup | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBCSetup2Action | BC-only billing entry setup (BillingSessionBean + BillingGuidelines DS) |
 
 ## Case Management Module
 
@@ -157,14 +169,6 @@ Immunization setup and configuration.
 | CreateInitImmunization | io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctCreateImmunizationSetInit2Action | Initializes immunization configurations |
 | DeleteImmunizationSets | io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmDeleteImmunizationSet2Action | Deletes immunization sets |
 | ImmunizationSetDisplay | io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmImmunizationSetDisplay2Action | Displays immunization set configurations |
-
-## CVC Module
-
-Clinical validation and connectivity testing.
-
-| Action Name | Class Name | Description |
-|-------------|------------|-------------|
-| cvc | io.github.carlos_emr.carlos.integration.born.CVCTester2Action | Tests BORN CVC integration connectivity |
 
 ## Default Module
 
@@ -502,7 +506,7 @@ OSCAR billing system functionality.
 
 | Action Name | Class Name | Description |
 |-------------|------------|-------------|
-| oscarBilling/DocumentErrorReportUpload | io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingDocumentErrorReportUpload2Action | Uploads billing error reports |
+| oscarBilling/DocumentErrorReportUpload | io.github.carlos_emr.carlos.billings.ca.on.web.BillingDocumentErrorReportUpload2Action | Uploads billing error reports |
 
 ## Oscar Chart Module
 

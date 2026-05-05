@@ -134,9 +134,13 @@ public class CaseManagementIssueDAOImpl extends AbstractJpaDao implements CaseMa
 
     @Override
     public void deleteIssueById(CaseManagementIssue issue) {
-        entityManager().remove(issue);
-        return;
-
+        // Pre-migration Hibernate Session.delete() accepted detached entities. JPA
+        // EntityManager.remove() requires a managed instance, so reattach via merge()
+        // when the caller passes a detached entity (mirrors SecProviderDaoImpl.delete).
+        CaseManagementIssue managed = entityManager().contains(issue)
+                ? issue
+                : entityManager().merge(issue);
+        entityManager().remove(managed);
     }
 
     @Override

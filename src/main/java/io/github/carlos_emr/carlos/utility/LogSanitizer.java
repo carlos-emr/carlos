@@ -1,24 +1,25 @@
 /**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  * Copyright (c) 2026. CARLOS EMR Project. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- * <p>
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- * <p>
- * This software was written for the CARLOS EMR Project.
+ *
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-
 package io.github.carlos_emr.carlos.utility;
 
 import org.owasp.encoder.Encode;
@@ -66,6 +67,14 @@ public final class LogSanitizer {
 
     /** Default maximum number of characters for raw input before encoding. */
     static final int DEFAULT_MAX_LENGTH = 200;
+
+    /**
+     * Precompiled control-character pattern reused by every
+     * {@link #sanitizeForDisplay(String)} call so the regex isn't recompiled
+     * per BVE message.
+     */
+    private static final java.util.regex.Pattern CONTROL_CHARS =
+            java.util.regex.Pattern.compile("\\p{Cntrl}");
 
     /**
      * Post-encoding expansion factor. {@code Encode.forJava()} expands control characters
@@ -132,6 +141,36 @@ public final class LogSanitizer {
             truncated = true;
         }
         return truncated ? encoded + "..." : encoded;
+    }
+
+    /**
+     * Sanitizes a {@code String} value for inclusion in a user-facing
+     * exception message that will be rendered to a JSP. Strips ASCII
+     * control characters and truncates, but does <em>not</em> Java-escape
+     * printable characters — so quotes/backslashes/non-ASCII appear as
+     * themselves rather than as {@code "} / {@code \\} / {@code é}.
+     *
+     * <p>Use this when the sanitized value will be displayed back to the
+     * operator (e.g. {@code Bill rejected: invalid billing_no [abc"]})
+     * rather than logged. The downstream JSP must still HTML-escape the
+     * value via {@code <carlos:encode>} to prevent XSS — this helper only
+     * removes characters that would corrupt log lines or terminal output
+     * if the message is later logged via {@code e.getMessage()}.</p>
+     *
+     * @param input String the value to sanitize; may be {@code null}
+     * @return String the sanitized string, or the literal {@code "null"} if
+     *         input is null; never returns {@code null}
+     */
+    public static String sanitizeForDisplay(String input) {
+        if (input == null) {
+            return "null";
+        }
+        String stripped = CONTROL_CHARS.matcher(input).replaceAll("");
+        boolean truncated = stripped.length() > DEFAULT_MAX_LENGTH;
+        if (truncated) {
+            stripped = stripped.substring(0, DEFAULT_MAX_LENGTH);
+        }
+        return truncated ? stripped + "..." : stripped;
     }
 
     /**

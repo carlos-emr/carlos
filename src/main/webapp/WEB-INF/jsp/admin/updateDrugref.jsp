@@ -60,6 +60,7 @@
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <title><fmt:message key="admin.admin.UpdateDrugref"/></title>
         <link href="${carlos:forHtmlAttribute(ctx)}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+        <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/csrfTokenFetch.js"></script>
 
         <script>
             function getCsrfToken() {
@@ -155,7 +156,15 @@
                 });
             }
 
-            document.addEventListener("DOMContentLoaded", getUpdateTime);
+            document.addEventListener("DOMContentLoaded", function () {
+                fetchCsrfToken("${carlos:forJavaScript(ctx)}")
+                    .then(getUpdateTime)
+                    .catch(function (err) {
+                        console.warn('Skipping getUpdateTime — CSRF token not available:', err);
+                        document.getElementById('dbInfo').innerHTML =
+                            'Could not load CSRF token. Refresh the page or contact support.';
+                    });
+            });
         </script>
       <style>
         #updateButton {
@@ -168,8 +177,7 @@
       </style>
     </head>
     <body class="mainbody">
-    <%-- Hidden form required so CSRFGuard can inject the CSRF-TOKEN hidden input --%>
-    <form id="csrfForm" method="post" style="display:none;"></form>
+    <input type="hidden" name="CSRF-TOKEN" value="">
     <h3><fmt:message key="admin.admin.UpdateDrugref"/></h3>
     <div class="card card-body bg-body-tertiary">
         <div id="dbInfo"></div>

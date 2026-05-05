@@ -1803,8 +1803,16 @@ if (CarlosProperties.getInstance().getBooleanProperty("consultation_program_lett
 	}
 } %>
 
+        /**
+         * Switches the displayed consultation letterhead for provider numbers, stored letterhead keys, and clinic fallback values.
+         */
         function switchProvider(value) {
-            if (value === -1) {
+            if (value === null || value === undefined) {
+                console.warn("Unable to resolve consultation letterhead selection because no value was provided.");
+                return;
+            }
+            value = value.toString();
+            if (value === "-1") {
                 document.getElementById("letterheadName").value = value;
                 document.getElementById("letterheadAddress").value = '<%=SafeEncode.forJavaScript(clinic.getClinicAddress()) + " " + SafeEncode.forJavaScript(clinic.getClinicCity()) + " " + SafeEncode.forJavaScript(clinic.getClinicProvince()) + " " + SafeEncode.forJavaScript(clinic.getClinicPostal()) %>';
                 document.getElementById("letterheadAddressSpan").textContent = '<%=SafeEncode.forJavaScript(clinic.getClinicAddress()) + " " + SafeEncode.forJavaScript(clinic.getClinicCity()) + " " + SafeEncode.forJavaScript(clinic.getClinicProvince()) + " " + SafeEncode.forJavaScript(clinic.getClinicPostal()) %>';
@@ -1827,23 +1835,33 @@ if (CarlosProperties.getInstance().getBooleanProperty("consultation_program_lett
                 }
             } else {
                 let origValue = value;
-                value = value.replace(/[^A-Za-z0-9]+/g, '');
-                if (typeof providerData["prov_" + value.toString()] != "undefined") {
-                    value = "prov_" + value;
+                let resolvedValue = value;
+                if (!Object.prototype.hasOwnProperty.call(providerData, resolvedValue)) {
+                    // Program letterhead keys use the stored prog_<id> format, so preserve underscores when normalizing.
+                    let sanitizedValue = resolvedValue.replace(/[^A-Za-z0-9_]+/g, '');
+                    if (Object.prototype.hasOwnProperty.call(providerData, "prov_" + sanitizedValue)) {
+                        resolvedValue = "prov_" + sanitizedValue;
+                    } else {
+                        resolvedValue = sanitizedValue;
+                    }
+                }
+                if (!Object.prototype.hasOwnProperty.call(providerData, resolvedValue)) {
+                    console.warn("Unable to resolve consultation letterhead selection because no matching key was found.");
+                    return;
                 }
                 document.getElementById("letterheadName").value = origValue;
-                document.getElementById("letterheadAddress").value = providerData[value]['address'];
-                document.getElementById("letterheadAddressSpan").textContent = providerData[value]['address'];
-                document.getElementById("letterheadPhone").value = providerData[value]['phone'];
-                document.getElementById("letterheadPhoneSpan").textContent = providerData[value]['phone'];
-                document.getElementById("letterheadFax").value = providerData[value]['fax'];
-                document.getElementById("letterheadFaxSpan").textContent = providerData[value]['fax'];
+                document.getElementById("letterheadAddress").value = providerData[resolvedValue]['address'];
+                document.getElementById("letterheadAddressSpan").textContent = providerData[resolvedValue]['address'];
+                document.getElementById("letterheadPhone").value = providerData[resolvedValue]['phone'];
+                document.getElementById("letterheadPhoneSpan").textContent = providerData[resolvedValue]['phone'];
+                document.getElementById("letterheadFax").value = providerData[resolvedValue]['fax'];
+                document.getElementById("letterheadFaxSpan").textContent = providerData[resolvedValue]['fax'];
 
                 let faxAccountOptions = document.getElementById("faxAccount");
                 if (faxAccountOptions) {
                     for(let option in faxAccountOptions.options) {
-                        if(faxAccountOptions.options[option].value === providerData[value]['fax'].replace(/[^0-9.]/g, '')) {
-                            faxAccountOptions.value = providerData[value]['fax'].replace(/[^0-9.]/g, '');
+                        if(faxAccountOptions.options[option].value === providerData[resolvedValue]['fax'].replace(/[^0-9.]/g, '')) {
+                            faxAccountOptions.value = providerData[resolvedValue]['fax'].replace(/[^0-9.]/g, '');
                             break;
                         }
                     }
@@ -2210,14 +2228,15 @@ if (userAgent != null) {
 
                                                                                         <c:set var="__enc_2"><carlos:encode value='<%= demo %>' context="uriComponent"/></c:set>
                                                <c:set var="__enc_3"><carlos:encode value='<%= requestId %>' context="uriComponent"/></c:set>
-   <%
+                                            <fmt:message var="manageAttachmentsTitle" key="encounter.oscarConsultationRequest.ConsultationFormRequest.titleManageAttachments"/>
+    <%
                                                 if (thisForm.iseReferral()) {
                                             %>
                                                 <%-- <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.attachDoc"/> --%>
                                             <a href="javascript:void(0);" id="attachDocumentPanelBtn"
-                                               title="Add Attachment"
+                                               title="${carlos:forHtmlAttribute(manageAttachmentsTitle)}"
                                                data-poload="${ ctx }/previewDocs?method=fetchConsultDocuments&amp;demographicNo=<carlos:encode value='${__enc_2}' context="htmlAttribute"/>&amp;requestId=<carlos:encode value='${__enc_3}' context="htmlAttribute"/>">
-                                                Manage Attachments
+                                                <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnManageAttachments"/>
                                             </a>
                                                                                       <c:set var="__enc_4"><carlos:encode value='<%= demo %>' context="uriComponent"/></c:set>
                                                <c:set var="__enc_5"><carlos:encode value='<%= requestId %>' context="uriComponent"/></c:set>
@@ -2226,9 +2245,9 @@ if (userAgent != null) {
                                             <%
                                             } else { %>
                                             <a href="javascript:void(0);" id="attachDocumentPanelBtn"
-                                               title="Add Attachment"
+                                               title="${carlos:forHtmlAttribute(manageAttachmentsTitle)}"
                                                data-poload="${ ctx }/previewDocs?method=fetchConsultDocuments&amp;demographicNo=<carlos:encode value='${__enc_4}' context="htmlAttribute"/>&amp;requestId=<carlos:encode value='${__enc_5}' context="htmlAttribute"/>">
-                                                Manage Attachments
+                                                <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnManageAttachments"/>
                                             </a>
 
                                             <% } %>
@@ -2240,7 +2259,7 @@ if (userAgent != null) {
                                         <td>
                                             <table id="attachedEFormsTable">
                                                 <tr>
-                                                    <td><h3>eForms</h3></td>
+                                                    <td><h3><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.sectionEForms"/></h3></td>
                                                 </tr>
                                                 <c:forEach items="${ attachedEForms }" var="attachedEForm">
                                                     <tr id="entry_eFormNo${ attachedEForm.id }">
@@ -2260,7 +2279,7 @@ if (userAgent != null) {
                                         <td>
                                             <table id="attachedDocumentsTable">
                                                 <tr>
-                                                    <td><h3>Documents</h3></td>
+                                                    <td><h3><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.sectionDocuments"/></h3></td>
                                                 </tr>
                                                 <c:forEach items="${ attachedDocuments }" var="attachedDocument">
                                                     <tr id="entry_docNo${ attachedDocument.docId }">
@@ -2280,15 +2299,16 @@ if (userAgent != null) {
                                         <td>
                                             <table id="attachedLabsTable">
                                                 <tr>
-                                                    <td><h3>Labs</h3></td>
+                                                    <td><h3><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.sectionLabs"/></h3></td>
                                                 </tr>
+                                                <fmt:message var="unlabelledLabel" key="encounter.oscarConsultationRequest.ConsultationFormRequest.labelUnlabelled"/>
                                                 <c:forEach items="${ attachedLabs }" var="attachedLab">
                                                     <tr id="entry_labNo${ attachedLab.segmentID }">
                                                         <td>
                                                             <c:set var="labName"
                                                                    value="${ fn:trim(attachedLab.label) != '' ? attachedLab.label : attachedLab.discipline}"/>
                                                             <c:if test="${empty labName}"><c:set var="labName"
-                                                                                                 value="UNLABELLED"/></c:if>
+                                                                                                 value="${unlabelledLabel}"/></c:if>
                                                             ${carlos:forHtml(attachedLab.description)} ${carlos:forHtml(labName)}
                                                             <input name="labNo" value="${ attachedLab.segmentID }"
                                                                    id="delegate_labNo${ attachedLab.segmentID }"
@@ -2304,7 +2324,7 @@ if (userAgent != null) {
                                         <td>
                                             <table id="attachedHRMDocumentsTable">
                                                 <tr>
-                                                    <td><h3>HRM</h3></td>
+                                                    <td><h3><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.sectionHRM"/></h3></td>
                                                 </tr>
                                                 <c:forEach items="${ attachedHRMDocuments }" var="attachedHrm">
                                                     <tr id="entry_hrmNo${ attachedHrm['id'] }">
@@ -2324,7 +2344,7 @@ if (userAgent != null) {
                                         <td>
                                             <table id="attachedFormsTable">
                                                 <tr>
-                                                    <td><h3>Forms</h3></td>
+                                                    <td><h3><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.sectionForms"/></h3></td>
                                                 </tr>
                                                 <c:forEach items="${ attachedForms }" var="attachedForm">
                                                     <tr id="entry_formNo${ attachedForm.formId }"
@@ -2408,7 +2428,9 @@ if (userAgent != null) {
                                         <div class="row g-2" style="font-size:0.85rem;">
                                             <div class="col-md-4">
                                                 <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgAddress"/></small><br>
-                                                <carlos:encode value='<%= thisForm.getPatientAddress().replace("null", "") %>' context="html"/>
+                                                <div style="white-space: pre-line;">
+                                                <carlos:encode value='<%= thisForm.getPatientAddress() %>' context="html"/>
+                                                </div>
                                             </div>
                                             <div class="col-md-4">
                                                 <small class="text-muted"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgPhone"/></small>: <carlos:encode value='<%= thisForm.getPatientPhone() %>' context="html"/><br>
@@ -2748,11 +2770,11 @@ if (userAgent != null) {
                                         if (thisForm.getFdid() != null) {
                                     %>
                                     <tr>
-                                        <td class="consult-form-label">EForm
+                                        <td class="consult-form-label"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.labelEForm"/>
                                         </td>
                                         <td class="consult-form-value">
-                                            <a href="<%=request.getContextPath()%>/eform/efmshowform_data?fdid=<%=thisForm.getFdid() %>">Click
-                                                to view</a>
+                                            <a href="<%=request.getContextPath()%>/eform/efmshowform_data?fdid=<%=thisForm.getFdid() %>"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.linkClick"/>
+                                                <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.linkToView"/></a>
                                         </td>
                                     </tr>
                                     <%
@@ -3128,6 +3150,7 @@ if (userAgent != null) {
     </form>
     </body>
 
+    <fmt:message var="saveAndCloseText" key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnSaveAndClose"/>
     <script type="text/javascript">
         jQuery(document).ready(function () {
             var ctx = "${pageContext.request.contextPath}";
@@ -3288,7 +3311,7 @@ if (userAgent != null) {
                 }).dialog({
                     title: title,
                     modal: true,
-                    closeText: "Save and Close",
+                    closeText: "${carlos:forJavaScript(saveAndCloseText)}",
                     height: 'auto',
                     width: 'auto',
                     resizable: true,
@@ -3301,7 +3324,7 @@ if (userAgent != null) {
                         let closeBtn = jQuery(this).parent().find(".ui-dialog-titlebar-close");
                         closeBtn.removeClass("ui-button-icon-only");
                         closeBtn.addClass("save-and-close-button");
-                        closeBtn.text("Save and Close");
+                        closeBtn.text("${carlos:forJavaScript(saveAndCloseText)}");
                     },
 
                     beforeClose: function (event, ui) {
@@ -3390,4 +3413,3 @@ if (userAgent != null) {
         return noteStr.toString();
     }
 %>
-

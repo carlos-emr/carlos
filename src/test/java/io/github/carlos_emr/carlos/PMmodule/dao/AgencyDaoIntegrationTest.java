@@ -318,9 +318,11 @@ public class AgencyDaoIntegrationTest extends CarlosTestBase {
     @DisplayName("should update agency when existing instance modified")
     void shouldUpdateAgency_whenExistingInstanceModified() {
         // Given - persist an agency with initial intake configuration
+        // AgencyDaoImpl writes via the JPA EntityManager; flush through the same context,
+        // not the Hibernate Session (which doesn't see EntityManager-managed inserts/updates).
         Agency agency = createAgency(5, "HS", 3, "AC");
         agencyDao.saveAgency(agency);
-        hibernateTemplate.flush();
+        entityManager.flush();
 
         // Capture the generated primary key to verify identity is preserved after update
         Long savedId = agency.getId();
@@ -330,12 +332,11 @@ public class AgencyDaoIntegrationTest extends CarlosTestBase {
         agency.setIntakeQuickState("ZZ");
         agencyDao.saveAgency(agency);
 
-        // Flush Hibernate Session to execute the UPDATE SQL, then clear both
-        // persistence contexts so the subsequent read performs a real database
-        // SELECT rather than returning a cached entity
-        hibernateTemplate.flush();
-        hibernateTemplate.clear();
+        // Force the UPDATE to hit the database and clear both persistence contexts so the
+        // subsequent read performs a real SELECT rather than returning a cached entity.
+        entityManager.flush();
         entityManager.clear();
+        hibernateTemplate.clear();
 
         // Then - re-read from database and verify the updated values
         Agency updated = entityManager.find(Agency.class, savedId);

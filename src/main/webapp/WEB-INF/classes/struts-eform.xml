@@ -37,6 +37,7 @@
         <action name="eform/efmshowform_data" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormShowData2Action"/>
         <action name="eform/efmformapconfig_lookup" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
         <action name="eform/efmformrtl_templates" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
+        <action name="eform/efmformrtl_templates.jsp" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
         <action name="eform/efmformmanager" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
         <action name="eform/efmformmanagerdeleted" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
         <action name="eform/efmformmanageredit" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
@@ -119,6 +120,7 @@
             <result name="success">/eform/efmmanageformgroups</result>
         </action>
         <action name="eform/displayImage" class="io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action"/>
+        <action name="eform/displayImage.do" class="io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action"/>
         <action name="eform/rtlPreventions" class="io.github.carlos_emr.carlos.eform.actions.RtlPreventions2Action"/>
 
     </package>

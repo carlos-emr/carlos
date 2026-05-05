@@ -51,6 +51,7 @@ public class ProviderServiceReportUIBean {
 
     private ProgramDao programDao = (ProgramDao) SpringUtils.getBean(ProgramDao.class);
     private SecRoleDao secRoleDao = SpringUtils.getBean(SecRoleDao.class);
+    private CaseManagementNoteDAO caseManagementNoteDAO = SpringUtils.getBean(CaseManagementNoteDAO.class);
 
     private Date startDate = null;
     private Date endDate = null;
@@ -116,7 +117,7 @@ public class ProviderServiceReportUIBean {
             dataRow.programName = "all programs";
             dataRow.programType = "all program types";
             dataRow.date = dateFormatter.format(tempStart.getTime());
-            dataRow.encounterCounts = CaseManagementNoteDAO.getDemographicEncounterCountsByProgramAndRoleId(null,
+            dataRow.encounterCounts = caseManagementNoteDAO.getDemographicEncounterCountsByProgramAndRoleId(null,
                     doctorRole.getId().intValue(),
                     tempStart.getTime(), tempEnd.getTime());
 
@@ -129,7 +130,7 @@ public class ProviderServiceReportUIBean {
         dataRow.programName = "all programs";
         dataRow.programType = "all program types";
         dataRow.date = dateFormatter.format(startCal.getTime()) + " to " + dateFormatter.format(endCal.getTime());
-        dataRow.encounterCounts = CaseManagementNoteDAO.getDemographicEncounterCountsByProgramAndRoleId(null,
+        dataRow.encounterCounts = caseManagementNoteDAO.getDemographicEncounterCountsByProgramAndRoleId(null,
                 doctorRole.getId().intValue(), startCal.getTime(),
                 endCal.getTime());
 
@@ -151,7 +152,7 @@ public class ProviderServiceReportUIBean {
             dataRow.programName = program.getName();
             dataRow.programType = program.getType();
             dataRow.date = dateFormatter.format(tempStart.getTime());
-            dataRow.encounterCounts = CaseManagementNoteDAO.getDemographicEncounterCountsByProgramAndRoleId(
+            dataRow.encounterCounts = caseManagementNoteDAO.getDemographicEncounterCountsByProgramAndRoleId(
                     program.getId(), doctorRole.getId().intValue(),
                     tempStart.getTime(), tempEnd.getTime());
 
@@ -164,7 +165,7 @@ public class ProviderServiceReportUIBean {
         dataRow.programName = program.getName();
         dataRow.programType = program.getType();
         dataRow.date = dateFormatter.format(startCal.getTime()) + " to " + dateFormatter.format(endCal.getTime());
-        dataRow.encounterCounts = CaseManagementNoteDAO.getDemographicEncounterCountsByProgramAndRoleId(
+        dataRow.encounterCounts = caseManagementNoteDAO.getDemographicEncounterCountsByProgramAndRoleId(
                 program.getId(),
                 doctorRole.getId().intValue(), startCal.getTime(),
                 endCal.getTime());

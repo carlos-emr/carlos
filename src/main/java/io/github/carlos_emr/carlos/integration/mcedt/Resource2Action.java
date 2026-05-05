@@ -191,7 +191,9 @@ public class Resource2Action extends ActionSupport {
         }
         zos.close();
 
-        return null;
+        // This branch streams a ZIP directly; returning NONE prevents Struts result dispatch
+        // from appending page content after the archive bytes.
+        return NONE;
     }
 
     private String resourceType;

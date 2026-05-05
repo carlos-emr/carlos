@@ -133,7 +133,7 @@
             <td valign="top" class="MainTableRightColumn">
 
                 <form id="ADDAPPT" method="post"
-                      action="<%= request.getContextPath() %>/appointment/appointmentcontrol">
+                      action="<%= request.getContextPath() %>/demographic/DemographicSearch">
                     <div><fmt:message key="demographic.addAlternateContact.name"/> <input type="text" name="keyword" size="25" value=""/>
 
                         <input type="submit" name="Submit" value="<fmt:message key='Search'/>"/> <input

@@ -10,23 +10,19 @@ Never invent methods - verify they exist in the codebase first.
 
 ## BDD NAMING CONVENTION
 
-### Method Naming (Choose ONE style consistently)
+### Method Naming
 
-**Option 1: Pure camelCase (RECOMMENDED for Java)**
-   - Pattern: `should<ExpectedBehavior>When<Condition>()`
+**Project style: mixed BDD camelCase with exactly one underscore**
+   - Pattern: `should<Action>_<prepositionOrContext><Condition>()`
+   - The segment after the underscore starts lowercase.
    - Examples:
-     - `shouldReturnTicklerWhenValidIdProvided()`
-     - `shouldThrowExceptionWhenTicklerNotFound()`
-     - `shouldLoadSpringContext()`  (no condition needed)
+     - `shouldReturnTickler_whenValidIdProvided()`
+     - `shouldThrowException_whenTicklerNotFound()`
+     - `shouldLoadSpringContext_forDefaultCase()`
 
-**Option 2: Snake_case (common in Ruby/Python BDD, valid for Java)**
-   - Pattern: `should_<expected_behavior>_when_<condition>()`
-   - Examples:
-     - `should_return_tickler_when_valid_id_provided()`
-     - `should_throw_exception_when_tickler_not_found()`
-     - `should_load_spring_context()`
-
-**AVOID**: Mixed camelCase with underscores (e.g., `shouldReturnTickler_whenValid`)
+**AVOID**: zero-underscore names (e.g., `shouldReturnTicklerWhenValidIdProvided()`)
+**AVOID**: multi-underscore names (e.g., `shouldReturnTickler_whenValidId_andActive()`)
+**AVOID**: snake_case names (e.g., `should_return_tickler_when_valid_id_provided()`)
 **AVOID**: Traditional test naming (e.g., `testFindById()`, `findById_validId_returnsTickler()`)
 
 ### @DisplayName (describes behavior from user perspective)
@@ -50,7 +46,7 @@ public class ComponentTest extends CarlosTestBase {  // MUST be public!
 
     @Test
     @DisplayName("should perform action when condition is met")
-    void shouldPerformActionWhenConditionMet() {  // Pure camelCase
+    void shouldPerformAction_whenConditionMet() {
         // Given - set up test data
         Entity entity = createTestEntity();
 

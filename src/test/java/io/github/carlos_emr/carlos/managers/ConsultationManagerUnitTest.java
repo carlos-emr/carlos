@@ -44,6 +44,11 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.consultations.ConsultationRequestSearchFilter;
 import io.github.carlos_emr.carlos.consultations.ConsultationResponseSearchFilter;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil;
+import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMCategoryDao;
+import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
+import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentSubClassDao;
+import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
+import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMSubClassDao;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationRequestSearchResult;
@@ -188,6 +193,18 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
         registerMock(DemographicManager.class, mockDemographicManager);
         registerMock(DocumentManager.class, mockDocumentManager);
         registerMock(FormsManager.class, mockFormsManager);
+
+        // HRMUtil's static initializer calls SpringUtils.getBean(...) for each DAO it holds.
+        // The shouldMatchAttachedHrmDocuments test uses Mockito.mockStatic(HRMUtil.class) which
+        // forces class load and runs <clinit>. Register stubs up front so the first load succeeds;
+        // static init runs once per JVM, so a later test that needed the same mocks would not
+        // get a chance to register them.
+        registerMock(HRMDocumentDao.class, Mockito.mock(HRMDocumentDao.class));
+        registerMock(HRMDocumentToDemographicDao.class, Mockito.mock(HRMDocumentToDemographicDao.class));
+        registerMock(HRMSubClassDao.class, Mockito.mock(HRMSubClassDao.class));
+        registerMock(HRMDocumentSubClassDao.class, Mockito.mock(HRMDocumentSubClassDao.class));
+        registerMock(HRMCategoryDao.class, Mockito.mock(HRMCategoryDao.class));
+        registerMock(NioFileManager.class, Mockito.mock(NioFileManager.class));
 
         // Security manager returns true for all privilege checks in unit tests
         lenient().when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any()))
@@ -626,7 +643,7 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
                         consultationManager.getAttachedHRMDocuments(mockLoggedInInfo, TEST_DEMOGRAPHIC_NO.toString(), TEST_REQUEST_ID.toString());
 
                 // Then
-                assertThat(result).extracting(map -> map.get("id")).containsExactly(128, 5);
+                assertThat(result).extracting(map -> (Integer) map.get("id")).containsExactly(128, 5);
             }
         }
 

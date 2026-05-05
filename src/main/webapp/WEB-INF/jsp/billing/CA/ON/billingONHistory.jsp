@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,11 +17,14 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
+--%>
+<%--
+  Purpose: Supports billingONHistory in the Ontario billing workflow.
+  Expected request model data includes: historyModel.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
 --%>
 <%--
     Ontario Billing History popup.
@@ -36,64 +40,13 @@
 
     @since 2006
 --%>
-<%@page import="java.nio.charset.StandardCharsets" %>
-<%@page import="java.math.BigDecimal" %>
-<%
-    if (session.getAttribute("user") == null)
-        response.sendRedirect(request.getContextPath() + "/logout.htm");
-    String curProvider_no;
-    curProvider_no = (String) session.getAttribute("user");
-    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
-%>
-<%@ page
-        import="java.util.*, java.sql.*, java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.db.*"
-        errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
-<%@page import="io.github.carlos_emr.carlos.billing.CA.ON.dao.*" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONExtDao" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-
-<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.BillingONPayment" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.BillingONCHeader1" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%
-    BillingONPaymentDao billingOnPaymentDao = SpringUtils.getBean(BillingONPaymentDao.class);
-    BillingONCHeader1Dao bCh1Dao = SpringUtils.getBean(BillingONCHeader1Dao.class);
-
-    // Resolve patient display name server-side — keeps PHI out of the URL
-    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-    DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
-    String demographicNoParam = request.getParameter("demographic_no");
-    String patientDisplayName = "";
-    if (demographicNoParam != null && !demographicNoParam.isEmpty()) {
-        try {
-            Demographic demo = demographicManager.getDemographic(loggedInInfo, Integer.parseInt(demographicNoParam));
-            if (demo != null) {
-                patientDisplayName = demo.getLastName() + ", " + demo.getFirstName();
-            }
-        } catch (Exception ex) {
-            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn("Could not look up demographic for billing history display", ex);
-        }
-    }
-%>
-
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<jsp:useBean id="providerBean" class="java.util.Properties"
-             scope="session"/>
+<jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 <!DOCTYPE html>
 <fmt:message var="msgOnUnbilledText" key="provider.appointmentProviderAdminDay.onUnbilled"/>
 <fmt:message var="dtLanguageCode" key="global.i18n.datatablescode"/>
@@ -101,16 +54,16 @@
 <head>
     <title><fmt:message key="billing.billingONHistory.title"/></title>
     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
-    <link href="<%=request.getContextPath()%>/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
-    <script src="<%=request.getContextPath()%>/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
-    <script src="<%=request.getContextPath()%>/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
+    <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
+    <script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
+    <script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
 
     <script language="JavaScript">
         function onUnbilled(billingNo, billCode) {
             if (confirm("${carlos:forJavaScript(msgOnUnbilledText)}")) {
                 var form = document.createElement('form');
                 form.method = 'post';
-                form.action = '<%= request.getContextPath() %>/billing/CA/ON/BillingDeleteNoAppt';
+                form.action = '${pageContext.request.contextPath}/billing/CA/ON/BillingDeleteNoAppt';
                 form.target = 'unbill_popup';
                 var fields = {billing_no: billingNo, billCode: billCode, dboperation: 'delete_bill', hotclick: '0'};
                 for (var key in fields) {
@@ -134,7 +87,7 @@
         jQuery(document).ready(function () {
             jQuery('#billingHistoryTable').DataTable({
                 language: {
-                    url: '<%=request.getContextPath()%>/library/DataTables/i18n/${carlos:forUriComponent(dtLanguageCode)}.json'
+                    url: '${pageContext.request.contextPath}/library/DataTables/i18n/${carlos:forUriComponent(dtLanguageCode)}.json'
                 }
             });
         });
@@ -144,12 +97,27 @@
 </head>
 <body>
 
+<c:if test="${historyModel.partial}">
+    <div style="background:#fff3cd;color:#7a5b00;border:1px solid #d4a700;padding:8px;margin:4px 0;">
+        <strong>Billing history may be incomplete.</strong>
+        A loader error truncated this list — please refresh or contact admin before
+        re-billing this patient.
+    </div>
+</c:if>
+
+<c:if test="${historyModel.patientNameUnavailable}">
+    <div style="background:#fff3cd;color:#7a5b00;border:1px solid #d4a700;padding:8px;margin:4px 0;">
+        <strong>Patient name is temporarily unavailable.</strong>
+        Confirm the demographic before acting on this history.
+    </div>
+</c:if>
+
 <nav class="navbar navbar-dark bg-dark">
     <div class="container-fluid">
         <span class="navbar-brand"><fmt:message key="billing.billingONHistory.title"/></span>
         <span class="navbar-text text-white-50">
-            <em><carlos:encode value='<%= patientDisplayName %>' context="html"/></em>
-            &nbsp;(<carlos:encode value='<%= demographicNoParam != null ? demographicNoParam : "" %>' context="html"/>)
+            <em><carlos:encode value="${historyModel.patientDisplayName}" context="html"/></em>
+            &nbsp;(<carlos:encode value="${historyModel.demographicNo}" context="html"/>)
         </span>
     </div>
 </nav>
@@ -176,96 +144,44 @@
             </tr>
         </thead>
         <tbody>
-        <% // Load all records for DataTables client-side pagination
-            JdbcBillingReviewImpl dbObj = new JdbcBillingReviewImpl();
-            BillingONExtDao billingOnExtDao = (BillingONExtDao) SpringUtils.getBean(BillingONExtDao.class);
-            List aL;
-            try {
-                aL = dbObj.getBillingHist(request.getParameter("demographic_no"), 10000, 0, null);
-            } catch (Exception e) {
-                aL = new java.util.ArrayList();
-                io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Error loading billing history", e);
-            }
-            for (int i = 0; i < aL.size(); i = i + 2) {
-                BillingClaimHeader1Data obj = (BillingClaimHeader1Data) aL.get(i);
-                BillingItemData itObj = (BillingItemData) aL.get(i + 1);
-                String strBillType = obj.getPay_program();
-                if (strBillType != null) {
-                    if (strBillType.matches(BillingDataHlp.BILLINGMATCHSTRING_3RDPARTY)) {
-                        if (BillingDataHlp.propBillingType.getProperty(obj.getStatus(), "").equals("Settled")) {
-                            strBillType += " Settled";
-                        }
-                    } else {
-                        strBillType = BillingDataHlp.propBillingType.getProperty(obj.getStatus(), "");
-                    }
-                } else {
-                    strBillType = "";
-                }
-
-                BigDecimal balance = new BigDecimal("0.00");
-                if ("PAT".equals(strBillType) || "PAT Settled".equals(strBillType)) {
-                    int billingNo = Integer.parseInt(obj.getId());
-                    BillingONCHeader1 bCh1 = bCh1Dao.find(billingNo);
-
-                    BigDecimal total = bCh1.getTotal();
-                    BigDecimal sumOfPay = BigDecimal.ZERO;
-                    BigDecimal sumOfDiscount = BigDecimal.ZERO;
-                    BigDecimal sumOfRefund = BigDecimal.ZERO;
-                    BigDecimal sumOfCredit = BigDecimal.ZERO;
-
-                    for (BillingONPayment payment : billingOnPaymentDao.find3rdPartyPaymentsByBillingNo(billingNo)) {
-                        sumOfPay = sumOfPay.add(payment.getTotal_payment());
-                        sumOfDiscount = sumOfDiscount.add(payment.getTotal_discount());
-                        sumOfRefund = sumOfRefund.add(payment.getTotal_refund());
-                        sumOfCredit = sumOfCredit.add(payment.getTotal_credit());
-                    }
-
-                    balance = total.subtract(sumOfPay).subtract(sumOfDiscount).add(sumOfCredit);
-                }
-        %>
+        <c:forEach var="row" items="${historyModel.rows}">
             <tr>
                 <td class="text-center">
                     <a href="javascript:void(0)"
-                       onclick="popupPage(600,800, '/billing/CA/ON/ViewBillingONDisplay?billing_no=<carlos:encode value='<%= obj.getId() %>' context="uriComponent"/>')"
-                       title="${msgBillingDisplay}"><carlos:encode value='<%= obj.getId() %>' context="html"/>
+                       onclick="popupPage(600,800, '${pageContext.request.contextPath}/billing/CA/ON/ViewBillingONDisplay?billing_no=${carlos:forUriComponent(row.invoiceId)}')"
+                       title="${msgBillingDisplay}"><carlos:encode value="${row.invoiceId}" context="html"/>
                     </a>
 
-                    <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="w">
+                    <c:if test="${row.canEdit}">
                         <a href="javascript:void(0)"
-                           onclick="popupPage(600,800, '/billing/CA/ON/BillingONCorrection?billing_no=<carlos:encode value='<%= obj.getId() %>' context="uriComponent"/>')"
+                           onclick="popupPage(600,800, '${pageContext.request.contextPath}/billing/CA/ON/BillingONCorrection?billing_no=${carlos:forUriComponent(row.invoiceId)}')"
                            title="${msgBillingCorrection}">${msgEdit}</a>
-                    </security:oscarSec>
+                    </c:if>
 
                     <a href="javascript:void(0)"
-                       onclick="popupPage(600,800, '/billing/CA/ON/ViewBillingON3rdInv?billingNo=<carlos:encode value='<%= obj.getId() %>' context="uriComponent"/>')">${msgPrint}</a>
+                       onclick="popupPage(600,800, '${pageContext.request.contextPath}/billing/CA/ON/ViewBillingON3rdInv?billingNo=${carlos:forUriComponent(row.invoiceId)}')">${msgPrint}</a>
                 </td>
-                <td class="text-center"><carlos:encode value='<%= obj.getLast_name() + ", " + obj.getFirst_name() %>' context="html"/></td>
-                <td class="text-center"><carlos:encode value='<%= obj.getBilling_date() %>' context="html"/></td>
-                <td class="text-center"><carlos:encode value='<%= strBillType %>' context="html"/></td>
-                <td class="text-center"><carlos:encode value='<%= itObj.getService_code() %>' context="html"/></td>
-                <td class="text-center"><carlos:encode value='<%= itObj.getDx() %>' context="html"/></td>
+                <td class="text-center"><carlos:encode value="${row.providerLastFirst}" context="html"/></td>
+                <td class="text-center"><carlos:encode value="${row.billingDate}" context="html"/></td>
+                <td class="text-center"><carlos:encode value="${row.billType}" context="html"/></td>
+                <td class="text-center"><carlos:encode value="${row.serviceCode}" context="html"/></td>
+                <td class="text-center"><carlos:encode value="${row.dx}" context="html"/></td>
                 <td class="text-center">
-                    <%if ("PAT".equals(strBillType) || "PAT Settled".equals(strBillType)) { %>
-                        <carlos:encode value='<%= balance.toString() %>' context="html"/>
-                    <%} else { %>
-                        &nbsp;
-                    <%} %>
+                    <c:choose>
+                        <c:when test="${row.balanceShown}"><carlos:encode value="${row.balance}" context="html"/></c:when>
+                        <c:otherwise>&nbsp;</c:otherwise>
+                    </c:choose>
                 </td>
-                <td class="text-center"><carlos:encode value='<%= obj.getTotal() %>' context="html"/></td>
+                <td class="text-center"><carlos:encode value="${row.total}" context="html"/></td>
                 <td class="text-center">
-                    <% if (obj.getStatus().compareTo("B") == 0 || obj.getStatus().compareTo("S") == 0) { %>
-                        &nbsp;
-                    <% } else if (CarlosProperties.getInstance().getBooleanProperty("warnOnDeleteBill", "true")) { %>
+                    <c:if test="${row.unbillLinkShown}">
                         <a href="#"
-                           onclick="onUnbilled('<carlos:encode value='<%= obj.getId() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= obj.getStatus() %>' context="javaScriptAttribute"/>');return false;">${msgUnbill}</a>
-                    <% } else { %>
-                        <a href="#" onclick="onUnbilled('<carlos:encode value='<%= obj.getId() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= obj.getStatus() %>' context="javaScriptAttribute"/>');return false;">${msgUnbill}</a>
-                    <% } %>
+                           onclick="onUnbilled('<carlos:encode value="${row.invoiceId}" context="javaScriptAttribute"/>','<carlos:encode value="${row.status}" context="javaScriptAttribute"/>');return false;">${msgUnbill}</a>
+                    </c:if>
+                    <c:if test="${not row.unbillLinkShown}">&nbsp;</c:if>
                 </td>
             </tr>
-        <%
-            }
-        %>
+        </c:forEach>
         </tbody>
     </table>
 

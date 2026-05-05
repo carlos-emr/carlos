@@ -87,8 +87,7 @@
         }
     </script>
     <body class="BodyStyle" vlink="#0000FF">
-    <%-- Hidden form required so CSRFGuard can inject the CSRF-TOKEN hidden input --%>
-    <form id="csrfForm" method="post" style="display:none;"></form>
+    <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
     <!--  -->
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <tr class="MainTableTopRow">

@@ -21,13 +21,18 @@
  */
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.junit.jupiter.api.*;
+import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -49,11 +54,14 @@ import static org.mockito.Mockito.*;
 class DemographicUpdate2ActionTest extends CarlosWebTestBase {
 
     private static final String TEST_PROVIDER = "999998";
+    @Mock
+    private DemographicDao mockDemographicDao;
+    private AutoCloseable mockCloseable;
     private DemographicUpdate2Action action;
 
     @BeforeEach
     void setUp() throws Exception {
-        MockitoAnnotations.openMocks(this);
+        mockCloseable = MockitoAnnotations.openMocks(this);
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
 
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(TEST_PROVIDER);
@@ -66,6 +74,13 @@ class DemographicUpdate2ActionTest extends CarlosWebTestBase {
         java.lang.reflect.Field secField = DemographicUpdate2Action.class.getDeclaredField("securityInfoManager");
         secField.setAccessible(true);
         secField.set(action, mockSecurityInfoManager);
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        if (mockCloseable != null) {
+            mockCloseable.close();
+        }
     }
 
     @Test
@@ -114,5 +129,53 @@ class DemographicUpdate2ActionTest extends CarlosWebTestBase {
         String result = executeAction(action);
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+    }
+
+    @Test
+    @DisplayName("should return validationError when province exceeds twenty characters")
+    void shouldReturnValidationError_whenProvinceExceedsTwentyCharacters() throws Exception {
+        allowPrivilege("_demographic", "w");
+        replaceSpringUtilsBean(DemographicDao.class, mockDemographicDao);
+        mockRequest.setMethod("POST");
+        addRequestParameter("demographic_no", "123");
+        addRequestParameter("province", "X".repeat(Demographic.PROVINCE_MAX_LENGTH + 1));
+
+        Demographic demographic = new Demographic(123);
+        when(mockDemographicDao.getDemographic("123")).thenReturn(demographic);
+
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo("validationError");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        @SuppressWarnings("unchecked")
+        List<String> fieldLengthValidationErrors =
+                (List<String>) mockRequest.getAttribute("fieldLengthValidationErrors");
+        assertThat(fieldLengthValidationErrors)
+                .contains("Province exceeds maximum length of 20 characters.");
+        verify(mockDemographicDao, never()).save(any(Demographic.class));
+    }
+
+    @Test
+    @DisplayName("should return validationError when last name exceeds thirty characters")
+    void shouldReturnValidationError_whenLastNameExceedsThirtyCharacters() throws Exception {
+        allowPrivilege("_demographic", "w");
+        replaceSpringUtilsBean(DemographicDao.class, mockDemographicDao);
+        mockRequest.setMethod("POST");
+        addRequestParameter("demographic_no", "123");
+        addRequestParameter("last_name", "X".repeat(Demographic.LAST_NAME_MAX_LENGTH + 1));
+
+        Demographic demographic = new Demographic(123);
+        when(mockDemographicDao.getDemographic("123")).thenReturn(demographic);
+
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo("validationError");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        @SuppressWarnings("unchecked")
+        List<String> fieldLengthValidationErrors =
+                (List<String>) mockRequest.getAttribute("fieldLengthValidationErrors");
+        assertThat(fieldLengthValidationErrors)
+                .contains("Last name exceeds maximum length of 30 characters.");
+        verify(mockDemographicDao, never()).save(any(Demographic.class));
     }
 }

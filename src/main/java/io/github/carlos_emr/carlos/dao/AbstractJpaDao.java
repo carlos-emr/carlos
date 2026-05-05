@@ -25,13 +25,18 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 
 /**
- * Minimal base class for DAOs migrated from {@link AbstractHibernateDao} to JPA
- * {@link EntityManager}.
+ * Minimal base class for JPA-backed DAOs using {@link EntityManager}.
  *
- * <p>Provides {@link #entityManager()} as the JPA counterpart to
- * {@code AbstractHibernateDao.currentSession()}, enabling a mechanical
- * migration: replace {@code currentSession()} calls with {@code entityManager()}
- * and {@code HqlQueryHelper} calls with {@code JpqlQueryHelper}.</p>
+ * <p>Provides {@link #entityManager()} for subclasses, which is obtained via
+ * {@link PersistenceContext} and bound to the active Spring-managed
+ * transaction.</p>
+ *
+ * <p>Historical note: this class replaced a legacy {@code AbstractHibernateDao}
+ * base that exposed a Hibernate {@code Session} via {@code currentSession()}.
+ * DAOs were migrated mechanically — {@code currentSession()} became
+ * {@link #entityManager()} and {@code HqlQueryHelper} became
+ * {@link io.github.carlos_emr.carlos.utility.JpqlQueryHelper}. Those legacy
+ * helpers have since been removed.</p>
  *
  * <p>Compatible with {@code autowire="byName"} in {@code applicationContext.xml}:
  * since this class has no {@code setSessionFactory} setter, Spring's byName
@@ -40,7 +45,6 @@ import jakarta.persistence.PersistenceContext;
  * {@link PersistenceContext}.</p>
  *
  * @since 2026-04-11
- * @see AbstractHibernateDao
  * @see io.github.carlos_emr.carlos.utility.JpqlQueryHelper
  */
 public abstract class AbstractJpaDao {
@@ -51,8 +55,7 @@ public abstract class AbstractJpaDao {
     /**
      * Returns the JPA {@link EntityManager} bound to the active transaction.
      *
-     * <p>Drop-in replacement for {@code AbstractHibernateDao.currentSession()}.
-     * The EntityManager lifecycle is managed by Spring's transaction
+     * <p>The EntityManager lifecycle is managed by Spring's transaction
      * infrastructure — no explicit close is needed.</p>
      *
      * @return the current transactional EntityManager

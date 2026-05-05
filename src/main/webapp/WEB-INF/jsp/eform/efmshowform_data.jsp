@@ -158,9 +158,30 @@
     addHiddenEmailProperties(loggedInInfo, eForm, eForm.getDemographicNo());
 
     // EForms are an intentional HTML rendering system — provider-authored templates are
-    // output unencoded. CSP mitigates stored XSS by blocking inline script execution
-    // while allowing external scripts from the same origin that eforms depend on.
-    response.setHeader("Content-Security-Policy", "script-src 'self'; object-src 'none'");
+    // output unencoded and routinely contain inline <script> blocks, inline event
+    // handlers (onload=, onclick=, onchange=), inline <style> blocks, and inline
+    // style="position:absolute; ..." attributes used to lay fields over a background
+    // image. 'unsafe-inline' is therefore required for both script-src and style-src.
+    // As a result, CSP does not block inline script or inline style injection on these
+    // pages. Its defense-in-depth benefit here is restricting external script sources
+    // to 'self' via script-src, external style sources to 'self' via style-src, and
+    // other resource types without explicit directives (for example, connect-src) to
+    // 'self' via default-src; permitting data: URIs only for inline images and fonts
+    // that eForms commonly embed (patient label barcodes, signature bitmaps, DejaVu
+    // font), blocking object/embed via object-src 'none', preventing <base> injection
+    // via base-uri 'none', and reducing clickjacking exposure via frame-ancestors
+    // 'self'.
+    String cspHeaderValue = String.join("; ",
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline'",
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' data:",
+        "font-src 'self' data:",
+        "object-src 'none'",
+        "base-uri 'none'",
+        "frame-ancestors 'self'"
+    );
+    response.setHeader("Content-Security-Policy", cspHeaderValue);
     response.setHeader("X-Content-Type-Options", "nosniff");
     out.print(eForm.getFormHtml()); // CodeQL[java/xss] eform HTML is intentionally unencoded
 %>

@@ -1,21 +1,23 @@
 /**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  * Copyright (c) 2026. CARLOS EMR Project. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- * <p>
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- * <p>
- * This software was written for the CARLOS EMR Project.
+ *
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.utility;
@@ -27,6 +29,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 /**
  * Unit tests for {@link LogSanitizer}.
  *
@@ -337,6 +340,86 @@ class LogSanitizerUnitTest {
         @DisplayName("should sanitize Integer toString representation")
         void shouldSanitizeInteger_whenPassedAsObject() {
             assertThat(LogSanitizer.sanitizeObject(42)).isEqualTo("42");
+        }
+    }
+
+    /**
+     * Tests for {@link LogSanitizer#sanitizeForDisplay(String)} — the
+     * variant used in user-facing {@link io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException} messages.
+     *
+     * <p>Contract distinguishing it from {@code sanitize(...)}:
+     * <ul>
+     *   <li>printable characters appear as themselves (no Java escaping)</li>
+     *   <li>quotes / backslashes / non-ASCII pass through unchanged</li>
+     *   <li>ASCII control chars are stripped (CRLF / NUL etc.)</li>
+     *   <li>truncates beyond the default length with a {@code "..."} suffix</li>
+     *   <li>null returns the literal {@code "null"}, never null itself</li>
+     * </ul>
+     */
+    @Nested
+    @DisplayName("sanitizeForDisplay()")
+    class SanitizeForDisplayTests {
+
+        @Test
+        @DisplayName("should return literal \"null\" when input is null")
+        void shouldReturnNullLiteral_whenInputIsNull() {
+            assertThat(LogSanitizer.sanitizeForDisplay(null)).isEqualTo("null");
+        }
+
+        @Test
+        @DisplayName("should return empty string when input is empty")
+        void shouldReturnEmpty_whenInputIsEmpty() {
+            assertThat(LogSanitizer.sanitizeForDisplay("")).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should preserve printable ASCII unchanged")
+        void shouldPreservePrintableAscii_unchanged() {
+            assertThat(LogSanitizer.sanitizeForDisplay("Bill #12345 rejected"))
+                    .isEqualTo("Bill #12345 rejected");
+        }
+
+        @Test
+        @DisplayName("should preserve quotes and backslashes literally (unlike sanitize)")
+        void shouldPreserveQuotesAndBackslashes_unescaped() {
+            // sanitize() would Java-escape these to \" and \\ — sanitizeForDisplay
+            // explicitly does not, so the operator sees the literal characters
+            // they typed.
+            assertThat(LogSanitizer.sanitizeForDisplay("foo \"bar\" \\baz"))
+                    .isEqualTo("foo \"bar\" \\baz");
+        }
+
+        @Test
+        @DisplayName("should preserve non-ASCII characters as themselves")
+        void shouldPreserveNonAscii_asThemselves() {
+            assertThat(LogSanitizer.sanitizeForDisplay("café résumé naïve 日本語"))
+                    .isEqualTo("café résumé naïve 日本語");
+        }
+
+        @Test
+        @DisplayName("should strip CRLF / NUL / other ASCII control characters")
+        void shouldStripControlCharacters_fromInput() {
+            String input = "before\r\nafter\u0000\u0001end";
+            assertThat(LogSanitizer.sanitizeForDisplay(input)).isEqualTo("beforeafterend");
+        }
+
+        @Test
+        @DisplayName("should truncate with ellipsis when input exceeds default length")
+        void shouldTruncate_whenInputExceedsLimit() {
+            // Build a 300-char ASCII payload; default truncation is
+            // DEFAULT_MAX_LENGTH (200), then "..." is appended.
+            String big = "A".repeat(300);
+            String out = LogSanitizer.sanitizeForDisplay(big);
+            assertThat(out).hasSize(LogSanitizer.DEFAULT_MAX_LENGTH + 3);
+            assertThat(out).startsWith("AAA");
+            assertThat(out).endsWith("...");
+        }
+
+        @Test
+        @DisplayName("should not truncate input at exactly default-length boundary")
+        void shouldNotTruncate_whenInputAtBoundary() {
+            String exact = "A".repeat(LogSanitizer.DEFAULT_MAX_LENGTH);
+            assertThat(LogSanitizer.sanitizeForDisplay(exact)).isEqualTo(exact);
         }
     }
 }

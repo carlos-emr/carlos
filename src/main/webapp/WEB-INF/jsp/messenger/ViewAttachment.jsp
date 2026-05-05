@@ -34,7 +34,7 @@
  * Hierarchical Attachment Viewer
  *
  * This JSP page provides a hierarchical tree-view interface for viewing and managing
- * message attachments in the OpenO EMR messenger system. It displays attachment data
+ * message attachments in the EMR messenger system. It displays attachment data
  * in an expandable/collapsible tree structure and allows users to save or modify
  * attachments before sending messages.
  *
@@ -79,14 +79,16 @@
  */
 --%>
 
-<%@ page
-        import="io.github.carlos_emr.carlos.messenger.docxfer.send.*,io.github.carlos_emr.carlos.messenger.docxfer.util.*, io.github.carlos_emr.carlos.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.send.*" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="java.util.*, org.w3c.dom.*" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.util.MsgCommxml" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilXML" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -116,13 +118,15 @@
     </c:when>
 </c:choose>
 
-<link rel="stylesheet" type="text/css" href="encounterStyles.css">
-<html>
+<!DOCTYPE html>
+<html lang="${pageContext.request.locale.language}">
 <head>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <meta charset="UTF-8">
+    <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/messenger/encounterStyles.css">
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
-
-    <script language="javascript">
+    <title><fmt:message key="messenger.ViewAttachment.title"/></title>
+    <script>
         // Cross-browser compatibility fix for IE vs Mozilla/Firefox event handling
         var browserName = navigator.appName;
         if (browserName == "Netscape") {
@@ -274,9 +278,10 @@
 
         String tblEnd = "</table>";
 
-        void DrawDoc(Element root, JspWriter out)
+        void DrawDoc(Element root, JspWriter out, String rootLabel)
                 throws jakarta.servlet.jsp.JspException, java.io.IOException {
-            out.print(spanStartRoot + "Document Transfer" + spanEnd);
+            String safeRootLabel = rootLabel == null ? "" : rootLabel;
+            out.print(spanStartRoot + SafeEncode.forHtml(safeRootLabel) + spanEnd);
             out.print(tblStartRoot);
 
             NodeList lst = root.getChildNodes();
@@ -291,7 +296,7 @@
 
         void DrawTable(Element tbl, JspWriter out)
                 throws jakarta.servlet.jsp.JspException, java.io.IOException {
-            out.print(spanStart + tbl.getAttribute("name") + spanEnd);
+            out.print(spanStart + SafeEncode.forHtml(tbl.getAttribute("name")) + spanEnd);
             out.print(tblStart);
 
             NodeList lst = tbl.getChildNodes();
@@ -310,7 +315,8 @@
                 // String sName = "item" + item.getAttribute("itemId");
                 // out.print("<input type=checkbox name='" + sName + "' onclick='javascript:chkClick();'/>");
             }
-            out.print(item.getAttribute("name") + ": " + item.getAttribute("value") + spanEnd);
+            out.print(SafeEncode.forHtml(item.getAttribute("name")) + ": "
+                    + SafeEncode.forHtml(item.getAttribute("value")) + spanEnd);
             out.print(tblStartContent);
 
             NodeList lst = item.getChildNodes();
@@ -332,53 +338,87 @@
                     Element fld = (Element) lst.item(i);
                     if (fld.getTagName().equals("fld")) {
                         out.print("<tr><td style='font-weight:bold'>");
-                        out.print(fld.getAttribute("name") + ": ");
+                        out.print(SafeEncode.forHtml(fld.getAttribute("name")) + ": ");
                         out.print("</td><td>");
-                        out.print(fld.getAttribute("value"));
+                        out.print(SafeEncode.forHtml(fld.getAttribute("value")));
                         out.print("</td></tr>");
                     }
                 }
             }
         }
     %>
-    <title>Document Transfer</title>
+
 </head>
 
-<body class="BodyStyle" vlink="#0000FF">
-<!--  -->
+<fmt:message key="messenger.ViewAttachment.title" var="viewAttachmentTitle"/>
+<fmt:message key="global.btnClose" var="closeLabel"/>
+<fmt:message key="global.msgNotSave" var="closeConfirmMsg"/>
+<body>
+<div class="container-fluid px-2 py-2">
+
+    <%-- Alert banner — hidden by default, shown via JS on error --%>
+    <div id="jsAlertBanner"
+         class="alert alert-danger alert-dismissible"
+         style="display:none"
+         role="alert">
+        <span id="jsAlertText"></span>
+        <button type="button"
+                class="btn-close"
+                onclick="this.closest('.alert').style.display='none'"
+                aria-label="${closeLabel}"></button>
+    </div>
+
+    <%-- Page header bar --%>
+    <div class="page-header-bar d-flex align-items-center justify-content-between py-2 mb-2 border-bottom"
+         id="header">
+        <div class="d-flex align-items-center gap-2">
+            <i class="fa-regular fa-paperclip" aria-hidden="true"></i>
+            <span class="fw-semibold"><fmt:message key="messenger.CreateMessage.msgMessenger"/></span>
+        </div>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-muted small">
+                <fmt:message key="messenger.generatePreviewPDF.attachDocFor"/>
+            </span>
+            <a href="javascript:popupStart(300,400,'About.jsp')" class="small text-decoration-none">
+                <fmt:message key="global.about"/>
+            </a>
+            <a href="javascript:popupStart(300,400,'License.jsp')" class="small text-decoration-none">
+                <fmt:message key="global.license"/>
+            </a>
+        </div>
+    </div>
+
+    <div class="bg-light border rounded p-2">
+
+        <%-- Close button --%>
+        <div class="mb-2">
+            <button type="button"
+                    class="btn btn-outline-secondary btn-sm"
+                    onclick="if (confirm('<%= SafeEncode.forJavaScript((String) pageContext.getAttribute("closeConfirmMsg")) %>')) { top.window.close(); }">
+                <i class="fa-regular fa-circle-xmark" aria-hidden="true"></i>
+                <fmt:message key="messenger.generatePreviewPDF.btnClose"/>
+            </button>
+        </div>
+            <form method="POST" action="<%= request.getContextPath() %>/messenger/AdjustAttachments"><input
+                    type="hidden" name="xmlDoc"
+                    value="<%= SafeEncode.forHtmlAttribute(MsgCommxml.encode64(MsgCommxml.toXML(root))) %>"/> <input
+                    type="hidden" name="id" value="<%= SafeEncode.forHtmlAttribute((String) request.getAttribute("attId")) %>"/>
+
 <table class="MainTable" id="scrollNumber1" name="encounterTable">
-    <tr class="MainTableTopRow">
-        <td class="MainTableTopRowLeftColumn">oscarComm</td>
-        <td class="MainTableTopRowRightColumn">
-            <table class="TopStatusBar">
-                <tr>
-                    <td>Document Transfer</td>
-                    <td></td>
-                    <td style="text-align: right"><a
-                            href="javascript:popupStart(300,400,'About.jsp')">About</a> | <a
-                            href="javascript:popupStart(300,400,'License.jsp')">License</a></td>
-                </tr>
-            </table>
-        </td>
-    </tr>
+
     <tr>
         <td class="MainTableLeftColumn">&nbsp;</td>
         <td class="MainTableRightColumn">
             <hr style="color: #A9A9A9;">
             <div style="height: 6px;"></div>
 
-            <form method="POST" action="<%= request.getContextPath() %>/messenger/AdjustAttachments"><input
-                    type=hidden name="xmlDoc"
-                    value="<%= MsgCommxml.encode64(MsgCommxml.toXML(root)) %>"/> <input
-                    type=hidden name="id" value="<%= request.getAttribute("attId")%>"/>
-
-                <% DrawDoc(root, out); %> <br>
-                <div style="font-size: 8pt; margin-top: 15px;"><input
-                        type=submit value="Save Attachments"/> <a
-                        href="javascript:expandAll();">Expand All</a> &nbsp;|&nbsp; <a
-                        href="javascript:collapseAll();">Collapse All</a> 
+                <% DrawDoc(root, out, (String) pageContext.getAttribute("viewAttachmentTitle")); %> <br>
+                <div style="font-size: 8pt; margin-top: 15px;"><fmt:message key="messenger.ViewAttachment.saveAttachments" var="saveAttachmentsMsg"/><input
+                        type=submit value="${saveAttachmentsMsg}"/> <a
+                        href="javascript:expandAll();"><fmt:message key="global.expandall"/></a> &nbsp;|&nbsp; <a
+                        href="javascript:collapseAll();"><fmt:message key="global.collapseall"/></a>
                 </div>
-            </form>
+
         </td>
     </tr>
     <tr>
@@ -386,5 +426,9 @@
         <td class="MainTableBottomRowRightColumn"></td>
     </tr>
 </table>
+        </form>
+    </div>
+</div>
+
 </body>
 </html>

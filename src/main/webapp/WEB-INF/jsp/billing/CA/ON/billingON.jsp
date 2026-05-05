@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,595 +17,24 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
-<%-- billingON.jsp is 2200+ lines; the default 8KB JSP buffer causes Tomcat 11
-     to truncate the response during RequestDispatcher.forward(). 1MB buffer
-     accommodates the full page output. --%>
-<%@page buffer="1024kb" %>
-<% response.setBufferSize(1024 * 1024); %>
+<%--
+  Purpose: Supports billingON in the Ontario billing workflow.
+  Expected request model data includes: formModel.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
 <!DOCTYPE html>
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"%>
-
-<%@page import="java.util.*,java.net.*,java.sql.*" %>
-<%@page import="io.github.carlos_emr.*" %>
-<%@page import="io.github.carlos_emr.carlos.util.*" %>
-<%@page import="io.github.carlos_emr.carlos.appt.*" %>
-<%@page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
-<%@page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.bc.decisionSupport.BillingGuidelines" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.CSSStylesDAO" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.CssStyle" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ClinicNbr" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingTypeDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.CtlBillingType" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.CtlBillingService" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServicePremiumDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.CtlBillingServicePremium" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.CtlDiagCode" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.DxresearchDAO" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Dxresearch" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@page import="io.github.carlos_emr.carlos.decisionSupport.model.DSConsequence" %>
-<%@page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-
-<%@page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
-<%@page import="io.github.carlos_emr.carlos.billing.CA.filters.CodeFilterManager" %>
-
-<%
-	ProfessionalSpecialistDao professionalSpecialistDao = SpringUtils.getBean(ProfessionalSpecialistDao.class);
-    DxresearchDAO dxresearchDao = SpringUtils.getBean(DxresearchDAO.class);
-    UserPropertyDAO userPropertyDao = SpringUtils.getBean(UserPropertyDAO.class);
-    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-%>
-<jsp:useBean id="providerBean" class="java.util.Properties"
-             scope="session"/>
-<%
-    if (session.getAttribute("user") == null) {
-        response.sendRedirect("${ pageContext.request.contextPath }/logoutPage");
-    }
-    CarlosProperties oscarVariables = CarlosProperties.getInstance();
-
-    String user_no = (String) session.getAttribute("user");
-    String providerview = request.getParameter("providerview") == null ? "" : request.getParameter("providerview");
-    String asstProvider_no = "", color = "", premiumFlag = "", service_form = "";
-    String sql = null;
-    ResultSet rs = null;
-    String sql0 = null;
-    ResultSet rs0 = null;
-    String strToday = UtilDateUtilities.getToday("yyyy-MM-dd");
-    boolean bSingleClick = oscarVariables.getProperty("onBillingSingleClick", "").equals("yes") ? true : false;
-    boolean bHospitalBilling = false;
-    String clinicview = bHospitalBilling ? oscarVariables.getProperty("clinic_hospital", "") : oscarVariables.getProperty("clinic_view", "");
-    String clinicNo = oscarVariables.getProperty("clinic_no", "").trim();
-    String visitType = bHospitalBilling ? "02" : oscarVariables.getProperty("visit_type", "");
-
-    if (visitType.startsWith("00") || visitType.equals("")) clinicview = "0000";
-    String appt_no = request.getParameter("appointment_no");
-    String billReferenceDate;
-    if (appt_no != null && appt_no.compareTo("0") == 0) {
-        billReferenceDate = request.getParameter("service_date") != null ? request.getParameter("service_date") : strToday;
-    } else {
-        billReferenceDate = request.getParameter("appointment_date");
-    }
-    String demoname = request.getParameter("demographic_name");
-    String demo_no = request.getParameter("demographic_no");
-    String apptProvider_no = request.getParameter("apptProvider_no");
-    String assgProvider_no = request.getParameter("assgProvider_no");
-    String demoSex = request.getParameter("DemoSex");
-    String m_review = request.getParameter("m_review") != null ? request.getParameter("m_review") : "";
-    String ctlBillForm = request.getParameter("billForm");
-    String curBillForm = request.getParameter("curBillForm");
-
-    String provider_no;
-    if (apptProvider_no.equalsIgnoreCase("none")) {
-        provider_no = user_no;
-    } else {
-        provider_no = apptProvider_no;
-    }
-    CodeFilterManager codeFilterManager = SpringUtils.getBean(CodeFilterManager.class);
-    DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
-    Demographic demo = demographicManager.getDemographic(loggedInInfo, demo_no);
-    java.util.Date filterDate = ConversionUtils.fromDateString(billReferenceDate);
-    if (request.getParameter("start_time") != null) {
-        filterDate = ConversionUtils.fromTimestampString(billReferenceDate + " " + request.getParameter("start_time"));
-    }
-
-    //load patientDx
-    List<Dxresearch> dxList = dxresearchDao.getByDemographicNo(Integer.parseInt(demo_no));
-    List<String> patientDx = new ArrayList<String>();
-    for (Dxresearch dx : dxList) {
-        if ("icd9".equals(dx.getCodingSystem())) patientDx.add(dx.getDxresearchCode());
-    }
-
-    //load codelist to add to patientDx
-    UserProperty codeList = userPropertyDao.getProp(UserProperty.CODE_TO_ADD_PATIENTDX);
-    String codeToAddPatientDx = codeList != null ? codeList.getValue() : "";
-    codeToAddPatientDx = codeToAddPatientDx != null ? codeToAddPatientDx.trim() : "";
-
-    codeList = userPropertyDao.getProp(UserProperty.CODE_TO_MATCH_PATIENTDX);
-    String codeToMatchPatientDx = codeList != null ? codeList.getValue() : "";
-    codeToMatchPatientDx = codeToMatchPatientDx != null ? codeToMatchPatientDx.trim() : "";
-
-    //check for management fee code eligibility
-    StringBuilder billingRecomendations = new StringBuilder();
-    try {
-        List<DSConsequence> list = BillingGuidelines.getInstance().evaluateAndGetConsequences(loggedInInfo, request.getParameter("demographic_no"), (String) request.getSession().getAttribute("user"));
-
-        for (DSConsequence dscon : list) {
-            if (dscon.getConsequenceStrength().equals(DSConsequence.ConsequenceStrength.warning)) {
-                billingRecomendations.append(SafeEncode.forHtml(dscon.getText())).append("<br/>");
-            }
-        }
-    } catch (Exception e) {
-        MiscUtils.getLogger().error("Error", e);
-    }
-
-    ProviderPreferenceDao preferenceDao = SpringUtils.getBean(ProviderPreferenceDao.class);
-    ProviderPreference preference = null;
-    preference = ProviderPreferencesUIBean.getProviderPreferenceByProviderNo(provider_no);
-
-    GregorianCalendar now = new GregorianCalendar();
-    int curYear = now.get(Calendar.YEAR);
-    int curMonth = (now.get(Calendar.MONTH) + 1);
-    int curDay = now.get(Calendar.DAY_OF_MONTH);
-    int dob_year = 0, dob_month = 0, dob_date = 0, age = 0;
-
-    String msg = "The default unit and @ value is 1.";
-    String action = "edit";
-    Properties propHist = null;
-    Vector vecHist = new Vector();
-
-    if (request.getParameter("xml_provider") != null) {
-        providerview = request.getParameter("xml_provider");
-        if (providerview.indexOf("|") != -1)
-            providerview = providerview.substring(0, providerview.indexOf("|"));
-    }
-
-    // get patient's detail
-    String errorFlag = "";
-    String warningMsg = "", errorMsg = "";
-    String r_doctor = "", r_doctor_ohip = "";
-    String demoFirst = "", demoLast = "", demoHIN = "", demoVer = "", demoDOB = "", demoDOBYY = "", demoDOBMM = "", demoDOBDD = "", demoHCTYPE = "";
-    String family_doctor = "";
-    String roster_status = "";
-    String referSpet = "";
-    // last_name,first_name,dob,hin,ver,hc_type,sex,family_doctor
-    JdbcBillingPageUtil tdbObj = new JdbcBillingPageUtil();
-    List demoL = tdbObj.getPatientCurBillingDemographic(loggedInInfo, demo_no);
-
-    //String sql = "select * from demographic where demographic_no=" + demo_no;
-    //ResultSet rs = dbObj.searchDBRecord(sql);
-    //while (rs.next()) {
-    demoLast = (String) demoL.get(0); //rs.getString("last_name");
-    demoFirst = (String) demoL.get(1); //rs.getString("first_name");
-    demoDOB = (String) demoL.get(2);
-    demoHIN = (String) demoL.get(3); //rs.getString("hin");
-    demoVer = (String) demoL.get(4); //rs.getString("ver");
-    demoHCTYPE = (String) demoL.get(5); //rs.getString("hc_type") == null ? "" : rs.getString("hc_type");
-    demoSex = (String) demoL.get(6); //rs.getString("sex");
-    family_doctor = (String) demoL.get(7);
-    assgProvider_no = (String) demoL.get(8);
-    roster_status = (String) demoL.get(9);
-
-    if (demoHCTYPE.compareTo("") == 0 || demoHCTYPE == null || demoHCTYPE.length() < 2) {
-        demoHCTYPE = "ON";
-    } else {
-        demoHCTYPE = demoHCTYPE.substring(0, 2).toUpperCase();
-    }
-
-    if ("".equals(family_doctor)) {
-        r_doctor = "N/A";
-        r_doctor_ohip = "000000";
-    } else {
-        r_doctor = SxmlMisc.getXmlContent(family_doctor, "rd") == null ? "" : SxmlMisc
-                .getXmlContent(family_doctor, "rd");
-        r_doctor_ohip = SxmlMisc.getXmlContent(family_doctor, "rdohip") == null ? ""
-                : SxmlMisc.getXmlContent(family_doctor, "rdohip");
-        referSpet = tdbObj.getReferDocSpet(r_doctor_ohip);
-    }
-
-    if (demoHIN.equals("")) {
-        warningMsg += "<b><div class='alert alert-danger'>Warning: The patient does not have a valid HIN. </div></b>";
-    }
-    if (r_doctor_ohip != null && r_doctor_ohip.length() > 0 && r_doctor_ohip.length() != 6) {
-        warningMsg += "<div class='alert alert error'>Warning: the referral doctor's no is wrong. </div>";
-    }
-    if (StringUtils.isBlank(demoDOB) || demoDOB.length() != 8) {
-        errorFlag = "1";
-        errorMsg = errorMsg
-                + "<b><div class='alert alert error'>Error: The patient does not have a valid DOB. </div></b>";
-    }
-    //}
-
-
-
-
-
-    // get patient's billing history
-    boolean bFirst = true;
-    JdbcBillingReviewImpl hdbObj = new JdbcBillingReviewImpl();
-    List aL = hdbObj.getBillingHist(demo_no, 5, 0, null);
-
-    Vector vecHistD = new Vector();
-    if (aL.size() > 0) {
-        BillingClaimHeader1Data obj = (BillingClaimHeader1Data) aL.get(0);
-        BillingItemData iobj = (BillingItemData) aL.get(1);
-
-        propHist = new Properties();
-
-        //propHist.setProperty("billing_no", "" + rs.getInt("id"));
-        propHist.setProperty("visitdate", obj.getAdmission_date() == null ? "" : obj.getAdmission_date()); // admission date
-        //propHist.setProperty("billing_date", rs.getString("billing_date")); // service date
-        //propHist.setProperty("update_date", rs.getString("timestamp")); // create date
-        propHist.setProperty("visitType", obj.getVisittype());
-        propHist.setProperty("clinic_ref_code", obj.getFacilty_num());
-        vecHist.add(propHist);
-        //propHist.setProperty("service_code", serCode);
-        propHist.setProperty("diagnostic_code", iobj.getDx());
-        vecHistD.add(propHist);
-    }
-
-    // display the fixed billing part
-    // Retrieving Provider
-    Vector vecProvider = new Vector();
-    Properties propT = null;
-    ProviderDao dao = SpringUtils.getBean(ProviderDao.class);
-    for (Provider p : dao.getProvidersWithNonEmptyCredentials()) {
-        propT = new Properties();
-        propT.setProperty("last_name", p.getLastName());
-        propT.setProperty("first_name", p.getFirstName());
-        propT.setProperty("proOHIP", p.getProviderNo() + "|" + p.getOhipNo());
-        vecProvider.add(propT);
-    }
-
-    // set default value
-    // use parameter -> history record
-    ProfessionalSpecialist specialist = professionalSpecialistDao.getByReferralNo(r_doctor_ohip);
-    if (specialist != null) {
-        r_doctor = specialist.getLastName() + "," + specialist.getFirstName();
-    }
-
-    String paraName = request.getParameter("dxCode");
-    if (paraName == null || paraName.equals("")) {
-        // get the default diagnostic code
-        if (preference != null) {
-            paraName = preference.getDefaultDxCode();
-        }
-    }
-    String dxCode = getDefaultValue(paraName, vecHistD, "diagnostic_code");
-
-
-    //visitType
-    paraName = request.getParameter("xml_visittype");
-
-    String xml_visittype = getDefaultValue(paraName, vecHist, "visitType");
-    //xml_visittype = paraName != null && !"".equals(paraName)? paraName : "00" ;
-
-    if (!"".equals(xml_visittype)) {
-        visitType = xml_visittype;
-    } else {
-        visitType = visitType == null ? "" : visitType;
-    }
-
-            String defaultServiceType = "";
-
-			if (curBillForm!=null) {
-			    // user picks a bill form from browser
-			    ctlBillForm = curBillForm;
-			} else {
-                            //check if patient's roster status determines which billing form to display (this superceeds providers preference)
-                            String rosterStatus = demo.getRosterStatus();
-
-                            CtlBillingServiceDao ctlBillingServiceDao = SpringUtils.getBean(CtlBillingServiceDao.class);
-                            List<CtlBillingService> ctlBillSrvList = ctlBillingServiceDao.findByServiceTypeId(rosterStatus);
-
-                            if (!ctlBillSrvList.isEmpty() && !rosterStatus.isEmpty()) {
-                                ctlBillForm = ctlBillSrvList.get(0).getServiceType();
-                            }
-                            else {
-                                // check user preference to show a bill form
-                                ProviderPreferenceDao providerPreferenceDao=SpringUtils.getBean(ProviderPreferenceDao.class);
-                                ProviderPreference providerPreference=null;
-
-                                //use the appointment providers's preferences first if we can
-                                //otherwise, use the preferences of the logged in user
-                                if( apptProvider_no.equalsIgnoreCase("none") ) {
-                                    providerPreference = providerPreferenceDao.find(user_no);
-                                } else {
-                                    providerPreference = providerPreferenceDao.find(apptProvider_no);
-                                }
-
-
-                                if (providerPreference!=null) {
-                                    defaultServiceType = providerPreference.getDefaultServiceType();
-                                }
-
-                                if ((roster_status.equals("QU - Quebec")||roster_status.equals("FS")) && !defaultServiceType.equals("RN")) { defaultServiceType = "PRI"; }
-                                if (defaultServiceType != null && !defaultServiceType.isEmpty() && !defaultServiceType.equals("no")) {
-									ctlBillForm = providerPreference.getDefaultServiceType();
-                                } else {
-                                        //check if there is a group preference for default billing
-                                        MyGroupDao myGroupDao = SpringUtils.getBean(MyGroupDao.class);
-                                        List<MyGroup> myGroups = myGroupDao.getProviderGroups(provider_no);
-                                        String groupBillForm = "";
-                                        for (MyGroup group : myGroups) {
-                                            groupBillForm = group.getDefaultBillingForm();
-                                            if (groupBillForm != null && !groupBillForm.isEmpty()) {
-                                                ctlBillForm = groupBillForm;
-                                                break;
-                                            }
-                                        }
-
-                                        if (ctlBillForm == null || ctlBillForm.isEmpty()) {
-                                            // check carlos.properties to show a default bill form
-                                            String dv = CarlosProperties.getInstance().getProperty("default_view");
-                                            if (dv!=null) ctlBillForm = dv;
-                                        }
-                                }
-                            }
-			}
-
-			if( ctlBillForm == null ) {
-				ctlBillForm = "";
-			}
-
-			if((visitType.startsWith("02") || visitType.startsWith("04")) && !defaultServiceType.equals("RN")){
-				ctlBillForm = "MIP"; // This is a reference to the "MIP" ctl_billingservice.servicetype, blank service type if not exist
-            }
-            if ((roster_status.equals("QU - Quebec")||roster_status.equals("FS")) && !defaultServiceType.equals("RN")) {
-                ctlBillForm = "PRI";
-            } // "PRI" ctl_billingservice.servicetype, blank if not exist
-
-    paraName = request.getParameter("xml_location");
-    String xml_location = getDefaultValue(paraName, vecHist, "clinic_ref_code");
-    xml_location = paraName != null && !"".equals(paraName) ? paraName : "0000";
-    if (!"".equals(xml_location)) {
-        clinicview = xml_location;
-    } else {
-        clinicview = clinicview == null ? "" : clinicview;
-    }
-
-    //Read default clinic_view from carlos.properties file
-    String cv = CarlosProperties.getInstance().getProperty("clinic_view");
-    if (cv != null) clinicview = cv;
-
-    String visitdate = null;
-    paraName = request.getParameter("xml_vdate");
-    String xml_vdate = getDefaultValue(paraName, vecHist, "visitdate");
-    xml_vdate = request.getParameter("xml_vdate") != null ? paraName : "";
-    if (!"".equals(xml_vdate)) {
-        visitdate = xml_vdate;
-    } else {
-        visitdate = visitdate == null ? "" : visitdate;
-    }
-
-    // get billing dx/form info
-    HashMap<String, ArrayList<Properties>> billingServiceCodesMap = new HashMap<String, ArrayList<Properties>>();
-    ArrayList<String> listServiceType = new ArrayList<String>();
-    HashMap<String, String> titleMap = new HashMap<String, String>();
-    Properties propPremium = new Properties();
-    String serviceCode, serviceDesc, serviceValue, servicePercentage, serviceType, displayStyle, serviceDisp = "";
-    String headerTitle1 = "", headerTitle2 = "", headerTitle3 = "";
-
-            CSSStylesDAO cssStylesDao = SpringUtils.getBean(CSSStylesDAO.class);
-    CssStyle cssStyle;
-    String styleId;
-
-    boolean sliFlag = false;
-
-    CtlBillingServiceDao cbsDao = SpringUtils.getBean(CtlBillingServiceDao.class);
-    BillingServiceDao bDao = SpringUtils.getBean(BillingServiceDao.class);
-    CtlBillingServicePremiumDao pDao = SpringUtils.getBean(CtlBillingServicePremiumDao.class);
-
-    String defaultBillFormName = "";
-    for (Object[] i : cbsDao.findServiceTypesByStatus("A")) {
-        ArrayList<Properties> listGroup1 = new ArrayList<Properties>();
-        ArrayList<Properties> listGroup2 = new ArrayList<Properties>();
-        ArrayList<Properties> listGroup3 = new ArrayList<Properties>();
-
-        String ctlcode = String.valueOf(i[1]);
-        String ctlcodename = String.valueOf(i[0]);
-
-        if (ctlcode.equals(ctlBillForm)) {
-            defaultBillFormName = ctlcodename;
-        }
-
-        listServiceType.add(ctlcode);
-
-        for (Object[] o : bDao.findBillingServiceAndCtlBillingServiceByMagic(ctlcode, "Group1", ConversionUtils.fromDateString(billReferenceDate))) {
-            BillingService b = (BillingService) o[0];
-            CtlBillingService c = (CtlBillingService) o[1];
-
-            if (!codeFilterManager.isCodeValid(b.getServiceCode(), null, false, filterDate, demo)) {
-                continue;
-            }
-
-            propT = new Properties();
-            propT.setProperty("serviceCode", b.getServiceCode());
-            propT.setProperty("serviceDesc", b.getDescription() == null ? "N/A" : b.getDescription());
-            propT.setProperty("serviceDisp", noNull(b.getValue()));
-            propT.setProperty("servicePercentage", noNull(b.getPercentage()));
-            propT.setProperty("serviceType", c.getServiceType());
-            propT.setProperty("serviceTypeName", c.getServiceGroupName());
-            styleId = null;
-            if (b != null && b.getDisplayStyle() != null) {
-                styleId = "" + b.getDisplayStyle();
-                cssStyle = cssStylesDao.find(b.getDisplayStyle());
-                propT.setProperty("displaystyle", cssStyle.getStyle());
-            } else {
-                propT.setProperty("displaystyle", "");
-            }
-
-            propT.setProperty("serviceSLI", "" + b.getSliFlag());
-            titleMap.put("group1_".concat(ctlcode), c.getServiceGroupName());
-
-            listGroup1.add(propT);
-        }
-
-        if (listGroup1.size() > 0) {
-            List<String> serviceCodes = new ArrayList<String>();
-            for (int ii = 0; ii < listGroup1.size(); ii++) {
-                serviceCodes.add(listGroup1.get(ii).getProperty("serviceCode"));
-            }
-
-            for (CtlBillingServicePremium p : pDao.findByServceCodes(serviceCodes)) {
-                propPremium.setProperty(p.getServiceCode(), "A");
-            }
-        }
-        billingServiceCodesMap.put("group1_".concat(ctlcode), listGroup1);
-
-        for (Object[] o : bDao.findBillingServiceAndCtlBillingServiceByMagic(ctlcode, "Group2", ConversionUtils.fromDateString(billReferenceDate))) {
-            BillingService b = (BillingService) o[0];
-            CtlBillingService c = (CtlBillingService) o[1];
-
-            if (!codeFilterManager.isCodeValid(b.getServiceCode(), null, false, filterDate, demo)) {
-                continue;
-            }
-
-            propT = new Properties();
-
-            propT.setProperty("serviceCode", b.getServiceCode());
-            propT.setProperty("serviceDesc", b.getDescription());
-            propT.setProperty("serviceDisp", b.getValue());
-            propT.setProperty("servicePercentage", noNull(b.getPercentage()));
-            propT.setProperty("serviceType", c.getServiceType());
-            propT.setProperty("serviceTypeName", c.getServiceGroupName());
-            styleId = null;
-            if (b != null && b.getDisplayStyle() != null) {
-                styleId = "" + b.getDisplayStyle();
-                cssStyle = cssStylesDao.find(b.getDisplayStyle());
-                propT.setProperty("displaystyle", cssStyle.getStyle());
-            } else {
-                propT.setProperty("displaystyle", "");
-            }
-
-            propT.setProperty("serviceSLI", "" + b.getSliFlag());
-            titleMap.put("group2_".concat(ctlcode), c.getServiceGroupName());
-
-            listGroup2.add(propT);
-
-        }
-
-        if (listGroup2.size() > 0) {
-            List<String> serviceCodes = new ArrayList<String>();
-            for (int ii = 0; ii < listGroup2.size(); ii++) {
-                serviceCodes.add(listGroup2.get(ii).getProperty("serviceCode"));
-            }
-
-            for (CtlBillingServicePremium p : pDao.findByServceCodes(serviceCodes)) {
-                propPremium.setProperty(p.getServiceCode(), "A");
-            }
-        }
-
-        billingServiceCodesMap.put("group2_".concat(ctlcode), listGroup2);
-
-
-        for (Object[] o : bDao.findBillingServiceAndCtlBillingServiceByMagic(ctlcode, "Group3", ConversionUtils.fromDateString(billReferenceDate))) {
-            BillingService b = (BillingService) o[0];
-            CtlBillingService c = (CtlBillingService) o[1];
-
-            if (!codeFilterManager.isCodeValid(b.getServiceCode(), null, false, filterDate, demo)) {
-                continue;
-            }
-
-            propT = new Properties();
-
-            propT.setProperty("serviceCode", b.getServiceCode());
-            propT.setProperty("serviceDesc", b.getDescription());
-            propT.setProperty("serviceDisp", b.getValue());
-            propT.setProperty("servicePercentage", noNull(b.getPercentage()));
-            propT.setProperty("serviceType", c.getServiceType());
-            propT.setProperty("serviceTypeName", c.getServiceGroupName());
-            styleId = null;
-            if (b != null && b.getDisplayStyle() != null) {
-                styleId = "" + b.getDisplayStyle();
-                cssStyle = cssStylesDao.find(b.getDisplayStyle());
-                propT.setProperty("displaystyle", cssStyle.getStyle());
-            } else {
-                propT.setProperty("displaystyle", "");
-            }
-
-            propT.setProperty("serviceSLI", "" + b.getSliFlag());
-            titleMap.put("group3_".concat(ctlcode), c.getServiceGroupName());
-
-            listGroup3.add(propT);
-
-        }
-
-        if (listGroup3.size() > 0) {
-            List<String> serviceCodes = new ArrayList<String>();
-            for (int ii = 0; ii < listGroup3.size(); ii++) {
-                serviceCodes.add(listGroup3.get(ii).getProperty("serviceCode"));
-            }
-
-            for (CtlBillingServicePremium p : pDao.findByServceCodes(serviceCodes)) {
-                propPremium.setProperty(p.getServiceCode(), "A");
-            }
-        }
-
-        billingServiceCodesMap.put("group3_".concat(ctlcode), listGroup3);
-
-    }
-
-    CtlBillingTypeDao tDao = SpringUtils.getBean(CtlBillingTypeDao.class);
-    String defaultBillType = "";
-    for (CtlBillingType t : tDao.findByServiceType(ctlBillForm)) {
-        defaultBillType = t.getBillType();
-    }
-
-
-    // create msg
-    msg += errorMsg + warningMsg;
-%>
-
-
-<%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@page import="org.apache.commons.lang3.StringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ProviderPreferenceDao" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="io.github.carlos_emr.carlos.appt.JdbcApptImpl" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.*" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingSiteIdPrep" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
-<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
-<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="io.github.carlos_emr.SxmlMisc" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html>
 <head>
     <title><fmt:message key="oscar.billing.ca.on.billingON.title"/></title>
@@ -612,7 +42,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="${ pageContext.request.contextPath }/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
     <link href="${ pageContext.request.contextPath }/css/fontawesome-all.min.css" rel="stylesheet" type="text/css">
-
 
     <style type="text/css">
         <!--
@@ -668,13 +97,24 @@
 
     <!-- to load for example /oscar/js/custom/ocean/global.js and /oscar/js/custom/ocean/billing.js although those are not present in stock -->
     <oscar:customInterface section="billing"/>
+    <%-- Defined in its own <script> so a parse error in the larger inline
+         script below cannot prevent onBlur handlers from resolving it. --%>
     <script>
+        function upCaseCtrl(ctrl) {
+            var n = document.forms[0].xml_billtype.selectedIndex;
+            var val = document.forms[0].xml_billtype[n].value;
+            if (val.substring(0, 3) == "ODP" || val.substring(0, 3) == "WCB" || val.substring(0, 3) == "BON") ctrl.value = ctrl.value.toUpperCase();
+        }
+    </script>
+    <script>
+        var billingContextPath = "<carlos:encode value='${pageContext.request.contextPath}' context='javaScriptBlock'/>";
 
         function gotoBillingOB() {
+            var a = "";
             if (self.location.href.lastIndexOf("?") > 0) {
                 a = self.location.href.substring(self.location.href.lastIndexOf("?"));
             }
-            self.location.href = "/billing" + a;
+            self.location.href = billingContextPath + "/billing" + a;
         }
 
         function findObj(n, d) { //v4.0
@@ -706,8 +146,8 @@
         }
 
         function onNext() {
-            var codeToAddStr = "<carlos:encode value='<%= codeToAddPatientDx %>' context="javaScriptBlock"/>";
-            var codeToMatchStr = "<carlos:encode value='<%= codeToMatchPatientDx %>' context="javaScriptBlock"/>";
+            var codeToAddStr = '<carlos:encode value="${formModel.patient.patientDxAddCode}" context="javaScriptBlock"/>';
+            var codeToMatchStr = '<carlos:encode value="${formModel.patient.patientDxMatchCode}" context="javaScriptBlock"/>';
 
             var codeToAdd = codeToAddStr.split(",");
             var codeToMatch = {};
@@ -723,9 +163,9 @@
             var codeMatch = codeToMatch[dxCode];
             if (codeToAdd.indexOf(dxCode) >= 0 || codeMatch != null) {
                 var dxCodeMatch = codeMatch == null ? dxCode : codeMatch;
-                <%for (String pcode : patientDx) {%>
-                if (dxCodeMatch ==<%=pcode%>) dxCode = -1;
-                <%}%>
+                <c:forEach var="__pc" items="${formModel.patient.patientDx}">
+                if (dxCodeMatch === "<carlos:encode value='${__pc}' context='javaScript'/>") dxCode = -1;
+                </c:forEach>
                 if (dxCode != -1 && codeMatch != null) {
                     document.titlesearch.codeMatchToPatientDx.value = codeMatch;
                 }
@@ -787,12 +227,12 @@
                 alert("Please select a providers.");
                 b = false;
             }
-                <% if (!CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
+                <c:if test="${not formModel.multisite.rmaEnabled}">
             else if (document.forms[0].xml_visittype.options[2].selected && (document.forms[0].xml_vdate.value == "" || document.forms[0].xml_vdate.value == "0000-00-00")) {
                 alert("Need an admission date.");
                 b = false;
             }
-                <% } %>
+                </c:if>
             else if (document.forms[0].xml_vdate.value.length > 0) {
                 b = checkServiceDate(document.forms[0].xml_vdate.value);
             } else if (document.forms[0].service_date.value.length > 0) {
@@ -845,9 +285,9 @@
             b = false;
 
             if (document.forms[0].serviceCode0.value != "") b = true;
-                <% for (int i = 1; i < BillingDataHlp.FIELD_SERVICE_NUM; i++) { %>
-            else if (document.forms[0].serviceCode<%=i%>.value != "") b = true;
-            <% } %>
+                <c:forEach var="i" begin="1" end="11">
+            else if (document.forms[0]['serviceCode' + ${i}].value != "") b = true;
+            </c:forEach>
 
             return b;
         }
@@ -907,17 +347,14 @@
         function referralScriptAttach(elementName) {
             var d = elementName;
             t0 = escape("document.forms[0].elements[\'" + d + "\'].value");
-            //t1 = escape("");
-            //alert(('/billing/CA/ON/ViewSearchRefDoc?param='+t0));
-            awnd = rs('att', ('<%= request.getContextPath() %>/billing/CA/ON/ViewSearchRefDoc?param=' + t0), 1000, 800, 1);
-            //awnd.focus();
+            awnd = rs('att', (billingContextPath + '/billing/CA/ON/ViewSearchRefDoc?param=' + t0), 1000, 800, 1);
         }
 
         function referralScriptAttach2(elementName, name2) {
             var d = elementName;
             t0 = escape("document.forms[0].elements[\'" + d + "\'].value");
             t1 = escape("document.forms[0].elements[\'" + name2 + "\'].value");
-            awnd = rs('att', ('<%= request.getContextPath() %>/billing/CA/ON/ViewSearchRefDoc?param=' + t0 + '&param2=' + t1 + '&submit=Search&keyword=' + document.forms[0].elements[name2].value), 1000, 800, 1);
+            awnd = rs('att', (billingContextPath + '/billing/CA/ON/ViewSearchRefDoc?param=' + t0 + '&param2=' + t1 + '&submit=Search&keyword=' + document.forms[0].elements[name2].value), 1000, 800, 1);
             //awnd.focus();
         }
 
@@ -925,14 +362,14 @@
             ff = eval("document.forms[0].elements['" + name2 + "']");
             f0 = ff.value;
             f1 = escape("document.forms[0].elements[\'" + name2 + "\'].value");
-            awnd = rs('att', '/billing/CA/ON/ViewBillingDigSearch?name=' + f0 + '&search=&name2=' + f1, 800, 800, 1);
+            awnd = rs('att', billingContextPath + '/billing/CA/ON/ViewBillingDigSearch?name=' + f0 + '&search=&name2=' + f1, 800, 800, 1);
             //awnd.focus();
         }
 
         function scScriptAttach(nameF) {
             f0 = escape(nameF.value);
             f1 = escape("document.forms[0].elements[\'" + nameF.name + "\'].value");
-            awnd = rs('att', '/billing/CA/ON/ViewBillingCodeSearch?name=' + f0 + '&search=&name1=&name2=&nameF=' + f1, 600, 600, 1);
+            awnd = rs('att', billingContextPath + '/billing/CA/ON/ViewBillingCodeSearch?name=' + f0 + '&search=&name1=&name2=&nameF=' + f1, 600, 600, 1);
             //awnd.focus();
         }
 
@@ -940,46 +377,37 @@
             if (document.forms[0].serviceCode0.value == "") {
                 document.forms[0].serviceCode0.value = item.id.substring(3);
             }
-                <% for(int i=1; i<BillingDataHlp.FIELD_SERVICE_NUM; ++i) { %>
-            else if (document.forms[0].serviceCode<%=i%>.value == "") {
-                document.forms[0].serviceCode<%=i%>.value = item.id.substring(3);
+                <c:forEach var="i" begin="1" end="11">
+            else if (document.forms[0]['serviceCode' + ${i}].value == "") {
+                document.forms[0]['serviceCode' + ${i}].value = item.id.substring(3);
             }
-            <% } %>
+            </c:forEach>
         }
 
         function onClickServiceCode(item) {
             if (document.forms[0].serviceCode0.value == "") {
                 document.forms[0].serviceCode0.value = item.id.substring(4);
             }
-                <% for(int i=1; i<BillingDataHlp.FIELD_SERVICE_NUM; ++i) { %>
-            else if (document.forms[0].serviceCode<%=i%>.value == "") {
-                document.forms[0].serviceCode<%=i%>.value = item.id.substring(4);
+                <c:forEach var="i" begin="1" end="11">
+            else if (document.forms[0]['serviceCode' + ${i}].value == "") {
+                document.forms[0]['serviceCode' + ${i}].value = item.id.substring(4);
             }
-            <% } %>
-        }
-
-        function upCaseCtrl(ctrl) {
-            var n = document.forms[0].xml_billtype.selectedIndex;
-            var val = document.forms[0].xml_billtype[n].value;
-            if (val.substring(0, 3) == "ODP" || val.substring(0, 3) == "WCB" || val.substring(0, 3) == "BON") ctrl.value = ctrl.value.toUpperCase();
+            </c:forEach>
         }
 
         function changeCut(dropdown) {
             var str = dropdown.options[dropdown.selectedIndex].value;
             var temp = new Array();
             temp = str.split('\|');
-            //alert(temp);
             var tlen = temp.length;
-            //alert(tlen);
             document.forms[0].dxCode.value = "";
             document.forms[0].dxCode1.value = "";
             document.forms[0].dxCode2.value = "";
             var n = 0;
-            for (var i = 0; i <<%=BillingDataHlp.FIELD_SERVICE_NUM %>; ++i) {
+            for (var i = 0; i < 12; ++i) {
                 ocode = eval("document.forms[0].serviceCode" + i);
                 ounit = eval("document.forms[0].serviceUnit" + i);
                 operc = eval("document.forms[0].serviceAt" + i);
-                //alert(i+":"+n+"|"+temp[n]);
                 ocode.value = "";
                 ounit.value = "";
                 operc.value = "";
@@ -1000,9 +428,9 @@
                 }
             }
             if (document.forms[0].dxCode.value == "" && document.forms[0].dxCode1.value == "" && document.forms[0].dxCode2.value == "") {
-                document.forms[0].dxCode.value = '<carlos:encode value='<%= request.getParameter("dxCode")!=null?request.getParameter("dxCode"):dxCode %>' context="javaScriptBlock"/>';
-                document.forms[0].dxCode1.value = '<carlos:encode value='<%= request.getParameter("dxCode1")!=null?request.getParameter("dxCode1"):"" %>' context="javaScriptBlock"/>';
-                document.forms[0].dxCode2.value = '<carlos:encode value='<%= request.getParameter("dxCode2")!=null?request.getParameter("dxCode2"):"" %>' context="javaScriptBlock"/>';
+                document.forms[0].dxCode.value = '<carlos:encode value='${formModel.visit.dxCodeDefault}' context='javaScript'/>';
+                document.forms[0].dxCode1.value = '<carlos:encode value='${formModel.requestContext.requestParamEchoes["dxCode1"]}' context='javaScript'/>';
+                document.forms[0].dxCode2.value = '<carlos:encode value='${formModel.requestContext.requestParamEchoes["dxCode2"]}' context='javaScript'/>';
             }
         }
 
@@ -1021,38 +449,34 @@
                 document.forms[0].referralCode.value = "";
                 document.forms[0].referralDocName.value = "";
             } else {
-                document.forms[0].referralCode.value = "<carlos:encode value='<%= r_doctor_ohip %>' context="javaScriptBlock"/>";
-                document.forms[0].referralDocName.value = "<carlos:encode value='<%= r_doctor %>' context="javaScriptBlock"/>";
+                document.forms[0].referralCode.value = '<carlos:encode value="${formModel.referral.ohip}" context="javaScriptBlock"/>';
+                document.forms[0].referralDocName.value = '<carlos:encode value="${formModel.referral.name}" context="javaScriptBlock"/>';
             }
         }
 
         function onChangePrivate() {
             var n = document.forms[0].xml_billtype.selectedIndex;
             var val = document.forms[0].xml_billtype[n].value;
-            <c:set var="__enc_1"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_no")) %>' context="uriComponent"/></c:set>
-            <c:set var="__enc_2"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")) %>' context="uriComponent"/></c:set>
-            <c:set var="__enc_3"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' context="uriComponent"/></c:set>
-            <c:set var="__enc_4"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' context="uriComponent"/></c:set>
-            <c:set var="__enc_5"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")) %>' context="uriComponent"/></c:set>
-            <c:set var="__enc_6"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status")) %>' context="uriComponent"/></c:set>
-            <c:set var="__enc_7"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")) %>' context="uriComponent"/></c:set>
-            if (val.substring(0, 3) == "PAT" || val.substring(0, 3) == "OCF" || val.substri                
-ng(0, 3) == "ODS" || val.substring(0, 3) == "CPP" || val.substring(0, 3) == "STD") {
-                self.location.href = "/billing?curBillForm=<%="PRI"%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<carlos:encode value='${__enc_1}' context="javaScript"/>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<carlos:encode value='${__enc_2}' context="javaScript"/>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<carlos:encode value='${__enc_3}' context="javaScript"/>&providerview=<carlos:encode value='${__enc_4}' context="javaScript"/>&appointment_date=<carlos:encode value='${__enc_5}' context="javaScript"/>&status=<carlos:encode value='${__enc_6}' context="javaScript"/>&start_time=<carlos:encode value='${__enc_7}' context="javaScript"/>&bNewForm=1";
+            <%-- Pre-encoded URL components precomputed in the assembler.
+                 demoNameUrlEncoded uses URLEncoder.encode(...UTF-8); the others
+                 round-trip via <carlos:encode context="uriComponent">. --%>
+            <c:set var="__apptNoUri"><carlos:encode value='${formModel.requestContext.requestParamEchoes["appointment_no"]}' context='uriComponent'/></c:set>
+            <c:set var="__demoNoUri"><carlos:encode value='${formModel.requestContext.requestParamEchoes["demographic_no"]}' context='uriComponent'/></c:set>
+            <c:set var="__apptProvUri"><carlos:encode value='${formModel.requestContext.requestParamEchoes["apptProvider_no"]}' context='uriComponent'/></c:set>
+            <c:set var="__apptDateUri"><carlos:encode value='${formModel.requestContext.requestParamEchoes["appointment_date"]}' context='uriComponent'/></c:set>
+            <c:set var="__statusUri"><carlos:encode value='${formModel.requestContext.requestParamEchoes["status"]}' context='uriComponent'/></c:set>
+            <c:set var="__startTimeUri"><carlos:encode value='${formModel.requestContext.requestParamEchoes["start_time"]}' context='uriComponent'/></c:set>
+            <c:set var="__demoNameJs">&demographic_name=<carlos:encode value='${formModel.requestContext.demoNameUrlEncoded}' context='javaScript'/></c:set>
+            <c:set var="__commonQs">&appointment_no=<carlos:encode value='${__apptNoUri}' context='javaScript'/>${__demoNameJs}&demographic_no=<carlos:encode value='${__demoNoUri}' context='javaScript'/></c:set>
+            <c:set var="__commonTail">&apptProvider_no=<carlos:encode value='${__apptProvUri}' context='javaScript'/>&providerview=<carlos:encode value='${__apptProvUri}' context='javaScript'/>&appointment_date=<carlos:encode value='${__apptDateUri}' context='javaScript'/>&status=<carlos:encode value='${__statusUri}' context='javaScript'/>&start_time=<carlos:encode value='${__startTimeUri}' context='javaScript'/>&bNewForm=1</c:set>
+            if (val.substring(0, 3) == "PAT" || val.substring(0, 3) == "OCF" || val.substring(0, 3) == "ODS" || val.substring(0, 3) == "CPP" || val.substring(0, 3) == "STD") {
+                self.location.href = billingContextPath + "/billing?curBillForm=PRI&hotclick=${__commonQs}&xml_billtype=" + val.substring(0, 3) + "${__commonTail}";
             } else if (val.substring(0, 3) == "BON") {
-                <c:set var="__enc_8"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_no")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_9"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_10"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_11"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_12"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_13"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_14"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")) %>' context="uriComponent"/></c:set>
-                self.location.href = "/billing?curBillForm=<%=oscarVariables.getProperty("primary_care_incentive", "").trim()%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<carlos:encode value='${__enc_8}' context="javaScript"/>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<carlos:encode value='${__enc_9}' context="javaScript"/>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<carlos:encode value='${__enc_10}' context="javaScript"/>&providerview=<carlos:encode value='${__enc_11}' context="javaScript"/>&appointment_date=<carlos:encode value='${__enc_12}' context="javaScript"/>&status=<carlos:encode value='${__enc_13}' context="javaScript"/>&start_time=<carlos:encode value='${__enc_14}' context="javaScript"/>&bNewFo                
-rm=1";
+                self.location.href = billingContextPath + "/billing?curBillForm=<carlos:encode value='${formModel.display.primaryCareIncentive}' context='javaScript'/>&hotclick=${__commonQs}&xml_billtype=" + val.substring(0, 3) + "${__commonTail}";
             } else {
-                <% if(ctlBillForm.equals("PRI") ) {%>
-                self.location.href = "/billing?curBillForm=<%=oscarVariables.getProperty("default_view", "").trim()%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<carlos:encode value='${__enc_15}' context="javaScript"/>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<carlos:encode value='${__enc_16}' context="javaScript"/>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<carlos:encode value='${__enc_17}' context="javaScript"/>&providerview=<carlos:encode value='${__enc_18}' context="javaScript"/>&appointment_date=<carlos:encode value='${__enc_19}' context="javaScript"/>&status=<carlos:encode value='${__enc_20}' context="javaScript"/>&start_time=<carlos:encode value='${__enc_21}' context="javaScript"/>&bNewForm=1";
-                <% } %>
+                <c:if test="${formModel.requestContext.ctlBillForm eq 'PRI'}">
+                self.location.href = billingContextPath + "/billing?curBillForm=<carlos:encode value='${formModel.display.defaultView}' context='javaScript'/>&hotclick=${__commonQs}&xml_billtype=" + val.substring(0, 3) + "${__commonTail}";
+                </c:if>
             }
         }
 
@@ -1069,26 +493,22 @@ rm=1";
 
         function onHistory() {
             var dd = document.forms[0].day.value;
-            //alert(dd);
-                          <c:set var="__enc_15"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_no")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_16"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_17"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_18"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_19"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_20"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_21"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")) %>' context="uriComponent"/></c:set>
-  popupPage("800", "1000", "/billing/CA/ON/ViewBillingONHistorySpec?demographic_no=<carlos:encode value='<%= demo_no %>' context="javaScript"/>&demo_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&orderby=appointment_date&day=" + dd);
+            popupPage("800", "1000", billingContextPath + "/billing/CA/ON/ViewBillingONHistorySpec?demographic_no=<carlos:encode value='${formModel.requestContext.demographicNo}' context='javaScript'/>&demo_name=<carlos:encode value='${formModel.requestContext.demoNameUrlEncoded}' context='javaScript'/>&orderby=appointment_date&day=" + dd);
         }
 
         function prepareBack() {
-            document.forms[0].services_checked.value = "<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("services_checked")) %>' context="javaScriptBlock"/>";
+            document.forms[0].services_checked.value = "<carlos:encode value='${formModel.requestContext.requestParamEchoes["services_checked"]}' context='javaScript'/>";
             if (document.forms[0].services_checked.value == "") document.forms[0].services_checked.value = 0;
-            document.forms[0].url_back.value = location.href;
+            // Use the relative URL (path + query) — BillingOnSave2Action's open-redirect
+            // guard rejects absolute URLs (must start with "/", not "//"). Sending
+            // location.href here previously triggered a "Rejected url_back parameter"
+            // WARN and the post-save redirect lost the form context.
+            document.forms[0].url_back.value = location.pathname + location.search;
 
-            showBillFormDiv("group1_", "<carlos:encode value='<%= ctlBillForm %>' context="javaScriptBlock"/>");
-            showBillFormDiv("group2_", "<carlos:encode value='<%= ctlBillForm %>' context="javaScriptBlock"/>");
-            showBillFormDiv("group3_", "<carlos:encode value='<%= ctlBillForm %>' context="javaScriptBlock"/>");
-            showBillFormDiv("dxCodeSearchDiv_", "<carlos:encode value='<%= ctlBillForm %>' context="javaScriptBlock"/>");
+            showBillFormDiv("group1_", '<carlos:encode value="${formModel.requestContext.ctlBillForm}" context="javaScriptBlock"/>');
+            showBillFormDiv("group2_", '<carlos:encode value="${formModel.requestContext.ctlBillForm}" context="javaScriptBlock"/>');
+            showBillFormDiv("group3_", '<carlos:encode value="${formModel.requestContext.ctlBillForm}" context="javaScriptBlock"/>');
+            showBillFormDiv("dxCodeSearchDiv_", '<carlos:encode value="${formModel.requestContext.ctlBillForm}" context="javaScriptBlock"/>');
 
         }
 
@@ -1099,9 +519,6 @@ rm=1";
                 if (thisDiv.style.display == "none") {
                     thisDiv.style.display = "block";
                 }
-            } else {
-                //alert("Error: Could not locate div with id: " + selectedFormDivGroupId);
-                //do nothing
             }
         }
 
@@ -1112,9 +529,6 @@ rm=1";
                 if (thisDiv.style.display == "block") {
                     thisDiv.style.display = "none";
                 }
-            } else {
-                //alert("Error: Could not locate div with id: " + selectedFormDivGroupId);
-                //do nothing
             }
         }
 
@@ -1137,13 +551,12 @@ rm=1";
             }
         }
 
-
         function callChangeCodeDesc() {
             setTimeout("changeCodeDesc();", 10);
         }
 
         function changeCodeDesc() {
-            var url = "/billing/CA/ON/ViewBillingONDxDesc";
+            var url = billingContextPath + "/billing/CA/ON/ViewBillingONDxDesc";
             var pars = "diagnostic_code=" + document.forms[0].dxCode.value;
 
             //prototype
@@ -1186,22 +599,15 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
             showBillFormDiv("group3_", selectedBillForm);
 
             //hide other billing codes whose forms are not selected
-            <%
-                    for( int j=0; j< listServiceType.size(); j++) {
-                            String st = listServiceType.get(j);
-             %>
-            if (selectedBillForm != "<%=st%>") {
-
-                hideBillFormDiv("group1_", "<%=st%>");
-                hideBillFormDiv("group2_", "<%=st%>");
-                hideBillFormDiv("group3_", "<%=st%>");
-
-                hideBillFormDiv("dxCodeSearchDiv_", "<%=st%>");
+            <c:forEach var="__st" items="${formModel.serviceGrid.serviceTypes}">
+            if (selectedBillForm != "<carlos:encode value='${__st}' context='javaScript'/>") {
+                hideBillFormDiv("group1_", "<carlos:encode value='${__st}' context='javaScript'/>");
+                hideBillFormDiv("group2_", "<carlos:encode value='${__st}' context='javaScript'/>");
+                hideBillFormDiv("group3_", "<carlos:encode value='${__st}' context='javaScript'/>");
+                hideBillFormDiv("dxCodeSearchDiv_", "<carlos:encode value='${__st}' context='javaScript'/>");
             }
-
-            <% }  %>
+            </c:forEach>
         }
-
 
         //-->
     </script>
@@ -1220,7 +626,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
     <script>
     jQuery(document).ready(function () {
         var ctx = "${pageContext.request.contextPath}";
-        var searchLabel = '<carlos:encode value='<%= (String) pageContext.getAttribute("searchLabelMsg") %>' context="javaScriptBlock"/>';
+        var searchLabel = '<carlos:encode value='${searchLabelMsg}' context='javaScript'/>';
 
         // Safe HTML escaping for autocomplete rendering
         function escHtml(s) {
@@ -1339,7 +745,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
     </script>
 </head>
 
-<body onload="prepareBack();changeCodeDesc();getDays();toggleDiv('<carlos:encode value='<%= ctlBillForm %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= defaultBillFormName %>' context="javaScriptAttribute"/>', document.forms[0].xml_billtype.value.substring(0, 3));">
+<body onload="if (typeof prepareBack === 'function') prepareBack(); if (typeof changeCodeDesc === 'function') changeCodeDesc(); if (typeof getDays === 'function') getDays(); if (typeof toggleDiv === 'function' && document.forms[0] && document.forms[0].xml_billtype && document.forms[0].xml_billtype.value) toggleDiv('<carlos:encode value='${formModel.requestContext.ctlBillForm}' context="javaScriptAttribute"/>', '<carlos:encode value='${formModel.billForm.defaultFormName}' context="javaScriptAttribute"/>', document.forms[0].xml_billtype.value.substring(0, 3));">
 <div id="Instrdiv" class="demo1">
 
     <table style="width: 99%;">
@@ -1363,53 +769,20 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                                                                onclick="showHideLayers('Layer1','','hide');return false;">X</a></b>
             </td>
         </tr>
-        <%
-            String ctlcode = "", ctlcodename = "", currentFormName = "";
-            int ctlCount = 0;
-            CtlBillingServiceDao ctlBillingServiceDao = SpringUtils.getBean(CtlBillingServiceDao.class);
-            CtlBillingTypeDao ctlBillingtypeDao = SpringUtils.getBean(CtlBillingTypeDao.class);
-            for (Object[] bs : ctlBillingServiceDao.findServiceTypesByStatus("A")) {
-                ctlcode = String.valueOf(bs[1]);
-                ctlcodename = String.valueOf(bs[0]);
-                ctlCount++;
-                if (ctlcode.equals(ctlBillForm)) {
-                    currentFormName = ctlcodename;
-                }
-                String billType = "";
-
-                for (CtlBillingType bt : ctlBillingtypeDao.findByServiceType(ctlcode)) {
-                    billType = bt.getBillType();
-                }
-        %>
+        <c:forEach var="bf" items="${formModel.billForm.forms}">
         <tr>
             <td colspan="2" style="background-color:lightgray;"><b>
                 <a href="javascript:void(0);"
-                   onclick="toggleDiv('<carlos:encode value='<%= ctlcode %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= ctlcodename %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= billType %>' context="javaScriptAttribute"/>');showHideLayers('Layer1','','hide');"><carlos:encode value='<%= ctlcodename %>' context="html"/>
+                   onclick="toggleDiv('<carlos:encode value='${bf.code}' context="javaScriptAttribute"/>', '<carlos:encode value='${bf.name}' context="javaScriptAttribute"/>','<carlos:encode value='${bf.billType}' context="javaScriptAttribute"/>');showHideLayers('Layer1','','hide');"><carlos:encode value='${bf.name}' context="html"/>
                 </a>
             </b></td>
         </tr>
-        <%}%>
+        </c:forEach>
     </table>
 </div>
 <%-- Build billing form data for billFormName autocomplete --%>
 <script>
-var _billingForms = [
-<%
-boolean _bfFirst = true;
-CtlBillingServiceDao _ctlBSDao2 = SpringUtils.getBean(CtlBillingServiceDao.class);
-CtlBillingTypeDao _ctlBTDao2 = SpringUtils.getBean(CtlBillingTypeDao.class);
-for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
-    String _bfCode = String.valueOf(_bs2[1]);
-    String _bfName = String.valueOf(_bs2[0]);
-    String _bfBillType = "";
-    for (CtlBillingType _bt2 : _ctlBTDao2.findByServiceType(_bfCode)) {
-        _bfBillType = _bt2.getBillType();
-    }
-    if (!_bfFirst) { out.print(","); }
-    _bfFirst = false;
-%>{"code":"<carlos:encode value='<%= _bfCode %>' context="javaScriptBlock"/>","name":"<carlos:encode value='<%= _bfName %>' context="javaScriptBlock"/>","billType":"<carlos:encode value='<%= _bfBillType %>' context="javaScriptBlock"/>","label":"<carlos:encode value='<%= _bfName %>' context="javaScriptBlock"/>","value":"<carlos:encode value='<%= _bfName %>' context="javaScriptBlock"/>"}
-<%}%>
-];
+var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" varStatus="st"><c:if test="${not st.first}">,</c:if>{'code':'<carlos:encode value="${bf.code}" context="javaScriptBlock"/>','name':'<carlos:encode value="${bf.name}" context="javaScriptBlock"/>','billType':'<carlos:encode value="${bf.billType}" context="javaScriptBlock"/>','label':'<carlos:encode value="${bf.name}" context="javaScriptBlock"/>','value':'<carlos:encode value="${bf.name}" context="javaScriptBlock"/>'}</c:forEach>];
 </script>
 
 <div id="Layer2"
@@ -1423,57 +796,40 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
             </td>
         </tr>
     </table>
-    <%
-        for (int j = 0; j < listServiceType.size(); j++) {
-            String st = listServiceType.get(j);
-
-            String ctldiagcode = "", ctldiagcodename = "";
-            ctlCount = 0;
-    %>
-
-    <div id="dxCodeSearchDiv_<%=st%>" style="display: none;">
-
-        <%
-            DiagnosticCodeDao dcDao = SpringUtils.getBean(DiagnosticCodeDao.class);
-
-            for (Object[] o : dcDao.findDiagnosictsAndCtlDiagCodesByServiceType(st)) {
-                DiagnosticCode d = (DiagnosticCode) o[0];
-                CtlDiagCode c = (CtlDiagCode) o[1];
-
-                ctldiagcode = d.getDiagnosticCode();
-                ctldiagcodename = d.getDescription();
-                ctlCount++;
-        %>
+    <c:forEach var="dxEntry" items="${formModel.serviceGrid.dxCodesByServiceType}">
+    <%-- The assembler already runs sanitizeIdToken on service-type codes, so
+         dxEntry.key is alphanumeric+underscore. The fn:replace here is
+         defense-in-depth — if a future code path ever bypasses the sanitizer,
+         the rendered HTML id remains valid (no spaces, which would otherwise
+         split the id attribute and break the JS lookup-by-id). --%>
+    <div id="dxCodeSearchDiv_<carlos:encode value='${fn:replace(dxEntry.key, " ", "_")}' context='htmlAttribute'/>" style="display: none;">
+        <c:forEach var="dx" items="${dxEntry.value}">
         <table style="width: 98%; margin:auto;" class="table-striped table-hover">
             <tr>
                 <td style="width: 10%">
                     <a href="javascript:void(0);"
-                       onclick="document.forms[0].dxCode.value='<%=ctldiagcode%>';showHideLayers('Layer2','','hide');changeCodeDesc();return false;">
-                        <%=ctldiagcode%>
+                       onclick="document.forms[0].dxCode.value='<carlos:encode value='${dx.diagnosticCode}' context='javaScriptAttribute'/>';showHideLayers('Layer2','','hide');changeCodeDesc();return false;">
+                        <carlos:encode value='${dx.diagnosticCode}' context='html'/>
                     </a>
                 </td>
                 <td>
                     <a href="javascript:void(0);"
-                       onclick="document.forms[0].dxCode.value='<%=ctldiagcode%>';showHideLayers('Layer2','','hide');changeCodeDesc();return false;">
-                        <%=ctldiagcodename.length() < 56 ? SafeEncode.forHtml(ctldiagcodename) : SafeEncode.forHtml(ctldiagcodename.substring(0, 55))%>
+                       onclick="document.forms[0].dxCode.value='<carlos:encode value='${dx.diagnosticCode}' context='javaScriptAttribute'/>';showHideLayers('Layer2','','hide');changeCodeDesc();return false;">
+                        <carlos:encode value='${fn:length(dx.description) lt 56 ? dx.description : fn:substring(dx.description, 0, 55)}' context='html'/>
                     </a>
                 </td>
             </tr>
         </table>
-        <%} %>
+        </c:forEach>
     </div>
-    <%} %>
+    </c:forEach>
 
 </div>
 
 <form method="post" id="titlesearch" name="titlesearch"
-      action="/billing/CA/ON/ViewBillingONReview" onsubmit="return onNext();">
-    <%
-        String checkFlag = request.getParameter("checkFlag");
-        if (checkFlag == null) checkFlag = "0";
-    %>
+      action="<carlos:encode value='${pageContext.request.contextPath}/billing/CA/ON/ViewBillingONReview' context='htmlAttribute'/>" onsubmit="return onNext();">
     <input type="hidden" name="checkFlag" id="checkFlag"
-           value="<carlos:encode value='<%= checkFlag %>' context="htmlAttribute"/>"/>
+           value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"checkFlag\"]}' context='htmlAttribute'/>"/>
     <input type="hidden" name="addToPatientDx"/>
     <input type="hidden" name="codeMatchToPatientDx"/>
 
@@ -1483,16 +839,13 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
             <td><H4><i class="fa-solid fa-money-bill" style="margin-left:10px;"></i>&nbsp;<fmt:message key="oscar.billing.ca.on.billingON.headerTitle"/></H4></td>
             <td style="text-align: right"><i class="fa-solid fa-circle-question"></i>&nbsp;
                 <i class="fa-solid fa-pen-to-square"></i><a href="javascript:void(0);"
-                                              onclick="popupPage(800,700,'/billing/CA/ON/ViewBillingONFavourite'); return false;">
+                                              onclick="popupPage(800,700,billingContextPath + '/billing/CA/ON/ViewBillingONFavourite'); return false;">
                     <fmt:message key="oscar.billing.ca.on.billingON.edit"/>
                 </a> <select name="cutlist" id="cutlist" onchange="changeCut(this)">
                     <option selected="selected" value=""><fmt:message key="oscar.billing.ca.on.billingON.superCodes"/></option>
-                    <% //
-                        List sL = tdbObj.getBillingFavouriteList();
-                        for (int i = 0; i < sL.size(); i = i + 2) { %>
-                    <option value="<%=(String) sL.get(i+1)%>"><%=(String) sL.get(i)%>
-                    </option>
-                    <% } %>
+                    <c:forEach var="fav" items="${formModel.lookupData.billingFavouriteOptions}">
+                        <option value="<carlos:encode value='${fav.value}' context='htmlAttribute'/>"><carlos:encode value='${fav.text}' context='html'/></option>
+                    </c:forEach>
                 </select></td>
             <td style="text-align: right; width: 10%; white-space:nowrap">
                 <input type="submit"
@@ -1510,30 +863,37 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
 					<table  style="width: 100%;">
                     <tr>
                         <td style="white-space:nowrap; width: 10%; text-align: center"><b>&nbsp;<oscar:nameage
-                                demographicNo="<%=demo_no%>"/> <carlos:encode value='<%= roster_status %>' context="html"/>
+                                demographicNo="${formModel.requestContext.demographicNo}"/> <carlos:encode value='${formModel.patient.rosterStatus}' context='html'/>
                         </b>
-                            <%if (appt_no.compareTo("0") == 0) {%>
-                            <span class="input-group">
-								<input type="text" class="form-control" id="service_date" name="service_date" readonly
-                                       value="<carlos:encode value='<%= request.getParameter("service_date")!=null? request.getParameter("service_date"):strToday %>' context="htmlAttribute"/>"
-                                       style="width: 80px; height:14px;  vertical-align: bottom;">
-                                <span class="input-group-text" id="service_date_cal" style="cursor:pointer;">
-                                    <img src="${ pageContext.request.contextPath }/images/cal.gif"
-                                         style="height:14px;" alt="cal"></span></span>
-                            <%} else {%>
-                                <input type="text" id="service_date" name="service_date" readonly
-								value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")) %>' context="htmlAttribute"/>"
-                                   maxlength="10" style="width: 80px;"> <%}%></td>
-                        <%
-                            String warningClass = "";
-                            if (billingRecomendations.length() > 0) {
-                                warningClass = "alert";
-                            }
-                        %>
+                            <c:choose>
+                                <c:when test="${formModel.requestContext.appointmentNo eq '0'}">
+                                    <span class="input-group">
+								        <input type="text" class="form-control" id="service_date" name="service_date" readonly
+                                           value="<carlos:encode value='${formModel.visit.serviceDateDefault}' context='htmlAttribute'/>"
+                                           style="width: 80px; height:14px;  vertical-align: bottom;">
+                                        <span class="input-group-text" id="service_date_cal" style="cursor:pointer;">
+                                            <img src="${pageContext.request.contextPath}/images/cal.gif"
+                                                 style="height:14px;" alt="cal"></span></span>
+                                </c:when>
+                                <c:otherwise>
+                                    <input type="text" id="service_date" name="service_date" readonly
+								        value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"appointment_date\"]}' context='htmlAttribute'/>"
+                                       maxlength="10" style="width: 80px;">
+                                </c:otherwise>
+                            </c:choose></td>
                         <td style="text-align: center;"
-                            class="<%=warningClass%>"><%=billingRecomendations.toString()%>
+                            class="${not empty formModel.patient.billingRecommendations ? 'alert' : ''}">${formModel.patient.billingRecommendations}
+                            <c:if test="${formModel.recommendationsUnavailable}">
+                                <div class="alert">Billing recommendations are temporarily unavailable.</div>
+                            </c:if>
+                            <c:if test="${formModel.siteContextDegraded}">
+                                <div class="alert">Appointment site defaults are temporarily unavailable.</div>
+                            </c:if>
+                            <c:if test="${formModel.admissionDateUnavailable}">
+                                <div class="alert">Inpatient admission date is temporarily unavailable.</div>
+                            </c:if>
                         </td>
-                        <td style="text-align: center;"><%=msg%>
+                        <td style="text-align: center;"><carlos:encode value="${formModel.display.displayMessage}" context="html"/>
                         </td>
                     </tr>
                 </table>
@@ -1566,74 +926,62 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                                 <td><input type="text" name="dxCode" class="form-control form-control-sm d-inline-block w-auto"
                                                            maxlength="5"
                                                            onchange="changeCodeDesc();"
-                                                           value="<carlos:encode value='<%= request.getParameter("dxCode")!=null?request.getParameter("dxCode"):dxCode %>' context="htmlAttribute"/>"/>
+                                                           value="<carlos:encode value='${formModel.visit.dxCodeDefault}' context='htmlAttribute'/>"/>
                                                 </td>
                                             </tr>
                                             <tr>
                                                 <td><fmt:message key="oscar.billing.ca.on.billingON.dx1"/></td>
                                                 <td><input type="text" name="dxCode1" class="form-control form-control-sm d-inline-block w-auto"
                                                            maxlength="5"
-                                                           value="<carlos:encode value='<%= request.getParameter("dxCode1")!=null?request.getParameter("dxCode1"):"" %>' context="htmlAttribute"/>"/>
+                                                           value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"dxCode1\"]}' context='htmlAttribute'/>"/>
                                                 </td>
                                             </tr>
                                             <tr>
                                                 <td><fmt:message key="oscar.billing.ca.on.billingON.dx2"/></td>
                                                 <td><input type="text" name="dxCode2" class="form-control form-control-sm d-inline-block w-auto"
                                                            maxlength="5"
-                                                           value="<carlos:encode value='<%= request.getParameter("dxCode2")!=null?request.getParameter("dxCode2"):"" %>' context="htmlAttribute"/>"/>
+                                                           value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"dxCode2\"]}' context='htmlAttribute'/>"/>
                                                 </td>
                                             </tr>
                                         </table>
                                         <a
-                                                href="javascript:referralScriptAttach2('referralCode','referralDocName')"><fmt:message key="oscar.billing.ca.on.billingON.referralDoctor"/></a> <%
-                                        String checkRefBox = "";
-                                        String refName = "";
-                                        String refNo = "";
-                                        if (request.getParameter("rfcheck") != null) {
-                                            checkRefBox = request.getParameter("rfcheck");
-                                            refName = request.getParameter("referralDocName");
-                                            refNo = request.getParameter("referralCode");
-                                        } else if (oscarVariables.getProperty("billingRefBoxDefault", "").equals("checked")) {
-                                            checkRefBox = "checked";
-                                            refName = r_doctor;
-                                            refNo = r_doctor_ohip;
-                                        }
-
-
-                                    %> <input type="checkbox" name="rfcheck" value="checked"
-                                            <%= "checked".equals(checkRefBox) ? "checked" : "" %> onclick="onClickRefDoc()"/><br/>
+                                                href="javascript:referralScriptAttach2('referralCode','referralDocName')"><fmt:message key="oscar.billing.ca.on.billingON.referralDoctor"/></a>
+                                        <input type="checkbox" name="rfcheck" value="checked"
+                                            ${formModel.referralDefaults.checkedDefault eq 'checked' ? 'checked' : ''} onclick="onClickRefDoc()"/><br/>
                                         <input
                                                 type="text" name="referralCode" class="form-control form-control-sm d-inline-block w-auto" maxlength="6"
                                                 placeholder="<fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.referralNo"/>"
-                                                value="<carlos:encode value='<%= refNo %>' context="html"/>"><br/>
+                                                value="<carlos:encode value='${formModel.referralDefaults.noDefault}' context='htmlAttribute'/>"><br/>
                                         <input placeholder="<fmt:message key="demographic.demographiceditdemographic.formRefDoc"/>"
                                                type="text" name="referralDocName" class="form-control" maxlength="60"
-                                               value="<carlos:encode value='<%= refName %>' context="html"/>">
+                                               value="<carlos:encode value='${formModel.referralDefaults.nameDefault}' context='htmlAttribute'/>">
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td style="white-space:nowrap; width: 33%; text-align: center" class="xmyPink"><b><fmt:message key="oscar.billing.ca.on.billingON.codeTimePercent"/></b><br/> <% for (int i = 0; i < BillingDataHlp.FIELD_SERVICE_NUM / 2; i++) { %>
-                                        <input type="text" name="serviceCode<%=i%>" class="form-control form-control-sm d-inline-block w-auto"
-                                               value="<carlos:encode value='<%= request.getParameter("serviceCode"+i)!=null?request.getParameter("serviceCode"+i):"" %>' context="htmlAttribute"/>"
-                                               onBlur="upCaseCtrl(this)"/>x
-                                        <input type="text" name="serviceUnit<%=i%>" size="2" maxlength="4"
-                                               style="width: 20px;"
-                                               value="<carlos:encode value='<%= request.getParameter("serviceUnit"+i)!=null?request.getParameter("serviceUnit"+i):"" %>' context="htmlAttribute"/>"/>@
-                                        <input type="text" name="serviceAt<%=i%>" size="3" maxlength="4"
-                                               style="width: 30px"
-                                               value="<carlos:encode value='<%= request.getParameter("serviceAt"+i)!=null?request.getParameter("serviceAt"+i):"" %>' context="htmlAttribute"/>"/><br/>
-                                        <% } %></td>
-                                    <td style="white-space:nowrap; width: 33%; text-align: center" class="xmyPink"><b><fmt:message key="oscar.billing.ca.on.billingON.codeTimePercent"/></b><br/> <% for (int i = BillingDataHlp.FIELD_SERVICE_NUM / 2; i < BillingDataHlp.FIELD_SERVICE_NUM; i++) { %>
-                                        <input type="text" name="serviceCode<%=i%>" class="form-control form-control-sm d-inline-block w-auto"
-                                               value="<carlos:encode value='<%= request.getParameter("serviceCode"+i)!=null?request.getParameter("serviceCode"+i):"" %>' context="htmlAttribute"/>"
-                                               onBlur="upCaseCtrl(this)"/>x
-                                        <input type="text" name="serviceUnit<%=i%>" size="2" maxlength="2"
-                                               style="width: 20px;"
-                                               value="<carlos:encode value='<%= request.getParameter("serviceUnit"+i)!=null?request.getParameter("serviceUnit"+i):"" %>' context="htmlAttribute"/>"/>@
-                                        <input type="text" name="serviceAt<%=i%>" size="3" maxlength="4"
-                                               style="width: 30px"
-                                               value="<carlos:encode value='<%= request.getParameter("serviceAt"+i)!=null?request.getParameter("serviceAt"+i):"" %>' context="htmlAttribute"/>"/><br/>
-                                        <% } %></td>
+                                    <td style="white-space:nowrap; width: 33%; text-align: center" class="xmyPink"><b><fmt:message key="oscar.billing.ca.on.billingON.codeTimePercent"/></b><br/>
+                                        <c:forEach var="i" begin="0" end="5">
+                                            <input type="text" name="serviceCode${i}" class="form-control form-control-sm d-inline-block w-auto"
+                                                   value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"serviceCode\".concat(i)]}' context='htmlAttribute'/>"
+                                                   onBlur="upCaseCtrl(this)"/>x
+                                            <input type="text" name="serviceUnit${i}" size="2" maxlength="4"
+                                                   style="width: 20px;"
+                                                   value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"serviceUnit\".concat(i)]}' context='htmlAttribute'/>"/>@
+                                            <input type="text" name="serviceAt${i}" size="3" maxlength="4"
+                                                   style="width: 30px"
+                                                   value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"serviceAt\".concat(i)]}' context='htmlAttribute'/>"/><br/>
+                                        </c:forEach></td>
+                                    <td style="white-space:nowrap; width: 33%; text-align: center" class="xmyPink"><b><fmt:message key="oscar.billing.ca.on.billingON.codeTimePercent"/></b><br/>
+                                        <c:forEach var="i" begin="6" end="11">
+                                            <input type="text" name="serviceCode${i}" class="form-control form-control-sm d-inline-block w-auto"
+                                                   value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"serviceCode\".concat(i)]}' context='htmlAttribute'/>"
+                                                   onBlur="upCaseCtrl(this)"/>x
+                                            <input type="text" name="serviceUnit${i}" size="2" maxlength="2"
+                                                   style="width: 20px;"
+                                                   value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"serviceUnit\".concat(i)]}' context='htmlAttribute'/>"/>@
+                                            <input type="text" name="serviceAt${i}" size="3" maxlength="4"
+                                                   style="width: 30px"
+                                                   value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"serviceAt\".concat(i)]}' context='htmlAttribute'/>"/><br/>
+                                        </c:forEach></td>
                                 </tr>
                             </table>
                         </td>
@@ -1642,204 +990,171 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                 <tr>
                                     <td style="white-space:nowrap; width: 30%"><b><fmt:message key="oscar.billing.ca.on.billingON.billingPhysician"/></b></td>
                                     <td style="width: 20%">
-                                        <% if (IsPropertiesOn.isMultisitesEnable()) {
-                                            // multisite start ==========================================
-                                            SiteDao siteDao = SpringUtils.getBean(SiteDao.class);
-                                            List<Site> sites = siteDao.getActiveSitesByProviderNo((String) session.getAttribute("user"));
-                                        %>
-                                        <script>
-                                            var _providers = [];
-                                            <%	for (int i=0; i<sites.size(); i++) {
-                                                Set<Provider> siteProviders = sites.get(i).getProviders();
-                                                List<Provider>  siteProvidersList = new ArrayList<Provider> (siteProviders);
-                                                 Collections.sort(siteProvidersList,(new Provider()).ComparatorName());%>
-                                            _providers["<carlos:encode value='<%= sites.get(i).getName() %>' context="javaScriptBlock"/>"] = "<% Iterator<Provider> iter = siteProvidersList.iterator();
-	while (iter.hasNext()) {
-		Provider p=iter.next();
-		if ("1".equals(p.getStatus()) && StringUtils.isNotBlank(p.getOhipNo())) {
-	%><c:set var="__enc_22"><carlos:encode value='<%= p.getProviderNo() %>' context="htmlAttribute"/></c:set><c:set var="__enc_23"><carlos:encode value='<%= p.getOhipNo() %>' context="htmlAttribute"/></c:set><c:set var="__enc_24"><carlos:encode value='<%= p.getLastName() %>' context="html"/></c:set><c:set var="__enc_25"><carlos:encode value='<%= p.getFirstName() %>' context="html"/></c:set><option value='<carlos:encode value='${__enc_22}' context="javaScript"/>|<carlos:encode value='${__enc_23}' context="javaScript"/>' ><carlos:encode value='${__enc_24}' context="javaScript"/>, <carlos:encode value='${__enc_25}' context="javaScript"/></option><%}}%>";
-                                            <%}%>
-
-                                            function changeSite(sel) {
-                                                sel.form.xml_provider.innerHTML = sel.value == "none" ? "" : _providers[sel.value];
-                                                sel.style.backgroundColor = sel.options[sel.selectedIndex].style.backgroundColor;
-                                            }
-                                        </script>
-                                        <select id="site" name="site" onchange="changeSite(this)"
-                                        >
-                                            <option value="none" style="background-color: white"><fmt:message key="oscar.billing.ca.on.billingON.selectClinic"/>
-                                            </option>
-                                            <%
-                                                String selectedSite = request.getParameter("site");
-                                                String xmlp = null;
-                                                if (selectedSite == null) {
-                                                    OscarAppointmentDao apptDao = SpringUtils.getBean(OscarAppointmentDao.class);
-                                                    for (Object[] obj : apptDao.findAppointmentAndProviderByAppointmentNo(ConversionUtils.fromIntString(appt_no))) {
-                                                        Appointment a = (Appointment) obj[0];
-                                                        Provider p = (Provider) obj[1];
-
-                                                        selectedSite = a.getLocation();
-                                                        xmlp = a.getProviderNo() + "|" + p.getOhipNo();
+                                        <%-- Multisite + non-multisite provider pickers fully driven
+                                             by structured formModel site/provider data. --%>
+                                        <c:choose>
+                                            <c:when test="${formModel.multisite.enabled}">
+                                                <script>
+                                                    var _providers = {};
+                                                    <c:forEach var="msite" items="${formModel.multisite.sites}">
+                                                        _providers["<carlos:encode value='${msite.name}' context='javaScript'/>"] = [
+                                                            <c:forEach var="provider" items="${msite.providers}" varStatus="providerStatus">
+                                                            {
+                                                                value: "<carlos:encode value='${provider.providerNo}|${provider.ohipNo}' context='javaScript'/>",
+                                                                text: "<carlos:encode value='${provider.lastName}, ${provider.firstName}' context='javaScript'/>"
+                                                            }<c:if test="${not providerStatus.last}">,</c:if>
+                                                            </c:forEach>
+                                                        ];
+                                                    </c:forEach>
+                                                    function changeSite(sel) {
+                                                        var providerSelect = sel.form.xml_provider;
+                                                        providerSelect.innerHTML = "";
+                                                        if (sel.value != "none") {
+                                                            (_providers[sel.value] || []).forEach(function (provider) {
+                                                                var option = document.createElement("option");
+                                                                option.value = provider.value;
+                                                                option.textContent = provider.text;
+                                                                providerSelect.appendChild(option);
+                                                            });
+                                                        }
+                                                        sel.style.backgroundColor = sel.options[sel.selectedIndex].style.backgroundColor;
                                                     }
-                                                }
-                                                for (int i = 0; i < sites.size(); i++) {
-                                            %>
-                                            <option value="<%=sites.get(i).getName()%>"
-                                                    style="background-color:<%=sites.get(i).getBgColor()%>"
-                                                    <%=sites.get(i).getName().toString().equals(selectedSite) ? "selected" : ""%>><carlos:encode value='<%= sites.get(i).getName() %>' context="html"/>
-                                            </option>
-                                            <%
-                                                }
-                                            %>
-                                        </select> <select id="xml_provider" name="xml_provider"
-                                    ></select>
-                                        <script>
-                                            changeSite(document.getElementById("site"));
-                                            document.getElementById("xml_provider").value = '<carlos:encode value='<%= request.getParameter("xml_provider")==null?xmlp:request.getParameter("xml_provider") %>' context="javaScriptBlock"/>';
-                                        </script>
-                                        <%
-                                            // multisite end ==========================================
-                                        } else {
-                                        %> <select name="xml_provider">
-                                        <%
-                                            String[] tmp;
-                                            if (vecProvider.size() == 1) {
-                                                propT = (Properties) vecProvider.get(0);
-                                                tmp = propT.getProperty("proOHIP", "").split("\\|");
-                                        %>
-                                        <option value="<%=propT.getProperty("proOHIP")%>"
-                                                <%=providerview.equals(tmp[0].trim()) ? "selected" : ""%>>
-                                            <b><carlos:encode value='<%= propT.getProperty("last_name") + ", " + propT.getProperty("first_name") %>' context="html"/>
-                                            </b>
-                                        </option>
-                                        <%
-                                        } else {
-                                        %>
-                                        <option value="000000"
-                                                <%=providerview.equals("000000") ? "selected" : ""%>>
-                                            <b><fmt:message key="oscar.billing.ca.on.billingON.selectProvider"/></b>
-                                        </option>
-                                        <%
-                                            for (int i = 0; i < vecProvider.size(); i++) {
-                                                propT = (Properties) vecProvider.get(i);
-                                                String info = propT.getProperty("proOHIP");
-                                                String prov = info.substring(0, info.indexOf("|"));
-
-                                        %>
-
-                                        <option value="<%=propT.getProperty("proOHIP")%>"
-                                                <%=providerview.equalsIgnoreCase(prov) ? "selected" : ""%>>
-                                            <b><carlos:encode value='<%= propT.getProperty("last_name") + ", " + propT.getProperty("first_name") %>' context="html"/>
-                                            </b>
-                                        </option>
-                                        <%
-                                                }
-                                            }
-                                        %>
-                                    </select> <%
-                                        }
-                                    %>
-
+                                                </script>
+                                                <select id="site" name="site" onchange="changeSite(this)">
+                                                    <option value="none" style="background-color: white"><fmt:message key="oscar.billing.ca.on.billingON.selectClinic"/></option>
+                                                    <c:forEach var="msite" items="${formModel.multisite.sites}">
+                                                        <option value="<carlos:encode value='${msite.name}' context='htmlAttribute'/>"
+                                                                style="background-color:<carlos:encode value='${msite.bgColor}' context='cssString'/>"
+                                                                ${msite.name eq formModel.multisite.defaultSelectedSite ? 'selected' : ''}>
+                                                            <carlos:encode value='${msite.name}' context='html'/>
+                                                        </option>
+                                                    </c:forEach>
+                                                </select>
+                                                <select id="xml_provider" name="xml_provider"></select>
+                                                <script>
+                                                    changeSite(document.getElementById("site"));
+                                                    document.getElementById("xml_provider").value = '<carlos:encode value="${formModel.multisite.selectedXmlProvider}" context="javaScript"/>';
+                                                </script>
+                                            </c:when>
+                                            <c:otherwise>
+                                                <select name="xml_provider">
+                                                    <c:choose>
+                                                        <c:when test="${fn:length(formModel.providerPanel.providers) eq 1}">
+                                                            <c:forEach var="po" items="${formModel.providerPanel.providers}">
+                                                                <c:set var="__poPrefix" value="${fn:substringBefore(po.proOhip, '|')}"/>
+                                                                <option value="<carlos:encode value='${po.proOhip}' context='htmlAttribute'/>"
+                                                                        ${formModel.providerPanel.providerView eq fn:trim(__poPrefix) ? 'selected' : ''}>
+                                                                    <b><carlos:encode value='${po.lastName}, ${po.firstName}' context='html'/></b>
+                                                                </option>
+                                                            </c:forEach>
+                                                        </c:when>
+                                                        <c:otherwise>
+                                                            <option value="000000"
+                                                                    ${formModel.providerPanel.providerView eq '000000' ? 'selected' : ''}>
+                                                                <b><fmt:message key="oscar.billing.ca.on.billingON.selectProvider"/></b>
+                                                            </option>
+                                                            <c:forEach var="po" items="${formModel.providerPanel.providers}">
+                                                                <c:set var="__poPrefix" value="${fn:substringBefore(po.proOhip, '|')}"/>
+                                                                <option value="<carlos:encode value='${po.proOhip}' context='htmlAttribute'/>"
+                                                                        ${fn:toLowerCase(formModel.providerPanel.providerView) eq fn:toLowerCase(__poPrefix) ? 'selected' : ''}>
+                                                                    <b><carlos:encode value='${po.lastName}, ${po.firstName}' context='html'/></b>
+                                                                </option>
+                                                            </c:forEach>
+                                                        </c:otherwise>
+                                                    </c:choose>
+                                                </select>
+                                            </c:otherwise>
+                                        </c:choose>
                                     </td>
                                     <td style="white-space:nowrap; width: 30%"><b><fmt:message key="oscar.billing.ca.on.billingON.assignedPhysician"/></b></td>
-                                    <td style="width: 20%"><carlos:encode value='<%= providerBean.getProperty(assgProvider_no, "").length() > 15
-                                            ? providerBean.getProperty(assgProvider_no, "").substring(0, 14)
-                                            : providerBean.getProperty(assgProvider_no, "") %>' context="html"/>
+                                    <td style="width: 20%"><carlos:encode value='${formModel.providerPanel.assgProviderDisplay}' context='html'/>
+                                        <c:if test="${formModel.assignedProviderUnavailable}">
+                                            <div class="alert">Assigned physician name is temporarily unavailable. Verify the assigned provider before saving.</div>
+                                        </c:if>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td style="width: 30%"><b><%
-                                        if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) {
-                                    %>
-                                        <fmt:message key="oscar.billing.ca.on.billingON.clinicNbr"/> <%
-                                        } else {
-                                        %> <fmt:message key="billing.billingCorrection.formVisitType"/> <%
-                                            }
-                                        %>
+                                    <td style="width: 30%"><b>
+                                        <c:choose>
+                                            <c:when test="${formModel.multisite.rmaEnabled}">
+                                                <fmt:message key="oscar.billing.ca.on.billingON.clinicNbr"/>
+                                            </c:when>
+                                            <c:otherwise>
+                                                <fmt:message key="billing.billingCorrection.formVisitType"/>
+                                            </c:otherwise>
+                                        </c:choose>
                                     </b></td>
                                     <td style="width: 20%"><select name="xml_visittype" onchange="updateDate()">
-                                        <%
-                                            if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) {
-                                        %>
-                                        <%
-													ClinicNbrDao cnDao = SpringUtils.getBean(ClinicNbrDao.class);
-                                            ArrayList<ClinicNbr> nbrs = cnDao.findAll();
-													            ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
-                                            String providerSearch = apptProvider_no.equalsIgnoreCase("none") ? user_no : apptProvider_no;
-                                            Provider p = providerDao.getProvider(providerSearch);
-                                            String providerNbr = SxmlMisc.getXmlContent(p.getComments(), "xml_p_nbr");
-                                            for (ClinicNbr clinic : nbrs) {
-                                                String valueString = String.format("%s | %s", clinic.getNbrValue(), clinic.getNbrString());
-                                        %>
-                                        <option value="<%=valueString%>"
-                                                <%=providerNbr.startsWith(clinic.getNbrValue()) ? "selected" : ""%>><%=valueString%>
-                                        </option>
-                                        <%
-                                            }
-                                        %>
-                                        <%
-                                        } else {
-                                        %>
+                                        <c:choose>
+                                            <c:when test="${formModel.multisite.rmaEnabled}">
+                                                <%-- clinic-nbr dropdown driven by pre-loaded
+                                                     formModel.multisite.clinicNbrs (replaces ClinicNbrDao.findAll +
+                                                     ProviderDao.getProvider/comments XML inline calls). --%>
+                                                <c:forEach var="__c" items="${formModel.multisite.clinicNbrs}">
+                                                    <option value="<carlos:encode value='${__c.displayLabel}' context='htmlAttribute'/>"
+                                                            ${fn:startsWith(formModel.multisite.selectedClinicNbrPrefix, __c.nbrValue) ? 'selected' : ''}>
+                                                        <carlos:encode value='${__c.displayLabel}' context='html'/>
+                                                    </option>
+                                                </c:forEach>
+                                            </c:when>
+                                            <c:otherwise>
                                         <option value="00| Clinic Visit"
-                                                <%=visitType.startsWith("00") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.visitType.00"/>
+                                                ${fn:startsWith(formModel.visit.visitType, '00') ? 'selected' : ''}><fmt:message key="oscar.billing.ca.on.billingON.visitType.00"/>
                                         </option>
                                         <option value="01| Outpatient Visit"
-                                                <%=visitType.startsWith("01") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.visitType.01"/>
+                                                ${fn:startsWith(formModel.visit.visitType, '01') ? 'selected' : ''}><fmt:message key="oscar.billing.ca.on.billingON.visitType.01"/>
                                         </option>
                                         <option value="02| Hospital Visit"
-                                                <%=visitType.startsWith("02") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.visitType.02"/>
+                                                ${fn:startsWith(formModel.visit.visitType, '02') ? 'selected' : ''}><fmt:message key="oscar.billing.ca.on.billingON.visitType.02"/>
                                         </option>
                                         <option value="03| ER"
-                                                <%=visitType.startsWith("03") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.visitType.03"/>
+                                                ${fn:startsWith(formModel.visit.visitType, '03') ? 'selected' : ''}><fmt:message key="oscar.billing.ca.on.billingON.visitType.03"/>
                                         </option>
                                         <option value="04| Nursing Home"
-                                                <%=visitType.startsWith("04") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.visitType.04"/>
+                                                ${fn:startsWith(formModel.visit.visitType, '04') ? 'selected' : ''}><fmt:message key="oscar.billing.ca.on.billingON.visitType.04"/>
                                         </option>
                                         <option value="05| Home Visit"
-                                                <%=visitType.startsWith("05") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.visitType.05"/>
+                                                ${fn:startsWith(formModel.visit.visitType, '05') ? 'selected' : ''}><fmt:message key="oscar.billing.ca.on.billingON.visitType.05"/>
                                         </option>
-                                        <%
-                                            }
-                                        %>
+                                            </c:otherwise>
+                                        </c:choose>
                                     </select></td>
                                     <td style="width: 30%"><b><fmt:message key="oscar.billing.ca.on.billingON.billingType"/></b></td>
                                     <td style="width: 20%">
-                                        <%
-												if ((roster_status.equals("QU - Quebec")||roster_status.equals("FS")) && !defaultServiceType.equals("RN")) {
-												    defaultBillType = "PAT";
-												}
-                                            String srtBillType = request.getParameter("xml_billtype") != null ? request.getParameter("xml_billtype") : defaultBillType;
-                                        %> <select name="xml_billtype" onchange="onChangePrivate();">
+                                        <%-- selectedBillType pre-resolved by the assembler:
+                                             roster QU/FS forces PAT (when defaultServiceType != RN),
+                                             then request param overrides. --%>
+                                        <select name="xml_billtype" onchange="onChangePrivate();">
                                         <option value="ODP | Bill OHIP"
-                                                <%=srtBillType.startsWith("ODP") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.ODP"/>
+                                                ${fn:startsWith(formModel.billForm.selectedBillType, "ODP") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.ODP"/>
                                         </option>
                                         <option value="WCB | Worker's Compensation Board"
-                                                <%=srtBillType.startsWith("WCB") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.WCB"/>
+                                                ${fn:startsWith(formModel.billForm.selectedBillType, "WCB") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.WCB"/>
                                         </option>
                                         <option value="NOT | Do Not Bill"
-                                                <%=srtBillType.startsWith("NOT") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.NOT"/>
+                                                ${fn:startsWith(formModel.billForm.selectedBillType, "NOT") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.NOT"/>
                                         </option>
                                         <option value="IFH | Interm Federal Health"
-                                                <%=srtBillType.startsWith("IFH") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.IFH"/>
+                                                ${fn:startsWith(formModel.billForm.selectedBillType, "IFH") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.IFH"/>
                                         </option>
                                         <option value="PAT | Bill Patient"
-                                                <%=srtBillType.startsWith("PAT") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.PAT"/>
+                                                ${fn:startsWith(formModel.billForm.selectedBillType, "PAT") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.PAT"/>
                                         </option>
                                         <option value="OCF | "
-                                                <%=srtBillType.startsWith("OCF") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.OCF"/>
+                                                ${fn:startsWith(formModel.billForm.selectedBillType, "OCF") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.OCF"/>
                                         </option>
                                         <option value="ODS | "
-                                                <%=srtBillType.startsWith("ODS") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.ODS"/>
+                                                ${fn:startsWith(formModel.billForm.selectedBillType, "ODS") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.ODS"/>
                                         </option>
                                         <option value="CPP | Canada Pension Plan"
-                                                <%=srtBillType.startsWith("CPP") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.CPP"/>
+                                                ${fn:startsWith(formModel.billForm.selectedBillType, "CPP") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.CPP"/>
                                         </option>
                                         <option
                                                 value="STD | Short Term Disability / Long Term Disability"
-                                                <%=srtBillType.startsWith("STD") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.STD"/>
+                                                ${fn:startsWith(formModel.billForm.selectedBillType, "STD") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.STD"/>
                                         </option>
                                         <option value="BON | Bonus Codes"
-                                                <%=srtBillType.startsWith("BON") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.BON"/>
+                                                ${fn:startsWith(formModel.billForm.selectedBillType, "BON") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.BON"/>
                                         </option>
                                     </select>
                                     </td>
@@ -1847,31 +1162,19 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                 <tr>
                                     <td><b><fmt:message key="oscar.billing.ca.on.billingON.visitLocation"/></b></td>
                                     <td colspan="3"><select name="xml_location">
-                                        <%
-                                            //
-                                            String billLocationNo = "", billLocation = "";
-                                            String strLocation = "";
-                                            List lLocation = tdbObj.getFacilty_num();
-                                            String last_location = getDefaultValue(request.getParameter("xml_visittype"), vecHist, "clinic_ref_code");
-                                            for (int i = 0; i < lLocation.size(); i = i + 2) {
-                                                billLocationNo = (String) lLocation.get(i);
-                                                billLocation = (String) lLocation.get(i + 1);
-                                                strLocation = request.getParameter("xml_location") != null ? request.getParameter("xml_location") : last_location != null ? last_location : clinicview;
-                                        %>
-                                        <option value="<%=billLocationNo + "|" + billLocation%>"
-                                                <%=strLocation.startsWith(billLocationNo) ? "selected" : ""%>>
-                                            <%=billLocation%>
-                                        </option>
-                                        <%
-                                            }
-                                        %>
+                                        <c:forEach var="loc" items="${formModel.lookupData.facilityNumOptions}">
+                                            <option value="<carlos:encode value='${loc.code}|${loc.label}' context='htmlAttribute'/>"
+                                                    ${fn:startsWith(formModel.visit.defaultLocation, loc.code) ? 'selected' : ''}>
+                                                <carlos:encode value='${loc.label}' context='html'/>
+                                            </option>
+                                        </c:forEach>
                                     </select><fmt:message key="oscar.billing.ca.on.billingON.manualReviewFlag"/> <input type="checkbox" name="m_review" value="Y"
-                                        <%=m_review.equals("Y")?"checked":""%>></td>
+                                        ${formModel.requestContext.mReview eq 'Y' ? 'checked' : ''}></td>
                                 </tr>
                                 <tr>
                                     <td><b><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode"/></b></td>
                                     <td colspan="3"><select name="xml_slicode">
-                                        <option value="<%=clinicNo%>">
+                                        <option value="<carlos:encode value='${formModel.visit.clinicNo}' context='htmlAttribute'/>">
                                             <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.NA"/>
                                         </option>
                                         <option value="HDS">
@@ -1909,24 +1212,13 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                 <tr>
                                     <td><b><fmt:message key="oscar.billing.ca.on.billingON.admissionDate"/></b></td>
 										<td>
-                                        <%
-                                            String admDate = "";
-                                            String inPatient = oscarVariables.getProperty("inPatient");
-                                            try {
-                                                if (inPatient != null && inPatient.trim().equalsIgnoreCase("YES")) {
-                                                    DemographicData demoData = new DemographicData();
-                                                    admDate = demoData.getDemographicDateJoined(loggedInInfo, demo_no);
-                                                }
-                                            } catch (Exception inPatientEx) {
-                                                MiscUtils.getLogger().error("Error", inPatientEx);
-                                                admDate = "";
-                                            }
-                                            if (visitType.startsWith("02") || visitType.startsWith("04"))
-                                                admDate = getDefaultValue(request.getParameter("visitdate"), vecHist, "visitdate");
-                                        %>
+                                        <%-- xml_vdate default resolved by the assembler:
+                                             request param > admissionDate (from
+                                             oscarVariables.inPatient + DemographicData
+                                             with the visit-type 02/04 history fallback). --%>
 											<div class="input-group input-group-sm">
 											    <input type="text" name="xml_vdate" id="xml_vdate" onchange="getDays();"
-                                               value="<carlos:encode value='<%= request.getParameter("xml_vdate")!=null? request.getParameter("xml_vdate"):admDate %>' context="htmlAttribute"/>"
+                                               value="<carlos:encode value='${formModel.visit.defaultXmlVdate}' context='htmlAttribute'/>"
 											class="form-control" readonly>
 											<button type="button" class="btn btn-outline-secondary" id="xml_vdate_cal" title="<fmt:message key="oscar.billing.ca.on.billingON.chooseDate"/>">
 											    <img alt="cal" style="height:14px;"
@@ -1938,41 +1230,26 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                                        onclick="showHideLayers('Layer1','','show');return false;">
                                         <fmt:message key="oscar.billing.ca.on.billingON.billingFormLink"/></a>: <input type="text" name="billFormName" class="form-control"
 											id="billFormName" readonly
-                                                                 value="<%=currentFormName.length() < 40 ? currentFormName : currentFormName.substring(0, 40)%>"/>
+                                                                 value="${carlos:forHtmlAttribute(fn:length(formModel.billForm.defaultFormName) lt 40 ? formModel.billForm.defaultFormName : fn:substring(formModel.billForm.defaultFormName, 0, 40))}"/>
                                         <input type="hidden" name="billForm" id="billForm"
-                                               value="<carlos:encode value='<%= ctlBillForm %>' context="htmlAttribute"/>"/></td>
+                                               value="<carlos:encode value='${formModel.requestContext.ctlBillForm}' context="htmlAttribute"/>"/></td>
                                 </tr>
-                                <%
-                                    if (!IsPropertiesOn.isMultisitesEnable()) {
-                                        CarlosProperties props = CarlosProperties.getInstance();
-                                        boolean bMoreAddr = props.getProperty("scheduleSiteID", "").equals("") ? false : true;
-                                        if (bMoreAddr) {
-                                            BillingSiteIdPrep sitePrep = new BillingSiteIdPrep();
-                                            String[] siteList = sitePrep.getSiteList();
-                                            String strServDate = request.getParameter("appointment_date") != null ? request.getParameter("appointment_date") : strToday;
-                                            String thisSite = (new JdbcApptImpl()).getLocationFromSchedule(strServDate, apptProvider_no);
-                                            String suggestSite = sitePrep.getSuggestSite(siteList, thisSite, strServDate, apptProvider_no);
-                                %>
+                                <%-- Legacy non-multisite "site" dropdown (BillingSiteIdService +
+                                     JdbcApptImpl.getLocationFromSchedule) now driven by
+                                     formModel.lookupData.legacySiteContextEnabled / legacySiteOptions. --%>
+                                <c:if test="${formModel.lookupData.legacySiteContextEnabled}">
                                 <tr>
                                     <td style="text-align: right"><fmt:message key="oscar.billing.ca.on.billingON.site"/></td>
                                     <td colspan="3"><select name="siteId">
-                                        <%
-                                            for (int i = 0; i < siteList.length; i++) {
-                                        %>
-                                        <option value="<%=siteList[i]%>"
-                                                <%=suggestSite.equals(siteList[i]) ? "selected" : ""%>>
-                                            <b><%=siteList[i]%>
-                                            </b>
-                                        </option>
-                                        <%
-                                            }
-                                        %>
+                                        <c:forEach var="site" items="${formModel.lookupData.legacySiteOptions}">
+                                            <option value="<carlos:encode value='${site.name}' context='htmlAttribute'/>"
+                                                    ${site.suggested ? 'selected' : ''}>
+                                                <b><carlos:encode value='${site.name}' context='html'/></b>
+                                            </option>
+                                        </c:forEach>
                                     </select></td>
                                 </tr>
-                                <%
-                                        }
-                                    }
-                                %>
+                                </c:if>
 
                             </table>
                         </td>
@@ -1985,17 +1262,13 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                 <table style="width: 100%; height:137px">
                     <tr>
                         <td style="vertical-align:top; width: 33%">
-                            <%
-                                for (int j = 0; j < listServiceType.size(); j++) {
-                                    ArrayList<Properties> vecCodeCol1 = new ArrayList<Properties>();
-                                    vecCodeCol1 = billingServiceCodesMap.get("group1_".concat(listServiceType.get(j)));
-                                    headerTitle1 = titleMap.get("group1_".concat(listServiceType.get(j)));
-                            %>
-                            <div id="group1_<%=listServiceType.get(j)%>" style="display: none;">
+                            <c:forEach var="st" items="${formModel.serviceGrid.serviceTypes}">
+                            <c:set var="g1Key" value="group1_${st}"/>
+                            <div id="${g1Key}" style="display: none;">
                                 <table style="width: 100%;" class="border1 table-striped table-hover">
                                     <tr>
                                         <th style="width: 10%; white-space:nowrap; background-color:silver">
-                                            <div class="smallFont"><%=headerTitle1%>
+                                            <div class="smallFont"><carlos:encode value='${formModel.serviceGrid.titlesByServiceType[g1Key]}' context='html'/>
                                             </div>
                                         </th>
                                         <th style="width: 70%; background-color:silver">
@@ -2005,81 +1278,49 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                             <div class="smallFont"><fmt:message key="oscar.billing.ca.on.billingON.fee"/></div>
                                         </th>
                                     </tr>
-
-
-                                    <%
-                                        for (int i = 0; i < vecCodeCol1.size(); i++) {
-                                            propT = vecCodeCol1.get(i);
-                                            serviceCode = propT.getProperty("serviceCode");
-                                            serviceDesc = propT.getProperty("serviceDesc");
-                                            serviceDisp = propT.getProperty("serviceDisp");
-                                            servicePercentage = propT.getProperty("servicePercentage");
-                                            serviceType = propT.getProperty("serviceType");
-                                            displayStyle = propT.getProperty("displaystyle");
-                                            sliFlag = Boolean.parseBoolean(propT.getProperty("serviceSLI"));
-
-                                            if (propPremium.getProperty(serviceCode) != null) premiumFlag = "A";
-                                            else premiumFlag = "";
-
-                                            String bgcolor = "";
-                                            if (request.getParameter("xml_" + serviceCode) != null)
-                                                bgcolor = "background-color: #66FF66;";
-                                    %>
+                                    <c:forEach var="entry" items="${formModel.serviceGrid.codesByServiceType[g1Key]}" varStatus="rowLoop">
+                                    <c:set var="xmlParamKey" value="xml_${entry.serviceCode}"/>
+                                    <c:set var="bgcolor" value="${not empty param[xmlParamKey] ? 'background-color: #66FF66;' : ''}"/>
                                     <tr>
-                                        <td style="<%=displayStyle%> text-align: left; white-space:nowrap; <%=bgcolor%>">
+                                        <td style="${entry.displayStyle} text-align: left; white-space:nowrap; ${bgcolor}">
                                             <input
-                                                    type="checkbox" id="xml_<%=serviceCode%>"
-                                                    name="xml_<%=serviceCode%>" value="checked"
+                                                    type="checkbox" id="xml_${carlos:forHtmlAttribute(entry.serviceCode)}"
+                                                    name="xml_${carlos:forHtmlAttribute(entry.serviceCode)}" value="checked"
                                                     onclick="refreshServicesChecked(this);"
-                                                    <%= "checked".equals(request.getParameter("xml_" + serviceCode)) ? "checked" : "" %>
-                                                    <%=bSingleClick ? "onClick='onClickServiceCode(this)'" : ""%> />
-                                            <span id="sc<%=(""+i).substring(0,1)+serviceCode%>"
-                                                  onclick="getElementById('xml_<%=serviceCode%>').click();"
-                                                  ondblclick="onDblClickServiceCode(this)"><%=serviceCode%></span>
+                                                    <c:if test="${param[xmlParamKey] eq 'checked'}">checked</c:if>
+                                                    <c:if test="${formModel.visit.singleClickEnabled}">onClick='onClickServiceCode(this)'</c:if> />
+                                            <span id="sc${rowLoop.index}${carlos:forHtmlAttribute(entry.serviceCode)}"
+                                                  onclick="getElementById('xml_${carlos:forJavaScriptAttribute(entry.serviceCode)}').click();"
+                                                  ondblclick="onDblClickServiceCode(this)"><carlos:encode value='${entry.serviceCode}' context='html'/></span>
                                         </td>
-                                        <td style="<%=displayStyle%> <%=bgcolor%>"
-                                                <%=serviceDesc.length() > 30 ? "title=\"" + serviceDesc + "\"" : ""%>
-                                                <%=displayStyle.equals("") ? "class=\"smallFont\"" : "style=\"" + displayStyle + "\""%>>
-                                            <div onclick="getElementById('xml_<%=serviceCode%>').click();"><%=serviceDesc.length() > 30 ? serviceDesc.substring(0, 30) + "..." : serviceDesc%>
-                                                <!--<input type="hidden" name="desc_xml_<%=serviceCode%>" value="<%=serviceDesc%>" />-->
+                                        <td style="${entry.displayStyle} ${bgcolor}"
+                                                title="${carlos:forHtmlAttribute(fn:length(entry.serviceDesc) gt 30 ? entry.serviceDesc : '')}"
+                                                class="${entry.displayStyle eq '' ? 'smallFont' : ''}">
+                                            <div onclick="getElementById('xml_${carlos:forJavaScriptAttribute(entry.serviceCode)}').click();"><c:choose><c:when test="${fn:length(entry.serviceDesc) gt 30}"><carlos:encode value="${fn:substring(entry.serviceDesc, 0, 30)}"/>...</c:when><c:otherwise><carlos:encode value="${entry.serviceDesc}"/></c:otherwise></c:choose>
                                             </div>
                                         </td>
-                                        <td style="text-align: right; <%=displayStyle%> <%=bgcolor%>">
-                                            <div class="smallFont"><%=serviceDisp%>
+                                        <td style="text-align: right; ${entry.displayStyle} ${bgcolor}">
+                                            <div class="smallFont"><carlos:encode value='${entry.serviceDisp}' context='html'/>
                                             </div>
                                             <input
-                                                    type="hidden" name="sli_xml_<%=serviceCode%>"
-                                                    value="<%=sliFlag%>"/>
-                                            <!--<input type="hidden" name="price_xml_<%=serviceCode%>" value="<%=serviceDisp%>" />
-				    <input type="hidden" name="perc_xml_<%=serviceCode%>" value="<%=servicePercentage%>" />-->
+                                                    type="hidden" name="sli_xml_${carlos:forHtmlAttribute(entry.serviceCode)}"
+                                                    value="${entry.sliFlag}"/>
                                         </td>
                                     </tr>
-                                    <%
-                                        }
-                                    %>
+                                    </c:forEach>
                                 </table>
                             </div>
-                            <%
-                                }
-                            %>
+                            </c:forEach>
 
                         </td>
                         <td style="width: 33%; vertical-align: top;">
-                            <%
-                                for (int j = 0; j < listServiceType.size(); j++) {
-
-                                    ArrayList<Properties> vecCodeCol2 = new ArrayList<Properties>();
-                                    vecCodeCol2 = billingServiceCodesMap.get("group2_".concat(listServiceType.get(j)));
-                                    headerTitle2 = titleMap.get("group2_".concat(listServiceType.get(j)));
-                            %>
-                            <div id="group2_<%=listServiceType.get(j)%>"
-                                 style="display: none;">
-
-
+                            <c:forEach var="st" items="${formModel.serviceGrid.serviceTypes}">
+                            <c:set var="g2Key" value="group2_${st}"/>
+                            <div id="${g2Key}" style="display: none;">
                                 <table style="width: 100%;" class="border1 table-striped table-hover">
                                     <tr>
                                         <th style="width: 10%; white-space:nowrap; background-color:silver">
-                                            <div class="smallFont"><%=headerTitle2%>
+                                            <div class="smallFont"><carlos:encode value='${formModel.serviceGrid.titlesByServiceType[g2Key]}' context='html'/>
                                             </div>
                                         </th>
                                         <th style="width: 70%; background-color:silver">
@@ -2089,83 +1330,50 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                             <div class="smallFont"><fmt:message key="oscar.billing.ca.on.billingON.fee"/></div>
                                         </th>
                                     </tr>
-
-                                    <%
-                                        for (int i = 0; i < vecCodeCol2.size(); i++) {
-                                            propT = vecCodeCol2.get(i);
-                                            serviceCode = propT.getProperty("serviceCode");
-                                            serviceDesc = propT.getProperty("serviceDesc");
-                                            serviceDisp = propT.getProperty("serviceDisp");
-                                            servicePercentage = propT.getProperty("servicePercentage");
-                                            serviceType = propT.getProperty("serviceType");
-                                            displayStyle = propT.getProperty("displaystyle");
-                                            sliFlag = Boolean.parseBoolean(propT.getProperty("serviceSLI"));
-
-                                            if (propPremium.getProperty(serviceCode) != null) premiumFlag = "A";
-                                            else premiumFlag = "";
-
-                                            String bgcolor = "";
-                                            if (request.getParameter("xml_" + serviceCode) != null)
-                                                bgcolor = "background-color: #66FF66;";
-                                    %>
+                                    <c:forEach var="entry" items="${formModel.serviceGrid.codesByServiceType[g2Key]}" varStatus="rowLoop">
+                                    <c:set var="xmlParamKey" value="xml_${entry.serviceCode}"/>
+                                    <c:set var="bgcolor" value="${not empty param[xmlParamKey] ? 'background-color: #66FF66;' : ''}"/>
                                     <tr>
-                                        <td style="text-align: left; <%=displayStyle%> white-space:nowrap; <%=bgcolor%>">
+                                        <td style="text-align: left; ${entry.displayStyle} white-space:nowrap; ${bgcolor}">
                                             <input
-                                                    type="checkbox" id="xml_<%=serviceCode%>"
-                                                    name="xml_<%=serviceCode%>" value="checked"
+                                                    type="checkbox" id="xml_${carlos:forHtmlAttribute(entry.serviceCode)}"
+                                                    name="xml_${carlos:forHtmlAttribute(entry.serviceCode)}" value="checked"
                                                     onclick="refreshServicesChecked(this);"
-                                                    <%= "checked".equals(request.getParameter("xml_" + serviceCode)) ? "checked" : "" %>
-                                                    <%=bSingleClick ? "onClick='onClickServiceCode(this)'" : ""%> />
-                                            <span id="sc<%=(""+i).substring(0,1)+serviceCode%>"
-                                                  onclick="getElementById('xml_<%=serviceCode%>').click();"
-                                                  onDblClick="onDblClickServiceCode(this)"><%=serviceCode%></span>
-
+                                                    <c:if test="${param[xmlParamKey] eq 'checked'}">checked</c:if>
+                                                    <c:if test="${formModel.visit.singleClickEnabled}">onClick='onClickServiceCode(this)'</c:if> />
+                                            <span id="sc${rowLoop.index}${carlos:forHtmlAttribute(entry.serviceCode)}"
+                                                  onclick="getElementById('xml_${carlos:forJavaScriptAttribute(entry.serviceCode)}').click();"
+                                                  onDblClick="onDblClickServiceCode(this)"><carlos:encode value='${entry.serviceCode}' context='html'/></span>
                                         </td>
-                                        <td style="<%=displayStyle%> <%=bgcolor%>"
-                                                <%=serviceDesc.length() > 30 ? "title=\"" + serviceDesc + "\"" : ""%>
-                                                <%=displayStyle.equals("") ? "class=\"smallFont\"" : "style=\"" + displayStyle + "\""%>>
-                                            <div onclick="getElementById('xml_<%=serviceCode%>').click();">
-                                                <%=serviceDesc.length() > 30 ? serviceDesc.substring(0, 30) + "..." : serviceDesc%>
+                                        <td style="${entry.displayStyle} ${bgcolor}"
+                                                title="${carlos:forHtmlAttribute(fn:length(entry.serviceDesc) gt 30 ? entry.serviceDesc : '')}"
+                                                class="${entry.displayStyle eq '' ? 'smallFont' : ''}">
+                                            <div onclick="getElementById('xml_${carlos:forJavaScriptAttribute(entry.serviceCode)}').click();">
+                                                <c:choose><c:when test="${fn:length(entry.serviceDesc) gt 30}"><carlos:encode value="${fn:substring(entry.serviceDesc, 0, 30)}"/>...</c:when><c:otherwise><carlos:encode value="${entry.serviceDesc}"/></c:otherwise></c:choose>
                                             </div>
-                                            <!--<input type="hidden" name="desc_xml_<%=serviceCode%>" value="<%=serviceDesc%>" />-->
                                         </td>
-                                        <td style="text-align: right;<%=displayStyle%>  <%=bgcolor%>">
-                                            <div class="smallFont"><%=serviceDisp%>
+                                        <td style="text-align: right;${entry.displayStyle}  ${bgcolor}">
+                                            <div class="smallFont"><carlos:encode value='${entry.serviceDisp}' context='html'/>
                                             </div>
                                             <input
-                                                    type="hidden" name="sli_xml_<%=serviceCode%>"
-                                                    value="<%=sliFlag%>"/>
-                                            <!--<input type="hidden" name="price_xml_<%=serviceCode%>" value="<%=serviceDisp%>" />
-					<input type="hidden" name="perc_xml_<%=serviceCode%>" value="<%=servicePercentage%>" />-->
+                                                    type="hidden" name="sli_xml_${carlos:forHtmlAttribute(entry.serviceCode)}"
+                                                    value="${entry.sliFlag}"/>
                                         </td>
                                     </tr>
-                                    <%
-                                        }
-                                    %>
-
+                                    </c:forEach>
                                 </table>
                             </div>
-                            <%
-                                }
-                            %>
+                            </c:forEach>
 
                         </td>
                         <td style="width: 33%; vertical-align: top;">
-                            <%
-                                for (int j = 0; j < listServiceType.size(); j++) {
-
-                                    ArrayList<Properties> vecCodeCol3 = new ArrayList<Properties>();
-                                    vecCodeCol3 = billingServiceCodesMap.get("group3_".concat(listServiceType.get(j)));
-                                    headerTitle3 = titleMap.get("group3_".concat(listServiceType.get(j)));
-                            %>
-                            <div id="group3_<%=listServiceType.get(j)%>"
-                                 style="display: none;">
-
-
+                            <c:forEach var="st" items="${formModel.serviceGrid.serviceTypes}">
+                            <c:set var="g3Key" value="group3_${st}"/>
+                            <div id="${g3Key}" style="display: none;">
                                 <table style="width: 100%;" class="border1 table-striped table-hover">
                                     <tr>
                                         <th style="width: 10%; white-space:nowrap; background-color:silver">
-                                            <div class="smallFont"><%=headerTitle3%>
+                                            <div class="smallFont"><carlos:encode value='${formModel.serviceGrid.titlesByServiceType[g3Key]}' context='html'/>
                                             </div>
                                         </th>
                                         <th style="width: 70%; background-color:silver">
@@ -2175,63 +1383,40 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                             <div class="smallFont"><fmt:message key="oscar.billing.ca.on.billingON.fee"/></div>
                                         </th>
                                     </tr>
-
-                                    <%
-                                        for (int i = 0; i < vecCodeCol3.size(); i++) {
-                                            propT = vecCodeCol3.get(i);
-                                            serviceCode = propT.getProperty("serviceCode");
-                                            serviceDesc = propT.getProperty("serviceDesc");
-                                            serviceDisp = propT.getProperty("serviceDisp");
-                                            servicePercentage = propT.getProperty("servicePercentage");
-                                            serviceType = propT.getProperty("serviceType");
-                                            displayStyle = propT.getProperty("displaystyle");
-                                            sliFlag = Boolean.parseBoolean(propT.getProperty("serviceSLI"));
-
-                                            if (propPremium.getProperty(serviceCode) != null) premiumFlag = "A";
-                                            else premiumFlag = "";
-
-                                            String bgcolor = "";
-                                            if (request.getParameter("xml_" + serviceCode) != null)
-                                                bgcolor = "background-color: #66FF66;";
-                                    %>
+                                    <c:forEach var="entry" items="${formModel.serviceGrid.codesByServiceType[g3Key]}" varStatus="rowLoop">
+                                    <c:set var="xmlParamKey" value="xml_${entry.serviceCode}"/>
+                                    <c:set var="bgcolor" value="${not empty param[xmlParamKey] ? 'background-color: #66FF66;' : ''}"/>
                                     <tr>
-                                        <td style="text-align: left; <%=displayStyle%> white-space:nowrap; <%=bgcolor%>">
+                                        <td style="text-align: left; ${entry.displayStyle} white-space:nowrap; ${bgcolor}">
                                             <input
-                                                    type="checkbox" id="xml_<%=serviceCode%>"
-                                                    name="xml_<%=serviceCode%>" value="checked"
+                                                    type="checkbox" id="xml_${carlos:forHtmlAttribute(entry.serviceCode)}"
+                                                    name="xml_${carlos:forHtmlAttribute(entry.serviceCode)}" value="checked"
                                                     onclick="refreshServicesChecked(this);"
-                                                    <%= "checked".equals(request.getParameter("xml_" + serviceCode)) ? "checked" : "" %>
-                                                    <%=bSingleClick ? "onClick='onClickServiceCode(this)'" : ""%> />
-                                            <span id="sc<%=(""+i).substring(0,1)+serviceCode%>"
-                                                  onclick="getElementById('xml_<%=serviceCode%>').click();"
-                                                  onDblClick="onDblClickServiceCode(this)"><%=serviceCode%></span>
+                                                    <c:if test="${param[xmlParamKey] eq 'checked'}">checked</c:if>
+                                                    <c:if test="${formModel.visit.singleClickEnabled}">onClick='onClickServiceCode(this)'</c:if> />
+                                            <span id="sc${rowLoop.index}${carlos:forHtmlAttribute(entry.serviceCode)}"
+                                                  onclick="getElementById('xml_${carlos:forJavaScriptAttribute(entry.serviceCode)}').click();"
+                                                  onDblClick="onDblClickServiceCode(this)"><carlos:encode value='${entry.serviceCode}' context='html'/></span>
                                         </td>
-                                        <td style="<%=displayStyle%> <%=bgcolor%> "
-                                                <%=serviceDesc.length() > 30 ? "title=\"" + serviceDesc + "\"" : ""%>
-                                                <%=displayStyle.equals("") ? "class=\"smallFont\"" : "style=\"" + displayStyle + "\""%>>
-                                            <div onclick="getElementById('xml_<%=serviceCode%>').click();">
-                                                <%=serviceDesc.length() > 30 ? serviceDesc.substring(0, 30) + "..." : serviceDesc%>
-                                                <!--<input type="hidden" name="desc_xml_<%=serviceCode%>" value="<%=serviceDesc%>" />-->
+                                        <td style="${entry.displayStyle} ${bgcolor} "
+                                                title="${carlos:forHtmlAttribute(fn:length(entry.serviceDesc) gt 30 ? entry.serviceDesc : '')}"
+                                                class="${entry.displayStyle eq '' ? 'smallFont' : ''}">
+                                            <div onclick="getElementById('xml_${carlos:forJavaScriptAttribute(entry.serviceCode)}').click();">
+                                                <c:choose><c:when test="${fn:length(entry.serviceDesc) gt 30}"><carlos:encode value="${fn:substring(entry.serviceDesc, 0, 30)}"/>...</c:when><c:otherwise><carlos:encode value="${entry.serviceDesc}"/></c:otherwise></c:choose>
                                             </div>
                                         </td>
-                                        <td style="text-align: right; <%=displayStyle%>  <%=bgcolor%>">
-                                            <div class="smallFont"><%=serviceDisp%>
+                                        <td style="text-align: right; ${entry.displayStyle}  ${bgcolor}">
+                                            <div class="smallFont"><carlos:encode value='${entry.serviceDisp}' context='html'/>
                                             </div>
                                             <input
-                                                    type="hidden" name="sli_xml_<%=serviceCode%>"
-                                                    value="<%=sliFlag%>"/>
-                                            <!--<input type="hidden" name="price_xml_<%=serviceCode%>" value="<%=serviceDisp%>" />
-					<input type="hidden" name="perc_xml_<%=serviceCode%>" value="<%=servicePercentage%>" />-->
+                                                    type="hidden" name="sli_xml_${carlos:forHtmlAttribute(entry.serviceCode)}"
+                                                    value="${entry.sliFlag}"/>
                                         </td>
                                     </tr>
-                                    <%
-                                        }
-                                    %>
+                                    </c:forEach>
                                 </table>
                             </div>
-                            <%
-                                }
-                            %>
+                            </c:forEach>
 
                         </td>
                     </tr>
@@ -2239,54 +1424,63 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
             </td>
         </tr>
 
-        <input type="hidden" name="clinic_no" value="<%=clinicNo%>"/>
-        <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demo_no %>' context="htmlAttribute"/>"/>
-        <input type="hidden" name="appointment_no" value="<carlos:encode value='<%= appt_no %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="clinic_no" value="<carlos:encode value='${formModel.visit.clinicNo}' context='htmlAttribute'/>"/>
+        <input type="hidden" name="demographic_no" value="<carlos:encode value='${formModel.requestContext.demographicNo}' context='htmlAttribute'/>"/>
+        <input type="hidden" name="appointment_no" value="<carlos:encode value='${formModel.requestContext.appointmentNo}' context='htmlAttribute'/>"/>
 
         <input type="hidden" name="ohip_version" value="V03G"/>
-        <input type="hidden" name="hin" value="<%=demoHIN%>"/>
-        <input type="hidden" name="ver" value="<%=demoVer%>"/>
-        <input type="hidden" name="hc_type" value="<%=demoHCTYPE%>"/>
-        <input type="hidden" name="sex" value="<carlos:encode value='<%= demoSex %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="hin" value="<carlos:encode value='${formModel.demographic.hin}' context='htmlAttribute'/>"/>
+        <input type="hidden" name="ver" value="<carlos:encode value='${formModel.demographic.ver}' context='htmlAttribute'/>"/>
+        <input type="hidden" name="hc_type" value="<carlos:encode value='${formModel.demographic.hcType}' context='htmlAttribute'/>"/>
+        <input type="hidden" name="sex" value="<carlos:encode value='${formModel.demographic.sex}' context='htmlAttribute'/>"/>
 
         <input type="hidden" name="start_time"
-               value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")) %>' context="htmlAttribute"/>"/>
+               value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"start_time\"]}' context='htmlAttribute'/>"/>
 
-        <input type="hidden" name="demographic_dob" value="<%=demoDOB%>"/>
+        <input type="hidden" name="demographic_dob" value="<carlos:encode value='${formModel.demographic.dob}' context='htmlAttribute'/>"/>
 
         <input type="hidden" name="apptProvider_no"
-               value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' context="htmlAttribute"/>"/>
+               value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"apptProvider_no\"]}' context='htmlAttribute'/>"/>
         <input type="hidden" name="asstProvider_no"
-               value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("asstProvider_no")) %>' context="htmlAttribute"/>"/>
+               value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"asstProvider_no\"]}' context='htmlAttribute'/>"/>
 
-        <input type="hidden" name="demographic_name" value="<carlos:encode value='<%= demoname %>' context="htmlAttribute"/>"/>
-        <input type="hidden" name="providerview" value="<carlos:encode value='<%= providerview %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="demographic_name" value="<carlos:encode value='${formModel.requestContext.demoName}' context='htmlAttribute'/>"/>
+        <input type="hidden" name="providerview" value="<carlos:encode value='${formModel.providerPanel.providerView}' context='htmlAttribute'/>"/>
         <input type="hidden" name="appointment_date"
-               value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")) %>' context="htmlAttribute"/>"/>
+               value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"appointment_date\"]}' context='htmlAttribute'/>"/>
         <input type="hidden" name="assgProvider_no"
-               value="<carlos:encode value='<%= assgProvider_no %>' context="htmlAttribute"/>"/>
-        <input type="hidden" name="billForm" value="<carlos:encode value='<%= ctlBillForm %>' context="htmlAttribute"/>"/>
-        <input type="hidden" name="curBillForm" value="<carlos:encode value='<%= ctlBillForm %>' context="htmlAttribute"/>"/>
+               value="<carlos:encode value='${formModel.providerPanel.assgProviderNo}' context='htmlAttribute'/>"/>
+        <%-- billForm is already declared at the form-name input above (line ~1573,
+             id="billForm") — that field is the one toggleDiv() updates when the
+             user switches forms. Keeping a second name="billForm" here would
+             post two values for the same param, making the receiver dependent
+             on parameter ordering. curBillForm tracks the original form. --%>
+        <input type="hidden" name="curBillForm" value="<carlos:encode value='${formModel.requestContext.ctlBillForm}' context='htmlAttribute'/>"/>
         <input type="hidden" name="services_checked">
         <input type="hidden" name="url_back">
         <input type="hidden" name="billNo_old" id="billNo_old"
-               value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("billNo_old")) %>' context="htmlAttribute"/>"/>
+               value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"billNo_old\"]}' context='htmlAttribute'/>"/>
         <input type="hidden" name="billStatus_old" id="billStatus_old"
-               value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("billStatus_old")) %>' context="htmlAttribute"/>"/>
+               value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"billStatus_old\"]}' context='htmlAttribute'/>"/>
 
     </table>
 
     <table style="width: 100%; border-spacing:2px;"
     >
-        <tr style="background-color: silver;">
-            <td><carlos:encode value='<%= demoname %>' context="html"/> - <b><fmt:message key="oscar.billing.ca.on.billingON.billingHistory"/></b> (last 5 records)</td>
-            <td style="width: 20%; text-align: right"><fmt:message key="oscar.billing.ca.on.billingON.last"/> <input type="text"
+	        <tr style="background-color: silver;">
+	            <td><carlos:encode value='${formModel.requestContext.demoName}' context="html"/> - <b><fmt:message key="oscar.billing.ca.on.billingON.billingHistory"/></b> (last 5 records)</td>
+	            <td style="width: 20%; text-align: right"><fmt:message key="oscar.billing.ca.on.billingON.last"/> <input type="text"
                                                                   name="day" value="365" class="form-control form-control-sm d-inline-block w-auto"/> <fmt:message key="oscar.billing.ca.on.billingON.days"/>
                 <input type="button"
                        name="buttonDay" value="<fmt:message key="oscar.billing.ca.on.billingON.go"/>" onClick="onHistory(); return false;"/>
             </td>
-        </tr>
-    </table>
+	        </tr>
+	        <c:if test="${formModel.historyUnavailable}">
+	            <tr>
+	                <td colspan="2"><div class="alert">Billing history is temporarily unavailable. Recent claims may be incomplete.</div></td>
+	            </tr>
+	        </c:if>
+	    </table>
 </form>
 
 <table style="width: 100%; border-spacing:2px;"
@@ -2303,29 +1497,16 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                     <th style="white-space:nowrap"><fmt:message key="oscar.billing.ca.on.billingON.history.dx"/></th>
                     <th><fmt:message key="oscar.billing.ca.on.billingON.history.createDate"/></th>
                 </tr>
-                <%
-                    // new billing records
-                    for (int i = 0; i < aL.size(); i = i + 2) {
-                        BillingClaimHeader1Data obj = (BillingClaimHeader1Data) aL.get(i);
-                        BillingItemData iobj = (BillingItemData) aL.get(i + 1);
-                %>
+                <c:forEach var="row" items="${formModel.patient.billingHistoryRows}">
                 <tr style="text-align: center">
-                    <td class="smallFont"><%=obj.getId()%>
-                    </td>
-                    <td class="smallFont"><%=obj.getBilling_date()%>
-                    </td>
-                    <td class="smallFont"><%=iobj.getService_date()%>
-                    </td>
-                    <td class="smallFont"><%=iobj.getService_code()%>
-                    </td>
-                    <td class="smallFont"><%=iobj.getDx()%>
-                    </td>
-                    <td class="smallFont"><%=obj.getUpdate_datetime().substring(0, 10)%>
-                    </td>
+                    <td class="smallFont"><carlos:encode value='${row.id}' context='html'/></td>
+                    <td class="smallFont"><carlos:encode value='${row.billingDate}' context='html'/></td>
+                    <td class="smallFont"><carlos:encode value='${row.serviceDate}' context='html'/></td>
+                    <td class="smallFont"><carlos:encode value='${row.serviceCode}' context='html'/></td>
+                    <td class="smallFont"><carlos:encode value='${row.dx}' context='html'/></td>
+                    <td class="smallFont"><carlos:encode value='${row.updateDate}' context='html'/></td>
                 </tr>
-                <%
-                    }
-                %>
+                </c:forEach>
             </table>
         </td>
     </tr>
@@ -2341,7 +1522,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
         singleClick: true,
         step: 1
     });
-    <%if (appt_no.compareTo("0") == 0) {%>
+    <c:if test="${formModel.requestContext.appointmentNo eq '0'}">
     Calendar.setup({
         inputField: "service_date",
         ifFormat: "%Y-%m-%d",
@@ -2350,7 +1531,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
         singleClick: true,
         step: 1
     });
-    <%}%>
+    </c:if>
 
 function getDays() {
     if (!document.getElementById("xml_vdate") || !document.getElementById("service_date")) { return; }
@@ -2384,25 +1565,6 @@ function getDays() {
 }
 
 </script>
-
-<%!
-    String getDefaultValue(String paraName, Vector vec, String propName) {
-        String ret = "";
-        if (paraName != null && !"".equals(paraName)) {
-            ret = paraName;
-        } else if (vec != null && vec.size() > 0 && vec.get(0) != null) {
-            ret = ((Properties) vec.get(0)).getProperty(propName, "");
-        }
-        return ret;
-    }
-
-    String noNull(String str) {
-        if (str != null) {
-            return str;
-        }
-        return "";
-    }
-%>
 
 </body>
 </html>

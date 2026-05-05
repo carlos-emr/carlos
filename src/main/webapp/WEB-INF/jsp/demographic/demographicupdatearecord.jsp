@@ -54,6 +54,8 @@
 
     <%-- Read request attributes set by DemographicUpdate2Action --%>
     <%
+        java.util.List<String> fieldLengthValidationErrors =
+            (java.util.List<String>) request.getAttribute("fieldLengthValidationErrors");
         String demographicNo = (String) request.getAttribute("demographicNo");
         io.github.carlos_emr.carlos.commn.model.Demographic hinDuplicateDemo =
             (io.github.carlos_emr.carlos.commn.model.Demographic) request.getAttribute("hinDuplicateDemo");
@@ -70,7 +72,16 @@
     %>
 
     <%-- HIN duplicate result --%>
-    <% if (hinDuplicateDemo != null) { %>
+    <% if (fieldLengthValidationErrors != null && !fieldLengthValidationErrors.isEmpty()) { %>
+    <span style="color:red;">One or more demographic fields exceed the maximum allowed length.</span><br><br>
+    <ul>
+        <% for (String validationError : fieldLengthValidationErrors) { %>
+        <li><carlos:encode value='<%= validationError %>'/></li>
+        <% } %>
+    </ul>
+    <a href="#" onClick="history.go(-1);return false;"><b>&lt;-
+        <fmt:message key="global.btnBack"/></b></a>
+    <% } else if (hinDuplicateDemo != null) { %>
     <span style="color:red;">
         <fmt:message key="demographic.demographicupdatearecord.msgDuplicatedHINError"/></span><br>
     <fmt:message key="demographic.msgDuplicatedHINDetail"/>

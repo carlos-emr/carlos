@@ -53,7 +53,7 @@ public interface DiagnosticCodeDao extends AbstractCodeSystemDao<DiagnosticCode>
 
     List<DiagnosticCode> findByRegionAndType(String billRegion, String serviceType);
 
-    List<Object[]> findDiagnosictsAndCtlDiagCodesByServiceType(String serviceType);
+    List<io.github.carlos_emr.carlos.commn.dao.projection.DiagnosticCodeRow> findDiagnosictsAndCtlDiagCodesByServiceType(String serviceType);
 
     DiagnosticCode findByCode(String code);
 

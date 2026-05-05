@@ -404,9 +404,6 @@ public class ProviderManager2 {
             settings.setDisableCommentOnAck("yes".equals(map.get("lab_ack_comment").getValue()) ? true : false);
         }
 
-        if (map.get("disable_born_prompts") != null) {
-        }
-
         if (map.get("dashboard_share") != null) {
             settings.setDashboardShare("Y".equals(map.get("dashboard_share").getValue()) || "true".equals(map.get("dashboard_share").getValue()));
         }
@@ -655,7 +652,6 @@ public class ProviderManager2 {
         p.setValue(settings.isDisableCommentOnAck() ? "yes" : "no");
 
 
-        p = getMappedOrNewProperty(map, "disable_born_prompts", providerNo);
         p = getMappedOrNewProperty(map, "dashboard_share", providerNo);
         p.setValue(String.valueOf(settings.isDashboardShare()));
 

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  External Tomcat context descriptor for the drugref2 webapp.
+
+  Mounted at $CATALINA_BASE/conf/Catalina/localhost/drugref2.xml so it takes
+  precedence over META-INF/context.xml inside drugref2.war (which restricts
+  access to 127.0.0.1 only and breaks container-to-container access).
+
+  `allow` covers every address a devcontainer network realistically uses
+  across Podman (netavark / CNI / slirp4netns) and Docker (bridge / custom):
+    - IPv4 loopback             127.0.0.0/8
+    - IPv4 RFC1918 private      10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+    - IPv4 CGNAT                100.64.0.0/10
+    - IPv4 link-local           169.254.0.0/16
+    - IPv6 loopback             ::1
+    - IPv6 unique local (ULA)   fc00::/7
+    - IPv6 link-local           fe80::/10
+
+  IPv4-mapped IPv6 (::ffff:x.x.x.x) is not listed separately: Tomcat's
+  RemoteCIDRValve treats these as IPv4 under the hood, so the IPv4 ranges
+  above already cover them.
+
+  Values are hardcoded because Tomcat's RemoteCIDRValve splits `allow` on
+  commas before system-property substitution runs, so `${name:a,b,c}` style
+  placeholders with comma-separated defaults fail to parse. If you ever need
+  to override this, replace the attribute value directly.
+-->
+<Context>
+    <Valve className="org.apache.catalina.valves.RemoteCIDRValve"
+           allow="127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,100.64.0.0/10,169.254.0.0/16,::1,fc00::/7,fe80::/10" />
+</Context>

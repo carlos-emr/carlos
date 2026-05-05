@@ -43,6 +43,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
@@ -74,6 +75,11 @@ public final class BillingUpdateBilling2Action
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
 
         String creator = (String) request.getSession().getAttribute("user");
 
@@ -94,7 +100,10 @@ public final class BillingUpdateBilling2Action
         try {
             n.addNoteFromBillingNo(this.getBillingNo(), creator, this.getMessageNotes());
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            throw new IllegalStateException(
+                    "BC billing note update failed for billingNo="
+                            + LogSanitizer.sanitizeForDisplay(this.getBillingNo()),
+                    e);
         }
 
         return SUCCESS;
