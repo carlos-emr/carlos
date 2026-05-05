@@ -220,8 +220,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         // To help overcome interuptions, consider reworking process to upload files quickly to temporary folder before batch back end procesing and reporting of status
 
         // initialize
+        // Read the provider number from session and reject blank values before calling EctProgram.
         admProviderNo = (String) request.getSession().getAttribute("user");
-        // Treat whitespace-only session values as missing so invalid provider numbers never reach EctProgram.
         if (StringUtils.isBlank(admProviderNo)) {
             logger.warn("Demographic import request is missing the session user attribute");
             return "logout";
