@@ -59,7 +59,7 @@
     <div class="action-errors">
         <ul>
         <% for (String error : actionErrors) { %>
-                <li><carlos:encode value='<%= error %>' context="html"/></li>
+                <li><carlos:encode value='<%= error %>' context="htmlContent"/></li>
             <% } %>
         </ul>
     </div>

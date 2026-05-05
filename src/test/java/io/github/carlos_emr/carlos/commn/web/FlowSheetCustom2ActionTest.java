@@ -34,7 +34,7 @@ import static org.mockito.Mockito.when;
  *
  * @since 2026-05-05
  */
-@DisplayName("FlowSheetCustom2Action POST-only contract")
+@DisplayName("FlowSheetCustom2Action - HTTP method and privilege contract tests")
 @Tag("integration")
 @Tag("clinical")
 class FlowSheetCustom2ActionTest extends CarlosWebTestBase {

@@ -34,7 +34,7 @@ import static org.mockito.Mockito.when;
  *
  * @since 2026-05-05
  */
-@DisplayName("EctMeasurements2Action POST-only contract")
+@DisplayName("EctMeasurements2Action - HTTP method and privilege contract tests")
 @Tag("integration")
 @Tag("clinical")
 class EctMeasurements2ActionTest extends CarlosWebTestBase {
