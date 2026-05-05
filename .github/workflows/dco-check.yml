@@ -248,7 +248,7 @@ jobs:
               comment_confirmed_at="$updated_at"
               comment_confirmed_epoch="$updated_epoch"
               if [ "$updated_epoch" -lt "$created_epoch" ]; then
-                echo "::error::PR #$PR_NUMBER: DCO confirmation comment from $author has updated_at ($updated_at) earlier than created_at ($created_at)."
+                echo "::error::PR #$PR_NUMBER: DCO confirmation comment timestamp integrity check failed for $author: updated_at ($updated_at) is earlier than created_at ($created_at)."
                 exit 1
               fi
 
@@ -266,6 +266,7 @@ jobs:
                     break
                   fi
                   stale_confirmation_found=true
+                  # Continue scanning so every stale confirmation gets a warning and a newer fresh confirmation can still pass.
                   echo "::warning::PR #$PR_NUMBER: Ignoring stale DCO confirmation from $author at $comment_confirmed_at (latest commit is $latest_commit_at). A fresh confirmation is required after the latest commit."
                 fi
               fi
