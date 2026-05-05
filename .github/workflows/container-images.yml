@@ -217,14 +217,14 @@ jobs:
 
       - name: Save tested tomcat-dev image
         run: |
-          mkdir -p /tmp/container-images
-          docker save carlos-tomcat-dev:test -o /tmp/container-images/carlos-tomcat-dev.tar
+          mkdir -p "$RUNNER_TEMP/container-images"
+          docker save carlos-tomcat-dev:test -o "$RUNNER_TEMP/container-images/carlos-tomcat-dev.tar"
 
       - name: Upload tested tomcat-dev image
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: carlos-tomcat-dev-image
-          path: /tmp/container-images/carlos-tomcat-dev.tar
+          path: ${{ runner.temp }}/container-images/carlos-tomcat-dev.tar
           retention-days: 1
 
   publish-tomcat:
@@ -239,7 +239,7 @@ jobs:
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: carlos-tomcat-dev-image
-          path: /tmp/container-images
+          path: ${{ runner.temp }}/container-images
 
       - name: Log in to Container Registry
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
@@ -253,7 +253,7 @@ jobs:
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-tomcat-dev
           SHOULD_PUSH_LATEST: ${{ github.ref_name == 'develop' }}
         run: |
-          docker load -i /tmp/container-images/carlos-tomcat-dev.tar
+          docker load -i "$RUNNER_TEMP/container-images/carlos-tomcat-dev.tar"
           docker tag carlos-tomcat-dev:test "$IMAGE:${{ github.sha }}"
           if [ "$SHOULD_PUSH_LATEST" = "true" ]; then
             docker tag carlos-tomcat-dev:test "$IMAGE:latest"
@@ -363,14 +363,14 @@ jobs:
 
       - name: Save tested mariadb-dev image
         run: |
-          mkdir -p /tmp/container-images
-          docker save carlos-mariadb-dev:test -o /tmp/container-images/carlos-mariadb-dev.tar
+          mkdir -p "$RUNNER_TEMP/container-images"
+          docker save carlos-mariadb-dev:test -o "$RUNNER_TEMP/container-images/carlos-mariadb-dev.tar"
 
       - name: Upload tested mariadb-dev image
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: carlos-mariadb-dev-image
-          path: /tmp/container-images/carlos-mariadb-dev.tar
+          path: ${{ runner.temp }}/container-images/carlos-mariadb-dev.tar
           retention-days: 1
 
   publish-mariadb:
@@ -385,7 +385,7 @@ jobs:
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: carlos-mariadb-dev-image
-          path: /tmp/container-images
+          path: ${{ runner.temp }}/container-images
 
       - name: Log in to Container Registry
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
@@ -399,7 +399,7 @@ jobs:
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-mariadb-dev
           SHOULD_PUSH_LATEST: ${{ github.ref_name == 'develop' }}
         run: |
-          docker load -i /tmp/container-images/carlos-mariadb-dev.tar
+          docker load -i "$RUNNER_TEMP/container-images/carlos-mariadb-dev.tar"
           docker tag carlos-mariadb-dev:test "$IMAGE:${{ github.sha }}"
           if [ "$SHOULD_PUSH_LATEST" = "true" ]; then
             docker tag carlos-mariadb-dev:test "$IMAGE:latest"
@@ -484,14 +484,14 @@ jobs:
 
       - name: Save tested drugref image
         run: |
-          mkdir -p /tmp/container-images
-          docker save carlos-drugref:test -o /tmp/container-images/carlos-drugref.tar
+          mkdir -p "$RUNNER_TEMP/container-images"
+          docker save carlos-drugref:test -o "$RUNNER_TEMP/container-images/carlos-drugref.tar"
 
       - name: Upload tested drugref image
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: carlos-drugref-image
-          path: /tmp/container-images/carlos-drugref.tar
+          path: ${{ runner.temp }}/container-images/carlos-drugref.tar
           retention-days: 1
 
   publish-drugref:
@@ -506,7 +506,7 @@ jobs:
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: carlos-drugref-image
-          path: /tmp/container-images
+          path: ${{ runner.temp }}/container-images
 
       - name: Log in to Container Registry
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
@@ -520,7 +520,7 @@ jobs:
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-drugref
           SHOULD_PUSH_LATEST: ${{ github.ref_name == 'develop' }}
         run: |
-          docker load -i /tmp/container-images/carlos-drugref.tar
+          docker load -i "$RUNNER_TEMP/container-images/carlos-drugref.tar"
           docker tag carlos-drugref:test "$IMAGE:${{ github.sha }}"
           if [ "$SHOULD_PUSH_LATEST" = "true" ]; then
             docker tag carlos-drugref:test "$IMAGE:latest"

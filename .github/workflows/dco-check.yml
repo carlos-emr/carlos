@@ -245,6 +245,7 @@ jobs:
               updated_epoch=$(date -d "$updated_at" +%s)
               comment_confirmed_at="$updated_at"
               comment_confirmed_epoch="$updated_epoch"
+              # Defensive fallback for unexpected API timestamp inconsistencies.
               if [ "$updated_epoch" -lt "$created_epoch" ]; then
                 echo "::warning::DCO confirmation comment from $author has updated_at earlier than created_at; falling back to created_at."
                 comment_confirmed_at="$created_at"
@@ -406,6 +407,7 @@ jobs:
 
           if [ "$MANUAL_CONFIRMED" = "true" ]; then
             echo "DCO check passed via manual confirmation from $CONFIRMING_USER ($CONFIRMING_ASSOCIATION) at $CONFIRMING_AT."
+            # Keep pull_request_target statuses current when an existing fresh confirmation is reused.
             delete_failure_comment
             set_dco_status success "DCO manually confirmed by $CONFIRMING_USER"
             if [ "$EVENT_NAME" = "issue_comment" ]; then
