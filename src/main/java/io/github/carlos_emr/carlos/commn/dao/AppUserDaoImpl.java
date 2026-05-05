@@ -31,6 +31,7 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import jakarta.persistence.Query;
@@ -40,6 +41,7 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public class AppUserDaoImpl extends AbstractDaoImpl<AppUser> implements AppUserDao {
+    private static final int IN_CLAUSE_BATCH_SIZE = 500;
 
     public AppUserDaoImpl() {
         super(AppUser.class);
@@ -56,5 +58,22 @@ public class AppUserDaoImpl extends AbstractDaoImpl<AppUser> implements AppUserD
         }
 
         return list.get(0);
+    }
+
+    @Override
+    public List<AppUser> findForProviderByAppIds(List<Integer> appIds, String providerNo) {
+        if (appIds == null || appIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<AppUser> results = new ArrayList<>();
+        for (int index = 0; index < appIds.size(); index += IN_CLAUSE_BATCH_SIZE) {
+            List<Integer> appIdBatch = appIds.subList(index, Math.min(index + IN_CLAUSE_BATCH_SIZE, appIds.size()));
+            Query query = entityManager.createQuery("select x from AppUser x where x.appId in (?1) and x.providerNo = ?2");
+            query.setParameter(1, appIdBatch);
+            query.setParameter(2, providerNo);
+            results.addAll(query.getResultList());
+        }
+        return results;
     }
 }

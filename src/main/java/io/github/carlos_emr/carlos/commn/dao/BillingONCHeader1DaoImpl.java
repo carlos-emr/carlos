@@ -1,37 +1,28 @@
 /**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
- * <p>
  * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- * <p>
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- * <p>
- * This software was written for
- * Centre for Research on Inner City Health, St. Michael's Hospital,
- * Toronto, Ontario, Canada
- * <p>
- * Modifications made by Magenta Health in 2024.
- 
- * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
+ *
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
  */
-
 package io.github.carlos_emr.carlos.commn.dao;
 
-import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -46,24 +37,16 @@ import java.util.Map.Entry;
 import jakarta.persistence.Query;
 
 import org.apache.commons.lang3.StringUtils;
-import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.billings.dto.BillingONCListItemDTO;
 import io.github.carlos_emr.carlos.PMmodule.utility.DateUtils;
-import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingPercLimit;
-import io.github.carlos_emr.carlos.billing.CA.dao.GstControlDao;
-import io.github.carlos_emr.carlos.billing.CA.model.GstControl;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
-import io.github.carlos_emr.carlos.commn.model.BillingService;
-import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.DateRange;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
-import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingStatusPrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingStatusLoader;
 import io.github.carlos_emr.carlos.util.ParamAppender;
 
 /**
@@ -73,15 +56,6 @@ import io.github.carlos_emr.carlos.util.ParamAppender;
 @Repository
 @SuppressWarnings("unchecked")
 public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1> implements BillingONCHeader1Dao {
-
-    @Autowired
-    private DemographicDao demographicDao;
-    @Autowired
-    private ProviderDao providerDao;
-    @Autowired
-    private BillingServiceDao billingServiceDao;
-    @Autowired
-    private GstControlDao gstControlDao;
 
     public BillingONCHeader1DaoImpl() {
         super(BillingONCHeader1.class);
@@ -120,200 +94,83 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
     }
 
     @Override
-    public String createBill(String provider, Integer demographic, String code, String clinicRefCode, Date serviceDate,
-                             String curUser) {
-        BillingONCHeader1 header1 = null;
-        Provider prov = providerDao.getProvider(provider);
-        CarlosProperties properties = CarlosProperties.getInstance();
-        ArrayList<String> codes = new ArrayList<String>();
-        ArrayList<String> dxCodes = new ArrayList<String>();
-
-        codes.add(code);
-        String total = this.calcTotal(codes, serviceDate);
-
-        header1 = this.assembleHeader1(prov, demographic, clinicRefCode, serviceDate, total, curUser, properties);
-        if (header1 == null)
-            return null;
-        this.addItems(header1, codes, dxCodes, serviceDate);
-        this.persist(header1);
-
-        return total;
+    public List<BillingONItem> findActiveItems(Integer invoiceNo) {
+        if (invoiceNo == null) {
+            return java.util.Collections.emptyList();
+        }
+        // Direct query — sidesteps the parent entity's billingItems collection
+        // entirely, so this works (and is efficient) regardless of the
+        // BillingONCHeader1.billingItems fetch type.
+        Query q = entityManager.createQuery("SELECT i FROM BillingONItem i WHERE i.ch1Id = ?1 AND i.status != 'D'");
+        q.setParameter(1, invoiceNo);
+        return q.getResultList();
     }
 
     @Override
-    public String createBill(String provider, Integer demographic, String code, String dxCode, String clinicRefCode,
-                             Date serviceDate, String curUser) {
-        BillingONCHeader1 header1 = null;
-        Provider prov = providerDao.getProvider(provider);
-        CarlosProperties properties = CarlosProperties.getInstance();
-        ArrayList<String> codes = new ArrayList<String>();
-        ArrayList<String> dxCodes = new ArrayList<String>();
-
-        codes.add(code);
-        dxCodes.add(dxCode);
-
-        String total = this.calcTotal(codes, serviceDate);
-
-        header1 = this.assembleHeader1(prov, demographic, clinicRefCode, serviceDate, total, curUser, properties);
-        if (header1 == null)
-            return null;
-        this.addItems(header1, codes, dxCodes, serviceDate);
-        this.persist(header1);
-
-        return total;
+    public List<BillingONItem> findActiveItemsByInvoiceNos(List<Integer> invoiceNos) {
+        if (invoiceNos == null || invoiceNos.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        Query q = entityManager.createQuery(
+                "SELECT i FROM BillingONItem i WHERE i.ch1Id IN (?1) AND i.status != 'D' ORDER BY i.ch1Id, i.id");
+        q.setParameter(1, invoiceNos);
+        return q.getResultList();
     }
 
     @Override
-    public String createBills(String provider, List<String> demographic_nos, List<String> codes, List<String> dxcodes,
-                              String clinicRefCode, Date serviceDate, String curUser) {
-        BillingONCHeader1 header1 = null;
-        Provider prov = providerDao.getProvider(provider);
-        CarlosProperties properties = CarlosProperties.getInstance();
-
-        String total = calcTotal(codes, serviceDate);
-        for (String demographic : demographic_nos) {
-            header1 = this.assembleHeader1(prov, Integer.parseInt(demographic), clinicRefCode, serviceDate, total,
-                    curUser, properties);
-            if (header1 == null)
-                continue;
-            this.addItems(header1, codes, dxcodes, serviceDate);
-            this.persist(header1);
+    public List<BillingONItem> findItemsByInvoiceNos(List<Integer> invoiceNos) {
+        if (invoiceNos == null || invoiceNos.isEmpty()) {
+            return java.util.Collections.emptyList();
         }
-
-        return total;
+        Query q = entityManager.createQuery(
+                "SELECT i FROM BillingONItem i WHERE i.ch1Id IN (?1) ORDER BY i.ch1Id, i.id");
+        q.setParameter(1, invoiceNos);
+        return q.getResultList();
     }
 
-    private BillingONCHeader1 assembleHeader1(Provider prov, Integer demographic, String clinicRefCode,
-                                              Date serviceDate, String total, String curUser, CarlosProperties properties) {
-
-        BillingONCHeader1 header1 = new BillingONCHeader1();
-        header1.setTranscId(BillingDataHlp.CLAIMHEADER1_TRANSACTIONIDENTIFIER);
-        header1.setRecId(BillingDataHlp.CLAIMHEADER1_REORDIDENTIFICATION);
-        header1.setHeaderId(0);
-
-        Demographic demo = demographicDao.getDemographicById(demographic);
-
-        if (demo == null) {
+    @Override
+    public BillingONCHeader1 findForUpdate(Integer id) {
+        if (id == null) {
             return null;
         }
-        header1.setHin(demo.getHin());
-        header1.setVer(demo.getVer());
-        header1.setDob(demo.getDateOfBirth());
-        String payProg = demo.getHcType().equals("ON") ? "HCP" : "RMB";
-        header1.setPayProgram(payProg);
-        header1.setPayee(BillingDataHlp.CLAIMHEADER1_PAYEE);
-        header1.setRefNum("");
-        header1.setFaciltyNum(clinicRefCode);
-        // header1.setAdmissionDate(null);
-        header1.setRefLabNum("");
-        header1.setManReview("");
-        header1.setLocation(properties.getProperty("clinic_no", ""));
-        header1.setDemographicNo(Integer.valueOf(demographic));
-        header1.setProviderNo(prov.getProviderNo());
-        header1.setAppointmentNo(0);
-        header1.setDemographicName(demo.getLastName() + "," + demo.getFirstName());
-        header1.setSex(demo.getSex());
-        header1.setProvince(demo.getHcType());
-        header1.setBillingDate(serviceDate);
-        header1.setBillingTime(serviceDate);
-        header1.setPaid(new BigDecimal("0.00"));
-        header1.setStatus("O");
-        header1.setComment("");
-        header1.setVisitType("00");
-        header1.setProviderOhipNo(prov.getOhipNo());
-        header1.setProviderRmaNo(prov.getRmaNo());
-        header1.setApptProviderNo("");
-        header1.setAsstProviderNo("");
-        header1.setCreator(curUser);
-        header1.setTotal(new BigDecimal(total));
-
-        return header1;
+        Query query = entityManager.createNativeQuery(
+                "SELECT * FROM billing_on_cheader1 WHERE id = ?1 FOR UPDATE",
+                BillingONCHeader1.class);
+        query.setParameter(1, id);
+        List<BillingONCHeader1> rows = query.getResultList();
+        return rows.isEmpty() ? null : rows.get(0);
     }
 
-    private void addItems(BillingONCHeader1 h1, List<String> codes, List<String> dxcodes, Date serviceDate) {
-
-        BillingService billingService = null;
-        BillingONItem item = null;
-        for (String code : codes) {
-            item = new BillingONItem();
-            item.setTranscId(BillingDataHlp.ITEM_TRANSACTIONIDENTIFIER);
-            item.setRecId(BillingDataHlp.ITEM_REORDIDENTIFICATION);
-            item.setServiceCode(code);
-
-            billingService = billingServiceDao.searchBillingCode(code, "ON", serviceDate);
-            item.setFee(billingService.getValue());
-            item.setServiceCount("1");
-            item.setServiceDate(serviceDate);
-            item.setStatus("O");
-
-            if (dxcodes.size() == 1) {
-                item.setDx(dxcodes.get(0));
-                item.setDx1("");
-                item.setDx2("");
-            } else if (dxcodes.size() == 2) {
-                item.setDx(dxcodes.get(0));
-                item.setDx1(dxcodes.get(1));
-                item.setDx2("");
-            } else if (dxcodes.size() == 3) {
-                item.setDx(dxcodes.get(0));
-                item.setDx1(dxcodes.get(1));
-                item.setDx2(dxcodes.get(2));
-            } else {
-                item.setDx("");
-                item.setDx1("");
-                item.setDx2("");
-            }
-
-            h1.getBillingItems().add(item);
+    @Override
+    public BillingONCHeader1 findWithItems(Integer id) {
+        if (id == null) {
+            return null;
         }
+        Query q = entityManager.createQuery("SELECT DISTINCT h FROM BillingONCHeader1 h LEFT JOIN FETCH h.billingItems WHERE h.id = ?1");
+        q.setParameter(1, id);
+        List<BillingONCHeader1> rows = q.getResultList();
+        return rows.isEmpty() ? null : rows.get(0);
     }
 
-    private String calcTotal(List<String> codes, Date serviceDate) {
-        GstControl gstControl = gstControlDao.find(Integer.valueOf(1));
-        BigDecimal gst;
-        BigDecimal gstTotal;
-        BigDecimal total = new BigDecimal(0.0);
-        BigDecimal percent = new BigDecimal(0.0);
-        BillingPercLimit billingPerc;
-        ArrayList<BillingService> aPercentCodes = new ArrayList<BillingService>();
-        BillingService billingservice = null;
-        for (String code : codes) {
-            billingservice = billingServiceDao.searchBillingCode(code, "ON", serviceDate);
-
-            if (billingservice != null && billingservice.getPercentage() != null
-                    && !billingservice.getPercentage().equalsIgnoreCase("")) {
-                // billingPerc = billingservice
-                aPercentCodes.add(billingservice);
-
-            } else {
-                if (billingservice != null && billingservice.getGstFlag()) {
-                    gst = gstControl.getGstPercent();
-                    gst = gst.divide(new BigDecimal(100.0));
-                    gstTotal = gst.multiply(new BigDecimal(Double.parseDouble(billingservice.getValue())));
-                    total = total.add(gstTotal).setScale(2, BigDecimal.ROUND_HALF_UP);
-                }
-
-                if (billingservice != null)
-                    total = total.add(new BigDecimal(billingservice.getValue()));
-            }
+    @Override
+    public List<BillingONCHeader1> findByDemoNoWithItems(Integer demoNo, int iOffSet, int pageSize) {
+        Query idQuery = entityManager.createQuery(
+                "SELECT h.id FROM BillingONCHeader1 h WHERE h.demographicNo = ?1 AND h.status != 'D' "
+                        + "ORDER BY h.billingDate DESC, h.billingTime DESC, h.id DESC");
+        idQuery.setParameter(1, demoNo);
+        idQuery.setFirstResult(iOffSet);
+        idQuery.setMaxResults(pageSize);
+        List<Integer> ids = idQuery.getResultList();
+        if (ids.isEmpty()) {
+            return List.of();
         }
 
-        BigDecimal percBase = total;
-        BigDecimal percentCalc;
-        for (BillingService percentcode : aPercentCodes) {
-            percent = new BigDecimal(Double.parseDouble(percentcode.getPercentage())).setScale(2,
-                    BigDecimal.ROUND_HALF_UP);
-            percentCalc = percBase.multiply(percent).setScale(2, BigDecimal.ROUND_HALF_UP);
-            billingPerc = percentcode.getBillingPercLimit();
-            if (billingPerc != null) {
-                percentCalc = percentCalc.min(new BigDecimal(Double.parseDouble(billingPerc.getMax())));
-                percentCalc = percentCalc.max(new BigDecimal(Double.parseDouble(billingPerc.getMin())));
-            }
-
-            total = total.add(percentCalc);
-        }
-        total.setScale(2, BigDecimal.ROUND_UP);
-        return total.toString();
+        Query fetchQuery = entityManager.createQuery(
+                "SELECT DISTINCT h FROM BillingONCHeader1 h LEFT JOIN FETCH h.billingItems WHERE h.id IN :ids");
+        fetchQuery.setParameter("ids", ids);
+        List<BillingONCHeader1> headers = fetchQuery.getResultList();
+        headers.sort((left, right) -> Integer.compare(ids.indexOf(left.getId()), ids.indexOf(right.getId())));
+        return headers;
     }
 
     @Override
@@ -439,16 +296,6 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
 
         return q.getResultList();
     }
-
-    // @Override
-    // public GstControlDao getGstControlDao() {
-    //     return gstControlDao;
-    // }
-
-    // @Override
-    // public void setGstControlDao(GstControlDao gstControlDao) {
-    //     this.gstControlDao = gstControlDao;
-    // }
 
     @Override
     public BillingONItem findBillingONItemByServiceCode(BillingONCHeader1 ch1, String serviceCode) {
@@ -786,7 +633,7 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
             app.and("bp.paymentdate < :paymentEndDate", "paymentEndDate", cal.getTime());
         }
 
-        if (visitLocation != null && !BillingStatusPrep.ANY_VISIT_LOCATION.equals(visitLocation)) {
+        if (visitLocation != null && !BillingStatusLoader.ANY_VISIT_LOCATION.equals(visitLocation)) {
             app.and("ch1.faciltyNum = :facilityNum", "facilityNum", visitLocation);
         }
         if (demoNo != null && demoNo > 0) {
@@ -885,22 +732,63 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
     }
 
     @Override
-    public List<String[]> findBillingData(String conditions) {
-        if (conditions == null)
-            return null;
+    public List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimReportRow>
+    findBillingData(io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimReportFilter filter) {
+        if (filter == null) {
+            return java.util.Collections.emptyList();
+        }
 
-        String sql = "SELECT ch1.id,ch1.pay_program,ch1.demographic_no,ch1.demographic_name,ch1.billing_date,ch1.billing_time,"
-                + "ch1.status,ch1.provider_no,ch1.provider_ohip_no,ch1.apptProvider_no,ch1.timestamp1,ch1.total,ch1.paid,ch1.clinic,"
-                + "bi.fee, bi.service_code, bi.ser_num, bi.dx, bi.id as billing_on_item_id "
-                + "FROM billing_on_item bi LEFT JOIN billing_on_cheader1 ch1 ON ch1.id=bi.ch1_id "
-                + "WHERE "
-                + conditions
-                + " ORDER BY ch1.billing_date, ch1.billing_time";
-        Query query = entityManager.createQuery(sql);
+        StringBuilder sql = new StringBuilder("SELECT ch1.id,ch1.pay_program,ch1.demographic_no,ch1.demographic_name,ch1.billing_date,ch1.billing_time,")
+                .append("ch1.status,ch1.provider_no,ch1.provider_ohip_no,ch1.apptProvider_no,ch1.timestamp1,ch1.total,ch1.paid,ch1.clinic,")
+                .append("bi.fee, bi.service_code, bi.ser_num, bi.dx, bi.id as billing_on_item_id ")
+                .append("FROM billing_on_item bi LEFT JOIN billing_on_cheader1 ch1 ON ch1.id=bi.ch1_id WHERE 1=1");
+        Map<Integer, Object> params = new HashMap<>();
+        int p = 1;
+        p = appendEquals(sql, params, p, SearchColumn.DEMOGRAPHIC_NO, filter.demoNo());
+        p = appendEquals(sql, params, p, SearchColumn.PROVIDER_NO, filter.providerNo());
+        p = appendEquals(sql, params, p, SearchColumn.STATUS, filter.statusType());
+        p = appendGreaterOrEqual(sql, params, p, SearchColumn.BILLING_DATE, filter.startDate());
+        p = appendLessOrEqual(sql, params, p, SearchColumn.BILLING_DATE, filter.endDate());
+        p = appendEquals(sql, params, p, SearchColumn.PAY_PROGRAM, filter.billType());
+        p = appendEquals(sql, params, p, SearchColumn.DX, filter.dx());
+        p = appendEquals(sql, params, p, SearchColumn.VISIT_TYPE, filter.visitType());
+        p = appendEquals(sql, params, p, SearchColumn.SERVICE_CODE, filter.serviceCodes());
+        sql.append(" ORDER BY ch1.billing_date, ch1.billing_time");
 
-        List<String[]> results = query.getResultList();
+        Query query = entityManager.createNativeQuery(sql.toString());
+        for (Entry<Integer, Object> e : params.entrySet()) {
+            query.setParameter(e.getKey(), e.getValue());
+        }
 
-        return results;
+        List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimReportRow> rows =
+                new ArrayList<>();
+        for (Object[] r : (List<Object[]>) query.getResultList()) {
+            rows.add(new io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimReportRow(
+                    value(r[0]), value(r[1]), value(r[2]), value(r[3]), value(r[4]),
+                    value(r[5]), value(r[6]), value(r[7]), value(r[8]), value(r[10]),
+                    value(r[11]), value(r[12]), value(r[13]), value(r[16]), value(r[18])));
+        }
+        return rows;
+    }
+
+    @Override
+    public List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportBilledRow>
+    findBillingOnNewReportBilledRows(String providerNo, String startDate, String endDate) {
+        String sql = "select id, billing_date, billing_time, demographic_name, status, apptProvider_no, provider_no, clinic "
+                + "from billing_on_cheader1 where provider_no=?1 and billing_date >=?2 and billing_date<=?3 "
+                + "and (status<>'D' and status<>'S' and status<>'B') order by billing_date, billing_time";
+        Query query = entityManager.createNativeQuery(sql);
+        query.setParameter(1, providerNo);
+        query.setParameter(2, startDate);
+        query.setParameter(3, endDate);
+        List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportBilledRow> rows =
+                new ArrayList<>();
+        for (Object[] r : (List<Object[]>) query.getResultList()) {
+            rows.add(new io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportBilledRow(
+                    value(r[0]), value(r[1]), value(r[2]), value(r[3]),
+                    value(r[4]), value(r[5]), value(r[6]), value(r[7])));
+        }
+        return rows;
     }
 
     @Override
@@ -914,6 +802,81 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         List<BillingONCHeader1> results = query.getResultList();
 
         return results;
+    }
+
+    /**
+     * Returns lightweight Ontario billing header DTOs for a demographic, excluding
+     * soft-deleted records ({@code status = 'D'}), ordered by billing date descending.
+     *
+     * @param demographicNo Integer the patient demographic number
+     * @return List&lt;BillingONCListItemDTO&gt; of active billing records ordered by billing date descending
+     * @since 2026-04-11
+     */
+    @Override
+    public List<BillingONCListItemDTO> findBillingDTOsByDemographicNo(Integer demographicNo) {
+        Query query = entityManager.createQuery("""
+                SELECT NEW io.github.carlos_emr.carlos.billings.dto.BillingONCListItemDTO(
+                    b.id, b.demographicNo, b.providerNo, b.appointmentNo,
+                    b.billingDate, b.billingTime, b.status, b.payProgram, b.visitType,
+                    b.admissionDate, b.faciltyNum, b.total, b.paid, b.timestamp,
+                    b.clinic, b.demographicName)
+                FROM BillingONCHeader1 b
+                WHERE b.demographicNo = :demoNo AND b.status <> 'D'
+                ORDER BY b.billingDate DESC
+                """);
+        query.setParameter("demoNo", demographicNo);
+        return query.getResultList();
+    }
+
+    private enum SearchColumn {
+        DEMOGRAPHIC_NO("ch1.demographic_no"),
+        PROVIDER_NO("ch1.provider_no"),
+        STATUS("ch1.status"),
+        BILLING_DATE("ch1.billing_date"),
+        PAY_PROGRAM("ch1.pay_program"),
+        DX("bi.dx"),
+        VISIT_TYPE("ch1.visittype"),
+        SERVICE_CODE("bi.service_code");
+
+        private final String sql;
+
+        SearchColumn(String sql) {
+            this.sql = sql;
+        }
+    }
+
+    private static int appendEquals(StringBuilder sql, Map<Integer, Object> params, int index,
+                                    SearchColumn column, String value) {
+        if (StringUtils.isBlank(value)) {
+            return index;
+        }
+        sql.append(" AND ").append(column.sql).append("=?").append(index);
+        params.put(index, value);
+        return index + 1;
+    }
+
+    private static int appendGreaterOrEqual(StringBuilder sql, Map<Integer, Object> params,
+                                            int index, SearchColumn column, String value) {
+        if (StringUtils.isBlank(value)) {
+            return index;
+        }
+        sql.append(" AND ").append(column.sql).append(">=?").append(index);
+        params.put(index, value);
+        return index + 1;
+    }
+
+    private static int appendLessOrEqual(StringBuilder sql, Map<Integer, Object> params,
+                                         int index, SearchColumn column, String value) {
+        if (StringUtils.isBlank(value)) {
+            return index;
+        }
+        sql.append(" AND ").append(column.sql).append("<=?").append(index);
+        params.put(index, value);
+        return index + 1;
+    }
+
+    private static String value(Object value) {
+        return value == null ? "" : String.valueOf(value);
     }
 
 }

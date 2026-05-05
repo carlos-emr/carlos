@@ -50,6 +50,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 public final class Frm2Action extends ActionSupport {
 
@@ -96,7 +97,7 @@ public final class Frm2Action extends ActionSupport {
             rec = recorder.factory(formClassName);
             Properties props = new Properties();
 
-            log.info("SUBMIT " + submitType);
+            log.info("SUBMIT {}", LogSanitizer.sanitize(submitType)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
 
             //if we are graphing, we need to grab info from db and add it to request object
             if ("graph".equals(submitType)) {
@@ -182,9 +183,9 @@ public final class Frm2Action extends ActionSupport {
                     props.setProperty(name, request.getParameter(name));
                 }
 
-                props.setProperty("provider_no", (String) request.getSession().getAttribute("user"));
+                props.setProperty("provider_no", loggedInInfo.getLoggedInProviderNo());
                 newID = rec.saveFormRecord(props);
-                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, request
+                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.UPDATE, request
                         .getParameter("form_class"), "" + newID, request.getRemoteAddr(), request.getParameter("demographic_no"));
             } else if ("autosaveAjax".equals(request.getParameter("submit"))) {
                 quickSaveForm(rec, request, response);
@@ -194,8 +195,8 @@ public final class Frm2Action extends ActionSupport {
                     String name = (String) varEnum.nextElement();
                     props.setProperty(name, request.getParameter(name));
                 }
-                props.setProperty("provider_no", (String) request.getSession().getAttribute("user"));
-                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, request
+                props.setProperty("provider_no", loggedInInfo.getLoggedInProviderNo());
+                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.UPDATE, request
                         .getParameter("form_class"), "" + newID, request.getRemoteAddr(), request.getParameter("demographic_no"));
 
                 return null;
@@ -233,18 +234,18 @@ public final class Frm2Action extends ActionSupport {
                     props.setProperty(name, request.getParameter(name));
                 }
 
-                props.setProperty("provider_no", (String) request.getSession().getAttribute("user"));
+                props.setProperty("provider_no", loggedInInfo.getLoggedInProviderNo());
                 newID = rec.saveFormRecord(props);
 
                 if (newID > 0) {
-                    log.info(formClassName + " new form ID " + newID + " successfully saved.");
+                    log.info("{} new form ID {} successfully saved.", LogSanitizer.sanitize(formClassName), newID); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                     saveSuccess = Boolean.TRUE;
                 } else {
-                    log.info(formClassName + " form ID " + formId + " failed to save.");
+                    log.info("{} form ID {} failed to save.", LogSanitizer.sanitize(formClassName), formId); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 }
 
                 String ip = request.getRemoteAddr();
-                LogAction.addLog((String) request.getSession().getAttribute("user"),
+                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(),
                         LogConst.ADD,
                         formClassName,
                         "" + newID,
@@ -262,7 +263,7 @@ public final class Frm2Action extends ActionSupport {
                 actionForward = strAction;
                 actionForward = rec.createActionURL(actionForward, strAction, demographicNo+"", "" + newID);
                 if (actionForward.startsWith("save?")) {
-                    response.sendRedirect(request.getContextPath() + "/form/forwardname.jsp?form_link=" 
+                    response.sendRedirect(request.getContextPath() + "/form/forwardname?form_link="
                         + request.getParameter("form_link") + "&" + actionForward.substring(5));
                     return null;
                 }
@@ -270,10 +271,10 @@ public final class Frm2Action extends ActionSupport {
 
         } catch (Exception ex) {
             // throw new ServletException(ex);
-            MiscUtils.getLogger().error("Exception for form " + formClassName + " Save failed.", ex);
+            MiscUtils.getLogger().error("Exception for form {} Save failed.", LogSanitizer.sanitize(formClassName), ex); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         }
 
-        log.info("Forwarding form " + formClassName + " to " + actionForward);
+        log.info("Forwarding form {} to {}", LogSanitizer.sanitize(formClassName), LogSanitizer.sanitize(actionForward)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
 
         request.setAttribute("saveSuccess", saveSuccess);
 
@@ -286,10 +287,10 @@ public final class Frm2Action extends ActionSupport {
             String name = varEnum.nextElement();
             props.setProperty(name, request.getParameter(name));
         }
-        props.setProperty("provider_no", (String) request.getSession().getAttribute("user"));
+        props.setProperty("provider_no", LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo());
         try {
             int newFormId = formRecord.saveFormRecord(props);
-            LogAction.addLog((String) request.getSession().getAttribute("user"),
+            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(),
                     LogConst.ADD, request.getParameter("form_class"), String.valueOf(newFormId),
                     request.getRemoteAddr(), request.getParameter("demographic_no"));
 

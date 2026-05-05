@@ -37,6 +37,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Document;
+import io.github.carlos_emr.carlos.documentManager.dto.DocumentListItemDTO;
 
 import io.github.carlos_emr.carlos.documentManager.EDocUtil.EDocSort;
 
@@ -184,4 +185,14 @@ public interface DocumentDao extends AbstractDao<Document> {
      * @return List&lt;String&gt; list of distinct matching document descriptions
      */
     public List<String> findDocumentDescriptions(String keyword);
+
+    /**
+     * Returns lightweight document DTOs for a demographic, bypassing the EAGER
+     * DocumentReview collection load. Uses JPQL constructor expression projection.
+     *
+     * @param demographicNo Integer the patient demographic number
+     * @return List of DocumentListItemDTO for the patient's documents ordered by observation date descending
+     * @since 2026-04-11
+     */
+    public List<DocumentListItemDTO> findDocumentDTOsByDemographicNo(Integer demographicNo);
 }

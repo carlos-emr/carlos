@@ -42,7 +42,6 @@ import org.apache.xmlbeans.XmlObject;
  * @see CustomLab
  * @see CurrentPregnancyType
  * @see InitialLaboratoryInvestigations
- * @see ARRecord
  * @since 2026-01-24
  */
 public interface PrenatalGeneticScreeningType extends XmlObject

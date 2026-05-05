@@ -43,17 +43,17 @@ import jakarta.persistence.criteria.Root;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.FormInfo;
 import io.github.carlos_emr.carlos.commn.model.Provider;
-import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.transaction.annotation.Transactional;
 
 @Transactional
-public class FormsDAOImpl extends AbstractHibernateDao implements FormsDAO {
+public class FormsDAOImpl extends AbstractJpaDao implements FormsDAO {
 
     private Logger log = MiscUtils.getLogger();
 
     public void saveForm(Object o) {
-        currentSession().persist(o);
+        entityManager().persist(o);
 
         if (log.isDebugEnabled()) {
             log.debug("saveForm:" + o);
@@ -67,11 +67,11 @@ public class FormsDAOImpl extends AbstractHibernateDao implements FormsDAO {
             throw new IllegalArgumentException();
         }
 
-        CriteriaBuilder cb = currentSession().getCriteriaBuilder();
+        CriteriaBuilder cb = entityManager().getCriteriaBuilder();
         CriteriaQuery<?> cq = cb.createQuery(clazz);
         Root<?> root = cq.from(clazz);
         cq.where(cb.equal(root.get("demographicNo"), Integer.parseInt(clientId)));
-        List<?> results = currentSession().createQuery(cq).getResultList();
+        List<?> results = entityManager().createQuery(cq).getResultList();
         if (results.size() > 0) {
             result = results.get(0);
         }
@@ -90,20 +90,20 @@ public class FormsDAOImpl extends AbstractHibernateDao implements FormsDAO {
 
         List<FormInfo> formInfos = new ArrayList<FormInfo>();
 
-        CriteriaBuilder cb = currentSession().getCriteriaBuilder();
+        CriteriaBuilder cb = entityManager().getCriteriaBuilder();
         CriteriaQuery<Object[]> cq = cb.createQuery(Object[].class);
         Root<?> root = cq.from(clazz);
         cq.multiselect(root.get("id"), root.get("providerNo"), root.get("formEdited"));
         cq.where(cb.equal(root.get("demographicNo"), Integer.parseInt(clientId)));
         cq.orderBy(cb.desc(root.get("formEdited")));
-        List results = currentSession().createQuery(cq).getResultList();
+        List results = entityManager().createQuery(cq).getResultList();
         for (Iterator iter = results.iterator(); iter.hasNext(); ) {
             FormInfo fi = new FormInfo();
             Object[] values = (Object[]) iter.next();
             Integer id = (Integer) values[0];
             String providerNo = (String) values[1];
             Date dateEdited = (Date) values[2];
-            Provider provider = currentSession().find(Provider.class, providerNo);
+            Provider provider = entityManager().find(Provider.class, providerNo);
             fi.setFormId(id.longValue());
             fi.setProviderNo(Long.parseLong(providerNo));
             fi.setFormDate(dateEdited);

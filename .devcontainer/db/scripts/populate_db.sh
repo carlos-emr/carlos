@@ -1,4 +1,5 @@
 #!/usr/bin/env sh
+set -e
 echo 'Setting up all databases...'
 cd /database/mysql || exit 1
 
@@ -12,6 +13,8 @@ echo 'Creating test database...'
 echo 'Creating drugref2 database...'
 mysql -u root -p"$DB_PASSWORD" -e "CREATE DATABASE IF NOT EXISTS drugref2;"
 mysql -u root -p"$DB_PASSWORD" drugref2 < /database/mysql/development-drugref.sql
+echo 'Applying drugref2 schema patches...'
+mysql -u root -p"$DB_PASSWORD" drugref2 < /database/mysql/drugref/2026-04-19-drugref-tc-atc-f.sql
 echo 'Applying schema updates...'
 mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2025-01-29.sql
 mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2025-02-27.sql
@@ -23,6 +26,7 @@ mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2026-01-26
 mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2026-02-10-fax-provider-type.sql
 mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2026-02-14-facility-integrator-removal.sql
 mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2026-03-25-security-mfa-default.sql
+mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2026-04-30-sec-obj-missing-privileges.sql
 # CAUTION: This migration drops deprecated form tables (formONAR, formIntakeHx, etc.)
 # and deletes their encounterForm entries. Run manually only after verifying no patient
 # data exists in these tables: mysql oscar < /database/mysql/updates/update-2026-03-25-remove-deprecated-form-tables.sql

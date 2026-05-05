@@ -30,6 +30,7 @@ package io.github.carlos_emr.carlos.util;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Properties;
 import java.util.Vector;
 
@@ -46,6 +47,13 @@ public class OscarRoleObjectPrivilege {
 
     private static PageContext pageContext;
     private static String rights = "r";
+
+    /**
+     * Ordered privilege hierarchy: read &lt; update &lt; write.
+     * Delete ("d") is intentionally absent — it is an independent privilege that
+     * does not imply any of r/u/w and is matched by exact equality instead.
+     */
+    private static final String PRIVILEGE_HIERARCHY = "ruw";
 
     public static Vector<Object> getPrivilegeProp(String objName) {
         Properties prop = new Properties();
@@ -162,16 +170,53 @@ public class OscarRoleObjectPrivilege {
     }
 
     private static boolean[] checkRights(String privilege, String rights1) {
-        boolean[] ret = {false, false}; // (gotRights, break/continue)
-        /*
-         * if ("*".equals(privilege)) { ret[0] = true; } else if (privilege.equals(rights1.toLowerCase()) || (privilege.length() > 1 && privilege.startsWith("o") && privilege.substring(1).equals( rights1.toLowerCase()))) { ret[0] = true; if
-         * (privilege.startsWith("o")) ret[1] = true; // break } else if (privilege.equals("o")) { // for "o" ret[0] = false; ret[1] = true; // break }
-         */
-        if ("x".equals(privilege)) {
-            ret[0] = true;
-        } else if (privilege.compareTo(rights1.toLowerCase()) >= 0) {
-            ret[0] = true;
+        boolean[] ret = {false, false}; // (gotRights, onlyPrivilege-break)
+
+        // Null safety: no rights granted if either side is missing.
+        if (privilege == null || rights1 == null) {
+            return ret;
         }
+
+        String rightsLower = rights1.toLowerCase(Locale.ROOT);
+        String privilegeLower = privilege.toLowerCase(Locale.ROOT);
+
+        // Handle legacy "o<right>" tokens (e.g., "or", "ou", "ow") — the "only" prefix.
+        // DemographicMerged stores "|or|" for patient-specific read-only eChart access;
+        // after getPrivilege() parses it, "or" reaches here. The leading "o" means:
+        // "match at this privilege level, then stop checking other roles" (ret[1]=true).
+        boolean onlyFlag = privilegeLower.length() > 1 && privilegeLower.charAt(0) == 'o';
+        if (onlyFlag) {
+            privilegeLower = privilegeLower.substring(1); // strip the "only" prefix
+        }
+
+        if ("o".equals(rightsLower)) {
+            // NORIGHTS check: only a bare "o" privilege locks the account.
+            // "o<right>" tokens do NOT satisfy this — they grant level-limited access.
+            ret[0] = !onlyFlag && "o".equals(privilegeLower);
+        } else if ("x".equals(privilegeLower)) {
+            // Full access matches any non-NORIGHTS check.
+            ret[0] = true;
+        } else {
+            // Hierarchy r < u < w (see PRIVILEGE_HIERARCHY).
+            // indexOf returns -1 for anything not in the hierarchy (e.g. "d"),
+            // which causes the condition to be false and falls through to exact match.
+            int privLevel = PRIVILEGE_HIERARCHY.indexOf(privilegeLower);
+            int requiredLevel = PRIVILEGE_HIERARCHY.indexOf(rightsLower);
+            if (privLevel >= 0 && requiredLevel >= 0) {
+                // Both are in the r/u/w hierarchy: higher level implies lower ones.
+                ret[0] = privLevel >= requiredLevel;
+            } else {
+                // Not in the r/u/w hierarchy (e.g. "d" delete): exact match only.
+                ret[0] = privilegeLower.equals(rightsLower);
+            }
+        }
+
+        // For "only" tokens (o-prefix), signal the caller to break after this privilege
+        // so that higher-priority roles are not consulted for this patient.
+        if (onlyFlag) {
+            ret[1] = true;
+        }
+
         return ret;
     }
 

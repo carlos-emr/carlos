@@ -329,7 +329,7 @@ class DroolsHelperUnitTest {
         @DisplayName("should compile KieBase from classpath URL")
         void shouldCompileKieBase_fromClasspathUrl() throws DroolsCompilationException {
             // Load a real production DRL from the classpath to verify the URL-based path
-            URL url = getClass().getResource("/oscar/oscarPrevention/prevention.drl");
+            URL url = getClass().getResource("/oscar/prevention/prevention.drl");
             assertThat(url).as("prevention.drl must be on classpath").isNotNull();
 
             KieBase kieBase = DroolsHelper.loadFromUrl(url);
@@ -368,7 +368,7 @@ class DroolsHelperUnitTest {
         @Test
         @DisplayName("should compile KieBase from prevention DRL")
         void shouldCompileKieBase_fromPreventionDrl() throws DroolsCompilationException {
-            URL url = getClass().getResource("/oscar/oscarPrevention/prevention.drl");
+            URL url = getClass().getResource("/oscar/prevention/prevention.drl");
             assertThat(url).as("prevention.drl must be on classpath").isNotNull();
 
             KieBase kieBase = DroolsHelper.loadFromUrl(url);

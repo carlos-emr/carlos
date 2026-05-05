@@ -1,3 +1,4 @@
+<%@ page contentType="application/json; charset=UTF-8" %>
 {
     "emptyTable": "Nenhum registro encontrado",
     "info": "Mostrando de _START_ até _END_ de _TOTAL_ registros",

@@ -131,6 +131,7 @@ public class NotesService extends AbstractServiceImpl {
      * from different providers do not corrupt the structure.</p>
      */
     private static ConcurrentHashMap<String, ConcurrentHashMap<String, Long>> editList = new ConcurrentHashMap<String, ConcurrentHashMap<String, Long>>();
+    private static final int MAX_EDIT_LIST_SIZE = 10000;
 
     @Autowired
     private NoteService noteService;
@@ -407,24 +408,24 @@ public class NotesService extends AbstractServiceImpl {
         //caseMangementNote.setHourOfEncounterTime(note.getEncounterTime());
         logger.debug("this is what the encounter time was " + note.getEncounterTime());
 		/*String hourOfEncounterTime = request.getParameter("hourOfEncounterTime");
-		if (hourOfEncounterTime != null && hourOfEncounterTime != "") {
+		if (hourOfEncounterTime != null && !"".equals(hourOfEncounterTime)) {
 			note.setHourOfEncounterTime(Integer.valueOf(hourOfEncounterTime));
 		}
 
 		String minuteOfEncounterTime = request.getParameter("minuteOfEncounterTime");
-		if (minuteOfEncounterTime != null && minuteOfEncounterTime != "") {
+		if (minuteOfEncounterTime != null && !"".equals(minuteOfEncounterTime)) {
 			note.setMinuteOfEncounterTime(Integer.valueOf(minuteOfEncounterTime));
 		}*/
 
         logger.debug("this is what the encounter time was " + note.getEncounterTransportationTime());
 		/*
 		String hourOfEncTransportationTime = request.getParameter("hourOfEncTransportationTime");
-		if (hourOfEncTransportationTime != null && hourOfEncTransportationTime != "") {
+		if (hourOfEncTransportationTime != null && !"".equals(hourOfEncTransportationTime)) {
 			note.setHourOfEncTransportationTime(Integer.valueOf(hourOfEncTransportationTime));
 		}
 
 		String minuteOfEncTransportationTime = request.getParameter("minuteOfEncTransportationTime");
-		if (minuteOfEncTransportationTime != null && minuteOfEncTransportationTime != "") {
+		if (minuteOfEncTransportationTime != null && !"".equals(minuteOfEncTransportationTime)) {
 			note.setMinuteOfEncTransportationTime(Integer.valueOf(minuteOfEncTransportationTime));
 		}
 		*/
@@ -527,14 +528,6 @@ public class NotesService extends AbstractServiceImpl {
         }
 
 
-        // update password
-		/*
-		String passwd = cform.getCaseNote().getPassword();
-		if (passwd != null && passwd.trim().length() > 0) {
-			note.setPassword(passwd);
-			note.setLocked(true);
-		}
-		 */
         Date now = new Date();
 
         Date observationDate = note.getObservationDate();
@@ -576,15 +569,11 @@ public class NotesService extends AbstractServiceImpl {
         }
 
 
-        // Save annotation
-
-        CaseManagementNote annotationNote = null; // (CaseManagementNote) session.getAttribute(attrib_name);
-
         //String ongoing = null; // figure out this
         String lastSavedNoteString = null;
         String user = loggedInInfo.getLoggedInProvider().getProviderNo();
         String remoteAddr = ""; // Not sure how to get this
-        caseMangementNote = caseManagementMgr.saveCaseManagementNote(loggedInInfo, caseMangementNote, issuelist, cpp, ongoing, verify, getLocale(), now, annotationNote, userName, user, remoteAddr, lastSavedNoteString);
+        caseMangementNote = caseManagementMgr.saveCaseManagementNote(loggedInInfo, caseMangementNote, issuelist, cpp, ongoing, verify, getLocale(), now, userName, user, remoteAddr, lastSavedNoteString);
 
         caseManagementMgr.getEditors(caseMangementNote);
 
@@ -621,8 +610,8 @@ public class NotesService extends AbstractServiceImpl {
 			
 			CasemgmtNoteLock casemgmtNoteLock = casemgmtNoteLockDao.find(casemgmtNoteLockSession.getId());
 			//if other window has acquired lock we reject save									
-			if ( !casemgmtNoteLock.getSessionId().equals(casemgmtNoteLockSession.getSessionId()) || !request.getRequestedSessionId().equals(casemgmtNoteLockSession.getSessionId()) ) {
-				logger.info("DO NOT HAVE LOCK FOR " + demo + " PROVIDER " + providerNo + " CONTINUE SAVING LOCAL SESSION " + request.getRequestedSessionId() + " LOCAL IP " + request.getRemoteAddr() + " LOCK SESSION " + casemgmtNoteLockSession.getSessionId() + " LOCK IP " + casemgmtNoteLockSession.getIpAddress());
+			if ( !casemgmtNoteLock.getSessionId().equals(casemgmtNoteLockSession.getSessionId()) || !request.getSession().getId().equals(casemgmtNoteLockSession.getSessionId()) ) {
+				logger.info("DO NOT HAVE LOCK FOR " + demo + " PROVIDER " + providerNo + " CONTINUE SAVING LOCAL SESSION " + request.getSession().getId() + " LOCAL IP " + request.getRemoteAddr() + " LOCK SESSION " + casemgmtNoteLockSession.getSessionId() + " LOCK IP " + casemgmtNoteLockSession.getIpAddress());
 				return -1L;
 			}
 		}
@@ -940,16 +929,12 @@ public class NotesService extends AbstractServiceImpl {
          *
          */
 
-        // Save annotation
-        CaseManagementNote annotationNote = null; // (CaseManagementNote) session.getAttribute(attrib_name);
-        //logger.error(noteIssue.getAnnotation_attrib());
-
         //String ongoing = null; // figure out this
         String lastSavedNoteString = null;
         String user = loggedInInfo.getLoggedInProvider().getProviderNo();
         String remoteAddr = ""; // Not sure how to get this
 
-        //caseMangementNote = caseManagementMgr.saveCaseManagementNote(caseMangementNote, issuelist, cpp, ongoing, verify, loggedInInfo.getLocale(), now, annotationNote, userName, user, remoteAddr, lastSavedNoteString);
+        //caseMangementNote = caseManagementMgr.saveCaseManagementNote(caseMangementNote, issuelist, cpp, ongoing, verify, loggedInInfo.getLocale(), now, userName, user, remoteAddr, lastSavedNoteString);
 
         String savedStr = caseManagementMgr.saveNote(cpp, caseMangementNote, providerNo, userName, null, note.getRoleName());
         caseManagementMgr.saveCPP(cpp, providerNo);
@@ -1285,8 +1270,7 @@ public class NotesService extends AbstractServiceImpl {
             // A hack to load last unsigned note when not specifying a particular note to edit
             // if there is no unsigned note load a new one
 
-            Map unlockedNotesMap = null; //NEED THIS ??
-            if ((note = caseManagementMgr.getLastSaved("" + programId, "" + demographicNo, providerNo, unlockedNotesMap)) == null) {
+            if ((note = caseManagementMgr.getLastSaved("" + programId, "" + demographicNo, providerNo)) == null) {
 //				session.setAttribute("newNote", "true");
 //				//session.setAttribute("issueStatusChanged", "false");
 
@@ -1322,7 +1306,6 @@ public class NotesService extends AbstractServiceImpl {
 //		if (!note.isIncludeissue()) cform.setIncludeIssue("off");
 //		else cform.setIncludeIssue("on");
 
-//		boolean passwd = caseManagementMgr.getEnabled();
 //		String chain = request.getParameter("chain");
 
 
@@ -1889,12 +1872,10 @@ public class NotesService extends AbstractServiceImpl {
         if (noteUUID == null || noteUUID.trim().isEmpty() || providerNo == null || providerNo.trim().isEmpty())
             return RestResponse.errorResponse("Parameter error");
 
-        ConcurrentHashMap<String, Long> noteList = editList.get(noteUUID);
-        if (noteList == null) {
-            noteList = new ConcurrentHashMap<String, Long>();
-            editList.put(noteUUID, noteList);
+        ConcurrentHashMap<String, Long> noteList = editList.computeIfAbsent(noteUUID, k -> new ConcurrentHashMap<String, Long>());
+        if (editList.size() > MAX_EDIT_LIST_SIZE) {
+            clearDanglingFlags();
         }
-        clearDanglingFlags();
 
         boolean success = true;
 
@@ -1923,15 +1904,16 @@ public class NotesService extends AbstractServiceImpl {
         String[] noteUUIDs = editList.keySet().toArray(new String[editList.keySet().size()]);
         for (String uuid : noteUUIDs) {
             ConcurrentHashMap<String, Long> noteList = editList.get(uuid);
+            if (noteList == null) continue; // concurrent removal
             String[] providerNos = noteList.keySet().toArray(new String[noteList.keySet().size()]);
             for (String providerNo : providerNos) {
                 Long editTime = noteList.get(providerNo);
+                if (editTime == null) continue; // concurrent removal
                 // 360,000 ms = 6 minutes; UI heartbeat renews every ~5 min, so 6 min means the session is stale
                 if (now - editTime >= 360000)
                     noteList.remove(providerNo);
             }
             if (noteList.isEmpty()) editList.remove(uuid);
-            else editList.put(uuid, noteList);
         }
     }
 
@@ -1954,6 +1936,10 @@ public class NotesService extends AbstractServiceImpl {
     public RestResponse<String> checkEditNoteNew(@QueryParam("noteUUID") String noteUUID, @QueryParam("userId") String providerNo) {
         if (noteUUID == null || noteUUID.trim().isEmpty() || providerNo == null || providerNo.trim().isEmpty())
             return RestResponse.successResponse(null);
+
+        if (editList.size() > MAX_EDIT_LIST_SIZE) {
+            clearDanglingFlags();
+        }
 
         ConcurrentHashMap<String, Long> noteList = editList.get(noteUUID);
         if (noteList == null) return RestResponse.successResponse(null);
@@ -1989,8 +1975,11 @@ public class NotesService extends AbstractServiceImpl {
         if (noteUUID == null || noteUUID.trim().isEmpty() || providerNo == null || providerNo.trim().isEmpty()) return;
 
         ConcurrentHashMap<String, Long> noteList = editList.get(noteUUID);
-        if (noteList != null && noteList.containsKey(providerNo)) noteList.remove(providerNo);
-        if (noteList.isEmpty()) editList.remove(noteUUID);
-        else editList.put(noteUUID, noteList);
+        if (noteList != null) {
+            noteList.remove(providerNo);
+            if (noteList.isEmpty()) {
+                editList.remove(noteUUID);
+            }
+        }
     }
 }

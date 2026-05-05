@@ -46,6 +46,9 @@ import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
 import java.io.Serializable;
@@ -327,11 +330,14 @@ public class ExtractBean extends Object implements Serializable {
     public void writeFile(String value1) {
         try {
             String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
-
-            FileOutputStream out = new FileOutputStream(home_dir + ohipFilename);
+            File homeDir = new File(home_dir);
+            File safeFile = PathValidationUtils.validatePath(ohipFilename, homeDir);
+            FileOutputStream out = new FileOutputStream(safeFile);
             PrintStream p = new PrintStream(out);
             p.println(value1);
             p.close();
+        } catch (SecurityException e) {
+            logger.error("Invalid file path detected in writeFile", e);
         } catch (Exception e) {
             logger.error("Unexpected error", e);
         }
@@ -341,10 +347,14 @@ public class ExtractBean extends Object implements Serializable {
         if (eFlag.equals("1")) {
             try {
                 String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
-                FileOutputStream out = new FileOutputStream(home_dir + htmlFilename);
+                File homeDir = new File(home_dir);
+                File safeFile = PathValidationUtils.validatePath(htmlFilename, homeDir);
+                FileOutputStream out = new FileOutputStream(safeFile);
                 PrintStream p = new PrintStream(out);
                 p.println(htmlvalue1);
                 p.close();
+            } catch (SecurityException e) {
+                logger.error("Invalid file path detected in writeHtml", e);
             } catch (Exception e) {
                 logger.error("Unexpected error", e);
             }

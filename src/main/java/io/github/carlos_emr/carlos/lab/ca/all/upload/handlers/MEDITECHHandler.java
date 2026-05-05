@@ -48,7 +48,9 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -67,7 +69,6 @@ public class MEDITECHHandler implements MessageHandler {
     @Override
     public String parse(LoggedInInfo loggedInInfo, String serviceName, String fileName, int fileId, String ipAddr) {
 
-        FileInputStream is = null;
         List<String> hl7BodyList = null;
         String success = "success";
 
@@ -75,8 +76,9 @@ public class MEDITECHHandler implements MessageHandler {
             // Validate the file path to prevent path traversal attacks
             File file = validateAndGetFile(fileName);
             
-            is = new FileInputStream(file);
-            hl7BodyList = parse(is);
+            try (FileInputStream is = new FileInputStream(file)) {
+                hl7BodyList = parse(is);
+            }
             int index = 0;
             while ("success".equals(success) && index < hl7BodyList.size()) {
                 success = MessageUploader.routeReport(loggedInInfo, serviceName, "MEDITECH", hl7BodyList.get(index), fileId);
@@ -89,16 +91,8 @@ public class MEDITECHHandler implements MessageHandler {
 
         } catch (Exception e) {
             success = null;
-            logger.error("Could not upload MEDITECH message " + fileName, e);
+            logger.error("Could not upload MEDITECH message {}", LogSanitizer.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         } finally {
-            if (is != null) {
-                try {
-                    is.close();
-                    is = null;
-                } catch (IOException e) {
-                    logger.error("Failed to close MEDITECH InputStream ", e);
-                }
-            }
             if (success == null) {
                 logger.error("Cleaning up MessageUploader file.");
                 MessageUploader.clean(fileId);
@@ -143,7 +137,7 @@ public class MEDITECHHandler implements MessageHandler {
         NodeList messages = null;
 
         List<String> hl7BodyList = null;
-        DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
+        DocumentBuilderFactory docFactory = XmlUtils.createSecureDocumentBuilderFactory();
 
         DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
         Document doc = docBuilder.parse(hl7Body);
@@ -227,14 +221,14 @@ public class MEDITECHHandler implements MessageHandler {
         // Check if the file is within the allowed base directory or temp directory
         boolean isValidPath = false;
         try {
-            PathValidationUtils.validateExistingPath(file, basePath.toFile());
+            file = PathValidationUtils.validateExistingPath(file, basePath.toFile());
             isValidPath = true;
         } catch (SecurityException e) {
             // Try allowed temp directories as fallback
             isValidPath = PathValidationUtils.isInAllowedTempDirectory(file);
         }
         if (!isValidPath) {
-            logger.error("Path traversal attempt detected: " + fileName);
+            logger.error("Path traversal attempt detected: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             throw new IllegalArgumentException("Invalid file path - access denied");
         }
         

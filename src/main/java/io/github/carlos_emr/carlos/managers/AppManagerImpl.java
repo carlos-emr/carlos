@@ -33,7 +33,9 @@
 package io.github.carlos_emr.carlos.managers;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.AppDefinitionDao;
@@ -61,10 +63,23 @@ public class AppManagerImpl implements AppManager {
     @Autowired
     private SecurityInfoManager securityInfoManager;
 
-
     @Override
     public List<AppDefinitionTo1> getAppDefinitions(LoggedInInfo loggedInInfo) {
         List<AppDefinition> appList = appDefinitionDao.findAll();
+        ArrayList<Integer> appIds = new ArrayList<Integer>(appList.size());
+        for (AppDefinition app : appList) {
+            if (app.getId() != null) {
+                appIds.add(app.getId());
+            }
+        }
+
+        Set<Integer> authenticatedAppIds = new HashSet<Integer>();
+        for (AppUser appUser : appUserDao.findForProviderByAppIds(appIds, loggedInInfo.getLoggedInProviderNo())) {
+            if (appUser.getAppId() != null) {
+                authenticatedAppIds.add(appUser.getAppId());
+            }
+        }
+
         List<AppDefinitionTo1> returningAppList = new ArrayList<AppDefinitionTo1>(appList.size());
         for (AppDefinition app : appList) {
             AppDefinitionTo1 appTo = new AppDefinitionTo1();
@@ -74,12 +89,7 @@ public class AppManagerImpl implements AppManager {
             appTo.setName(app.getName());
             appTo.setActive(app.getActive());
             appTo.setAddedBy(app.getAddedBy());
-            AppUser appuser = appUserDao.findForProvider(app.getId(), loggedInInfo.getLoggedInProviderNo());
-            if (appuser != null) {
-                appTo.setAuthenticated(true);
-            } else {
-                appTo.setAuthenticated(false);
-            }
+            appTo.setAuthenticated(authenticatedAppIds.contains(app.getId()));
             returningAppList.add(appTo);
         }
 
@@ -167,4 +177,3 @@ public class AppManagerImpl implements AppManager {
 
 
 }
- 

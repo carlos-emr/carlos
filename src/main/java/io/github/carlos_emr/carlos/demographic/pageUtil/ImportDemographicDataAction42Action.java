@@ -241,7 +241,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         // Validate the paths using PathValidationUtils
         File safeDir = (File) servletContext.getAttribute("jakarta.servlet.context.tempdir"); // Use a safe directory
         try {
-            PathValidationUtils.validateExistingPath(filePath.toFile(), safeDir);
+            filePath = PathValidationUtils.validateExistingPath(filePath.toFile(), safeDir).toPath();
         } catch (SecurityException e) {
             throw new IllegalArgumentException("Invalid file path: Access outside the allowed directory is not permitted.");
         }
@@ -625,6 +625,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         for (Provider p : providerDao.getActiveProviders()) {
             providerBean.setProperty(p.getProviderNo(), p.getFormattedName());
         }
+        // nosemgrep: tainted-session-from-http-request -- providerBean is built from DAO-sourced active providers, not raw user input
         request.getSession().setAttribute("providerBean", providerBean);
     }
 

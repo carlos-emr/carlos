@@ -38,8 +38,6 @@ public interface ProfessionalSpecialistDao extends AbstractDao<ProfessionalSpeci
 
     List<ProfessionalSpecialist> findAll();
 
-    List<ProfessionalSpecialist> findByEDataUrlNotNull();
-
     List<ProfessionalSpecialist> findByFullName(String lastName, String firstName);
 
     List<ProfessionalSpecialist> findByLastName(String lastName);
@@ -49,8 +47,6 @@ public interface ProfessionalSpecialistDao extends AbstractDao<ProfessionalSpeci
     List<ProfessionalSpecialist> findByReferralNo(String referralNo);
 
     ProfessionalSpecialist getByReferralNo(String referralNo);
-
-    boolean hasRemoteCapableProfessionalSpecialists();
 
     List<ProfessionalSpecialist> search(String keyword);
 

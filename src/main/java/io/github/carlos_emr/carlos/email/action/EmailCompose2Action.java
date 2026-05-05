@@ -22,6 +22,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 /**
  * Struts2 action for composing and preparing email messages with patient-related attachments.
@@ -71,6 +72,8 @@ import org.apache.struts2.ServletActionContext;
  * @since 2026-01-24
  */
 public class EmailCompose2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -102,6 +105,11 @@ public class EmailCompose2Action extends ActionSupport {
      * @see #prepareComposeEFormMailer()
      */
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", "w", null)) {
+            throw new SecurityException("missing required sec object (_email)");
+        }
+
         return prepareComposeEFormMailer();
     }
 
@@ -274,7 +282,7 @@ public class EmailCompose2Action extends ActionSupport {
         request.setAttribute("isEmailEncrypted", session.getAttribute("isEmailEncrypted"));
         request.setAttribute("isEmailAttachmentEncrypted", session.getAttribute("isEmailAttachmentEncrypted"));
         request.setAttribute("isEmailAutoSend", session.getAttribute("isEmailAutoSend"));
-        request.getSession().setAttribute("emailAttachmentList", emailAttachmentList);
+        request.getSession().setAttribute("emailAttachmentList", emailAttachmentList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- emailAttachmentList built from manager-prepared attachments (eForm, eDoc, lab, HRM, form PDFs), then sanitized by emailComposeManager.sanitizeAttachments()
 
         cleanupEmailSessionAttributes(request);
 

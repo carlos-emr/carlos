@@ -35,10 +35,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.security.SignatureException;
-import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
@@ -47,10 +43,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.crypto.BadPaddingException;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
-import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -59,6 +51,8 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultRequestDao;
+import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
+import io.github.carlos_emr.carlos.consultation.dto.ConsultationRequestListItemDTO;
 import io.github.carlos_emr.carlos.commn.dao.ConsultResponseDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultResponseDocDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestArchiveDao;
@@ -72,11 +66,6 @@ import io.github.carlos_emr.carlos.commn.dao.DocumentDao.Module;
 import io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
-import io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar.OruR01;
-import io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar.OruR01.ObservationData;
-import io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar.RefI12;
-import io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar.SendingUtils;
-import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
@@ -92,7 +81,6 @@ import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.EReferAttachment;
 import io.github.carlos_emr.carlos.commn.model.EReferAttachmentData;
-import io.github.carlos_emr.carlos.commn.model.Hl7TextInfo;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -111,31 +99,19 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.OtnEconsult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import ca.uhn.hl7v2.HL7Exception;
-import ca.uhn.hl7v2.model.v26.message.ORU_R01;
-import ca.uhn.hl7v2.model.v26.message.REF_I12;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
-import io.github.carlos_emr.carlos.documentManager.EDoc;
-import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationPDFCreator;
-import io.github.carlos_emr.carlos.lab.ca.all.pageUtil.LabPDFCreator;
-import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
-import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 
 /**
  * Spring-managed implementation of the {@link ConsultationManager} interface.
  *
  * <p>Provides the business logic for consultation request/response management, including
- * search, CRUD, HL7 electronic referral transmission, eConsult import, attachment handling,
+ * search, CRUD, eConsult import, attachment handling,
  * PDF generation, and archiving. All patient data access is protected by
  * {@link SecurityInfoManager} privilege checks on the {@code _con} security object.
- *
- * <p>HL7 electronic referral ({@link #doHl7Send}) sends a REF_I12 message followed by
- * ORU_R01 messages for each attached document and lab result. Lab PDFs are generated
- * on-the-fly using {@link LabPDFCreator}.
  *
  * @see ConsultationManager
  * @since 2014 (McMaster University)
@@ -145,6 +121,8 @@ public class ConsultationManagerImpl implements ConsultationManager {
 
     @Autowired
     ConsultRequestDao consultationRequestDao;
+    @Autowired
+    ConsultationRequestDao consultationRequestDtoDao;
     @Autowired
     ConsultResponseDao consultationResponseDao;
     @Autowired
@@ -422,68 +400,6 @@ public class ConsultationManagerImpl implements ConsultationManager {
     }
 
     /**
-     * {@inheritDoc}
-     *
-     * <p>Sends the consultation request via HL7 REF_I12, then iterates through all
-     * attached documents (as ORU_R01 with binary data) and labs (as ORU_R01 with
-     * PDF bytes generated by {@link LabPDFCreator}).
-     */
-    @Override
-    public void doHl7Send(LoggedInInfo loggedInInfo, Integer consultationRequestId) throws InvalidKeyException, SignatureException, NoSuchAlgorithmException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeySpecException, IOException, HL7Exception, ServletException, DocumentException {
-        checkPrivilege(loggedInInfo, securityInfoManager.READ);
-
-        ConsultationRequest consultationRequest = consultationRequestDao.find(consultationRequestId);
-        ProfessionalSpecialist professionalSpecialist = professionalSpecialistDao.find(consultationRequest.getSpecialistId());
-        Clinic clinic = clinicDao.getClinic();
-
-        // set status now so the remote version shows this status
-        consultationRequest.setStatus("2");
-
-        REF_I12 refI12 = RefI12.makeRefI12(clinic, consultationRequest);
-        SendingUtils.send(loggedInInfo, refI12, professionalSpecialist);
-
-        // save after the sending just in case the sending fails.
-        consultationRequestDao.merge(consultationRequest);
-
-        //--- send attachments ---
-        Provider sendingProvider = loggedInInfo.getLoggedInProvider();
-        Demographic demographic = demographicManager.getDemographic(loggedInInfo, consultationRequest.getDemographicId());
-
-        //--- process all documents ---
-        ArrayList<EDoc> attachments = EDocUtil.listDocs(loggedInInfo, demographic.getDemographicNo().toString(), consultationRequest.getId().toString(), EDocUtil.ATTACHED);
-        for (EDoc attachment : attachments) {
-            ObservationData observationData = new ObservationData();
-            observationData.subject = attachment.getDescription();
-            observationData.textMessage = "Attachment for consultation : " + consultationRequestId;
-            observationData.binaryDataFileName = attachment.getFileName();
-            observationData.binaryData = attachment.getFileBytes();
-
-            ORU_R01 hl7Message = OruR01.makeOruR01(clinic, demographic, observationData, sendingProvider, professionalSpecialist);
-            SendingUtils.send(loggedInInfo, hl7Message, professionalSpecialist);
-        }
-
-        //--- process all labs ---
-        CommonLabResultData labData = new CommonLabResultData();
-        ArrayList<LabResultData> labs = labData.populateLabResultsData(loggedInInfo, demographic.getDemographicNo().toString(), consultationRequest.getId().toString(), CommonLabResultData.ATTACHED);
-        for (LabResultData attachment : labs) {
-            byte[] dataBytes = LabPDFCreator.getPdfBytes(attachment.getSegmentID(), sendingProvider.getProviderNo());
-            Hl7TextInfo hl7TextInfo = hl7TextInfoDao.findLabId(Integer.parseInt(attachment.getSegmentID()));
-
-            ObservationData observationData = new ObservationData();
-            observationData.subject = hl7TextInfo.getDiscipline();
-            observationData.textMessage = "Attachment for consultation : " + consultationRequestId;
-            observationData.binaryDataFileName = hl7TextInfo.getDiscipline() + ".pdf";
-            observationData.binaryData = dataBytes;
-
-
-            ORU_R01 hl7Message = OruR01.makeOruR01(clinic, demographic, observationData, sendingProvider, professionalSpecialist);
-            int statusCode = SendingUtils.send(loggedInInfo, hl7Message, professionalSpecialist);
-            if (HttpServletResponse.SC_OK != statusCode)
-                throw (new ServletException("Error, received status code:" + statusCode));
-        }
-    }
-
-    /**
      * Import a PDF formatted OTN eConsult.
      *
      * @throws Exception
@@ -749,12 +665,15 @@ public class ConsultationManagerImpl implements ConsultationManager {
          * whole string of dated code.
          */
         List<EctFormData.PatientForm> allForms = formsManager.getEncounterFormsbyDemographicNumber(loggedInInfo, demographicNo, true, true);
+        Map<String, EctFormData.PatientForm> formById = new HashMap<>(allForms.size());
+        for (EctFormData.PatientForm form : allForms) {
+            formById.put(form.getFormId(), form);
+        }
+
         for (ConsultDocs attached : attachedForms) {
-            for (EctFormData.PatientForm form : allForms) {
-                if ((form.getFormId()).equals((attached.getDocumentNo() + ""))) {
-                    filteredForms.add(form);
-                    break;
-                }
+            EctFormData.PatientForm form = formById.get(String.valueOf(attached.getDocumentNo()));
+            if (form != null) {
+                filteredForms.add(form);
             }
         }
 
@@ -774,15 +693,49 @@ public class ConsultationManagerImpl implements ConsultationManager {
         //		In the absence of the above refactoring, the following gets the full listHRMDocuments and then filters for only the items that are actually attached to the consult
         ArrayList<HashMap<String, ? extends Object>> allHRMDocuments = HRMUtil.listHRMDocuments(loggedInInfo, "report_date", false, demographicNo, false);
         ArrayList<HashMap<String, ? extends Object>> filteredHRMDocuments = new ArrayList<>(attachedHRMDocuments.size());
+        Map<Integer, HashMap<String, ? extends Object>> hrmDocumentById = new HashMap<>(allHRMDocuments.size());
+        for (HashMap<String, ? extends Object> hrmDocument : allHRMDocuments) {
+            Integer hrmDocumentId = getHrmDocumentId(hrmDocument);
+            if (hrmDocumentId != null) {
+                hrmDocumentById.put(hrmDocumentId, hrmDocument);
+            }
+        }
+
         for (ConsultDocs attachedHRMDocument : attachedHRMDocuments) {
-            for (HashMap<String, ? extends Object> hrmDocument : allHRMDocuments) {
-                if (((Integer) hrmDocument.get("id")) == attachedHRMDocument.getDocumentNo()) {
-                    filteredHRMDocuments.add(hrmDocument);
-                }
+            HashMap<String, ? extends Object> hrmDocument = hrmDocumentById.get(attachedHRMDocument.getDocumentNo());
+            if (hrmDocument != null) {
+                filteredHRMDocuments.add(hrmDocument);
             }
         }
         //return the subset of listHRMDocuments that is attached
         return filteredHRMDocuments;
+    }
+
+    /**
+     * Extracts and normalizes the HRM document ID stored in a listHRMDocuments map entry.
+     *
+     * <p>The legacy HRM utility may return IDs as either {@link Number} or {@link String}
+     * values depending on the backing query path, so this helper converts both forms into
+     * a consistent {@link Integer} key for map-based lookups.</p>
+     *
+     * @param hrmDocument Map<String, ? extends Object> the HRM document entry returned by HRMUtil
+     * @return Integer the normalized HRM document ID, or {@code null} when the entry has no usable ID
+     * @since 2026-04-17
+     */
+    private Integer getHrmDocumentId(Map<String, ? extends Object> hrmDocument) {
+        Object hrmDocumentId = hrmDocument.get("id");
+        if (hrmDocumentId instanceof Number) {
+            return ((Number) hrmDocumentId).intValue();
+        }
+        if (hrmDocumentId instanceof String) {
+            try {
+                return Integer.valueOf((String) hrmDocumentId);
+            } catch (NumberFormatException e) {
+                logger.debug("Invalid HRM document ID format encountered");
+                return null;
+            }
+        }
+        return null;
     }
 
     @Override
@@ -906,5 +859,19 @@ public class ConsultationManagerImpl implements ConsultationManager {
         }
 
         return extraMap;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<ConsultationRequestListItemDTO> getConsultationDTOs(LoggedInInfo loggedInInfo, Integer demographicId) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, demographicId)) {
+            throw new SecurityException("missing required sec object (_con)");
+        }
+        List<ConsultationRequestListItemDTO> results = consultationRequestDtoDao.findConsultationDTOsByDemographicId(demographicId);
+        LogAction.addLogSynchronous(loggedInInfo, "ConsultationManager.getConsultationDTOs",
+                "demographicId=" + demographicId);
+        return results;
     }
 }

@@ -36,6 +36,8 @@ import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
 import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingPreference;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingPreferencesDAO;
@@ -68,6 +70,8 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  */
 public class SaveBillingPreferences2Action
         extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -92,6 +96,11 @@ public class SaveBillingPreferences2Action
      * @return String "success" to forward to the result page
      */
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+
         BillingPreferencesDAO dao = SpringUtils.getBean(BillingPreferencesDAO.class);
         PropertyDao propertyDao = SpringUtils.getBean(PropertyDao.class);
 

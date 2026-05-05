@@ -90,8 +90,10 @@ public class AuthorizeResource {
 
         request.setAttribute("oauthData", od);
 
-        // Correct servlet forward
-        RequestDispatcher rd = request.getRequestDispatcher("/login/3rdpartyLogin.jsp");
+        // Correct servlet forward. JSP now lives behind /WEB-INF/jsp/ since
+        // the tail-interactive migration; RequestDispatcher can still reach
+        // it via internal dispatch (see follow-up validation ticket #1731).
+        RequestDispatcher rd = request.getRequestDispatcher("/WEB-INF/jsp/login/3rdpartyLogin.jsp");
         rd.forward(request, response); // response committed by forward
     }
 
@@ -117,6 +119,8 @@ public class AuthorizeResource {
         // Let the provider set & persist the verifier + providerNo
         String verifier = provider.finalizeAuthorization(rt);
 
+        // nosemgrep: open-redirect -- callback comes from the server-persisted request token
+        // (set during /initiate by OscarRequestTokenService), not from user input in this POST.
         String cb = rt.getCallback();
         if (cb != null && !"oob".equalsIgnoreCase(cb)) {
             String sep = cb.contains("?") ? "&" : "?";

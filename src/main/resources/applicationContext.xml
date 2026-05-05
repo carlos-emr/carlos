@@ -39,6 +39,20 @@
 	<aop:aspectj-autoproxy proxy-target-class="true"/>
 
 	<bean class="io.github.carlos_emr.carlos.config.ServletContextConfig"/>
+	<!--
+		Registers the @Configuration class that declares @EnableCaching and the
+		Caffeine-backed CacheManager bean. Today CacheConfig is also picked up by
+		the broad <context:component-scan base-package="io.github.carlos_emr.carlos">
+		in spring_managers.xml, but that is the only discovery path — any future
+		change to that scan (e.g. adding use-default-filters="false", adding an
+		exclude-filter covering the config package, or replacing it with a
+		repository-only filter like test-context-full.xml uses) would silently
+		disable every @Cacheable / @CacheEvict in the application with no test
+		signal. The id="cacheConfig" matches the bean name the scanner would
+		generate from the class, so the scanner detects the existing definition
+		and skips re-registering it — one bean, no duplication.
+	-->
+	<bean id="cacheConfig" class="io.github.carlos_emr.carlos.config.CacheConfig"/>
     <!-- Enable annotation-driven transaction management with CGLIB proxies -->
     <tx:annotation-driven proxy-target-class="true"/>
 	<bean id="propertyConfigurer" class="io.github.carlos_emr.carlos.commn.OscarPropertyPlaceholderConfigurer">
@@ -52,9 +66,6 @@
 	<!-- setup JPA -->
 	<import resource="classpath:spring_jpa.xml" />
 
-	<!-- setup hibernate -->
-	<import resource="classpath:spring_hibernate.xml" />
-
 	<!-- setup managers -->
 	<import resource="classpath:spring_managers.xml" />
 
@@ -63,7 +74,6 @@
 	<!-- <context:component-scan base-package="io.github.carlos_emr.carlos.commn.dao" /> -->
 	
 	<!-- hibernated DAO -->
-    <bean id="gstControlDao" class="io.github.carlos_emr.carlos.billing.CA.dao.GstControlDaoImpl" autowire="byName" />
 	<bean id="programDao" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDaoImpl" autowire="byName" />
 	<bean id="programQueueDao" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramQueueDaoImpl" autowire="byName" />
 	<bean id="clientReferralDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ClientReferralDAOImpl" autowire="byName" />
@@ -221,7 +231,6 @@
 		<property name="userPropertyDAO" ref="UserPropertyDAO" />
 		<property name="rolesManager" ref="rolesManager" />
 		<property name="admissionManager" ref="admissionManager" />
-		<property name="enabled" value="${casemgmt.note.password.enabled}" />
 		<property name="programManager" ref="programManager" />
 		<property name="dxresearchDAO" ref="DxresearchDAO" />
 		<property name="programProviderDao" ref="programProviderDAO" />
@@ -292,8 +301,6 @@
 	<bean id="measurementManager" class="io.github.carlos_emr.carlos.managers.MeasurementManagerImpl"></bean>
 	<bean id="prescriptionManager" class="io.github.carlos_emr.carlos.managers.PrescriptionManagerImpl"></bean>
 	<bean id="formsManager" class="io.github.carlos_emr.carlos.managers.FormsManagerImpl"></bean>
-	<bean id="drugDispensingManager" class="io.github.carlos_emr.carlos.managers.DrugDispensingManagerImpl"></bean>
-	<bean id="drugProductManager" class="io.github.carlos_emr.carlos.managers.DrugProductManagerImpl"></bean>
 	<bean id="rxManager" class="io.github.carlos_emr.carlos.managers.RxManagerImpl"></bean> -->
 	<!-- <bean id="drugConverter" class="io.github.carlos_emr.carlos.webserv.rest.conversion.DrugConverterImpl"></bean>
 	<bean id="prescriptionConverter" class="io.github.carlos_emr.carlos.webserv.rest.conversion.PrescriptionConverterImpl"></bean>
@@ -328,7 +335,7 @@
 <!-- <bean id="vacancyTemplateManager" class="io.github.carlos_emr.carlos.service.PMmodule.VacancyTemplateManagerImpl"></bean> -->
  <!-- <bean id="eformDataManager" class="io.github.carlos_emr.carlos.managers.EformDataManagerImpl"></bean> -->
 <!--<bean id="nioFileManager" class="io.github.carlos_emr.carlos.managers.NioFileManagerImpl"></bean> -->
-<!-- <bean id="preventionDS" class="oscar.oscarPrevention.PreventionDSImpl"></bean> -->
+<!-- <bean id="preventionDS" class="io.github.carlos_emr.carlos.prevention.PreventionDSImpl"></bean> -->
 <!-- <bean id="messengerDemographicManager" class="io.github.carlos_emr.carlos.managers.MessengerDemographicManagerImpl"></bean> -->
 <!-- <bean id="documentAttachmentManager" class="io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManagerImpl"></bean> -->
 <!-- <bean id="faxDocumentManager" class="io.github.carlos_emr.carlos.managers.FaxDocumentManagerImpl"></bean> -->

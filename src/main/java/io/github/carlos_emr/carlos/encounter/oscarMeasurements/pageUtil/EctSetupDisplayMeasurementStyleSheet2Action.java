@@ -57,7 +57,7 @@ public final class EctSetupDisplayMeasurementStyleSheet2Action extends ActionSup
 
             EctStyleSheetBeanHandler hd = new EctStyleSheetBeanHandler();
             HttpSession session = request.getSession();
-            session.setAttribute("styleSheets", hd);
+            session.setAttribute("styleSheets", hd); // nosemgrep: tainted-session-from-http-request -- DAO result bean from EctStyleSheetBeanHandler
 
             return "continue";
 

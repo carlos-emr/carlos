@@ -43,6 +43,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
@@ -55,9 +56,14 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingNote;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public final class BillingUpdateBilling2Action
         extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -65,6 +71,16 @@ public final class BillingUpdateBilling2Action
 
     public String execute() throws IOException,
             ServletException {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         String creator = (String) request.getSession().getAttribute("user");
 
         BillRecipient recip = new BillRecipient();
@@ -84,7 +100,10 @@ public final class BillingUpdateBilling2Action
         try {
             n.addNoteFromBillingNo(this.getBillingNo(), creator, this.getMessageNotes());
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            throw new IllegalStateException(
+                    "BC billing note update failed for billingNo="
+                            + LogSanitizer.sanitizeForDisplay(this.getBillingNo()),
+                    e);
         }
 
         return SUCCESS;

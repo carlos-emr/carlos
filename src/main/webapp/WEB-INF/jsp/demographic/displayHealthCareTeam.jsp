@@ -1,0 +1,238 @@
+<%--
+
+    Copyright (c) 2015-2019. The Pharmacists Clinic, Faculty of Pharmaceutical Sciences, University of British Columbia. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for the
+    The Pharmacists Clinic
+    Faculty of Pharmaceutical Sciences
+    University of British Columbia
+    Vancouver, British Columbia, Canada
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ page import="java.util.List, org.apache.commons.lang3.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicContact" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ContactSpecialtyDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ContactSpecialty" %>
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+
+<security:oscarSec roleName="${ sessionScope.userrole }" objectName="_demographic" rights="r" reverse="${ false }">
+
+    <%
+        List<DemographicContact> demographicContacts = null;
+        DemographicDao demographicDao = null;
+        Demographic demographic = null;
+        ContactSpecialtyDao specialtyDao = null;
+        List<ContactSpecialty> specialty = null;
+        String demographicNoString = request.getParameter("demographicNo");
+
+        if (!StringUtils.isBlank(demographicNoString)) {
+            demographicDao = SpringUtils.getBean(DemographicDao.class);
+            demographic = demographicDao.getClientByDemographicNo(Integer.parseInt(demographicNoString));
+            demographicContacts = Contact2Action.getDemographicContacts(demographic);
+            specialtyDao = SpringUtils.getBean(ContactSpecialtyDao.class);
+            specialty = specialtyDao.findAll();
+        }
+
+        pageContext.setAttribute("demographic", demographic);
+        pageContext.setAttribute("demographicContacts", demographicContacts);
+        pageContext.setAttribute("specialty", specialty);
+    %>
+
+    <%-- DETACHED VIEW ENABLED  --%>
+    <c:if test="${ param.view eq 'detached' }">
+
+        <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+        <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+
+        <!DOCTYPE html>
+        <html>
+        <head>
+
+        <link rel="stylesheet" type="text/css" href="${ pageContext.request.contextPath }/css/healthCareTeam.css"/>
+        <link rel="stylesheet" type="text/css"
+              href="${ pageContext.request.contextPath }/share/css/OscarStandardLayout.css"/>
+        <script type="text/javascript" src="${ pageContext.request.contextPath }/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="${ pageContext.request.contextPath }/library/jquery/jquery-compat.js"></script>
+
+    </c:if>
+    <%-- END DETACHED VIEW ENABLED  --%>
+
+    <c:if test="${ param.view ne 'detached' }">
+        <script type="text/javascript">
+            document.addEventListener("DOMContentLoaded", function () {
+                var items = document.querySelectorAll(".hovereffect");
+                for (var i = 0; i < items.length; i++) {
+                    items[i].addEventListener("mouseover", function () {
+                        var detail = document.getElementById("healthCareTeamMemberDetail_" + this.id);
+                        if (detail) {
+                            nhpup.popup(detail.innerHTML, {'width': 250});
+                        }
+                    });
+                }
+            });
+        </script>
+    </c:if>
+
+    <%-- DETACHED VIEW ENABLED  --%>
+    <c:if test="${ param.view eq 'detached' }">
+
+        <script type="text/javascript">
+            jQuery(document).ready(function ($) {
+                //--> Popup effects
+                $(".hovereffect").mouseover(function () {
+                    $('#healthCareTeamMemberDetail_' + this.id).toggle();
+                    $(this).css("fontWeight", "bold");
+                });
+                $(".hovereffect").mouseout(function () {
+                    $('#healthCareTeamMemberDetail_' + this.id).toggle();
+                    $(this).css("fontWeight", "inherit");
+                });
+            })
+        </script>
+
+        </head>
+
+        <body id="${ param.view }View" >
+        <table class="MainTable" >
+        <tr class="MainTableTopRow">
+            <td class="MainTableTopRowLeftColumn" width="20%">&nbsp;<fmt:message key="demographic.manageHealthCareTeam.heading"/></td>
+            <td class="MainTableTopRowRightColumn">
+                <table class="TopStatusBar">
+                    <tr>
+                        <td>&nbsp;</td>
+                        <td>
+                            ${carlos:forHtml(demographic.lastName)},&nbsp;
+                            ${carlos:forHtml(demographic.firstName)}&nbsp;
+                            ${carlos:forHtml(demographic.age)}&nbsp;years
+                        </td>
+                        <td style="text-align: right">
+
+                            <a href="javascript:popupStart(300,400,'About.jsp')">
+                                <fmt:message key="global.about"/></a> | <a
+                                href="javascript:popupStart(300,400,'License.jsp')">
+                            <fmt:message key="global.license"/></a></td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+        <tr><td colspan="2">
+
+    </c:if>
+    <%-- END DETACHED VIEW ENABLED  --%>
+
+
+    <%-- HEALTH CARE TEAM MODULE --%>
+    <div class="demographicSection" id="healthCareTeam">
+
+            <%-- DETACHED VIEW ENABLED  --%>
+
+        <h3 id="tableTitle"><fmt:message key="demographic.manageHealthCareTeam.heading"/></h3>
+
+            <%-- END DETACHED VIEW ENABLED  --%>
+
+        <ul>
+            <c:forEach items="${ demographicContacts }" var="dContact" varStatus="row">
+
+                <c:set value="internal" var="internal" scope="page"/>
+                <c:set value="${ dContact.details.workPhone }" var="workPhone" scope="page"/>
+                <c:set value="even" var="rowclass" scope="page"/>
+                <c:if test="${ row.index mod 2 ne 0 }">
+                    <c:set value="odd" var="rowclass" scope="page"/>
+                </c:if>
+
+                <li id="${ dContact.id }" class="hovereffect ${ rowclass }">
+			
+				<span class="label"> 
+					${carlos:forHtml(dContact.role)}
+				</span>
+
+                    <c:if test="${ workPhone eq internal }">
+					<span class="label">
+						&#40;${carlos:forHtml(internal)}&#41;
+					</span>
+                    </c:if>
+
+                    <span class="info">
+					:&nbsp;${carlos:forHtml(dContact.contactName)}
+				</span>
+                </li>
+
+                <table class="healthCareTeamMemberDetailTable" id="healthCareTeamMemberDetail_${ dContact.id }"
+                       style="display:none;">
+                    <tr>
+                        <th class="alignLeft contactName" colspan="2">${carlos:forHtml(dContact.contactName)}</th>
+                    </tr>
+                    <tr>
+                        <td class="alignRight alignTop smallText role">Role:</td>
+                        <td class="alignLeft alignTop smallText role">${carlos:forHtml(dContact.role)}</td>
+                    </tr>
+                    <tr>
+                        <td class="alignRight alignTop smallText">Address:</td>
+                        <td class="alignLeft alignTop smallText">${carlos:forHtml(dContact.details.address)}</td>
+                    </tr>
+                    <tr>
+                        <td class="alignRight alignTop smallText">City:</td>
+                        <td class="alignLeft alignTop smallText">${carlos:forHtml(dContact.details.city)}</td>
+                    </tr>
+                    <tr>
+                        <td class="alignRight alignTop smallText">Province:</td>
+                        <td class="alignLeft alignTop smallText">${carlos:forHtml(dContact.details.province)}</td>
+                    </tr>
+                    <tr>
+                        <td class="alignRight alignTop smallText">Phone:</td>
+                        <td class="alignLeft alignTop smallText">${carlos:forHtml(not empty workPhone ? workPhone : unknown)}</td>
+                    </tr>
+                    <tr>
+                        <td class="alignRight alignTop smallText">Fax:</td>
+                        <td class="alignLeft alignTop smallText">${carlos:forHtml(not empty dContact.details.fax ? dContact.details.fax : unknown)}</td>
+                    </tr>
+                    <tr>
+                        <td class="alignRight alignTop smallText">CPSO:</td>
+                        <td><c:catch var="exception">${ dContact.details.cpso }</c:catch></td>
+                    </tr>
+                </table>
+
+            </c:forEach>
+        </ul>
+    </div>
+    <%-- END HEALTH CARE TEAM MODULE --%>
+
+    <%-- DETACHED VIEW ENABLED  --%>
+    <c:if test="${ param.view eq 'detached' }">
+        </td></tr>
+        </table>
+        </body>
+        </html>
+    </c:if>
+    <%-- END DETACHED VIEW ENABLED  --%>
+
+</security:oscarSec>

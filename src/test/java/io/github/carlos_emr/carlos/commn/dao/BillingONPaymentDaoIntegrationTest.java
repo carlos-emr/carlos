@@ -23,7 +23,10 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
+import io.github.carlos_emr.carlos.commn.model.BillingONExt;
 import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -50,6 +53,7 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("BillingONPayment Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
+@Tag("billing")
 @Transactional
 public class BillingONPaymentDaoIntegrationTest extends CarlosTestBase {
 
@@ -58,6 +62,9 @@ public class BillingONPaymentDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private BillingONCHeader1Dao daoBONCH;
+
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
 
     private final DateFormat dfm = new SimpleDateFormat("yyyyMMdd");
 
@@ -145,5 +152,121 @@ public class BillingONPaymentDaoIntegrationTest extends CarlosTestBase {
 
         assertThat(result).hasSameSizeAs(expectedResult);
         assertThat(result).containsExactlyElementsOf(expectedResult);
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("findWithExtItems should populate billingONExtItems collection in one query")
+    void shouldPopulateExtItems_inOneQueryWhenFindWithExtItems() throws Exception {
+        BillingONCHeader1 bONCHeader1 = new BillingONCHeader1();
+        bONCHeader1.setHeaderId(0);
+        bONCHeader1.setDemographicNo(1);
+        bONCHeader1.setProviderNo("111111");
+        bONCHeader1.setStatus(BillingONCHeader1.OPEN);
+        daoBONCH.persist(bONCHeader1);
+        hibernateTemplate.flush();
+
+        BillingONPayment payment = new BillingONPayment();
+        payment.setBillingNo(bONCHeader1.getId());
+        payment.setPaymentDate(new Date(dfm.parse("20260101").getTime()));
+
+        BillingONExt ext1 = new BillingONExt();
+        ext1.setBillingNo(bONCHeader1.getId());
+        ext1.setKeyVal("payment");
+        ext1.setValue("100.00");
+        BillingONExt ext2 = new BillingONExt();
+        ext2.setBillingNo(bONCHeader1.getId());
+        ext2.setKeyVal("refund");
+        ext2.setValue("0.00");
+
+        // CascadeType.ALL on BillingONPayment.billingONExtItems persists the
+        // children alongside the payment.
+        payment.getBillingONExtItems().add(ext1);
+        payment.getBillingONExtItems().add(ext2);
+        dao.persist(payment);
+        hibernateTemplate.flush();
+
+        // Detach so a subsequent .find() would otherwise lazy-init.
+        entityManager.clear();
+
+        BillingONPayment loaded = dao.findWithExtItems(payment.getId());
+
+        assertThat(loaded).isNotNull();
+        // The collection is populated by the LEFT JOIN FETCH; iterating it
+        // outside the session must NOT throw LazyInitializationException.
+        assertThat(loaded.getBillingONExtItems()).hasSize(2);
+        assertThat(loaded.getBillingONExtItems())
+                .extracting(BillingONExt::getKeyVal)
+                .containsExactlyInAnyOrder("payment", "refund");
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("findWithExtItems should return null when paymentId is null")
+    void shouldReturnNull_whenPaymentIdIsNullOnFindWithExtItems() {
+        assertThat(dao.findWithExtItems(null)).isNull();
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("find3rdPartyPaymentsByBillingNoWithExtItems should populate ext items")
+    void shouldReturnPaymentsWithExtItems_whenFind3rdPartyPaymentsByBillingNoWithExtItems() throws Exception {
+        BillingONCHeader1 bONCHeader1 = new BillingONCHeader1();
+        bONCHeader1.setHeaderId(0);
+        bONCHeader1.setDemographicNo(1);
+        bONCHeader1.setProviderNo("111111");
+        bONCHeader1.setStatus(BillingONCHeader1.OPEN);
+        daoBONCH.persist(bONCHeader1);
+        hibernateTemplate.flush();
+
+        int billingNo = bONCHeader1.getId();
+
+        BillingONPayment payment1 = new BillingONPayment();
+        payment1.setBillingNo(billingNo);
+        payment1.setPaymentDate(new Date(dfm.parse("20260101").getTime()));
+        BillingONExt ext = new BillingONExt();
+        ext.setBillingNo(billingNo);
+        ext.setKeyVal("payment");
+        ext.setValue("50.00");
+        payment1.getBillingONExtItems().add(ext);
+
+        BillingONPayment payment2 = new BillingONPayment();
+        payment2.setBillingNo(billingNo);
+        payment2.setPaymentDate(new Date(dfm.parse("20260201").getTime()));
+
+        dao.persist(payment1);
+        dao.persist(payment2);
+        hibernateTemplate.flush();
+
+        entityManager.clear();
+
+        List<BillingONPayment> result = dao.find3rdPartyPaymentsByBillingNoWithExtItems(billingNo);
+
+        // DISTINCT keeps the parent count correct despite the cartesian
+        // product from LEFT JOIN FETCH on payment1's single ext row.
+        assertThat(result).hasSize(2);
+        int totalExt = result.stream().mapToInt(p -> p.getBillingONExtItems().size()).sum();
+        assertThat(totalExt).isEqualTo(1);
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("getTotalSumByBillingNoWeb should return zero when billingNo is non-numeric")
+    void shouldReturnZeroAsCurrency_whenBillingNoNonNumericInTotalSum() {
+        // The narrowed catch must observe and convert NFE to a zero render
+        // path; a future refactor that swaps NumberFormatException for a
+        // broader Exception (or removes the catch) would surface here.
+        String result = dao.getTotalSumByBillingNoWeb("not-a-number");
+        assertThat(result).isNotNull();
+        assertThat(result).contains("0.00");
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("getPaymentsRefundByBillingNoWeb should return zero when billingNo is non-numeric")
+    void shouldReturnZeroAsCurrency_whenBillingNoNonNumericInRefund() {
+        String result = dao.getPaymentsRefundByBillingNoWeb("not-a-number");
+        assertThat(result).isNotNull();
+        assertThat(result).contains("0.00");
     }
 }

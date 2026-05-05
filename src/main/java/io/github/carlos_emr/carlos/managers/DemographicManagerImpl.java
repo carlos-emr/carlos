@@ -40,6 +40,8 @@ import io.github.carlos_emr.carlos.commn.Gender;
 import io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException;
 import io.github.carlos_emr.carlos.commn.model.Demographic.PatientStatus;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DemographicExtKey;
+import io.github.carlos_emr.carlos.demographic.dto.DemographicHeaderDTO;
+import io.github.carlos_emr.carlos.demographic.dto.DemographicListItemDTO;
 import io.github.carlos_emr.carlos.utility.DemographicContactCreator;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -125,7 +127,11 @@ public class DemographicManagerImpl implements DemographicManager {
 	 */
      @Override
      public Demographic getDemographic(LoggedInInfo loggedInInfo, Integer demographicId) throws PatientDirectiveException {
-        checkPrivilege(loggedInInfo, SecurityInfoManager.READ, (demographicId != null) ? demographicId : null); 
+        if (demographicId != null) {
+            checkPrivilege(loggedInInfo, SecurityInfoManager.READ, demographicId);
+        } else {
+            checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
+        }
         Demographic demographic = demographicDao.getDemographicById(demographicId); 
         if (demographic != null) {
 			this.getMRP(loggedInInfo, demographic);
@@ -359,13 +365,37 @@ public class DemographicManagerImpl implements DemographicManager {
         return providerList;
     }
 
+    /**
+     * Regex allowlist for {@link #getDemographicsNameRangeByProvider}: accepts only
+     * simple character-range expressions of the form {@code ^[X-Y]} where X and Y
+     * are single ASCII letters (e.g. {@code ^[A-M]}). This prevents ReDoS from
+     * a caller supplying an unbounded or catastrophic regex pattern.
+     */
+    private static final Pattern SAFE_NAME_RANGE_REGEX = Pattern.compile("^\\^\\[[A-Za-z]-[A-Za-z]\\]$");
+
     @Override
     public List<Demographic> getDemographicsNameRangeByProvider(LoggedInInfo loggedInInfo, Provider provider,
                                                                 String regex) {
         checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
 
         if (provider == null || provider.getProviderNo() == null || regex == null) {
-            return new ArrayList<>(); // Return an empty list if providers or regex is null
+            return new ArrayList<>(); // Return an empty list if provider or regex is null
+        }
+
+        // Reject any regex that is not a simple letter-range expression (e.g. "^[A-M]").
+        // This prevents ReDoS: an attacker cannot supply patterns like "^(a+)+$".
+        if (!SAFE_NAME_RANGE_REGEX.matcher(regex).matches()) {
+            logger.warn("getDemographicsNameRangeByProvider: rejected unsafe regex pattern");
+            return new ArrayList<>();
+        }
+
+        // Validate that the character range is not reversed (e.g. "^[Z-A]" would pass the
+        // allowlist but throw PatternSyntaxException in Pattern.compile).
+        char rangeStart = Character.toUpperCase(regex.charAt(2));
+        char rangeEnd = Character.toUpperCase(regex.charAt(4));
+        if (rangeStart > rangeEnd) {
+            logger.warn("getDemographicsNameRangeByProvider: rejected reversed character range");
+            return new ArrayList<>();
         }
 
         List<Demographic> demographicList = demographicDao.getDemographicByProvider(provider.getProviderNo());
@@ -1269,6 +1299,42 @@ public class DemographicManagerImpl implements DemographicManager {
         String appointmentString = getNextAppointmentDate(loggedInInfo, demographic.getDemographicNo());
         demographic.setNextAppointment(appointmentString);
         return appointmentString;
+    }
+
+    // --- DTO projection methods ---
+
+    /** {@inheritDoc} */
+    @Override
+    public DemographicHeaderDTO getDemographicHeader(LoggedInInfo loggedInInfo, Integer demographicId) {
+        if (demographicId == null) {
+            checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
+            return null;
+        }
+        checkPrivilege(loggedInInfo, SecurityInfoManager.READ, demographicId);
+        DemographicHeaderDTO result = demographicDao.getDemographicHeader(demographicId);
+        if (result != null) {
+            LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.getDemographicHeader",
+                    "demographicId=" + result.getDemographicNo());
+        }
+        return result;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<DemographicListItemDTO> searchDemographicDTOs(LoggedInInfo loggedInInfo, String searchString,
+                                                              int startIndex, int itemsToReturn) {
+        checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
+        List<DemographicListItemDTO> results = demographicDao.searchDemographicDTOByName(
+                searchString, itemsToReturn, startIndex, providerNo, false);
+
+        // --- log action ---
+        for (DemographicListItemDTO dto : results) {
+            LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.searchDemographicDTOs result",
+                    "demographicId=" + dto.getDemographicNo());
+        }
+
+        return results;
     }
 
 }

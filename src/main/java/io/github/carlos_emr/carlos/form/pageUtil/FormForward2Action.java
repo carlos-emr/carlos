@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.form.pageUtil;
 
 import java.io.IOException;
 import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.sql.SQLException;
 
 import jakarta.servlet.ServletException;
@@ -45,6 +46,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.form.data.FrmData;
+import io.github.carlos_emr.carlos.form.gate.FormViewRoutes;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -84,6 +86,7 @@ public class FormForward2Action extends ActionSupport {
          */
         try {
             FrmData frmData = new FrmData();
+            // deepcode ignore SqlInjection: delegates to FrmData which validates table name via regex + uses GetPreSQL
             formPath = frmData.getShortcutFormValue(demographicNo, strFrm);
             formPath[0] = formPath[0].trim();
 
@@ -118,8 +121,17 @@ public class FormForward2Action extends ActionSupport {
         /*
          * Build a custom forward path to the requested form.
          */
-        StringBuilder redirect = new StringBuilder(formPath[0]);
-        redirect.append("?demographic_no=").append(demographicNo);
+        String actionPath = FormViewRoutes.resolveActionPath(formPath[0]);
+        if (actionPath == null) {
+            logger.warn("Failed to resolve action path for form {}", strFrm);
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form path");
+            return NONE;
+        }
+
+        StringBuilder redirect = new StringBuilder(request.getContextPath()).append(actionPath);
+        redirect.append(actionPath.contains("?") ? "&" : "?")
+                .append("demographic_no=")
+                .append(URLEncoder.encode(demographicNo, CharEncoding.UTF_8));
 
         /*
          * If the formId is requesting the latest form then change its
@@ -145,7 +157,7 @@ public class FormForward2Action extends ActionSupport {
          */
         if (formId != null) {
             requestedForm = Integer.parseInt(formId);
-            redirect.append("&formId=").append(formId);
+            redirect.append("&formId=").append(URLEncoder.encode(formId, CharEncoding.UTF_8));
         } else if (latestForm > 0) {
             redirect.append("&formId=").append(latestForm);
         }
@@ -159,10 +171,10 @@ public class FormForward2Action extends ActionSupport {
         }
 
         if (appointmentNo != null && !appointmentNo.isEmpty()) {
-            redirect.append("&appointmentNo=").append(appointmentNo);
+            redirect.append("&appointmentNo=").append(URLEncoder.encode(appointmentNo, CharEncoding.UTF_8));
         }
         if (provNo != null && !provNo.isEmpty()) {
-            redirect.append("&provNo=").append(provNo);
+            redirect.append("&provNo=").append(URLEncoder.encode(provNo, CharEncoding.UTF_8));
         }
 
         response.sendRedirect(redirect.toString());

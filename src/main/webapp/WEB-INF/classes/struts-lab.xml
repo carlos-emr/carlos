@@ -28,48 +28,105 @@
 <struts>
     <package name="lab" namespace="/" extends="struts-default">
 
+        <global-results>
+            <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
+            <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
+        </global-results>
+
+        <global-exception-mappings>
+            <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
+            <exception-mapping exception="java.lang.Exception" result="error"/>
+        </global-exception-mappings>
+
         <action name="lab/CA/ALL/createLabLabel" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.CreateLabLabel2Action">
-            <result name="complete">/lab/CA/ALL/labDisplay.jsp</result>
+            <result name="complete">/WEB-INF/jsp/lab/CA/ALL/labDisplay.jsp</result>
         </action>
         <action name="lab/CA/ALL/PrintPDF" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.PrintLabs2Action">
-            <result name="error">/lab/CA/ALL/labDisplay.jsp</result>
+            <result name="error">/WEB-INF/jsp/lab/CA/ALL/labDisplay.jsp</result>
         </action>
         <action name="lab/CA/ALL/UnlinkDemographic" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.UnlinkDemographic2Action">
-            <result name="success">/oscarMDS/Close.jsp</result>
+            <result name="success">/WEB-INF/jsp/oscarMDS/Close.jsp</result>
         </action>
         <action name="oscarMDS/FileLabs" class="io.github.carlos_emr.carlos.lab.pageUtil.FileLabs2Action">
-            <result name="failure">/errorpage.jsp</result>
-            <result name="success">/documentManager/inboxManage.do?method=prepareForIndexPage</result>
+            <result name="failure">/WEB-INF/jsp/error/errorpage.jsp</result>
+            <result name="success">/documentManager/inboxManage?method=prepareForIndexPage</result>
         </action>
         <action name="oscarMDS/ForwardingRules" class="io.github.carlos_emr.carlos.lab.pageUtil.ForwardingRules2Action">
-            <result name="failure">/errorpage.jsp</result>
-            <result name="success">/oscarMDS/ForwardingRules.jsp</result>
+            <result name="failure">/WEB-INF/jsp/error/errorpage.jsp</result>
+            <result name="success">/WEB-INF/jsp/oscarMDS/ForwardingRules.jsp</result>
         </action>
         <action name="admin/ForwardingRules" class="io.github.carlos_emr.carlos.lab.pageUtil.ForwardingRules2Action">
-            <result name="failure">/errorpage.jsp</result>
-            <result name="success">/admin/labforwardingrules.jsp</result>
+            <result name="failure">/WEB-INF/jsp/error/errorpage.jsp</result>
+            <result name="success">/WEB-INF/jsp/admin/labforwardingrules.jsp</result>
         </action>
         <action name="lab/labUpload" class="io.github.carlos_emr.carlos.lab.ca.bc.PathNet.pageUtil.LabUpload2Action">
-            <result name="success">/lab/CA/BC/LabUpload.jsp</result>
+            <result name="success">/WEB-INF/jsp/lab/CA/BC/LabUpload.jsp</result>
         </action>
         <action name="lab/newLabUpload" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.LabUpload2Action">
-            <result name="success">/lab/CA/ALL/uploadComplete.jsp</result>
+            <result name="success">/WEB-INF/jsp/lab/CA/ALL/uploadComplete.jsp</result>
         </action>
         <action name="lab/CA/ALL/insideLabUpload" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.InsideLabUpload2Action">
             <interceptor-ref name="defaultStack"/>
-            <result name="success">/lab/CA/ALL/testUploader.jsp</result>
-            <result name="input">/lab/CA/ALL/testUploader.jsp</result>
-        </action>
-        <action name="lab/CA/ALL/oruR01Upload" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.OruR01Upload2Action">
-            <result name="result">/common/genericResultPage.jsp</result>
+            <result name="success">/WEB-INF/jsp/lab/CA/ALL/testUploader.jsp</result>
+            <result name="input">/WEB-INF/jsp/lab/CA/ALL/testUploader.jsp</result>
         </action>
         <action name="lab/CMLlabUpload" class="io.github.carlos_emr.carlos.lab.ca.on.CML.Upload.LabUpload2Action">
-            <result name="success">/lab/CA/ON/uploadComplete.jsp</result>
+            <result name="success">/WEB-INF/jsp/lab/CA/ON/uploadComplete.jsp</result>
         </action>
         <action name="oscarMDS/SubmitLab" class="io.github.carlos_emr.carlos.lab.ca.all.web.SubmitLabByForm2Action">
-            <result name="manage">/oscarMDS/CreateLab.jsp</result>
+            <result name="manage">/WEB-INF/jsp/oscarMDS/CreateLab.jsp</result>
         </action>
         <action name="lab/DownloadEmbeddedDocumentFromLab" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.DownloadEmbeddedDocumentFromLab2Action"/>
 
+
+        <!-- ===== lab JSP gating actions (migration slice) ===== -->
+        <action name="oscarMDS/ViewCreateLab" class="io.github.carlos_emr.carlos.lab.gate.ViewCreateLab2Action">
+            <result name="success">/WEB-INF/jsp/oscarMDS/CreateLab.jsp</result>
+        </action>
+        <action name="lab/ViewCumulativeLabValues" class="io.github.carlos_emr.carlos.lab.gate.ViewCumulativeLabValues2Action">
+            <result name="success">/WEB-INF/jsp/lab/CumulativeLabValues.jsp</result>
+        </action>
+        <action name="lab/ViewCumulativeLabValues3" class="io.github.carlos_emr.carlos.lab.gate.ViewCumulativeLabValues32Action">
+            <result name="success">/WEB-INF/jsp/lab/CumulativeLabValues3.jsp</result>
+        </action>
+        <action name="lab/ViewDemographicLab" class="io.github.carlos_emr.carlos.lab.gate.ViewDemographicLab2Action">
+            <result name="success">/WEB-INF/jsp/lab/DemographicLab.jsp</result>
+        </action>
+        <action name="lab/ViewDisplayLabValue" class="io.github.carlos_emr.carlos.lab.gate.ViewDisplayLabValue2Action">
+            <result name="success">/WEB-INF/jsp/lab/DisplayLabValue.jsp</result>
+        </action>
+        <action name="lab/ViewLinkReq" class="io.github.carlos_emr.carlos.lab.gate.ViewLinkReq2Action">
+            <result name="success">/WEB-INF/jsp/lab/LinkReq.jsp</result>
+        </action>
+        <action name="lab/CA/ALL/ViewLabDisplay" class="io.github.carlos_emr.carlos.lab.gate.ViewLabDisplay2Action">
+            <result name="success">/WEB-INF/jsp/lab/CA/ALL/labDisplay.jsp</result>
+        </action>
+        <action name="lab/CA/ALL/ViewLabDisplayAjax" class="io.github.carlos_emr.carlos.lab.gate.ViewLabDisplayAjax2Action">
+            <result name="success">/WEB-INF/jsp/lab/CA/ALL/labDisplayAjax.jsp</result>
+        </action>
+        <action name="lab/CA/BC/ViewDemoSelect" class="io.github.carlos_emr.carlos.lab.gate.ViewDemoSelect2Action">
+            <result name="success">/WEB-INF/jsp/lab/CA/BC/demo_select.jsp</result>
+        </action>
+        <action name="lab/CA/BC/ViewIndex" class="io.github.carlos_emr.carlos.lab.gate.ViewLabBcIndex2Action">
+            <result name="success">/WEB-INF/jsp/lab/CA/BC/index.jsp</result>
+        </action>
+        <action name="lab/CA/BC/ViewLabDisplay" class="io.github.carlos_emr.carlos.lab.gate.ViewLabBcDisplay2Action">
+            <result name="success">/WEB-INF/jsp/lab/CA/BC/labDisplay.jsp</result>
+        </action>
+        <action name="lab/CA/BC/ViewReport" class="io.github.carlos_emr.carlos.lab.gate.ViewLabBcReport2Action">
+            <result name="success">/WEB-INF/jsp/lab/CA/BC/report.jsp</result>
+        </action>
+        <action name="lab/CA/BC/ViewSearchReports" class="io.github.carlos_emr.carlos.lab.gate.ViewLabBcSearchReports2Action">
+            <result name="success">/WEB-INF/jsp/lab/CA/BC/searchreports.jsp</result>
+        </action>
+        <action name="lab/CA/ON/ViewCMLDisplay" class="io.github.carlos_emr.carlos.lab.gate.ViewCMLDisplay2Action">
+            <result name="success">/WEB-INF/jsp/lab/CA/ON/CMLDisplay.jsp</result>
+        </action>
+        <action name="lab/CA/ON/ViewLabValues" class="io.github.carlos_emr.carlos.lab.gate.ViewLabValues2Action">
+            <result name="success">/WEB-INF/jsp/lab/CA/ON/labValues.jsp</result>
+        </action>
+        <action name="lab/CA/ON/ViewLabValuesGraph" class="io.github.carlos_emr.carlos.lab.gate.ViewLabValuesGraph2Action">
+            <result name="success">/WEB-INF/jsp/lab/CA/ON/labValuesGraph.jsp</result>
+        </action>
     </package>
 </struts>

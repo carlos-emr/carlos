@@ -355,4 +355,35 @@ public interface MessageHandler {
     public String getNteForOBX(int i, int j);
 
     public String getNteForPID();
+
+    /**
+     * Return the version/letter code for the patient's health number (e.g. the
+     * two-character suffix following the HIN in PID-19).  Returns an empty
+     * string when not available.
+     */
+    default String getHealthNumVersion() { return ""; }
+
+    /**
+     * Return the patient's mailing street address (PID-11, component 1).
+     * Returns an empty string when not available.
+     */
+    default String getPatientAddress() { return ""; }
+
+    /**
+     * Return the city from the patient's mailing address (PID-11, component 3).
+     * Returns an empty string when not available.
+     */
+    default String getPatientCity() { return ""; }
+
+    /**
+     * Return the province/state from the patient's mailing address
+     * (PID-11, component 4).  Returns an empty string when not available.
+     */
+    default String getPatientProvince() { return ""; }
+
+    /**
+     * Return the postal/ZIP code from the patient's mailing address
+     * (PID-11, component 5).  Returns an empty string when not available.
+     */
+    default String getPatientPostal() { return ""; }
 }

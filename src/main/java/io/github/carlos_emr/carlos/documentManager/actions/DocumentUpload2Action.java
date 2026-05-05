@@ -63,6 +63,7 @@ import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import java.util.List;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 public class DocumentUpload2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -94,7 +95,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             try {
                 docFile = PathValidationUtils.validateUpload(docFile);
             } catch (SecurityException e) {
-                logger.error("Invalid upload source - potential path traversal: " + docFile.getPath());
+                logger.error("Invalid upload source - potential path traversal: {}", LogSanitizer.sanitize(docFile.getPath()));
                 map.put("error", "Invalid file upload");
                 docFile = null; // Treat as if no file was uploaded
             }
@@ -120,14 +121,21 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                     boolean success = writeToIncomingDocs(docFile, queueId, destFolder, sanitizedFileName);
                     if (!success) {
                         map.put("error", "Failed to write file. Please contact administrator");
-                        MiscUtils.getLogger().error("Failed to write file to " + destFolder);
+                        MiscUtils.getLogger().error("Failed to write file to {}", LogSanitizer.sanitize(destFolder)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                     } else {
                         map.put("name", docFile.getName());
                         map.put("size", docFile.length());
                     }
                 }
 
-                request.getSession().setAttribute("preferredQueue", queueId);
+                if (queueId != null) {
+                    try {
+                        request.getSession().setAttribute("preferredQueue", String.valueOf(Integer.parseInt(queueId.trim()))); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+                    } catch (NumberFormatException e) {
+                        // Do not store an invalid (non-integer) queue ID in the session (trust boundary protection)
+                        logger.warn("Invalid queue ID format — skipping session attribute update");
+                    }
+                }
                 if (docFile != null) {
                     docFile.delete();
                     docFile = null;
@@ -170,7 +178,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             }
             newDoc.setNumberOfPages(numberOfPages);
             String doc_no = EDocUtil.addDocumentSQL(newDoc);
-            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
+            LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
 
             String providerId = request.getParameter("providers");
             if (providerId != null) {
@@ -181,12 +189,17 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
 
             String queueId = request.getParameter("queue");
             if (queueId != null && !queueId.equals("-1")) {
-                WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
-                QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
-                Integer qid = Integer.parseInt(queueId.trim());
-                Integer did = Integer.parseInt(doc_no.trim());
-                queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
-                request.getSession().setAttribute("preferredQueue", queueId);
+                if (!queueId.trim().matches("\\d+")) {
+                    logger.warn("Invalid queue ID format — skipping queue link");
+                    request.getSession().removeAttribute("preferredQueue");
+                } else {
+                    WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
+                    QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
+                    Integer qid = Integer.parseInt(queueId.trim());
+                    Integer did = Integer.parseInt(doc_no.trim());
+                    queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
+                    request.getSession().setAttribute("preferredQueue", String.valueOf(qid)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+                }
             }
 
             map.put("name", docFile.getName());
@@ -267,26 +280,20 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             return false;
         }
 
-        String parentPath = IncomingDocUtil.getIncomingDocumentFilePath(queueId, PdfDir);
-        if (!new File(parentPath).exists()) {
+        // Create directory structure and get validated parent path
+        String parentPath = IncomingDocUtil.getAndCreateIncomingDocumentFilePath(queueId, PdfDir);
+        File parentDir = new File(parentPath);
+        if (!parentDir.exists()) {
             return false;
         }
 
-        String savePath = IncomingDocUtil.getAndCreateIncomingDocumentFilePathName(queueId, PdfDir, fileName);
-
-        // Validate the destination path using PathValidationUtils
-        String incomingDocDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
-        if (incomingDocDir == null || incomingDocDir.isEmpty()) {
-            logger.error("INCOMINGDOCUMENT_DIR not configured");
-            return false;
-        }
-
-        File baseDir = new File(incomingDocDir);
-        File destinationFile = new File(savePath);
+        // Use PathValidationUtils to construct and validate the destination file path
+        // (sanitizes fileName, rejects traversal, ensures result is within parentDir).
+        File destinationFile;
         try {
-            PathValidationUtils.validateExistingPath(destinationFile.getParentFile(), baseDir);
+            destinationFile = PathValidationUtils.validatePath(fileName, parentDir);
         } catch (SecurityException e) {
-            logger.error("Destination file is outside allowed directory: " + savePath);
+            logger.error("Destination file is outside allowed directory: {}", LogSanitizer.sanitize(fileName));
             return false;
         }
 

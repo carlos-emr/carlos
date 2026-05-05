@@ -51,10 +51,12 @@
     <!-- A "Connector" using the shared thread pool-->
 
     <!--  OSCAR needs to start a connection on 8080 for drugref   -->
-    <Connector executor="tomcatThreadPool"
-               port="8080" protocol="HTTP/1.1"
-               connectionTimeout="20000"
-               redirectPort="8443" />
+     <Connector executor="tomcatThreadPool"
+                port="8080" protocol="HTTP/1.1"
+                connectionTimeout="20000"
+                maxPostSize="52428800"
+                maxSwallowSize="52428800"
+                redirectPort="8443" />
 
     <!-- Define a SSL/TLS HTTP/1.1 Connector on port 8443
          This connector uses the NIO implementation. The default
@@ -68,16 +70,17 @@
 
    <!-- The upgrade protocol to https 2 is experimental and may not send the full page -->
 
-    <Connector URIEncoding="UTF-8"
-           server="Apache Tomcat"
-           port="8443"
-           executor="tomcatThreadPool"
-           SSLEnabled="true"
-           relaxedQueryChars="[]"
-           maxPostSize="-1"
-           scheme="https" 
-           protocol="org.apache.coyote.http11.Http11Nio2Protocol"
-           maxThreads="800" >
+     <Connector URIEncoding="UTF-8"
+            server="Apache Tomcat"
+            port="8443"
+            executor="tomcatThreadPool"
+            SSLEnabled="true"
+            relaxedQueryChars="[]"
+            maxPostSize="52428800"
+            maxSwallowSize="52428800"
+            scheme="https" 
+            protocol="org.apache.coyote.http11.Http11Nio2Protocol"
+            maxThreads="800" >
 	    <SSLHostConfig sslProtocol="TLS"
 		        protocols="TLSv1.2"
 		        honorCipherOrder="true"

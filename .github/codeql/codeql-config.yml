@@ -1,0 +1,27 @@
+# CodeQL Configuration for CARLOS EMR
+#
+# This configuration file customizes GitHub's code scanning (CodeQL) analysis.
+# It is automatically picked up by GitHub's default setup and referenced by
+# any CodeQL Actions workflow configured for this repository.
+#
+# Reference:
+#   https://docs.github.com/en/code-security/code-scanning/creating-an-advanced-setup-for-code-scanning/customizing-your-advanced-setup-for-code-scanning
+
+name: "CARLOS EMR CodeQL Configuration"
+
+# Exclude bundled third-party JavaScript libraries from JavaScript/TypeScript analysis.
+#
+# These directories contain unmodified copies of external libraries (Bootstrap,
+# jQuery, DataTables, flatpickr, etc.). They are managed solely by version upgrades
+# and are not subject to in-place code review. Including them in CodeQL analysis
+# produces false-positive "DOM text reinterpreted as HTML" (js/xss-through-dom)
+# and similar alerts that cannot be actioned:
+#
+#  - library/bootstrap/3.0.0 was removed; library/bootstrap/5.3.3 ships with
+#    its own allowlist-based sanitizeHtml() and is not vulnerable.
+#  - All other sub-directories contain well-known, externally maintained packages.
+#
+# First-party JS files under web/, share/javascript/, decision/, and
+# WEB-INF/eform-assets/ are intentionally kept in scope.
+paths-ignore:
+  - "src/main/webapp/library/**"

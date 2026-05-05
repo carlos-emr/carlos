@@ -32,7 +32,7 @@
 
 package io.github.carlos_emr.carlos.daos.security;
 
-import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 
 import io.github.carlos_emr.carlos.model.security.Secobjectname;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,14 +40,14 @@ import org.springframework.transaction.annotation.Transactional;
  * @author jackson
  */
 @Transactional
-public class SecObjectNameDaoImpl extends AbstractHibernateDao implements SecObjectNameDao {
+public class SecObjectNameDaoImpl extends AbstractJpaDao implements SecObjectNameDao {
 
     @Override
     public void saveOrUpdate(Secobjectname t) {
         if (t.getObjectname() == null) {
-            currentSession().persist(t);
+            entityManager().persist(t);
         } else {
-            currentSession().merge(t);
+            entityManager().merge(t);
         }
     }
 }

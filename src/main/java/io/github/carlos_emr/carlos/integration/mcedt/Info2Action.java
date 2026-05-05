@@ -49,6 +49,7 @@ public class Info2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
+        McedtSecurity.requireRead(request);
         List<BigInteger> resourceIds = getResourceIds(request);
 
         EDTDelegate delegate = DelegateFactory.getEDTDelegateInstance();

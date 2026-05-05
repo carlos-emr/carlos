@@ -37,17 +37,17 @@ import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.QueueCache;
-import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
+import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
 @Transactional
-public class ProgramProviderDAOImpl extends AbstractHibernateDao implements ProgramProviderDAO {
+public class ProgramProviderDAOImpl extends AbstractJpaDao implements ProgramProviderDAO {
 
     private Logger log = MiscUtils.getLogger();
 
@@ -67,7 +67,7 @@ public class ProgramProviderDAOImpl extends AbstractHibernateDao implements Prog
 
         if (results == null) {
             String q = "select pp from ProgramProvider pp where pp.ProgramId=?1 and pp.ProviderNo=?2";
-            results = (List<ProgramProvider>) HqlQueryHelper.find(currentSession(), q, programId, providerNo);
+            results = (List<ProgramProvider>) JpqlQueryHelper.find(entityManager(), q, programId, providerNo);
             if (results != null)
                 programProviderByProviderProgramIdCache.put(cacheKey, results);
         }
@@ -78,14 +78,14 @@ public class ProgramProviderDAOImpl extends AbstractHibernateDao implements Prog
     @SuppressWarnings("unchecked")
     @Override
     public List<ProgramProvider> getAllProgramProviders() {
-        return (List<ProgramProvider>) HqlQueryHelper.find(currentSession(), "FROM ProgramProvider");
+        return (List<ProgramProvider>) JpqlQueryHelper.find(entityManager(), "FROM ProgramProvider");
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public List<ProgramProvider> getProgramProviderByProviderNo(String providerNo) {
         String q = "select pp from ProgramProvider pp where pp.ProviderNo=?1";
-        return (List<ProgramProvider>) HqlQueryHelper.find(currentSession(), q, providerNo);
+        return (List<ProgramProvider>) JpqlQueryHelper.find(entityManager(), q, providerNo);
     }
 
     @Override
@@ -95,7 +95,7 @@ public class ProgramProviderDAOImpl extends AbstractHibernateDao implements Prog
         }
 
         @SuppressWarnings("unchecked")
-        List<ProgramProvider> results = (List<ProgramProvider>) HqlQueryHelper.find(currentSession(),
+        List<ProgramProvider> results = (List<ProgramProvider>) JpqlQueryHelper.find(entityManager(),
                 "from ProgramProvider pp where pp.ProgramId = ?1", programId);
 
         if (log.isDebugEnabled()) {
@@ -111,7 +111,7 @@ public class ProgramProviderDAOImpl extends AbstractHibernateDao implements Prog
         }
 
         String sSQL = "from ProgramProvider pp where pp.ProviderNo = ?1";
-        List<ProgramProvider> results = (List<ProgramProvider>) HqlQueryHelper.find(currentSession(), sSQL, providerNo);
+        List<ProgramProvider> results = (List<ProgramProvider>) JpqlQueryHelper.find(entityManager(), sSQL, providerNo);
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramProvidersByProvider: providerNo=" + providerNo + ",# of results=" + results.size());
@@ -129,7 +129,7 @@ public class ProgramProviderDAOImpl extends AbstractHibernateDao implements Prog
         Map<String, Object> params = new HashMap<>();
         params.put("providerNo", providerNo);
         params.put("facilityId", facilityId);
-        List results = HqlQueryHelper.find(currentSession(), hql, params);
+        List results = JpqlQueryHelper.find(entityManager(), hql, params);
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramProvidersByProviderAndFacility: providerNo=" + providerNo + ",# of results="
@@ -144,7 +144,7 @@ public class ProgramProviderDAOImpl extends AbstractHibernateDao implements Prog
             throw new IllegalArgumentException();
         }
 
-        ProgramProvider result = currentSession().find(ProgramProvider.class, id);
+        ProgramProvider result = entityManager().find(ProgramProvider.class, id);
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramProvider: id=" + id + ",found=" + (result != null));
@@ -168,7 +168,7 @@ public class ProgramProviderDAOImpl extends AbstractHibernateDao implements Prog
 
         ProgramProvider result = null;
         String queryStr = "from ProgramProvider pp where pp.ProviderNo = ?1 and pp.ProgramId = ?2 and pp.RoleId = ?3";
-        List results = HqlQueryHelper.find(currentSession(), queryStr, providerNo, programId, roleId);
+        List results = JpqlQueryHelper.find(entityManager(), queryStr, providerNo, programId, roleId);
 
         if (!results.isEmpty()) {
             result = (ProgramProvider) results.get(0);
@@ -194,7 +194,7 @@ public class ProgramProviderDAOImpl extends AbstractHibernateDao implements Prog
 
         ProgramProvider result = null;
         String sSQL = "from ProgramProvider pp where pp.ProviderNo = ?1 and pp.ProgramId = ?2";
-        List results = HqlQueryHelper.find(currentSession(), sSQL, providerNo, programId);
+        List results = JpqlQueryHelper.find(entityManager(), sSQL, providerNo, programId);
         if (!results.isEmpty()) {
             result = (ProgramProvider) results.get(0);
         }
@@ -215,7 +215,7 @@ public class ProgramProviderDAOImpl extends AbstractHibernateDao implements Prog
         }
 
         programProviderByProviderProgramIdCache.remove(makeCacheKey(pp.getProviderNo(), pp.getProgramId()));
-        currentSession().merge(pp);
+        entityManager().merge(pp);
 
         if (log.isDebugEnabled()) {
             log.debug("saveProgramProvider: id=" + pp.getId());
@@ -232,7 +232,7 @@ public class ProgramProviderDAOImpl extends AbstractHibernateDao implements Prog
         ProgramProvider pp = getProgramProvider(id);
         if (pp != null) {
             programProviderByProviderProgramIdCache.remove(makeCacheKey(pp.getProviderNo(), pp.getProgramId()));
-            currentSession().remove(pp);
+            entityManager().remove(pp);
         }
 
         if (log.isDebugEnabled()) {
@@ -252,7 +252,7 @@ public class ProgramProviderDAOImpl extends AbstractHibernateDao implements Prog
             while (it.hasNext()) {
                 ProgramProvider pp = (ProgramProvider) it.next();
                 programProviderByProviderProgramIdCache.remove(makeCacheKey(pp.getProviderNo(), pp.getProgramId()));
-                currentSession().remove(pp);
+                entityManager().remove(pp);
             }
         }
 
@@ -272,7 +272,7 @@ public class ProgramProviderDAOImpl extends AbstractHibernateDao implements Prog
         Long pId = programId.longValue();
 
         String sSQL = "select pp from ProgramProvider pp left join pp.teams as team where pp.ProgramId = ?1 and team.id = ?2";
-        List<ProgramProvider> results = (List<ProgramProvider>) HqlQueryHelper.find(currentSession(), sSQL, pId, teamId);
+        List<ProgramProvider> results = (List<ProgramProvider>) JpqlQueryHelper.find(entityManager(), sSQL, pId, teamId);
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramProvidersInTeam: programId=" + programId + ",teamId=" + teamId + ",# of results="
@@ -290,7 +290,7 @@ public class ProgramProviderDAOImpl extends AbstractHibernateDao implements Prog
         }
 
         String sSQL = "from ProgramProvider pp where pp.ProviderNo = ?1";
-        List results = HqlQueryHelper.find(currentSession(), sSQL, providerNo);
+        List results = JpqlQueryHelper.find(entityManager(), sSQL, providerNo);
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramDomain: providerNo=" + providerNo + ",# of results=" + results.size());
@@ -305,7 +305,7 @@ public class ProgramProviderDAOImpl extends AbstractHibernateDao implements Prog
         }
 
         String sSQL = "select pp from ProgramProvider pp, Program p where pp.ProgramId=p.id and p.programStatus='active' and pp.ProviderNo = ?1";
-        List results = HqlQueryHelper.find(currentSession(), sSQL, providerNo);
+        List results = JpqlQueryHelper.find(entityManager(), sSQL, providerNo);
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramDomain: providerNo=" + providerNo + ",# of results=" + results.size());
@@ -323,7 +323,7 @@ public class ProgramProviderDAOImpl extends AbstractHibernateDao implements Prog
         Map<String, Object> params = new HashMap<>();
         params.put("providerNo", providerNo);
         params.put("facilityId", facilityId);
-        List results = HqlQueryHelper.find(currentSession(), hql, params);
+        List results = JpqlQueryHelper.find(entityManager(), hql, params);
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramDomainByFacility: providerNo=" + providerNo + ",# of results=" + results.size());
@@ -338,7 +338,7 @@ public class ProgramProviderDAOImpl extends AbstractHibernateDao implements Prog
         }
 
         String queryStr = "from ProgramProvider pp where pp.ProviderNo = ?1 and pp.ProgramId = ?2";
-        List results = HqlQueryHelper.find(currentSession(), queryStr,
+        List results = JpqlQueryHelper.find(entityManager(), queryStr,
                 providerNo, Long.valueOf(programId.longValue()));
         if (results != null && results.size() > 0) {
             return true;
@@ -355,7 +355,7 @@ public class ProgramProviderDAOImpl extends AbstractHibernateDao implements Prog
             throw new IllegalArgumentException();
         }
         String sSQL = "select distinct f from Facility f, Program p, ProgramProvider pp where pp.ProgramId = p.id and f.id = p.facilityId and pp.ProviderNo = ?1";
-        List results = HqlQueryHelper.find(currentSession(), sSQL, providerNo);
+        List results = JpqlQueryHelper.find(entityManager(), sSQL, providerNo);
 
         return results;
     }
@@ -364,6 +364,6 @@ public class ProgramProviderDAOImpl extends AbstractHibernateDao implements Prog
     @Override
     public void updateProviderRole(ProgramProvider pp, Long roleId) {
         pp.setRoleId(roleId);
-        currentSession().merge(pp);
+        entityManager().merge(pp);
     }
 }

@@ -200,6 +200,7 @@ public class OscarJobService extends AbstractServiceImpl {
         ScheduledFuture<Object> future = OscarJobExecutingManager.getFutures().get(jobId);
         if (future != null) {
             future.cancel(true);
+            OscarJobExecutingManager.getFutures().remove(jobId);
         }
         return getJob(jobId);
     }
@@ -367,6 +368,7 @@ public class OscarJobService extends AbstractServiceImpl {
         ScheduledFuture<Object> future = OscarJobExecutingManager.getFutures().get(job.getId());
         if (future != null) {
             future.cancel(false);
+            OscarJobExecutingManager.getFutures().remove(job.getId());
         }
 
 

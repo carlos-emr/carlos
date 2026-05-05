@@ -28,92 +28,192 @@
 <struts>
     <package name="document" namespace="/" extends="struts-default">
 
+        <global-results>
+            <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
+            <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
+        </global-results>
+
+        <global-exception-mappings>
+            <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
+            <exception-mapping exception="java.lang.Exception" result="error"/>
+        </global-exception-mappings>
+
         <action name="documentManager/inboxManage" class="io.github.carlos_emr.carlos.documentManager.actions.DmsInboxManage2Action" method="execute">
-            <result name="dms_index">/oscarMDS/Index.jsp</result>
-            <result name="dms_page">/oscarMDS/Page.jsp</result>
-            <result name="document_in_queues">/oscarMDS/documentsInQueues.jsp</result>
+            <result name="dms_index">/WEB-INF/jsp/oscarMDS/Index.jsp</result>
+            <result name="dms_page">/WEB-INF/jsp/oscarMDS/Page.jsp</result>
+            <result name="document_in_queues">/WEB-INF/jsp/oscarMDS/documentsInQueues.jsp</result>
         </action>
         <action name="oscarMDS/SendMRP" class="io.github.carlos_emr.carlos.mds.pageUtil.SendMostResponProv2Action">
-            <result name="failure">/errorpage.jsp</result>
+            <result name="failure">/WEB-INF/jsp/error/errorpage.jsp</result>
         </action>
         <action name="oscarMDS/UpdateStatus" class="io.github.carlos_emr.carlos.mds.pageUtil.ReportStatusUpdate2Action">
-            <result name="failure">/errorpage.jsp</result>
-            <result name="success">/oscarMDS/Close.jsp</result>
+            <result name="failure">/WEB-INF/jsp/error/errorpage.jsp</result>
+            <result name="success">/WEB-INF/jsp/oscarMDS/Close.jsp</result>
         </action>
         <action name="oscarMDS/RunMacro" class="io.github.carlos_emr.carlos.mds.pageUtil.ReportMacro2Action"/>
         <action name="oscarMDS/ReportReassign" class="io.github.carlos_emr.carlos.mds.pageUtil.ReportReassign2Action">
-            <result name="failure">/errorpage.jsp</result>
-            <result name="success">/documentManager/inboxManage.do?method=prepareForIndexPage</result>
+            <result name="failure">/WEB-INF/jsp/error/errorpage.jsp</result>
+            <result name="success">/documentManager/inboxManage?method=prepareForIndexPage</result>
         </action>
         <action name="lab/CA/ALL/Forward" class="io.github.carlos_emr.carlos.mds.pageUtil.ReportReassign2Action">
-            <result name="failure">/errorpage.jsp</result>
-            <result name="success">/lab/CA/ALL/labDisplay.jsp</result>
+            <result name="failure">/WEB-INF/jsp/error/errorpage.jsp</result>
+            <result name="success">/lab/CA/ALL/ViewLabDisplay</result>
         </action>
         <action name="lab/CA/BC/Forward" class="io.github.carlos_emr.carlos.mds.pageUtil.ReportReassign2Action">
-            <result name="failure">/errorpage.jsp</result>
-            <result name="success">/lab/CA/BC/labDisplay.jsp</result>
+            <result name="failure">/WEB-INF/jsp/error/errorpage.jsp</result>
+            <result name="success">/lab/CA/BC/ViewLabDisplay</result>
         </action>
         <action name="lab/CA/ON/Forward" class="io.github.carlos_emr.carlos.mds.pageUtil.ReportReassign2Action">
-            <result name="failure">/errorpage.jsp</result>
-            <result name="success">/lab/CA/ON/CMLDisplay.jsp</result>
+            <result name="failure">/WEB-INF/jsp/error/errorpage.jsp</result>
+            <result name="success">/lab/CA/ON/ViewCMLDisplay</result>
         </action>
         <action name="oscarMDS/Forward" class="io.github.carlos_emr.carlos.mds.pageUtil.ReportReassign2Action">
-            <result name="failure">/errorpage.jsp</result>
-            <result name="success">/oscarMDS/SegmentDisplay.jsp</result>
+            <result name="failure">/WEB-INF/jsp/error/errorpage.jsp</result>
         </action>
         <action name="oscarMDS/SearchPatient" class="io.github.carlos_emr.carlos.mds.pageUtil.SearchPatient2Action">
-            <result name="failure">/oscarMDS/PatientSearch.jsp?search_mode=search_name&amp;limit1=0&amp;limit2=10</result>
-            <result name="success">/oscarMDS/OpenEChart.jsp</result>
+            <result name="failure">/WEB-INF/jsp/oscarMDS/PatientSearch.jsp</result>
+            <result name="success">/WEB-INF/jsp/oscarMDS/OpenEChart.jsp</result>
         </action>
         <action name="oscarMDS/PatientMatch" class="io.github.carlos_emr.carlos.mds.pageUtil.PatientMatch2Action">
-            <result name="failure">/errorpage.jsp</result>
-            <result name="success">/oscarMDS/OpenEChart.jsp</result>
+            <result name="failure">/WEB-INF/jsp/error/errorpage.jsp</result>
+            <result name="success">/WEB-INF/jsp/oscarMDS/OpenEChart.jsp</result>
         </action>
+        <!--
+            Document-manager JSPs have been relocated behind /WEB-INF/jsp/
+            and are reached only through the action routes below (view gates +
+            dedicated mutation actions). GET-triggerable scriptlet delete /
+            undelete / refile vectors that previously lived in
+            documentBrowser.jsp and documentReport.jsp are now POST-only
+            Struts2 mutation actions with appropriate privilege enforcement.
+        -->
         <action name="previewDocs" class="io.github.carlos_emr.carlos.documentManager.actions.DocumentPreview2Action">
-            <result name="fetchDocuments">/documentManager/attachDocument.jsp</result>
+            <result name="fetchDocuments">/WEB-INF/jsp/documentManager/attachDocument.jsp</result>
         </action>
         <action name="documentManager/addEditDocument" class="io.github.carlos_emr.carlos.documentManager.actions.AddEditDocument2Action">
-            <result name="successAdd">/documentManager/documentReport.jsp</result>
-            <result name="failAdd">/documentManager/documentReport.jsp</result>
-            <result name="failEdit">/documentManager/editDocument.jsp</result>
+            <result name="successAdd">/WEB-INF/jsp/documentManager/documentReport.jsp</result>
+            <result name="failAdd">/WEB-INF/jsp/documentManager/documentReport.jsp</result>
+            <result name="failEdit">/WEB-INF/jsp/documentManager/editDocument.jsp</result>
             <result name="successEdit">/documentManager/closeWindow.html</result>
-            <result name="fastUploadSuccess">/documentManager/uploadMultiDocument.jsp</result>
         </action>
         <action name="documentManager/combinePDFs" class="io.github.carlos_emr.carlos.documentManager.actions.CombinePDF2Action">
-            <result name="success">/documentManager/documentReport.jsp</result>
+            <result name="success">/WEB-INF/jsp/documentManager/documentReport.jsp</result>
         </action>
         <action name="documentManager/addLink" class="io.github.carlos_emr.carlos.documentManager.actions.AddEditHtml2Action">
-            <result name="success">/documentManager/documentReport.jsp</result>
-            <result name="failed">/documentManager/documentReport.jsp</result>
+            <result name="success">/WEB-INF/jsp/documentManager/documentReport.jsp</result>
+            <result name="failed">/WEB-INF/jsp/documentManager/documentReport.jsp</result>
         </action>
         <action name="documentManager/addEditHtml" class="io.github.carlos_emr.carlos.documentManager.actions.AddEditHtml2Action">
             <result name="success">/documentManager/closeWindow.html</result>
-            <result name="failed">/documentManager/addedithtmldocument.jsp</result>
+            <result name="failed">/WEB-INF/jsp/documentManager/addedithtmldocument.jsp</result>
         </action>
         <action name="documentManager/ManageDocument" class="io.github.carlos_emr.carlos.documentManager.actions.ManageDocument2Action">
-            <result name="success">/documentManager/undocument.jsp</result>
-            <result name="displaySingleDoc">/documentManager/MultiPageDocDisplay.jsp</result>
-            <result name="nextIncomingDoc">/documentManager/incomingDocs.jsp</result>
-            <result name="error">/failure.jsp</result>
+            <result name="displaySingleDoc">/WEB-INF/jsp/documentManager/MultiPageDocDisplay.jsp</result>
+            <result name="nextIncomingDoc">/WEB-INF/jsp/documentManager/incomingDocs.jsp</result>
+            <result name="error">/WEB-INF/jsp/error/failure.jsp</result>
         </action>
         <action name="documentManager/SplitDocument" class="io.github.carlos_emr.carlos.documentManager.actions.SplitDocument2Action">
-            <result name="success">/oscarMDS/Splitclose.jsp</result>
+            <result name="success">/WEB-INF/jsp/oscarMDS/Splitclose.jsp</result>
         </action>
         <action name="documentManager/documentUpload" class="io.github.carlos_emr.carlos.documentManager.actions.DocumentUpload2Action"/>
+
+        <!-- View gates (_edoc r) -->
+        <action name="documentManager/ViewDocumentBrowser" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentRead2Action">
+            <result name="success">/WEB-INF/jsp/documentManager/documentBrowser.jsp</result>
+        </action>
+        <action name="documentManager/ViewDocumentReport" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentRead2Action">
+            <result name="success">/WEB-INF/jsp/documentManager/documentReport.jsp</result>
+        </action>
+        <action name="documentManager/ViewShowDocument" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentRead2Action">
+            <result name="success">/WEB-INF/jsp/documentManager/showDocument.jsp</result>
+        </action>
+        <action name="documentManager/ViewMultiPageDocDisplay" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentRead2Action">
+            <result name="success">/WEB-INF/jsp/documentManager/MultiPageDocDisplay.jsp</result>
+        </action>
+        <action name="documentManager/ViewIncomingDocs" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentRead2Action">
+            <result name="success">/WEB-INF/jsp/documentManager/incomingDocs.jsp</result>
+        </action>
+
+        <!-- View gates (_edoc w) -->
+        <action name="documentManager/ViewAddDocument" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentWrite2Action">
+            <result name="success">/WEB-INF/jsp/documentManager/addDocument.jsp</result>
+        </action>
+        <action name="documentManager/ViewEditDocument" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentWrite2Action">
+            <result name="success">/WEB-INF/jsp/documentManager/editDocument.jsp</result>
+        </action>
+        <action name="documentManager/ViewAddEditHtml" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentWrite2Action">
+            <result name="success">/WEB-INF/jsp/documentManager/addedithtmldocument.jsp</result>
+        </action>
+        <action name="documentManager/ViewDocumentUploader" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentWrite2Action">
+            <result name="success">/WEB-INF/jsp/documentManager/documentUploader.jsp</result>
+        </action>
+        <action name="documentManager/ViewHtml5AddDocuments" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentWrite2Action">
+            <result name="success">/WEB-INF/jsp/documentManager/html5AddDocuments.jsp</result>
+        </action>
+
+        <!-- POST-only mutations (replace scriptlet vectors in documentBrowser.jsp + documentReport.jsp) -->
+        <action name="documentManager/DocumentDelete" class="io.github.carlos_emr.carlos.documentManager.actions.DocumentDelete2Action">
+            <result name="methodNotAllowed" type="httpheader">
+                <param name="status">405</param>
+            </result>
+        </action>
+        <action name="documentManager/DocumentUndelete" class="io.github.carlos_emr.carlos.documentManager.actions.DocumentUndelete2Action">
+            <result name="methodNotAllowed" type="httpheader">
+                <param name="status">405</param>
+            </result>
+        </action>
+        <action name="documentManager/DocumentRefile" class="io.github.carlos_emr.carlos.documentManager.actions.DocumentRefile2Action">
+            <result name="methodNotAllowed" type="httpheader">
+                <param name="status">405</param>
+            </result>
+        </action>
+        <!--
+            Hospital Report Manager (HRM). All JSPs live under
+            /WEB-INF/jsp/hospitalReportManager/ so the container blocks
+            direct GETs. Entry only via these action routes.
+        -->
         <action name="hospitalReportManager/Display" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMDisplayReport2Action">
-            <result name="display" type="dispatcher">/hospitalReportManager/displayHRMReport.jsp</result>
+            <result name="display" type="dispatcher">/WEB-INF/jsp/hospitalReportManager/displayHRMReport.jsp</result>
         </action>
         <action name="hospitalReportManager/Modify" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMModifyDocument2Action">
-            <result name="ajax">/hospitalReportManager/ajaxResponse.jsp</result>
+            <result name="ajax">/WEB-INF/jsp/hospitalReportManager/ajaxResponse.jsp</result>
         </action>
         <action name="hospitalReportManager/Statement" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMStatementModify2Action">
-            <result name="success">/hospitalReportManager/hospitalReportManager.jsp</result>
+            <result name="success">/WEB-INF/jsp/hospitalReportManager/hospitalReportManager.jsp</result>
         </action>
         <action name="hospitalReportManager/HRMDownloadFile" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMDownloadFile2Action"/>
         <action name="hospitalReportManager/hrm" class="io.github.carlos_emr.carlos.hospitalReportManager.v2018.HRM2Action"/>
         <action name="hospitalReportManager/PrintHRMReport" class="io.github.carlos_emr.carlos.hospitalReportManager.PrintHRMReport2Action">
-            <result name="error">/hospitalReportManager/displayHRMReport.jsp</result>
+            <result name="error">/WEB-INF/jsp/hospitalReportManager/displayHRMReport.jsp</result>
+        </action>
+        <action name="hospitalReportManager/ViewDocList" class="io.github.carlos_emr.carlos.hospitalReportManager.gate.ViewHRMDocList2Action">
+            <result name="success">/WEB-INF/jsp/hospitalReportManager/displayHRMDocList.jsp</result>
         </action>
 
+
+        <!-- ===== oscarMDS JSP gating actions (migration slice) ===== -->
+        <action name="oscarMDS/ViewCreateLabTest" class="io.github.carlos_emr.carlos.mds.gate.ViewCreateLabTest2Action">
+            <result name="success">/WEB-INF/jsp/oscarMDS/CreateLabTest.jsp</result>
+        </action>
+        <action name="oscarMDS/ViewSearch" class="io.github.carlos_emr.carlos.mds.gate.ViewSearch2Action">
+            <result name="success">/WEB-INF/jsp/oscarMDS/Search.jsp</result>
+        </action>
+        <action name="oscarMDS/ViewSelectProvider" class="io.github.carlos_emr.carlos.mds.gate.ViewSelectProvider2Action">
+            <result name="success">/WEB-INF/jsp/oscarMDS/SelectProvider.jsp</result>
+        </action>
+        <action name="oscarMDS/ViewSelectProviderAltView" class="io.github.carlos_emr.carlos.mds.gate.ViewSelectProviderAltView2Action">
+            <result name="success">/WEB-INF/jsp/oscarMDS/SelectProviderAltView.jsp</result>
+        </action>
+        <action name="oscarMDS/ViewSplit" class="io.github.carlos_emr.carlos.mds.gate.ViewSplit2Action">
+            <result name="success">/WEB-INF/jsp/oscarMDS/Split.jsp</result>
+        </action>
+        <action name="oscarMDS/ViewSegmentDisplay" class="io.github.carlos_emr.carlos.mds.gate.ViewSegmentDisplay2Action">
+            <result name="success">/WEB-INF/jsp/oscarMDS/SegmentDisplay.jsp</result>
+        </action>
+        <action name="oscarMDS/ViewOpenEChart" class="io.github.carlos_emr.carlos.mds.gate.ViewOpenEChart2Action">
+            <result name="success">/WEB-INF/jsp/oscarMDS/OpenEChart.jsp</result>
+        </action>
+        <action name="oscarMDS/ViewPatientSearch" class="io.github.carlos_emr.carlos.mds.gate.ViewPatientSearch2Action">
+            <result name="success">/WEB-INF/jsp/oscarMDS/PatientSearch.jsp</result>
+        </action>
     </package>
 </struts>

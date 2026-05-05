@@ -34,7 +34,6 @@ import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.utility.*;
 import org.apache.struts2.ActionSupport;
-import io.github.carlos_emr.carlos.model.security.LdapSecurity;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.logging.log4j.Logger;
@@ -64,11 +63,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
+import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
@@ -149,6 +148,13 @@ public final class Login2Action extends ActionSupport {
 
     /** Log message prefix for authentication-related log entries */
     private static final String LOG_PRE = "Login!@#$: ";
+
+    /**
+     * Session attribute name holding an opaque random token that references credential
+     * material stashed in {@link LoginCredentialCache}. The token itself contains no
+     * credential information; credential hashes and PINs are never placed in the session.
+     */
+    private static final String LOGIN_CREDENTIALS_TOKEN_ATTR = "loginCredentialsToken";
 
     /** Spring-managed service for provider data access and management */
     private final ProviderManager providerManager = SpringUtils.getBean(ProviderManager.class);
@@ -254,7 +260,7 @@ public final class Login2Action extends ActionSupport {
         // SECURITY: Reject GET requests to prevent credential exposure in URLs/logs
         if (!"POST".equals(request.getMethod())) {
             MiscUtils.getLogger().error("Someone is trying to login with a GET request.", new Exception());
-            String newURL = request.getContextPath() + "/loginfailed.jsp?errormsg=Application Error. See Log.";
+            String newURL = request.getContextPath() + "/loginfailed?errormsg=Application Error. See Log.";
             response.sendRedirect(newURL);
             return NONE;
         }
@@ -336,6 +342,12 @@ public final class Login2Action extends ActionSupport {
                         throw new RuntimeException(e);
                     }
                 }
+                // MFA verification succeeded: the original login credentials are no longer
+                // needed on subsequent requests, so invalidate the credential-cache entry
+                // and clear the session token. This ensures credential material cannot
+                // outlive the successful login (it would otherwise sit in the cache until
+                // its 5-minute TTL expired).
+                removeAttributesFromSession(request);
                 // Continue with post-authentication flow after successful MFA
                 return resumePostAuthenticationFlow(cl, ip, isMobileOptimized, submitType, ajaxResponse);
             } else {
@@ -361,23 +373,44 @@ public final class Login2Action extends ActionSupport {
         // >> 2. Forced Password Change Handling
         if (request.getParameter("forcedpasswordchange") != null
                 && request.getParameter("forcedpasswordchange").equalsIgnoreCase("true")) {
-            // Coming back from force password change.
-            userName = (String) request.getSession().getAttribute("userName");
+            // Coming back from force password change. Credentials are held in the
+            // server-side LoginCredentialCache, referenced by an opaque one-time token
+            // in the session (the credentials themselves are NEVER placed in the session).
+            String credsToken = (String) request.getSession().getAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR);
+            LoginCredentialCache.LoginCredentials cached = LoginCredentialCache.getInstance().peek(credsToken);
+            if (cached == null) {
+                // Token missing or expired (>5 min, or already consumed). Treat as a
+                // session-timeout and send the user back to the login screen rather than
+                // proceeding with empty credentials.
+                logger.info("Forced password reset submitted without valid credential-cache token; redirecting to login");
+                removeAttributesFromSession(request);
+                response.sendRedirect(request.getContextPath() + "/loginfailed?errormsg=Session expired. Please log in again.");
+                return NONE;
+            }
+
+            userName = cached.getUserName();
 
             // Username is only letters and numbers
-            if (!Pattern.matches("[a-zA-Z0-9]{1,10}", userName)) {
+            if (userName == null || !Pattern.matches("[a-zA-Z0-9]{1,10}", userName)) {
                 userName = "Invalid Username";
             }
 
-            password = (String) request.getSession().getAttribute("password");
+            password = cached.getEncodedPassword();
 
-            pin = (String) request.getSession().getAttribute("pin");
+            pin = cached.getPin();
 
             // pins are integers only
-            if (!Pattern.matches("[0-9]{4}", pin)) {
+            if (pin == null || !Pattern.matches("[0-9]{4}", pin)) {
                 pin = "";
             }
-            nextPage = (String) request.getSession().getAttribute("nextPage");
+            nextPage = cached.getNextPage();
+            // Validate nextPage retrieved from cache to prevent open redirect (CWE-601 defense in depth)
+            if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
+                if (nextPage != null) {
+                    logger.warn("Rejected invalid nextPage from credential cache: {}", LogSanitizer.sanitize(nextPage));
+                }
+                nextPage = null;
+            }
 
             String newPassword = this.getNewPassword();
             String confirmPassword = this.getConfirmPassword();
@@ -388,7 +421,7 @@ public final class Login2Action extends ActionSupport {
 
                 // Error Handling
                 if (errorStr != null && !errorStr.isEmpty()) {
-                    String newURL = request.getContextPath() + "/forcepasswordreset.jsp";
+                    String newURL = request.getContextPath() + "/forcepasswordreset";
                     newURL = newURL + errorStr;
                     response.sendRedirect(newURL);
                     return NONE;
@@ -402,7 +435,7 @@ public final class Login2Action extends ActionSupport {
                 removeAttributesFromSession(request);
             } catch (Exception e) {
                 logger.error("Error", e);
-                String newURL = request.getContextPath() + "/loginfailed.jsp?errormsg=Setting values to the session.";
+                String newURL = request.getContextPath() + "/loginfailed?errormsg=Setting values to the session.";
 
                 // Remove the attributes from session
                 removeAttributesFromSession(request);
@@ -419,51 +452,66 @@ public final class Login2Action extends ActionSupport {
             userName = this.getUsername();
 
             // Username is only letters and numbers
-            if (!Pattern.matches("[a-zA-Z0-9]{1,10}", userName)) {
+            if (userName == null || !Pattern.matches("[a-zA-Z0-9]{1,10}", userName)) {
                 userName = "Invalid Username";
             }
             password = this.getPassword();
             pin = this.getPin();
 
             // pins are integers only
-            if (!Pattern.matches("[0-9]{4}", pin)) {
+            if (pin == null || !Pattern.matches("[0-9]{4}", pin)) {
                 pin = "";
             }
             nextPage = request.getParameter("nextPage");
 
-            logger.debug("nextPage: " + Encode.forJava(nextPage));
+            logger.debug("nextPage: {}", LogSanitizer.sanitize(nextPage));
             if (nextPage != null) {
-                try {
-                    URI url = new URI(nextPage);
-
-                    // Reject absolute URIs (http://...), protocol-relative URIs (//evil.com),
-                    // and backslash-based bypasses (/\evil.com normalizes to //evil.com in browsers)
-                    if (url.isAbsolute() || url.getAuthority() != null || nextPage.contains("\\")) {
-                        logger.warn("Rejected redirect URL: " + Encode.forJava(nextPage));
-                        response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
-                        return NONE;
-                    } else {
-                        // set current facility
-                        String facilityIdString = request.getParameter(SELECTED_FACILITY_ID);
-                        Facility facility = facilityDao.find(Integer.parseInt(facilityIdString));
-                        request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility);
-                        String username = (String) request.getSession().getAttribute("user");
-                        LogAction.addLog(username, LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + facilityIdString, ip);
-                        response.sendRedirect(nextPage);
+                if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
+                    logger.warn("Rejected redirect URL: {}", LogSanitizer.sanitize(nextPage));
+                    response.sendRedirect(request.getContextPath() + "/loginfailed");
+                    return NONE;
+                } else {
+                    // set current facility - validate format and verify the authenticated user has access
+                    String facilityIdString = request.getParameter(SELECTED_FACILITY_ID);
+                    // Validate format: must be non-null positive integer (max 9 digits to stay within Integer range)
+                    if (facilityIdString == null || !facilityIdString.matches("\\d{1,9}")) {
+                        logger.warn("Invalid or missing facility ID in facility selection request");
+                        response.sendRedirect(request.getContextPath() + "/loginfailed");
                         return NONE;
                     }
-                } catch (URISyntaxException e) {
-                    logger.warn("Invalid nextPage parameter (URI syntax): " + Encode.forJava(nextPage), e);
-                    response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
+                    int facilityId = Integer.parseInt(facilityIdString);
+                    String username = (String) request.getSession().getAttribute("user");
+                    // Authorization check: verify the authenticated provider is permitted to access this facility (CWE-501)
+                    List<Integer> allowedFacilityIds = providerDao.getFacilityIds(username);
+                    if (!allowedFacilityIds.contains(facilityId)) {
+                        logger.warn("Provider {} attempted unauthorized facility selection: {}", LogSanitizer.sanitize(username), facilityId);
+                        response.sendRedirect(request.getContextPath() + "/loginfailed");
+                        return NONE;
+                    }
+                    Facility facility = facilityDao.find(facilityId);
+                    if (facility == null) {
+                        logger.warn("Selected facility not found: {}", facilityId);
+                        response.sendRedirect(request.getContextPath() + "/loginfailed");
+                        return NONE;
+                    }
+                    // facilityId validated via Integer.parseInt() and facilityDao.find() above
+                    request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+                    LogAction.addLog(username, LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + facilityId, ip);
+                    // FP for open-redirect scanners (CodeQL java/unvalidated-url-redirection #5909):
+                    // nextPage is validated by RedirectValidationUtils.isValidRelativeRedirect()
+                    // immediately above before entering this branch; it rejects absolute URIs,
+                    // protocol-relative URLs, backslash bypasses, control characters, and
+                    // path-traversal sequences — only safe relative paths reach here.
+                    response.sendRedirect(nextPage); // nosemgrep: javasecurity.S5146, java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- gated by RedirectValidationUtils.isValidRelativeRedirect() before entering this branch // lgtm[java/unvalidated-url-redirection]
                     return NONE;
                 }
             }
 
             if (cl.isBlock(ip, userName)) {
-                logger.info(LOG_PRE + " Blocked: " + userName);
+                logger.info("{} Blocked: {}", LOG_PRE, LogSanitizer.sanitize(userName));
                 // return mapping.findForward(where); //go to block page
                 // change to block page
-                String newURL = request.getContextPath() + "/loginfailed.jsp?errormsg=Oops! Your account is now locked due to incorrect password attempts!";
+                String newURL = request.getContextPath() + "/loginfailed?errormsg=Oops! Your account is now locked due to incorrect password attempts!";
 
                 if (ajaxResponse) {
                     ObjectNode json = objectMapper.createObjectNode();
@@ -478,7 +526,7 @@ public final class Login2Action extends ActionSupport {
                 return NONE;
             }
 
-            logger.debug("ip was not blocked: " + ip);
+            logger.debug("ip was not blocked: {}", LogSanitizer.sanitize(ip));
         }
 
         // >> 4. Authentication
@@ -490,7 +538,7 @@ public final class Login2Action extends ActionSupport {
             strAuth = cl.auth(userName, password, pin, ip);
         } catch (Exception e) {
             logger.error("Error", e);
-            String newURL = request.getContextPath() + "/loginfailed.jsp"
+            String newURL = request.getContextPath() + "/loginfailed"
                     + "?errormsg=Unable to process login at this time. Please try again.";
 
             if (ajaxResponse) {
@@ -507,7 +555,7 @@ public final class Login2Action extends ActionSupport {
             return NONE;
         }
         
-        logger.debug("strAuth : " + Arrays.toString(strAuth));
+        logger.debug("strAuth : {}", LogSanitizer.sanitize(Arrays.toString(strAuth)));
         
         // >> 5. Successful Login Handling
         if (strAuth != null && strAuth.length != 1) { // login successfully
@@ -515,10 +563,10 @@ public final class Login2Action extends ActionSupport {
             // is the providers record inactive?
             Provider p = providerDao.getProvider(strAuth[0]);
             if (p == null || (p.getStatus() != null && p.getStatus().equals("0"))) {
-                logger.info(LOG_PRE + " Inactive: " + userName);
+                logger.info("{} Inactive: {}", LOG_PRE, LogSanitizer.sanitize(userName));
                 LogAction.addLog(strAuth[0], "login", "failed", "inactive");
 
-                String newURL = request.getContextPath() + "/loginfailed.jsp?errormsg=Your account is inactive. Please contact your administrator to activate.";
+                String newURL = request.getContextPath() + "/loginfailed?errormsg=Your account is inactive. Please contact your administrator to activate.";
 
                 response.sendRedirect(newURL);
                 return NONE;
@@ -532,13 +580,13 @@ public final class Login2Action extends ActionSupport {
                     security.isForcePasswordReset() != null && security.isForcePasswordReset()
                     && forcedpasswordchange) {
 
-                String newURL = request.getContextPath() + "/forcepasswordreset.jsp";
+                String newURL = request.getContextPath() + "/forcepasswordreset";
 
                 try {
                     setUserInfoToSession(request, userName, password, pin, nextPage);
                 } catch (Exception e) {
                     logger.error("Error", e);
-                    newURL = request.getContextPath() + "/loginfailed.jsp?errormsg=Setting values to the session.";
+                    newURL = request.getContextPath() + "/loginfailed?errormsg=Setting values to the session.";
                 }
 
                 response.sendRedirect(newURL);
@@ -562,25 +610,25 @@ public final class Login2Action extends ActionSupport {
                 this.userSessionManager.registerUserSession(cl.getSecurity().getSecurityNo(), session);
             }
 
-            logger.debug("Assigned new session for: " + strAuth[0] + " : " + strAuth[3] + " : " + strAuth[4]);
+            logger.debug("Assigned new session for: {} : {} : {}", LogSanitizer.sanitize(strAuth[0]), LogSanitizer.sanitize(strAuth[3]), LogSanitizer.sanitize(strAuth[4]));
             LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "", ip);
 
             // initial db setting
             Properties pvar = CarlosProperties.getInstance();
 
-            String providerNo = strAuth[0];
-            session.setAttribute("user", strAuth[0]);
-            session.setAttribute("userfirstname", strAuth[1]);
-            session.setAttribute("userlastname", strAuth[2]);
-            session.setAttribute("userrole", strAuth[4]);
-            session.setAttribute("oscar_context_path", request.getContextPath());
-            session.setAttribute("expired_days", strAuth[5]);
+            String providerNo = strAuth[0] != null ? strAuth[0].trim() : "";
+            session.setAttribute("user", providerNo); // nosemgrep: tainted-session-from-http-request
+            session.setAttribute("userfirstname", strAuth[1] != null ? strAuth[1].trim() : ""); // nosemgrep: tainted-session-from-http-request
+            session.setAttribute("userlastname", strAuth[2] != null ? strAuth[2].trim() : ""); // nosemgrep: tainted-session-from-http-request
+            session.setAttribute("userrole", strAuth[4] != null ? strAuth[4].trim() : ""); // nosemgrep: tainted-session-from-http-request
+            session.setAttribute("oscar_context_path", request.getContextPath()); // nosemgrep: tainted-session-from-http-request
+            session.setAttribute("expired_days", strAuth[5] != null ? strAuth[5].trim() : ""); // nosemgrep: tainted-session-from-http-request
             // If a new session has been created, we must set the mobile attribute again
             if (isMobileOptimized) {
                 if ("Full".equalsIgnoreCase(submitType)) {
-                    session.setAttribute("fullSite", "true");
+                    session.setAttribute("fullSite", "true"); // nosemgrep: tainted-session-from-http-request
                 } else {
-                    session.setAttribute("mobileOptimized", "true");
+                    session.setAttribute("mobileOptimized", "true"); // nosemgrep: tainted-session-from-http-request
                 }
             }
 
@@ -591,7 +639,7 @@ public final class Login2Action extends ActionSupport {
                     // MFA Enabled
                     try {
                         setUserInfoToSession(request, userName, password, pin, nextPage);
-                        request.getSession().setAttribute("cl", cl);
+                        request.getSession().setAttribute("cl", cl); // nosemgrep: tainted-session-from-http-request
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
@@ -601,7 +649,7 @@ public final class Login2Action extends ActionSupport {
                             Object mfaSecret = request.getSession().getAttribute("mfaSecret");
                             if (mfaSecret == null) {
                                 mfaSecret = MfaManager.generateMfaSecret();
-                                request.getSession().setAttribute("mfaSecret", mfaSecret);
+                                request.getSession().setAttribute("mfaSecret", mfaSecret); // nosemgrep: tainted-session-from-http-request
                             }
                             request.setAttribute("mfaRegistrationRequired", true);
                             request.setAttribute("qrData", this.mfaManager.getQRCodeImageData(sec.getId(), mfaSecret.toString()));
@@ -624,7 +672,7 @@ public final class Login2Action extends ActionSupport {
             if (providerPreference == null)
                 providerPreference = new ProviderPreference();
 
-            session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE, providerPreference);
+            session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE, providerPreference); // nosemgrep: tainted-session-from-http-request
 
             if (IsPropertiesOn.isCaisiEnable()) {
                 String tklerProviderNo = null;
@@ -634,11 +682,11 @@ public final class Login2Action extends ActionSupport {
                 } else {
                     tklerProviderNo = prop.getValue();
                 }
-                session.setAttribute("tklerProviderNo", tklerProviderNo);
+                session.setAttribute("tklerProviderNo", tklerProviderNo); // nosemgrep: tainted-session-from-http-request
 
-                session.setAttribute("newticklerwarningwindow", providerPreference.getNewTicklerWarningWindow());
-                session.setAttribute("default_pmm", providerPreference.getDefaultCaisiPmm());
-                session.setAttribute("caisiBillingPreferenceNotDelete",
+                session.setAttribute("newticklerwarningwindow", providerPreference.getNewTicklerWarningWindow()); // nosemgrep: tainted-session-from-http-request
+                session.setAttribute("default_pmm", providerPreference.getDefaultCaisiPmm()); // nosemgrep: tainted-session-from-http-request
+                session.setAttribute("caisiBillingPreferenceNotDelete", // nosemgrep: tainted-session-from-http-request
                         String.valueOf(providerPreference.getDefaultDoNotDeleteBilling()));
 
                 default_pmm = providerPreference.getDefaultCaisiPmm();
@@ -647,13 +695,13 @@ public final class Login2Action extends ActionSupport {
                         .getAttribute("CaseMgmtUsers");
                 if ("enabled".equals(providerPreference.getDefaultNewOscarCme())) {
                     newDocArr.add(providerNo);
-                    session.setAttribute("CaseMgmtUsers", newDocArr);
+                    session.setAttribute("CaseMgmtUsers", newDocArr); // nosemgrep: tainted-session-from-http-request
                 }
             }
-            session.setAttribute("starthour", providerPreference.getStartHour().toString());
-            session.setAttribute("endhour", providerPreference.getEndHour().toString());
-            session.setAttribute("everymin", providerPreference.getEveryMin().toString());
-            session.setAttribute("groupno", providerPreference.getMyGroupNo());
+            session.setAttribute("starthour", providerPreference.getStartHour().toString()); // nosemgrep: tainted-session-from-http-request
+            session.setAttribute("endhour", providerPreference.getEndHour().toString()); // nosemgrep: tainted-session-from-http-request
+            session.setAttribute("everymin", providerPreference.getEveryMin().toString()); // nosemgrep: tainted-session-from-http-request
+            session.setAttribute("groupno", providerPreference.getMyGroupNo()); // nosemgrep: tainted-session-from-http-request
 
             where = "provider";
 
@@ -683,24 +731,24 @@ public final class Login2Action extends ActionSupport {
 
             String username = (String) session.getAttribute("user");
             Provider provider = providerManager.getProvider(username);
-            session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER, provider);
-            session.setAttribute(SessionConstants.LOGGED_IN_SECURITY, cl.getSecurity());
-
-            LoggedInInfo loggedInInfo = LoggedInUserFilter.generateLoggedInInfoFromSession(request);
+            session.setAttribute("provider", provider); // nosemgrep: tainted-session-from-http-request
+            session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER, provider); // nosemgrep: tainted-session-from-http-request
+            session.setAttribute(SessionConstants.LOGGED_IN_SECURITY, cl.getSecurity()); // nosemgrep: tainted-session-from-http-request
 
             if (where.equals("provider")) {
             }
 
             List<Integer> facilityIds = providerDao.getFacilityIds(provider.getProviderNo());
             if (facilityIds.size() > 1) {
-                String newURL = request.getContextPath() + "/select_facility.jsp?nextPage=" + where;
+                String facilityPath = "/select_facility?nextPage=";
+                String newURL = request.getContextPath() + facilityPath + Encode.forUriComponent(where);
 
                 response.sendRedirect(newURL);
                 return NONE;
             } else if (facilityIds.size() == 1) {
                 // set current facility
                 Facility facility = facilityDao.find(facilityIds.get(0));
-                request.getSession().setAttribute("currentFacility", facility);
+                request.getSession().setAttribute("currentFacility", facility); // nosemgrep: tainted-session-from-http-request
                 LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + facilityIds.get(0),
                         ip);
             } else {
@@ -710,13 +758,21 @@ public final class Login2Action extends ActionSupport {
                     int first_id = fac.getId();
                     providerDao.addProviderToFacility(providerNo, first_id);
                     Facility facility = facilityDao.find(first_id);
-                    request.getSession().setAttribute("currentFacility", facility);
+                    request.getSession().setAttribute("currentFacility", facility); // nosemgrep: tainted-session-from-http-request
                     LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + first_id, ip);
                 }
             }
 
+            LoggedInInfo loggedInInfo = LoggedInUserFilter.generateLoggedInInfoFromSession(request);
+            LoggedInInfo.setLoggedInInfoIntoSession(session, loggedInInfo);
+
             if (UserRoleUtils.hasRole(request, "Patient Intake")) {
                 return "patientIntake";
+            }
+
+            if ("provider".equals(where)) {
+                response.sendRedirect(buildDefaultProviderSchedulePath());
+                return NONE;
             }
 
         }
@@ -725,7 +781,7 @@ public final class Login2Action extends ActionSupport {
         else if (strAuth != null && strAuth.length == 1 && strAuth[0].equals("expired")) {
             logger.warn("Expired password");
             cl.updateLoginList(ip, userName);
-            String newURL = request.getContextPath() + "/loginfailed.jsp?errormsg=Your account is expired. Please contact your administrator.";
+            String newURL = request.getContextPath() + "/loginfailed?errormsg=Your account is expired. Please contact your administrator.";
 
             if (ajaxResponse) {
                 ObjectNode json = objectMapper.createObjectNode();
@@ -753,7 +809,7 @@ public final class Login2Action extends ActionSupport {
             }
 
             String oneIdKey = request.getParameter("nameId");
-            String newURL = request.getContextPath() + "/logout.do?login=failed";
+            String newURL = request.getContextPath() + "/logout?login=failed";
             if (oneIdKey != null && !oneIdKey.equals("")) {
                 newURL += "&nameId=" + Encode.forUriComponent(oneIdKey);
             }
@@ -783,7 +839,12 @@ public final class Login2Action extends ActionSupport {
             return null;
         }
 
-        logger.debug("rendering standard response : " + where);
+        logger.debug("rendering standard response : {}", where);
+        if ("provider".equals(where)) {
+            response.sendRedirect(buildDefaultProviderSchedulePath());
+            return NONE;
+        }
+
         return where;
     }
 
@@ -846,59 +907,122 @@ public final class Login2Action extends ActionSupport {
     }
 
     /**
-     * Removes authentication-related attributes from the session.
+     * Builds the canonical post-login schedule landing path.
+     *
+     * <p>This bypasses the legacy {@code provider/providercontrol} dispatcher
+     * and sends authenticated users directly to the day-view schedule action
+     * with today's date and the configured default {@code viewall} mode.</p>
+     *
+     * @return internal application path for the default provider schedule view
+     */
+    private String buildDefaultProviderSchedulePath() {
+        GregorianCalendar now = new GregorianCalendar();
+        String viewAll = "1";
+        if (CarlosProperties.getInstance().getProperty("default_schedule_viewall", "").startsWith("false")) {
+            viewAll = "0";
+        }
+
+        return request.getContextPath()
+                + "/provider/ViewAppointmentAdminDay?year=" + now.get(Calendar.YEAR)
+                + "&month=" + (now.get(Calendar.MONTH) + 1)
+                + "&day=" + now.get(Calendar.DAY_OF_MONTH)
+                + "&view=0&displaymode=day&dboperation=searchappointmentday&viewall=" + viewAll;
+    }
+
+    /**
+     * Removes authentication-related attributes from the session and invalidates
+     * any cached credential material.
      *
      * <p>This method is called when cleaning up after a forced password reset flow
      * or when login fails and sensitive data must be cleared from the session.
      *
-     * <p>Attributes removed:
-     * <ul>
-     *   <li>userName - The authenticated username</li>
-     *   <li>password - The encoded password hash</li>
-     *   <li>pin - The provider PIN code</li>
-     *   <li>nextPage - The post-authentication redirect target</li>
-     * </ul>
+     * <p>The session attribute removed is the opaque credential-cache token (see
+     * {@link LoginCredentialCache}); if it is present the corresponding cache entry is
+     * also invalidated so that credential material cannot outlive the login attempt.
+     * The {@code nextPage} attribute is also cleared.
      *
      * @param request HttpServletRequest containing the session to clean
      */
     private void removeAttributesFromSession(HttpServletRequest request) {
-        request.getSession().removeAttribute("userName");
-        request.getSession().removeAttribute("password");
-        request.getSession().removeAttribute("pin");
-        request.getSession().removeAttribute("nextPage");
+        HttpSession session = request.getSession();
+        Object tokenAttr = session.getAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR);
+        if (tokenAttr instanceof String) {
+            LoginCredentialCache.getInstance().invalidate((String) tokenAttr);
+        }
+        session.removeAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR);
+        session.removeAttribute("nextPage");
     }
 
     /**
-     * Stores user authentication information in the session for forced password reset flow.
+     * Stores user authentication information in a short-lived server-side cache for the
+     * forced password reset and MFA flows, and records only an opaque one-time token in
+     * the session.
      *
-     * <p>During the forced password reset process, the user's credentials are temporarily
-     * stored in the session so they can be re-authenticated after successfully changing
-     * their password. The password is encoded before storage for security.
+     * <p>During multi-step login (MFA verification or forced password reset), the user's
+     * credentials are needed on a subsequent request. Rather than placing password hash
+     * and PIN material in the HTTP session — where it could be serialised, replicated,
+     * or exposed via debug dumps — this method stashes the credentials in
+     * {@link LoginCredentialCache} (a Caffeine cache with a 5-minute TTL, opaque random
+     * tokens, and explicit invalidation on terminal outcomes). Only the opaque token is
+     * placed in the session. The companion retrieval path (see the forced-password-change
+     * branch in {@link #execute()}) may use {@link LoginCredentialCache#peek(String)} for
+     * retryable flows so the cached credentials remain available across validation retries;
+     * terminal success or failure paths invalidate the cache entry via
+     * {@link #removeAttributesFromSession(HttpServletRequest)}.
+     *
+     * <p>The {@code nextPage} parameter is validated against open redirect (CWE-601) before
+     * being cached. Any value that is absolute, protocol-relative, or contains backslash
+     * bypasses is rejected and stored as {@code null} (defense in depth).
+     *
+     * <p>If a prior token is already attached to the session, its cache entry is invalidated
+     * before a new one is issued, ensuring stale credential material does not outlive the
+     * current login attempt.
      *
      * <p>Session attributes set:
      * <ul>
-     *   <li>userName - String the authenticated username (validated alphanumeric)</li>
-     *   <li>password - String the SHA-encoded password hash</li>
-     *   <li>pin - String the 4-digit provider PIN</li>
-     *   <li>nextPage - String the target page to redirect to after password change</li>
+     *   <li>{@value #LOGIN_CREDENTIALS_TOKEN_ATTR} — opaque random token referencing the
+     *       cached credentials; NOT credential material</li>
      * </ul>
      *
      * @param request HttpServletRequest to access the session
      * @param userName String the username (must match [a-zA-Z0-9]{1,10} pattern)
-     * @param password String the plain-text password (will be encoded before storage)
+     * @param password String the plain-text password (will be encoded before caching)
      * @param pin String the 4-digit PIN (must match [0-9]{4} pattern)
-     * @param nextPage String the relative URL to redirect to after password reset
+     * @param nextPage String the relative URL to redirect to after password reset (validated before caching)
      * @throws Exception if password encoding fails
      * @see #encodePassword for password encoding algorithm
      * @see #removeAttributesFromSession for cleanup after password reset
+     * @see RedirectValidationUtils#isValidRelativeRedirect for redirect URL validation logic
+     * @see LoginCredentialCache for the server-side credential store
      */
     private void setUserInfoToSession(HttpServletRequest request, String userName, String password, String pin,
                                       String nextPage) throws Exception {
-        request.getSession().setAttribute("userName", userName);
-        request.getSession().setAttribute("password", encodePassword(password));
-        request.getSession().setAttribute("pin", pin);
-        request.getSession().setAttribute("nextPage", nextPage);
+        // Validate nextPage before caching to prevent open redirect (CWE-601 defense in depth)
+        if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
+            if (nextPage != null) {
+                logger.warn("Rejected invalid nextPage before credential cache: {}", LogSanitizer.sanitize(nextPage));
+            }
+            nextPage = null;
+        }
 
+        // SECURITY: Do NOT place credential material (password hash, PIN) in the HTTP session.
+        // Sessions can be serialized to disk, replicated across nodes, dumped for debugging,
+        // or read by any session-aware code. Instead, stash credentials in a short-lived
+        // server-side cache keyed by a cryptographically random one-time token, and store
+        // only the opaque token in the session. See LoginCredentialCache for details.
+        LoginCredentialCache.LoginCredentials credentials = new LoginCredentialCache.LoginCredentials(
+                userName, encodePassword(password), pin, nextPage);
+
+        // Invalidate any previously issued token on this session before minting a new one,
+        // so that stale cache entries do not outlive the current login attempt.
+        HttpSession session = request.getSession();
+        Object existingToken = session.getAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR);
+        if (existingToken instanceof String) {
+            LoginCredentialCache.getInstance().invalidate((String) existingToken);
+        }
+
+        String token = LoginCredentialCache.getInstance().store(credentials);
+        session.setAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR, token); // nosemgrep: tainted-session-from-http-request -- opaque random token, not user-controlled; no credential material in session
     }
 
     /**
@@ -982,21 +1106,9 @@ public final class Login2Action extends ActionSupport {
     /**
      * Retrieves the Security record for a given username.
      *
-     * <p>This method looks up the user's security record from the database and
-     * wraps it with LDAP authentication support if LDAP is enabled in the system
-     * configuration.
-     *
-     * <p>LDAP integration: If LDAP authentication is enabled via
-     * {@link CarlosProperties#isLdapAuthenticationEnabled()}, the returned Security
-     * object is wrapped in a {@link LdapSecurity} adapter that delegates password
-     * validation to the LDAP server while maintaining the local Security record
-     * for session management.
-     *
      * @param username String the username to look up (must match security.user_name column)
-     * @return Security the user's security record, wrapped in LdapSecurity if LDAP is enabled,
-     *         or null if no matching user found
+     * @return Security the user's security record, or null if no matching user found
      * @see SecurityDao#findByUserName for database lookup
-     * @see LdapSecurity for LDAP authentication adapter
      */
     private Security getSecurity(String username) {
 
@@ -1004,14 +1116,6 @@ public final class Login2Action extends ActionSupport {
         Security security = null;
         if (results.size() > 0)
             security = results.get(0);
-
-        if (security == null) {
-            return null;
-        }
-        // Wrap with LDAP authentication support if LDAP is enabled
-        else if (CarlosProperties.isLdapAuthenticationEnabled()) {
-            security = new LdapSecurity(security);
-        }
 
         return security;
     }

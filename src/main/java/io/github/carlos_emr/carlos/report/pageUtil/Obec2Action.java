@@ -31,6 +31,8 @@
 package io.github.carlos_emr.carlos.report.pageUtil;
 
 import java.io.IOException;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.Properties;
 
 import jakarta.servlet.ServletException;
@@ -39,18 +41,25 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctValidation;
 import io.github.carlos_emr.carlos.report.data.ObecData;
 import io.github.carlos_emr.carlos.util.DateUtils;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts2 action that generates the Overnight Batch Eligibility Checking (OBEC) report.
+ * Accepts a start date (YYYY-MM-DD format) and number of days, validates the input,
+ * and delegates report generation to {@link ObecData}.
+ *
+ * @since 2003-07-22
+ */
 public class Obec2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -71,28 +80,30 @@ public class Obec2Action extends ActionSupport {
       DateUtils dateUtils = new DateUtils();
       EctValidation validation = new EctValidation();
 
-      String startDate = this.getXml_vdate()==null?"":this.getXml_vdate();
-      if (!validation.isDate(startDate)){
-         MiscUtils.getLogger().debug("Invalid date format!");
-         addActionError("errors.invalid");
-         response.sendRedirect(request.getContextPath() + "/oscarReport/obec.jsp");
-         return NONE;
+      String startDate = this.getXml_vdate();
+      if (startDate == null || startDate.isEmpty()) {
+         return SUCCESS;
       }
-      
+      if (!validation.isDate(startDate)) {
+         MiscUtils.getLogger().debug("Invalid date format submitted to OBEC report: {}", startDate);
+         addActionError("Invalid date format. Please use YYYY-MM-DD format.");
+         return INPUT;
+      }
+
       int numDays = this.getNumDays();
-      int startYear = 0;
-      int startMonth = 0;
-      int startDay = 0;
-      
-      int slashIndex1 = startDate.indexOf("-");
-      if (slashIndex1>=0){
-         startYear = Integer.parseInt(startDate.substring(0, slashIndex1));
-         int slashIndex2 = startDate.indexOf("-", slashIndex1+1);
-         if (slashIndex2>slashIndex1){
-            startMonth = Integer.parseInt(startDate.substring(slashIndex1+1, slashIndex2));
-            int length = startDate.length();
-            startDay = Integer.parseInt(startDate.substring(slashIndex2+1, length));
-         }
+      int startYear;
+      int startMonth;
+      int startDay;
+
+      try {
+         LocalDate parsed = LocalDate.parse(startDate);
+         startYear = parsed.getYear();
+         startMonth = parsed.getMonthValue();
+         startDay = parsed.getDayOfMonth();
+      } catch (DateTimeParseException e) {
+         MiscUtils.getLogger().debug("Failed to parse date for OBEC report: {}", startDate);
+         addActionError("Invalid date format. Please use YYYY-MM-DD format.");
+         return INPUT;
       }
       
       

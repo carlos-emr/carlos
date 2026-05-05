@@ -147,6 +147,40 @@ public class DSGuidelineDrools extends DSGuideline {
     private static final String demographicAccessObjectClassPath = "io.github.carlos_emr.carlos.decisionSupport.model.DSDemographicAccess";
 
     /**
+     * Allowed package prefix for DSParameter class instantiation via reflection.
+     *
+     * <p>Only classes whose fully-qualified name begins with this prefix may be instantiated
+     * by {@link #executeRules(DSDemographicAccess)} through {@code Class.forName}. This
+     * prevents a compromised or maliciously-crafted row in the {@code dsGuidelines} database
+     * table from loading arbitrary JVM classes.</p>
+     *
+     * <p><strong>Write-path note:</strong> No user-facing write path to the {@code dsGuidelines}
+     * table exists in the current CARLOS codebase; {@link io.github.carlos_emr.carlos.commn.dao.DSGuidelineDaoImpl}
+     * contains only read queries and the table is empty in production installations. This
+     * allowlist is a defence-in-depth measure for future changes and supply-chain safety.</p>
+     */
+    static final String ALLOWED_DS_PARAMETER_PACKAGE_PREFIX = "io.github.carlos_emr.carlos.";
+
+    /**
+     * Returns {@code true} if the given fully-qualified class name is allowed for reflective
+     * instantiation by {@link #executeRules(DSDemographicAccess)}.
+     *
+     * <p>A class name is considered allowed when it is non-null, non-empty, and starts with
+     * {@link #ALLOWED_DS_PARAMETER_PACKAGE_PREFIX}. All other class names — including JDK
+     * classes, third-party libraries, and legacy {@code oscar.*} / {@code org.oscarehr.*}
+     * package names — are rejected.</p>
+     *
+     * @param className the fully-qualified Java class name to evaluate
+     * @return {@code true} if the class name begins with the CARLOS EMR package prefix;
+     *         {@code false} otherwise
+     */
+    static boolean isAllowedDsParameterClass(String className) {
+        return className != null
+                && !className.isEmpty()
+                && className.startsWith(ALLOWED_DS_PARAMETER_PACKAGE_PREFIX);
+    }
+
+    /**
      * Cached compiled KieBase for this guideline instance. Lazily initialized on first
      * evaluation via {@link #generateRuleBase()}. Marked {@code @Transient} because it
      * is a runtime artifact and must not be persisted. Set to {@code null} to force
@@ -287,11 +321,29 @@ public class DSGuidelineDrools extends DSGuideline {
             // Instantiate and insert DSParameter-defined objects via reflection.
             // These are additional fact types declared in the guideline XML that
             // the DRL rules may reference (e.g., custom data access objects).
+            // Only classes in the CARLOS EMR package prefix are permitted (allowlist).
+            // DSParameter-defined classes must expose a public no-arg constructor.
             List<DSParameter> lDSP = this.getParameters();
             if (lDSP != null) {
                 for (DSParameter dsp : lDSP) {
-                    Class clas = Class.forName(dsp.getStrClass());
-                    Constructor constructor = clas.getConstructor();
+                    String className = dsp.getStrClass();
+                    if (!isAllowedDsParameterClass(className)) {
+                        // Log the rejected class name at WARN; the public exception
+                        // uses a generic message to avoid leaking DB content into logs or
+                        // stack traces that may surface in application responses. Sanitize the
+                        // class name to avoid log forging (e.g., embedded newlines) from XML/DB content.
+                        String sanitizedClassName = StringUtils.replaceEach(
+                                StringUtils.defaultString(className),
+                                new String[] { "\r", "\n" },
+                                new String[] { " ", " " });
+                        log.warn("DSParameter class rejected by allowlist: {}", sanitizedClassName);
+                        throw new DecisionSupportException(
+                                "DSParameter class is not in the permitted package prefix '"
+                                + ALLOWED_DS_PARAMETER_PACKAGE_PREFIX
+                                + "'. Update the guideline XML to use an allowed class.");
+                    }
+                    Class<?> clas = Class.forName(className);
+                    Constructor<?> constructor = clas.getConstructor();
                     Object obj = constructor.newInstance();
                     kieSession.insert(obj);
                 }
@@ -609,6 +661,17 @@ public class DSGuidelineDrools extends DSGuideline {
      * a named variable. The fully-qualified class name (FQCN) is used directly in the
      * DRL, avoiding the need for a separate import statement. At runtime, Drools matches
      * this pattern against objects inserted into the KieSession's working memory.</p>
+     *
+     * <p><strong>Security note (allowlist asymmetry):</strong> This method embeds the raw FQCN
+     * from {@link DSParameter#getStrClass()} into the DRL text without an allowlist check.
+     * The effective security control is in {@link #executeRules(DSDemographicAccess)}, which
+     * validates every DSParameter class name against {@link #ALLOWED_DS_PARAMETER_PACKAGE_PREFIX}
+     * before instantiating it via reflection. Because Drools resolves fact types from the compiled
+     * DRL against the classloader, a non-CARLOS class name in this DRL line could still influence
+     * DRL compilation even though it would never be inserted into the KieSession. The current
+     * design is intentional: the {@code dsGuidelines} table has no user-facing write path and
+     * is empty in production (see the constant's Javadoc). If a write path is introduced in the
+     * future, this method should apply the same allowlist check before constructing the DRL.</p>
      *
      * <p>Example output: {@code "        myList : java.util.ArrayList()"}</p>
      *

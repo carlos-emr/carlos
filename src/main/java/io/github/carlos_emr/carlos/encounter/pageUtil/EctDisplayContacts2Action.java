@@ -67,21 +67,22 @@ public class EctDisplayContacts2Action extends EctDisplayAction {
 
             if ("true".equalsIgnoreCase(healthCareTeamEnabled)) {
                 pathview = request.getContextPath() +
-                        "/demographic/displayHealthCareTeam.jsp?view=detached&demographicNo=" +
+                        "/demographic/ViewDisplayHealthCareTeam?view=detached&demographicNo=" +
                         bean.demographicNo;
                 pathedit = request.getContextPath() +
-                        "/demographic/manageHealthCareTeam.jsp?view=detached&demographicNo=" +
+                        "/demographic/ViewManageHealthCareTeam?view=detached&demographicNo=" +
                         bean.demographicNo;
                 width = 650;
                 height = 400;
             } else {
-                pathview = request.getContextPath() + "/demographic/professionalSpecialistSearch.jsp?keyword=&submit=Search";
-                pathedit = request.getContextPath() + "/demographic/Contact.do?method=manage&demographic_no=" + bean.demographicNo;
+                pathview = request.getContextPath() + "/demographic/ViewProfessionalSpecialistSearch?keyword=&submit=Search";
+                pathedit = request.getContextPath() + "/demographic/Contact?method=manage&demographic_no=" + bean.demographicNo;
                 width = 650;
                 height = 900;
             }
 
-            String url = "popupPage(" + height + "," + width + ",'" + winName + "','" + pathview + "')";
+            String url = "";
+            Dao.setLeftPopup(width, height, winName, pathview);
 
             if ("true".equalsIgnoreCase(healthCareTeamEnabled)) {
                 Dao.setLeftHeading("Health Care Team");
@@ -93,12 +94,9 @@ public class EctDisplayContacts2Action extends EctDisplayAction {
                 height = 1000;
             }
 
-            Dao.setLeftURL(url);
-
             //set right hand heading link
             winName = "AddContact" + bean.demographicNo;
-            url = "popupPage(" + height + "," + width + ",'" + winName + "','" + pathedit + "'); return false;";
-            Dao.setRightURL(url);
+            Dao.setRightPopup(width, height, winName, pathedit);
             Dao.setRightHeadingID(cmd);
 
             List<DemographicContact> contacts = demographicContactDao.findActiveByDemographicNo(Integer.parseInt(bean.demographicNo));
@@ -160,7 +158,7 @@ public class EctDisplayContacts2Action extends EctDisplayAction {
                     } else {
                         url = "popupPage(650,500,'" + hash + "','" +
                                 request.getContextPath() +
-                                "/demographic/Contact.do?method=editHealthCareTeam&contactId=" +
+                                "/demographic/Contact?method=editHealthCareTeam&contactId=" +
                                 contact.getId() + "&role=" +
                                 contact.getRole() +
                                 "'); return false;";
@@ -169,15 +167,15 @@ public class EctDisplayContacts2Action extends EctDisplayAction {
                 } else {
 
                     if (contact.getType() == DemographicContact.TYPE_CONTACT) {
-                        url = "popupPage(500,900,'" + hash + "','" + request.getContextPath() + "/demographic/Contact.do?method=editProContact&pcontact.id=" + contact.getContactId() + "'); return false;";
+                        url = "popupPage(500,900,'" + hash + "','" + request.getContextPath() + "/demographic/Contact?method=editProContact&pcontact.id=" + contact.getContactId() + "'); return false;";
                     } else if (contact.getType() == DemographicContact.TYPE_CONTACT) {
                         String roles = (String) request.getSession().getAttribute("userrole");
                         if (roles.indexOf("admin") != -1)
-                            url = "popupPage(500,900,'" + hash + "','" + request.getContextPath() + "/admin/providerupdateprovider.jsp?keyword=" + contact.getContactId() + "'); return false;";
+                            url = "popupPage(500,900,'" + hash + "','" + request.getContextPath() + "/admin/ViewProviderUpdateProvider?keyword=" + contact.getContactId() + "'); return false;";
                         else
                             url = "alert('Cannot Edit');return false;";
                     } else if (contact.getType() == DemographicContact.TYPE_PROFESSIONALSPECIALIST) {
-                        url = "popupPage(500,900,'" + hash + "','" + request.getContextPath() + "/encounter/EditSpecialists.do?specId=" + contact.getContactId() + "'); return false;";
+                        url = "popupPage(500,900,'" + hash + "','" + request.getContextPath() + "/encounter/EditSpecialists?specId=" + contact.getContactId() + "'); return false;";
                     }
 
                 }

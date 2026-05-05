@@ -37,8 +37,10 @@ import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
@@ -60,6 +62,8 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class BillingSaveBilling2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -70,11 +74,15 @@ public class BillingSaveBilling2Action extends ActionSupport {
 
     private BillingmasterDAO billingmasterDAO = SpringUtils.getBean(BillingmasterDAO.class);
 
-    public String execute() throws IOException, ServletException {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    public String execute() throws IOException, ServletException {        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (request.getSession().getAttribute("user") == null) {
             return "Logout";
+        }
+
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
         }
 
         BillingSessionBean bean = (BillingSessionBean) request.getSession().getAttribute("billingSessionBean");
@@ -204,7 +212,7 @@ public class BillingSaveBilling2Action extends ActionSupport {
             log.debug("FULL STRING " + stb);
 
             // Redirect to the desired URL
-            String redirectUrl = "/billing/CA/BC/billingView.do?" + stb.toString() + "receipt=yes";
+            String redirectUrl = "/billing/CA/BC/billingView?" + stb.toString() + "receipt=yes";
             response.sendRedirect(redirectUrl);
 
             // Return null since redirection is handled manually
@@ -217,12 +225,7 @@ public class BillingSaveBilling2Action extends ActionSupport {
 
     private Billing getBillingObj(final BillingSessionBean bean, final Date curDate, final char billingAccountStatus) {
 
-        int apptNo = 0;
-        try {
-            apptNo = Integer.parseInt(bean.getApptNo());
-        } catch (Exception e) {
-            apptNo = 0;
-        }
+        int apptNo = parseOptionalAppointmentNo(bean.getApptNo());
 
 
         Billing bill = new Billing();
@@ -293,13 +296,29 @@ public class BillingSaveBilling2Action extends ActionSupport {
 
 
     String moneyFormat(String str) {
-        String moneyStr = "0.00";
-        try {
-            moneyStr = new java.math.BigDecimal(str).movePointLeft(2).toString();
-        } catch (Exception moneyException) {
-            MiscUtils.getLogger().warn("warning", moneyException);
+        if (str == null || str.trim().isEmpty()) {
+            return "0.00";
         }
-        return moneyStr;
+        try {
+            return new java.math.BigDecimal(str.trim()).movePointLeft(2).toString();
+        } catch (NumberFormatException moneyException) {
+            throw new IllegalArgumentException(
+                    "BC billing amount is malformed [" + LogSanitizer.sanitizeForDisplay(str) + "]",
+                    moneyException);
+        }
+    }
+
+    private static int parseOptionalAppointmentNo(String raw) {
+        if (raw == null || raw.trim().isEmpty()) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(raw.trim());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(
+                    "BC appointment number is malformed [" + LogSanitizer.sanitizeForDisplay(raw) + "]",
+                    e);
+        }
     }
 
     /**

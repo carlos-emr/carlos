@@ -1,0 +1,66 @@
+<%--
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    CARLOS EMR Project
+    https://github.com/carlos-emr/carlos
+--%>
+<%--
+  Fragment role: Provides the `manageBillingform_service.jspf` include for the Ontario billing workflow.
+  The caller owns request setup; keep data access in Java assemblers/services
+  and use CARLOS encoding helpers for dynamic output rendered here.
+--%>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+
+<form method="post" name="form1"
+	action="DbManageBillingformService">
+<table width="75%" border="0" cellpadding="3" bgcolor="#9999CC">
+	<tr>
+		<c:forEach var="group" items="${manageBillingformModel.serviceGroups}">
+		<td>
+		<table width="100%" border="0">
+			<tr>
+				<td><input type="text" name="group<carlos:encode value='${group.groupIndex}' context='htmlAttribute'/>"
+					value="<carlos:encode value='${group.name}' context='htmlAttribute'/>" size="20"
+					style="font-size: 8pt; text-align: right; vertical-align: bottom"></td>
+			</tr>
+			<c:forEach var="slot" items="${group.slots}">
+			<tr>
+				<td><input type="text" name="group<carlos:encode value='${group.groupIndex}' context='htmlAttribute'/>_service<carlos:encode value='${slot.index}' context='htmlAttribute'/>"
+					value="<carlos:encode value='${slot.code}' context='htmlAttribute'/>" size="10"
+					style="font-size: 8pt; text-align: right; vertical-align: bottom"><input
+					type="text" name="group<carlos:encode value='${group.groupIndex}' context='htmlAttribute'/>_service<carlos:encode value='${slot.index}' context='htmlAttribute'/>_order"
+					value="<carlos:encode value='${slot.order}' context='htmlAttribute'/>" size="5"
+					style="font-size: 8pt; text-align: right; vertical-align: bottom"></td>
+			</tr>
+			</c:forEach>
+		</table>
+		</td>
+		</c:forEach>
+	</tr>
+	<tr>
+		<td colspan="3"><input type="submit" name="submit"
+			value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingform_service.btnUpdate"/>"><input
+			type="hidden" name="typeid"
+			value="<carlos:encode value='${manageBillingformModel.clinicView}' context="htmlAttribute"/>"><input
+			type="hidden" name="type" value="<carlos:encode value='${manageBillingformModel.currentServiceTypeName}' context="htmlAttribute"/>"></td>
+	</tr>
+</table>
+</form>

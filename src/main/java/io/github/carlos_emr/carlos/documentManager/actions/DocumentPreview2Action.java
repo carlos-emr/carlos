@@ -37,9 +37,12 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 /**
  * Struts2 action for previewing and rendering medical documents as PDFs in the OpenO EMR system.
@@ -59,6 +62,10 @@ import org.apache.struts2.ServletActionContext;
  * @see PathValidationUtils
  */
 public class DocumentPreview2Action extends ActionSupport {
+    private static final String FETCH_CONSULT_DOCUMENTS = "fetchConsultDocuments";
+
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -84,40 +91,54 @@ public class DocumentPreview2Action extends ActionSupport {
      * @return String result name for Struts2 result mapping, or null for direct response rendering
      */
     public String execute() {
-        String method = request.getParameter("method");
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String requestMethod = request.getParameter("method");
+        String method = StringUtils.isNullOrEmpty(requestMethod)
+                ? FETCH_CONSULT_DOCUMENTS
+                : requestMethod;
 
-        if (method != null) {
-            if (method.equalsIgnoreCase("fetchEFormDocuments"))
+        switch (method.toLowerCase(Locale.ROOT)) {
+            case "fetcheformdocuments":
+                requirePrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ);
                 return fetchEFormDocuments();
-            else if (method.equalsIgnoreCase("renderEDocPDF")) {
+            case "renderedocpdf":
+                requirePrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ);
                 renderEDocPDF();
                 return null;
-            }
-            else if (method.equalsIgnoreCase("renderEFormPDF")) {
+            case "rendereformpdf":
+                requirePrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ);
                 renderEFormPDF();
                 return null;
-            }
-            else if (method.equalsIgnoreCase("renderHrmPDF")) {
+            case "renderhrmpdf":
+                requirePrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ);
                 renderHrmPDF();
                 return null;
-            }
-            else if (method.equalsIgnoreCase("renderLabPDF")) {
+            case "renderlabpdf":
+                requirePrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ);
                 renderLabPDF();
                 return null;
-            }
-            else if (method.equalsIgnoreCase("renderFormPDF")) {
+            case "renderformpdf":
+                requirePrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ);
                 renderFormPDF();
                 return null;
-            }
-            else if (method.equalsIgnoreCase("renderPDF")) {
+            case "renderpdf":
+                requirePrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ);
                 renderPDF();
                 return null;
-            }
-            else if (method.equalsIgnoreCase("fetchConsultDocuments"))
+            case "fetchconsultdocuments":
+                requirePrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE);
                 return fetchConsultDocuments();
+            default:
+                logger.warn("Unsupported previewDocs method requested: {}", LogSanitizer.sanitize(method));
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
         }
+    }
 
-        return fetchConsultDocuments();
+    private void requirePrivilege(LoggedInInfo loggedInInfo, String securityObjectName, String privilege) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, securityObjectName, privilege, null)) {
+            throw new SecurityException("missing required sec object (" + securityObjectName + ")");
+        }
     }
 
     /**
@@ -136,12 +157,15 @@ public class DocumentPreview2Action extends ActionSupport {
      */
     public void renderEDocPDF() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String eDocId = request.getParameter("eDocId");
+        Integer eDocId = parseIntegerParameterOrRespondBadRequest(request.getParameter("eDocId"), "eDocId");
+        if (eDocId == null) {
+            return;
+        }
         try {
-            Path docPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.DOC, Integer.parseInt(eDocId));
+            Path docPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.DOC, eDocId);
             generateResponse(response, docPDFPath);
         } catch (PDFGenerationException e) {
-            logger.error("Error occured while rendering eDoc. " + e.getMessage(), e);
+            logger.error("Error occurred while rendering eDoc. " + e.getMessage(), e);
             generateResponse(response, e.getMessage());
         }
     }
@@ -162,12 +186,15 @@ public class DocumentPreview2Action extends ActionSupport {
      */
     public void renderEFormPDF() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String eFormId = request.getParameter("eFormId");
+        Integer eFormId = parseIntegerParameterOrRespondBadRequest(request.getParameter("eFormId"), "eFormId");
+        if (eFormId == null) {
+            return;
+        }
         try {
-            Path eFormPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.EFORM, Integer.parseInt(eFormId));
+            Path eFormPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.EFORM, eFormId);
             generateResponse(response, eFormPDFPath);
         } catch (PDFGenerationException e) {
-            logger.error("Error occured while rendering eForm. " + e.getMessage(), e);
+            logger.error("Error occurred while rendering eForm. " + e.getMessage(), e);
             generateResponse(response, e.getMessage());
         }
     }
@@ -188,12 +215,15 @@ public class DocumentPreview2Action extends ActionSupport {
      */
     public void renderHrmPDF() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String hrmId = request.getParameter("hrmId");
+        Integer hrmId = parseIntegerParameterOrRespondBadRequest(request.getParameter("hrmId"), "hrmId");
+        if (hrmId == null) {
+            return;
+        }
         try {
-            Path hrmPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.HRM, Integer.parseInt(hrmId));
+            Path hrmPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.HRM, hrmId);
             generateResponse(response, hrmPDFPath);
         } catch (PDFGenerationException e) {
-            logger.error("Error occured while rendering HRM. " + e.getMessage(), e);
+            logger.error("Error occurred while rendering HRM. " + e.getMessage(), e);
             generateResponse(response, e.getMessage());
         }
     }
@@ -213,12 +243,15 @@ public class DocumentPreview2Action extends ActionSupport {
      */
     public void renderLabPDF() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String segmentID = request.getParameter("segmentId");
+        Integer segmentId = parseIntegerParameterOrRespondBadRequest(request.getParameter("segmentId"), "segmentId");
+        if (segmentId == null) {
+            return;
+        }
         try {
-            Path labPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.LAB, Integer.parseInt(segmentID));
+            Path labPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.LAB, segmentId);
             generateResponse(response, labPDFPath);
         } catch (PDFGenerationException e) {
-            logger.error("Error occured while rendering Lab. " + e.getMessage(), e);
+            logger.error("Error occurred while rendering Lab. " + e.getMessage(), e);
             generateResponse(response, e.getMessage());
         }
     }
@@ -240,7 +273,7 @@ public class DocumentPreview2Action extends ActionSupport {
             Path formPDFPath = documentAttachmentManager.renderDocument(request, response, DocumentType.FORM);
             generateResponse(response, formPDFPath);
         } catch (PDFGenerationException e) {
-            logger.error("Error occured while rendering Form. " + e.getMessage(), e);
+            logger.error("Error occurred while rendering Form. " + e.getMessage(), e);
             generateResponse(response, e.getMessage());
         }
     }
@@ -299,7 +332,7 @@ public class DocumentPreview2Action extends ActionSupport {
                     java.io.File baseDir = new java.io.File(basePath);
                     if (baseDir.exists()) {
                         try {
-                            PathValidationUtils.validateExistingPath(canonicalPdfPath.toFile(), baseDir);
+                            canonicalPdfPath = PathValidationUtils.validateExistingPath(canonicalPdfPath.toFile(), baseDir).toPath();
                             isValidPath = true;
                             break;
                         } catch (SecurityException e) {
@@ -310,14 +343,14 @@ public class DocumentPreview2Action extends ActionSupport {
             }
             
             if (!isValidPath) {
-                logger.error("Access denied: Path traversal attempt detected for path: " + pdfPathString);
+                logger.error("Access denied: Path traversal attempt detected for path: {}", LogSanitizer.sanitize(pdfPathString)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                 return;
             }
             
             // Additional check: ensure the file exists and is a regular file
             if (!Files.exists(canonicalPdfPath) || !Files.isRegularFile(canonicalPdfPath)) {
-                logger.error("PDF file not found or is not a regular file: " + pdfPathString);
+                logger.error("PDF file not found or is not a regular file: {}", LogSanitizer.sanitize(pdfPathString)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 response.setStatus(HttpServletResponse.SC_NOT_FOUND);
                 return;
             }
@@ -330,13 +363,13 @@ public class DocumentPreview2Action extends ActionSupport {
 
                 int data;
                 while ((data = bfis.read()) != -1) {
-                    outs.write(data);
+                    outs.write(data); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- application/pdf binary document preview
                 }
 
                 outs.flush();
             }
         } catch (IOException e) {
-            logger.error("Error processing PDF file: " + pdfPathString, e);
+            logger.error("Error processing PDF file: {}", LogSanitizer.sanitize(pdfPathString), e);
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
     }
@@ -365,9 +398,19 @@ public class DocumentPreview2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         String demographicNo = StringUtils.isNullOrEmpty(request.getParameter("demographicNo")) ? "0" : request.getParameter("demographicNo");
+        Integer demographicId;
+        try {
+            demographicId = Integer.valueOf(demographicNo);
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid demographicNo received: {}. Falling back to 0.", LogSanitizer.sanitize(demographicNo), e);
+            demographicNo = "0";
+            demographicId = 0;
+        }
 
-        populateCommonDocs(loggedInInfo, demographicNo);
-		List<EFormData> allEForms = EFormUtil.listPatientEformsCurrent(Integer.valueOf(demographicNo), true);
+        populateCommonDocs(loggedInInfo, demographicNo, demographicId);
+		List<EFormData> allEForms = hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null)
+                ? EFormUtil.listPatientEformsCurrent(demographicId, true)
+                : new ArrayList<>();
         request.setAttribute("allEForms", allEForms);
 
         return "fetchDocuments";
@@ -399,9 +442,12 @@ public class DocumentPreview2Action extends ActionSupport {
 
         String demographicNo = StringUtils.isNullOrEmpty(request.getParameter("demographicNo")) ? "0" : request.getParameter("demographicNo");
         String fdid = StringUtils.isNullOrEmpty(request.getParameter("fdid")) ? "0" : request.getParameter("fdid");
+        Integer demographicId = parseIntegerParameterOrDefault(demographicNo, "demographicNo", 0);
+        String sanitizedDemographicNo = String.valueOf(demographicId);
+        Integer fdidInt = parseIntegerParameterOrDefault(fdid, "fdid", 0);
 
-        populateCommonDocs(loggedInInfo, demographicNo);
-		List<EFormData> allEForms = documentAttachmentManager.getAllEFormsExpectFdid(loggedInInfo, Integer.parseInt(demographicNo), Integer.parseInt(fdid));
+        populateCommonDocs(loggedInInfo, sanitizedDemographicNo, demographicId);
+		List<EFormData> allEForms = documentAttachmentManager.getAllEFormsExpectFdid(loggedInInfo, demographicId, fdidInt);
 		request.setAttribute("allEForms", allEForms);
 
         return "fetchDocuments";
@@ -422,7 +468,8 @@ public class DocumentPreview2Action extends ActionSupport {
         ObjectNode json = objectMapper.createObjectNode();
         String base64Data = documentAttachmentManager.convertPDFToBase64(pdfPath);
         json.put("base64Data", base64Data);
-        response.setContentType("text/javascript");
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         try {
             response.getWriter().write(json.toString());
         } catch (IOException e) {
@@ -443,7 +490,8 @@ public class DocumentPreview2Action extends ActionSupport {
     private void generateResponse(HttpServletResponse response, String errorMessage) {
         ObjectNode json = objectMapper.createObjectNode();
         json.put("errorMessage", errorMessage);
-        response.setContentType("text/javascript");
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         try {
             response.getWriter().write(json.toString());
         } catch (IOException e) {
@@ -456,15 +504,47 @@ public class DocumentPreview2Action extends ActionSupport {
      * @param loggedInInfo Information about the logged-in user
      * @param demographicNo Demographic number of the patient
      */
-    private void populateCommonDocs(LoggedInInfo loggedInInfo, String demographicNo) {
-        List<EDoc> allDocuments = EDocUtil.listDocs(loggedInInfo, "demographic", demographicNo, null, EDocUtil.PRIVATE, EDocUtil.EDocSort.OBSERVATIONDATE);
-        ArrayList<HashMap<String, ? extends Object>> allHRMDocuments = HRMUtil.listHRMDocuments(loggedInInfo, "report_date", false, demographicNo, false);
-        List<AttachmentLabResultData> allLabsSortedByVersions = documentAttachmentManager.getAllLabsSortedByVersions(loggedInInfo, demographicNo);
-        List<EctFormData.PatientForm> allForms = formsManager.getEncounterFormsbyDemographicNumber(loggedInInfo, Integer.parseInt(demographicNo), false, true);
+    private void populateCommonDocs(LoggedInInfo loggedInInfo, String demographicNo, Integer demographicId) {
+        List<EDoc> allDocuments = hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, null)
+                ? EDocUtil.listDocs(loggedInInfo, "demographic", demographicNo, null, EDocUtil.PRIVATE, EDocUtil.EDocSort.OBSERVATIONDATE)
+                : new ArrayList<>();
+        ArrayList<HashMap<String, ? extends Object>> allHRMDocuments = hasPrivilege(loggedInInfo, "_hrm", SecurityInfoManager.READ, null)
+                ? HRMUtil.listHRMDocuments(loggedInInfo, "report_date", false, demographicNo, false)
+                : new ArrayList<>();
+        List<AttachmentLabResultData> allLabsSortedByVersions = hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, null)
+                ? documentAttachmentManager.getAllLabsSortedByVersions(loggedInInfo, demographicNo)
+                : new ArrayList<>();
+        List<EctFormData.PatientForm> allForms = hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, null)
+                ? formsManager.getEncounterFormsbyDemographicNumber(loggedInInfo, demographicId, false, true)
+                : new ArrayList<>();
 
         request.setAttribute("allDocuments", allDocuments);
         request.setAttribute("allHRMDocuments", allHRMDocuments);
 		request.setAttribute("allLabsSortedByVersions", allLabsSortedByVersions);
 		request.setAttribute("allForms", allForms);
+    }
+
+    private boolean hasPrivilege(LoggedInInfo loggedInInfo, String securityObjectName, String privilege, String target) {
+        return securityInfoManager.hasPrivilege(loggedInInfo, securityObjectName, privilege, target);
+    }
+
+    private Integer parseIntegerParameterOrDefault(String value, String parameterName, Integer defaultValue) {
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid {} received: {}. Falling back to {}.", parameterName, LogSanitizer.sanitize(value), defaultValue, e);
+            return defaultValue;
+        }
+    }
+
+    private Integer parseIntegerParameterOrRespondBadRequest(String value, String parameterName) {
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid {} received: {}", parameterName, LogSanitizer.sanitize(value), e);
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            generateResponse(response, "Invalid " + parameterName);
+            return null;
+        }
     }
 }

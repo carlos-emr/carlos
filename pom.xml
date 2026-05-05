@@ -44,7 +44,7 @@
             has already validated the path. This does NOT suppress the rule globally — any code
             that uses raw user input in file paths without PathValidationUtils will still be caught.
         -->
-        <sonar.issue.ignore.multicriteria>pvuSelf,pvuEform,pvuDoc,pvuLab,pvuInteg,pvuForm,pvuFax,pvuEncounter,pvuDx,pvuDemog,pvuBilling</sonar.issue.ignore.multicriteria>
+        <sonar.issue.ignore.multicriteria>pvuSelf,pvuEform,pvuDoc,pvuLab,pvuInteg,pvuForm,pvuFax,pvuEncounter,pvuDx,pvuDemog,pvuBilling,pvuDocS6549</sonar.issue.ignore.multicriteria>
         <!-- PathValidationUtils itself (it IS the sanitizer) -->
         <sonar.issue.ignore.multicriteria.pvuSelf.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuSelf.ruleKey>
         <sonar.issue.ignore.multicriteria.pvuSelf.resourceKey>**/utility/PathValidationUtils.java</sonar.issue.ignore.multicriteria.pvuSelf.resourceKey>
@@ -78,10 +78,14 @@
         <!-- Billing upload servlets -->
         <sonar.issue.ignore.multicriteria.pvuBilling.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuBilling.ruleKey>
         <sonar.issue.ignore.multicriteria.pvuBilling.resourceKey>**/billings/**/*.java</sonar.issue.ignore.multicriteria.pvuBilling.resourceKey>
+        <!-- S6549 (path construction) false positive — limit suppression to DocumentUpload2Action
+             so path-construction findings remain visible for other documentManager files. -->
+        <sonar.issue.ignore.multicriteria.pvuDocS6549.ruleKey>javasecurity:S6549</sonar.issue.ignore.multicriteria.pvuDocS6549.ruleKey>
+        <sonar.issue.ignore.multicriteria.pvuDocS6549.resourceKey>**/documentManager/**/DocumentUpload2Action.java</sonar.issue.ignore.multicriteria.pvuDocS6549.resourceKey>
         <!-- Empty default so @{argLine} in surefire resolves even if JaCoCo prepare-agent hasn't run -->
         <argLine></argLine>
         <!-- Log4j Version -->
-        <log4j2.version>2.25.3</log4j2.version>
+        <log4j2.version>2.25.4</log4j2.version>
         <!-- Slf4j Version -->
         <slf4j.version>2.0.17</slf4j.version>
         <!-- Hapi Fhir Version -->
@@ -101,8 +105,12 @@
         <jackson.version>2.21.1</jackson.version>
         <!-- JasperReports -->
         <jasperreports.version>7.0.6</jasperreports.version>
-        <!-- OpenPDF -->
+        <!-- Modern OpenPDF uses org.openpdf.* for handwritten PDF code.
+             JasperReports PDF still uses the legacy com.lowagie.* OpenPDF coordinate;
+             keep both coordinates distinct so Maven does not replace the JasperReports
+             runtime classes with the incompatible org.openpdf namespace. -->
         <openpdf.version>3.0.3</openpdf.version>
+        <jasperreports.openpdf.version>1.3.43</jasperreports.openpdf.version>
         <!-- PDFBox -->
         <pdfbox.version>3.0.7</pdfbox.version>
         <!-- TwelveMonkeys ImageIO -->
@@ -334,13 +342,6 @@
             <artifactId>log4j-api</artifactId>
             <version>${log4j2.version}</version>
         </dependency>
-        <!--Enables log4j-2 binding from libraries that still use older Log4j-1 -->
-        <dependency>
-            <groupId>org.apache.logging.log4j</groupId>
-            <artifactId>log4j-1.2-api</artifactId>
-            <version>${log4j2.version}</version>
-        </dependency>
-
         <!-- SLF4J -->
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -444,7 +445,7 @@
                     <groupId>commons-lang</groupId>
                     <artifactId>commons-lang</artifactId>
                 </exclusion>
-                <!-- Exclude vulnerable log4j v1.2.x - default to using log4j 2.x instead (see version of log4j-1.2-api) -->
+                <!-- Exclude vulnerable log4j v1.2.x - default to using log4j 2.x instead -->
                 <exclusion>
                     <groupId>log4j</groupId>
                     <artifactId>log4j</artifactId>
@@ -601,10 +602,11 @@
             <artifactId>serializer</artifactId>
         </dependency>
 
-        <!-- OpenPDF (LGPL) - replaces iText 5 (AGPL) for PDF creation.
-             Version 3.0.2 uses org.openpdf.* packages (final namespace). -->
+        <!-- Modern OpenPDF (LGPL) for application code that imports org.openpdf.*.
+             Do not use the com.github.librepdf group here; JasperReports PDF needs that
+             legacy coordinate at 1.3.x because it is compiled against com.lowagie.*. -->
         <dependency>
-            <groupId>com.github.librepdf</groupId>
+            <groupId>com.github.librepdf.openpdf</groupId>
             <artifactId>openpdf</artifactId>
             <version>${openpdf.version}</version>
             <exclusions>
@@ -636,7 +638,7 @@
              openpdf artifact, NOT in this module. This module provides org.openpdf.simple.*
              classes for advanced HTML rendering. Retained for transitive compatibility. -->
         <dependency>
-            <groupId>com.github.librepdf</groupId>
+            <groupId>com.github.librepdf.openpdf</groupId>
             <artifactId>openpdf-html</artifactId>
             <version>${openpdf.version}</version>
         </dependency>
@@ -652,6 +654,12 @@
             <groupId>com.github.librepdf</groupId>
             <artifactId>openrtf</artifactId>
             <version>3.0.0</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.github.librepdf</groupId>
+                    <artifactId>openpdf</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- ==================== Rules Engine (Drools) ==================== -->
@@ -715,6 +723,15 @@
             <version>${jasperreports.version}</version>
         </dependency>
 
+        <!-- JasperReports PDF 7.0.x is compiled against OpenPDF's legacy com.lowagie.*
+             package names. Keep this explicit so org.openpdf.* upgrades do not silently
+             remove classes such as com.lowagie.text.SplitCharacter from the webapp. -->
+        <dependency>
+            <groupId>com.github.librepdf</groupId>
+            <artifactId>openpdf</artifactId>
+            <version>${jasperreports.openpdf.version}</version>
+        </dependency>
+
         <!-- JasperReports JDT compiler (required for runtime .jrxml compilation) -->
         <dependency>
             <groupId>net.sf.jasperreports</groupId>
@@ -759,18 +776,6 @@
             <version>5.2.3</version>
         </dependency>
 
-        <!-- CDS CIHI PHC VRS (local_repo) -->
-        <dependency>
-            <groupId>cds</groupId>
-            <artifactId>cds_cihi_phcvrs</artifactId>
-            <version>1.0</version>
-        </dependency>
-        <!-- CDS CIHI (local_repo) -->
-        <dependency>
-            <groupId>cds</groupId>
-            <artifactId>cds_cihi</artifactId>
-            <version>1.0</version>
-        </dependency>
         <!-- CDS Rourke (local_repo) -->
         <dependency>
             <groupId>cds</groupId>
@@ -1191,6 +1196,12 @@
             <groupId>org.xhtmlrenderer</groupId>
             <artifactId>flying-saucer-pdf</artifactId>
             <version>10.0.6</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.github.librepdf</groupId>
+                    <artifactId>openpdf</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- HAPI FHIR -->
@@ -1371,6 +1382,12 @@
                 <configuration>
                     <source>21</source>
                     <target>21</target>
+                    <!-- Emit MethodParameters attribute into .class files so Spring SpEL can
+                         resolve method-argument names like #providerNo in @Cacheable conditions.
+                         Without this, Spring 6+ silently fails parameter-name discovery (legacy
+                         LocalVariableTableParameterNameDiscoverer was removed), the condition
+                         evaluates to false, and no caching occurs. -->
+                    <parameters>true</parameters>
                     <!-- Suppress framework deprecation warnings during incremental migration.
                          Override via: mvn ... -Dmaven.compiler.showDeprecation=true -->
                     <showDeprecation>${maven.compiler.showDeprecation}</showDeprecation>
@@ -1472,7 +1489,6 @@
                     <exclude>src/main/webapp/casemgmt/Index2.jsp</exclude>
                     <exclude>src/main/java/oscar/oscarMessenger/util/MsgDemoMap.java</exclude>
                     <exclude>src/main/java/oscar/encounter/pageUtil/EctDisplayMsgAction.java</exclude>
-                    <exclude>src/main/webapp/encounter/Index.jsp</exclude>
                     <exclude>src/main/java/oscar/encounter/data/EctPatientData.java</exclude>
                 </configuration>
                 <dependencies>
@@ -1614,6 +1630,22 @@
                 <configuration>
                     <!-- Can be overridden with -Ddependency.lock.filename=xxx -->
                     <filename>${dependency.lock.filename}</filename>
+                    <!-- Skip integrity/version checks for JitPack-served artifacts.
+                         JitPack builds from source on demand and can serve different
+                         bytes (and thus different SHA512 hashes) between environments,
+                         causing spurious lock-file failures. Tracked for long-term
+                         fix (publish to a stable repo). See issue: JitPack exclusion. -->
+                    <dependencySets>
+                        <dependencySet>
+                            <includes>
+                                <include>com.github.openosp:ultrabuk-htmltopdf-java</include>
+                            </includes>
+                            <version>ignore</version>
+                            <integrity>ignore</integrity>
+                            <allowMissing>true</allowMissing>
+                            <allowExtraneous>true</allowExtraneous>
+                        </dependencySet>
+                    </dependencySets>
                 </configuration>
                 <executions>
                     <execution>
@@ -1697,6 +1729,69 @@
                          Skip in jspc profile because JitPack can shadow Maven Central
                          artifacts under alternate groupIds in CI environments with cold
                          caches, causing false dependency-lock failures. -->
+                    <plugin>
+                        <groupId>se.vandmo</groupId>
+                        <artifactId>dependency-lock-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>check</id>
+                                <phase>none</phase>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Skip dependency lock check in CI workflows (e.g. SonarCloud)
+             where JitPack-served artifacts produce different SHA512 hashes
+             than locally-cached ones, causing false failures.
+             Activate with: mvn ... -Pskip-dependency-lock -->
+        <profile>
+            <id>skip-dependency-lock</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>se.vandmo</groupId>
+                        <artifactId>dependency-lock-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>check</id>
+                                <phase>none</phase>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- SpotBugs + Find Security Bugs analysis.
+             Activate with: mvn compile spotbugs:spotbugs -Pspotbugs -->
+        <profile>
+            <id>spotbugs</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>com.github.spotbugs</groupId>
+                        <artifactId>spotbugs-maven-plugin</artifactId>
+                        <version>4.9.3.0</version>
+                        <configuration>
+                            <effort>Max</effort>
+                            <threshold>Low</threshold>
+                            <xmlOutput>true</xmlOutput>
+                            <xmlOutputDirectory>${project.build.directory}</xmlOutputDirectory>
+                            <spotbugsXmlOutputFilename>spotbugs-result.xml</spotbugsXmlOutputFilename>
+                            <excludeFilterFile>${project.basedir}/.github/spotbugs/spotbugs-exclude.xml</excludeFilterFile>
+                            <plugins>
+                                <plugin>
+                                    <groupId>com.h3xstream.findsecbugs</groupId>
+                                    <artifactId>findsecbugs-plugin</artifactId>
+                                    <version>1.14.0</version>
+                                </plugin>
+                            </plugins>
+                        </configuration>
+                    </plugin>
+                    <!-- Skip dependency lock — already validated in the build job -->
                     <plugin>
                         <groupId>se.vandmo</groupId>
                         <artifactId>dependency-lock-maven-plugin</artifactId>

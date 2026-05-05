@@ -186,6 +186,7 @@ public class RptTableFieldNameCaption {
             return ret;
         }
 
+        // nosemgrep: formatted-sql-string -- tableName is validated against the encounterForm whitelist above
         String sql = "select * from " + tableName + " limit 1";
         Connection conn = null;
         PreparedStatement ps = null;
@@ -193,7 +194,7 @@ public class RptTableFieldNameCaption {
         try {
             conn = DbConnectionFilter.getThreadLocalDbConnection();
             ps = conn.prepareStatement(sql);
-            rs = ps.executeQuery();
+            rs = ps.executeQuery(); // nosemgrep: formatted-sql-string — uses PreparedStatement; tableName from internal report config
             ResultSetMetaData md = rs.getMetaData();
             for (int i = 1; i <= md.getColumnCount(); i++) {
                 ret.add(md.getColumnName(i));

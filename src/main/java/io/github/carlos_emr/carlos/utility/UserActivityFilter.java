@@ -73,25 +73,26 @@ public final class UserActivityFilter implements Filter {
             Long now = (new Date()).getTime();
 
             HttpSession session = httpRequest.getSession(false);
-            if (session != null && !httpRequest.getRequestURL().toString().contains(httpRequest.getContextPath() + "/logout.jsp")) {
+            if (session != null && !httpRequest.getRequestURL().toString().contains(httpRequest.getContextPath() + "/logoutPage")) {
                 Long lastActivity = (Long) session.getAttribute(LAST_USER_ACTIVITY);
 
                 if (lastActivity == null) {
                     lastActivity = now; // set new last activity
                 }
                 if (now - lastActivity > session.getMaxInactiveInterval() * 1000L) {
-                    LogAction.addLog((String) session.getAttribute("user"), LogConst.LOGOUT, LogConst.CON_LOGIN, "logged out due to inactivity", request.getRemoteAddr());
+                    LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.LOGOUT, LogConst.CON_LOGIN, "logged out due to inactivity", request.getRemoteAddr());
                     logger.warn("User providerNo=" + loggedInInfo.getLoggedInProviderNo() + " logged out due to inactivity");
                     redirectToLogout = true;
                 } else if (isUserRequest(httpRequest)) {
                     // Reset activity timer in session
+                    // nosemgrep: tainted-session-from-http-request -- now is System.currentTimeMillis(), a server-generated timestamp
                     session.setAttribute(LAST_USER_ACTIVITY, now);
                 }
             }
         }
         if (redirectToLogout) {
             HttpServletResponse httpResponse = (HttpServletResponse) response;
-            httpResponse.sendRedirect(((HttpServletRequest) request).getContextPath() + "/logout.jsp?autoLogout=true&errorMessage=logged out due to inactivity");
+            httpResponse.sendRedirect(((HttpServletRequest) request).getContextPath() + "/logoutPage?autoLogout=true&errorMessage=logged out due to inactivity");
         } else {
             chain.doFilter(request, response);
         }

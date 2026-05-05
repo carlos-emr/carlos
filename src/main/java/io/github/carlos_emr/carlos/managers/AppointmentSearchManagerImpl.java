@@ -46,12 +46,14 @@ import io.github.carlos_emr.carlos.commn.dao.LookupListDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.AppointmentSearch;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.appointment.search.FilterRegistry;
 import io.github.carlos_emr.carlos.appointment.search.SearchConfig;
 import io.github.carlos_emr.carlos.appointment.search.TimeSlot;
 import io.github.carlos_emr.carlos.appointment.search.AppointmentType;
 import io.github.carlos_emr.carlos.appointment.search.FilterDefinition;
 import io.github.carlos_emr.carlos.appointment.search.Provider;
 import io.github.carlos_emr.carlos.appointment.search.filters.AvailableTimeSlotFilter;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
@@ -118,7 +120,8 @@ public class AppointmentSearchManagerImpl implements AppointmentSearchManager {
         return searchConfig;
     }
 
-    public List<TimeSlot> findAppointment(LoggedInInfo loggedInInfo, SearchConfig config, Integer demographicNo, Long appointmentTypeId, Calendar startDate) throws java.lang.ClassNotFoundException, java.lang.InstantiationException, java.lang.IllegalAccessException {
+    @Override
+    public List<TimeSlot> findAppointment(LoggedInInfo loggedInInfo, SearchConfig config, Integer demographicNo, Long appointmentTypeId, Calendar startDate) {
         List<TimeSlot> appointments = new ArrayList<TimeSlot>();
         Demographic demographic = demographicManager.getDemographic(loggedInInfo, demographicNo);
         String mrp = demographic.getProviderNo();
@@ -152,10 +155,15 @@ public class AppointmentSearchManagerImpl implements AppointmentSearchManager {
                 }
                 if (filterClassNames != null) {
                     for (FilterDefinition className : filterClassNames) {
-                        @SuppressWarnings("unchecked")
-                        Class<AvailableTimeSlotFilter> filterClass = (Class<AvailableTimeSlotFilter>) Class.forName(className.getFilterClassName());
-                        logger.debug("filter class null? " + filterClass.getName());
-                        AvailableTimeSlotFilter filterClassInstance = filterClass.newInstance();
+                        String filterClassName = className.getFilterClassName();
+                        if (!FilterRegistry.isKnown(filterClassName)) {
+                            String sanitizedName = LogSanitizer.sanitize(filterClassName);
+                            logger.error("Unknown AvailableTimeSlotFilter key in search configuration: {}",
+                                    sanitizedName);
+                            throw new AppointmentSearchManager.AppointmentSearchException(
+                                    "Unknown AvailableTimeSlotFilter key: " + sanitizedName);
+                        }
+                        AvailableTimeSlotFilter filterClassInstance = FilterRegistry.create(filterClassName);
                         providerAppointments = filterClassInstance.filterAvailableTimeSlots(config, mrp, provider.getProviderNo(), appointmentTypeId, dayWorkSchedule, providerAppointments, calDayToSearch, className.getParams());
                         /// keep? or change ? recordFilterForSearchedProvider(doc,searchedProviderRecord,dayWorkScheduleTransfer,filterClassInstance.getClass().getSimpleName(), providerAppointments);
                         if (providerAppointments.size() == 0) {

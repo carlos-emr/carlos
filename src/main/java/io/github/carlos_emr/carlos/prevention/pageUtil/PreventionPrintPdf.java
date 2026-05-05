@@ -206,7 +206,7 @@ public class PreventionPrintPdf {
 
         String mrp = request.getParameter("mrp");
         if (mrp != null && CarlosProperties.getInstance().getBooleanProperty("mrp_model", "yes")) {
-            Properties prop = (Properties) request.getSession().getAttribute("providerBean");
+            Properties prop = (Properties) request.getSession().getAttribute("providerBean"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session provider bean (set post-auth)
             titlePhrase.add(Chunk.NEWLINE);
             titlePhrase.add(new Chunk("MRP: " + prop.getProperty(mrp, "unknown"), FontFactory.getFont(FontFactory.HELVETICA, 12, Font.BOLD, Color.BLACK)));
         }

@@ -37,12 +37,12 @@ import java.util.List;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramSignature;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import org.springframework.transaction.annotation.Transactional;
-import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
+import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
 @Transactional
-public class ProgramSignatureDaoImpl extends AbstractHibernateDao implements ProgramSignatureDao {
+public class ProgramSignatureDaoImpl extends AbstractJpaDao implements ProgramSignatureDao {
 
     private static final Logger log = MiscUtils.getLogger();
 
@@ -53,7 +53,7 @@ public class ProgramSignatureDaoImpl extends AbstractHibernateDao implements Pro
             return null;
         }
         String sSQL = "FROM ProgramSignature ps where ps.programId = ?1 ORDER BY ps.updateDate ASC";
-        List ps = HqlQueryHelper.find(currentSession(), sSQL, programId);
+        List ps = JpqlQueryHelper.find(entityManager(), sSQL, programId);
 
         if (!ps.isEmpty()) {
             programSignature = (ProgramSignature) ps.get(0);
@@ -72,7 +72,7 @@ public class ProgramSignatureDaoImpl extends AbstractHibernateDao implements Pro
         }
 
         String sSQL = "FROM ProgramSignature ps WHERE ps.programId = ?1 ORDER BY ps.updateDate ASC";
-        List rs = HqlQueryHelper.find(currentSession(), sSQL, programId);
+        List rs = JpqlQueryHelper.find(entityManager(), sSQL, programId);
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramSignatures: # of programs: " + rs.size());
@@ -87,11 +87,11 @@ public class ProgramSignatureDaoImpl extends AbstractHibernateDao implements Pro
         }
         programSignature.setUpdateDate(new Date());
         if (programSignature.getId() == null) {
-            currentSession().persist(programSignature);
+            entityManager().persist(programSignature);
         } else {
-            currentSession().merge(programSignature);
+            entityManager().merge(programSignature);
         }
-        currentSession().flush();
+        entityManager().flush();
 
         if (log.isDebugEnabled()) {
             log.debug("saveAdmission: id= " + programSignature.getId());

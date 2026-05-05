@@ -34,6 +34,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import java.util.Date;
 import java.util.List;
 
+import io.github.carlos_emr.carlos.allergy.dto.AllergyListItemDTO;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 
 public interface AllergyDao extends AbstractDao<Allergy> {
@@ -54,4 +55,13 @@ public interface AllergyDao extends AbstractDao<Allergy> {
                                                                  Date updatedAfterThisDateExclusive, int itemsToReturn);
 
     public List<Allergy> findAllCustomAllergiesWithNullNonDrugFlag(int start, int limit);
+
+    /**
+     * Returns lightweight allergy DTOs for a demographic (14 fields vs 91).
+     *
+     * @param demographicNo Integer the patient demographic number
+     * @return List of AllergyListItemDTO
+     * @since 2026-04-11
+     */
+    public List<AllergyListItemDTO> findAllergyDTOsByDemographicNo(Integer demographicNo);
 }

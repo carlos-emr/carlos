@@ -44,6 +44,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.springframework.context.i18n.LocaleContextHolder;
 
 /**
  * This is the object class that relates to the demographic table. Any customizations belong here.
@@ -61,6 +62,42 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     private static final String DEFAULT_FUTURE_DATE = "2100-01-01";
     public static final String ANONYMOUS = "ANONYMOUS";
     public static final String UNIQUE_ANONYMOUS = "UNIQUE_ANONYMOUS";
+    public static final int LAST_NAME_MAX_LENGTH = 30;
+    public static final int FIRST_NAME_MAX_LENGTH = 30;
+    public static final int MIDDLE_NAMES_MAX_LENGTH = 100;
+    public static final int ALIAS_MAX_LENGTH = 70;
+    public static final int ADDRESS_MAX_LENGTH = 60;
+    public static final int CITY_MAX_LENGTH = 50;
+    public static final int PROVINCE_MAX_LENGTH = 20;
+    public static final int POSTAL_MAX_LENGTH = 9;
+    public static final int RESIDENTIAL_ADDRESS_MAX_LENGTH = 60;
+    public static final int RESIDENTIAL_CITY_MAX_LENGTH = 50;
+    public static final int RESIDENTIAL_PROVINCE_MAX_LENGTH = 20;
+    public static final int RESIDENTIAL_POSTAL_MAX_LENGTH = 9;
+    public static final int EMAIL_MAX_LENGTH = 100;
+    public static final int PHONE_MAX_LENGTH = 20;
+    public static final int HIN_MAX_LENGTH = 20;
+    public static final int VER_MAX_LENGTH = 3;
+    public static final int SEX_MAX_LENGTH = 1;
+    public static final int MONTH_OF_BIRTH_MAX_LENGTH = 2;
+    public static final int DATE_OF_BIRTH_MAX_LENGTH = 2;
+    public static final int YEAR_OF_BIRTH_MAX_LENGTH = 4;
+    public static final int ROSTER_STATUS_MAX_LENGTH = 20;
+    public static final int ROSTER_ENROLLED_TO_MAX_LENGTH = 20;
+    public static final int PATIENT_STATUS_MAX_LENGTH = 20;
+    public static final int CHART_NO_MAX_LENGTH = 10;
+    public static final int PROVIDER_NO_MAX_LENGTH = 250;
+    public static final int PCN_INDICATOR_MAX_LENGTH = 20;
+    public static final int HC_TYPE_MAX_LENGTH = 20;
+    public static final int FAMILY_DOCTOR_MAX_LENGTH = 80;
+    public static final int PREVIOUS_ADDRESS_MAX_LENGTH = 255;
+    public static final int CHILDREN_MAX_LENGTH = 255;
+    public static final int SOURCE_OF_INCOME_MAX_LENGTH = 255;
+    public static final int CITIZENSHIP_MAX_LENGTH = 40;
+    public static final int SIN_MAX_LENGTH = 15;
+    public static final int ROSTER_TERMINATION_REASON_MAX_LENGTH = 2;
+    public static final int REFERRING_DOCTOR_INPUT_MAX_LENGTH = 40;
+    public static final int REFERRING_DOCTOR_OHIP_INPUT_MAX_LENGTH = 6;
 
     private final static Pattern FD_LAST_NAME = Pattern.compile(".*<([fr])d>([^, ]*), .*</([fr])d>.*");
     private final static Pattern FD_FIRST_NAME = Pattern.compile(".*<([fr])d>[^, ]*, (.*)</([fr])d>.*");
@@ -226,6 +263,62 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         this.setFirstName(firstName);
         this.setLastName(lastName);
         initialize();
+    }
+
+    /**
+     * Validates string field lengths against the configured demographic database
+     * column sizes.
+     *
+     * @return List<String> validation errors for fields that exceed the maximum
+     *         allowed length
+     */
+    public List<String> validateFieldLengths() {
+        List<String> errors = new ArrayList<>();
+
+        addFieldLengthError(errors, "Last name", lastName, LAST_NAME_MAX_LENGTH);
+        addFieldLengthError(errors, "First name", firstName, FIRST_NAME_MAX_LENGTH);
+        addFieldLengthError(errors, "Middle names", middleNames, MIDDLE_NAMES_MAX_LENGTH);
+        addFieldLengthError(errors, "Preferred name", alias, ALIAS_MAX_LENGTH);
+        addFieldLengthError(errors, "Address", address, ADDRESS_MAX_LENGTH);
+        addFieldLengthError(errors, "City", city, CITY_MAX_LENGTH);
+        addFieldLengthError(errors, "Province", province, PROVINCE_MAX_LENGTH);
+        addFieldLengthError(errors, "Postal code", postal, POSTAL_MAX_LENGTH);
+        addFieldLengthError(errors, "Residential address", residentialAddress, RESIDENTIAL_ADDRESS_MAX_LENGTH);
+        addFieldLengthError(errors, "Residential city", residentialCity, RESIDENTIAL_CITY_MAX_LENGTH);
+        addFieldLengthError(errors, "Residential province", residentialProvince, RESIDENTIAL_PROVINCE_MAX_LENGTH);
+        addFieldLengthError(errors, "Residential postal code", residentialPostal, RESIDENTIAL_POSTAL_MAX_LENGTH);
+        addFieldLengthError(errors, "Phone", phone, PHONE_MAX_LENGTH);
+        addFieldLengthError(errors, "Alternate phone", phone2, PHONE_MAX_LENGTH);
+        addFieldLengthError(errors, "Email", email, EMAIL_MAX_LENGTH);
+        addFieldLengthError(errors, "Sex", sex, SEX_MAX_LENGTH);
+        addFieldLengthError(errors, "Month of birth", monthOfBirth, MONTH_OF_BIRTH_MAX_LENGTH);
+        addFieldLengthError(errors, "Date of birth", dateOfBirth, DATE_OF_BIRTH_MAX_LENGTH);
+        addFieldLengthError(errors, "Year of birth", yearOfBirth, YEAR_OF_BIRTH_MAX_LENGTH);
+        addFieldLengthError(errors, "Health card number", hin, HIN_MAX_LENGTH);
+        addFieldLengthError(errors, "Version code", ver, VER_MAX_LENGTH);
+        addFieldLengthError(errors, "Roster status", rosterStatus, ROSTER_STATUS_MAX_LENGTH);
+        addFieldLengthError(errors, "Roster enrolled to", rosterEnrolledTo, ROSTER_ENROLLED_TO_MAX_LENGTH);
+        addFieldLengthError(errors, "Patient status", patientStatus, PATIENT_STATUS_MAX_LENGTH);
+        addFieldLengthError(errors, "Chart number", chartNo, CHART_NO_MAX_LENGTH);
+        addFieldLengthError(errors, "Provider number", providerNo, PROVIDER_NO_MAX_LENGTH);
+        addFieldLengthError(errors, "PCN indicator", pcnIndicator, PCN_INDICATOR_MAX_LENGTH);
+        addFieldLengthError(errors, "Health card type", hcType, HC_TYPE_MAX_LENGTH);
+        addFieldLengthError(errors, "Referring doctor", familyDoctor, FAMILY_DOCTOR_MAX_LENGTH);
+        addFieldLengthError(errors, "Previous address", previousAddress, PREVIOUS_ADDRESS_MAX_LENGTH);
+        addFieldLengthError(errors, "Children", children, CHILDREN_MAX_LENGTH);
+        addFieldLengthError(errors, "Source of income", sourceOfIncome, SOURCE_OF_INCOME_MAX_LENGTH);
+        addFieldLengthError(errors, "Citizenship", citizenship, CITIZENSHIP_MAX_LENGTH);
+        addFieldLengthError(errors, "SIN", sin, SIN_MAX_LENGTH);
+        addFieldLengthError(errors, "Roster termination reason", rosterTerminationReason, ROSTER_TERMINATION_REASON_MAX_LENGTH);
+
+        return errors;
+    }
+
+    private static void addFieldLengthError(List<String> errors, String fieldName, String value, int maxLength) {
+        if (StringUtils.length(value) > maxLength) {
+            String unit = maxLength == 1 ? "character" : "characters";
+            errors.add(fieldName + " exceeds maximum length of " + maxLength + " " + unit + ".");
+        }
     }
 
     public String getDisplayName() {
@@ -1521,15 +1614,41 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     };
 
 
+    /**
+     * Loads the oscarResources bundle for the given locale, falling back to English if the locale
+     * has no matching bundle.
+     */
+    private static ResourceBundle getResourceBundle(Locale locale) {
+        try {
+            return ResourceBundle.getBundle("oscarResources", locale);
+        } catch (MissingResourceException e) {
+            return ResourceBundle.getBundle("oscarResources", Locale.ENGLISH);
+        }
+    }
+
+    /**
+     * Returns the localized string for {@code key} from {@code bundle}, or {@code fallback} when
+     * the key is absent (guards against incomplete translations).
+     */
+    private static String getRes(ResourceBundle bundle, String key, String fallback) {
+        try {
+            return bundle.getString(key);
+        } catch (MissingResourceException e) {
+            return fallback;
+        }
+    }
+
     public String getStandardIdentificationHTML(String contextPath) {
         //TODO move this into the DemographicManager as a property modifier and wrap each item with setting preferences
         StringBuilder sb = new StringBuilder();
+        ResourceBundle carlosRes = getResourceBundle(LocaleContextHolder.getLocale());
 
         sb.append("<div id='patient-label'>");
         sb.append("<div id='patient-full-name'>");
-        sb.append("<h1><a href='"+ contextPath + "/demographic/demographiccontrol.jsp?demographic_no=");
-        sb.append(Encode.forHtml(getDemographicNo() + ""));
-        sb.append("&displaymode=edit&dboperation=search_detail' target='_blank'>");
+        String editHref = contextPath + "/demographic/DemographicEdit?demographic_no="
+                + Encode.forUriComponent(String.valueOf(getDemographicNo()));
+        sb.append("<h1><a href='").append(Encode.forHtmlAttribute(editHref));
+        sb.append("' target='_blank'>");
 
         if (getTitle() != null && getTitle().length() > 0) {
             sb.append(getTitle() + " ");
@@ -1543,7 +1662,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         if (getPronoun() != null && !getPronoun().isEmpty()) {
             sb.append("<div id='patient-pronouns'>");
             sb.append("<div class='label'>");
-            sb.append("pronouns");
+            String pronouns = getRes(carlosRes, "demographic.demographicaddrecordhtm.formPronouns", "Pronouns");
+            sb.append(pronouns);
             sb.append("</div>");
             sb.append(Encode.forHtml(getPronoun()));
             sb.append("</div>");
@@ -1552,7 +1672,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         //--> sex
         sb.append("<div id='patient-sex'>");
         sb.append("<div class='label'>");
-        sb.append("sex");
+        String sexLabel = getRes(carlosRes, "demographic.demographicaddrecordhtm.formSex", "Sex");
+        sb.append(sexLabel);
         sb.append("</div>");
         sb.append(getSex());
         sb.append("</div>");
@@ -1561,7 +1682,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         if (getGender() != null && !getGender().isEmpty()) {
             sb.append("<div id='patient-gender'>");
             sb.append("<div class='label'>");
-            sb.append("gender");
+            String genderLabel = getRes(carlosRes, "demographic.demographicaddrecordhtm.formGender", "Gender");
+            sb.append(genderLabel);
             sb.append("</div>");
             sb.append(getGender());
             sb.append("</div>");
@@ -1570,7 +1692,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         //--> Birthdate
         sb.append("<div id='patient-dob'>");
         sb.append("<div class='label'>");
-        sb.append("dob");
+        String dob = getRes(carlosRes, "demographic.demographicaddrecordhtm.formDOB", "DOB");
+        sb.append(dob);
         sb.append("</div>");
         sb.append(getBirthDayAsString());
         sb.append("</div>");
@@ -1578,7 +1701,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         //--> age
         sb.append("<div id='patient-age'>");
         sb.append("<div class='label'>");
-        sb.append("age");
+        String age = getRes(carlosRes, "global.age", "Age");
+        sb.append(age);
         sb.append("</div>");
         sb.append(getAgeAsOf(new Date()));
         sb.append("</div>");
@@ -1589,7 +1713,9 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
                     .append(Encode.forJavaScript(getHin()))
                     .append("',this)\">");
             sb.append("<div class='label'>");
-			sb.append("HIN (");
+            String hinLabel = getRes(carlosRes, "demographic.patient.context.hin", "HIN");
+            sb.append(hinLabel);
+			sb.append(" (");
             sb.append(Encode.forHtml(getHcType()));
 			sb.append(")</div>");
 			sb.append(Encode.forHtml(getHin()));
@@ -1606,7 +1732,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
                     .append(Encode.forJavaScript(getPhone()))
                     .append("',this)\">");
             sb.append("<div class='label'>");
-            sb.append("phone");
+            String phoneLabel = getRes(carlosRes, "demographic.demographicaddrecordhtm.formPhone", "Phone");
+            sb.append(phoneLabel);
             sb.append("</div>");
             sb.append(Encode.forHtmlContent(getPhone()));
             sb.append("</div>");
@@ -1620,7 +1747,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
                     .append(Encode.forJavaScript(getCellPhone()))
                     .append("',this)\">");
             sb.append("<div class='label'>");
-            sb.append("cell");
+            String cell = getRes(carlosRes, "demographic.demographicaddrecordhtm.formPhoneCell", "Cell Phone");
+            sb.append(cell);
             sb.append("</div>");
             sb.append(Encode.forHtmlContent(getCellPhone()));
             sb.append("</div>");
@@ -1632,7 +1760,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
                     .append(Encode.forJavaScript(getEmail()))
                     .append("',this)\">");
             sb.append("<div class='label'>");
-            sb.append("email");
+            String emailLabel = getRes(carlosRes, "demographic.demographicaddrecordhtm.formEMail", "Email");
+            sb.append(emailLabel);
             sb.append("</div>");
             sb.append(Encode.forHtmlContent(getEmail()));
             sb.append("</div>");
@@ -1641,31 +1770,34 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         //--> next appointment date
         sb.append("<div id='patient-next-appointment'>");
         sb.append("<div class='label'>");
-        sb.append("<a href=\"" + contextPath + "/demographic/demographiccontrol.jsp?demographic_no=")
-        .append(Encode.forHtml(getDemographicNo() + ""))
-                .append("&amp;last_name=").append(Encode.forUriComponent(getLastName())).append("&amp;first_name=")
-                .append(Encode.forUriComponent(getFirstName()))
-                .append("&amp;orderby=appointment_date&amp;displaymode=appt_history&amp;dboperation=appt_history&amp;limit1=0&amp;limit2=25\" title='View Appointment History' target='_blank'>");
-        sb.append("Next Appt.");
+        String apptHref = contextPath + "/demographic/DemographicApptHistory?demographic_no="
+                + Encode.forUriComponent(String.valueOf(getDemographicNo()))
+                + "&orderby=appointment_date&dboperation=appt_history&limit1=0&limit2=25";
+        sb.append("<a href=\"").append(Encode.forHtmlAttribute(apptHref))
+                .append("\" title='View Appointment History' target='_blank'>");
+        String nAppt = getRes(carlosRes, "global.nextAppointment", "Next Appt.");
+        sb.append(nAppt);
         sb.append("</a>");
         sb.append("</div>");
+        String unknown = getRes(carlosRes, "demographic.demographicaddrecordhtm.formNewsLetter.optUnknown", "Unknown");
         if (getNextAppointment() != null && !getNextAppointment().isEmpty()) {
             sb.append(getNextAppointment());
         } else {
-            sb.append("Unknown");
+            sb.append(unknown);
         }
         sb.append("</div>");
 
         //--> most responsible practitioner (last item, pushed to right via CSS)
         sb.append("<div id='patient-mrp'>");
         sb.append("<div class='label'>");
-        sb.append("MRP");
+        String mrpLabel = getRes(carlosRes, "demographic.demographiceditdemographic.formMRP", "MRP");
+        sb.append(mrpLabel);
         sb.append("</div>");
         Provider mrp = getMrp();
         if (mrp != null) {
             sb.append(Encode.forHtmlContent(mrp.getFormattedName()));
         } else {
-            sb.append("Unknown");
+            sb.append(unknown);
         }
         sb.append("</div>");
 
@@ -1681,15 +1813,16 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
 
     public String getRosterStatusDisplay() {
         String rs = StringUtils.trimToNull(this.getRosterStatus());
+        ResourceBundle carlosRes = getResourceBundle(LocaleContextHolder.getLocale());
         if (rs != null) {
             if ("RO".equals(rs)) {
-                return "ROSTERED";
+                return getRes(carlosRes, "demographic.enrollementhistory.Rostered", "ROSTERED");
             }
             if ("TE".equals(rs)) {
-                return "TERMINATED";
+                return getRes(carlosRes, "demographic.enrollementhistory.terminated", "TERMINATED");
             }
             if ("FS".equals(rs)) {
-                return "FEE FOR SERVICE";
+                return getRes(carlosRes, "demographic.enrollementhistory.feeforservice", "FEE FOR SERVICE");
             }
             return rs;
         } else {

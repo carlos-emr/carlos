@@ -816,6 +816,42 @@ public class MDSHandler implements MessageHandler {
         return ("N/A");
     }
 
+    @Override
+    public String getPatientAddress() {
+        try {
+            return (getString(terser.get("/.PID-11-1")));
+        } catch (Exception e) {
+            return ("");
+        }
+    }
+
+    @Override
+    public String getPatientCity() {
+        try {
+            return (getString(terser.get("/.PID-11-3")));
+        } catch (Exception e) {
+            return ("");
+        }
+    }
+
+    @Override
+    public String getPatientProvince() {
+        try {
+            return (getString(terser.get("/.PID-11-4")));
+        } catch (Exception e) {
+            return ("");
+        }
+    }
+
+    @Override
+    public String getPatientPostal() {
+        try {
+            return (getString(terser.get("/.PID-11-5")));
+        } catch (Exception e) {
+            return ("");
+        }
+    }
+
     public String getPatientLocation() {
         try {
             return (getString(terser.get("/.MSH-3-1")));

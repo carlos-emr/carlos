@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.decisionSupport.model.impl.drools;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.List;
@@ -30,7 +31,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
+import io.github.carlos_emr.carlos.decisionSupport.model.DecisionSupportException;
 import io.github.carlos_emr.carlos.decisionSupport.model.DSCondition;
 import io.github.carlos_emr.carlos.decisionSupport.model.DSConsequence;
 import io.github.carlos_emr.carlos.decisionSupport.model.DSDemographicAccess;
@@ -39,6 +42,7 @@ import io.github.carlos_emr.carlos.decisionSupport.model.conditionValue.DSValue;
 import io.github.carlos_emr.carlos.drools.RuleBaseFactory;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 /**
  * Unit tests for the DRL generation methods in {@link DSGuidelineDrools}.
@@ -288,6 +292,125 @@ class DSGuidelineDroolsUnitTest {
             guideline.afterSave();
 
             assertThat(RuleBaseFactory.getRuleBase(key)).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("isAllowedDsParameterClass")
+    class IsAllowedDsParameterClass {
+
+        @Test
+        @DisplayName("should allow CARLOS EMR package prefix")
+        void shouldAllow_carlosEMRPackagePrefix() {
+            assertThat(DSGuidelineDrools.isAllowedDsParameterClass(
+                    "io.github.carlos_emr.carlos.decisionSupport.model.DSDemographicAccess"))
+                    .isTrue();
+        }
+
+        @Test
+        @DisplayName("should allow any class under CARLOS package root")
+        void shouldAllow_anyClassUnderCarlosPackageRoot() {
+            assertThat(DSGuidelineDrools.isAllowedDsParameterClass(
+                    "io.github.carlos_emr.carlos.billing.SomeHelper"))
+                    .isTrue();
+        }
+
+        @Test
+        @DisplayName("should reject JDK class")
+        void shouldReject_jdkClass() {
+            assertThat(DSGuidelineDrools.isAllowedDsParameterClass("java.lang.Runtime"))
+                    .isFalse();
+        }
+
+        @Test
+        @DisplayName("should reject third-party class")
+        void shouldReject_thirdPartyClass() {
+            assertThat(DSGuidelineDrools.isAllowedDsParameterClass("com.example.SomeClass"))
+                    .isFalse();
+        }
+
+        @Test
+        @DisplayName("should reject legacy oscar package")
+        void shouldReject_legacyOscarPackage() {
+            assertThat(DSGuidelineDrools.isAllowedDsParameterClass("org.oscarehr.SomeLegacyClass"))
+                    .isFalse();
+        }
+
+        @Test
+        @DisplayName("should reject null class name")
+        void shouldReject_nullClassName() {
+            assertThat(DSGuidelineDrools.isAllowedDsParameterClass(null)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should reject empty class name")
+        void shouldReject_emptyClassName() {
+            assertThat(DSGuidelineDrools.isAllowedDsParameterClass("")).isFalse();
+        }
+
+        @Test
+        @DisplayName("should reject class name that merely contains CARLOS prefix mid-string")
+        void shouldReject_classNameContainingPrefixMidString() {
+            // Must start with the prefix, not just contain it
+            assertThat(DSGuidelineDrools.isAllowedDsParameterClass(
+                    "com.evil.io.github.carlos_emr.carlos.Exploit"))
+                    .isFalse();
+        }
+
+        @Test
+        @DisplayName("should reject whitespace-only class name")
+        void shouldReject_whitespaceOnlyClassName() {
+            assertThat(DSGuidelineDrools.isAllowedDsParameterClass("   ")).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("executeRules — allowlist enforcement")
+    class ExecuteRulesAllowlist {
+
+        /**
+         * Verifies that {@code executeRules} throws {@link DecisionSupportException} when
+         * a {@link DSParameter} specifies a class outside the CARLOS EMR package prefix.
+         *
+         * <p>The test compiles a minimal DRL into a KieBase (no conditions), injects it into
+         * the guideline via reflection so that the session can be created, then calls the
+         * private {@code executeRules} method with a Mockito-mocked {@link DSDemographicAccess}
+         * (avoiding the need for a Spring context or database). The allowlist check fires
+         * before {@code kieSession.fireAllRules()}, so the exception is thrown regardless of
+         * whether the DRL would have matched the mock fact.</p>
+         */
+        @Test
+        @DisplayName("should throw DecisionSupportException when DSParameter class is not in CARLOS package")
+        void shouldThrowDecisionSupportException_whenDsParameterClassNotInCarlosPackage() throws Exception {
+            // Compile a minimal KieBase (no conditions — rules never fire but session is valid)
+            String minimalDrl = "package test;\nrule \"dummy\" when then end\n";
+            org.kie.api.KieBase kieBase =
+                    io.github.carlos_emr.carlos.drools.DroolsHelper.createKieBaseFromDrl(minimalDrl);
+
+            // Inject the compiled KieBase so generateRuleBase() is bypassed
+            java.lang.reflect.Field kieBaseField = DSGuidelineDrools.class.getDeclaredField("_kieBase");
+            kieBaseField.setAccessible(true);
+            kieBaseField.set(guideline, kieBase);
+
+            // Add a DSParameter pointing to a JDK class — blocked by the allowlist
+            DSParameter disallowedParam = new DSParameter();
+            disallowedParam.setStrClass("java.lang.Runtime");
+            disallowedParam.setStrAlias("rt");
+            guideline.setParameters(List.of(disallowedParam));
+
+            // Use a Mockito mock so kieSession.insert() receives a non-null object
+            DSDemographicAccess mockAccess = Mockito.mock(DSDemographicAccess.class);
+
+            // Access the private executeRules method via reflection
+            Method executeRulesMethod = DSGuidelineDrools.class
+                    .getDeclaredMethod("executeRules", DSDemographicAccess.class);
+            executeRulesMethod.setAccessible(true);
+
+            assertThatExceptionOfType(java.lang.reflect.InvocationTargetException.class)
+                    .isThrownBy(() -> executeRulesMethod.invoke(guideline, mockAccess))
+                    .havingCause()
+                    .isInstanceOf(DecisionSupportException.class)
+                    .withMessageContaining(DSGuidelineDrools.ALLOWED_DS_PARAMETER_PACKAGE_PREFIX);
         }
     }
 }
