@@ -38,12 +38,14 @@ jobs:
   dco:
     name: DCO Sign-Off
     runs-on: ubuntu-latest
-    # Issue comments are filtered by author here; the shell step performs the
-    # case-insensitive confirmation phrase check and skips non-matching comments.
+    # Keep issue_comment runs scoped to the documented phrase; the shell step
+    # repeats a case-insensitive phrase check before touching PR state.
     if: >
       github.event_name == 'pull_request_target' ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.pull_request &&
+       (contains(github.event.comment.body, 'Confirming DCO sign off for all commits') ||
+        contains(github.event.comment.body, 'confirming dco sign off for all commits')) &&
        (contains(fromJson('["OWNER","MEMBER","COLLABORATOR","CONTRIBUTOR"]'), github.event.comment.author_association) ||
         github.event.comment.user.login == github.event.issue.user.login))
     steps:
@@ -245,11 +247,9 @@ jobs:
               updated_epoch=$(date -d "$updated_at" +%s)
               comment_confirmed_at="$updated_at"
               comment_confirmed_epoch="$updated_epoch"
-              # Defensive fallback for unexpected API timestamp inconsistencies.
               if [ "$updated_epoch" -lt "$created_epoch" ]; then
-                echo "::warning::PR #$PR_NUMBER: DCO confirmation comment from $author has updated_at ($updated_at) earlier than created_at ($created_at); falling back to created_at."
-                comment_confirmed_at="$created_at"
-                comment_confirmed_epoch="$created_epoch"
+                echo "::error::PR #$PR_NUMBER: DCO confirmation comment from $author has updated_at ($updated_at) earlier than created_at ($created_at)."
+                exit 1
               fi
 
               if printf '%s\n' "$body" | grep -qiF "$CONFIRMATION_PHRASE"; then
