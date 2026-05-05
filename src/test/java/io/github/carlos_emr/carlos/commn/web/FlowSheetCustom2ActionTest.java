@@ -48,7 +48,7 @@ class FlowSheetCustom2ActionTest extends CarlosWebTestBase {
 
     @Test
     @DisplayName("should deny when _flowsheet w is missing")
-    void shouldDeny_whenFlowsheetWriteMissing() {
+    void shouldThrowException_whenFlowsheetWriteMissing() {
         assertThatThrownBy(() -> executeAction(new FlowSheetCustom2Action()))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_flowsheet");
@@ -59,6 +59,20 @@ class FlowSheetCustom2ActionTest extends CarlosWebTestBase {
     void shouldReturn405_onGet() throws Exception {
         allowPrivilege("_flowsheet", "w");
         mockRequest.setMethod("GET");
+        addRequestParameter("method", "save");
+
+        String result = executeAction(new FlowSheetCustom2Action());
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+    }
+
+    @Test
+    @DisplayName("should return 405 on HEAD before dispatching mutator methods")
+    void shouldReturn405_onHead() throws Exception {
+        allowPrivilege("_flowsheet", "w");
+        mockRequest.setMethod("HEAD");
         addRequestParameter("method", "save");
 
         String result = executeAction(new FlowSheetCustom2Action());

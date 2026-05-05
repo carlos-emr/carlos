@@ -49,7 +49,7 @@ class EctMeasurements2ActionTest extends CarlosWebTestBase {
 
     @Test
     @DisplayName("should deny when _measurement w is missing")
-    void shouldDeny_whenMeasurementWriteMissing() {
+    void shouldThrowException_whenMeasurementWriteMissing() {
         assertThatThrownBy(() -> executeAction(new EctMeasurements2Action()))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_measurement");
@@ -60,6 +60,19 @@ class EctMeasurements2ActionTest extends CarlosWebTestBase {
     void shouldReturn405_onGet() throws Exception {
         allowPrivilege("_measurement", "w");
         mockRequest.setMethod("GET");
+
+        String result = executeAction(new EctMeasurements2Action());
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+    }
+
+    @Test
+    @DisplayName("should return 405 on HEAD before reading measurement params")
+    void shouldReturn405_onHead() throws Exception {
+        allowPrivilege("_measurement", "w");
+        mockRequest.setMethod("HEAD");
 
         String result = executeAction(new EctMeasurements2Action());
 
