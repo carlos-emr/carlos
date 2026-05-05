@@ -221,6 +221,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
         // initialize
         admProviderNo = (String) request.getSession().getAttribute("user");
+        // Treat whitespace-only session values as missing so invalid provider numbers never reach EctProgram.
         if (StringUtils.isBlank(admProviderNo)) {
             logger.warn("Demographic import request is missing the session user attribute");
             return "logout";

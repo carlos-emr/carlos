@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.demographic.pageUtil;
 import io.github.carlos_emr.carlos.encounter.data.EctProgramManager;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.dao.ProviderDao;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
@@ -44,7 +45,6 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -68,6 +68,9 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
     @Mock
     private NioFileManager mockNioFileManager;
 
+    @Mock
+    private ProviderDao mockProviderDao;
+
     private ImportDemographicDataAction42Action action;
 
     @BeforeEach
@@ -76,6 +79,7 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
 
         replaceSpringUtilsBean(EctProgramManager.class, mockEctProgramManager);
         replaceSpringUtilsBean(NioFileManager.class, mockNioFileManager);
+        replaceSpringUtilsBean(ProviderDao.class, mockProviderDao);
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
         allowPrivilege("_demographic", "w");
 
@@ -90,6 +94,7 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
         when(mockEctProgramManager.getProgramBeans(TEST_PROVIDER, null))
                 .thenReturn(List.of(new LabelValueBean("Default Program", "0")));
         when(mockEctProgramManager.getDefaultProgramId(TEST_PROVIDER)).thenReturn(0);
+        when(mockProviderDao.getActiveProviders()).thenReturn(List.of());
 
         action = new ImportDemographicDataAction42Action();
     }
@@ -148,20 +153,24 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    @DisplayName("should throw runtime exception when upload file and filename are present")
-    void shouldThrowRuntimeException_whenUploadFileAndFilenameArePresent() throws Exception {
+    @DisplayName("should set import response attributes when upload file and filename are present")
+    void shouldSetImportResponseAttributes_whenUploadFileAndFilenameArePresent() throws Exception {
         Path tempDir = Files.createTempDirectory("demographic-import-test");
         Path uploadFile = Files.createTempFile(tempDir, "demographic-import-", ".txt");
+        Path processingDirectory = Files.createTempDirectory(tempDir, "processing-");
         Files.writeString(uploadFile, "not xml");
         getMockSession().getServletContext().setAttribute("jakarta.servlet.context.tempdir", tempDir.toFile());
 
         when(mockNioFileManager.createTempFile(eq("patient.txt"), any(ByteArrayOutputStream.class)))
-                .thenReturn(uploadFile);
+                .thenReturn(processingDirectory);
 
         action.setImportFile(uploadFile.toFile());
         action.setImportFileFileName("patient.txt");
 
-        assertThatThrownBy(() -> executeAction(action))
-                .isInstanceOf(RuntimeException.class);
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(getMockRequest().getAttribute("warnings")).isNotNull();
+        assertThat(getMockRequest().getAttribute("importlog")).isNotNull();
     }
 }
