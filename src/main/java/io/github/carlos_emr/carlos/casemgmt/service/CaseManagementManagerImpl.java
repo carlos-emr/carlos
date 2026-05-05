@@ -439,26 +439,31 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<CaseManagementIssue> getIssues(int demographic_no) {
         return caseManagementIssueDAO.getIssuesByDemographicOrderActive(demographic_no, null);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Issue getIssueIByCmnIssueId(int cmnIssueId) {
         return caseManagementIssueDAO.getIssueByCmnId(cmnIssueId);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<CaseManagementIssue> getIssuesByNote(int noteId) {
         return caseManagementIssueDAO.getIssuesByNote(noteId, null);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<CaseManagementIssue> getIssues(int demographic_no, Boolean resolved) {
         return caseManagementIssueDAO.getIssuesByDemographicOrderActive(demographic_no, resolved);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<CaseManagementIssue> getIssues(String demographic_no, List accessRight) {
         return filterIssueList(getIssues(Integer.parseInt(demographic_no)), accessRight);
     }
@@ -2535,6 +2540,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<CaseManagementIssueListDTO> getIssueDTOs(LoggedInInfo loggedInInfo, String demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", SecurityInfoManager.READ, demographicNo)) {
             throw new SecurityException("missing required sec object (_demographic)");

@@ -41,6 +41,6 @@
 				class="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" />
 		</set>
 		<many-to-one name="issue" class="io.github.carlos_emr.carlos.casemgmt.model.Issue"
-			column="issue_id" update="false" insert="false" lazy="false" />
+			column="issue_id" update="false" insert="false" lazy="proxy" />
 	</class>
 </hibernate-mapping>

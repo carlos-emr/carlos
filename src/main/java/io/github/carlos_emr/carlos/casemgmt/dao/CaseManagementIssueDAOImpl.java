@@ -60,7 +60,7 @@ public class CaseManagementIssueDAOImpl extends AbstractJpaDao implements CaseMa
     @Override
     public List<CaseManagementIssue> getIssuesByDemographic(String demographic_no) {
         return (List<CaseManagementIssue>) JpqlQueryHelper.find(entityManager(),
-                "from CaseManagementIssue cmi where cmi.demographic_no = ?1",
+                "select cmi from CaseManagementIssue cmi left join fetch cmi.issue where cmi.demographic_no = ?1",
                 Integer.valueOf(demographic_no));
     }
 
@@ -69,11 +69,11 @@ public class CaseManagementIssueDAOImpl extends AbstractJpaDao implements CaseMa
     public List<CaseManagementIssue> getIssuesByDemographicOrderActive(Integer demographic_no, Boolean resolved) {
         if (resolved != null) {
             return (List<CaseManagementIssue>) JpqlQueryHelper.find(entityManager(),
-                    "from CaseManagementIssue cmi where cmi.demographic_no = ?1 and cmi.resolved = ?2 order by cmi.resolved",
+                    "select cmi from CaseManagementIssue cmi left join fetch cmi.issue where cmi.demographic_no = ?1 and cmi.resolved = ?2 order by cmi.resolved",
                     demographic_no, resolved);
         } else {
             return (List<CaseManagementIssue>) JpqlQueryHelper.find(entityManager(),
-                    "from CaseManagementIssue cmi where cmi.demographic_no = ?1 order by cmi.resolved",
+                    "select cmi from CaseManagementIssue cmi left join fetch cmi.issue where cmi.demographic_no = ?1 order by cmi.resolved",
                     demographic_no);
         }
     }
@@ -83,12 +83,12 @@ public class CaseManagementIssueDAOImpl extends AbstractJpaDao implements CaseMa
     public List<CaseManagementIssue> getIssuesByNote(Integer noteId, Boolean resolved) {
         if (resolved != null) {
             return (List<CaseManagementIssue>) JpqlQueryHelper.find(entityManager(),
-                    "from CaseManagementIssue cmi where cmi.notes.id = ?1 and cmi.resolved = ?2 order by cmi.resolved",
-                    noteId, resolved);
+                    "select distinct cmi from CaseManagementIssue cmi left join fetch cmi.issue join cmi.notes note where note.id = ?1 and cmi.resolved = ?2 order by cmi.resolved",
+                    Long.valueOf(noteId), resolved);
         } else {
             return (List<CaseManagementIssue>) JpqlQueryHelper.find(entityManager(),
-                    "from CaseManagementIssue cmi where cmi.notes.id = ?1 order by cmi.resolved",
-                    noteId);
+                    "select distinct cmi from CaseManagementIssue cmi left join fetch cmi.issue join cmi.notes note where note.id = ?1 order by cmi.resolved",
+                    Long.valueOf(noteId));
         }
     }
 
@@ -107,7 +107,7 @@ public class CaseManagementIssueDAOImpl extends AbstractJpaDao implements CaseMa
     public CaseManagementIssue getIssuebyId(String demo, String id) {
         @SuppressWarnings("unchecked")
         List<CaseManagementIssue> list = (List<CaseManagementIssue>) JpqlQueryHelper.find(entityManager(),
-                "from CaseManagementIssue cmi where cmi.issue_id = ?1 and cmi.demographic_no = ?2",
+                "select cmi from CaseManagementIssue cmi left join fetch cmi.issue where cmi.issue_id = ?1 and cmi.demographic_no = ?2",
                 Long.parseLong(id), Integer.valueOf(demo));
         if (list != null && list.size() == 1)
             return list.get(0);
@@ -119,7 +119,7 @@ public class CaseManagementIssueDAOImpl extends AbstractJpaDao implements CaseMa
     public CaseManagementIssue getIssuebyIssueCode(String demo, String issueCode) {
         @SuppressWarnings("unchecked")
         List<CaseManagementIssue> list = (List<CaseManagementIssue>) JpqlQueryHelper.find(entityManager(),
-                "select cmi from CaseManagementIssue cmi, Issue issue where cmi.issue_id=issue.id and issue.code = ?1 and cmi.demographic_no = ?2",
+                "select cmi from CaseManagementIssue cmi join fetch cmi.issue issue where issue.code = ?1 and cmi.demographic_no = ?2",
                 issueCode, Integer.valueOf(demo));
 
         if (list.size() > 1) {
@@ -171,7 +171,7 @@ public class CaseManagementIssueDAOImpl extends AbstractJpaDao implements CaseMa
     @Override
     public List<CaseManagementIssue> getAllCertainIssues() {
         return (List<CaseManagementIssue>) JpqlQueryHelper.find(entityManager(),
-                "from CaseManagementIssue cmi where cmi.certain = true");
+                "select cmi from CaseManagementIssue cmi left join fetch cmi.issue where cmi.certain = true");
     }
 
     @SuppressWarnings("unchecked")
@@ -199,7 +199,7 @@ public class CaseManagementIssueDAOImpl extends AbstractJpaDao implements CaseMa
     @Override
     public List<CaseManagementIssue> getIssuesByDemographicSince(String demographic_no, Date date) {
         return (List<CaseManagementIssue>) JpqlQueryHelper.find(entityManager(),
-                "from CaseManagementIssue cmi where cmi.demographic_no = ?1 and cmi.update_date > ?2",
+                "select cmi from CaseManagementIssue cmi left join fetch cmi.issue where cmi.demographic_no = ?1 and cmi.update_date > ?2",
                 Integer.valueOf(demographic_no), date);
     }
 
