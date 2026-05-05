@@ -34,9 +34,12 @@ import java.util.List;
 /**
  * This is the object class that relates to the secUserRole table.
  * Any customizations belong here.
+ *
+ * <p>This is not a JPA {@code @Entity}: the {@code secUserRole} table is owned
+ * by {@link io.github.carlos_emr.carlos.model.security.Secuserrole}, which uses
+ * the auto-increment {@code id} primary key. {@code SecUserRole} remains a
+ * POJO/DTO used by {@code SecUserRoleDao} for legacy callers.</p>
  */
-// Not a JPA @Entity: the secUserRole table is owned by io.github.carlos_emr.carlos.model.security.Secuserrole
-// which uses an auto-increment id PK.  SecUserRole is a POJO/DTO used by SecUserRoleDao.
 public class SecUserRole implements Serializable {
 
     private int hashCode = Integer.MIN_VALUE; // primary key

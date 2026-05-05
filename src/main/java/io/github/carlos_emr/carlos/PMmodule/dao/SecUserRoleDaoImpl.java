@@ -122,6 +122,9 @@ public class SecUserRoleDaoImpl extends AbstractJpaDao implements SecUserRoleDao
 
     @Override
     public SecUserRole find(Long id) {
+        if (id == null || id > Integer.MAX_VALUE || id < Integer.MIN_VALUE) {
+            throw new IllegalArgumentException("secUserRole id must fit the integer primary key range");
+        }
         return toDTO(entityManager().find(Secuserrole.class, id.intValue()));
     }
 
