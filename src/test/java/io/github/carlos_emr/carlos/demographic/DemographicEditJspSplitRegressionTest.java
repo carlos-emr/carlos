@@ -35,6 +35,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Source-level regressions for the master demographic edit JSP split.
  *
+ * <p>The legacy {@code demographiceditdemographic.jsp} previously generated a
+ * {@code _jspService} method larger than the JVM's 65,535-byte method-code
+ * limit during JSPC. These tests pin the compatibility wrapper and dynamic
+ * fragment includes so future edits do not silently reintroduce an oversized
+ * JSP target.</p>
+ *
  * @since 2026-05-05
  */
 @DisplayName("Demographic edit JSP split regression tests")
@@ -45,6 +51,8 @@ class DemographicEditJspSplitRegressionTest {
     private static final Path LEGACY_JSP = Path.of(
             "src/main/webapp/WEB-INF/jsp/demographic/demographiceditdemographic.jsp");
     private static final Path MASTER_JSP = Path.of("src/main/webapp/WEB-INF/jsp/demographic/edit.jsp");
+    // Keep this wrapper tiny so JSPC cannot generate an oversized _jspService method.
+    private static final int MAX_LEGACY_JSP_LINES = 80;
 
     @Test
     @DisplayName("should keep legacy JSP target as tiny forward wrapper")
@@ -53,7 +61,7 @@ class DemographicEditJspSplitRegressionTest {
 
         assertThat(legacyJsp.lines().count())
                 .as("legacy JSP must stay small enough for JSPC generated _jspService bytecode")
-                .isLessThan(80);
+                .isLessThan(MAX_LEGACY_JSP_LINES);
         assertThat(legacyJsp).contains("<jsp:forward page=\"/demographic/DemographicEdit\"/>");
         assertThat(legacyJsp).doesNotContain("SpringUtils.getBean");
     }
