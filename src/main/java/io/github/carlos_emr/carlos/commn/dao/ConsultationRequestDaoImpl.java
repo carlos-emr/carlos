@@ -170,7 +170,7 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
     public List<Object[]> findRequests(Date timeLimit, String providerNo) {
         StringBuilder sql = new StringBuilder("SELECT DISTINCT d.lastName, c.demographicId FROM ConsultationRequest c, Demographic d " +
                 "WHERE c.referralDate >= ?1" +
-                "AND c.demographicId = d.demographicNo");
+                " AND c.demographicId = d.demographicNo");
         if (providerNo != null) {
             sql.append(" AND d.providerNo = ?2");
         }
