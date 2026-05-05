@@ -68,7 +68,8 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  * Multi-method third-party payment manager: routes by {@code method=}
  * request parameter to {@code listPayments}, {@code savePayment},
  * {@code deletePayment}, {@code viewPayment}, or {@code viewPayment_ext}.
- * Strict-parses each item amount through {@link BillingMoney} and rejects
+ * Strict-parses each item amount through
+ * {@code BillingMoney} and rejects
  * the request as a JSON {@code {"ret":1,"reason":...}} body if any value
  * is malformed. Requires {@code _billing w}.
  *
