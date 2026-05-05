@@ -69,7 +69,7 @@ public class Provider extends AbstractModel<String> implements Comparable<Provid
     private String providerActivity;
     private String firstName;
     private String rmaNo;
-    private Date SignedConfidentiality;
+    private Date signedConfidentiality;
     private String practitionerNo;
     private String practitionerNoType;
     private String email;
@@ -141,7 +141,7 @@ public class Provider extends AbstractModel<String> implements Comparable<Provid
         providerActivity = provider.providerActivity;
         firstName = provider.firstName;
         rmaNo = provider.rmaNo;
-        SignedConfidentiality = provider.SignedConfidentiality;
+        signedConfidentiality = provider.signedConfidentiality;
         practitionerNo = provider.practitionerNo;
         practitionerNoType = provider.practitionerNoType;
         email = provider.email;
@@ -357,8 +357,8 @@ public class Provider extends AbstractModel<String> implements Comparable<Provid
         return this.signedConfidentiality;
     }
 
-    public void setSignedConfidentiality(Date SignedConfidentiality) {
-        this.signedConfidentiality = SignedConfidentiality;
+    public void setSignedConfidentiality(Date signedConfidentiality) {
+        this.signedConfidentiality = signedConfidentiality;
     }
     @jakarta.persistence.Column(name = "title")
 

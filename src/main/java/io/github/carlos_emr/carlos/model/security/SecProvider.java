@@ -114,7 +114,7 @@ public class SecProvider implements java.io.Serializable {
     public void setProviderNo(String providerNo) {
         this.providerNo = providerNo;
     }
-    @jakarta.persistence.Column(name = "lastName")
+    @jakarta.persistence.Column(name = "last_name")
 
     public String getLastName() {
         return this.lastName;
@@ -123,7 +123,7 @@ public class SecProvider implements java.io.Serializable {
     public void setLastName(String lastName) {
         this.lastName = lastName;
     }
-    @jakarta.persistence.Column(name = "firstName")
+    @jakarta.persistence.Column(name = "first_name")
 
     public String getFirstName() {
         return this.firstName;
@@ -132,7 +132,7 @@ public class SecProvider implements java.io.Serializable {
     public void setFirstName(String firstName) {
         this.firstName = firstName;
     }
-    @jakarta.persistence.Column(name = "providerType")
+    @jakarta.persistence.Column(name = "provider_type")
 
     public String getProviderType() {
         return this.providerType;
@@ -195,7 +195,7 @@ public class SecProvider implements java.io.Serializable {
     public void setPhone(String phone) {
         this.phone = phone;
     }
-    @jakarta.persistence.Column(name = "workPhone")
+    @jakarta.persistence.Column(name = "work_phone")
 
     public String getWorkPhone() {
         return this.workPhone;
@@ -204,7 +204,7 @@ public class SecProvider implements java.io.Serializable {
     public void setWorkPhone(String workPhone) {
         this.workPhone = workPhone;
     }
-    @jakarta.persistence.Column(name = "ohipNo")
+    @jakarta.persistence.Column(name = "ohip_no")
 
     public String getOhipNo() {
         return this.ohipNo;
@@ -213,7 +213,7 @@ public class SecProvider implements java.io.Serializable {
     public void setOhipNo(String ohipNo) {
         this.ohipNo = ohipNo;
     }
-    @jakarta.persistence.Column(name = "rmaNo")
+    @jakarta.persistence.Column(name = "rma_no")
 
     public String getRmaNo() {
         return this.rmaNo;
@@ -222,7 +222,7 @@ public class SecProvider implements java.io.Serializable {
     public void setRmaNo(String rmaNo) {
         this.rmaNo = rmaNo;
     }
-    @jakarta.persistence.Column(name = "billingNo")
+    @jakarta.persistence.Column(name = "billing_no")
 
     public String getBillingNo() {
         return this.billingNo;
@@ -231,7 +231,7 @@ public class SecProvider implements java.io.Serializable {
     public void setBillingNo(String billingNo) {
         this.billingNo = billingNo;
     }
-    @jakarta.persistence.Column(name = "hsoNo")
+    @jakarta.persistence.Column(name = "hso_no")
 
     public String getHsoNo() {
         return this.hsoNo;
@@ -258,7 +258,7 @@ public class SecProvider implements java.io.Serializable {
     public void setComments(String comments) {
         this.comments = comments;
     }
-    @jakarta.persistence.Column(name = "providerActivity")
+    @jakarta.persistence.Column(name = "provider_activity")
 
     public String getProviderActivity() {
         return this.providerActivity;

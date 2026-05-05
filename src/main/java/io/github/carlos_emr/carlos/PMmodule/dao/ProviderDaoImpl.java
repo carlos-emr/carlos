@@ -158,7 +158,7 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
 
     @Override
     public List<Provider> getProviders(String[] providers) {
-        String sSQL = "FROM Provider p WHERE p.providerNumber IN (:providers)";
+        String sSQL = "FROM Provider p WHERE p.providerNo IN (:providers)";
         Map<String, Object> params = new HashMap<>();
         params.put("providers", Arrays.asList(providers));
         return (List<Provider>) JpqlQueryHelper.find(entityManager(), sSQL, params);
@@ -784,13 +784,13 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
     // --- DTO projection methods ---
 
     private static final String ACTIVE_PROVIDER_SUMMARIES_HQL =
-            "SELECT NEW io.github.carlos_emr.carlos.provider.dto.providerSummaryDTO(p.providerNo, p.lastName, p.firstName, p.specialty, p.status, p.team) FROM Provider p WHERE p.status = '1' AND p.providerNo NOT LIKE '-%' ORDER BY p.lastName, p.firstName";
+            "SELECT NEW io.github.carlos_emr.carlos.provider.dto.ProviderSummaryDTO(p.providerNo, p.lastName, p.firstName, p.specialty, p.status, p.team) FROM Provider p WHERE p.status = '1' AND p.providerNo NOT LIKE '-%' ORDER BY p.lastName, p.firstName";
 
     private static final String PROVIDER_SUMMARY_BY_ID_HQL =
-            "SELECT NEW io.github.carlos_emr.carlos.provider.dto.providerSummaryDTO(p.providerNo, p.lastName, p.firstName, p.specialty, p.status, p.team) FROM Provider p WHERE p.providerNo = :providerNo";
+            "SELECT NEW io.github.carlos_emr.carlos.provider.dto.ProviderSummaryDTO(p.providerNo, p.lastName, p.firstName, p.specialty, p.status, p.team) FROM Provider p WHERE p.providerNo = :providerNo";
 
     private static final String PROVIDER_SUMMARIES_BY_IDS_HQL =
-            "SELECT NEW io.github.carlos_emr.carlos.provider.dto.providerSummaryDTO(p.providerNo, p.lastName, p.firstName, p.specialty, p.status, p.team) FROM Provider p WHERE p.providerNo IN (:providerNumbers)";
+            "SELECT NEW io.github.carlos_emr.carlos.provider.dto.ProviderSummaryDTO(p.providerNo, p.lastName, p.firstName, p.specialty, p.status, p.team) FROM Provider p WHERE p.providerNo IN (:providerNumbers)";
 
     @Cacheable(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES)
     @Override

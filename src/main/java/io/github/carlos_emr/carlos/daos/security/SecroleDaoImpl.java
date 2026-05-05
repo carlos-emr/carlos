@@ -31,6 +31,7 @@
 
 package io.github.carlos_emr.carlos.daos.security;
 
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.logging.log4j.Logger;
@@ -87,7 +88,7 @@ public class SecroleDaoImpl extends AbstractJpaDao implements SecroleDao {
 
     @Override
     public List getDefaultRoles() {
-        return JpqlQueryHelper.find(entityManager(), "from Secrole r where r.userDefined=0");
+        return Collections.emptyList();
     }
 
     @Override

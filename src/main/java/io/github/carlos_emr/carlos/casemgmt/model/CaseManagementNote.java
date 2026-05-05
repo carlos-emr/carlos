@@ -68,7 +68,7 @@ public class CaseManagementNote extends BaseObject {
     private String history;
     private Provider provider;
     private Set<CaseManagementIssue> issues = new HashSet<CaseManagementIssue>();
-    private Set<Object> extend = new HashSet<Object>();
+    private Set<CaseManagementNoteExt> extend = new HashSet<CaseManagementNoteExt>();
     private List<Provider> editors = new ArrayList<Provider>();
     private String roleName;
     private String programName;
@@ -314,15 +314,15 @@ public class CaseManagementNote extends BaseObject {
     public void setIssues(Set issues) {
         this.issues = issues;
     }
-    @jakarta.persistence.OneToMany(fetch = jakarta.persistence.FetchType.EAGER)
+    @jakarta.persistence.OneToMany(fetch = jakarta.persistence.FetchType.EAGER, targetEntity = CaseManagementNoteExt.class)
 
     @jakarta.persistence.JoinColumn(name = "note_id", insertable = false, updatable = false)
 
-    public Set getExtend() {
+    public Set<CaseManagementNoteExt> getExtend() {
         return extend;
     }
 
-    public void setExtend(Set extend) {
+    public void setExtend(Set<CaseManagementNoteExt> extend) {
         this.extend = extend;
     }
     @jakarta.persistence.Transient
