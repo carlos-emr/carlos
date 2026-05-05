@@ -78,7 +78,7 @@
         let currentText = "";
         let lastSavedText = "";
         const SCRATCH_FORM_ID = 'scratch';
-        const scratchSaveUrl = "<carlos:encode value="${scratchUrl}" context="javaScript"/>";
+        const scratchSaveUrl = "${carlos:forJavaScript(scratchUrl)}";
 
         function setDirty(){
             dirty = true;
@@ -458,7 +458,7 @@
 	    </td>
 
 		<td class="MainTableRightColumn" id="mainRight">
-		<form id="scratch" action="<carlos:encode value="${scratchUrl}" context="htmlAttribute"/>" method="post">
+		<form id="scratch" action="${carlos:forHtmlAttribute(scratchUrl)}" method="post">
             <input type="hidden" name="id" id="curr_id" value="<carlos:encode value='<%= id %>' context="htmlAttribute"/>" />
             <input type="hidden" name="windowId" id="windowId" value="<%=String.valueOf(System.nanoTime())%>" />
             <input type="hidden" name="dirty" value=false id="dirty" />
