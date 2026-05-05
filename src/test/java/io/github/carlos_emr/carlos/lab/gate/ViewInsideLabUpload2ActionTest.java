@@ -47,6 +47,8 @@ import static org.mockito.Mockito.when;
 @Tag("lab")
 class ViewInsideLabUpload2ActionTest extends CarlosUnitTestBase {
 
+    private static final String VIEW_ROUTE = "lab/CA/ALL/ViewInsideLabUpload";
+
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
     private SecurityInfoManager mockSecurityInfoManager;
@@ -59,7 +61,7 @@ class ViewInsideLabUpload2ActionTest extends CarlosUnitTestBase {
     void setUp() {
         mockSecurityInfoManager = mock(SecurityInfoManager.class);
         mockLoggedInInfo = mock(LoggedInInfo.class);
-        mockRequest = new MockHttpServletRequest("GET", "/lab/CA/ALL/ViewInsideLabUpload");
+        mockRequest = new MockHttpServletRequest("GET", "/" + VIEW_ROUTE);
         mockResponse = new MockHttpServletResponse();
         stubServletActionContext();
         stubLoggedInInfo(mockLoggedInInfo);
@@ -87,13 +89,13 @@ class ViewInsideLabUpload2ActionTest extends CarlosUnitTestBase {
         stubLoggedInInfo(null);
 
         assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class)
-                .hasMessageContaining("lab/CA/ALL/ViewInsideLabUpload");
+                .hasMessageContaining(VIEW_ROUTE);
     }
 
     @Test
     void shouldThrow_whenPrivilegeMissing() {
         assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class)
-                .hasMessageContaining("lab/CA/ALL/ViewInsideLabUpload");
+                .hasMessageContaining(VIEW_ROUTE);
     }
 
     @Test
@@ -110,10 +112,12 @@ class ViewInsideLabUpload2ActionTest extends CarlosUnitTestBase {
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
         servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(mockResponse);
-        loggedInInfoMock = mockStatic(LoggedInInfo.class);
     }
 
     private void stubLoggedInInfo(LoggedInInfo loggedInInfo) {
+        if (loggedInInfoMock == null) {
+            loggedInInfoMock = mockStatic(LoggedInInfo.class);
+        }
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(loggedInInfo);
     }

@@ -61,6 +61,11 @@ public final class ViewInsideLabUpload2Action extends ActionSupport {
         this(SpringUtils.getBean(SecurityInfoManager.class));
     }
 
+    /**
+     * Test seam that avoids static Spring lookup in focused unit tests.
+     *
+     * @param securityInfoManager security manager used for the view-gate check
+     */
     ViewInsideLabUpload2Action(SecurityInfoManager securityInfoManager) {
         this.securityInfoManager = securityInfoManager;
     }
