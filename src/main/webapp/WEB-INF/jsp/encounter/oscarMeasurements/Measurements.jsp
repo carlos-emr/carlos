@@ -256,11 +256,11 @@
                                                         </th>
                                                         <th style="width:160px"><fmt:message key="encounter.oscarMeasurements.Measurements.headingMeasuringInstrc"/>
                                                         </th>
-                                                        <th style="width:30px"><fmt:message key="encounter.oscarMeasurements.Measurements.headingValue"/>
+                                                        <th style="width:80px"><fmt:message key="encounter.oscarMeasurements.Measurements.headingValue"/>
                                                         </th>
-                                                        <th style="width:40px"><fmt:message key="encounter.oscarMeasurements.Measurements.headingObservationDate"/>
+                                                        <th style="width:120px"><fmt:message key="encounter.oscarMeasurements.Measurements.headingObservationDate"/>
                                                         </th>
-                                                        <th style="width:80px"><fmt:message key="encounter.oscarMeasurements.Measurements.headingComments"/>
+                                                        <th style="width:240px"><fmt:message key="encounter.oscarMeasurements.Measurements.headingComments"/>
                                                         </th>
                                                         <th style="width:10px"></th>
                                                     </tr>
@@ -365,22 +365,75 @@
     </form>
 
     <script>
+
+        function wtEnglish2Metric(obj) {
+            const weight = parseFloat(obj.value);
+            if (isNaN(weight)) return;
+            const weightM = Math.round(weight * 0.4536 * 10) / 10;
+            if (confirm("Are you sure you want to change " + weight + " pounds to " + weightM + "kg?")) {
+                obj.value = weightM;
+            }
+        }
+
+        function htEnglish2Metric(obj) {
+            // allow for conversio of inputs 5' 5'0" 5'0 60" - 152.4cm
+            const val = obj.value.trim();
+            const tickIdx = val.indexOf("'");
+            const quotIdx = val.indexOf('"');
+            if (tickIdx <= 0 && quotIdx <= 0) return;
+            let feet = 0;
+            if (tickIdx > 0 ) feet = parseFloat(val.substring(0, tickIdx));
+            let inchStr = val;
+            if (tickIdx > 0 ) inchStr = val.substring(tickIdx + 1);
+            if (inchStr.endsWith('"')) {
+                inchStr = inchStr.substring(0, inchStr.length - 1);
+            }
+            const inch = parseFloat(inchStr) || 0;
+            if (isNaN(feet)) return;
+            const heightM = Math.round((feet * 30.48 + inch * 2.54) * 10) / 10;
+            if (confirm("Are you sure you want to change " + feet + " feet " + inch + " inch(es) to " + heightM + "cm?")) {
+                obj.value = heightM;
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
             // If WT, HT and BMI exists then allow the link
             const rowWT = document.getElementById('row-WT');
             const rowHT = document.getElementById('row-HT');
             const rowBMI = document.getElementById('row-BMI');
 
+            if (rowWT) {
+                const wtInput = rowWT.querySelectorAll('td')[2]?.querySelector('input');
+                if (wtInput) {
+                    wtInput.title = "Double click to convert lb to kg";
+                    wtInput.style.backgroundColor = "#d9e6f2";
+                    wtInput.addEventListener('dblclick', function () {
+                        wtEnglish2Metric(this);
+                    });
+                }
+            }
+
+            if (rowHT) {
+                const htInput = rowHT.querySelectorAll('td')[2]?.querySelector('input');
+                if (htInput) {
+                    htInput.title = "Double click to convert feet and inches (5'2\") to cm";
+                    htInput.style.backgroundColor = "#d9e6f2";
+                    htInput.addEventListener('dblclick', function () {
+                        htEnglish2Metric(this);
+                    });
+                }
+            }
+
             if (rowWT && rowHT && rowBMI) {
                 const wtInput = rowWT.querySelectorAll('td')[2]?.querySelector('input');
                 const htInput = rowHT.querySelectorAll('td')[2]?.querySelector('input');
 
                 if (wtInput && htInput) {
-                    wtInput.addEventListener('keyup', function () {
+                    wtInput.addEventListener('blur', function () {
                         calcBMI(this.value, htInput.value);
                     });
 
-                    htInput.addEventListener('keyup', function () {
+                    htInput.addEventListener('blur', function () {
                         calcBMI(wtInput.value, this.value);
                     });
                 }
@@ -404,15 +457,13 @@
                     
                     if (bmiInput) {
                         bmiInput.value = b;
-                    }
-                    if (rowBMI) {
-                        rowBMI.style.backgroundColor = "#d9e6f2";
+                        bmiInput.style.backgroundColor = "#d9e6f2";
                     }
                 }
             }
         }
-    </script>
 
+    </script>
 
     </body>
 </html>

@@ -203,7 +203,9 @@ public class PrintAppointmentReceipt2Action extends ActionSupport {
                 MiscUtils.getLogger().error("Error", e);
             }
         }
-        return SUCCESS;
+        // This action streams the PDF directly and its Struts mapping has no success result.
+        // Returning SUCCESS makes Struts render the global error page over the PDF as "0".
+        return NONE;
     }
 
     private StringBuilder getHeader(HttpServletResponse response) {

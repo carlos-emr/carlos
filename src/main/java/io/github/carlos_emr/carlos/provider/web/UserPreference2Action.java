@@ -402,9 +402,11 @@ public class UserPreference2Action extends ActionSupport {
         ArrayList<LabelValueBean> results = new ArrayList<LabelValueBean>();
 
         CtlBillingServiceDao ctlBillingServiceDao = (CtlBillingServiceDao) SpringUtils.getBean(CtlBillingServiceDao.class);
-        List<Object[]> cbsList = ctlBillingServiceDao.getUniqueServiceTypes();
-        for (Object[] cbs : cbsList) {
-            results.add(new LabelValueBean((String) cbs[1], (String) cbs[0]));
+        List<io.github.carlos_emr.carlos.billings.ca.on.dto.UniqueServiceTypeRow> cbsList =
+                ctlBillingServiceDao.getUniqueServiceTypes();
+        for (io.github.carlos_emr.carlos.billings.ca.on.dto.UniqueServiceTypeRow cbs : cbsList) {
+            // Note: legacy mapping read serviceTypeName as label and serviceType as value (cbs[1], cbs[0]).
+            results.add(new LabelValueBean(cbs.serviceTypeName(), cbs.serviceType()));
         }
         return results;
     }

@@ -1347,10 +1347,7 @@
                                                     <div class="toolbar-left">
                                                         <span id="updateButton" style="display: none;">
                                                             <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="w">
-                                                                <%
-                                                                    boolean showCbiReminder = oscarProps.getBooleanProperty("CBI_REMIND_ON_UPDATE_DEMOGRAPHIC", "true");
-                                                                %>
-                                                                <input type="submit" class="btn-toolbar-update" <%=(showCbiReminder?"onclick='return showCbiReminder()'":"")%>
+                                                                <input type="submit" class="btn-toolbar-update"
                                                                        value="<fmt:message key="demographic.demographiceditdemographic.btnUpdate"/>">
                                                             </security:oscarSec>
                                                         </span>

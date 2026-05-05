@@ -242,7 +242,7 @@ public class PersonaService extends AbstractServiceImpl {
             menu.getItems().add(consultMenu);
         }
         String billingRegion = CarlosProperties.getInstance().getProperty("billregion", "");
-        menu.add(idCounter++, bundle.getString("navbar.menu.billing"), null, "../billing/CA/" + billingRegion + "/billingReportCenter.jsp?displaymode=billreport", "billing")
+        menu.add(idCounter++, bundle.getString("navbar.menu.billing"), null, "../billing/CA/" + billingRegion + "/ViewBillingReportCenter?displaymode=billreport", "billing")
                 .addWithState(idCounter++, bundle.getString("navbar.menu.tickler"), null, "ticklers")
 
                 //.add(0,"K2A",null,"#/k2a")
@@ -525,4 +525,3 @@ public class PersonaService extends AbstractServiceImpl {
 
     }
 }
-

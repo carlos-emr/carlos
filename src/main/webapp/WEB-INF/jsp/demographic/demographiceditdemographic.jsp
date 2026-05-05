@@ -49,7 +49,6 @@
     - Country of birth and language fields (ISO 639-2 / country code lookup)
     - Provincial ID and other identifier fields
     - Archive access for historical demographic record versions
-    - CBI reminder on save (configurable via CBI_REMIND_ON_UPDATE_DEMOGRAPHIC property)
     - Bootstrap 5 dismissible alert container for non-blocking UI messages
     - All i18n strings pre-computed server-side and safely encoded for JavaScript
     - Session null check with redirect to logout if session has expired
@@ -366,7 +365,6 @@
                 msgWrongReferral:             '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgWrongReferral") %>' context="javaScriptBlock"/>',
                 msgPromptStatus:              '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgPromptStatus") %>' context="javaScriptBlock"/>',
                 msgInvalidEntry:              '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgInvalidEntry") %>' context="javaScriptBlock"/>',
-                updateCBIReminder:            '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.updateCBIReminder") %>' context="javaScriptBlock"/>',
                 btnCancel:                    '<carlos:encode value='<%= oscarResources.getString("global.btnCancel") %>' context="javaScriptBlock"/>',
                 btnBack:                      '<carlos:encode value='<%= oscarResources.getString("global.btnBack") %>' context="javaScriptBlock"/>',
                 msgConfirmClearConsent:       '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgConfirmClearConsent") %>' context="javaScriptBlock"/>',
@@ -849,11 +847,6 @@
                 });
 
             });
-
-
-            function showCbiReminder() {
-                return confirm(i18n.updateCBIReminder);
-            }
 
 
             var addressHistory = "";
@@ -4931,10 +4924,7 @@
                                                     <div class="toolbar-left">
                                                         <span id="updateButton" style="display: none;">
                                                             <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="w">
-                                                                <%
-                                                                    boolean showCbiReminder = oscarProps.getBooleanProperty("CBI_REMIND_ON_UPDATE_DEMOGRAPHIC", "true");
-                                                                %>
-                                                                <input type="submit" class="btn-toolbar-update" <%=(showCbiReminder?"onclick='return showCbiReminder()'":"")%>
+                                                                <input type="submit" class="btn-toolbar-update"
                                                                        value="<fmt:message key="demographic.demographiceditdemographic.btnUpdate"/>">
                                                             </security:oscarSec>
                                                         </span>
