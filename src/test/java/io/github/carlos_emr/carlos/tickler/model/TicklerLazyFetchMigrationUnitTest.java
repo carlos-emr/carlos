@@ -48,6 +48,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.ByteArrayOutputStream;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Objects;
@@ -144,7 +145,7 @@ class TicklerLazyFetchMigrationUnitTest extends CarlosUnitTestBase {
         TestableTicklerDaoImpl ticklerDao = new TestableTicklerDaoImpl();
         ticklerDao.setEntityManager(entityManager);
         when(entityManager.createQuery(contains("left join fetch t.comments"))).thenReturn(query);
-        when(query.setParameter(eq(1), eq(123))).thenReturn(query);
+        when(query.setParameter(eq("id"), eq(123))).thenReturn(query);
         when(query.setMaxResults(1)).thenReturn(query);
         when(query.getResultList()).thenReturn(List.of(new Tickler()));
 
