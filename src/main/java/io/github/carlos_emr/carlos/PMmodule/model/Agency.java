@@ -128,7 +128,7 @@ public class Agency implements Serializable {
     /**
      * Return the value associated with the column: intake_quick_state
      */
-    @jakarta.persistence.Column(name = "intake_quick_state", length = 2, nullable = false)
+    @jakarta.persistence.Column(name = "intake_quick_state", length = 3, nullable = false)
     public String getIntakeQuickState() {
         return intakeQuickState;
     }
