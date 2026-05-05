@@ -55,6 +55,10 @@ class LoginJspMigrationRegressionTest {
             Path.of("src/main/webapp/WEB-INF/Owasp.CsrfGuard.properties");
     private static final Path MENU_CONFIG =
             Path.of("src/main/webapp/WEB-INF/menu-config.xml");
+    private static final Path LOGIN_INDEX_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/login/index.jsp");
+    private static final Path LOGIN_INCLUDE_DIR =
+            Path.of("src/main/webapp/WEB-INF/jsp/login/includes");
 
     @Test
     @DisplayName("struts login config should expose the migrated page actions and internal view targets")
@@ -76,6 +80,26 @@ class LoginJspMigrationRegressionTest {
         assertThat(struts).contains("/WEB-INF/jsp/common/closenreload.jsp");
         assertThat(struts).doesNotContain("/WEB-INF/jsp/error/WEB-INF/jsp/error/");
         assertThat(struts).doesNotContain("/WEB-INF/jsp/common/WEB-INF/jsp/common/");
+    }
+
+    @Test
+    @DisplayName("login landing page should be composed from focused include fragments")
+    void shouldComposeLoginLandingPage_fromFocusedIncludeFragments() throws IOException {
+        String index = Files.readString(LOGIN_INDEX_JSP, StandardCharsets.UTF_8);
+
+        assertThat(Files.readAllLines(LOGIN_INDEX_JSP, StandardCharsets.UTF_8)).hasSizeLessThan(120);
+        assertThat(index).contains("<html lang=\"${carlos:forHtmlAttribute(pageContext.request.locale.language)}\">");
+        assertThat(index).contains("/WEB-INF/jsp/login/includes/login-scripts.jspf");
+        assertThat(index).contains("/WEB-INF/jsp/login/includes/login-styles.jspf");
+        assertThat(index).contains("/WEB-INF/jsp/login/includes/login-branding.jspf");
+        assertThat(index).contains("/WEB-INF/jsp/login/includes/login-form.jspf");
+        assertThat(index).contains("/WEB-INF/jsp/login/includes/login-aua.jspf");
+        assertThat(index).contains("/WEB-INF/jsp/login/includes/login-support.jspf");
+        assertThat(index).contains("/WEB-INF/jsp/login/includes/login-footer.jspf");
+        assertThat(LOGIN_INCLUDE_DIR.resolve("login-form.jspf")).exists();
+        assertThat(LOGIN_INCLUDE_DIR.resolve("login-branding.jspf")).exists();
+        assertThat(LOGIN_INCLUDE_DIR.resolve("login-aua.jspf")).exists();
+        assertThat(LOGIN_INCLUDE_DIR.resolve("login-support.jspf")).exists();
     }
 
     @Test

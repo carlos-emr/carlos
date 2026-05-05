@@ -1,0 +1,107 @@
+        <div class="loginContainer">
+            <div class="card">
+
+                <div class="card-header">
+
+                        <%--			    	<div id="oscar_logo">--%>
+                        <%--				    	<!-- EMR logo -->--%>
+                        <%--			        	<img title="EMR Login" src="${pageContext.request.contextPath}/images/Logo.png"  alt="EMR Login"--%>
+                        <%--			        		onerror="document.getElementById('default_logo').style.display='block'; this.style.display='none'; " />--%>
+                        <%--		        	</div>--%>
+
+                    <!-- default text if logo is missing -->
+                    <h2 id="default_logo" style="display:none;">
+                        <fmt:message key="loginApplication.formLabel"/>
+                    </h2>
+                </div>
+
+                <c:if test='${ param.login eq "failed" }'>
+                    <c:set var="login_error" value="is-invalid" scope="page"/>
+                    <div class="alert">
+                        <fmt:message key="loginApplication.formFailedLabel"/>
+                    </div>
+                </c:if>
+
+                <div class="card-body">
+                    <div class="leftinput">
+                        <%--
+                            Autocomplete attribute strategy (WHATWG HTML spec):
+                            - username: "off" \u2014 shared clinical workstations; prevent autofill of another provider's identity
+                            - password: "current-password" \u2014 enable browser password manager save/fill per
+                              NIST SP 800-63B (https://pages.nist.gov/800-63-3/sp800-63b.html) and
+                              OWASP Authentication Cheat Sheet (https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html)
+                              which recommend allowing password managers for stronger credential hygiene
+                            - pin: "one-time-code" \u2014 signal browsers this is a session code, not a saveable credential
+                        --%>
+                        <form action="login" method="POST" name="loginForm">
+
+                            <div class="mb-3 ${ login_error }">
+                                <input type="text" name="username" id="username" placeholder="<fmt:message key="Logon.userName"/>"
+                                       value="" size="15" maxlength="15" autocomplete="off"
+                                       class="form-control" required>
+                            </div>
+
+                            <div class="input-wrapper mb-3 ${ login_error }">
+                              <input type="password" name="password" id="password" placeholder="<fmt:message key="Logon.passWord"/>" autocomplete="current-password" class="form-control toggle-input" required>
+                              <button type="button" tabindex="-1"
+                                      id="toggleBtn"
+                                      class="toggle-btn"
+                                      aria-label="Show Password"
+                                      aria-pressed="false"
+                                      onclick="togglepwd();">
+                              </button>
+                            </div>
+
+							<% if (MfaManager.isOscarLegacyPinEnabled()) { %>
+                            <div class="pin-wrapper">
+                                <div class="input-wrapper mb-3 ${ login_error }">
+                                  <!-- The input starts with the secure-text class -->
+                                  <input type="text" id="pin" class="form-control secure-text toggle-input" name="pin" autocomplete="one-time-code"
+                                               inputmode="numeric"  placeholder="<fmt:message key="admin.securityrecord.formPIN"/>">
+                                    <button type="button" tabindex="-1"
+                                      id="togglePin"
+                                      class="toggle-btn"
+                                      aria-label="Show PIN"
+                                      aria-pressed="false"
+                                      onclick="togglepin();">
+                                    </button>
+                                    <span class="extrasmall">
+										    <fmt:message key="loginApplication.formCmt"/>
+                                    </span>
+                                </div>
+                            </div>
+							<% } %>
+                            <input type="hidden" id="loginType" name="loginType" value="">
+                            <input type=hidden name='propname'
+                                   value='<fmt:message key="loginApplication.propertyFile"/>'>
+
+                            <div id="buttonContainer">
+                                <c:choose>
+                                    <c:when test="${ isMobileDevice }">
+                                        <input class="btn btn-oscar btn-primary w-100 mb-2" name="submit" id="fullSubmit"
+                                               type="submit" onclick="enhancedOrClassic('C');" value="Full">
+                                        <input class="btn btn-oscar btn-primary w-100 mb-2" name="submit"
+                                               id="mobileSubmit" type="submit" onclick="enhancedOrClassic('C');"
+                                               value="Mobile">
+                                    </c:when>
+                                    <c:otherwise>
+                                        <input class="btn btn-oscar btn-primary w-100 mb-2" name="submit" type="submit"
+                                               onclick="enhancedOrClassic('C');" value="<fmt:message key="index.btnSignIn"/>">
+                                    </c:otherwise>
+                                </c:choose>
+                            </div>
+
+                        </form>
+
+                        <c:if test="${ LoginResourceBean.acceptableUseAgreementManager.auaAvailable }">
+    			            <span class="extrasmall">
+	                        	<fmt:message key="global.aua"/> &nbsp;
+	                        	<a href="javascript:void(0);" onclick="showHideItem('auaText');">
+	                        		<fmt:message key="global.showhide"/>
+	                        	</a>
+	                        </span>
+                        </c:if>
+                    </div>
+                </div>
+            </div>
+        </div>

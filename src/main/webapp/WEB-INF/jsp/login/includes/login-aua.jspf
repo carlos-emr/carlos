@@ -1,0 +1,16 @@
+        <div id="auaText" class="auaContainer" style="display:none;">
+            <div class="card">
+                <div class="card-header">
+                    <fmt:message key="loginApplication.auaHeader"/>
+                </div>
+                <div class="card-body">
+                    <carlos:encode value="${LoginResourceBean.acceptableUseAgreementManager.text}"/>
+                </div>
+                <div class="card-footer"></div>
+            </div>
+        </div>
+
+
+        <c:if test="${ LoginResourceBean.acceptableUseAgreementManager.auaAvailable and LoginResourceBean.acceptableUseAgreementManager.alwaysShow }">
+            <script type="text/javascript">document.getElementById('auaText').style.display = 'block';</script>
+        </c:if>

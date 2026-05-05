@@ -1,0 +1,5 @@
+    <footer>
+     	<span id="license" class="extrasmall">
+     		<fmt:message key="loginApplication.leftRmk2"/>
+     	</span>
+    </footer>
