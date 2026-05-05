@@ -117,6 +117,7 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
     @Test
     @DisplayName("should return success when uploaded file is missing")
     void shouldReturnSuccess_whenUploadFileIsMissing() throws Exception {
+        // A filename without a multipart file should be treated like the initial page load and render the import form.
         action.setImportFile(null);
         action.setImportFileFileName("patient.xml");
 
@@ -147,7 +148,7 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    @DisplayName("should not early return success when upload file and filename are present")
+    @DisplayName("should throw runtime exception when upload file and filename are present")
     void shouldThrowRuntimeException_whenUploadFileAndFilenameArePresent() throws Exception {
         Path tempDir = Files.createTempDirectory("demographic-import-test");
         Path uploadFile = Files.createTempFile(tempDir, "demographic-import-", ".txt");
