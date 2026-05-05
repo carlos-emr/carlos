@@ -304,6 +304,10 @@ jobs:
         run: bash scripts/lint/check-encoder-null-safety.sh
       - name: Run encoder null-safety lint fixtures
         run: bash scripts/lint/test-encoder-null-safety.sh
+      - name: Run SecurityException message convention lint
+        run: bash scripts/lint/check-security-exception-message-convention.sh
+      - name: Run SecurityException message convention lint fixtures
+        run: bash scripts/lint/test-security-exception-message-convention.sh
       - name: Run billing JSP size lint
         run: bash scripts/lint/check-jsp-size.sh
 

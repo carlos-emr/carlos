@@ -94,7 +94,7 @@ public final class ProviderPreferencesUIBean {
         // Security check: verify user has write access to preferences
         SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", "w", null)) {
-            throw new SecurityException("missing required sec object: _pref");
+            throw new SecurityException("missing required sec object (_pref)");
         }
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
