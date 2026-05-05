@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
 import io.github.carlos_emr.carlos.encounter.data.EctProgramManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
@@ -64,7 +65,7 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
         MockitoAnnotations.openMocks(this);
 
         replaceSpringUtilsBean(EctProgramManager.class, mockEctProgramManager);
-        replaceSpringUtilsBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class, mockSecurityInfoManager);
+        replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
 
         getMockSession().getServletContext().setAttribute(
                 WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, webApplicationContext);
@@ -104,6 +105,17 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
     @DisplayName("should return logout when user session attribute is missing")
     void shouldReturnLogout_whenUserSessionAttributeIsMissing() throws Exception {
         setSessionAttribute("user", null);
+
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo("logout");
+    }
+
+    @Test
+    @DisplayName("should return logout when logged in info is missing")
+    void shouldReturnLogout_whenLoggedInInfoIsMissing() throws Exception {
+        String key = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
+        setSessionAttribute(key, null);
 
         String result = executeAction(action);
 

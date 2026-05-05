@@ -202,8 +202,12 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            return "logout";
+        }
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
@@ -217,7 +221,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         // To help overcome interuptions, consider reworking process to upload files quickly to temporary folder before batch back end procesing and reporting of status
 
         // initialize
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         admProviderNo = (String) request.getSession().getAttribute("user");
         if (StringUtils.isNullOrEmpty(admProviderNo)) {
             return "logout";
