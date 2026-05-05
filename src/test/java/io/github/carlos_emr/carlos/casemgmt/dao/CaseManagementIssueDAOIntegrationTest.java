@@ -402,6 +402,33 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
         }
 
         @Test
+        @Tag("read")
+        @DisplayName("should return CMI when joined issue row is missing")
+        void shouldReturnCmi_whenJoinedIssueRowIsMissing() {
+            // Given
+            CaseManagementIssue cmi = new CaseManagementIssue();
+            cmi.setDemographic_no(335);
+            cmi.setIssue_id(987654321L);
+            cmi.setAcute(false);
+            cmi.setCertain(true);
+            cmi.setMajor(false);
+            cmi.setResolved(false);
+            cmi.setUpdate_date(new Date());
+            hibernateTemplate.save(cmi);
+            hibernateTemplate.flush();
+            hibernateTemplate.clear();
+            entityManager.clear();
+
+            // When
+            List<CaseManagementIssue> results = caseManagementIssueDAO.getIssuesByDemographic("335");
+
+            // Then
+            assertThat(results).hasSize(1);
+            assertThat(results.get(0).getId()).isEqualTo(cmi.getId());
+            assertThat(results.get(0).getIssue()).isNull();
+        }
+
+        @Test
         @Tag("filter")
         @DisplayName("should filter unresolved issues by boolean parameter")
         void shouldFilterUnresolvedIssues_byBooleanParameter() {
@@ -420,6 +447,9 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
                 .allMatch(i -> !i.isResolved());
             assertThat(unresolvedResults)
                 .allMatch(i -> Hibernate.isInitialized(i.getIssue()));
+            assertThat(unresolvedResults)
+                .extracting(i -> i.getIssue().getCode())
+                .containsExactly("TEST001");
         }
 
         @Test
