@@ -76,6 +76,7 @@ public class Scratch2Action extends JSONAction {
             if ("delete".equals(method)) {
                 return delete();
             }
+            // POST without a method parameter is the normal scratchpad save operation.
         } else {
             if ("showVersion".equals(method)) {
                 return showVersion();

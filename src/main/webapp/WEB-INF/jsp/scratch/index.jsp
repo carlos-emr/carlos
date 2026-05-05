@@ -77,7 +77,7 @@
         let saveTimeout = null;
         let currentText = "";
         let lastSavedText = "";
-        const scratchFormId = 'scratch';
+        const SCRATCH_FORM_ID = 'scratch';
         const scratchSaveUrl = "<carlos:encode value="${scratchUrl}" context="javaScript"/>";
 
         function setDirty(){
@@ -112,7 +112,7 @@
                 return;
             }
             isSaving = true;
-            let scratchForm = document.getElementById(scratchFormId);
+            let scratchForm = document.getElementById(SCRATCH_FORM_ID);
             if (!scratchForm) {
                 isSaving = false;
                 showErrorMessage('Unable to save scratchpad. Please refresh the page and try again.');
