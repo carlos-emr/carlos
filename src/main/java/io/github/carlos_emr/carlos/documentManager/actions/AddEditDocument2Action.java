@@ -714,7 +714,9 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     }
 
     /**
-     * Resolves a validated upload file to a canonical path for file reads.
+     * Resolves an already-validated upload file to a canonical path for file reads.
+     * Upload-directory containment is enforced by {@link PathValidationUtils#validateUpload(File)}
+     * before this helper is called; this method only canonicalizes that trusted result.
      *
      * @param validatedUpload File the upload file previously returned by {@link PathValidationUtils#validateUpload(File)}
      * @return Path the canonical upload path
@@ -724,6 +726,13 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return validatedUpload.getCanonicalFile().toPath();
     }
 
+    /**
+     * Verifies that an upload write produced a regular file with exactly the expected size.
+     *
+     * @param writtenFile File the destination returned by {@link #writeLocalFile(InputStream, String)}
+     * @param expectedFileSize long the validated source upload size in bytes
+     * @return boolean true when the destination file exists, is a regular file, and matches the source size
+     */
     private boolean isWrittenUploadComplete(File writtenFile, long expectedFileSize) {
         return writtenFile != null
                 && writtenFile.exists()
