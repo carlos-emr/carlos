@@ -203,11 +203,10 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
     @Override
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null) {
-            return "logout";
-        }
-
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
+        if (loggedInInfo == null || !securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
+            if (loggedInInfo == null) {
+                return "logout";
+            }
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
@@ -223,6 +222,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         // initialize
         admProviderNo = (String) request.getSession().getAttribute("user");
         if (StringUtils.isNullOrEmpty(admProviderNo)) {
+            logger.warn("Demographic import request has LoggedInInfo but no session user attribute");
             return "logout";
         }
         programId = new EctProgram(request.getSession()).getProgram(admProviderNo);
