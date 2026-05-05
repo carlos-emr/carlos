@@ -216,6 +216,7 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/$REPO/commits/$HEAD_SHA")
           latest_commit_at=$(jq -r '.commit.committer.date // .commit.author.date' <<< "$commit_json")
+          latest_commit_epoch=$(date -d "$latest_commit_at" +%s)
 
           page=1
           found=false
@@ -239,14 +240,18 @@ jobs:
               association=$(jq -r '.association' <<< "$comment")
               created_at=$(jq -r '.created_at' <<< "$comment")
               updated_at=$(jq -r '.updated_at' <<< "$comment")
+              created_epoch=$(date -d "$created_at" +%s)
+              updated_epoch=$(date -d "$updated_at" +%s)
               comment_confirmed_at="$updated_at"
-              if [[ "$created_at" > "$updated_at" ]]; then
+              comment_confirmed_epoch="$updated_epoch"
+              if [ "$created_epoch" -gt "$updated_epoch" ]; then
                 comment_confirmed_at="$created_at"
+                comment_confirmed_epoch="$created_epoch"
               fi
 
               if printf '%s\n' "$body" | grep -qiF "$CONFIRMATION_PHRASE"; then
                 if [ "$author" = "$PR_AUTHOR" ] || printf '%s' "$association" | grep -qE '^(OWNER|MEMBER|COLLABORATOR|CONTRIBUTOR)$'; then
-                  if [[ "$comment_confirmed_at" > "$latest_commit_at" ]]; then
+                  if [ "$comment_confirmed_epoch" -gt "$latest_commit_epoch" ]; then
                     found=true
                     confirming_user="$author"
                     confirming_at="$comment_confirmed_at"
