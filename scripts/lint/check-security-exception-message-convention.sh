@@ -2,8 +2,8 @@
 #
 # check-security-exception-message-convention.sh
 #
-# CI guard for SecurityException message consistency. Failed
-# SecurityInfoManager.hasPrivilege() checks use:
+# CI guard for SecurityException message consistency: failed
+# SecurityInfoManager.hasPrivilege() checks must use:
 #   missing required sec object (_object)
 # not:
 #   missing required sec object: _object
