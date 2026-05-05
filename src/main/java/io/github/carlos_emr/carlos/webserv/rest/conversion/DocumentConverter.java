@@ -30,11 +30,15 @@ package io.github.carlos_emr.carlos.webserv.rest.conversion;
 
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DocumentReviewTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DocumentTo1;
+import org.apache.logging.log4j.Logger;
 import org.hibernate.Hibernate;
 
 public class DocumentConverter extends AbstractConverter<Document, DocumentTo1> {
+    private static Logger logger = MiscUtils.getLogger();
+
     @Override
     public Document getAsDomainObject(LoggedInInfo loggedInInfo, DocumentTo1 t) throws ConversionException {
         Document d = new Document();
@@ -107,6 +111,8 @@ public class DocumentConverter extends AbstractConverter<Document, DocumentTo1> 
         if (d.getReviews() != null && Hibernate.isInitialized(d.getReviews())) {
             DocumentReviewConverter reviewConverter = new DocumentReviewConverter();
             t.setReviews(reviewConverter.getAllAsTransferObjects(loggedInInfo, d.getReviews()));
+        } else if (d.getReviews() != null) {
+            logger.debug("reviews not initialized on document {}; skipping in REST response", d.getDocumentNo());
         }
 
         return t;
