@@ -25,15 +25,17 @@ tmp_stdout=""
 tmp_stderr=""
 cleanup() {
   for file in "$tmp_stdout" "$tmp_stderr"; do
-    if [[ -n "$file" && "$file" == /tmp/security-exception-message-convention.* ]]; then
-      rm -f -- "$file"
-    fi
+    case "$file" in
+      /tmp/security-exception-message-convention.stdout.*|/tmp/security-exception-message-convention.stderr.*)
+        rm -f -- "$file"
+        ;;
+    esac
   done
 }
 trap cleanup EXIT
 
-tmp_stdout="$(mktemp /tmp/security-exception-message-convention.stdout.XXXXXX)"
-tmp_stderr="$(mktemp /tmp/security-exception-message-convention.stderr.XXXXXX)"
+tmp_stdout="$(mktemp -t security-exception-message-convention.stdout.XXXXXX)"
+tmp_stderr="$(mktemp -t security-exception-message-convention.stderr.XXXXXX)"
 
 set +e
 grep -RInE 'missing required sec object:[[:space:]]*($|[^)])' "${targets[@]}" >"$tmp_stdout" 2>"$tmp_stderr"
