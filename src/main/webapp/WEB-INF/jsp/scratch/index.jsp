@@ -76,6 +76,8 @@
         let currentText = "";
         let lastSavedText = "";
 		const context = "<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptBlock"/>";
+        const scratchFormId = 'scratch';
+        const scratchSaveUrl = context + "/Scratch";
 
         function setDirty(){
             dirty = true;
@@ -109,22 +111,21 @@
                 return;
             }
             isSaving = true;
-            let scratchForm = document.getElementById('scratch');
+            let scratchForm = document.getElementById(scratchFormId);
             if (!scratchForm) {
                 isSaving = false;
                 showErrorMessage('Scratchpad form is not available.');
                 return;
             }
-            let url = scratchForm.action;
             let timeoutId = setTimeout(() => {
                 // Abort ongoing AJAX request if still pending
                 $.ajaxStop();
             }, 30000); // 30 second timeout
 
             $.ajax({
-                url: url,
+                url: scratchSaveUrl,
                 type: 'POST',
-                data: $('#scratch').serialize(),
+                data: $(scratchForm).serialize(),
                 timeout: 30000,
                 dataType: 'json',
                 success: function(responseText) {

@@ -65,7 +65,7 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
     void shouldLaunchScratchpadPage_whenRequestIsNotPost() throws Exception {
         HttpServletRequest request = mockRequest("GET", "999998");
         HttpServletResponse response = mock(HttpServletResponse.class);
-        TestableScratch2Action action = new TestableScratch2Action(request, response);
+        Scratch2Action action = createAction(request, response);
 
         assertThat(action.execute()).isEqualTo("success");
         verifyNoInteractions(scratchPadDao);
@@ -89,7 +89,7 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
             return null;
         }).when(scratchPadDao).persist(any(ScratchPad.class));
 
-        TestableScratch2Action action = new TestableScratch2Action(request, response);
+        Scratch2Action action = createAction(request, response);
 
         assertThat(action.execute()).isNull();
         verify(scratchPadDao).persist(any(ScratchPad.class));
@@ -136,11 +136,10 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
         return request;
     }
 
-    private static class TestableScratch2Action extends Scratch2Action {
-
-        TestableScratch2Action(HttpServletRequest request, HttpServletResponse response) {
-            this.request = request;
-            this.response = response;
-        }
+    private Scratch2Action createAction(HttpServletRequest request, HttpServletResponse response) {
+        Scratch2Action action = new Scratch2Action();
+        injectDependency(action, "request", request);
+        injectDependency(action, "response", response);
+        return action;
     }
 }
