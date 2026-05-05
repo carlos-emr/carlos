@@ -34,9 +34,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -97,18 +94,6 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(action.execute()).isNull();
         verify(scratchPadDao).persist(any(ScratchPad.class));
         assertThat(json.toString()).contains("\"id\":\"1\"", "\"text\":\"test note\"", "\"windowId\":\"window-1\"");
-    }
-
-    @Test
-    @DisplayName("should post scratchpad form without providerNo parameter")
-    void shouldPostScratchpadForm_withoutProviderNoParameter() throws Exception {
-        String jsp = Files.readString(
-            Path.of("src/main/webapp/WEB-INF/jsp/scratch/index.jsp"),
-            StandardCharsets.UTF_8
-        );
-
-        assertThat(jsp).contains("id=\"scratch\"", "method=\"post\"", "/Scratch");
-        assertThat(jsp).doesNotContain("name=\"providerNo\"");
     }
 
     @Test

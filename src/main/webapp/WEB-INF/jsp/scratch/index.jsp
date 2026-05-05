@@ -109,7 +109,13 @@
                 return;
             }
             isSaving = true;
-            let url = document.getElementById('scratch').action;
+            let scratchForm = document.getElementById('scratch');
+            if (!scratchForm) {
+                isSaving = false;
+                showErrorMessage('Scratchpad form is not available.');
+                return;
+            }
+            let url = scratchForm.action;
             let timeoutId = setTimeout(() => {
                 // Abort ongoing AJAX request if still pending
                 $.ajaxStop();

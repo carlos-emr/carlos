@@ -71,13 +71,14 @@ public class Scratch2Action extends JSONAction {
     
     public String execute() throws Exception {
 
-        if ("showVersion".equals(request.getParameter("method"))) {
-            return showVersion();
-        }
+        String method = request.getParameter("method");
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            if ("showVersion".equals(method)) {
+                return showVersion();
+            }
             return SUCCESS;
         }
-        if ("delete".equals(request.getParameter("method"))) {
+        if ("delete".equals(method)) {
             return delete();
         }
 
