@@ -110,7 +110,7 @@ public class BillingOnPaymentViewModelAssembler {
      * Build the payment-report view model for the given request.
      *
      * @param request in-flight request (provides locale + filter params)
-     * @param curProviderNo logged-in provider's ID (from session)
+     * @param loggedInInfo logged-in provider context (contains provider ID)
      * @param isThisProviderOnly true when {@code _admin.invoices} grants
      *                           but {@code _admin}/{@code _admin.billing} don't
      *                           — restricts the dropdown to just the user

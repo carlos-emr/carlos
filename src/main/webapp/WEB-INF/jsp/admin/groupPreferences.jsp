@@ -33,12 +33,14 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@ page import="java.util.List" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup, io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroupPrimaryKey" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.CtlBillingService, io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.dto.UniqueServiceTypeRow" %>
 
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -113,16 +115,17 @@
                                     <select id="chosenForm" name="chosenForm" onChange="changeBillingForm()">
                                         <option value=""></option>
                                         <%
-                                            List<Object[]> forms = ctlBillingServiceDao.getUniqueServiceTypes();
-                                            for (Object[] form : forms) {
-                                                String serviceType = (String) form[0];
+                                            List<UniqueServiceTypeRow> forms = ctlBillingServiceDao.getUniqueServiceTypes();
+                                            for (UniqueServiceTypeRow form : forms) {
+                                                String serviceType = form.serviceType();
+                                                String serviceTypeName = form.serviceTypeName();
                                                 String selected = "";
                                                 if (serviceType.equals(request.getParameter("chosenForm"))) {
                                                     currentForm = serviceType;
                                                     selected = " selected=\"selected\" ";
                                                 }
                                         %>
-                                        <option value="<%=serviceType%>" <%=selected%>><%=(String) form[1]%>
+                                        <option value="<carlos:encode value='<%= serviceType %>' context='htmlAttribute'/>" <%=selected%>><carlos:encode value="<%= serviceTypeName %>" context="html"/>
                                         </option>
                                         <% } %>
                                     </select>
@@ -144,10 +147,10 @@
                                     i++;
                             %>
                             <tr BGCOLOR="<%=i%2==0?"ivory":"white"%>">
-                                <td>&nbsp; <%=group%>
+                                <td>&nbsp; <carlos:encode value="<%= group %>" context="html"/>
                                 </td>
                                 <td ALIGN="center">
-                                    <input type="checkbox" name="data" <%=selected%> value="<%=group%>">
+                                    <input type="checkbox" name="data" <%=selected%> value="<carlos:encode value='<%= group %>' context='htmlAttribute'/>">
                             </tr>
                             <% } %>
                         </table>
