@@ -65,7 +65,8 @@ public final class ViewInsideLabUpload2Action extends ActionSupport {
      * Test seam that avoids static Spring lookup in focused unit tests.
      * Package-private visibility keeps production callers on the
      * Spring-backed default constructor while allowing same-package tests to
-     * inject a mock.
+     * inject a mock, which keeps this focused gate test smaller than
+     * registering a {@link SpringUtils} mock.
      *
      * @param securityInfoManager security manager used for the view-gate check
      */

@@ -61,7 +61,8 @@ class ViewInsideLabUpload2ActionTest extends CarlosUnitTestBase {
     void setUp() {
         mockSecurityInfoManager = mock(SecurityInfoManager.class);
         mockLoggedInInfo = mock(LoggedInInfo.class);
-        mockRequest = new MockHttpServletRequest("GET", "/" + VIEW_ROUTE);
+        mockRequest = new MockHttpServletRequest();
+        mockRequest.setMethod("GET");
         mockResponse = new MockHttpServletResponse();
         stubServletActionContext();
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
