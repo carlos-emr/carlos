@@ -219,6 +219,9 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         // initialize
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         admProviderNo = (String) request.getSession().getAttribute("user");
+        if (StringUtils.isNullOrEmpty(admProviderNo)) {
+            return "logout";
+        }
         programId = new EctProgram(request.getSession()).getProgram(admProviderNo);
         matchProviderNames = this.isMatchProviderNames();
 

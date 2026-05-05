@@ -21,14 +21,25 @@
  */
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
+import io.github.carlos_emr.carlos.encounter.data.EctProgramManager;
+import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.util.LabelValueBean;
+
+import org.apache.struts2.ActionSupport;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.web.context.WebApplicationContext;
 
 import java.io.File;
-import java.lang.reflect.Method;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link ImportDemographicDataAction42Action}.
@@ -39,35 +50,67 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("unit")
 @Tag("web")
 @Tag("demographic")
-class ImportDemographicDataAction42ActionUnitTest {
+class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
 
-    private boolean hasUploadedImportFile(File importFile, String importFileFileName) throws Exception {
-        Method method = ImportDemographicDataAction42Action.class
-                .getDeclaredMethod("hasUploadedImportFile", File.class, String.class);
-        method.setAccessible(true);
-        return (boolean) method.invoke(null, importFile, importFileFileName);
+    private static final String TEST_PROVIDER = "999998";
+
+    @Mock
+    private EctProgramManager mockEctProgramManager;
+
+    private ImportDemographicDataAction42Action action;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        MockitoAnnotations.openMocks(this);
+
+        replaceSpringUtilsBean(EctProgramManager.class, mockEctProgramManager);
+        replaceSpringUtilsBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class, mockSecurityInfoManager);
+
+        getMockSession().getServletContext().setAttribute(
+                WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, webApplicationContext);
+
+        when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(TEST_PROVIDER);
+        setSessionAttribute("user", TEST_PROVIDER);
+        String key = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
+        setSessionAttribute(key, mockLoggedInInfo);
+
+        when(mockEctProgramManager.getProgramBeans(TEST_PROVIDER, null))
+                .thenReturn(List.of(new LabelValueBean("Default Program", "0")));
+        when(mockEctProgramManager.getDefaultProgramId(TEST_PROVIDER)).thenReturn(0);
+
+        action = new ImportDemographicDataAction42Action();
+
+        java.lang.reflect.Field secField = ImportDemographicDataAction42Action.class.getDeclaredField("securityInfoManager");
+        secField.setAccessible(true);
+        secField.set(action, mockSecurityInfoManager);
     }
 
     @Test
-    @DisplayName("should return false when no upload is present")
-    void shouldReturnFalse_whenNoUploadIsPresent() throws Exception {
-        assertThat(hasUploadedImportFile(null, null))
-                .isFalse();
+    @DisplayName("should return success when no upload is present")
+    void shouldReturnSuccess_whenNoUploadIsPresent() throws Exception {
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
     }
 
     @Test
-    @DisplayName("should return false when uploaded filename is blank")
-    void shouldReturnFalse_whenUploadedFilenameIsBlank() throws Exception {
-        // The helper only checks for a non-null File; no real file is required here.
-        assertThat(hasUploadedImportFile(new File("dummy-upload"), " "))
-                .isFalse();
+    @DisplayName("should return success when uploaded filename is blank")
+    void shouldReturnSuccess_whenUploadedFilenameIsBlank() throws Exception {
+        action.setImportFile(new File("dummy-upload"));
+        action.setImportFileFileName(" ");
+
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
     }
 
     @Test
-    @DisplayName("should return true when upload file and filename are present")
-    void shouldReturnTrue_whenUploadFileAndFilenameArePresent() throws Exception {
-        // The helper only checks for a non-null File; file existence/content is not under test.
-        assertThat(hasUploadedImportFile(new File("dummy-upload"), "patient.xml"))
-                .isTrue();
+    @DisplayName("should return logout when user session attribute is missing")
+    void shouldReturnLogout_whenUserSessionAttributeIsMissing() throws Exception {
+        setSessionAttribute("user", null);
+
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo("logout");
     }
 }
