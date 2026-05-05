@@ -328,7 +328,7 @@
                     } else if (oscarVariables.getProperty("billregion", "").equals("ON")) {
                     %>
                     <li><a href="#"
-                           onclick='popupPage(700,1000, "${pageContext.request.contextPath}/billing/CA/ON/benefitScheduleUpload");return false;'><fmt:message key="admin.admin.scheduleOfBenefits"/></a></li>
+                           onclick='popupPage(700,1000, "${pageContext.request.contextPath}/billing/CA/ON/ViewBenefitScheduleUpload");return false;'><fmt:message key="admin.admin.scheduleOfBenefits"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(300,600, "${pageContext.request.contextPath}/billing/CA/ON/AddEditServiceCode");return false;'><fmt:message key="admin.admin.manageBillingServiceCode"/></a></li>
                     <li><a href="#"

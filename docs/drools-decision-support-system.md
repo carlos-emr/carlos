@@ -699,7 +699,7 @@ The Drools subsystem was migrated from Drools 2.0 (XML rule format) to Drools 7.
 
 ## Test Coverage
 
-The Drools subsystem has 101 modern JUnit 5 tests (tagged `@Tag("drools")`) covering the core infrastructure and all production DRL files. Tests are located in `src/test-modern/java/io/github/carlos_emr/carlos/`.
+The Drools subsystem has 101 modern JUnit 5 tests (tagged `@Tag("drools")`) covering the core infrastructure and all production DRL files. Tests are located in `src/test/java/io/github/carlos_emr/carlos/`.
 
 ### Running Drools Tests
 

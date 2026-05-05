@@ -44,6 +44,28 @@ JSP_COMMENT_RE = re.compile(r"<%--.*?--%>", re.DOTALL)
 TAG_RE = re.compile(r"<e:for[A-Za-z]+(?:\s|/>)")
 EL_FN_RE = re.compile(r"\$\{\s*e:for[A-Za-z]+\s*\(")
 ENCODE_SCRIPTLET_RE = re.compile(r"<%=\s*Encode\.for[A-Za-z]+\s*\(")
+# Class C — context misuse: forHtmlContent inside an HTML attribute value.
+# `forHtmlContent` does NOT escape `"` or `'`, so a value containing a quote
+# breaks the markup. Several sites were fixed by hand in
+# `billingONCorrection.jsp`; this regex catches the pattern so it can't
+# recur on a future JSP migration.
+#
+# The earlier shape only matched when the EL expression was the FIRST thing
+# inside the attribute value (e.g. `value="${carlos:forHtmlContent(x)}"`).
+# Real-world misuse like `value="prefix-${carlos:forHtmlContent(x)}"` or
+# `class="foo ${carlos:forHtmlContent(x)}"` would silently pass — the very
+# recurrence vector the rule exists to prevent. The current shape matches
+# `carlos:forHtmlContent(` anywhere inside an attribute value, by treating
+# anything between the opening quote and the EL marker as opaque content.
+HTML_ATTR_CONTENT_MISUSE_RE = re.compile(
+    r"""=\s*(["'])(?:(?!\1).)*?\$\{\s*carlos:forHtmlContent\s*\(""",
+    re.DOTALL,
+)
+HTML_ATTR_CARLOS_TAG_RE = re.compile(
+    r"""=\s*(["'])(?:(?!(?:\1|>)).)*?<carlos:encode\b(?P<tag>.*?)/>""",
+    re.DOTALL,
+)
+CARLOS_TAG_CONTEXT_RE = re.compile(r"""context\s*=\s*(["'])(?P<context>[^"']+)\1""")
 TAGLIB_DECL_RE = re.compile(
     r"""<%@\s*taglib\s+[^%>]*uri\s*=\s*["']owasp\.encoder\.jakarta""",
     re.IGNORECASE,
@@ -65,6 +87,15 @@ def is_allowlisted(rel: str, patterns: list[str]) -> bool:
     return any(fnmatch.fnmatch(rel, p) for p in patterns)
 
 
+def count_html_context_tag_attr_misuse(text: str) -> int:
+    hits = 0
+    for match in HTML_ATTR_CARLOS_TAG_RE.finditer(text):
+        context = CARLOS_TAG_CONTEXT_RE.search(match.group("tag"))
+        if context is None or context.group("context").lower() == "html":
+            hits += 1
+    return hits
+
+
 def main() -> int:
     allowlist = load_allowlist()
     violations = 0
@@ -72,6 +103,7 @@ def main() -> int:
     classB_tag_sites = 0
     classB_el_sites = 0
     classB_scriptlet_sites = 0
+    classC_attr_sites = 0
 
     for path in sorted(JSP_ROOT.rglob("*")):
         if not path.is_file():
@@ -127,6 +159,20 @@ def main() -> int:
             classB_scriptlet_sites += scriptlet_hits
             violations += 1
 
+        # Class C: forHtmlContent used inside an HTML attribute value. The
+        # `forHtmlContent` encoder does NOT escape quotes; a value containing
+        # `"` or `'` breaks the markup. Use forHtmlAttribute for value="..."
+        # contexts.
+        attr_hits = len(HTML_ATTR_CONTENT_MISUSE_RE.findall(text))
+        attr_hits += count_html_context_tag_attr_misuse(text)
+        if attr_hits:
+            print(
+                f"ERROR [Class C — forHtmlContent in attribute context]: {rel} ({attr_hits} site(s))"
+            )
+            print("       Replace with ${carlos:forHtmlAttribute(...)} for value=\"...\" contexts.")
+            classC_attr_sites += attr_hits
+            violations += 1
+
     print()
     print("========================================")
     print("Encoder null-safety lint summary")
@@ -135,6 +181,7 @@ def main() -> int:
     print(f"Class B (<e:forXxx> tag leftover)          : {classB_tag_sites} site(s)")
     print(f"Class B (${{e:forXxx}} EL leftover)          : {classB_el_sites} site(s)")
     print(f"Class B (Encode.forXxx scriptlet leftover) : {classB_scriptlet_sites} site(s)")
+    print(f"Class C (forHtmlContent in attr context)   : {classC_attr_sites} site(s)")
     print(f"Total violating files                      : {violations}")
     if violations == 0:
         print("Result: PASS")

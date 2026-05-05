@@ -65,7 +65,7 @@ import io.github.carlos_emr.carlos.utility.LogSanitizer;
  * @since 2004-02-04
  */
 public class SearchPatient2Action extends ActionSupport {
-    private static final String PATIENT_SEARCH_URL = "/oscarMDS/ViewPatientSearch?search_mode=search_name&limit1=0&limit2=10";
+    private static final String PATIENT_SEARCH_URL = "/oscarMDS/ViewPatientSearch?search_mode=search_name&limit1=0&limit2=500";
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 

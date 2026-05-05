@@ -454,7 +454,7 @@ public class EFormUtil {
         }
 
         // must have FID and form_name otherwise throws null pointer on the hashtable
-        curht.put("fid", eform.getId());
+        curht.put("fid", eform.getId().toString());
         curht.put("formName", eform.getFormName());
         curht.put("formSubject", eform.getSubject());
         curht.put("formFileName", eform.getFileName());

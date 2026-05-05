@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,11 +17,13 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
+--%>
+<%--
+  Page role: Renders `oscarReportDxReg.jsp` for the reporting workflow.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
 --%>
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
@@ -72,7 +75,7 @@
               href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.theme-1.14.2.min.css"/>
         <link rel="stylesheet" type="text/css" media="all"
               href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.structure-1.14.2.min.css"/>
-        <link href="${pageContext.servletContext.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css"/>
+        <link href="${pageContext.servletContext.contextPath}/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css"/>
         <link type="text/css" media="all" href="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css"
               rel="stylesheet">
         <link href="${pageContext.servletContext.contextPath}/library/DataTables/Responsive-2.4.1/css/responsive.dataTables.min.css"
@@ -86,9 +89,9 @@
         <script type="text/javascript" src="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
         <script type="text/javascript" src="${pageContext.servletContext.contextPath}/js/dxJSONCodeSearch.js"></script>
         <script type="text/javascript"
-                src="${pageContext.servletContext.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
+                src="${pageContext.servletContext.contextPath}/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
         <script type="text/javascript"
-                src="${pageContext.servletContext.contextPath}/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
+                src="${pageContext.servletContext.contextPath}/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
         <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/library/DataTables/Responsive-2.4.1/js/dataTables.responsive.min.js"></script>
 

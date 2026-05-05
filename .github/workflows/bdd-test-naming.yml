@@ -1,0 +1,54 @@
+# GitHub Workflow: BDD Test Naming
+#
+# Description:
+# Validates that billing migration tests use the project BDD method-name
+# convention: should<Action>_<prepositionOrContext><Condition>.
+#
+# License:
+# This GitHub Workflow file is part of the Carlos EMR project and is subject
+# to the licensing terms outlined in the repository's LICENSE file.
+
+name: BDD Test Naming
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+      - experimental
+      - staging/*
+      - hotfix/*
+      - community/*/develop
+      - community/*/staging/*
+    paths:
+      - 'src/test/java/**/*.java'
+      - 'scripts/lint/check-bdd-test-naming.py'
+      - 'scripts/lint/check-bdd-test-naming.sh'
+      - '.github/workflows/bdd-test-naming.yml'
+      - 'CLAUDE.md'
+      - 'docs/test/**'
+  push:
+    branches:
+      - develop
+    paths:
+      - 'src/test/java/**/*.java'
+      - 'scripts/lint/check-bdd-test-naming.py'
+      - 'scripts/lint/check-bdd-test-naming.sh'
+      - '.github/workflows/bdd-test-naming.yml'
+      - 'CLAUDE.md'
+      - 'docs/test/**'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  bdd-test-naming:
+    name: BDD Test Naming
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate billing test method names
+        run: scripts/lint/check-bdd-test-naming.sh

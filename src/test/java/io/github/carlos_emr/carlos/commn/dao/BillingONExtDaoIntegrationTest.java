@@ -127,8 +127,41 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
 
     @Test
     @Tag("read")
-    @DisplayName("should return zero when payment value is not a valid number")
-    void shouldReturnZeroPayment_whenValueIsInvalid() throws Exception {
+    @DisplayName("should ignore payment ext rows belonging to a different payment id")
+    void shouldIgnorePaymentExtRows_whenPaymentIdDoesNotMatch() throws Exception {
+        BillingONPayment targetPayment = new BillingONPayment();
+        targetPayment.setBillingNo(parentHeader.getId());
+        targetPayment.setPaymentDate(new Date());
+        paymentDao.persist(targetPayment);
+
+        BillingONPayment otherPayment = new BillingONPayment();
+        otherPayment.setBillingNo(parentHeader.getId());
+        otherPayment.setPaymentDate(new Date());
+        paymentDao.persist(otherPayment);
+        hibernateTemplate.flush();
+
+        BillingONExt otherPaymentExt = new BillingONExt();
+        otherPaymentExt.setBillingNo(parentHeader.getId());
+        otherPaymentExt.setKeyVal("payment");
+        otherPaymentExt.setValue("99.99");
+        otherPaymentExt.setPaymentId(otherPayment.getId());
+        dao.persist(otherPaymentExt);
+        hibernateTemplate.flush();
+
+        BigDecimal payment = dao.getPayment(targetPayment);
+
+        assertThat(payment).isEqualTo(new BigDecimal("0.00"));
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should throw BillingValidationException when payment value is corrupt")
+    void shouldThrowBillingValidationException_whenPaymentValueIsInvalid() throws Exception {
+        // Pre-fix the DAO silently coalesced unparseable currency to $0.00 at WARN
+        // — operator saw an understated payment total with no UI signal. The
+        // narrowed catch now rethrows as BillingValidationException so the
+        // surrounding @Transactional unit-of-work rolls back instead of
+        // rendering a silently wrong total.
         BillingONPayment paymentRecord = new BillingONPayment();
         paymentRecord.setBillingNo(parentHeader.getId());
         paymentRecord.setPaymentDate(new Date());
@@ -144,8 +177,9 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
         dao.persist(extraBillingPayment);
         hibernateTemplate.flush();
 
-        BigDecimal payment = dao.getPayment(paymentRecord);
-        assertThat(payment).isEqualTo(new BigDecimal("0.00"));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> dao.getPayment(paymentRecord))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("Corrupt billing_on_ext.payment");
     }
 
     // --- getRefund tests ---
@@ -197,8 +231,11 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
 
     @Test
     @Tag("read")
-    @DisplayName("should return zero refund when refund value is not a valid number")
-    void shouldReturnZeroRefund_whenValueIsInvalid() throws Exception {
+    @DisplayName("should throw BillingValidationException when refund value is corrupt")
+    void shouldThrowBillingValidationException_whenRefundValueIsInvalid() throws Exception {
+        // Same reasoning as shouldThrowBillingValidationException_whenPaymentValueIsInvalid:
+        // a corrupt currency value silently understating the displayed refund
+        // is worse than failing loudly.
         BillingONPayment paymentRecord = new BillingONPayment();
         paymentRecord.setBillingNo(parentHeader.getId());
         paymentRecord.setPaymentDate(new Date());
@@ -214,8 +251,9 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
         dao.persist(extraBillingPayment);
         hibernateTemplate.flush();
 
-        BigDecimal refund = dao.getRefund(paymentRecord);
-        assertThat(refund).isEqualTo(new BigDecimal("0.00"));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> dao.getRefund(paymentRecord))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("Corrupt billing_on_ext.refund");
     }
 
     // --- getRemitTo tests ---
@@ -272,6 +310,21 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
 
     @Test
     @Tag("read")
+    @DisplayName("should throw when duplicate active billTo ext records exist")
+    void shouldThrowDataLoadException_whenDuplicateActiveBillToRecordsExist() {
+        BillingONExt first = ext("billTo", '1');
+        BillingONExt second = ext("billTo", '1');
+        dao.persist(first);
+        dao.persist(second);
+        hibernateTemplate.flush();
+
+        assertThatThrownBy(() -> dao.getBillTo(parentHeader))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadException.class)
+                .hasMessageContaining("duplicate active billing_on_ext billTo");
+    }
+
+    @Test
+    @Tag("read")
     @DisplayName("should return null billTo when status does not match active")
     void shouldReturnNullBillTo_whenStatusIsNotActive() throws Exception {
         BillingONExt extraBillingPayment = new BillingONExt();
@@ -320,6 +373,36 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
         assertThat(billingRecord).isNull();
     }
 
+    private BillingONExt ext(String key, char status) {
+        // Helper intentionally sets only the fields needed to provoke the
+        // duplicate-row guard under the current parent header.
+        BillingONExt ext = new BillingONExt();
+        ext.setBillingNo(parentHeader.getId());
+        ext.setStatus(status);
+        ext.setKeyVal(key);
+        return ext;
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should reject malformed billingNo when loading active ext items")
+    void shouldRejectMalformedBillingNo_whenLoadingActiveExtItems() {
+        assertThatThrownBy(() -> dao.getBillingExtItems("not-a-number"))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("billingNo")
+                .hasMessageContaining("not-a-number");
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should reject malformed billingNo when loading inactive ext items")
+    void shouldRejectMalformedBillingNo_whenLoadingInactiveExtItems() {
+        assertThatThrownBy(() -> dao.getInactiveBillingExtItems("not-a-number"))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("billingNo")
+                .hasMessageContaining("not-a-number");
+    }
+
     // --- find tests ---
 
     @Test
@@ -329,5 +412,92 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
         List<BillingONExt> result = dao.find(100, "KEY", new Date(), new Date());
         assertThat(result).isNotNull();
         assertThat(result).isEmpty();
+    }
+
+    // --- getClaimExtItem 8-branch named-param whitelist tests (S6 + R6 M-2) ---
+
+    @Test
+    @Tag("read")
+    @DisplayName("getClaimExtItem should match by billingNo + demographicNo + keyVal")
+    void shouldFindClaimExtItem_byAllThreeFilters() throws Exception {
+        BillingONExt ext = new BillingONExt();
+        ext.setBillingNo(parentHeader.getId());
+        ext.setDemographicNo(7777);
+        ext.setKeyVal("classify-key");
+        ext.setValue("alpha");
+        dao.persist(ext);
+        hibernateTemplate.flush();
+
+        BillingONExt found = dao.getClaimExtItem(parentHeader.getId(), 7777, "classify-key");
+        assertThat(found).isNotNull();
+        assertThat(found.getValue()).isEqualTo("alpha");
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("getClaimExtItem should match by demographicNo only")
+    void shouldFindClaimExtItem_byDemographicNoOnly() throws Exception {
+        BillingONExt ext = new BillingONExt();
+        ext.setBillingNo(parentHeader.getId());
+        ext.setDemographicNo(8888);
+        ext.setKeyVal("demo-only-key");
+        ext.setValue("beta");
+        dao.persist(ext);
+        hibernateTemplate.flush();
+
+        // R6 M-2: this branch (demographicNo only) was previously unreachable
+        // because the legacy code never evaluated null filters; under the new
+        // named-parameter whitelist a null billingNo is bound out of the query.
+        BillingONExt found = dao.getClaimExtItem(null, 8888, null);
+        assertThat(found).isNotNull();
+        assertThat(found.getValue()).isEqualTo("beta");
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("getClaimExtItem should match by keyVal only")
+    void shouldFindClaimExtItem_byKeyValOnly() throws Exception {
+        BillingONExt ext = new BillingONExt();
+        ext.setBillingNo(parentHeader.getId());
+        ext.setDemographicNo(9999);
+        ext.setKeyVal("unique-keyval-only");
+        ext.setValue("gamma");
+        dao.persist(ext);
+        hibernateTemplate.flush();
+
+        BillingONExt found = dao.getClaimExtItem(null, null, "unique-keyval-only");
+        assertThat(found).isNotNull();
+        assertThat(found.getValue()).isEqualTo("gamma");
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("getClaimExtItem should match by billingNo + keyVal (the gap-bug branch)")
+    void shouldFindClaimExtItem_byBillingNoAndKeyVal() throws Exception {
+        // The pre-S6 wrong-guard bug bound demographicNo whenever billingNo
+        // was bound; this test pins that the (billingNo, keyVal, no demoNo)
+        // branch now correctly omits the demoNo filter from the query.
+        BillingONExt ext = new BillingONExt();
+        ext.setBillingNo(parentHeader.getId());
+        ext.setKeyVal("bn-and-keyval");
+        ext.setValue("delta");
+        dao.persist(ext);
+        hibernateTemplate.flush();
+
+        BillingONExt found = dao.getClaimExtItem(parentHeader.getId(), null, "bn-and-keyval");
+        assertThat(found).isNotNull();
+        assertThat(found.getValue()).isEqualTo("delta");
+    }
+
+    @Test
+    @DisplayName("getClaimExtItem should reject all-null filters (round-7 C2 fail-fast)")
+    void shouldThrowIllegalArgumentException_whenAllFiltersAreNull() {
+        // Round-7 C2: the pre-fix `else { select ext from BillingONExt ext }`
+        // branch would scan the whole table and return either NonUnique on
+        // multi-row or an arbitrary row on misuse. Fail-fast is the right
+        // surface for "caller forgot to pass any filter".
+        assertThatThrownBy(() -> dao.getClaimExtItem(null, null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("at least one filter");
     }
 }

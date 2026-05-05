@@ -34,6 +34,7 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -104,7 +105,7 @@
                                 <tr>
                                     <td><fmt:message key="ChoosePatient.textBox"/></td>
                                     <td><input type="text" name="surname" size="16" maxlength="16"
-                                               value="<c:out value='${requestScope.searchSurname}'/>" />
+                                               value="<carlos:encode value='${requestScope.searchSurname}' context='htmlAttribute'/>" />
                                     </td>
                                     <td><input type="submit" name="submit" value="Search" class="ControlPushButton"/></td>
                                 </tr>
@@ -145,10 +146,10 @@
                                             <c:param name="demographicNo" value="${patient.demographicNo}"/>
                                         </c:url>
                                         <tr>
-                                            <td><a href="${choosePatientUrl}"><c:out value="${patient.surname}"/>, <c:out value="${patient.firstName}"/></a></td>
-                                            <td><c:out value="${patient.sex}"/></td>
-                                            <td><c:out value="${patient.age}"/></td>
-                                            <td><c:out value="${patient.chartNo}"/></td>
+                                            <td><a href="${choosePatientUrl}"><carlos:encode value="${patient.surname}" context="html"/>, <carlos:encode value="${patient.firstName}" context="html"/></a></td>
+                                            <td><carlos:encode value="${patient.sex}" context="html"/></td>
+                                            <td><carlos:encode value="${patient.age}" context="html"/></td>
+                                            <td><carlos:encode value="${patient.chartNo}" context="html"/></td>
                                         </tr>
                                     </c:forEach>
                                 </table>

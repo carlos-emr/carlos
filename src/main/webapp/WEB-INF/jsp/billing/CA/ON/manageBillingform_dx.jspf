@@ -1,121 +1,76 @@
-<!--  
-/*
- * 
- * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved. *
- * This software is published under the GPL GNU General Public License. 
- * This program is free software; you can redistribute it and/or 
- * modify it under the terms of the GNU General Public License 
- * as published by the Free Software Foundation; either version 2 
- * of the License, or (at your option) any later version. * 
- * This program is distributed in the hope that it will be useful, 
- * but WITHOUT ANY WARRANTY; without even the implied warranty of 
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
- * GNU General Public License for more details. * * You should have received a copy of the GNU General Public License 
- * along with this program; if not, write to the Free Software 
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. * 
- * 
- * <OSCAR TEAM>
- * 
- * This software was written for the 
- * Department of Family Medicine 
- * McMaster University 
- * Hamilton 
- * Ontario, Canada 
- */
--->
+<%--
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
 
-<%@page import="java.util.List" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.CtlDiagCode" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlDiagCodeDao" %>
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    CARLOS EMR Project
+    https://github.com/carlos-emr/carlos
+--%>
+<%--
+  Fragment role: Provides the `manageBillingform_dx.jspf` include for the Ontario billing workflow.
+  The caller owns request setup; keep data access in Java assemblers/services
+  and use CARLOS encoding helpers for dynamic output rendered here.
+--%>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <form method="post" name="form1" action="DbManageBillingformDx">
 <table width="75%" border="0" cellpadding="3" bgcolor="#9999CC">
 	<tr>
-
-
-
-		<% 
-
-    String[] service_code = new String[45];
-
-    
-  for(int j=0; j<45;j++){
-  service_code[j] = "";
-
-  } 
- 
-  List<CtlDiagCode> cdcs = ctlDiagCodeDao.findByServiceType(request.getParameter("billingform"));
- 
-int rCount = 0;
-  boolean bodd=false;
-  
- 
-  String servicetype_name="";
-  if(cdcs==null) {
-   out.println("failed!!!"); 
-  } else {
-  %>
-		<% 
-   for (CtlDiagCode cdc : cdcs) {
-     
-      bodd=bodd?false:true; //for the color of rows
-        service_code[rCount] = cdc.getDiagnosticCode();
-     
-      rCount = rCount + 1;
-   }
- }          
-  %>
 		<td>
 		<table width="100%" border="0">
-
-			<% for(int k=0; k<15;k++){ %>
+		    <c:forEach var="slot" items="${manageBillingformModel.dxCodes}" begin="0" end="14">
 			<tr>
-				<td><input type="text" name="diagcode<%=k%>"
-					value="<carlos:encode value='<%= StringUtils.noNull(service_code[k]) %>' context="htmlAttribute"/>" size="10"
+				<td><input type="text" name="diagcode<carlos:encode value='${slot.index}' context='htmlAttribute'/>"
+					value="<carlos:encode value='${slot.code}' context='htmlAttribute'/>" size="10"
 					style="font-size: 8pt; text-align: right; vertical-align: bottom"></td>
 			</tr>
-			<% } %>
+		    </c:forEach>
 		</table>
 		</td>
 		<td>
 		<table width="100%" border="0">
-
-			<% for(int k0=15; k0<30;k0++){ %>
+		    <c:forEach var="slot" items="${manageBillingformModel.dxCodes}" begin="15" end="29">
 			<tr>
-				<td><input type="text" name="diagcode<%=k0%>"
-					value="<carlos:encode value='<%= StringUtils.noNull(service_code[k0]) %>' context="htmlAttribute"/>" size="10"
+				<td><input type="text" name="diagcode<carlos:encode value='${slot.index}' context='htmlAttribute'/>"
+					value="<carlos:encode value='${slot.code}' context='htmlAttribute'/>" size="10"
 					style="font-size: 8pt; text-align: right; vertical-align: bottom"></td>
 			</tr>
-			<% } %>
+		    </c:forEach>
 		</table>
 		</td>
 		<td>
 		<table width="100%" border="0">
-
-			<% for(int k1=30; k1<45;k1++){ %>
+		    <c:forEach var="slot" items="${manageBillingformModel.dxCodes}" begin="30" end="44">
 			<tr>
-				<td><input type="text" name="diagcode<%=k1%>"
-					value="<carlos:encode value='<%= StringUtils.noNull(service_code[k1]) %>' context="htmlAttribute"/>" size="10"
+				<td><input type="text" name="diagcode<carlos:encode value='${slot.index}' context='htmlAttribute'/>"
+					value="<carlos:encode value='${slot.code}' context='htmlAttribute'/>" size="10"
 					style="font-size: 8pt; text-align: right; vertical-align: bottom"></td>
 			</tr>
-			<% } %>
+		    </c:forEach>
 		</table>
 		</td>
-		<%  
-
-%>
-
-
 	</tr>
 	<tr>
 		<td colspan="3"><input type="submit" name="submit"
 			value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingform_service.btnUpdate"/>"><input
 			type="hidden" name="typeid"
-			value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("billingform")) %>' context="htmlAttribute"/>"></td>
+			value="<carlos:encode value='${manageBillingformModel.clinicView}' context="htmlAttribute"/>"></td>
 	</tr>
 </table>
 </form>

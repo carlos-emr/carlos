@@ -302,6 +302,10 @@ jobs:
         uses: actions/checkout@v4
       - name: Run encoder null-safety lint
         run: bash scripts/lint/check-encoder-null-safety.sh
+      - name: Run encoder null-safety lint fixtures
+        run: bash scripts/lint/test-encoder-null-safety.sh
+      - name: Run billing JSP size lint
+        run: bash scripts/lint/check-jsp-size.sh
 
   jspc:
     needs: build

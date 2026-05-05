@@ -34,7 +34,6 @@ import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.utility.*;
 import org.apache.struts2.ActionSupport;
-import io.github.carlos_emr.carlos.model.security.LdapSecurity;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.logging.log4j.Logger;
@@ -1107,21 +1106,9 @@ public final class Login2Action extends ActionSupport {
     /**
      * Retrieves the Security record for a given username.
      *
-     * <p>This method looks up the user's security record from the database and
-     * wraps it with LDAP authentication support if LDAP is enabled in the system
-     * configuration.
-     *
-     * <p>LDAP integration: If LDAP authentication is enabled via
-     * {@link CarlosProperties#isLdapAuthenticationEnabled()}, the returned Security
-     * object is wrapped in a {@link LdapSecurity} adapter that delegates password
-     * validation to the LDAP server while maintaining the local Security record
-     * for session management.
-     *
      * @param username String the username to look up (must match security.user_name column)
-     * @return Security the user's security record, wrapped in LdapSecurity if LDAP is enabled,
-     *         or null if no matching user found
+     * @return Security the user's security record, or null if no matching user found
      * @see SecurityDao#findByUserName for database lookup
-     * @see LdapSecurity for LDAP authentication adapter
      */
     private Security getSecurity(String username) {
 
@@ -1129,14 +1116,6 @@ public final class Login2Action extends ActionSupport {
         Security security = null;
         if (results.size() > 0)
             security = results.get(0);
-
-        if (security == null) {
-            return null;
-        }
-        // Wrap with LDAP authentication support if LDAP is enabled
-        else if (CarlosProperties.isLdapAuthenticationEnabled()) {
-            security = new LdapSecurity(security);
-        }
 
         return security;
     }

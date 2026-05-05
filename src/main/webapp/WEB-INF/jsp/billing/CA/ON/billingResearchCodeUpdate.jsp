@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,21 +17,30 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
-<%
-    String curUser_no = (String) session.getAttribute("user");
-
-%>
-<%@ page import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%--
+  Purpose: Supports billingResearchCodeUpdate in the Ontario billing workflow.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
+--%>
+<%--
+    billingResearchCodeUpdate.jsp (view) - Ontario billing research-code popup.
+    Receives `code_*` checkboxes from billingONShortcut.jsp, has the
+    BillingResearchCodeUpdate2Action upstream collect them into three
+    request-scoped slots, then injects those values back into the opener's
+    serviceform via a small JS handler. _billing w + POST-only is enforced
+    by the action gate.
+    @since 2006
+--%>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <html>
 <head>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
     <title>Billing Summary</title>
     <script LANGUAGE="JavaScript">
         <!--
@@ -47,48 +57,20 @@
 
 </head>
 <body>
-<%
-    String temp = "";
-    String[] param = new String[10];
-    param[0] = "";
-    param[1] = "";
-    param[2] = "";
+<c:choose>
+    <c:when test="${researchCodeCount == 0}">
+        <p>No input selected</p>
+        <input type="button" name="back" value="back"
+               onClick="javascript:history.go(-1);return false;">
+    </c:when>
+    <c:otherwise>
+        <script LANGUAGE="JavaScript">
+            <!--
+            CodeAttach('<carlos:encode value="${researchCode0}" context="javaScript"/>', '<carlos:encode value="${researchCode1}" context="javaScript"/>', '<carlos:encode value="${researchCode2}" context="javaScript"/>');
+            -->
 
-    int Count = 0;
-
-    for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
-        temp = e.nextElement().toString();
-        if (temp.indexOf("code_") == -1) continue;
-        param[Count] = temp.substring(5).toUpperCase();
-        Count = Count + 1;
-
-    }
-
-    if (Count == 1) {
-        param[1] = "";
-        param[2] = "";
-    }
-    if (Count == 2) {
-        param[2] = "";
-
-    }
-
-    if (Count == 0) {
-%>
-<p>No input selected</p>
-<input type="button" name="back" value="back"
-       onClick="javascript:history.go(-1);return false;">
-<%
-} else {
-%>
-<script LANGUAGE="JavaScript">
-    <!--
-    CodeAttach('<%=param[0]%>', '<%=param[1]%>', '<%=param[2]%>');
-    -->
-
-</script>
-<%
-    }
-%>
+        </script>
+    </c:otherwise>
+</c:choose>
 </body>
 </html>

@@ -124,7 +124,22 @@ public class UtilDateUtilities {
         return calcAgeAtDate(DOB, new GregorianCalendar().getTime());
     }
 
-
+    /**
+     * Calculates a localized human-readable age string for a patient based on their date of birth.
+     * This method delegates to {@link #calcAgeAtDate(Date, Date, Locale)} using the current date
+     * as the point in time for the age calculation.
+     *
+     * @param DOB    Date the patient's date of birth. If null, returns null.
+     * @param dlocal Locale the locale used for formatting and localized output of the age string.
+     *               If null, the JVM's default locale will be used.
+     * @return String localized human-readable age string (e.g., "2 months", "4 years", "3 weeks"),
+     *         or "Not born" if the current date is before the birth date, or null if DOB is null
+     * @since 2026-04-28
+     */
+    public static String calcAge(Date DOB, Locale dlocal) {
+        return calcAgeAtDate(DOB, new GregorianCalendar().getTime(), dlocal);
+    }
+    
     /**
      * This returns the Patients Age string at a point in time.  IE. How old the patient will be right now or how old will they be on march.31 of this year.
      *
@@ -133,11 +148,30 @@ public class UtilDateUtilities {
      * @return age string ( ie 2 months, 4 years .etc )
      */
     public static String calcAgeAtDate(Date DOB, Date pointInTime) {
-        if (DOB == null) return (null);
+        Locale dlocal = Locale.getDefault(); // this is the Locale of the JVM not necessarily the browser
+        return calcAgeAtDate(DOB, pointInTime, dlocal);
+    }
 
+    /**
+     * This returns the Patients Age string at a point in time.  IE. How old the patient will be right now or how old will they be on march.31 of this year.
+     *
+     * @param DOB         Demographics Date of birth
+     * @param pointInTime The date you would like to calculate there age at.
+     * @param dlocal      The Locale to use for i18n output.
+     * @return age string ( ie 2 months, 4 years .etc )
+     * @throws IllegalArgumentException if pointInTime is null
+     */
+    public static String calcAgeAtDate(Date DOB, Date pointInTime, Locale dlocal) {
+        if (pointInTime == null) {
+            throw new IllegalArgumentException("pointInTime must not be null");
+        }
+        if (DOB == null) return (null);
+        Locale resolvedLocale = dlocal != null ? dlocal : Locale.getDefault();
+        ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", resolvedLocale);
+        
         // If as of date is before birth, return "Not born"
         if (pointInTime.before(DOB)) {
-            return ResourceBundle.getBundle("oscarResources").getString("global.notBorn");
+            return bundle.getString("global.notBorn");
         }
 
         GregorianCalendar now = new GregorianCalendar();
@@ -153,16 +187,14 @@ public class UtilDateUtilities {
         int birthDay = birthDate.get(5);
 
         int ageInYears = curYear - birthYear;
-        String result = ageInYears + " " + ResourceBundle.getBundle("oscarResources_en").getString("global.years");
-
-
-        if (curMonth > birthMonth || curMonth == birthMonth && curDay >= birthDay) {
+        
+        if (curMonth > birthMonth || (curMonth == birthMonth && curDay >= birthDay)) {
             ageInYears = curYear - birthYear;
-            result = ageInYears + " " + ResourceBundle.getBundle("oscarResources_en").getString("global.years");
         } else {
             ageInYears = curYear - birthYear - 1;
-            result = ageInYears + " " + ResourceBundle.getBundle("oscarResources_en").getString("global.years");
         }
+        String result = ageInYears + " " + bundle.getString("global.years");
+
         if (ageInYears < 2) {
             int yearDiff = curYear - birthYear;
             int ageInDays;
@@ -174,11 +206,11 @@ public class UtilDateUtilities {
                 ageInDays = now.get(Calendar.DAY_OF_YEAR) - birthDate.get(Calendar.DAY_OF_YEAR);
             }
             if (ageInDays / 7 > 9) {
-                result = ageInDays / 30 + " " + ResourceBundle.getBundle("oscarResources_en").getString("global.months");
+                result = ageInDays / 30 + " " + bundle.getString("global.months");
             } else if (ageInDays >= 14) {
-                result = ageInDays / 7 + " " + ResourceBundle.getBundle("oscarResources_en").getString("global.weeks");
+                result = ageInDays / 7 + " " + bundle.getString("global.weeks");
             } else {
-                result = ageInDays + " " + ResourceBundle.getBundle("oscarResources_en").getString("global.days");
+                result = ageInDays + " " + bundle.getString("global.days");
             }
         }
         return result;

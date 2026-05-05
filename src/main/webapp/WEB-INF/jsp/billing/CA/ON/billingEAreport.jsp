@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,25 +17,26 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
+--%>
+<%--
+  Purpose: Supports billingEAreport in the Ontario billing workflow.
+  Keep request setup in the paired action and use CARLOS encoding helpers
+  for dynamic output rendered by the page.
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <html>
     <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
         <title>Billing Reconcilliation</title>
-        <link rel="stylesheet" href="<%= request.getContextPath() %>/billing.css">
-        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
+        <link rel="stylesheet" href="${pageContext.request.contextPath}/billing.css">
+        <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/share/css/extractedFromPages.css"/>
     </head>
 
     <body class="BodyStyle">
@@ -220,6 +222,22 @@
         </c:if>
 
 
+        <c:if test="${not empty obecApplyResult and (obecApplyResult.skippedCount gt 0 or not empty obecApplyResult.reasons)}">
+            <tr>
+                <td colspan="11" class="alert">
+                    OBEC output apply skipped ${carlos:forHtml(obecApplyResult.skippedCount)} row(s);
+                    ${carlos:forHtml(obecApplyResult.appliedCount)} demographic record(s) were updated.
+                    <c:if test="${not empty obecApplyResult.reasons}">
+                        <ul>
+                            <c:forEach var="reason" items="${obecApplyResult.reasons}">
+                                <li>${carlos:forHtml(reason)}</li>
+                            </c:forEach>
+                        </ul>
+                    </c:if>
+                </td>
+            </tr>
+        </c:if>
+
         <c:if test="${not empty outputSpecs}">
             <tr>
                 <td class="fieldName" width="8%">Health #</td>
@@ -234,7 +252,7 @@
                 <td class="fieldName" width="10%">Second Name</td>
                 <td class="fieldName" width="16%">Reserved for MOH</td>
             </tr>
-            <c:forEach var="outputSpec" items="${outputSpecs.EDTOBECOutputSecifiationBeanVector}">
+            <c:forEach var="outputSpec" items="${outputSpecs.edtObecOutputSpecificationRecords}">
                 <tr>
                     <td class="dataTable" width="8%">${carlos:forHtml(outputSpec.healthNo)}</td>
                     <td class="dataTable" width="3%">${carlos:forHtml(outputSpec.version)}</td>

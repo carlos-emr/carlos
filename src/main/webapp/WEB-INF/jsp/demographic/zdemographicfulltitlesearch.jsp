@@ -322,7 +322,7 @@
                    placeholder="<fmt:message key="demographic.zdemographicfulltitlesearch.msgSearch"/>"
                    NAME="keyword" ID="keyword"
                    aria-label="<fmt:message key="demographic.zdemographicfulltitlesearch.msgSearch"/>"
-                   VALUE="<carlos:encode value='<%= keyWord %>' context="html"/>" SIZE="17" MAXLENGTH="100"
+                   VALUE="<carlos:encode value='<%= keyWord %>' context="htmlAttribute"/>" SIZE="17" MAXLENGTH="100"
                    oninput="if(document.titlesearch.search_mode.value === 'search_dob') formatDateInput(this);"
                    onkeyup="if(document.titlesearch.search_mode.value === 'search_dob') formatDateInput(this);">
 

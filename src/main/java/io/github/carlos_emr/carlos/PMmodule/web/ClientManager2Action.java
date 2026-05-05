@@ -142,12 +142,8 @@ public class ClientManager2Action extends ActionSupport {
             return discharge_community();
         } else if ("discharge_community_select_program".equals(method)) {
             return discharge_community_select_program();
-        } else if ("nested_discharge_community_select_program".equals(method)) {
-            return nested_discharge_community_select_program();
         } else if ("discharge_select_program".equals(method)) {
             return discharge_select_program();
-        } else if ("nested_discharge_select_program".equals(method)) {
-            return nested_discharge_select_program();
         } else if ("getGeneralFormsReport".equals(method)) {
             return getGeneralFormsReport();
         } else if ("edit".equals(method)) {
@@ -302,11 +298,6 @@ public class ClientManager2Action extends ActionSupport {
         return "edit";
     }
 
-    public String nested_discharge_community_select_program() {
-        request.setAttribute("nestedReason", "true");
-        return discharge_community_select_program();
-    }
-
     public String discharge_select_program() {
         String id = request.getParameter("id");
         String admissionId = request.getParameter("admission.id");
@@ -324,13 +315,6 @@ public class ClientManager2Action extends ActionSupport {
             }
         }
 
-        return "edit";
-    }
-
-    public String nested_discharge_select_program() {
-        request.setAttribute("nestedReason", "true");
-        setEditAttributes(request, request.getParameter("id"));
-        request.setAttribute("do_discharge", Boolean.valueOf(true));
         return "edit";
     }
 
@@ -932,7 +916,6 @@ public class ClientManager2Action extends ActionSupport {
             request.setAttribute("temporaryAdmissions", admissionManager.getCurrentTemporaryProgramAdmission(Integer.valueOf(demographicNo)));
             request.setAttribute("current_community_program", admissionManager.getCurrentCommunityProgramAdmission(Integer.valueOf(demographicNo)));
             request.setAttribute("dischargeReasons", lookupManager.LoadCodeList("DRN", true, null, null));
-            request.setAttribute("dischargeReasons2", ""/*lookupManager.LoadCodeList("DR2", true, null, null)*/);
         }
 
         /* Relations */
