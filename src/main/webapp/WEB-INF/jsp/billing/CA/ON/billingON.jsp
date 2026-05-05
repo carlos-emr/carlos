@@ -893,7 +893,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                 <div class="alert">Inpatient admission date is temporarily unavailable.</div>
                             </c:if>
                         </td>
-                        <td style="text-align: center;"><carlos:encode value="${formModel.display.displayMessage}" context="html"/>
+                        <td style="text-align: center;">
                         </td>
                     </tr>
                 </table>
@@ -905,10 +905,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                             >
                                 <tr>
                                     <td colspan="2"><fmt:message key="oscar.billing.ca.on.billingON.specialistBilling"/>
-                                        &nbsp;&nbsp;&nbsp;&nbsp; <a href="javascript:void(0);"
-                                                                    title="<fmt:message key="oscar.billing.ca.on.billingON.instructionTitle"/>"
-                                                                    onClick="showHideBox('Instrdiv',1);return false;"><fmt:message key="oscar.billing.ca.on.billingON.instruction"/>
-                                        </a>
+                                        &nbsp;&nbsp;&nbsp;&nbsp; <fmt:message key="oscar.billing.ca.on.billingON.defaultUnitAt"/>
                                     </td>
                                     <td style="vertical-align:top" rowspan="2">
                                         <table
