@@ -66,6 +66,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
 
@@ -174,6 +175,7 @@ public class TicklerManagerImpl implements TicklerManager {
     }
 
     @Override
+    @Transactional
     public boolean updateTickler(LoggedInInfo loggedInInfo, Tickler tickler) {
         checkPrivilege(loggedInInfo, PRIVILEGE_UPDATE);
 
@@ -348,7 +350,7 @@ public class TicklerManagerImpl implements TicklerManager {
             // if this providers wrote the tickler, they should see it..doesn't matter
             // about the role based access
             if (!add) {
-                if (t.getProvider().getProviderNo().equals(providerNo)) {
+                if (providerNo.equals(t.getCreator())) {
                     add = true;
                 }
 
@@ -436,6 +438,7 @@ public class TicklerManagerImpl implements TicklerManager {
     }
 
     @Override
+    @Transactional
     public void reassign(LoggedInInfo loggedInInfo, Integer tickler_id, String provider, String task_assigned_to) {
         checkPrivilege(loggedInInfo, PRIVILEGE_UPDATE);
 

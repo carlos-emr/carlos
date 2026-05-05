@@ -86,8 +86,18 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
 
     @Override
     public Tickler find(Integer id) {
-        Tickler tickler = super.find(id);
-        tickler.getUpdates().size();
+        Query query = entityManager.createQuery(
+                "select distinct t from Tickler t "
+                        + "left join fetch t.comments "
+                        + "left join fetch t.demographic "
+                        + "left join fetch t.provider "
+                        + "left join fetch t.assignee "
+                        + "where t.id = ?1");
+        query.setParameter(1, id);
+        Tickler tickler = getSingleResultOrNull(query);
+        if (tickler != null) {
+            tickler.getUpdates().size();
+        }
         return tickler;
     }
 

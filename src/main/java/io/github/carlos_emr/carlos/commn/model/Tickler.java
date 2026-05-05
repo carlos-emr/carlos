@@ -116,7 +116,7 @@ public class Tickler extends AbstractModel<Integer> {
     @Column(name = "category_id")
     private Integer categoryId;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", referencedColumnName = "id", insertable = false, updatable = false)
     @NotFound(action = NotFoundAction.IGNORE)
     @Fetch(FetchMode.SELECT)
@@ -126,7 +126,7 @@ public class Tickler extends AbstractModel<Integer> {
     @JoinColumn(name = "tickler_no", referencedColumnName = "tickler_no")
     private Set<TicklerUpdate> updates = new HashSet<TicklerUpdate>();
 
-    @OneToMany(fetch = FetchType.EAGER)
+    @OneToMany(fetch = FetchType.LAZY)
     @JoinColumn(name = "tickler_no", referencedColumnName = "tickler_no")
     @OrderBy("updateDate ASC")
     @Fetch(FetchMode.SELECT)
@@ -134,26 +134,26 @@ public class Tickler extends AbstractModel<Integer> {
     private Set<TicklerComment> comments = new HashSet<TicklerComment>();
 
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "demographic_no", referencedColumnName = "demographic_no", insertable = false, updatable = false)
     @NotFound(action = NotFoundAction.IGNORE)
     @Fetch(FetchMode.SELECT)
     private Demographic demographic;
 
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "creator", referencedColumnName = "provider_no", insertable = false, updatable = false)
     @NotFound(action = NotFoundAction.IGNORE)
     @Fetch(FetchMode.SELECT)
     private Provider provider;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "task_assigned_to", referencedColumnName = "provider_no", insertable = false, updatable = false)
     @NotFound(action = NotFoundAction.IGNORE)
     @Fetch(FetchMode.SELECT)
     private Provider assignee;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "program_id", referencedColumnName = "id", insertable = false, updatable = false)
     @NotFound(action = NotFoundAction.IGNORE)
     @Fetch(FetchMode.SELECT)
@@ -622,4 +622,3 @@ public class Tickler extends AbstractModel<Integer> {
     }
 
 }
-
