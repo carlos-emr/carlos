@@ -713,6 +713,9 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
     /**
      * Resolves the filesystem-backed content from Struts' upload abstraction.
+     * CARLOS requires file-backed Struts uploads here so {@link PathValidationUtils}
+     * can canonicalize the temp file and enforce allowed upload-source directories
+     * before any file content is read.
      *
      * @param uploadedFile UploadedFile the selected Struts upload
      * @return File the upload content file to validate
@@ -723,19 +726,20 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             return uploadFile;
         }
 
-        String contentType = content == null ? "null" : content.getClass().getName();
-        throw new SecurityException("Uploaded content must be file-backed, found: " + contentType);
+        throw new SecurityException("Uploaded content must be file-backed");
     }
 
     /**
      * Opens a stream for a previously validated upload file.
+     * This private helper is only called with {@link PathValidationUtils#validateUpload(File)}
+     * results, which enforce canonical containment in allowed upload-source directories.
      *
      * @param validatedUpload File returned by {@link PathValidationUtils#validateUpload(File)}
      * @return InputStream for the upload content
      * @throws IOException if the stream cannot be opened
      */
     private InputStream openValidatedUploadInputStream(File validatedUpload) throws IOException {
-        return FileUtils.openInputStream(validatedUpload); // codeql[java/path-injection] -- private method only called with PathValidationUtils.validateUpload() results which enforce containment checks
+        return FileUtils.openInputStream(validatedUpload); // codeql[java/path-injection]
     }
 
     /**
