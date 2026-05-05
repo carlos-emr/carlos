@@ -12,10 +12,11 @@
     @since 2026-04-13
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <!DOCTYPE html>
-<html lang="${pageContext.request.locale.language}">
+<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
 <head>
     <meta charset="UTF-8">
     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
