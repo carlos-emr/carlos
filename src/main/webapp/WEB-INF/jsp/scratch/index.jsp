@@ -37,10 +37,12 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.DateUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar"%>
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite"%>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<c:url var="scratchUrl" value="/Scratch"/>
 
 <%
   String user_no = (String) request.getSession().getAttribute("user");
@@ -75,9 +77,8 @@
         let saveTimeout = null;
         let currentText = "";
         let lastSavedText = "";
-		const contextPath = "<carlos:encode value='<%= request.getContextPath() %>' context="javaScript"/>";
         const scratchFormId = 'scratch';
-        const scratchSaveUrl = contextPath + "/Scratch";
+        const scratchSaveUrl = "<carlos:encode value="${scratchUrl}" context="javaScript"/>";
 
         function setDirty(){
             dirty = true;
@@ -337,7 +338,7 @@
 		        console.warn('showVersion: invalid or non-numeric id, ignoring.');
 		        return;
 	        }
-	        let url = contextPath + "/Scratch?method=showVersion&id=" + numId;
+	        let url = scratchSaveUrl + "?method=showVersion&id=" + numId;
 	        let win = window.open(url, "scratchPadVersion", "width=" +window.innerWidth+ ",height=" +window.innerHeight+ ",toolbar=no, scrollbars=yes");
 	        if (win) {
 		        win.focus();
@@ -457,7 +458,7 @@
 	    </td>
 
 		<td class="MainTableRightColumn" id="mainRight">
-		<form id="scratch" action="<carlos:encode value='<%= request.getContextPath() %>' context="htmlAttribute"/>/Scratch" method="post">
+		<form id="scratch" action="<carlos:encode value="${scratchUrl}" context="htmlAttribute"/>" method="post">
             <input type="hidden" name="id" id="curr_id" value="<carlos:encode value='<%= id %>' context="htmlAttribute"/>" />
             <input type="hidden" name="windowId" id="windowId" value="<%=String.valueOf(System.nanoTime())%>" />
             <input type="hidden" name="dirty" value=false id="dirty" />

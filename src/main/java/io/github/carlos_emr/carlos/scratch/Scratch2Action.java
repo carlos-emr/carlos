@@ -72,14 +72,15 @@ public class Scratch2Action extends JSONAction {
     public String execute() throws Exception {
 
         String method = request.getParameter("method");
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        if ("POST".equalsIgnoreCase(request.getMethod())) {
+            if ("delete".equals(method)) {
+                return delete();
+            }
+        } else {
             if ("showVersion".equals(method)) {
                 return showVersion();
             }
             return SUCCESS;
-        }
-        if ("delete".equals(method)) {
-            return delete();
         }
 
         String providerNo =  (String) request.getSession().getAttribute("user");
