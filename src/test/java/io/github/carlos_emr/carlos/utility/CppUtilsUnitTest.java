@@ -25,36 +25,48 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("clinical")
 class CppUtilsUnitTest {
 
+    private static final String[] DEFAULT_CPP_CODES = {
+            "OMeds", "SocHistory", "MedHistory", "Concerns",
+            "FamHistory", "Reminders", "RiskFactors",
+            "OcularMedication", "TicklerNote", "ExternalNote"
+    };
+
+    @BeforeEach
+    void setUp() {
+        CppUtils.cppCodes = Arrays.copyOf(DEFAULT_CPP_CODES, DEFAULT_CPP_CODES.length);
+    }
+
+    @AfterEach
+    void tearDown() {
+        CppUtils.cppCodes = Arrays.copyOf(DEFAULT_CPP_CODES, DEFAULT_CPP_CODES.length);
+    }
+
     @Nested
     @DisplayName("cppCodes default values")
     class DefaultValues {
 
         @Test
         @DisplayName("should contain OMeds code")
-        void shouldContainOMeds() {
+        void shouldContainOMeds_forDefaultCodes() {
             assertThat(Arrays.asList(CppUtils.cppCodes)).contains("OMeds");
         }
 
         @Test
         @DisplayName("should contain SocHistory code")
-        void shouldContainSocHistory() {
+        void shouldContainSocHistory_forDefaultCodes() {
             assertThat(Arrays.asList(CppUtils.cppCodes)).contains("SocHistory");
         }
 
         @Test
         @DisplayName("should contain MedHistory code")
-        void shouldContainMedHistory() {
+        void shouldContainMedHistory_forDefaultCodes() {
             assertThat(Arrays.asList(CppUtils.cppCodes)).contains("MedHistory");
         }
 
         @Test
         @DisplayName("should contain all 10 default CPP codes")
-        void shouldContainAllDefaultCodes() {
-            assertThat(CppUtils.cppCodes).contains(
-                    "OMeds", "SocHistory", "MedHistory", "Concerns",
-                    "FamHistory", "Reminders", "RiskFactors",
-                    "OcularMedication", "TicklerNote", "ExternalNote"
-            );
+        void shouldContainAllDefaultCodes_forDefaultCodes() {
+            assertThat(CppUtils.cppCodes).contains(DEFAULT_CPP_CODES);
         }
     }
 
@@ -64,7 +76,7 @@ class CppUtilsUnitTest {
 
         @Test
         @DisplayName("should append new code to array")
-        void shouldAppendNewCode() {
+        void shouldAppendNewCode_toArray() {
             int originalLength = CppUtils.cppCodes.length;
             CppUtils.addCppCode("TestCode");
             assertThat(CppUtils.cppCodes).hasSize(originalLength + 1);

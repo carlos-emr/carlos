@@ -8,10 +8,12 @@
 package io.github.carlos_emr.carlos.util;
 
 import org.junit.jupiter.api.*;
-import java.io.File;
+import org.junit.jupiter.api.io.TempDir;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+
 import static org.assertj.core.api.Assertions.*;
 
 /**
@@ -23,29 +25,27 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("unit") @Tag("fast") @Tag("utility")
 class FileSortByDateUnitTest {
 
-    private FileSortByDate sorter = new FileSortByDate();
+    @TempDir
+    private Path tempDir;
+
+    private final FileSortByDate sorter = new FileSortByDate();
 
     @Test
     @DisplayName("should return negative when first file is newer")
     void shouldReturnNegative_whenFirstNewer() throws IOException {
-        Path older = Files.createTempFile("old", ".txt");
-        Thread.yield();
-        Path newer = Files.createTempFile("new", ".txt");
+        Path older = Files.createFile(tempDir.resolve("old.txt"));
+        Path newer = Files.createFile(tempDir.resolve("new.txt"));
         newer.toFile().setLastModified(System.currentTimeMillis() + 1000);
 
         int result = sorter.compare(newer.toFile(), older.toFile());
-        assertThat(result).isLessThanOrEqualTo(0);
-
-        Files.deleteIfExists(older);
-        Files.deleteIfExists(newer);
+        assertThat(result).isNegative();
     }
 
     @Test
     @DisplayName("should return zero for same file")
     void shouldReturnZero_forSameFile() throws IOException {
-        Path file = Files.createTempFile("same", ".txt");
+        Path file = Files.createFile(tempDir.resolve("same.txt"));
         int result = sorter.compare(file.toFile(), file.toFile());
         assertThat(result).isZero();
-        Files.deleteIfExists(file);
     }
 }

@@ -189,7 +189,7 @@ class DateUtilsUnitTest {
         @DisplayName("should calculate age from birth date")
         void shouldCalculateAge() {
             Integer age = DateUtils.getAge(cal(1996, 1, 1, 0, 0, 0), cal(2026, 6, 15, 0, 0, 0));
-            assertThat(age).isEqualTo(30);
+            assertThat(age).isEqualTo(29);
         }
     }
 

@@ -9,6 +9,11 @@ package io.github.carlos_emr.carlos.utility;
 
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
 import org.junit.jupiter.api.*;
+
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+
 import static org.assertj.core.api.Assertions.*;
 
 /**
@@ -29,19 +34,25 @@ class QrCodeUtilsUnitTest {
     }
 
     @Test
-    @DisplayName("should generate PNG with different error correction levels")
+    @DisplayName("should generate valid PNGs with different error correction levels")
     void shouldGeneratePng_withDifferentErrorLevels() throws Exception {
         byte[] pngL = QrCodeUtils.toSingleQrCodePng("test", ErrorCorrectionLevel.L, 4);
         byte[] pngH = QrCodeUtils.toSingleQrCodePng("test", ErrorCorrectionLevel.H, 4);
-        assertThat(pngL).isNotNull();
-        assertThat(pngH).isNotNull();
-        // Higher error correction produces larger images
-        assertThat(pngH.length).isGreaterThanOrEqualTo(pngL.length);
+
+        assertThat(pngL).startsWith((byte) 0x89, (byte) 'P', (byte) 'N', (byte) 'G');
+        assertThat(pngH).startsWith((byte) 0x89, (byte) 'P', (byte) 'N', (byte) 'G');
+
+        BufferedImage imageL = ImageIO.read(new ByteArrayInputStream(pngL));
+        BufferedImage imageH = ImageIO.read(new ByteArrayInputStream(pngH));
+        assertThat(imageL).isNotNull();
+        assertThat(imageH).isNotNull();
+        assertThat(imageH.getWidth()).isEqualTo(imageL.getWidth());
+        assertThat(imageH.getHeight()).isEqualTo(imageL.getHeight());
     }
 
     @Test
     @DisplayName("should generate valid PNG header bytes")
-    void shouldGenerateValidPngHeader() throws Exception {
+    void shouldGenerateValidPngHeader_forGeneratedPng() throws Exception {
         byte[] png = QrCodeUtils.toSingleQrCodePng("test", ErrorCorrectionLevel.M, 4);
         // PNG magic number: 0x89 0x50 0x4E 0x47
         assertThat(png[0] & 0xFF).isEqualTo(0x89);
@@ -52,7 +63,7 @@ class QrCodeUtilsUnitTest {
 
     @Test
     @DisplayName("should handle empty content")
-    void shouldHandleEmptyContent() throws Exception {
+    void shouldHandleEmptyContent_forEmptyContent() throws Exception {
         byte[] png = QrCodeUtils.toSingleQrCodePng("", ErrorCorrectionLevel.M, 4);
         assertThat(png).isNotNull();
     }

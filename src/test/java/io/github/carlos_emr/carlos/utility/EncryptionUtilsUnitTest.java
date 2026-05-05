@@ -21,6 +21,7 @@
 package io.github.carlos_emr.carlos.utility;
 
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -44,6 +45,20 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("utility")
 @Tag("security")
 class EncryptionUtilsUnitTest {
+
+    private static final String SECRET_KEY_RESOURCE = "EncryptionUtils.SECRET_KEY_SPEC";
+
+    private SecretKeySpec getSecretKeySpec() throws Exception {
+        Field field = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
+        field.setAccessible(true);
+        return (SecretKeySpec) field.get(null);
+    }
+
+    private void setSecretKeySpec(SecretKeySpec keySpec) throws Exception {
+        Field field = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
+        field.setAccessible(true);
+        field.set(null, keySpec);
+    }
 
     // -----------------------------------------------------------------------
     // Password hashing (delegates to PasswordHashHelper)
@@ -169,26 +184,23 @@ class EncryptionUtilsUnitTest {
     // -----------------------------------------------------------------------
 
     @Nested
+    @ResourceLock(SECRET_KEY_RESOURCE)
     @DisplayName("AES-GCM string encryption")
     class AesGcmStringEncryption {
 
+        private SecretKeySpec originalSecretKeySpec;
+
         @BeforeEach
         void setUpSecretKey() throws Exception {
-            // Generate and set SECRET_KEY_SPEC via reflection
+            originalSecretKeySpec = getSecretKeySpec();
             String base64Key = EncryptionUtils.generateSecretKey();
             byte[] keyBytes = Base64.getDecoder().decode(base64Key);
-            SecretKeySpec keySpec = new SecretKeySpec(keyBytes, "AES");
-
-            Field field = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
-            field.setAccessible(true);
-            field.set(null, keySpec);
+            setSecretKeySpec(new SecretKeySpec(keyBytes, "AES"));
         }
 
         @AfterEach
-        void clearSecretKey() throws Exception {
-            Field field = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
-            field.setAccessible(true);
-            field.set(null, null);
+        void restoreSecretKey() throws Exception {
+            setSecretKeySpec(originalSecretKeySpec);
         }
 
         @Test
@@ -252,14 +264,21 @@ class EncryptionUtilsUnitTest {
     // -----------------------------------------------------------------------
 
     @Nested
+    @ResourceLock(SECRET_KEY_RESOURCE)
     @DisplayName("AES-GCM without secret key")
     class AesGcmWithoutKey {
 
+        private SecretKeySpec originalSecretKeySpec;
+
         @BeforeEach
         void clearSecretKey() throws Exception {
-            Field field = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
-            field.setAccessible(true);
-            field.set(null, null);
+            originalSecretKeySpec = getSecretKeySpec();
+            setSecretKeySpec(null);
+        }
+
+        @AfterEach
+        void restoreSecretKey() throws Exception {
+            setSecretKeySpec(originalSecretKeySpec);
         }
 
         @Test

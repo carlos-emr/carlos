@@ -11,7 +11,7 @@ import org.junit.jupiter.api.*;
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Unit tests for {@link AppointmentUtil} appointment duration calculation.
+ * Unit tests for {@link AppointmentUtil} appointment lookup guard behavior.
  *
  * @since 2026-03-31
  */
@@ -20,10 +20,8 @@ import static org.assertj.core.api.Assertions.*;
 class AppointmentUtilUnitTest {
 
     @Test
-    @DisplayName("should calculate duration between start and end times")
-    void shouldCalculateDuration() {
-        // AppointmentUtil.calculateDuration uses start_time and end_time strings
-        // Test the static method if accessible
-        assertThat(AppointmentUtil.class).isNotNull();
+    @DisplayName("should return none for non-empty demographic number")
+    void shouldReturnNone_forNonEmptyDemographicNumber() {
+        assertThat(AppointmentUtil.getNextAppointment("12345")).isEqualTo("(none)");
     }
 }

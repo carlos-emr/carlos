@@ -24,7 +24,6 @@ import io.github.carlos_emr.carlos.commn.dao.SecurityArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
-import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.*;
@@ -67,8 +66,6 @@ class SecurityManagerUnitTest extends CarlosUnitTestBase {
     private SecurityManager manager;
     private LoggedInInfo loggedInInfo;
 
-    private MockedStatic<CarlosProperties> carlosPropertiesMock;
-
     @BeforeEach
     void setUp() {
         registerMock(SecurityDao.class, mockSecurityDao);
@@ -81,18 +78,6 @@ class SecurityManagerUnitTest extends CarlosUnitTestBase {
         loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
 
-        // Mock CarlosProperties for password policy checks
-        CarlosProperties mockProperties = mock(CarlosProperties.class);
-        when(mockProperties.getProperty("password.pastPasswordsToNotUse", "0")).thenReturn("0");
-        carlosPropertiesMock = mockStatic(CarlosProperties.class);
-        carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(mockProperties);
-    }
-
-    @AfterEach
-    void tearDown() {
-        if (carlosPropertiesMock != null) {
-            carlosPropertiesMock.close();
-        }
     }
 
     private Security createValidSecurity(Integer id, String providerNo, String userName, String password) {
@@ -213,13 +198,18 @@ class SecurityManagerUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should return false when policy is 0 (disabled)")
         void shouldReturnFalse_whenPolicyDisabled() {
-            // Default mock returns "0" for pastPasswordsToNotUse
+            CarlosProperties mockProperties = mock(CarlosProperties.class);
+            when(mockProperties.getProperty("password.pastPasswordsToNotUse", "0")).thenReturn("0");
             Security sec = createValidSecurity(1, "111", "user1", "currentHash");
             when(mockSecurityDao.getByProviderNo("111")).thenReturn(sec);
 
-            boolean result = manager.checkPasswordAgainstPrevious("newPassword", "111");
+            try (MockedStatic<CarlosProperties> carlosPropertiesMock = mockStatic(CarlosProperties.class)) {
+                carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(mockProperties);
 
-            assertThat(result).isFalse();
+                boolean result = manager.checkPasswordAgainstPrevious("newPassword", "111");
+
+                assertThat(result).isFalse();
+            }
         }
     }
 

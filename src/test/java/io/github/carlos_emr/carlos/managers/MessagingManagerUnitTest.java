@@ -27,7 +27,6 @@ import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.messenger.data.ContactIdentifier;
-import io.github.carlos_emr.carlos.messenger.data.MsgDemoMap;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
