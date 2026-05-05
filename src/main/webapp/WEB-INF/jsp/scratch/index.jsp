@@ -75,9 +75,9 @@
         let saveTimeout = null;
         let currentText = "";
         let lastSavedText = "";
-		const context = "<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptBlock"/>";
+		const contextPath = "<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptBlock"/>";
         const scratchFormId = 'scratch';
-        const scratchSaveUrl = context + "/Scratch";
+        const scratchSaveUrl = contextPath + "/Scratch";
 
         function setDirty(){
             dirty = true;
@@ -114,7 +114,7 @@
             let scratchForm = document.getElementById(scratchFormId);
             if (!scratchForm) {
                 isSaving = false;
-                showErrorMessage('Scratchpad form is not available.');
+                showErrorMessage('Unable to save scratchpad. Please refresh the page and try again.');
                 return;
             }
             let timeoutId = setTimeout(() => {
@@ -337,7 +337,7 @@
 		        console.warn('showVersion: invalid or non-numeric id, ignoring.');
 		        return;
 	        }
-	        let url = context + "/Scratch?method=showVersion&id=" + numId;
+	        let url = contextPath + "/Scratch?method=showVersion&id=" + numId;
 	        let win = window.open(url, "scratchPadVersion", "width=" +window.innerWidth+ ",height=" +window.innerHeight+ ",toolbar=no, scrollbars=yes");
 	        if (win) {
 		        win.focus();

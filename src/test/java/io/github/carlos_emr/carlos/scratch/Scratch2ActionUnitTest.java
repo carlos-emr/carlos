@@ -127,6 +127,13 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(Scratch2Action.isRequestForSessionProvider(" ", null)).isFalse();
     }
 
+    /**
+     * Creates a mocked request with the supplied HTTP method and session provider number.
+     *
+     * @param httpMethod String the HTTP method to expose from the request
+     * @param providerNo String the provider number stored in the mocked session
+     * @return HttpServletRequest mocked request for action execution
+     */
     private HttpServletRequest mockRequest(String httpMethod, String providerNo) {
         HttpServletRequest request = mock(HttpServletRequest.class);
         HttpSession session = mock(HttpSession.class);
@@ -136,6 +143,13 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
         return request;
     }
 
+    /**
+     * Creates a scratch action with mocked servlet request and response dependencies injected.
+     *
+     * @param request HttpServletRequest mocked request to inject
+     * @param response HttpServletResponse mocked response to inject
+     * @return Scratch2Action configured action instance for unit testing
+     */
     private Scratch2Action createAction(HttpServletRequest request, HttpServletResponse response) {
         Scratch2Action action = new Scratch2Action();
         injectDependency(action, "request", request);
