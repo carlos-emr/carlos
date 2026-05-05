@@ -79,10 +79,6 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
         when(mockEctProgramManager.getDefaultProgramId(TEST_PROVIDER)).thenReturn(0);
 
         action = new ImportDemographicDataAction42Action();
-
-        java.lang.reflect.Field secField = ImportDemographicDataAction42Action.class.getDeclaredField("securityInfoManager");
-        secField.setAccessible(true);
-        secField.set(action, mockSecurityInfoManager);
     }
 
     @Test
