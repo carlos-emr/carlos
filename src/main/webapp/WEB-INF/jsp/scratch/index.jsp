@@ -75,7 +75,7 @@
         let saveTimeout = null;
         let currentText = "";
         let lastSavedText = "";
-		const contextPath = "<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptBlock"/>";
+		const contextPath = "<carlos:encode value='<%= request.getContextPath() %>' context="javaScript"/>";
         const scratchFormId = 'scratch';
         const scratchSaveUrl = contextPath + "/Scratch";
 

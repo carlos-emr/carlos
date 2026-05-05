@@ -73,7 +73,7 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should save scratchpad for session user when providerNo request parameter is absent")
-    void shouldSaveScratchpadForSessionUser_whenProviderNoRequestParameterIsAbsent() throws Exception {
+    void shouldSaveScratchpadForSessionUser_whenProviderNoParameterIsAbsent() throws Exception {
         HttpServletRequest request = mockRequest("POST", "999998");
         HttpServletResponse response = mock(HttpServletResponse.class);
         StringWriter json = new StringWriter();
