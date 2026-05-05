@@ -74,6 +74,9 @@ public class Scratch2Action extends JSONAction {
         if ("showVersion".equals(request.getParameter("method"))) {
             return showVersion();
         }
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            return SUCCESS;
+        }
         if ("delete".equals(request.getParameter("method"))) {
             return delete();
         }

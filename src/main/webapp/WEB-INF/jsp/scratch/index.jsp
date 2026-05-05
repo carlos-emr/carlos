@@ -109,7 +109,7 @@
                 return;
             }
             isSaving = true;
-            let url = context + "/Scratch";
+            let url = document.getElementById('scratch').action;
             let timeoutId = setTimeout(() => {
                 // Abort ongoing AJAX request if still pending
                 $.ajaxStop();
@@ -450,8 +450,7 @@
 	    </td>
 
 		<td class="MainTableRightColumn" id="mainRight">
-		<form id="scratch" action="">
-            <input type="hidden" name="providerNo" value="<carlos:encode value='<%= user_no %>' context="htmlAttribute"/>" />
+		<form id="scratch" action="<carlos:encode value='<%= request.getContextPath() %>' context="htmlAttribute"/>/Scratch" method="post">
             <input type="hidden" name="id" id="curr_id" value="<carlos:encode value='<%= id %>' context="htmlAttribute"/>" />
             <input type="hidden" name="windowId" id="windowId" value="<%=String.valueOf(System.nanoTime())%>" />
             <input type="hidden" name="dirty" value=false id="dirty" />
