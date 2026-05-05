@@ -56,7 +56,7 @@ class DemographicEditJspSplitRegressionTest {
 
     @Test
     @DisplayName("should keep legacy JSP target as tiny forward wrapper")
-    void shouldKeepLegacyJspTarget_asTinyForwardWrapper() throws IOException {
+    void shouldKeepLegacyJspSmall_asForwardWrapper() throws IOException {
         String legacyJsp = Files.readString(LEGACY_JSP, StandardCharsets.UTF_8);
 
         assertThat(legacyJsp.lines().count())
@@ -68,7 +68,7 @@ class DemographicEditJspSplitRegressionTest {
 
     @Test
     @DisplayName("should render demographic edit through dynamic JSP fragments")
-    void shouldRenderDemographicEdit_throughDynamicJspFragments() throws IOException {
+    void shouldUseDynamicFragments_inMasterEditPage() throws IOException {
         String masterJsp = Files.readString(MASTER_JSP, StandardCharsets.UTF_8);
 
         assertThat(masterJsp)
