@@ -1244,7 +1244,7 @@ function fetchMeasureHistory(measure) {
         var xmlhttp = new XMLHttpRequest();
         // pathArray was originally used to build newURL; kept for potential future use by callers.
         var pathArray = window.location.pathname.split('/'); void pathArray;
-        var newURL = "..//encounter/oscarMeasurements/SetupDisplayHistory?type=" + encodeURIComponent(measure);
+        var newURL = "../encounter/oscarMeasurements/SetupDisplayHistory?type=" + encodeURIComponent(measure);
         xmlhttp.onreadystatechange = function() {
             if (xmlhttp.readyState == 4) {
                 if (xmlhttp.status == 200) {
