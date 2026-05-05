@@ -29,7 +29,7 @@
 
 --%>
 
-<html lang="${pageContext.request.locale.language}">
+<html lang="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(request.getLocale().getLanguage()) %>">
 
 
 <head>
