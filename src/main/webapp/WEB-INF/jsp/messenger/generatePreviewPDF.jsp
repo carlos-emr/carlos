@@ -83,7 +83,6 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 <fmt:message key="messenger.generatePreviewPDF.information" var="informationLabel"/>
 <fmt:message key="messenger.generatePreviewPDF.encounter" var="encounterLabel"/>
@@ -198,7 +197,7 @@
 %>
 
 <!DOCTYPE html>
-<html lang="${e:forHtmlAttribute(pageContext.request.locale.language)}">
+<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
 <head>
     <meta charset="UTF-8">
     <title>CARLOS - <fmt:message key="messenger.generatePreviewPDF.title"/></title>

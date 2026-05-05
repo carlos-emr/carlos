@@ -54,11 +54,10 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <!DOCTYPE html>
-<html lang="${e:forHtmlAttribute(pageContext.request.locale.language)}">
+<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <%
