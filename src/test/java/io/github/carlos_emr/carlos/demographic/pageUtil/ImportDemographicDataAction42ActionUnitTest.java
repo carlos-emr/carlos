@@ -34,6 +34,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.web.context.WebApplicationContext;
@@ -61,6 +62,10 @@ import static org.mockito.Mockito.when;
 class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
 
     private static final String TEST_PROVIDER = "999998";
+    private static final String NO_VALID_XML_WARNING = "No valid XML files found to import. Please check the uploaded file structure.";
+
+    @TempDir
+    Path tempDir;
 
     @Mock
     private EctProgramManager mockEctProgramManager;
@@ -155,7 +160,6 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
     @Test
     @DisplayName("should set import response attributes when upload file and filename are present")
     void shouldSetImportResponseAttributes_whenUploadFileAndFilenameArePresent() throws Exception {
-        Path tempDir = Files.createTempDirectory("demographic-import-test");
         Path uploadFile = Files.createTempFile(tempDir, "demographic-import-", ".txt");
         Path processingDirectory = Files.createTempDirectory(tempDir, "processing-");
         Files.writeString(uploadFile, "not xml");
@@ -170,7 +174,9 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
         String result = executeAction(action);
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        assertThat(getMockRequest().getAttribute("warnings")).isNotNull();
+        @SuppressWarnings("unchecked")
+        List<String> warnings = (List<String>) getMockRequest().getAttribute("warnings");
+        assertThat(warnings).contains(NO_VALID_XML_WARNING);
         assertThat(getMockRequest().getAttribute("importlog")).isNotNull();
     }
 }
