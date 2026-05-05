@@ -33,6 +33,7 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.fax.provider.SRFaxProviderClient;
+import io.github.carlos_emr.carlos.fax.ringcentral.RingCentralApiConnector;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -131,6 +132,11 @@ public class ConfigureFax2Action extends ActionSupport {
             String[] accountNames = request.getParameterValues("accountName");
             String[] downloadState = request.getParameterValues("downloadState");
             String[] providerTypes = request.getParameterValues("providerType");
+            String[] rcClientIds = request.getParameterValues("ringCentralClientId");
+            String[] rcClientSecrets = request.getParameterValues("ringCentralClientSecret");
+            String[] rcJwtTokens = request.getParameterValues("ringCentralJwtToken");
+            String[] rcAccountIds = request.getParameterValues("ringCentralAccountId");
+            String[] rcExtensionIds = request.getParameterValues("ringCentralExtensionId");
 
             Integer id;
             int savedidx;
@@ -144,8 +150,7 @@ public class ConfigureFax2Action extends ActionSupport {
             } else {
                 // Validate all required arrays have consistent lengths
                 int expectedLength = faxConfigIds.length;
-                if (faxUsers == null || faxUsers.length < expectedLength
-                        || faxNumbers == null || faxNumbers.length < expectedLength
+                if (faxNumbers == null || faxNumbers.length < expectedLength
                         || senderEmails == null || senderEmails.length < expectedLength
                         || accountNames == null || accountNames.length < expectedLength
                         || inboxQueues == null || inboxQueues.length < expectedLength
@@ -166,11 +171,14 @@ public class ConfigureFax2Action extends ActionSupport {
                         throw new IllegalArgumentException("Invalid configuration ID for account row " + (idx + 1) + ".");
                     }
                     FaxConfig.ProviderType providerType = resolveProviderType(providerTypes, idx, id);
-                    validateConfigRow(providerType, faxUrl, siteUser, sitePasswd, faxUsers, faxPasswds, faxNumbers, senderEmails, inboxQueues, idx, id);
+                    validateConfigRow(providerType, faxUrl, siteUser, sitePasswd, faxUsers, faxPasswds, faxNumbers,
+                            senderEmails, inboxQueues, rcClientIds, rcClientSecrets, rcJwtTokens, idx, id);
 
-                    // SRFax always uses the fixed API URL; middleware uses the user-provided URL
+                    // Direct providers always use fixed API URLs; middleware uses the user-provided URL.
                     String resolvedFaxUrl = providerType == FaxConfig.ProviderType.SRFAX
                             ? SRFaxProviderClient.DEFAULT_SRFAX_API_URL
+                            : providerType == FaxConfig.ProviderType.RINGCENTRAL
+                            ? RingCentralApiConnector.DEFAULT_RINGCENTRAL_API_URL
                             : faxUrl;
 
                     faxConfig = new FaxConfig();
@@ -186,7 +194,7 @@ public class ConfigureFax2Action extends ActionSupport {
                             savedFaxConfig.setPasswd(sitePasswd.trim());
                         }
 
-                        savedFaxConfig.setFaxUser(faxUsers[idx]);
+                        savedFaxConfig.setFaxUser(valueAt(faxUsers, idx));
 
                         if (faxPasswds != null && idx < faxPasswds.length && faxPasswds[idx] != null && !isPasswordUnchanged(faxPasswds[idx])) {
                             savedFaxConfig.setFaxPasswd(faxPasswds[idx].trim());
@@ -207,6 +215,8 @@ public class ConfigureFax2Action extends ActionSupport {
                         savedFaxConfig.setActive(Boolean.parseBoolean(activeState[idx]));
                         savedFaxConfig.setDownload(Boolean.parseBoolean(downloadState[idx]));
                         savedFaxConfig.setProviderType(providerType);
+                        applyRingCentralFields(savedFaxConfig, rcClientIds, rcClientSecrets, rcJwtTokens,
+                                rcAccountIds, rcExtensionIds, idx);
                         faxConfigList.add(savedFaxConfig);
                     } else {
                         faxConfig.setId(null);
@@ -217,7 +227,7 @@ public class ConfigureFax2Action extends ActionSupport {
                         }
 
                         faxConfig.setUrl(resolvedFaxUrl);
-                        faxConfig.setFaxUser(faxUsers[idx]);
+                        faxConfig.setFaxUser(valueAt(faxUsers, idx));
 
                         if (faxPasswds != null && idx < faxPasswds.length && faxPasswds[idx] != null && !isPasswordUnchanged(faxPasswds[idx])) {
                             faxConfig.setFaxPasswd(faxPasswds[idx].trim());
@@ -238,6 +248,8 @@ public class ConfigureFax2Action extends ActionSupport {
                         faxConfig.setActive(Boolean.parseBoolean(activeState[idx]));
                         faxConfig.setDownload(Boolean.parseBoolean(downloadState[idx]));
                         faxConfig.setProviderType(providerType);
+                        applyRingCentralFields(faxConfig, rcClientIds, rcClientSecrets, rcJwtTokens,
+                                rcAccountIds, rcExtensionIds, idx);
                         faxConfigList.add(faxConfig);
                     }
                 }
@@ -374,7 +386,7 @@ public class ConfigureFax2Action extends ActionSupport {
         } catch (IllegalArgumentException ex) {
             // Sanitize user input before including in error message to prevent XSS
             String sanitizedInput = providerTypes[idx].replaceAll("[^a-zA-Z0-9_]", "");
-            String errorMsg = String.format("Invalid provider type '%s' for fax config id %d. Valid values are: MIDDLEWARE, SRFAX",
+            String errorMsg = String.format("Invalid provider type '%s' for fax config id %d. Valid values are: MIDDLEWARE, SRFAX, RINGCENTRAL",
                     sanitizedInput, faxConfigId);
             MiscUtils.getLogger().error("Invalid provider type for fax config id {}: {}", faxConfigId, providerTypes[idx], ex);
             throw new IllegalArgumentException(errorMsg);
@@ -398,9 +410,10 @@ public class ConfigureFax2Action extends ActionSupport {
      * @throws IllegalArgumentException when required values are missing or malformed
      */
     private void validateConfigRow(FaxConfig.ProviderType providerType, String faxUrl, String siteUser, String sitePasswd,
-                                   String[] faxUsers, String[] faxPasswds, String[] faxNumbers, String[] senderEmails,
-                                   String[] inboxQueues, int idx, Integer faxConfigId) {
-        // Middleware mode requires URL and credentials; SRFax mode can use default URL
+                                    String[] faxUsers, String[] faxPasswds, String[] faxNumbers, String[] senderEmails,
+                                    String[] inboxQueues, String[] rcClientIds, String[] rcClientSecrets,
+                                    String[] rcJwtTokens, int idx, Integer faxConfigId) {
+        // Middleware mode requires URL and credentials; direct providers use default URLs.
         if (providerType == FaxConfig.ProviderType.MIDDLEWARE) {
             if (StringUtils.isBlank(faxUrl)) {
                 throw new IllegalArgumentException("Middleware relay URL is required for Middleware mode.");
@@ -414,7 +427,8 @@ public class ConfigureFax2Action extends ActionSupport {
                 throw new IllegalArgumentException("Middleware site password is required for new Middleware accounts.");
             }
         }
-        if (faxUsers == null || idx >= faxUsers.length || StringUtils.isBlank(faxUsers[idx])) {
+        if (providerType != FaxConfig.ProviderType.RINGCENTRAL
+                && (faxUsers == null || idx >= faxUsers.length || StringUtils.isBlank(faxUsers[idx]))) {
             throw new IllegalArgumentException("Fax user is required for account row " + (idx + 1) + ".");
         }
         if (faxNumbers == null || idx >= faxNumbers.length || StringUtils.isBlank(faxNumbers[idx])) {
@@ -445,6 +459,45 @@ public class ConfigureFax2Action extends ActionSupport {
                 throw new IllegalArgumentException("SRFax password is required for new SRFax account row " + (idx + 1) + ".");
             }
         }
+        if (providerType == FaxConfig.ProviderType.RINGCENTRAL) {
+            boolean isNewConfigRow = faxConfigId == null || faxConfigId <= 0;
+            if (rcClientIds == null || idx >= rcClientIds.length || StringUtils.isBlank(rcClientIds[idx])) {
+                throw new IllegalArgumentException("RingCentral client ID is required for account row " + (idx + 1) + ".");
+            }
+            boolean missingSecret = rcClientSecrets == null || idx >= rcClientSecrets.length || StringUtils.isBlank(rcClientSecrets[idx]);
+            if (isNewConfigRow && missingSecret) {
+                throw new IllegalArgumentException("RingCentral client secret is required for new account row " + (idx + 1) + ".");
+            }
+            boolean missingJwt = rcJwtTokens == null || idx >= rcJwtTokens.length || StringUtils.isBlank(rcJwtTokens[idx]);
+            if (isNewConfigRow && missingJwt) {
+                throw new IllegalArgumentException("RingCentral JWT token is required for new account row " + (idx + 1) + ".");
+            }
+        }
+    }
+
+    private void applyRingCentralFields(FaxConfig faxConfig, String[] rcClientIds, String[] rcClientSecrets,
+            String[] rcJwtTokens, String[] rcAccountIds, String[] rcExtensionIds, int idx) {
+        faxConfig.setRingCentralClientId(valueAt(rcClientIds, idx));
+        faxConfig.setRingCentralAccountId(valueAt(rcAccountIds, idx));
+        faxConfig.setRingCentralExtensionId(valueAt(rcExtensionIds, idx));
+        String clientSecret = valueAt(rcClientSecrets, idx);
+        if (clientSecret != null && !isPasswordUnchanged(clientSecret)) {
+            faxConfig.setRingCentralClientSecret(clientSecret.trim());
+        }
+        if (rcClientSecrets != null && idx < rcClientSecrets.length) {
+            rcClientSecrets[idx] = null;
+        }
+        String jwtToken = valueAt(rcJwtTokens, idx);
+        if (jwtToken != null && !isPasswordUnchanged(jwtToken)) {
+            faxConfig.setRingCentralJwtToken(jwtToken.trim());
+        }
+        if (rcJwtTokens != null && idx < rcJwtTokens.length) {
+            rcJwtTokens[idx] = null;
+        }
+    }
+
+    private String valueAt(String[] values, int idx) {
+        return values != null && idx < values.length ? values[idx] : "";
     }
 
     /**

@@ -35,7 +35,7 @@ import jakarta.persistence.*;
 /**
  * JPA entity representing fax gateway account configuration.
  *
- * <p>Supports multiple fax provider types (MIDDLEWARE, SRFAX) with encrypted credential storage.
+ * <p>Supports multiple fax provider types (MIDDLEWARE, SRFAX, RINGCENTRAL) with encrypted credential storage.
  * Each configuration defines connection parameters, authentication credentials, inbox routing,
  * and active/download flags for scheduler control.</p>
  *
@@ -48,6 +48,7 @@ import jakarta.persistence.*;
  * <ul>
  *   <li><strong>MIDDLEWARE:</strong> Relay server intermediary (faxws) - requires url, siteUser, passwd</li>
  *   <li><strong>SRFAX:</strong> Direct SRFax API integration - uses default endpoint (overridable via srfax.api.url property), requires faxUser, faxPasswd</li>
+ *   <li><strong>RINGCENTRAL:</strong> Direct RingCentral API integration - requires OAuth client/JWT credentials</li>
  * </ul>
  *
  * @see io.github.carlos_emr.carlos.fax.provider.FaxProviderClient
@@ -60,7 +61,8 @@ public class FaxConfig extends AbstractModel<Integer> {
 
     public enum ProviderType {
         MIDDLEWARE,
-        SRFAX
+        SRFAX,
+        RINGCENTRAL
     }
 
     private static final long serialVersionUID = 1L;
@@ -105,6 +107,23 @@ public class FaxConfig extends AbstractModel<Integer> {
     @Convert(converter = FaxConfigProviderTypeConverter.class)
     @Column(name = "providerType")
     private ProviderType providerType = ProviderType.MIDDLEWARE;
+
+    @Column(name = "rc_client_id", length = 128)
+    private String ringCentralClientId = "";
+
+    @Lob
+    @Column(name = "rc_client_secret")
+    private String ringCentralClientSecret = "";
+
+    @Lob
+    @Column(name = "rc_jwt_token")
+    private String ringCentralJwtToken = "";
+
+    @Column(name = "rc_account_id", length = 64)
+    private String ringCentralAccountId = "";
+
+    @Column(name = "rc_extension_id", length = 64)
+    private String ringCentralExtensionId = "";
 
     @Override
     public Integer getId() {
@@ -291,6 +310,46 @@ public class FaxConfig extends AbstractModel<Integer> {
      */
     public void setProviderType(ProviderType providerType) {
         this.providerType = (providerType != null) ? providerType : ProviderType.MIDDLEWARE;
+    }
+
+    public String getRingCentralClientId() {
+        return ringCentralClientId;
+    }
+
+    public void setRingCentralClientId(String ringCentralClientId) {
+        this.ringCentralClientId = ringCentralClientId;
+    }
+
+    public String getRingCentralClientSecret() {
+        return decryptField(ringCentralClientSecret, "RingCentral client secret");
+    }
+
+    public void setRingCentralClientSecret(String ringCentralClientSecret) {
+        this.ringCentralClientSecret = encryptField(ringCentralClientSecret, "RingCentral client secret");
+    }
+
+    public String getRingCentralJwtToken() {
+        return decryptField(ringCentralJwtToken, "RingCentral JWT token");
+    }
+
+    public void setRingCentralJwtToken(String ringCentralJwtToken) {
+        this.ringCentralJwtToken = encryptField(ringCentralJwtToken, "RingCentral JWT token");
+    }
+
+    public String getRingCentralAccountId() {
+        return ringCentralAccountId;
+    }
+
+    public void setRingCentralAccountId(String ringCentralAccountId) {
+        this.ringCentralAccountId = ringCentralAccountId;
+    }
+
+    public String getRingCentralExtensionId() {
+        return ringCentralExtensionId;
+    }
+
+    public void setRingCentralExtensionId(String ringCentralExtensionId) {
+        this.ringCentralExtensionId = ringCentralExtensionId;
     }
 
 
