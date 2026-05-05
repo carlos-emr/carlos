@@ -36,7 +36,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * a {@link Dxresearch} row attributed to the logged-in provider before the
  * review-page assembler runs.
  *
- * <p>Lives outside {@link BillingOnReviewViewModelAssembler} so the assembler
+ * <p>Lives outside {@code BillingOnReviewViewModelAssembler} so the assembler
  * remains a pure read of request state into a view model. Callers must run
  * {@link #persistIfRequested} <em>before</em> assembling the view model so
  * any failure (audit-trail violation, malformed input) propagates through

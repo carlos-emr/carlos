@@ -644,7 +644,7 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
      * @throws BillingItemsNotLoadedException when the {@code billingItems}
      *         collection is a LAZY Hibernate proxy that has not been
      *         initialized — caller fetched the header outside a session,
-     *         did not use {@link BillingONCHeader1Dao#findWithItems}, or
+     *         did not use {@code BillingONCHeader1Dao#findWithItems(Integer)}, or
      *         iterated after the session closed. Throwing the typed
      *         exception here mirrors the {@link #recomputeTotalFromItems()}
      *         contract; without this check, callers got a raw
