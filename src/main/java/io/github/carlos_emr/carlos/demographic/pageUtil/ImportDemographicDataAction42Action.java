@@ -4859,7 +4859,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
     private int timeshiftInDays;
     private String courseId;
 
-    static boolean hasUploadedImportFile(File importFile, String importFileFileName) {
+    private static boolean hasUploadedImportFile(File importFile, String importFileFileName) {
         return importFile != null && importFileFileName != null && !importFileFileName.isBlank();
     }
 
