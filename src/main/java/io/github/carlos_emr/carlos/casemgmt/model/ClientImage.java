@@ -95,6 +95,7 @@ public class ClientImage extends BaseObject {
     public void setImage_type(String image_type) {
         this.image_type = image_type;
     }
+    @jakarta.persistence.Temporal(jakarta.persistence.TemporalType.TIMESTAMP)
     @jakarta.persistence.Column(name = "update_date")
 
     public Date getUpdate_date() {
