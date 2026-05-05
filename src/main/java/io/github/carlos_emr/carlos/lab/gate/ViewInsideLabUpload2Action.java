@@ -48,7 +48,22 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  */
 public final class ViewInsideLabUpload2Action extends ActionSupport {
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private static final String HTTP_GET = "GET";
+    private static final String HTTP_HEAD = "HEAD";
+    private static final String ALLOW_PAGE_DISPLAY_METHODS = HTTP_GET + ", " + HTTP_HEAD;
+
+    private final SecurityInfoManager securityInfoManager;
+
+    /**
+     * Creates a view gate backed by the application security manager.
+     */
+    public ViewInsideLabUpload2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
+    }
+
+    ViewInsideLabUpload2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
 
     /**
      * Enforces the HL7 lab upload view gate and forwards to the configured
@@ -64,17 +79,31 @@ public final class ViewInsideLabUpload2Action extends ActionSupport {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 
-        String method = request.getMethod();
-        if (!"GET".equalsIgnoreCase(method) && !"HEAD".equalsIgnoreCase(method)) {
-            response.setHeader("Allow", "GET, HEAD");
-            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        if (rejectNonDisplayMethod(request, response)) {
             return NONE;
         }
 
+        requireLabUploadAccess(request);
+        return SUCCESS;
+    }
+
+    private boolean rejectNonDisplayMethod(HttpServletRequest request, HttpServletResponse response) {
+        if (isDisplayMethod(request.getMethod())) {
+            return false;
+        }
+        response.setHeader("Allow", ALLOW_PAGE_DISPLAY_METHODS);
+        response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        return true;
+    }
+
+    private boolean isDisplayMethod(String method) {
+        return HTTP_GET.equalsIgnoreCase(method) || HTTP_HEAD.equalsIgnoreCase(method);
+    }
+
+    private void requireLabUploadAccess(HttpServletRequest request) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null || !securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "w", null)) {
             throw new SecurityException("missing required sec object (_lab w) for lab/CA/ALL/ViewInsideLabUpload");
         }
-        return SUCCESS;
     }
 }

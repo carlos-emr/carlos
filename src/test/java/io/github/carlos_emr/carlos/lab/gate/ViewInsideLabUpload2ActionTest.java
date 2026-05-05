@@ -18,9 +18,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mock;
 import org.mockito.MockedStatic;
-import org.mockito.MockitoAnnotations;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
@@ -29,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
@@ -48,59 +49,42 @@ class ViewInsideLabUpload2ActionTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
-    private AutoCloseable mocks;
-    @Mock private SecurityInfoManager mockSecurityInfoManager;
-    @Mock private LoggedInInfo mockLoggedInInfo;
+    private SecurityInfoManager mockSecurityInfoManager;
+    private LoggedInInfo mockLoggedInInfo;
     private MockHttpServletRequest mockRequest;
     private MockHttpServletResponse mockResponse;
     private ViewInsideLabUpload2Action action;
 
     @BeforeEach
     void setUp() {
-        mocks = MockitoAnnotations.openMocks(this);
-        mockRequest = new MockHttpServletRequest();
+        mockSecurityInfoManager = mock(SecurityInfoManager.class);
+        mockLoggedInInfo = mock(LoggedInInfo.class);
+        mockRequest = new MockHttpServletRequest("GET", "/lab/CA/ALL/ViewInsideLabUpload");
         mockResponse = new MockHttpServletResponse();
-        mockRequest.setMethod("GET");
-        servletActionContextMock = mockStatic(ServletActionContext.class);
-        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
-        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(mockResponse);
-        loggedInInfoMock = mockStatic(LoggedInInfo.class);
-        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
-                .thenReturn(mockLoggedInInfo);
-        registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
-        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_lab"), eq("w"), isNull()))
-                .thenReturn(false);
-        action = new ViewInsideLabUpload2Action();
+        stubServletActionContext();
+        stubLoggedInInfo(mockLoggedInInfo);
+        stubLabWritePrivilege(false);
+        action = new ViewInsideLabUpload2Action(mockSecurityInfoManager);
     }
 
     @AfterEach
-    void tearDown() throws Exception {
+    void tearDown() {
         if (loggedInInfoMock != null) loggedInInfoMock.close();
         if (servletActionContextMock != null) servletActionContextMock.close();
-        if (mocks != null) mocks.close();
     }
 
-    @Test
-    void shouldReturnSuccess_whenGetRequest() throws Exception {
-        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_lab"), eq("w"), isNull()))
-                .thenReturn(true);
-
-        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
-    }
-
-    @Test
-    void shouldReturnSuccess_whenHeadRequest() throws Exception {
-        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_lab"), eq("w"), isNull()))
-                .thenReturn(true);
-        mockRequest.setMethod("HEAD");
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    void shouldReturnSuccess_whenSafeMethodRequest(String method) throws Exception {
+        stubLabWritePrivilege(true);
+        mockRequest.setMethod(method);
 
         assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
     }
 
     @Test
     void shouldThrow_whenSessionMissing() {
-        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
-                .thenReturn(null);
+        stubLoggedInInfo(null);
 
         assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class)
                 .hasMessageContaining("lab/CA/ALL/ViewInsideLabUpload");
@@ -114,12 +98,28 @@ class ViewInsideLabUpload2ActionTest extends CarlosUnitTestBase {
 
     @Test
     void shouldSend405_onPost() throws Exception {
-        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_lab"), eq("w"), isNull()))
-                .thenReturn(true);
+        stubLabWritePrivilege(true);
         mockRequest.setMethod("POST");
 
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(mockResponse.getHeader("Allow")).isEqualTo("GET, HEAD");
+    }
+
+    private void stubServletActionContext() {
+        servletActionContextMock = mockStatic(ServletActionContext.class);
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(mockResponse);
+        loggedInInfoMock = mockStatic(LoggedInInfo.class);
+    }
+
+    private void stubLoggedInInfo(LoggedInInfo loggedInInfo) {
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                .thenReturn(loggedInInfo);
+    }
+
+    private void stubLabWritePrivilege(boolean allowed) {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_lab"), eq("w"), isNull()))
+                .thenReturn(allowed);
     }
 }
