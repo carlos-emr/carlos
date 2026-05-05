@@ -44,10 +44,10 @@ import jakarta.persistence.Query;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.ByteArrayOutputStream;
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Objects;
@@ -138,13 +138,11 @@ class TicklerLazyFetchMigrationUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should join fetch detail graph for Tickler find")
-    void shouldJoinFetchDetailGraph_forTicklerFind() throws NoSuchFieldException, IllegalAccessException {
+    void shouldJoinFetchDetailGraph_forTicklerFind() {
         EntityManager entityManager = mock(EntityManager.class);
         Query query = mock(Query.class);
-        TicklerDaoImpl ticklerDao = new TicklerDaoImpl();
-        Field entityManagerField = TicklerDaoImpl.class.getSuperclass().getDeclaredField("entityManager");
-        entityManagerField.setAccessible(true);
-        entityManagerField.set(ticklerDao, entityManager);
+        TestableTicklerDaoImpl ticklerDao = new TestableTicklerDaoImpl();
+        ticklerDao.setEntityManager(entityManager);
         when(entityManager.createQuery(contains("left join fetch t.comments"))).thenReturn(query);
         when(query.setParameter(eq(1), eq(123))).thenReturn(query);
         when(query.setMaxResults(1)).thenReturn(query);
@@ -152,11 +150,15 @@ class TicklerLazyFetchMigrationUnitTest extends CarlosUnitTestBase {
 
         ticklerDao.find(123);
 
-        verify(entityManager).createQuery(contains("left join fetch t.demographic"));
-        verify(entityManager).createQuery(contains("left join fetch t.provider"));
-        verify(entityManager).createQuery(contains("left join fetch t.assignee"));
-        verify(entityManager).createQuery(contains("left join fetch t.ticklerCategory"));
-        verify(entityManager).createQuery(contains("left join fetch t.program"));
+        ArgumentCaptor<String> queryCaptor = ArgumentCaptor.forClass(String.class);
+        verify(entityManager).createQuery(queryCaptor.capture());
+        assertThat(queryCaptor.getValue())
+                .contains("left join fetch t.comments")
+                .contains("left join fetch t.demographic")
+                .contains("left join fetch t.provider")
+                .contains("left join fetch t.assignee")
+                .contains("left join fetch t.ticklerCategory")
+                .contains("left join fetch t.program");
     }
 
     private FetchType relationshipFetchType(Field field) {
@@ -169,5 +171,11 @@ class TicklerLazyFetchMigrationUnitTest extends CarlosUnitTestBase {
             return oneToMany.fetch();
         }
         return null;
+    }
+
+    private static class TestableTicklerDaoImpl extends TicklerDaoImpl {
+        private void setEntityManager(EntityManager entityManager) {
+            this.entityManager = entityManager;
+        }
     }
 }
