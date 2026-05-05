@@ -186,6 +186,9 @@ public class SecUserRole implements Serializable {
 
 
 
+    /**
+     * Composite identifier for the legacy {@code secUserRole} DTO shape.
+     */
     public static class JpaId implements java.io.Serializable {
         public String roleName;
         public String providerNo;

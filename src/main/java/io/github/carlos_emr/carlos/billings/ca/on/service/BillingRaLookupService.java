@@ -223,13 +223,13 @@ public class BillingRaLookupService {
 
      *
 
-     * @param a ArrayList<HashMap<String, String>>
+     * @param a legacy RA rows for one billing/service pair
 
-     * @param billingNo String
+     * @param billingNo target billing number
 
-     * @param serviceCode String
+     * @param serviceCode target service code
 
-     * @return String
+     * @return formatted amount paid
 
      */
 

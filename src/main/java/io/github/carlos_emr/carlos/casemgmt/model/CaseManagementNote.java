@@ -68,7 +68,7 @@ public class CaseManagementNote extends BaseObject {
     private String history;
     private Provider provider;
     private Set<CaseManagementIssue> issues = new HashSet<CaseManagementIssue>();
-    private Set<CaseManagementNoteExt> extend = new HashSet<CaseManagementNoteExt>();
+    private Set<CaseManagementNoteExt> extend = new HashSet<>();
     private List<Provider> editors = new ArrayList<Provider>();
     private String roleName;
     private String programName;
