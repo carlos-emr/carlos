@@ -88,7 +88,6 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
     public Tickler find(Integer id) {
         Query query = entityManager.createQuery(
                 "select distinct t from Tickler t "
-                        + "left join fetch t.updates "
                         + "left join fetch t.comments "
                         + "left join fetch t.demographic "
                         + "left join fetch t.provider "
@@ -97,7 +96,12 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
                         + "left join fetch t.program "
                         + "where t.id = :id");
         query.setParameter("id", id);
+        query.setMaxResults(1);
         Tickler tickler = getSingleResultOrNull(query);
+        if (tickler != null) {
+            // Load updates separately to avoid fetching two Tickler collections in the same detail query.
+            tickler.getUpdates().size();
+        }
         return tickler;
     }
 

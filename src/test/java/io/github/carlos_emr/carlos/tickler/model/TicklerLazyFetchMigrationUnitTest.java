@@ -160,7 +160,6 @@ class TicklerLazyFetchMigrationUnitTest extends CarlosUnitTestBase {
         ArgumentCaptor<String> queryCaptor = ArgumentCaptor.forClass(String.class);
         verify(entityManager).createQuery(queryCaptor.capture());
         assertThat(queryCaptor.getValue())
-                .contains("left join fetch t.updates")
                 .contains("left join fetch t.comments")
                 .contains("left join fetch t.demographic")
                 .contains("left join fetch t.provider")
