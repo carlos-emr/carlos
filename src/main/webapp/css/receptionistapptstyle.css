@@ -154,6 +154,8 @@ table#scheduleNavigation tr td.title {
     white-space: nowrap;
 }
 
+/* Sticky schedule layering: provider headers stay above appointment rows (10)
+   and below the day navigation bar (20) while the daysheet scrolls. */
 tr td.infirmaryView {
     position: sticky;
     top: 50px;
@@ -174,6 +176,9 @@ table#scheduleNavigation, table#monthScheduleNavigation {
     height: 25px;
 }
 
+/* Month view intentionally keeps #monthScheduleNavigation out of this sticky
+   table rule because #fixedHeaderWrapper owns its sticky behavior and #jumpmenu
+   must remain able to overlay the month header. */
 table#scheduleNavigation {
     position: sticky;
     top: 0;
