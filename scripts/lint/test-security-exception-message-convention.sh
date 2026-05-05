@@ -12,17 +12,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CHECK_SCRIPT="$SCRIPT_DIR/check-security-exception-message-convention.sh"
 
 stage_root=""
+stage_root_created=""
 cleanup() {
-  if [[ -n "$stage_root" && -d "$stage_root" ]]; then
-    case "$stage_root" in
-      /tmp/security-exception-message-convention.*) rm -rf -- "$stage_root" ;;
-      *) echo "Refusing to remove unexpected stage root: $stage_root" >&2 ;;
-    esac
+  if [[ -n "$stage_root" && "$stage_root" == "$stage_root_created" && -d "$stage_root" ]]; then
+    rm -rf -- "$stage_root"
   fi
 }
 trap cleanup EXIT
 
-stage_root="$(mktemp -d -t security-exception-message-convention.XXXXXX)"
+stage_root="$(mktemp -d)"
+stage_root_created="$stage_root"
 mkdir -p "$stage_root/src/main/java/example"
 
 fails=0
@@ -54,13 +53,13 @@ run_case() {
     fails=$((fails + 1))
   fi
 
-  case "$path" in
-    "$stage_root"/src/main/java/example/*.java) rm -f -- "$path" ;;
-    *)
-      echo "Refusing to remove unexpected fixture path: $path" >&2
-      fails=$((fails + 1))
-      ;;
-  esac
+  local expected_path="$stage_root/src/main/java/example/${name}.java"
+  if [[ "$path" == "$expected_path" ]]; then
+    rm -f -- "$path"
+  else
+    echo "Refusing to remove unexpected fixture path: $path" >&2
+    fails=$((fails + 1))
+  fi
 }
 
 run_missing_target_case() {
