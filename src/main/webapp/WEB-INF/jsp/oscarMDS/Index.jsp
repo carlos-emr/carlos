@@ -169,7 +169,7 @@ MDS.index.btnSearch"/>"
                                                      <c:set var="__enc_2"><carlos:encode value='<%= StringUtils.noNull(providerNo) %>' context="uriComponent"/></c:set>
            <a href="javascript:parent.reportWindow('${pageContext.servletContext.contextPath}/oscarMDS/ForwardingRules?providerNo=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>');"
                                    style="color: #FFFFFF;">Forwarding Rules</a>
-                                <a href="javascript:popupStart(800,1000,'${pageContext.servletContext.contextPath}/lab/CA/ALL/insideLabUpload')"
+                                <a href="javascript:popupStart(800,1000,'${pageContext.servletContext.contextPath}/lab/CA/ALL/ViewInsideLabUpload')"
                                    style="color: #FFFFFF; "><fmt:message key="admin.admin.hl7LabUpload"/></a>
                                 <% if (CarlosProperties.getInstance().getBooleanProperty("legacy_document_upload_enabled", "true")) { %>
                                 <a href="javascript:popupStart(600,500,'${pageContext.servletContext.contextPath}/documentManager/ViewHtml5AddDocuments')"

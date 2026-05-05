@@ -397,7 +397,7 @@
         <div class="adminBox">
             <h3>&nbsp;<fmt:message key="admin.admin.LabsInbox"/></h3>
             <ul>
-                <li><a href="#" onclick='popupPage(800,1000,"${pageContext.request.contextPath}/lab/CA/ALL/insideLabUpload");return false;'><fmt:message key="admin.admin.hl7LabUpload"/></a></li>
+                <li><a href="#" onclick='popupPage(800,1000,"${pageContext.request.contextPath}/lab/CA/ALL/ViewInsideLabUpload");return false;'><fmt:message key="admin.admin.hl7LabUpload"/></a></li>
                 <oscar:oscarPropertiesCheck property="OLD_LAB_UPLOAD" value="yes"
                                             defaultVal="false">
                     <li><a href="#"
