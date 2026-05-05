@@ -115,7 +115,7 @@
             let scratchForm = document.getElementById(SCRATCH_FORM_ID);
             if (!scratchForm) {
                 isSaving = false;
-                showErrorMessage('Unable to save scratchpad. Please refresh the page and try again.');
+                showErrorMessage('Scratchpad form not found. Please refresh the page.');
                 return;
             }
             let timeoutId = setTimeout(() => {
