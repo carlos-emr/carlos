@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
 import io.github.carlos_emr.carlos.encounter.data.EctProgramManager;
+import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -37,9 +38,15 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.web.context.WebApplicationContext;
 
 import java.io.File;
+import java.io.ByteArrayOutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 /**
@@ -58,6 +65,9 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
     @Mock
     private EctProgramManager mockEctProgramManager;
 
+    @Mock
+    private NioFileManager mockNioFileManager;
+
     private ImportDemographicDataAction42Action action;
 
     @BeforeEach
@@ -65,7 +75,9 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
         MockitoAnnotations.openMocks(this);
 
         replaceSpringUtilsBean(EctProgramManager.class, mockEctProgramManager);
+        replaceSpringUtilsBean(NioFileManager.class, mockNioFileManager);
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
+        allowPrivilege("_demographic", "w");
 
         getMockSession().getServletContext().setAttribute(
                 WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, webApplicationContext);
@@ -103,6 +115,17 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
+    @DisplayName("should return success when uploaded file is missing")
+    void shouldReturnSuccess_whenUploadedFileIsMissing() throws Exception {
+        action.setImportFile(null);
+        action.setImportFileFileName("patient.xml");
+
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+    }
+
+    @Test
     @DisplayName("should return logout when user session attribute is missing")
     void shouldReturnLogout_whenUserSessionAttributeIsMissing() throws Exception {
         setSessionAttribute("user", null);
@@ -121,5 +144,23 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
         String result = executeAction(action);
 
         assertThat(result).isEqualTo("logout");
+    }
+
+    @Test
+    @DisplayName("should not early return success when upload file and filename are present")
+    void shouldNotEarlyReturnSuccess_whenUploadFileAndFilenameArePresent() throws Exception {
+        Path tempDir = Files.createTempDirectory("demographic-import-test");
+        Path uploadFile = Files.createTempFile(tempDir, "demographic-import-", ".txt");
+        Files.writeString(uploadFile, "not xml");
+        getMockSession().getServletContext().setAttribute("jakarta.servlet.context.tempdir", tempDir.toFile());
+
+        when(mockNioFileManager.createTempFile(eq("patient.txt"), any(ByteArrayOutputStream.class)))
+                .thenReturn(uploadFile);
+
+        action.setImportFile(uploadFile.toFile());
+        action.setImportFileFileName("patient.txt");
+
+        assertThatThrownBy(() -> executeAction(action))
+                .isInstanceOf(RuntimeException.class);
     }
 }
