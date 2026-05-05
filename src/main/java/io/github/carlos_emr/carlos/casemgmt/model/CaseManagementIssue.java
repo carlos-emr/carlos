@@ -231,6 +231,7 @@ public class CaseManagementIssue extends BaseObject {
         this.type = type;
     }
     @jakarta.persistence.Column(name = "update_date")
+    @jakarta.persistence.Temporal(jakarta.persistence.TemporalType.TIMESTAMP)
 
     public Date getUpdate_date() {
         return update_date;
