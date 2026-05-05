@@ -21,9 +21,22 @@ else
   targets=("$REPO_ROOT/src")
 fi
 
-if ! violations=$(grep -RInE 'missing required sec object:[[:space:]]*($|[^)])' "${targets[@]}" 2>/dev/null); then
+set +e
+violations=$(grep -RInE 'missing required sec object:[[:space:]]*($|[^)])' "${targets[@]}" 2>&1)
+grep_status=$?
+set -e
+
+if [[ "$grep_status" -eq 1 ]]; then
   echo "SecurityException message convention: PASS"
   exit 0
+fi
+
+if [[ "$grep_status" -ne 0 ]]; then
+  echo "SecurityException message convention: ERROR"
+  echo
+  echo "grep failed while scanning for colon-form messages:"
+  echo "$violations"
+  exit "$grep_status"
 fi
 
 echo "SecurityException message convention: FAIL"

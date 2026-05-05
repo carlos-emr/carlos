@@ -14,12 +14,7 @@ CHECK_SCRIPT="$SCRIPT_DIR/check-security-exception-message-convention.sh"
 stage_root=""
 cleanup() {
   if [[ -n "$stage_root" && -d "$stage_root" ]]; then
-    python3 - "$stage_root" <<'PY'
-import shutil
-import sys
-
-shutil.rmtree(sys.argv[1])
-PY
+    rm -rf -- "$stage_root"
   fi
 }
 trap cleanup EXIT
@@ -56,12 +51,24 @@ run_case() {
     fails=$((fails + 1))
   fi
 
-  python3 - "$path" <<'PY'
-import pathlib
-import sys
+  rm -f -- "$path"
+}
 
-pathlib.Path(sys.argv[1]).unlink()
-PY
+run_missing_target_case() {
+  local out
+  local rc
+  out=$("$CHECK_SCRIPT" "$stage_root/does-not-exist" 2>&1)
+  rc=$?
+
+  if [[ "$rc" -ne 0 && "$out" == *"SecurityException message convention: ERROR"* ]]; then
+    echo "PASS: MissingTargetError (exit=$rc)"
+  else
+    echo "FAIL: MissingTargetError"
+    echo "  expected non-zero exit with convention error output; got: $rc"
+    echo "  --- stdout/stderr ---"
+    echo "$out" | sed 's/^/    /'
+    fails=$((fails + 1))
+  fi
 }
 
 run_case \
@@ -75,6 +82,8 @@ run_case \
   'class ParenFormAllowed { void deny() { throw new SecurityException("missing required sec object (_lab)"); } }' \
   "0" \
   ""
+
+run_missing_target_case
 
 if [[ "$fails" -eq 0 ]]; then
   echo "All SecurityException message convention lint fixtures pass."
