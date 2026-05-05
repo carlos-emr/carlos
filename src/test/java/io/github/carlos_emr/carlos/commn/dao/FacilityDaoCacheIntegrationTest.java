@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import com.github.benmanes.caffeine.cache.Cache;
+import io.github.carlos_emr.carlos.config.CacheConfig;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.AfterEach;
@@ -39,7 +40,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -50,7 +51,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class FacilityDaoCacheIntegrationTest extends CarlosTestBase {
 
-    private static final String CACHE_NAME = "facilities";
+    private static final String CACHE_NAME = CacheConfig.FACILITIES;
 
     @Autowired
     private FacilityDao facilityDao;
@@ -136,7 +137,7 @@ class FacilityDaoCacheIntegrationTest extends CarlosTestBase {
     }
 
     private String randomSuffix() {
-        return String.valueOf(ThreadLocalRandom.current().nextInt(100000, 999999));
+        return UUID.randomUUID().toString().replace("-", "");
     }
 
     private void clearCache() {

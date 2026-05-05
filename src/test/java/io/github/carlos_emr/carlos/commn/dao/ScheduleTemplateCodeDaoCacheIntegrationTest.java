@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import com.github.benmanes.caffeine.cache.Cache;
+import io.github.carlos_emr.carlos.config.CacheConfig;
 import io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.AfterEach;
@@ -39,7 +40,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -50,7 +50,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class ScheduleTemplateCodeDaoCacheIntegrationTest extends CarlosTestBase {
 
-    private static final String CACHE_NAME = "scheduleTemplateCodes";
+    private static final String CACHE_NAME = CacheConfig.SCHEDULE_TEMPLATE_CODES;
 
     @Autowired
     private ScheduleTemplateCodeDao scheduleTemplateCodeDao;
@@ -60,6 +60,10 @@ class ScheduleTemplateCodeDaoCacheIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private PlatformTransactionManager transactionManager;
+
+    private static final char[] TEST_CODES = {
+            '!', '#', '$', '%', '&', '*', '+', '-', '/', ':', ';', '<', '=', '>', '?', '@', '^', '_', '~'
+    };
 
     private final List<Integer> idsToCleanUp = new ArrayList<>();
     private TransactionTemplate transactionTemplate;
@@ -87,15 +91,20 @@ class ScheduleTemplateCodeDaoCacheIntegrationTest extends CarlosTestBase {
     @Test
     @DisplayName("should cache code lookup results")
     void shouldCacheCodeLookupResults() {
-        char code = randomCode();
-        transactionTemplate.executeWithoutResult(status -> {
+        char code = nextUnusedCode();
+        Integer insertedId = transactionTemplate.execute(status -> {
             ScheduleTemplateCode entity = buildScheduleTemplateCode(code);
             scheduleTemplateCodeDao.persist(entity);
             idsToCleanUp.add(entity.getId());
+            return entity.getId();
         });
 
-        transactionTemplate.executeWithoutResult(status -> scheduleTemplateCodeDao.getByCode(code));
+        ScheduleTemplateCode cached = transactionTemplate.execute(status -> scheduleTemplateCodeDao.getByCode(code));
 
+        assertThat(cached)
+                .as("getByCode should return the schedule template code inserted by this test")
+                .isNotNull();
+        assertThat(cached.getId()).isEqualTo(insertedId);
         assertThat(cacheEntryCount())
                 .as("getByCode should populate scheduleTemplateCodes cache")
                 .isPositive();
@@ -107,8 +116,9 @@ class ScheduleTemplateCodeDaoCacheIntegrationTest extends CarlosTestBase {
         transactionTemplate.executeWithoutResult(status -> scheduleTemplateCodeDao.findAll());
         assertThat(cacheEntryCount()).isPositive();
 
+        char code = nextUnusedCode();
         transactionTemplate.executeWithoutResult(status -> {
-            ScheduleTemplateCode entity = buildScheduleTemplateCode(randomCode());
+            ScheduleTemplateCode entity = buildScheduleTemplateCode(code);
             scheduleTemplateCodeDao.persist(entity);
             idsToCleanUp.add(entity.getId());
         });
@@ -126,8 +136,13 @@ class ScheduleTemplateCodeDaoCacheIntegrationTest extends CarlosTestBase {
         return entity;
     }
 
-    private char randomCode() {
-        return (char) ('A' + ThreadLocalRandom.current().nextInt(0, 26));
+    private char nextUnusedCode() {
+        for (char candidate : TEST_CODES) {
+            if (scheduleTemplateCodeDao.getByCode(candidate) == null) {
+                return candidate;
+            }
+        }
+        throw new AssertionError("No unused one-character schedule template code is available for this test");
     }
 
     private void clearCache() {

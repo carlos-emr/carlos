@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import com.github.benmanes.caffeine.cache.Cache;
+import io.github.carlos_emr.carlos.config.CacheConfig;
 import io.github.carlos_emr.carlos.commn.model.AppointmentType;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.AfterEach;
@@ -50,7 +51,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class AppointmentTypeDaoCacheIntegrationTest extends CarlosTestBase {
 
-    private static final String CACHE_NAME = "appointmentTypes";
+    private static final String CACHE_NAME = CacheConfig.APPOINTMENT_TYPES;
 
     @Autowired
     private AppointmentTypeDao appointmentTypeDao;
