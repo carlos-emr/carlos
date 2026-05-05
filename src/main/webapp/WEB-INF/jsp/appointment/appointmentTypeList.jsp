@@ -256,7 +256,7 @@
                                 </table>
                                 <table border="0" cellpadding="0" cellspacing="0" width="100%">
                                     <tr bgcolor="#CCCCFF">
-                                        <TD nowrap align="center"><input type="submit" value="    <fmt:message key='appointment.appointmentTypeList.btnSave'/>  " />
+                                        <TD nowrap align="center"><input type="submit" value="<fmt:message key='appointment.appointmentTypeList.btnSave'/>" />
                                         </TD>
                                     </tr>
                                 </table>
