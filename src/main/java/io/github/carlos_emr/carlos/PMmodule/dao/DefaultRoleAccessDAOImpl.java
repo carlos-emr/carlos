@@ -77,7 +77,7 @@ public class DefaultRoleAccessDAOImpl extends AbstractJpaDao implements DefaultR
     }
 
     public List<Object[]> findAllRolesAndAccessTypes() {
-        return (List<Object[]>) JpqlQueryHelper.find(entityManager(), "SELECT a, b FROM DefaultRoleAccess a, AccessType b WHERE a.id = b.id");
+        return (List<Object[]>) JpqlQueryHelper.find(entityManager(), "SELECT a, b FROM DefaultRoleAccess a, AccessType b WHERE a.accessTypeId = b.id");
     }
 
 }

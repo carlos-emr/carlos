@@ -184,29 +184,4 @@ public class SecUserRole implements Serializable {
         this.lastUpdateDate = lastUpdateDate;
     }
 
-
-
-    /**
-     * Composite identifier for the legacy {@code secUserRole} DTO shape.
-     */
-    public static class JpaId implements java.io.Serializable {
-        public String roleName;
-        public String providerNo;
-        public boolean active;
-
-        public JpaId() {
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (!(o instanceof JpaId other)) return false;
-            return java.util.Objects.equals(roleName, other.roleName) && java.util.Objects.equals(providerNo, other.providerNo) && java.util.Objects.equals(active, other.active);
-        }
-
-        @Override
-        public int hashCode() {
-            return java.util.Objects.hash(roleName, providerNo, active);
-        }
-    }
 }

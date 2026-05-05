@@ -218,21 +218,13 @@ public class BillingRaLookupService {
     public record AmountPaidResult(String formattedTotal, int unreadableCount) { }
 
     /**
-
      * Returns amount paid.
-
      *
-
      * @param a legacy RA rows for one billing/service pair
-
      * @param billingNo target billing number
-
      * @param serviceCode target service code
-
      * @return formatted amount paid
-
      */
-
     public String getAmountPaid(ArrayList<HashMap<String, String>> a, String billingNo, String serviceCode) {
         return getAmountPaidWithCount(a, billingNo, serviceCode).formattedTotal();
     }
