@@ -29,7 +29,7 @@
 
 --%>
 
-<html lang="en">
+<html lang="${pageContext.request.locale.language}">
 
 
 <head>

@@ -15,7 +15,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="${pageContext.request.locale.language}">
 <head>
     <meta charset="UTF-8">
     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>

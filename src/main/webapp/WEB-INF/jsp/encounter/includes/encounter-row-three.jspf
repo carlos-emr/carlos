@@ -1,5 +1,7 @@
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%-- Row Three: Encounter notes, template autocomplete, consumption, action buttons --%>
 <div class="encounter-card card mb-1" id="rowThree">
     <div class="card-header d-flex align-items-center">
