@@ -39,6 +39,7 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO;
@@ -350,7 +351,7 @@ public class TicklerManagerImpl implements TicklerManager {
             // if this providers wrote the tickler, they should see it..doesn't matter
             // about the role based access
             if (!add) {
-                if (providerNo.equals(t.getCreator())) {
+                if (Objects.equals(providerNo, t.getCreator())) {
                     add = true;
                 }
 

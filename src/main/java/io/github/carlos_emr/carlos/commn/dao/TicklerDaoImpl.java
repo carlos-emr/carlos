@@ -92,6 +92,8 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
                         + "left join fetch t.demographic "
                         + "left join fetch t.provider "
                         + "left join fetch t.assignee "
+                        + "left join fetch t.ticklerCategory "
+                        + "left join fetch t.program "
                         + "where t.id = ?1");
         query.setParameter(1, id);
         Tickler tickler = getSingleResultOrNull(query);

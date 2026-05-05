@@ -53,7 +53,7 @@ class TicklerLazyFetchMigrationUnitTest {
 
     @Test
     @DisplayName("should use lazy fetch for all Tickler relationships")
-    void shouldUseLazyFetch_forTicklerRelationships() {
+    void shouldUseLazyFetch_forAllTicklerRelationships() {
         Stream.of("ticklerCategory", "demographic", "provider", "assignee", "program")
                 .forEach(fieldName -> assertThat(manyToOneFetchType(fieldName)).isEqualTo(FetchType.LAZY));
 
@@ -102,6 +102,8 @@ class TicklerLazyFetchMigrationUnitTest {
         assertThat(source).contains("left join fetch t.demographic");
         assertThat(source).contains("left join fetch t.provider");
         assertThat(source).contains("left join fetch t.assignee");
+        assertThat(source).contains("left join fetch t.ticklerCategory");
+        assertThat(source).contains("left join fetch t.program");
     }
 
     private FetchType manyToOneFetchType(String fieldName) {
