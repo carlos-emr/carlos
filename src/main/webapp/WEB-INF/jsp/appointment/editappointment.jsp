@@ -77,7 +77,7 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.support.BillingONConstants" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.AppointmentTypeDao" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
@@ -1467,7 +1467,8 @@
             <%
                 java.text.SimpleDateFormat fm = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
                 for (int i = 0; i < cheader1s.size(); i++) {
-                    if (cheader1s.get(i).getPayProgram().matches(BillingONConstants.BILLINGMATCHSTRING_3RDPARTY)) {
+                    String payProgram = cheader1s.get(i).getPayProgram();
+                    if (payProgram != null && payProgram.matches(BillingOnConstants.BILLINGMATCHSTRING_3RDPARTY)) {
                         BigDecimal payment = billingOnExtDao.getAccountVal(cheader1s.get(i).getId(), billingOnExtDao.KEY_PAYMENT);
                         BigDecimal discount = billingOnExtDao.getAccountVal(cheader1s.get(i).getId(), billingOnExtDao.KEY_DISCOUNT);
                         BigDecimal credit = billingOnExtDao.getAccountVal(cheader1s.get(i).getId(), billingOnExtDao.KEY_CREDIT);
