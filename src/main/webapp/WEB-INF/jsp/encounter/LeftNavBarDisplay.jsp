@@ -147,7 +147,7 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
 %>
            onclick="<%=popupOnclick%>"><carlos:encode value='<%= dao.getPopUpText(idx) %>' context="html"/>
 <%         } else { %>
-           onclick="<carlos:encode value='<%= dao.getPopUpUrl(idx) + "; return false;" %>' context="html"/>"><carlos:encode value='<%= dao.getPopUpText(idx) %>' context="html"/>
+           onclick="<carlos:encode value='<%= dao.getPopUpUrl(idx) + "; return false;" %>' context="javaScriptAttribute"/>"><carlos:encode value='<%= dao.getPopUpText(idx) %>' context="html"/>
 <%         } %>
         </a>
         <%

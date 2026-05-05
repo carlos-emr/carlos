@@ -1,0 +1,281 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.commn.model;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+/**
+ * Unit tests for the per-method invariants on {@link BillingONItem} —
+ * status whitelist (parallel to {@link BillingONCHeader1}'s whitelist),
+ * the {@code markDeleted} mutator, and the {@code isActive}/{@code isDeleted}
+ * pure-state queries.
+ *
+ * @since 2026-04-29
+ */
+@DisplayName("BillingONItem (invariants)")
+@Tag("unit")
+@Tag("billing")
+class BillingONItemUnitTest {
+
+    @Nested
+    @DisplayName("setStatus whitelist")
+    class SetStatusWhitelist {
+
+        @Test
+        void shouldAcceptNull_forValidInput() {
+            BillingONItem item = new BillingONItem();
+            item.setStatus(null);
+            assertThat(item.getStatus()).isNull();
+        }
+
+        @Test
+        void shouldAcceptUnknownValueAndLogWarning_whenSetStatusUnknown() {
+            BillingONItem item = new BillingONItem();
+            long before = BillingStatus.unknownStatusWarningCount();
+            // "Z" is not in KNOWN_STATUSES = {O,S,D,B,P,N,I,W,A}. During the
+            // post-refactor deprecation window the lenient setter accepts the
+            // value (matching BillingONCHeader1.setStatus) so operator-driven
+            // correction cascades do not crash on legacy/unrecognised codes.
+            item.setStatus("Z");
+
+            assertThat(item.getStatus()).isEqualTo("Z");
+            assertThat(BillingStatus.unknownStatusWarningCount()).isEqualTo(before + 1);
+        }
+
+        @Test
+        void shouldThrowIllegalArgumentException_whenSetStatusStrictUnknownValue() {
+            BillingONItem item = new BillingONItem();
+            // setStatusStrict is the fail-fast variant for callers that have
+            // already normalised the vocabulary; mirrors BillingONCHeader1.
+            assertThatThrownBy(() -> item.setStatusStrict("Z"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("known set");
+        }
+
+        @Test
+        void shouldAcceptNull_whenSetStatusStrict() {
+            BillingONItem item = new BillingONItem();
+            item.setStatusStrict(null);
+            assertThat(item.getStatus()).isNull();
+        }
+
+        @Test
+        void shouldAcceptAllNineKnownStatusConstants_forValidInput() {
+            BillingONItem item = new BillingONItem();
+            item.setStatus(BillingONItem.OPEN);
+            item.setStatus(BillingONItem.SETTLED);
+            item.setStatus(BillingONItem.DELETED);
+            item.setStatus(BillingONItem.BILLED);
+            item.setStatus(BillingONItem.PATIENT_BILLED);
+            item.setStatus(BillingONItem.NOT_BILLED);
+            item.setStatus(BillingONItem.INDEPENDENT);
+            item.setStatus(BillingONItem.WCB);
+            item.setStatus(BillingONItem.ACKNOWLEDGED);
+        }
+
+        @Test
+        void shouldAcceptAllNineKnownStatusConstants_whenSetStatusStrict() {
+            BillingONItem item = new BillingONItem();
+            item.setStatusStrict(BillingONItem.OPEN);
+            item.setStatusStrict(BillingONItem.SETTLED);
+            item.setStatusStrict(BillingONItem.DELETED);
+            item.setStatusStrict(BillingONItem.BILLED);
+            item.setStatusStrict(BillingONItem.PATIENT_BILLED);
+            item.setStatusStrict(BillingONItem.NOT_BILLED);
+            item.setStatusStrict(BillingONItem.INDEPENDENT);
+            item.setStatusStrict(BillingONItem.WCB);
+            item.setStatusStrict(BillingONItem.ACKNOWLEDGED);
+        }
+    }
+
+    @Nested
+    @DisplayName("isActive / isDeleted / markDeleted")
+    class StateQueries {
+
+        @Test
+        void shouldReportActive_whenStatusIsOpen() {
+            BillingONItem item = new BillingONItem();
+            item.setStatus(BillingONItem.OPEN);
+            assertThat(item.isActive()).isTrue();
+            assertThat(item.isDeleted()).isFalse();
+        }
+
+        @Test
+        void shouldReportActive_whenStatusIsNull() {
+            BillingONItem item = new BillingONItem();
+            // Null status defaults to active (legacy contract).
+            assertThat(item.isActive()).isTrue();
+            assertThat(item.isDeleted()).isFalse();
+        }
+
+        @Test
+        void shouldReportDeleted_whenStatusIsD() {
+            BillingONItem item = new BillingONItem();
+            item.setStatus(BillingONItem.DELETED);
+            assertThat(item.isDeleted()).isTrue();
+            assertThat(item.isActive()).isFalse();
+        }
+
+        @Test
+        void shouldFlipStatusToDeleted_onMarkDeleted() {
+            BillingONItem item = new BillingONItem();
+            item.setStatus(BillingONItem.OPEN);
+            item.markDeleted();
+            assertThat(item.getStatus()).isEqualTo(BillingONItem.DELETED);
+            assertThat(item.isDeleted()).isTrue();
+            assertThat(item.isActive()).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("setFee BigDecimal-parseability")
+    class SetFeeInvariant {
+
+        @Test
+        void shouldAcceptNull_forValidInput() {
+            BillingONItem item = new BillingONItem();
+            item.setFee(null);
+            assertThat(item.getFee()).isNull();
+        }
+
+        @Test
+        void shouldAcceptParseableBigDecimalString_forValidInput() {
+            BillingONItem item = new BillingONItem();
+            item.setFee("123.45");
+            assertThat(item.getFee()).isEqualTo("123.45");
+        }
+
+        @Test
+        void shouldAcceptZeroAndNegative_forValidInput() {
+            BillingONItem item = new BillingONItem();
+            item.setFee("0.00");
+            assertThat(item.getFee()).isEqualTo("0.00");
+            item.setFee("-12.34");
+            assertThat(item.getFee()).isEqualTo("-12.34");
+        }
+
+        @Test
+        void shouldRejectAtWriteTime_whenFeeCannotBeParsed() {
+            BillingONItem item = new BillingONItem();
+            // Catches a future caller's typo at the boundary instead of letting
+            // it propagate as a silent Optional.empty() out of
+            // BillingONCHeader1.recomputeTotalFromItems().
+            assertThatThrownBy(() -> item.setFee("not-a-number"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("BigDecimal");
+        }
+
+        @Test
+        void shouldRejectAtWriteTime_whenFeeIsEmptyString() {
+            BillingONItem item = new BillingONItem();
+            // Empty string is not a valid BigDecimal — caller must pass null
+            // for "no fee" rather than rely on empty-string lenience.
+            assertThatThrownBy(() -> item.setFee(""))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        void shouldAcceptDefunctSentinel_persistedByCorrectionServiceForTerminatedCodes() {
+            // BillingCorrectionService writes this sentinel when an item references
+            // a service code whose termination date precedes the service date.
+            // Downstream code detects it via DEFUNCT_FEE.equals(item.getFee())
+            // and skips numeric operations. The setter MUST allow the sentinel
+            // through unchanged or correcting a bill containing a terminated
+            // code throws IllegalArgumentException and aborts the entire save.
+            BillingONItem item = new BillingONItem();
+            item.setFee(BillingONItem.DEFUNCT_FEE);
+            assertThat(item.getFee()).isEqualTo(BillingONItem.DEFUNCT_FEE);
+        }
+
+        @Test
+        void shouldNotMutateField_whenRejectingInvalidValue() {
+            BillingONItem item = new BillingONItem();
+            item.setFee("100.00");
+            try {
+                item.setFee("garbage");
+            } catch (IllegalArgumentException expected) {
+                // Expected.
+            }
+            // The previous valid value must remain — partial-write semantics
+            // would corrupt the row otherwise.
+            assertThat(item.getFee()).isEqualTo("100.00");
+        }
+    }
+
+    @Nested
+    @DisplayName("getFeeAsBigDecimal / isDefunct companions")
+    class FeeReadCompanions {
+
+        @Test
+        void shouldReturnEmpty_whenFeeIsNull() {
+            assertThat(new BillingONItem().getFeeAsBigDecimal()).isEmpty();
+        }
+
+        @Test
+        void shouldReturnEmpty_whenFeeIsDefunctSentinel() {
+            BillingONItem item = new BillingONItem();
+            item.setFee(BillingONItem.DEFUNCT_FEE);
+            // The sentinel is a render marker, not a number — math/UI paths
+            // collapse it to empty so they don't accidentally tally garbage.
+            assertThat(item.getFeeAsBigDecimal()).isEmpty();
+        }
+
+        @Test
+        void shouldReturnParsedAmount_whenFeeIsValidBigDecimal() {
+            BillingONItem item = new BillingONItem();
+            item.setFee("123.45");
+            assertThat(item.getFeeAsBigDecimal())
+                    .isPresent()
+                    .get()
+                    .isEqualTo(new java.math.BigDecimal("123.45"));
+        }
+
+        @Test
+        void shouldReturnEmpty_whenLegacyMalformedRowBypassesSetter() throws Exception {
+            // setFee rejects unparseable values, but legacy DB rows can bypass
+            // the setter via Hibernate's field access. Mirror the
+            // recomputeTotalFromItems defence by returning empty rather than
+            // NPEing on a stored garbage value.
+            BillingONItem item = new BillingONItem();
+            java.lang.reflect.Field f = BillingONItem.class.getDeclaredField("fee");
+            f.setAccessible(true);
+            f.set(item, "not-a-number");
+            assertThat(item.getFeeAsBigDecimal()).isEmpty();
+        }
+
+        @Test
+        void shouldReportDefunct_onlyForExactSentinel() {
+            BillingONItem item = new BillingONItem();
+            assertThat(item.isDefunct()).isFalse();
+            item.setFee("123.45");
+            assertThat(item.isDefunct()).isFalse();
+            item.setFee(BillingONItem.DEFUNCT_FEE);
+            assertThat(item.isDefunct()).isTrue();
+        }
+    }
+}

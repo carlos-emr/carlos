@@ -139,6 +139,8 @@ public class PrintHRMReport2Action extends ActionSupport {
         }
 
 
-        return SUCCESS;
+        // The success path streams the PDF directly; there is no success result mapping.
+        // Returning SUCCESS makes Struts render the global error page over the PDF as "0".
+        return NONE;
     }
 }

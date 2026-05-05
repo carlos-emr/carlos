@@ -1,0 +1,18 @@
+# Billing JSPs currently over or near the global size / getBean / scriptlet
+# thresholds. Unlike the old allowlist, these files are not skipped: any growth
+# beyond the recorded metrics fails CI.
+#
+# Format:
+# path bytes springutils_getbean_count scriptlet_count
+
+src/main/webapp/WEB-INF/jsp/billing/CA/ON/billingONStatus.jsp 50977 0 0
+src/main/webapp/WEB-INF/jsp/billing/CA/ON/billingONReview.jsp 44864 0 0
+src/main/webapp/WEB-INF/jsp/billing/CA/ON/billingONCorrection.jsp 60101 0 0
+src/main/webapp/WEB-INF/jsp/billing/CA/ON/billingShortcutPg1.jsp 65784 0 0
+src/main/webapp/WEB-INF/jsp/billing/CA/ON/billingON.jsp 101671 0 0
+src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingBC.jsp 118427 5 27
+src/main/webapp/WEB-INF/jsp/billing/CA/BC/adjustBill.jsp 75581 5 27
+src/main/webapp/WEB-INF/jsp/billing/CA/BC/formwcb.jsp 47554 0 22
+src/main/webapp/WEB-INF/jsp/billing/CA/ON/billingON3rdInv.jsp 10596 0 0
+src/main/webapp/WEB-INF/jsp/billing/CA/ON/billingONPayment.jsp 20201 0 0
+src/main/webapp/WEB-INF/jsp/billing/CA/ON/viewMOHFiles.jsp 9424 0 0

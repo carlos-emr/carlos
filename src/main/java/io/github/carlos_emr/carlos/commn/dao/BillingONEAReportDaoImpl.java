@@ -1,32 +1,25 @@
 /**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
- * <p>
  * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- * <p>
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- * <p>
- * This software was written for
- * Centre for Research on Inner City Health, St. Michael's Hospital,
- * Toronto, Ontario, Canada
- * <p>
- * Modifications made by Magenta Health in 2024.
- 
- * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
+ *
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
@@ -37,9 +30,12 @@ import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.BillingONEAReport;
 import org.springframework.stereotype.Repository;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
 import io.github.carlos_emr.carlos.util.ParamAppender;
 
+/**
+ * Hibernate-backed implementation of {@link BillingONEAReportDao}.
+ */
 @Repository
 @SuppressWarnings("unchecked")
 public class BillingONEAReportDaoImpl extends AbstractDaoImpl<BillingONEAReport> implements BillingONEAReportDao {
@@ -135,7 +131,7 @@ public class BillingONEAReportDaoImpl extends AbstractDaoImpl<BillingONEAReport>
     }
 
     @Override
-    public List<BillingONEAReport> findByMagic(List<BillingProviderData> list, Date fromDate, Date toDate, String reportName) {
+    public List<BillingONEAReport> findByMagic(List<BillingProviderDto> list, Date fromDate, Date toDate, String reportName) {
         ParamAppender appender = getAppender("b");
 
         boolean hasProviderData = !list.isEmpty();
@@ -144,7 +140,7 @@ public class BillingONEAReportDaoImpl extends AbstractDaoImpl<BillingONEAReport>
             for (int i = 0; i < list.size(); i++) {
                 ParamAppender providerAppender = new ParamAppender();
 
-                BillingProviderData d = list.get(i);
+                BillingProviderDto d = list.get(i);
                 ParamAppender pa = new ParamAppender();
                 pa.and("b.providerOHIPNo = :ohipNo" + i, "ohipNo" + i, d.getOhipNo());
                 pa.and("b.groupNo = :billingGroupNo" + i, "billingGroupNo" + i, d.getBillingGroupNo());

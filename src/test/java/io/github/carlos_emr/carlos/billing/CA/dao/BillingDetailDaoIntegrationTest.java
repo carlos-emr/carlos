@@ -38,7 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Integration tests for {@link BillingDetailDao}.
  *
  * <p>Migrated from legacy {@code BillingDetailDaoTest} (JUnit 4 / DaoTestFixtures).
- * Tests all DAO methods: findByBillingNo(int), findByBillingNo(Integer),
+ * Tests all DAO methods: findAllIncludingDeletedByBillingNo(int), findByBillingNo(Integer),
  * and findByBillingNoAndStatus.</p>
  *
  * @since 2026-03-07
@@ -75,18 +75,19 @@ public class BillingDetailDaoIntegrationTest extends CarlosTestBase {
 
     @Test
     @Tag("read")
-    @DisplayName("should find billing details by billing number (int)")
-    void shouldReturnMatchingRecords_byBillingNoInt() throws Exception {
+    @DisplayName("should find all billing details including deleted rows by billing number")
+    void shouldReturnAllRecordsIncludingDeleted_byBillingNo() throws Exception {
         BillingDetail match1 = createEntity(3000, "A", "SVC1");
-        BillingDetail match2 = createEntity(3000, "B", "SVC2");
+        BillingDetail match2 = createEntity(3000, "D", "SVC2");
         BillingDetail noMatch = createEntity(4000, "A", "SVC3");
         dao.persist(match1);
         dao.persist(match2);
         dao.persist(noMatch);
 
-        List<BillingDetail> results = dao.findByBillingNo(3000);
+        List<BillingDetail> results = dao.findAllIncludingDeletedByBillingNo(3000);
         assertThat(results).hasSize(2);
         assertThat(results).allSatisfy(bd -> assertThat(bd.getBillingNo()).isEqualTo(3000));
+        assertThat(results).extracting(BillingDetail::getStatus).contains("A", "D");
     }
 
     @Test
@@ -96,7 +97,7 @@ public class BillingDetailDaoIntegrationTest extends CarlosTestBase {
         BillingDetail entity = createEntity(3000, "A", "SVC1");
         dao.persist(entity);
 
-        List<BillingDetail> results = dao.findByBillingNo(99999);
+        List<BillingDetail> results = dao.findAllIncludingDeletedByBillingNo(99999);
         assertThat(results).isEmpty();
     }
 
