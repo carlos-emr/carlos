@@ -903,7 +903,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                             >
                                 <tr>
                                     <td colspan="2"><fmt:message key="oscar.billing.ca.on.billingON.specialistBilling"/>
-                                        &nbsp;&nbsp;&nbsp;&nbsp; <fmt:message key="oscar.billing.ca.on.billingON.defaultUnitAt"/>
+                                        &nbsp;&nbsp; <fmt:message key="oscar.billing.ca.on.billingON.defaultUnitAt"/>
                                     </td>
                                     <td style="vertical-align:top" rowspan="2">
                                         <table
