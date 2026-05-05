@@ -171,8 +171,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    outputs:
-      build_success: ${{ steps.test.outputs.success }}
     steps:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -196,7 +194,6 @@ jobs:
             .devcontainer/development
 
       - name: Test tomcat-dev container
-        id: test
         run: |
           echo "Testing container starts correctly..."
           docker run -d --name test-tomcat carlos-tomcat-dev:test tail -f /dev/null
@@ -217,7 +214,18 @@ jobs:
 
           echo "All tests passed!"
           docker stop test-tomcat && docker rm test-tomcat
-          echo "success=true" >> "$GITHUB_OUTPUT"
+
+      - name: Save tested tomcat-dev image
+        run: |
+          mkdir -p /tmp/container-images
+          docker save carlos-tomcat-dev:test -o /tmp/container-images/carlos-tomcat-dev.tar
+
+      - name: Upload tested tomcat-dev image
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: carlos-tomcat-dev-image
+          path: /tmp/container-images/carlos-tomcat-dev.tar
+          retention-days: 1
 
   publish-tomcat:
     needs: [check-containers, build-tomcat]
@@ -227,13 +235,11 @@ jobs:
       contents: read
       packages: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - name: Download tested tomcat-dev image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          persist-credentials: false
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+          name: carlos-tomcat-dev-image
+          path: /tmp/container-images
 
       - name: Log in to Container Registry
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
@@ -242,33 +248,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push tomcat-dev container
+      - name: Push tested tomcat-dev container
         env:
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-tomcat-dev
-          CONTENT_HASH: ${{ needs.check-containers.outputs.tomcat_hash }}
           SHOULD_PUSH_LATEST: ${{ github.ref_name == 'develop' }}
         run: |
-          echo "Building carlos-tomcat-dev container for publish..."
-          docker buildx build \
-            --load \
-            -t carlos-tomcat-dev:publish \
-            --label "org.openosp.content-hash=$CONTENT_HASH" \
-            --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
-            --label "org.opencontainers.image.revision=${{ github.sha }}" \
-            .devcontainer/development
-
-          echo "Testing publish image starts correctly..."
-          docker run -d --name publish-tomcat carlos-tomcat-dev:publish tail -f /dev/null
-          sleep 5
-          docker exec publish-tomcat mvn --version
-          docker exec publish-tomcat java --version
-          docker exec publish-tomcat ls -la /usr/local/tomcat/
-          docker exec publish-tomcat node --version
-          docker stop publish-tomcat && docker rm publish-tomcat
-
-          docker tag carlos-tomcat-dev:publish "$IMAGE:${{ github.sha }}"
+          docker load -i /tmp/container-images/carlos-tomcat-dev.tar
+          docker tag carlos-tomcat-dev:test "$IMAGE:${{ github.sha }}"
           if [ "$SHOULD_PUSH_LATEST" = "true" ]; then
-            docker tag carlos-tomcat-dev:publish "$IMAGE:latest"
+            docker tag carlos-tomcat-dev:test "$IMAGE:latest"
             docker push "$IMAGE:latest"
             echo "Pushed $IMAGE:latest"
           fi
@@ -284,8 +272,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    outputs:
-      build_success: ${{ steps.test.outputs.success }}
     steps:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -309,7 +295,6 @@ jobs:
             -f .devcontainer/db/Dockerfile .
 
       - name: Test mariadb-dev container
-        id: test
         run: |
           echo "Testing container starts correctly..."
           docker run -d --name test-mariadb \
@@ -375,7 +360,18 @@ jobs:
 
           echo "All tests passed!"
           docker stop test-mariadb && docker rm test-mariadb
-          echo "success=true" >> "$GITHUB_OUTPUT"
+
+      - name: Save tested mariadb-dev image
+        run: |
+          mkdir -p /tmp/container-images
+          docker save carlos-mariadb-dev:test -o /tmp/container-images/carlos-mariadb-dev.tar
+
+      - name: Upload tested mariadb-dev image
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: carlos-mariadb-dev-image
+          path: /tmp/container-images/carlos-mariadb-dev.tar
+          retention-days: 1
 
   publish-mariadb:
     needs: [check-containers, build-mariadb]
@@ -385,13 +381,11 @@ jobs:
       contents: read
       packages: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - name: Download tested mariadb-dev image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          persist-credentials: false
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+          name: carlos-mariadb-dev-image
+          path: /tmp/container-images
 
       - name: Log in to Container Registry
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
@@ -400,71 +394,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push mariadb-dev container
+      - name: Push tested mariadb-dev container
         env:
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-mariadb-dev
-          CONTENT_HASH: ${{ needs.check-containers.outputs.mariadb_hash }}
           SHOULD_PUSH_LATEST: ${{ github.ref_name == 'develop' }}
         run: |
-          echo "Building carlos-mariadb-dev container for publish..."
-          docker buildx build \
-            --load \
-            -t carlos-mariadb-dev:publish \
-            --label "org.openosp.content-hash=$CONTENT_HASH" \
-            --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
-            --label "org.opencontainers.image.revision=${{ github.sha }}" \
-            -f .devcontainer/db/Dockerfile .
-
-          echo "Testing publish image starts correctly..."
-          docker run -d --name publish-mariadb \
-            -e MYSQL_ROOT_PASSWORD=testpassword \
-            carlos-mariadb-dev:publish
-
-          ready=false
-          for i in {1..30}; do
-            if docker exec publish-mariadb mysqladmin ping -h localhost -u root -ptestpassword 2>/dev/null; then
-              ready=true
-              break
-            fi
-            echo "Waiting for MariaDB... ($i/30)"
-            sleep 2
-          done
-
-          if [ "$ready" != "true" ]; then
-            docker logs publish-mariadb
-            docker stop publish-mariadb && docker rm publish-mariadb
-            exit 1
-          fi
-
-          initialized=false
-          for i in {1..90}; do
-            if docker logs publish-mariadb 2>&1 | grep -q "Database initialization complete!"; then
-              provider_count=$(docker exec publish-mariadb mysql -N -u root -ptestpassword -e "SELECT COUNT(*) FROM oscar.provider;" 2>/dev/null || echo 0)
-              if [ "$provider_count" -gt 0 ]; then
-                initialized=true
-                break
-              fi
-            fi
-            echo "Waiting for database initialization... ($i/90)"
-            sleep 2
-          done
-
-          if [ "$initialized" != "true" ]; then
-            docker logs publish-mariadb
-            docker stop publish-mariadb && docker rm publish-mariadb
-            exit 1
-          fi
-
-          docker exec publish-mariadb mysql --version
-          docker exec publish-mariadb ls -la /database/mysql/
-          docker exec publish-mariadb mysql -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "oscar" > /dev/null
-          docker exec publish-mariadb mysql -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "oscar_test" > /dev/null
-          docker exec publish-mariadb mysql -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "drugref2" > /dev/null
-          docker stop publish-mariadb && docker rm publish-mariadb
-
-          docker tag carlos-mariadb-dev:publish "$IMAGE:${{ github.sha }}"
+          docker load -i /tmp/container-images/carlos-mariadb-dev.tar
+          docker tag carlos-mariadb-dev:test "$IMAGE:${{ github.sha }}"
           if [ "$SHOULD_PUSH_LATEST" = "true" ]; then
-            docker tag carlos-mariadb-dev:publish "$IMAGE:latest"
+            docker tag carlos-mariadb-dev:test "$IMAGE:latest"
             docker push "$IMAGE:latest"
             echo "Pushed $IMAGE:latest"
           fi
@@ -480,8 +418,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    outputs:
-      build_success: ${{ steps.test.outputs.success }}
     steps:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -505,7 +441,6 @@ jobs:
             .devcontainer/drugref
 
       - name: Test drugref container
-        id: test
         run: |
           echo "Testing container starts correctly..."
           docker run -d --name test-drugref -p 8081:8080 carlos-drugref:test
@@ -546,7 +481,18 @@ jobs:
 
           echo "All tests passed!"
           docker stop test-drugref && docker rm test-drugref
-          echo "success=true" >> "$GITHUB_OUTPUT"
+
+      - name: Save tested drugref image
+        run: |
+          mkdir -p /tmp/container-images
+          docker save carlos-drugref:test -o /tmp/container-images/carlos-drugref.tar
+
+      - name: Upload tested drugref image
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: carlos-drugref-image
+          path: /tmp/container-images/carlos-drugref.tar
+          retention-days: 1
 
   publish-drugref:
     needs: [check-containers, build-drugref]
@@ -556,13 +502,11 @@ jobs:
       contents: read
       packages: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - name: Download tested drugref image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          persist-credentials: false
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+          name: carlos-drugref-image
+          path: /tmp/container-images
 
       - name: Log in to Container Registry
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
@@ -571,51 +515,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push drugref container
+      - name: Push tested drugref container
         env:
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-drugref
-          CONTENT_HASH: ${{ needs.check-containers.outputs.drugref_hash }}
           SHOULD_PUSH_LATEST: ${{ github.ref_name == 'develop' }}
         run: |
-          echo "Building carlos-drugref container for publish..."
-          docker buildx build \
-            --load \
-            -t carlos-drugref:publish \
-            --label "org.openosp.content-hash=$CONTENT_HASH" \
-            --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
-            --label "org.opencontainers.image.revision=${{ github.sha }}" \
-            .devcontainer/drugref
-
-          echo "Testing publish image starts correctly..."
-          docker run -d --name publish-drugref -p 8081:8080 carlos-drugref:publish
-          ready=false
-          for i in {1..30}; do
-            http_code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/ 2>/dev/null || echo "000")
-            if [ "$http_code" != "000" ]; then
-              ready=true
-              break
-            fi
-            if ! docker ps | grep -q publish-drugref; then
-              docker logs publish-drugref
-              exit 1
-            fi
-            echo "Waiting for Tomcat... ($i/30)"
-            sleep 2
-          done
-
-          if [ "$ready" != "true" ]; then
-            docker logs publish-drugref
-            docker stop publish-drugref && docker rm publish-drugref
-            exit 1
-          fi
-
-          docker exec publish-drugref java --version
-          docker exec publish-drugref ls -la /usr/local/tomcat/webapps/
-          docker stop publish-drugref && docker rm publish-drugref
-
-          docker tag carlos-drugref:publish "$IMAGE:${{ github.sha }}"
+          docker load -i /tmp/container-images/carlos-drugref.tar
+          docker tag carlos-drugref:test "$IMAGE:${{ github.sha }}"
           if [ "$SHOULD_PUSH_LATEST" = "true" ]; then
-            docker tag carlos-drugref:publish "$IMAGE:latest"
+            docker tag carlos-drugref:test "$IMAGE:latest"
             docker push "$IMAGE:latest"
             echo "Pushed $IMAGE:latest"
           fi

@@ -42,7 +42,8 @@ jobs:
       github.event_name == 'pull_request_target' ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.pull_request &&
-       contains(github.event.comment.body, 'confirming dco sign off for all commits') &&
+       (contains(github.event.comment.body, 'Confirming DCO sign off for all commits') ||
+        contains(github.event.comment.body, 'confirming dco sign off for all commits')) &&
        (contains(fromJson('["OWNER","MEMBER","COLLABORATOR","CONTRIBUTOR"]'), github.event.comment.author_association) ||
         github.event.comment.user.login == github.event.issue.user.login))
     steps:
@@ -205,14 +206,22 @@ jobs:
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
           PR_AUTHOR: ${{ steps.pr.outputs.pr_author }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
           CONFIRMATION_PHRASE: Confirming DCO sign off for all commits
         run: |
           set -euo pipefail
+
+          commit_json=$(curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPO/commits/$HEAD_SHA")
+          latest_commit_at=$(jq -r '.commit.committer.date // .commit.author.date' <<< "$commit_json")
 
           page=1
           found=false
           confirming_user=""
           confirming_association=""
+          confirming_at=""
 
           while true; do
             comments=$(curl -fsSL \
@@ -228,23 +237,35 @@ jobs:
               body=$(jq -r '.body // ""' <<< "$comment")
               author=$(jq -r '.author' <<< "$comment")
               association=$(jq -r '.association' <<< "$comment")
+              created_at=$(jq -r '.created_at' <<< "$comment")
+              updated_at=$(jq -r '.updated_at' <<< "$comment")
+              comment_confirmed_at="$updated_at"
+              if [[ "$created_at" > "$updated_at" ]]; then
+                comment_confirmed_at="$created_at"
+              fi
 
               if printf '%s\n' "$body" | grep -qiF "$CONFIRMATION_PHRASE"; then
                 if [ "$author" = "$PR_AUTHOR" ] || printf '%s' "$association" | grep -qE '^(OWNER|MEMBER|COLLABORATOR|CONTRIBUTOR)$'; then
-                  found=true
-                  confirming_user="$author"
-                  if [ "$author" = "$PR_AUTHOR" ]; then
-                    confirming_association="AUTHOR"
-                  else
-                    confirming_association="$association"
+                  if [[ "$comment_confirmed_at" > "$latest_commit_at" ]]; then
+                    found=true
+                    confirming_user="$author"
+                    confirming_at="$comment_confirmed_at"
+                    if [ "$author" = "$PR_AUTHOR" ]; then
+                      confirming_association="AUTHOR"
+                    else
+                      confirming_association="$association"
+                    fi
+                    break
                   fi
-                  break
+                  echo "Ignoring stale DCO confirmation from $author at $comment_confirmed_at; latest commit is $latest_commit_at."
                 fi
               fi
             done < <(jq -c '.[] | {
               body: .body,
               author: .user.login,
-              association: .author_association
+              association: .author_association,
+              created_at: .created_at,
+              updated_at: .updated_at
             }' <<< "$comments")
 
             if [ "$found" = true ]; then
@@ -257,6 +278,8 @@ jobs:
           echo "manual_confirmed=$found" >> "$GITHUB_OUTPUT"
           echo "confirming_user=$confirming_user" >> "$GITHUB_OUTPUT"
           echo "confirming_association=$confirming_association" >> "$GITHUB_OUTPUT"
+          echo "confirming_at=$confirming_at" >> "$GITHUB_OUTPUT"
+          echo "latest_commit_at=$latest_commit_at" >> "$GITHUB_OUTPUT"
 
       - name: Report result
         if: always() && steps.dco_check.outputs.commits_missing == 'true'
@@ -269,6 +292,8 @@ jobs:
           MANUAL_CONFIRMED: ${{ steps.manual_check.outputs.manual_confirmed }}
           CONFIRMING_USER: ${{ steps.manual_check.outputs.confirming_user }}
           CONFIRMING_ASSOCIATION: ${{ steps.manual_check.outputs.confirming_association }}
+          CONFIRMING_AT: ${{ steps.manual_check.outputs.confirming_at }}
+          LATEST_COMMIT_AT: ${{ steps.manual_check.outputs.latest_commit_at }}
           DCO_TRUNCATED: ${{ steps.dco_check.outputs.dco_truncated }}
         run: |
           set -euo pipefail
@@ -370,10 +395,10 @@ jobs:
           }
 
           if [ "$MANUAL_CONFIRMED" = "true" ]; then
-            echo "DCO check passed via manual confirmation from $CONFIRMING_USER ($CONFIRMING_ASSOCIATION)."
+            echo "DCO check passed via manual confirmation from $CONFIRMING_USER ($CONFIRMING_ASSOCIATION) at $CONFIRMING_AT."
+            delete_failure_comment
+            set_dco_status success "DCO manually confirmed by $CONFIRMING_USER"
             if [ "$EVENT_NAME" = "issue_comment" ]; then
-              delete_failure_comment
-              set_dco_status success "DCO manually confirmed by $CONFIRMING_USER"
               {
                 echo "## CARLOS EMR DCO Check Passed via Manual Confirmation"
                 echo ""
@@ -438,5 +463,6 @@ jobs:
             } > /tmp/dco_failure_comment.md
           fi
 
+          set_dco_status failure "DCO sign-off missing or manual confirmation is stale"
           upsert_failure_comment /tmp/dco_failure_comment.md
           exit 1
