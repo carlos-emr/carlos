@@ -21,8 +21,22 @@ else
   targets=("$REPO_ROOT/src")
 fi
 
+tmp_stdout=""
+tmp_stderr=""
+cleanup() {
+  for file in "$tmp_stdout" "$tmp_stderr"; do
+    if [[ -n "$file" && "$file" == /tmp/security-exception-message-convention.* ]]; then
+      rm -f -- "$file"
+    fi
+  done
+}
+trap cleanup EXIT
+
+tmp_stdout="$(mktemp /tmp/security-exception-message-convention.stdout.XXXXXX)"
+tmp_stderr="$(mktemp /tmp/security-exception-message-convention.stderr.XXXXXX)"
+
 set +e
-violations=$(grep -RInE 'missing required sec object:[[:space:]]*($|[^)])' "${targets[@]}" 2>&1)
+grep -RInE 'missing required sec object:[[:space:]]*($|[^)])' "${targets[@]}" >"$tmp_stdout" 2>"$tmp_stderr"
 grep_status=$?
 set -e
 
@@ -35,9 +49,16 @@ if [[ "$grep_status" -ne 0 ]]; then
   echo "SecurityException message convention: ERROR"
   echo
   echo "grep failed while scanning for colon-form messages:"
-  echo "$violations"
+  cat "$tmp_stderr"
+  if [[ -s "$tmp_stdout" ]]; then
+    echo
+    echo "Matches found before grep failed:"
+    cat "$tmp_stdout"
+  fi
   exit "$grep_status"
 fi
+
+violations="$(cat "$tmp_stdout")"
 
 echo "SecurityException message convention: FAIL"
 echo

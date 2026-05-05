@@ -10,16 +10,20 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CHECK_SCRIPT="$SCRIPT_DIR/check-security-exception-message-convention.sh"
+STAGE_PREFIX="/tmp/security-exception-message-convention."
 
 stage_root=""
 cleanup() {
   if [[ -n "$stage_root" && -d "$stage_root" ]]; then
-    rm -rf -- "$stage_root"
+    case "$stage_root" in
+      "$STAGE_PREFIX"*) rm -rf -- "$stage_root" ;;
+      *) echo "Refusing to remove unexpected stage root: $stage_root" >&2 ;;
+    esac
   fi
 }
 trap cleanup EXIT
 
-stage_root="$(mktemp -d)"
+stage_root="$(mktemp -d "${STAGE_PREFIX}XXXXXX")"
 mkdir -p "$stage_root/src/main/java/example"
 
 fails=0
@@ -51,7 +55,13 @@ run_case() {
     fails=$((fails + 1))
   fi
 
-  rm -f -- "$path"
+  case "$path" in
+    "$stage_root"/src/main/java/example/*.java) rm -f -- "$path" ;;
+    *)
+      echo "Refusing to remove unexpected fixture path: $path" >&2
+      fails=$((fails + 1))
+      ;;
+  esac
 }
 
 run_missing_target_case() {
