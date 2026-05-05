@@ -38,6 +38,8 @@ jobs:
   dco:
     name: DCO Sign-Off
     runs-on: ubuntu-latest
+    # Issue comments are filtered by author here; the shell step performs the
+    # case-insensitive confirmation phrase check and skips non-matching comments.
     if: >
       github.event_name == 'pull_request_target' ||
       (github.event_name == 'issue_comment' &&
@@ -245,7 +247,7 @@ jobs:
               comment_confirmed_epoch="$updated_epoch"
               # Defensive fallback for unexpected API timestamp inconsistencies.
               if [ "$updated_epoch" -lt "$created_epoch" ]; then
-                echo "::warning::DCO confirmation comment from $author has updated_at ($updated_at) earlier than created_at ($created_at); falling back to created_at."
+                echo "::warning::PR #$PR_NUMBER: DCO confirmation comment from $author has updated_at ($updated_at) earlier than created_at ($created_at); falling back to created_at."
                 comment_confirmed_at="$created_at"
                 comment_confirmed_epoch="$created_epoch"
               fi
@@ -264,7 +266,7 @@ jobs:
                     break
                   fi
                   stale_confirmation_found=true
-                  echo "::warning::Ignoring stale DCO confirmation from $author at $comment_confirmed_at; latest commit is $latest_commit_at."
+                  echo "::warning::PR #$PR_NUMBER: Ignoring stale DCO confirmation from $author at $comment_confirmed_at (latest commit is $latest_commit_at). A fresh confirmation is required after the latest commit."
                 fi
               fi
             done < <(jq -c '.[] | {
