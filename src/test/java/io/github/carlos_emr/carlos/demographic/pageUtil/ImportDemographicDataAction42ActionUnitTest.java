@@ -116,7 +116,7 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
 
     @Test
     @DisplayName("should return success when uploaded file is missing")
-    void shouldReturnSuccess_whenUploadedFileIsMissing() throws Exception {
+    void shouldReturnSuccess_whenUploadFileIsMissing() throws Exception {
         action.setImportFile(null);
         action.setImportFileFileName("patient.xml");
 
@@ -148,7 +148,7 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
 
     @Test
     @DisplayName("should not early return success when upload file and filename are present")
-    void shouldNotEarlyReturnSuccess_whenUploadFileAndFilenameArePresent() throws Exception {
+    void shouldThrowRuntimeException_whenUploadFileAndFilenameArePresent() throws Exception {
         Path tempDir = Files.createTempDirectory("demographic-import-test");
         Path uploadFile = Files.createTempFile(tempDir, "demographic-import-", ".txt");
         Files.writeString(uploadFile, "not xml");
