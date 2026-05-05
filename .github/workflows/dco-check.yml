@@ -42,8 +42,6 @@ jobs:
       github.event_name == 'pull_request_target' ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.pull_request &&
-       (contains(github.event.comment.body, 'Confirming DCO sign off for all commits') ||
-        contains(github.event.comment.body, 'confirming dco sign off for all commits')) &&
        (contains(fromJson('["OWNER","MEMBER","COLLABORATOR","CONTRIBUTOR"]'), github.event.comment.author_association) ||
         github.event.comment.user.login == github.event.issue.user.login))
     steps:
@@ -247,7 +245,7 @@ jobs:
               comment_confirmed_epoch="$updated_epoch"
               # Defensive fallback for unexpected API timestamp inconsistencies.
               if [ "$updated_epoch" -lt "$created_epoch" ]; then
-                echo "::warning::DCO confirmation comment from $author has updated_at earlier than created_at; falling back to created_at."
+                echo "::warning::DCO confirmation comment from $author has updated_at ($updated_at) earlier than created_at ($created_at); falling back to created_at."
                 comment_confirmed_at="$created_at"
                 comment_confirmed_epoch="$created_epoch"
               fi
@@ -408,6 +406,7 @@ jobs:
           if [ "$MANUAL_CONFIRMED" = "true" ]; then
             echo "DCO check passed via manual confirmation from $CONFIRMING_USER ($CONFIRMING_ASSOCIATION) at $CONFIRMING_AT."
             # Keep pull_request_target statuses current when an existing fresh confirmation is reused.
+            # Deleting an absent failure comment is a no-op; posting the same status again is safe.
             delete_failure_comment
             set_dco_status success "DCO manually confirmed by $CONFIRMING_USER"
             if [ "$EVENT_NAME" = "issue_comment" ]; then
