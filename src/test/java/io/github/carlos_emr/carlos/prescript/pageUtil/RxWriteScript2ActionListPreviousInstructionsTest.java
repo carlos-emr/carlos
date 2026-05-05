@@ -17,6 +17,8 @@ import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.RxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
+import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
@@ -39,9 +41,11 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -139,6 +143,26 @@ class RxWriteScript2ActionListPreviousInstructionsTest extends CarlosUnitTestBas
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(bean.getListMedHistory()).isEmpty();
         verify(mockResponse).sendError(HttpServletResponse.SC_NOT_FOUND, "Prescription not found");
+    }
+
+    @Test
+    @DisplayName("should populate previous instructions when randomId matches a stash item")
+    void shouldPopulatePreviousInstructions_whenRandomIdMatchesStashItem() throws Exception {
+        RxPrescriptionData.Prescription prescription = new RxPrescriptionData.Prescription(0, "999998", 123);
+        prescription.setRandomId(42);
+        bean.getStashList().add(prescription);
+        List<HashMap<String, String>> history = new ArrayList<>(List.of(historyEntry("take twice daily")));
+        when(mockRequest.getParameter("randomId")).thenReturn("42");
+
+        try (MockedStatic<RxUtil> rxUtilMock = mockStatic(RxUtil.class)) {
+            rxUtilMock.when(() -> RxUtil.getPreviousInstructions(prescription)).thenReturn(history);
+
+            String result = action.listPreviousInstructions();
+
+            assertThat(result).isNull();
+            assertThat(bean.getListMedHistory()).containsExactlyElementsOf(history);
+            verify(mockResponse, never()).sendError(anyInt(), any(String.class));
+        }
     }
 
     private HashMap<String, String> historyEntry(String instruction) {
