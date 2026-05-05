@@ -142,10 +142,10 @@
             <span class="fw-semibold"><fmt:message key="messenger.CreateMessage.msgMessenger"/></span>
         </div>
         <div class="d-flex align-items-center gap-3">
-            <a href="javascript:popupStart(300,400,'About.jsp')" class="small text-decoration-none">
+            <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')" class="small text-decoration-none">
                 <fmt:message key="global.about"/>
             </a>
-            <a href="javascript:popupStart(300,400,'License.jsp')" class="small text-decoration-none">
+            <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')" class="small text-decoration-none">
                 <fmt:message key="global.license"/>
             </a>
         </div>

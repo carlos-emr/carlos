@@ -87,8 +87,9 @@ class MessengerJspRouteMigrationTest {
         String jsp = Files.readString(ATTACHMENT_FRAMESET);
 
         assertThat(jsp)
-                .contains("<%@ taglib uri=\"owasp.encoder.jakarta\" prefix=\"e\" %>")
-                .contains("<html lang=\"${e:forHtmlAttribute(pageContext.request.locale.language)}\">")
+                .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
+                .contains("<html lang=\"${carlos:forHtmlAttribute(pageContext.request.locale.language)}\">")
+                .doesNotContain("<%@ taglib uri=\"owasp.encoder.jakarta\" prefix=\"e\" %>")
                 .doesNotContain("<html lang=\"${pageContext.request.locale.language}\">");
     }
 
@@ -103,7 +104,8 @@ class MessengerJspRouteMigrationTest {
                 .contains("request.getParameterValues(\"indexArray\")")
                 .contains("selectedIndexes.contains(")
                 .contains("checked")
-                .contains("<html lang=\"${e:forHtmlAttribute(pageContext.request.locale.language)}\">")
+                .contains("<html lang=\"${carlos:forHtmlAttribute(pageContext.request.locale.language)}\">")
+                .doesNotContain("<%@ taglib uri=\"owasp.encoder.jakarta\" prefix=\"e\" %>")
                 .doesNotContain("pageContext.setAttribute(\"demoTitleValue\", demoName + \" information\");")
                 .doesNotContain("pageContext.setAttribute(\"ecTitleValue\", \"Encounter: \" + ec.getTimestamp().toString());")
                 .doesNotContain("<html lang=\"${pageContext.request.locale.language}\">");
