@@ -64,6 +64,7 @@ class ViewInsideLabUpload2ActionTest extends CarlosUnitTestBase {
         mockRequest = new MockHttpServletRequest("GET", "/" + VIEW_ROUTE);
         mockResponse = new MockHttpServletResponse();
         stubServletActionContext();
+        loggedInInfoMock = mockStatic(LoggedInInfo.class);
         stubLoggedInInfo(mockLoggedInInfo);
         stubLabWritePrivilege(false);
         action = new ViewInsideLabUpload2Action(mockSecurityInfoManager);
@@ -115,9 +116,6 @@ class ViewInsideLabUpload2ActionTest extends CarlosUnitTestBase {
     }
 
     private void stubLoggedInInfo(LoggedInInfo loggedInInfo) {
-        if (loggedInInfoMock == null) {
-            loggedInInfoMock = mockStatic(LoggedInInfo.class);
-        }
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(loggedInInfo);
     }
