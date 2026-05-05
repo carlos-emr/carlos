@@ -408,7 +408,8 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
             // Given
             CaseManagementIssue cmi = new CaseManagementIssue();
             cmi.setDemographic_no(335);
-            cmi.setIssue_id(987654321L);
+            // Intentionally references no Issue row to verify LEFT JOIN FETCH preserves the CMI.
+            cmi.setIssue_id(-1L);
             cmi.setAcute(false);
             cmi.setCertain(true);
             cmi.setMajor(false);
@@ -444,8 +445,7 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
             // Then
             assertThat(unresolvedResults)
                 .isNotEmpty()
-                .allMatch(i -> !i.isResolved())
-                .allMatch(i -> Hibernate.isInitialized(i.getIssue()))
+                .allMatch(i -> !i.isResolved() && Hibernate.isInitialized(i.getIssue()))
                 .extracting(i -> i.getIssue().getCode())
                 .containsExactly("TEST001");
         }

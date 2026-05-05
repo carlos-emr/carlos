@@ -37,6 +37,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import jakarta.persistence.TypedQuery;
 
@@ -81,6 +82,7 @@ public class CaseManagementIssueDAOImpl extends AbstractJpaDao implements CaseMa
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementIssue> getIssuesByNote(Integer noteId, Boolean resolved) {
+        Objects.requireNonNull(noteId, "noteId must not be null");
         if (resolved != null) {
             return (List<CaseManagementIssue>) JpqlQueryHelper.find(entityManager(),
                     "select distinct cmi from CaseManagementIssue cmi left join fetch cmi.issue join cmi.notes note where note.id = ?1 and cmi.resolved = ?2 order by cmi.resolved",
