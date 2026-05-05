@@ -93,6 +93,7 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
     @Test
     @DisplayName("should return success when uploaded filename is blank")
     void shouldReturnSuccess_whenUploadedFilenameIsBlank() throws Exception {
+        // The blank filename path returns before any file IO, so the File only needs to be non-null.
         action.setImportFile(new File("dummy-upload"));
         action.setImportFileFileName(" ");
 

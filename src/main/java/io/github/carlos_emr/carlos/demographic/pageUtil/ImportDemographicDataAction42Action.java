@@ -222,7 +222,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         // initialize
         admProviderNo = (String) request.getSession().getAttribute("user");
         if (StringUtils.isNullOrEmpty(admProviderNo)) {
-            logger.warn("Demographic import request has LoggedInInfo but no session user attribute");
+            logger.warn("Demographic import request is missing the session user attribute");
             return "logout";
         }
         programId = new EctProgram(request.getSession()).getProgram(admProviderNo);
