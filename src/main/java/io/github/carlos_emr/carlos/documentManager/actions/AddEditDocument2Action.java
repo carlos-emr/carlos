@@ -723,7 +723,8 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             return uploadFile;
         }
 
-        throw new SecurityException("Uploaded content is not backed by a file");
+        String contentType = content == null ? "null" : content.getClass().getName();
+        throw new SecurityException("Uploaded content must be file-backed, found: " + contentType);
     }
 
     /**
@@ -734,7 +735,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
      * @throws IOException if the stream cannot be opened
      */
     private InputStream openValidatedUploadInputStream(File validatedUpload) throws IOException {
-        return FileUtils.openInputStream(validatedUpload); // codeql[java/path-injection] -- caller passes only PathValidationUtils.validateUpload(...) results
+        return FileUtils.openInputStream(validatedUpload); // codeql[java/path-injection] -- private method only called with PathValidationUtils.validateUpload() results which enforce containment checks
     }
 
     /**
