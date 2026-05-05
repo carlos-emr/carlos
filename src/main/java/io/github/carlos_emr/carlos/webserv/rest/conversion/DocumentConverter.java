@@ -37,7 +37,7 @@ import org.apache.logging.log4j.Logger;
 import org.hibernate.Hibernate;
 
 public class DocumentConverter extends AbstractConverter<Document, DocumentTo1> {
-    private static Logger logger = MiscUtils.getLogger();
+    private static final Logger logger = MiscUtils.getLogger();
 
     @Override
     public Document getAsDomainObject(LoggedInInfo loggedInInfo, DocumentTo1 t) throws ConversionException {
