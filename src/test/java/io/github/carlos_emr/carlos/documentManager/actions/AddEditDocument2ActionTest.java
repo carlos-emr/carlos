@@ -112,7 +112,7 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should capture Struts 7 docFile upload metadata")
-    void shouldCaptureMetadata_forStruts7DocFileUpload() throws Exception {
+    void shouldCaptureMetadata_whenStruts7DocFileUploaded() throws Exception {
         tempUploadFile = File.createTempFile("add-edit-document", ".pdf");
 
         UploadedFile uploadedFile = mock(UploadedFile.class);

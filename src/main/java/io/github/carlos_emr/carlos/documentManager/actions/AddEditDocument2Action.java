@@ -158,8 +158,9 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             newDoc.setProgramId(pp.getProgramId().intValue());
         }
 
+        long expectedFileSize = Files.size(validatedSourcePath);
         // save local file;
-        if (validatedSource.length() == 0) {
+        if (expectedFileSize == 0) {
             response.setHeader("oscar_error", props.getString("dms.addDocument.errorZeroSize"));
             response.sendError(500, props.getString("dms.addDocument.errorZeroSize"));
             return null;
@@ -169,7 +170,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         try (InputStream inputStream = Files.newInputStream(validatedSourcePath)) {
             File file = writeLocalFile(inputStream, fileName); // write file to local dir
 
-            if (file == null || !file.exists() || file.length() < validatedSource.length()) {
+            if (!isWrittenUploadComplete(file, expectedFileSize)) {
                 response.setHeader("oscar_error", props.getString("dms.addDocument.errorNoWrite"));
                 response.sendError(500, props.getString("dms.addDocument.errorNoWrite"));
                 return null;
@@ -331,7 +332,8 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             }
             File validatedDocFile = PathValidationUtils.validateUpload(docFile);
             Path validatedDocPath = resolveValidatedUploadPath(validatedDocFile);
-            if (validatedDocFile.length() == 0) {
+            long expectedFileSize = Files.size(validatedDocPath);
+            if (expectedFileSize == 0) {
                 errors.put("uploaderror", "dms.error.uploadError");
                 throw new FileNotFoundException();
             }
@@ -348,8 +350,14 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             String fileName2 = newDoc.getFileName();
 
             // save local file
+            File writtenFile;
             try (InputStream inputStream = Files.newInputStream(validatedDocPath)) {
-                writeLocalFile(inputStream, fileName2);
+                writtenFile = writeLocalFile(inputStream, fileName2);
+            }
+            if (!isWrittenUploadComplete(writtenFile, expectedFileSize)) {
+                errors.put("uploaderror", "dms.error.uploadError");
+                addActionError(getText("dms.error.uploadError"));
+                throw new IOException("Failed to write uploaded document");
             }
             newDoc.setContentType(this.docFileContentType);
 
@@ -520,10 +528,17 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             // if the update behavior is true, get the file name
             if (updateFileContent) {
                 Path validatedDocPath = resolveValidatedUploadPath(validatedDocFile);
+                long expectedFileSize = Files.size(validatedDocPath);
                 fileName = MiscUtils.sanitizeFileName(newDoc.getFileName());
                 // save local file
+                File writtenFile;
                 try (InputStream inputStream = Files.newInputStream(validatedDocPath)) {
-                    writeLocalFile(inputStream, fileName);
+                    writtenFile = writeLocalFile(inputStream, fileName);
+                }
+                if (!isWrittenUploadComplete(writtenFile, expectedFileSize)) {
+                    errors.put("uploaderror", "dms.error.uploadError");
+                    addActionError(getText("dms.error.uploadError"));
+                    throw new IOException("Failed to write uploaded document");
                 }
                 if (fileName.toLowerCase().endsWith(".pdf")) {
                     newDoc.setContentType("application/pdf");
@@ -706,18 +721,14 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
      * @throws IOException if canonical resolution fails
      */
     private Path resolveValidatedUploadPath(File validatedUpload) throws IOException {
-        File uploadBaseDir = validatedUpload.getParentFile();
-        if (uploadBaseDir == null) {
-            throw new SecurityException("Invalid upload base directory");
-        }
+        return validatedUpload.getCanonicalFile().toPath();
+    }
 
-        Path canonicalBase = uploadBaseDir.getCanonicalFile().toPath();
-        Path canonicalValidated = validatedUpload.getCanonicalFile().toPath();
-        if (!canonicalValidated.startsWith(canonicalBase)) {
-            throw new SecurityException("Invalid upload path");
-        }
-
-        return canonicalValidated;
+    private boolean isWrittenUploadComplete(File writtenFile, long expectedFileSize) {
+        return writtenFile != null
+                && writtenFile.exists()
+                && writtenFile.isFile()
+                && writtenFile.length() == expectedFileSize;
     }
 
     private boolean filled(String s) {
