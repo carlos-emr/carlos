@@ -81,7 +81,7 @@ class ViewInsideLabUpload2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldReturnSuccess_whenPrivilegeGranted() throws Exception {
+    void shouldReturnSuccess_whenGetRequest() throws Exception {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_lab"), eq("w"), isNull()))
                 .thenReturn(true);
 
