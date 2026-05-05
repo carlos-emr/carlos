@@ -57,9 +57,15 @@ class StrutsClinicalConfigTest {
             "src/main/webapp/WEB-INF/classes/struts-clinical.xml";
     private static final String ENCOUNTER_CONFIG =
             "src/main/webapp/WEB-INF/classes/struts-encounter.xml";
+    private static final String SCHEDULING_CONFIG =
+            "src/main/webapp/WEB-INF/classes/struts-scheduling.xml";
 
     private static final String VIEW_CLINICAL_CLASS =
             "io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action";
+    private static final String ECT_MEASUREMENTS_CLASS =
+            "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action";
+    private static final String FLOWSHEET_CUSTOM_CLASS =
+            "io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action";
 
     /**
      * Sanity lower bound: PR #1682 introduced ~129 {@code ViewClinical2Action}
@@ -204,6 +210,37 @@ class StrutsClinicalConfigTest {
                 .isEmpty();
     }
 
+    @Test
+    @DisplayName("measurement submission view should only be reached after POST-only measurement actions")
+    void shouldRouteMeasurementSubmissionThroughPostOnlyActions() throws Exception {
+        Document clinical = parse(CLINICAL_CONFIG);
+        NodeList clinicalActions = clinical.getElementsByTagName("action");
+        List<String> sharedGateOffenders = new ArrayList<>();
+        for (int i = 0; i < clinicalActions.getLength(); i++) {
+            Element action = (Element) clinicalActions.item(i);
+            if (!VIEW_CLINICAL_CLASS.equals(action.getAttribute("class"))) {
+                continue;
+            }
+            NodeList results = action.getElementsByTagName("result");
+            for (int r = 0; r < results.getLength(); r++) {
+                if ("/WEB-INF/jsp/encounter/oscarMeasurements/ProcessMeasurementsSubmission.jsp"
+                        .equals(extractResultPath((Element) results.item(r)))) {
+                    sharedGateOffenders.add(action.getAttribute("name"));
+                }
+            }
+        }
+
+        assertThat(sharedGateOffenders)
+                .as("ProcessMeasurementsSubmission.jsp clears encounter submission state and must only be "
+                        + "rendered after POST-only measurement actions, never through the shared read gate")
+                .isEmpty();
+
+        assertActionClass(ENCOUNTER_CONFIG, "encounter/Measurements", ECT_MEASUREMENTS_CLASS);
+        assertActionClass(ENCOUNTER_CONFIG, "encounter/Measurements2", ECT_MEASUREMENTS_CLASS);
+        assertActionClass(SCHEDULING_CONFIG, "encounter/oscarMeasurements/adminFlowsheet/FlowSheetCustomAction",
+                FLOWSHEET_CUSTOM_CLASS);
+    }
+
     private String extractResultPath(Element result) {
         // Results may specify their location either as element text or via
         // <param name="location">. Prefer the param form when present since
@@ -232,6 +269,21 @@ class StrutsClinicalConfigTest {
             }
         }
         return out;
+    }
+
+    private void assertActionClass(String configPath, String actionName, String expectedClass) throws Exception {
+        Document doc = parse(configPath);
+        NodeList actions = doc.getElementsByTagName("action");
+        for (int i = 0; i < actions.getLength(); i++) {
+            Element action = (Element) actions.item(i);
+            if (actionName.equals(action.getAttribute("name"))) {
+                assertThat(action.getAttribute("class"))
+                        .as("%s should route through %s", actionName, expectedClass)
+                        .isEqualTo(expectedClass);
+                return;
+            }
+        }
+        throw new AssertionError("Missing action " + actionName + " in " + configPath);
     }
 
     private Document parse(String configPath) throws Exception {

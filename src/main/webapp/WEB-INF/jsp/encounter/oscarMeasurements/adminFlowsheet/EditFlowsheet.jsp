@@ -239,13 +239,8 @@
     EctMeasurementTypesBeanHandler hd = new EctMeasurementTypesBeanHandler();
     Vector<EctMeasurementTypesBean> vec = hd.getMeasurementTypeVector();
     String demographicStr = new String();
-    String demoStash = new String();
     if (demographic != null) {
         demographicStr = "&demographic=" + SafeEncode.forUriComponent(demographic);
-        session.setAttribute("demoNo" + session.getAttribute("user"), demographic);
-    } else {
-        String demoNo = (String) session.getAttribute("demoNo" + session.getAttribute("user"));
-        if (demoNo != null) demoStash = "&demographic=" + SafeEncode.forUriComponent(demoNo);
     }
 
     XMLOutputter outp = new XMLOutputter();

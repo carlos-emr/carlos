@@ -32,6 +32,7 @@
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -57,18 +58,13 @@
 %>
     <div class="action-errors">
         <ul>
-            <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
+        <% for (String error : actionErrors) { %>
+                <li><carlos:encode value='<%= error %>' context="html"/></li>
             <% } %>
         </ul>
     </div>
 <% } %>
     Processing...
-
-    <%
-        //clear so values don't repeat after added to note
-        session.setAttribute("textOnEncounter", null);
-    %>
 
     </body>
 </html>

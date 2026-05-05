@@ -82,6 +82,12 @@ public class EctMeasurements2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_measurement)");
         }
 
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         boolean ajax = (request.getParameter("ajax") != null) ? Boolean.valueOf(request.getParameter("ajax")) : false;
         boolean skipCreateNote = (request.getParameter("skipCreateNote") != null)
                 ? Boolean.valueOf(request.getParameter("skipCreateNote"))
@@ -346,6 +352,7 @@ public class EctMeasurements2Action extends ActionSupport {
             objectMapper.writeValue(response.getWriter(), json);
             return null;
         } else {
+            session.removeAttribute("textOnEncounter");
             request.setAttribute("textOnEncounter", Encode.forJavaScript(textOnEncounter));
             return SUCCESS;
         }
