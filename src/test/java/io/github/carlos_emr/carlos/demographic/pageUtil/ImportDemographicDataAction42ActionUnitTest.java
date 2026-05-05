@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
+import java.lang.reflect.Method;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -40,26 +41,33 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("demographic")
 class ImportDemographicDataAction42ActionUnitTest {
 
+    private boolean hasUploadedImportFile(File importFile, String importFileFileName) throws Exception {
+        Method method = ImportDemographicDataAction42Action.class
+                .getDeclaredMethod("hasUploadedImportFile", File.class, String.class);
+        method.setAccessible(true);
+        return (boolean) method.invoke(null, importFile, importFileFileName);
+    }
+
     @Test
     @DisplayName("should return false when no upload is present")
-    void shouldReturnFalse_whenNoUploadIsPresent() {
-        assertThat(ImportDemographicDataAction42Action.hasUploadedImportFile(null, null))
+    void shouldReturnFalse_whenNoUploadIsPresent() throws Exception {
+        assertThat(hasUploadedImportFile(null, null))
                 .isFalse();
     }
 
     @Test
     @DisplayName("should return false when uploaded filename is blank")
-    void shouldReturnFalse_whenUploadedFilenameIsBlank() {
+    void shouldReturnFalse_whenUploadedFilenameIsBlank() throws Exception {
         // The helper only checks for a non-null File; no real file is required here.
-        assertThat(ImportDemographicDataAction42Action.hasUploadedImportFile(new File("dummy-upload"), " "))
+        assertThat(hasUploadedImportFile(new File("dummy-upload"), " "))
                 .isFalse();
     }
 
     @Test
     @DisplayName("should return true when upload file and filename are present")
-    void shouldReturnTrue_whenUploadFileAndFilenameArePresent() {
+    void shouldReturnTrue_whenUploadFileAndFilenameArePresent() throws Exception {
         // The helper only checks for a non-null File; file existence/content is not under test.
-        assertThat(ImportDemographicDataAction42Action.hasUploadedImportFile(new File("dummy-upload"), "patient.xml"))
+        assertThat(hasUploadedImportFile(new File("dummy-upload"), "patient.xml"))
                 .isTrue();
     }
 }

@@ -218,14 +218,14 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
         // initialize
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        admProviderNo = (String) request.getSession().getAttribute("user");
+        programId = new EctProgram(request.getSession()).getProgram(admProviderNo);
+        matchProviderNames = this.isMatchProviderNames();
 
         if (!hasUploadedImportFile(importFile, importFileFileName)) {
             return SUCCESS;
         }
-        
-        admProviderNo = (String) request.getSession().getAttribute("user");
-        programId = new EctProgram(request.getSession()).getProgram(admProviderNo);
-        matchProviderNames = this.isMatchProviderNames();
+
         ArrayList<String> warnings = new ArrayList<>();
         ArrayList<String[]> logs = new ArrayList<>();
         validXmlFileList = new ArrayList<>();
