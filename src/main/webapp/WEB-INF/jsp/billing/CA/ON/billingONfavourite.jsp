@@ -59,39 +59,19 @@
             }
 
             function onSearch() {
-                //document.forms[0].submit.value="Search";
-                var ret = checkServiceCode();
-                return ret;
+                return true;
             }
 
-            // @ OSCARSERVICE
             function onDelete() {
-                var ret = false;
-                ret = confirm("Are you sure you want to Delete?");
-                return ret;
+                return confirm("Are you sure you want to Delete?");
             }
-
-            // @ OSCARSERVICE
 
             function onSave() {
-                //document.forms[0].submit.value="Save";
-                var ret = checkServiceCode();
-                if (ret == true) {
-                    ret = checkAllFields();
-                }
-                if (ret == true) {
+                var ret = checkAllFields();
+                if (ret === true) {
                     ret = confirm("Are you sure you want to save?");
                 }
                 return ret;
-            }
-
-            function checkServiceCode() {
-                var b = true;
-                if (document.forms[0].service_code.value.length != 5 || !isServiceCode(document.forms[0].service_code.value)) {
-                    b = false;
-                    alert("You must type in a service code with 5 (upper case) letters/digits. The service code ends with \'A\' or \'B\'...");
-                }
-                return b;
             }
 
             function isServiceCode(s) {
