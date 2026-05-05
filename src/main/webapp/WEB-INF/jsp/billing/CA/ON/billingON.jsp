@@ -961,10 +961,10 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                                    value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"serviceCode\".concat(i)]}' context='htmlAttribute'/>"
                                                    onBlur="upCaseCtrl(this)"/>x
                                             <input type="text" name="serviceUnit${i}" size="2" maxlength="4"
-                                                   style="width: 20px;"
+                                                   style="width: 20px;" placeholder="1"
                                                    value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"serviceUnit\".concat(i)]}' context='htmlAttribute'/>"/>@
                                             <input type="text" name="serviceAt${i}" size="3" maxlength="4"
-                                                   style="width: 30px"
+                                                   style="width: 30px" placeholder="1"
                                                    value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"serviceAt\".concat(i)]}' context='htmlAttribute'/>"/><br/>
                                         </c:forEach></td>
                                     <td style="white-space:nowrap; width: 33%; text-align: center" class="xmyPink"><b><fmt:message key="oscar.billing.ca.on.billingON.codeTimePercent"/></b><br/>
@@ -973,10 +973,10 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                                    value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"serviceCode\".concat(i)]}' context='htmlAttribute'/>"
                                                    onBlur="upCaseCtrl(this)"/>x
                                             <input type="text" name="serviceUnit${i}" size="2" maxlength="2"
-                                                   style="width: 20px;"
+                                                   style="width: 20px;" placeholder="1"
                                                    value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"serviceUnit\".concat(i)]}' context='htmlAttribute'/>"/>@
                                             <input type="text" name="serviceAt${i}" size="3" maxlength="4"
-                                                   style="width: 30px"
+                                                   style="width: 30px" placeholder="1"
                                                    value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"serviceAt\".concat(i)]}' context='htmlAttribute'/>"/><br/>
                                         </c:forEach></td>
                                 </tr>
