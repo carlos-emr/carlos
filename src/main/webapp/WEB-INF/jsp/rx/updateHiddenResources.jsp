@@ -30,6 +30,8 @@
 --%>
 
 <%@page import="java.util.*" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String hr = request.getParameter("hiddenResources");
     if (hr.length() == 0) {
