@@ -150,7 +150,9 @@ public class PrintReferralLabel2Action extends ActionSupport {
             // nosemgrep: tainted-session-from-http-request -- value is a new empty ArrayList literal, not user input
             request.getSession().setAttribute("billingReferralAdminCheckList", new ArrayList<ProfessionalSpecialist>());
         }
-        return SUCCESS;
+        // This action streams the PDF directly and its Struts mapping has no success result.
+        // Returning SUCCESS makes Struts render the global error page over the PDF as "0".
+        return NONE;
     }
 
     private StringBuilder getHeader(HttpServletResponse response) {

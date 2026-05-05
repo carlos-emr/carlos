@@ -1,6 +1,7 @@
 <%--
-
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -16,17 +17,8 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-    This software was written for the
-    Department of Family Medicine
-    McMaster University
-    Hamilton
-    Ontario, Canada
-
-
-    Now maintained by the CARLOS EMR Project (2026+).
+    CARLOS EMR Project
     https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
 --%>
 <!DOCTYPE html>
 <%@ page import="java.nio.charset.StandardCharsets" %>
@@ -397,8 +389,17 @@
         java.util.ResourceBundle prop = ResourceBundle.getBundle("oscarResources", request.getLocale());
         formatDate = UtilDateUtilities.DateToString(inform.parse(strDate), prop.getString("date.EEEyyyyMMdd"), request.getLocale());
     } catch (Exception e) {
-        MiscUtils.getLogger().error("Error", e);
-        formatDate = UtilDateUtilities.DateToString(inform.parse(strDate), "EEE, yyyy-MM-dd");
+        MiscUtils.getLogger().error("appointmentprovideradminday: missing 'date.EEEyyyyMMdd' bundle key for locale {}; falling back to default format",
+                request.getLocale(), e);
+        // The fallback parse can itself throw ParseException (same parser, same input).
+        // Use the literal strDate as a final fallback so the page still renders
+        // rather than propagating an uncaught exception out of the scriptlet.
+        try {
+            formatDate = UtilDateUtilities.DateToString(inform.parse(strDate), "EEE, yyyy-MM-dd");
+        } catch (Exception fallbackEx) {
+            MiscUtils.getLogger().error("appointmentprovideradminday: fallback date parse also failed; rendering raw strDate", fallbackEx);
+            formatDate = strDate;
+        }
     }
     String strYear = "" + year;
     String strMonth = month > 9 ? ("" + month) : ("0" + month);
@@ -1171,6 +1172,9 @@
                         </button>
                     </span>
                     <div id="quickSearchDropdown" class="quick-search-dropdown" role="listbox" aria-live="polite" aria-hidden="true" style="display:none;"></div>
+                    <form id="quickSearchCsrfForm" method="post"
+                          action="<%= request.getContextPath() %>/demographic/SearchDemographic"
+                          style="display:none;"></form>
                 </span>
                 <a class="redArrow"
                    href="<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day-7):(day-1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%= isWeekView ? "&provider_no=" + SafeEncode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(provNum)) : "" %>&viewall=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(viewall) %>' context="uriComponent"/>">
@@ -1584,8 +1588,14 @@
                                     try {
                                         formatDate = UtilDateUtilities.DateToString(inform.parse(strDate), wdProp.getString("date.EEEyyyyMMdd"), request.getLocale());
                                     } catch (Exception e) {
-                                        MiscUtils.getLogger().error("Error", e);
-                                        formatDate = UtilDateUtilities.DateToString(inform.parse(strDate), "EEE, yyyy-MM-dd");
+                                        MiscUtils.getLogger().error("appointmentprovideradminday weekday loop: missing 'date.EEEyyyyMMdd' bundle key for locale {}; falling back to default format",
+                                                request.getLocale(), e);
+                                        try {
+                                            formatDate = UtilDateUtilities.DateToString(inform.parse(strDate), "EEE, yyyy-MM-dd");
+                                        } catch (Exception fallbackEx) {
+                                            MiscUtils.getLogger().error("appointmentprovideradminday weekday loop: fallback date parse also failed; rendering raw strDate", fallbackEx);
+                                            formatDate = strDate;
+                                        }
                                     }
                                     strYear = "" + year;
                                     strMonth = month > 9 ? ("" + month) : ("0" + month);
@@ -2386,6 +2396,7 @@
 
     <!-- key shortcut hotkey block added by phc -->
     <fmt:message var="labTitle" key="global.lab"/>
+    <c:set var="__enc_21"><carlos:encode value='<%= mygroupno %>' context="uriComponent"/></c:set>
     <script language="JavaScript">
 
         // popup blocking for the site must be off!
@@ -2449,9 +2460,7 @@
                     }
                     case <fmt:message key="global.searchShortcut"/> :
                         popupOscarRx(550, 687, '<%= request.getContextPath() %>/demographic/ViewSearch');
-                        <c:set var="__enc_21"><carlos:encode value='<%= mygroupno %>' context="uriComponent"/></c:set>
-                        return false;  //run c                        
-ode for 'S'earch
+                        return false;  //run code for 'S'earch
                     case <fmt:message key="global.dayShortcut"/> :
                         window.open("<%= request.getContextPath() %>/provider/providercontrol?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%><%=viewString%>&displaymode=day&dboperation=searchappointmentday", "_self");
                         return false;  //run code for 'T'oday

@@ -67,13 +67,12 @@ public class CtlBillingServicePremiumDaoImpl extends AbstractDaoImpl<CtlBillingS
         return results;
     }
 
-    public List<Object[]> search_ctlpremium(String status) {
-        Query q = entityManager.createQuery("select b.serviceCode, c.description from CtlBillingServicePremium b, BillingService c where b.serviceCode=c.serviceCode and b.status=?1");
+    public List<io.github.carlos_emr.carlos.billings.ca.on.dto.PremiumRow> search_ctlpremium(String status) {
+        String jpql = "select new io.github.carlos_emr.carlos.billings.ca.on.dto.PremiumRow(b.serviceCode, c.description) from CtlBillingServicePremium b, BillingService c where b.serviceCode=c.serviceCode and b.status=?1";
+        jakarta.persistence.TypedQuery<io.github.carlos_emr.carlos.billings.ca.on.dto.PremiumRow> q =
+                entityManager.createQuery(jpql, io.github.carlos_emr.carlos.billings.ca.on.dto.PremiumRow.class);
         q.setParameter(1, status);
-
-        List<Object[]> results = q.getResultList();
-
-        return results;
+        return q.getResultList();
     }
 
     public List<CtlBillingServicePremium> findByServceCodes(List<String> serviceCodes) {

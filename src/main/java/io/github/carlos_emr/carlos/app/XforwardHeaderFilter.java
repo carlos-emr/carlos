@@ -122,7 +122,7 @@ public class XforwardHeaderFilter implements Filter {
             try {
                 result.add(CidrRange.parse(trimmed));
             } catch (IllegalArgumentException e) {
-                LOGGER.warn("Ignoring invalid trusted proxy CIDR '{}'", trimmed);
+                LOGGER.warn("Ignoring invalid trusted proxy CIDR '{}'", trimmed, e);
             }
         }
         return Collections.unmodifiableSet(result);
@@ -149,14 +149,21 @@ public class XforwardHeaderFilter implements Filter {
         return false;
     }
 
-    static String extractClientIp(String xForwardedFor) {
+    static String extractClientIp(
+            String xForwardedFor,
+            Set<String> trustedProxyIps,
+            Set<CidrRange> trustedProxyCidrs) {
         if (xForwardedFor == null || xForwardedFor.isBlank()) {
             return null;
         }
 
-        for (String token : xForwardedFor.split(",")) {
-            String candidate = token.trim();
-            if (isValidIpAddress(candidate)) {
+        String[] tokens = xForwardedFor.split(",");
+        for (int i = tokens.length - 1; i >= 0; i--) {
+            String candidate = tokens[i].trim();
+            if (!isValidIpAddress(candidate)) {
+                continue;
+            }
+            if (!isTrustedProxy(candidate, trustedProxyIps, trustedProxyCidrs)) {
                 return candidate;
             }
         }
@@ -197,7 +204,7 @@ public class XforwardHeaderFilter implements Filter {
             }
 
             String forwardedFor = super.getHeader("X-Forwarded-For");
-            String clientIp = extractClientIp(forwardedFor);
+            String clientIp = extractClientIp(forwardedFor, trustedProxyIps, trustedProxyCidrs);
             return clientIp != null ? clientIp : remoteAddr;
         }
     }
