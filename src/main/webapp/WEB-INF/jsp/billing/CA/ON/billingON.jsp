@@ -884,13 +884,13 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                         <td style="text-align: center;"
                             class="${not empty formModel.patient.billingRecommendations ? 'alert' : ''}">${formModel.patient.billingRecommendations}
                             <c:if test="${formModel.recommendationsUnavailable}">
-                                <div class="alert alert-warning">Billing recommendations are temporarily unavailable.</div>
+                                <div class="alert alert-warning"><fmt:message key="billing.recommendations.unavailable"/></div>
                             </c:if>
                             <c:if test="${formModel.siteContextDegraded}">
-                                <div class="alert alert-warning">Appointment site defaults are temporarily unavailable.</div>
+                                <div class="alert alert-warning"><fmt:message key="billing.siteDefaults.unavailable"/></div>
                             </c:if>
                             <c:if test="${formModel.admissionDateUnavailable}">
-                                <div class="alert alert-warning">Inpatient admission date is temporarily unavailable.</div>
+                                <div class="alert alert-warning"><fmt:message key="billing.admissionDate.unavailable"/></div>
                             </c:if>
                         </td>
                     </tr>
@@ -1064,7 +1064,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                     <td style="white-space:nowrap; width: 30%"><b><fmt:message key="oscar.billing.ca.on.billingON.assignedPhysician"/></b></td>
                                     <td style="width: 20%"><carlos:encode value='${formModel.providerPanel.assgProviderDisplay}' context='html'/>
                                         <c:if test="${formModel.assignedProviderUnavailable}">
-                                            <div class="alert alert-warning">Assigned physician name is temporarily unavailable. Verify the assigned provider before saving.</div>
+                                            <div class="alert alert-warning"><fmt:message key="billing.assignedProvider.unavailable"/></div>
                                         </c:if>
                                     </td>
                                 </tr>
@@ -1472,7 +1472,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
 	        </tr>
 	        <c:if test="${formModel.historyUnavailable}">
 	            <tr>
-	                <td colspan="2"><div class="alert alert-warning">Billing history is temporarily unavailable. Recent claims may be incomplete.</div></td>
+	                <td colspan="2"><div class="alert alert-warning"><fmt:message key="billing.history.unavailable"/></div></td>
 	            </tr>
 	        </c:if>
 	    </table>
