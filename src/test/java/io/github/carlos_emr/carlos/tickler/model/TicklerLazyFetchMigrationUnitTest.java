@@ -76,17 +76,16 @@ class TicklerLazyFetchMigrationUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should use lazy fetch for all Tickler relationships")
     void shouldUseLazyFetch_forAllTicklerRelationships() {
-        List<String> relationshipFieldNames = Stream.of(Tickler.class.getDeclaredFields())
-                .filter(field -> relationshipFetchType(field) != null)
-                .map(Field::getName)
-                .toList();
         List<FetchType> relationshipFetchTypes = Stream.of(Tickler.class.getDeclaredFields())
                 .map(this::relationshipFetchType)
                 .filter(Objects::nonNull)
                 .toList();
 
-        assertThat(relationshipFieldNames).contains(
-                "updates", "comments", "ticklerCategory", "demographic", "provider", "assignee", "program");
+        assertThat(Stream.of(Tickler.class.getDeclaredFields())
+                .filter(field -> relationshipFetchType(field) != null)
+                .map(Field::getName)
+                .toList()).contains(
+                        "updates", "comments", "ticklerCategory", "demographic", "provider", "assignee", "program");
         assertThat(relationshipFetchTypes).isNotEmpty().allMatch(FetchType.LAZY::equals);
     }
 
