@@ -64,7 +64,7 @@
   List<ScratchPad> dateIdList= scratchData.getAllDates(user_no);
 %>
 
-<html lang="en">
+<html lang="${pageContext.request.locale.language}">
 
 <head>
 <title><fmt:message key="ScratchPad.title"/></title>
