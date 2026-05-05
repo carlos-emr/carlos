@@ -444,10 +444,8 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
             // Then
             assertThat(unresolvedResults)
                 .isNotEmpty()
-                .allMatch(i -> !i.isResolved());
-            assertThat(unresolvedResults)
-                .allMatch(i -> Hibernate.isInitialized(i.getIssue()));
-            assertThat(unresolvedResults)
+                .allMatch(i -> !i.isResolved())
+                .allMatch(i -> Hibernate.isInitialized(i.getIssue()))
                 .extracting(i -> i.getIssue().getCode())
                 .containsExactly("TEST001");
         }
@@ -608,8 +606,7 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
                 .extracting(CaseManagementIssue::getId)
                 .containsExactly(unresolvedCmi.getId());
             assertThat(results)
-                .allMatch(i -> !i.isResolved())
-                .allMatch(i -> Hibernate.isInitialized(i.getIssue()));
+                .allMatch(i -> !i.isResolved() && Hibernate.isInitialized(i.getIssue()));
         }
     }
 
