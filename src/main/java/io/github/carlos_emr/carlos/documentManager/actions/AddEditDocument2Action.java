@@ -715,15 +715,33 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
     /**
      * Resolves an already-validated upload file to a canonical path for file reads.
-     * Upload-directory containment is enforced by {@link PathValidationUtils#validateUpload(File)}
-     * before this helper is called; this method only canonicalizes that trusted result.
+     * Enforces canonical containment within the configured document upload directory.
      *
      * @param validatedUpload File the upload file previously returned by {@link PathValidationUtils#validateUpload(File)}
      * @return Path the canonical upload path
-     * @throws IOException if canonical resolution fails
+     * @throws IOException if canonical resolution fails or containment checks fail
      */
     private Path resolveValidatedUploadPath(File validatedUpload) throws IOException {
-        return validatedUpload.getCanonicalFile().toPath();
+        if (validatedUpload == null || !validatedUpload.exists() || !validatedUpload.isFile()) {
+            throw new IOException("Invalid upload file");
+        }
+
+        File canonicalUpload = validatedUpload.getCanonicalFile();
+
+        String uploadRoot = CarlosProperties.getInstance().getProperty("OscarDocumentDir", "");
+        if (uploadRoot == null || uploadRoot.trim().isEmpty()) {
+            throw new IOException("Upload directory is not configured");
+        }
+
+        File canonicalRoot = new File(uploadRoot).getCanonicalFile();
+        Path rootPath = canonicalRoot.toPath();
+        Path uploadPath = canonicalUpload.toPath();
+
+        if (!uploadPath.startsWith(rootPath)) {
+            throw new IOException("Upload path is outside configured upload directory");
+        }
+
+        return uploadPath;
     }
 
     /**
