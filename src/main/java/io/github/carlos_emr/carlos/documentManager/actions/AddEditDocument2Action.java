@@ -726,7 +726,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             return uploadFile;
         }
 
-        throw new SecurityException("Uploaded content must be file-backed");
+        throw new SecurityException("Selected document upload content must be file-backed");
     }
 
     /**
@@ -739,7 +739,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
      * @throws IOException if the stream cannot be opened
      */
     private InputStream openValidatedUploadInputStream(File validatedUpload) throws IOException {
-        return FileUtils.openInputStream(validatedUpload); // codeql[java/path-injection]
+        return FileUtils.openInputStream(validatedUpload); // codeql[java/path-injection] - validated by PathValidationUtils.validateUpload()
     }
 
     /**
