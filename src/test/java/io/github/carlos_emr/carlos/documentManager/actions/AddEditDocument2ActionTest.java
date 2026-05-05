@@ -117,7 +117,7 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
 
         UploadedFile uploadedFile = mock(UploadedFile.class);
         when(uploadedFile.getInputName()).thenReturn("docFile");
-        when(uploadedFile.getAbsolutePath()).thenReturn(tempUploadFile.getAbsolutePath());
+        when(uploadedFile.getContent()).thenReturn(tempUploadFile);
         when(uploadedFile.getOriginalName()).thenReturn("echart-upload.pdf");
         when(uploadedFile.getContentType()).thenReturn("application/pdf");
 
