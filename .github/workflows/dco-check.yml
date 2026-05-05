@@ -223,6 +223,7 @@ jobs:
           confirming_user=""
           confirming_association=""
           confirming_at=""
+          stale_confirmation_found=false
 
           while true; do
             comments=$(curl -fsSL \
@@ -245,6 +246,7 @@ jobs:
               comment_confirmed_at="$updated_at"
               comment_confirmed_epoch="$updated_epoch"
               if [ "$updated_epoch" -lt "$created_epoch" ]; then
+                echo "::warning::DCO confirmation comment from $author has updated_at earlier than created_at; falling back to created_at."
                 comment_confirmed_at="$created_at"
                 comment_confirmed_epoch="$created_epoch"
               fi
@@ -262,7 +264,8 @@ jobs:
                     fi
                     break
                   fi
-                  echo "Ignoring stale DCO confirmation from $author at $comment_confirmed_at; latest commit is $latest_commit_at."
+                  stale_confirmation_found=true
+                  echo "::warning::Ignoring stale DCO confirmation from $author at $comment_confirmed_at; latest commit is $latest_commit_at."
                 fi
               fi
             done < <(jq -c '.[] | {
@@ -285,6 +288,7 @@ jobs:
           echo "confirming_association=$confirming_association" >> "$GITHUB_OUTPUT"
           echo "confirming_at=$confirming_at" >> "$GITHUB_OUTPUT"
           echo "latest_commit_at=$latest_commit_at" >> "$GITHUB_OUTPUT"
+          echo "stale_confirmation_found=$stale_confirmation_found" >> "$GITHUB_OUTPUT"
 
       - name: Report result
         if: always() && steps.dco_check.outputs.commits_missing == 'true'
@@ -299,6 +303,7 @@ jobs:
           CONFIRMING_ASSOCIATION: ${{ steps.manual_check.outputs.confirming_association }}
           CONFIRMING_AT: ${{ steps.manual_check.outputs.confirming_at }}
           LATEST_COMMIT_AT: ${{ steps.manual_check.outputs.latest_commit_at }}
+          STALE_CONFIRMATION_FOUND: ${{ steps.manual_check.outputs.stale_confirmation_found }}
           DCO_TRUNCATED: ${{ steps.dco_check.outputs.dco_truncated }}
         run: |
           set -euo pipefail
@@ -468,6 +473,10 @@ jobs:
             } > /tmp/dco_failure_comment.md
           fi
 
-          set_dco_status failure "DCO sign-off missing or manual confirmation is stale"
+          failure_description="DCO sign-off missing"
+          if [ "$STALE_CONFIRMATION_FOUND" = "true" ]; then
+            failure_description="DCO manual confirmation is stale"
+          fi
+          set_dco_status failure "$failure_description"
           upsert_failure_comment /tmp/dco_failure_comment.md
           exit 1
