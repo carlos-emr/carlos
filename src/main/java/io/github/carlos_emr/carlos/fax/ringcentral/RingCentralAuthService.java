@@ -180,6 +180,13 @@ public class RingCentralAuthService {
         }
     }
 
+    /**
+     * Adds one credential component to the digest with a 4-byte length prefix.
+     *
+     * <p>The length prefix keeps adjacent credential fields structurally separated before
+     * hashing, preventing concatenation ambiguity such as {@code "AB" + "CDE"} and
+     * {@code "ABC" + "DE"} producing the same fingerprint input.</p>
+     */
     private static void updateCredentialPart(MessageDigest digest, String value) {
         byte[] bytes = StringUtils.defaultString(value).getBytes(StandardCharsets.UTF_8);
         digest.update((byte) (bytes.length >>> 24));

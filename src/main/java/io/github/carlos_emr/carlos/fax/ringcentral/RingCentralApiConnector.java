@@ -79,6 +79,8 @@ public class RingCentralApiConnector {
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     private final CloseableHttpClient httpClient = HttpClients.custom()
             .setDefaultRequestConfig(REQUEST_CONFIG)
+            .setMaxConnTotal(20)
+            .setMaxConnPerRoute(10)
             .build();
 
     /**
@@ -252,6 +254,7 @@ public class RingCentralApiConnector {
         try {
             EntityUtils.consume(entity);
         } catch (IOException e) {
+            // Cleanup can fail if the provider already closed the connection; the primary response handling has completed.
             logger.debug("Failed to consume RingCentral response entity", e);
         }
     }

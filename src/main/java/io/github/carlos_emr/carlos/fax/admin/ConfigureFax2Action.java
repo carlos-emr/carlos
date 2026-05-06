@@ -465,9 +465,7 @@ public class ConfigureFax2Action extends ActionSupport {
             if (rcClientIds == null || idx >= rcClientIds.length || StringUtils.isBlank(rcClientIds[idx])) {
                 throw new IllegalArgumentException("RingCentral client ID is required for account row " + (idx + 1) + ".");
             }
-            boolean clientIdChanged = savedFaxConfig != null
-                    && !StringUtils.equals(StringUtils.trimToEmpty(valueAt(rcClientIds, idx)),
-                            StringUtils.trimToEmpty(savedFaxConfig.getRingCentralClientId()));
+            boolean clientIdChanged = isRingCentralClientIdChanged(rcClientIds, idx, savedFaxConfig);
             boolean missingSecret = rcClientSecrets == null || idx >= rcClientSecrets.length || StringUtils.isBlank(rcClientSecrets[idx]);
             boolean secretUnchanged = !missingSecret && isPasswordUnchanged(rcClientSecrets[idx]);
             boolean requiresSecretReentry = (isNewConfigRow && missingSecret)
@@ -502,11 +500,18 @@ public class ConfigureFax2Action extends ActionSupport {
         return savedFaxConfigsById.get(id);
     }
 
+    private boolean isRingCentralClientIdChanged(String[] rcClientIds, int idx, FaxConfig savedFaxConfig) {
+        return savedFaxConfig != null
+                && !StringUtils.equals(StringUtils.trimToEmpty(valueAt(rcClientIds, idx)),
+                        StringUtils.trimToEmpty(savedFaxConfig.getRingCentralClientId()));
+    }
+
     /**
      * Applies RingCentral-specific account fields and clears secret request arrays after use.
      *
-     * <p>The submitted secret/JWT array entries are set to null after processing to reduce the
-     * lifetime of plaintext credentials in memory.</p>
+     * <p>The submitted secret/JWT array entries are set to null after processing as a best-effort
+     * reduction of plaintext credential lifetime in memory. Servlet request parameters are Strings,
+     * so they cannot be zeroed like char arrays and remain subject to garbage collection.</p>
      */
     private void applyRingCentralFields(FaxConfig faxConfig, FaxConfig.ProviderType providerType, String[] rcClientIds, String[] rcClientSecrets,
             String[] rcJwtTokens, String[] rcAccountIds, String[] rcExtensionIds, int idx) {
