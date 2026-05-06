@@ -227,8 +227,9 @@
             </tr>
             <tr>
                 <td style="text-align:center" class="myGreen" colspan="2"><input
-                        type="hidden" name="action" value='<carlos:encode value="${favouriteModel.action}" context="htmlAttribute"/>'> <input
-                        type="submit" name="submit" class="btn btn-primary"
+                        type="hidden" name="action" value='<carlos:encode value="${favouriteModel.action}" context="htmlAttribute"/>'><input
+                        type="hidden" name="submit" value="Save"> <input
+                        type="submit" class="btn btn-primary"
                         value="<fmt:message key="admin.resourcebaseurl.btnSave"/>"
                         onclick="javascript:return onSave();"> <input class="btn btn-secondary" type="button"
                                                                       name="Cancel"
