@@ -155,7 +155,7 @@ table#scheduleNavigation tr td.title {
 }
 
 /* Sticky schedule layering: provider headers stay above appointment rows (10)
-   and below the day navigation bar (20) while the daysheet scrolls. */
+   and below #fixedHeaderWrapper while the daysheet scrolls. */
 tr td.infirmaryView {
     position: sticky;
     top: 50px;
