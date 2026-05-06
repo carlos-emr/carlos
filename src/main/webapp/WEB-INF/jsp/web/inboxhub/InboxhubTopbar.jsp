@@ -16,6 +16,35 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 -->
+<%--
+    InboxhubTopbar — secondary navigation strip rendered above the inbox hub
+    list view. Each link opens a feature popup via reportWindow(...) defined
+    in /share/javascript/oscarMDSIndex.js.
+
+    Inputs (request scope):
+      sessionScope.user — provider number of the logged-in user; passed to
+        the Forwarding Rules popup so the rules editor scopes to that
+        provider.
+
+    Conditional rendering:
+      The "Doc Upload" link toggles between two endpoints based on the
+      Carlos property `legacy_document_upload_enabled` (default true). When
+      true, the legacy `ViewHtml5AddDocuments` popup is rendered; when
+      false, the modern `ViewDocumentUploader` popup is rendered. Both
+      branches render the same i18n label.
+
+    Popup sizing:
+      reportWindow's signature is (page, height, width). The popup args
+      are intentionally height=800, width=1000 for the four sub-pages
+      that share a Bootstrap `.container` wrapper (Pending Docs, HL7 Lab
+      Upload, Create Lab, Forwarding Rules, plus modern Doc Upload). At
+      width=1000 the container hits Bootstrap's lg breakpoint (>=992px)
+      and resolves to a 960px max-width — producing the same ~20px page
+      gutter on every popup. Diverging widths land on different
+      breakpoints and visually drift apart.
+
+    @since 2025-02-12
+--%>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
