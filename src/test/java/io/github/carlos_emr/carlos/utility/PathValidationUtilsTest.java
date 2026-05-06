@@ -149,8 +149,10 @@ public class PathValidationUtilsTest {
         @Test
         @DisplayName("should normalize unsafe filename characters")
         void shouldNormalizeUnsafeCharacters_whenFilenameContainsLegacyUnsafeCharacters() {
-            assertThat(PathValidationUtils.validateFileName("my report..<script>-final.pdf"))
-                .isEqualTo("my_report.scriptfinal.pdf");
+            String result = PathValidationUtils.validateFileName("my report..<script>-final.pdf");
+
+            assertThat(result).isEqualTo("my_report.scriptfinal.pdf");
+            assertThat(result).doesNotContain("<", ">", "-", " ");
         }
 
         @Test

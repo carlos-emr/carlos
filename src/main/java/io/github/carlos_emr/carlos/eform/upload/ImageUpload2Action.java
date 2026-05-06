@@ -86,13 +86,6 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
             imageFileName = destinationFile.getName();
             boolean fileNameWasSanitized = !originalFileName.equals(imageFileName);
 
-            // Validate that filename is not empty
-            if (imageFileName == null || imageFileName.isEmpty()) {
-                MiscUtils.getLogger().warn("Image upload rejected: filename '{}' empty after validation", originalFileName);
-                addActionError("Invalid filename: filename cannot be empty after validation");
-                return ERROR;
-            }
-
             // Upload the file
             try (InputStream fis = Files.newInputStream(image.toPath());
                  OutputStream fos = Files.newOutputStream(destinationFile.toPath())) {

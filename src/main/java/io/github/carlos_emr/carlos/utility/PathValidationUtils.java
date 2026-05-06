@@ -88,6 +88,8 @@ public final class PathValidationUtils {
      * Use this when only a filename should be stored or passed to another API and
      * the actual file operation is validated separately with {@link #validatePath(String, File)}
      * or {@link #validateUpload(File, String, File)}.
+     * Normalization preserves the legacy filename hygiene contract while centralizing
+     * that behavior in this path-validation utility.
      *
      * @param userProvidedFileName the filename provided by the user
      * @return the validated filename component
