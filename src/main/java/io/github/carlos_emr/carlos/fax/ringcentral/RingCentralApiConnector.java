@@ -187,7 +187,7 @@ public class RingCentralApiConnector {
                     && (StringUtils.isBlank(uri.getPath()) || "/".equals(uri.getPath()))
                     && StringUtils.isBlank(uri.getQuery())
                     && StringUtils.isBlank(uri.getFragment())) {
-                return "https://" + host.toLowerCase();
+                return "https://" + host;
             }
         } catch (URISyntaxException e) {
             logger.warn("Configured {} is not a valid URI: {} - using default", propertyName, e.getMessage());

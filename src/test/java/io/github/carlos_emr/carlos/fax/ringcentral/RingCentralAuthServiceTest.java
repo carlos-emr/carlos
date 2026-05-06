@@ -38,6 +38,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -183,7 +184,8 @@ class RingCentralAuthServiceTest extends CarlosUnitTestBase {
         for (Future<String> future : futures) {
             assertThat(future.get()).isEqualTo("shared-token");
         }
-        executorService.shutdownNow();
+        executorService.shutdown();
+        assertThat(executorService.awaitTermination(1, TimeUnit.SECONDS)).isTrue();
         verify(connector, times(1)).authenticate("client", "secret", "jwt");
     }
 

@@ -170,10 +170,7 @@ public class ConfigureFax2Action extends ActionSupport {
                         throw new IllegalArgumentException("Invalid configuration ID for account row " + (idx + 1) + ".");
                     }
                     FaxConfig.ProviderType providerType = resolveProviderType(providerTypes, idx, id);
-                    faxConfig = new FaxConfig();
-                    faxConfig.setId(id);
-                    int savedidx = savedFaxConfigList.indexOf(faxConfig);
-                    savedFaxConfig = savedidx > -1 ? savedFaxConfigList.get(savedidx) : null;
+                    savedFaxConfig = findSavedConfig(savedFaxConfigList, id);
                     validateConfigRow(providerType, faxUrl, siteUser, sitePasswd, faxUsers, faxPasswds, faxNumbers,
                             senderEmails, inboxQueues, rcClientIds, rcClientSecrets, rcJwtTokens, idx, savedFaxConfig);
 
@@ -217,6 +214,7 @@ public class ConfigureFax2Action extends ActionSupport {
                                 rcAccountIds, rcExtensionIds, idx);
                         faxConfigList.add(savedFaxConfig);
                     } else {
+                        faxConfig = new FaxConfig();
                         faxConfig.setId(null);
                         faxConfig.setSiteUser(siteUser);
 
@@ -470,15 +468,31 @@ public class ConfigureFax2Action extends ActionSupport {
                             StringUtils.trimToEmpty(savedFaxConfig.getRingCentralClientId()));
             boolean missingSecret = rcClientSecrets == null || idx >= rcClientSecrets.length || StringUtils.isBlank(rcClientSecrets[idx]);
             boolean secretUnchanged = !missingSecret && isPasswordUnchanged(rcClientSecrets[idx]);
-            if ((isNewConfigRow && missingSecret) || (clientIdChanged && (missingSecret || secretUnchanged))) {
+            boolean requiresSecretReentry = (isNewConfigRow && missingSecret)
+                    || (clientIdChanged && (missingSecret || secretUnchanged));
+            if (requiresSecretReentry) {
                 throw new IllegalArgumentException("RingCentral client secret is required when creating an account or changing the client ID for row " + (idx + 1) + ".");
             }
             boolean missingJwt = rcJwtTokens == null || idx >= rcJwtTokens.length || StringUtils.isBlank(rcJwtTokens[idx]);
             boolean jwtUnchanged = !missingJwt && isPasswordUnchanged(rcJwtTokens[idx]);
-            if ((isNewConfigRow && missingJwt) || (clientIdChanged && (missingJwt || jwtUnchanged))) {
+            boolean requiresJwtReentry = (isNewConfigRow && missingJwt)
+                    || (clientIdChanged && (missingJwt || jwtUnchanged));
+            if (requiresJwtReentry) {
                 throw new IllegalArgumentException("RingCentral JWT token is required when creating an account or changing the client ID for row " + (idx + 1) + ".");
             }
         }
+    }
+
+    private FaxConfig findSavedConfig(List<FaxConfig> savedFaxConfigList, Integer id) {
+        if (id == null) {
+            return null;
+        }
+        for (FaxConfig savedFaxConfig : savedFaxConfigList) {
+            if (id.equals(savedFaxConfig.getId())) {
+                return savedFaxConfig;
+            }
+        }
+        return null;
     }
 
     /**
