@@ -14,6 +14,7 @@ package io.github.carlos_emr.carlos.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -23,6 +24,7 @@ import java.util.Map;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -31,6 +33,7 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 
 /**
  * Guards global Struts configuration hardening that must apply across all
@@ -48,7 +51,8 @@ class StrutsGlobalConfigTest {
 
     @Test
     @DisplayName("OGNL allowlist should be enabled for CARLOS packages")
-    void shouldEnableOgnlAllowlist_forCarlosPackages() throws Exception {
+    void shouldEnableOgnlAllowlist_forCarlosPackages()
+            throws IOException, ParserConfigurationException, SAXException {
         Map<String, String> constants = collectConstants(parse(STRUTS_XML));
 
         assertThat(constants)
@@ -68,14 +72,15 @@ class StrutsGlobalConfigTest {
         return out;
     }
 
-    private static Document parse(Path configPath) throws Exception {
+    private static Document parse(Path configPath)
+            throws IOException, ParserConfigurationException, SAXException {
         DocumentBuilder db = newHardenedDocumentBuilder();
         try (InputStream in = Files.newInputStream(configPath)) {
             return db.parse(in);
         }
     }
 
-    private static DocumentBuilder newHardenedDocumentBuilder() throws Exception {
+    private static DocumentBuilder newHardenedDocumentBuilder() throws ParserConfigurationException {
         DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
         dbf.setValidating(false);
         dbf.setNamespaceAware(false);
