@@ -490,6 +490,7 @@
                              String rcJwtToken = faxCfg != null ? ConfigureFax2Action.maskPasswordForDisplay(faxCfg.getRingCentralJwtToken()) : "";
                              String rcAccountId = faxCfg != null ? faxCfg.getRingCentralAccountId() : "";
                              String rcExtensionId = faxCfg != null ? faxCfg.getRingCentralExtensionId() : "";
+                             String ringCentralApiUrl = RingCentralApiConnector.resolveRingCentralApiUrl();
                          %>
 
                         <!-- Provider Type Selection -->
@@ -556,10 +557,10 @@
                             <div class="row">
                                 <div class="col-md-12">
                                     <h6 style="color: #0d6efd; margin-top: 12px; margin-bottom: 8px;"><fmt:message key="admin.configureFax.ringcentralApiEndpoint"/></h6>
-                                    <label><i class="fas fa-link"></i> <fmt:message key="admin.configureFax.apiUrl"/></label>
-                                    <input class="form-control" type="text" readonly
-                                           value="<carlos:encode value='<%= RingCentralApiConnector.DEFAULT_RINGCENTRAL_API_URL %>' context="htmlAttribute"/>"
-                                           style="background: #f3f4f6; color: #6b7280; cursor: not-allowed;"/>
+                                     <label><i class="fas fa-link"></i> <fmt:message key="admin.configureFax.apiUrl"/></label>
+                                     <input class="form-control" type="text" readonly
+                                            value="<carlos:encode value='<%= ringCentralApiUrl %>' context="htmlAttribute"/>"
+                                            style="background: #f3f4f6; color: #6b7280; cursor: not-allowed;"/>
                                     <small class="fax-muted"><i class="fas fa-lock"></i> <fmt:message key="admin.configureFax.ringcentralEndpointHelp"/></small>
                                 </div>
                             </div>

@@ -255,9 +255,6 @@ public class RingCentralFaxService implements FaxProviderClient {
                 return new DownloadReference(parts[0], parts[1]);
             }
         }
-        if (fax.getJobId() != null) {
-            return new DownloadReference(String.valueOf(fax.getJobId()), "1");
-        }
         throw new RingCentralException("RingCentral download requires message and attachment identifiers");
     }
 

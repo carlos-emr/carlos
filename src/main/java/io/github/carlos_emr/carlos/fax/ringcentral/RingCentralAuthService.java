@@ -21,8 +21,12 @@
  */
 package io.github.carlos_emr.carlos.fax.ringcentral;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
@@ -38,8 +42,10 @@ import org.springframework.stereotype.Service;
 public class RingCentralAuthService {
 
     private static final long TOKEN_EXPIRY_SKEW_SECONDS = 60;
+    private static final char[] HEX = "0123456789abcdef".toCharArray();
 
-    private final Map<Integer, CachedToken> tokenCache = new ConcurrentHashMap<>();
+    private final Map<CacheKey, CachedToken> tokenCache = new ConcurrentHashMap<>();
+    private final Map<CacheKey, Object> tokenLocks = new ConcurrentHashMap<>();
 
     /**
      * Returns a usable access token for the given fax account.
@@ -51,27 +57,44 @@ public class RingCentralAuthService {
      */
     public String getAccessToken(FaxConfig faxConfig, RingCentralApiConnector apiConnector) throws RingCentralException {
         validateCredentials(faxConfig);
-        Integer cacheKey = faxConfig.getId();
+        CacheKey cacheKey = CacheKey.from(faxConfig);
         CachedToken cachedToken = cacheKey == null ? null : tokenCache.get(cacheKey);
         if (cachedToken != null && cachedToken.isUsable()) {
             return cachedToken.accessToken;
         }
 
+        if (cacheKey == null) {
+            return authenticate(faxConfig, apiConnector).getAccessToken();
+        }
+
+        Object lock = tokenLocks.computeIfAbsent(cacheKey, ignored -> new Object());
+        synchronized (lock) {
+            cachedToken = tokenCache.get(cacheKey);
+            if (cachedToken != null && cachedToken.isUsable()) {
+                return cachedToken.accessToken;
+            }
+            RingCentralResponse.Token token = authenticate(faxConfig, apiConnector);
+            long expiresIn = token.getExpiresIn() > 0 ? token.getExpiresIn() : 3600;
+            tokenCache.keySet().removeIf(existingKey -> existingKey.hasSameAccountId(cacheKey) && !existingKey.equals(cacheKey));
+            tokenCache.put(cacheKey, new CachedToken(token.getAccessToken(),
+                    Instant.now().plusSeconds(Math.max(1, expiresIn - TOKEN_EXPIRY_SKEW_SECONDS))));
+            return token.getAccessToken();
+        }
+    }
+
+    private RingCentralResponse.Token authenticate(FaxConfig faxConfig, RingCentralApiConnector apiConnector) throws RingCentralException {
         RingCentralResponse.Token token = apiConnector.authenticate(
                 faxConfig.getRingCentralClientId(),
                 faxConfig.getRingCentralClientSecret(),
                 faxConfig.getRingCentralJwtToken());
 
+        if (token == null) {
+            throw new RingCentralException("RingCentral OAuth response was empty");
+        }
         if (StringUtils.isBlank(token.getAccessToken())) {
             throw new RingCentralException("RingCentral OAuth response did not include an access token");
         }
-
-        if (cacheKey != null) {
-            long expiresIn = token.getExpiresIn() > 0 ? token.getExpiresIn() : 3600;
-            tokenCache.put(cacheKey, new CachedToken(token.getAccessToken(),
-                    Instant.now().plusSeconds(Math.max(1, expiresIn - TOKEN_EXPIRY_SKEW_SECONDS))));
-        }
-        return token.getAccessToken();
+        return token;
     }
 
     /**
@@ -106,6 +129,65 @@ public class RingCentralAuthService {
 
         private boolean isUsable() {
             return StringUtils.isNotBlank(accessToken) && Instant.now().isBefore(expiresAt);
+        }
+    }
+
+    private static class CacheKey {
+        private final Integer accountId;
+        private final String credentialFingerprint;
+
+        private CacheKey(Integer accountId, String credentialFingerprint) {
+            this.accountId = accountId;
+            this.credentialFingerprint = credentialFingerprint;
+        }
+
+        private static CacheKey from(FaxConfig faxConfig) throws RingCentralException {
+            if (faxConfig.getId() == null) {
+                return null;
+            }
+            return new CacheKey(faxConfig.getId(), fingerprint(faxConfig));
+        }
+
+        private boolean hasSameAccountId(CacheKey other) {
+            return other != null && Objects.equals(accountId, other.accountId);
+        }
+
+        private static String fingerprint(FaxConfig faxConfig) throws RingCentralException {
+            try {
+                MessageDigest digest = MessageDigest.getInstance("SHA-256");
+                digest.update(StringUtils.defaultString(faxConfig.getRingCentralClientId()).getBytes(StandardCharsets.UTF_8));
+                digest.update((byte) 0);
+                digest.update(StringUtils.defaultString(faxConfig.getRingCentralClientSecret()).getBytes(StandardCharsets.UTF_8));
+                digest.update((byte) 0);
+                digest.update(StringUtils.defaultString(faxConfig.getRingCentralJwtToken()).getBytes(StandardCharsets.UTF_8));
+                byte[] hash = digest.digest();
+                StringBuilder encoded = new StringBuilder(hash.length * 2);
+                for (byte b : hash) {
+                    encoded.append(HEX[(b >>> 4) & 0x0F]);
+                    encoded.append(HEX[b & 0x0F]);
+                }
+                return encoded.toString();
+            } catch (NoSuchAlgorithmException e) {
+                throw new RingCentralException("Unable to fingerprint RingCentral credentials", e);
+            }
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof CacheKey)) {
+                return false;
+            }
+            CacheKey cacheKey = (CacheKey) o;
+            return Objects.equals(accountId, cacheKey.accountId)
+                    && Objects.equals(credentialFingerprint, cacheKey.credentialFingerprint);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(accountId, credentialFingerprint);
         }
     }
 }

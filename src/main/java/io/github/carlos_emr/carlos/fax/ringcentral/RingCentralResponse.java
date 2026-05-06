@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.fax.ringcentral;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -75,6 +77,21 @@ public final class RingCentralResponse {
         private Party from;
         private List<Attachment> attachments;
 
+        public Message() {
+            // DTO constructor for Jackson.
+        }
+
+        private Message(Message other) {
+            this.id = other.id;
+            this.messageStatus = other.messageStatus;
+            this.faxStatus = other.faxStatus;
+            this.direction = other.direction;
+            this.readStatus = other.readStatus;
+            this.creationTime = other.creationTime;
+            this.from = other.from == null ? null : new Party(other.from);
+            this.attachments = copyAttachments(other.attachments);
+        }
+
         public String getId() {
             return id;
         }
@@ -124,19 +141,33 @@ public final class RingCentralResponse {
         }
 
         public Party getFrom() {
-            return from;
+            return from == null ? null : new Party(from);
         }
 
         public void setFrom(Party from) {
-            this.from = from;
+            this.from = from == null ? null : new Party(from);
         }
 
         public List<Attachment> getAttachments() {
-            return attachments;
+            if (attachments == null) {
+                return Collections.emptyList();
+            }
+            return Collections.unmodifiableList(copyAttachments(attachments));
         }
 
         public void setAttachments(List<Attachment> attachments) {
-            this.attachments = attachments;
+            this.attachments = copyAttachments(attachments);
+        }
+
+        private static List<Attachment> copyAttachments(List<Attachment> attachments) {
+            if (attachments == null) {
+                return null;
+            }
+            List<Attachment> copy = new ArrayList<>(attachments.size());
+            for (Attachment attachment : attachments) {
+                copy.add(attachment == null ? null : new Attachment(attachment));
+            }
+            return copy;
         }
     }
 
@@ -146,12 +177,30 @@ public final class RingCentralResponse {
     public static class MessageList {
         private List<Message> records;
 
+        public MessageList() {
+            // DTO constructor for Jackson.
+        }
+
         public List<Message> getRecords() {
-            return records;
+            if (records == null) {
+                return Collections.emptyList();
+            }
+            return Collections.unmodifiableList(copyMessages(records));
         }
 
         public void setRecords(List<Message> records) {
-            this.records = records;
+            this.records = copyMessages(records);
+        }
+
+        private static List<Message> copyMessages(List<Message> records) {
+            if (records == null) {
+                return null;
+            }
+            List<Message> copy = new ArrayList<>(records.size());
+            for (Message message : records) {
+                copy.add(message == null ? null : new Message(message));
+            }
+            return copy;
         }
     }
 
@@ -160,6 +209,14 @@ public final class RingCentralResponse {
      */
     public static class Party {
         private String phoneNumber;
+
+        public Party() {
+            // DTO constructor for Jackson.
+        }
+
+        private Party(Party other) {
+            this.phoneNumber = other.phoneNumber;
+        }
 
         public String getPhoneNumber() {
             return phoneNumber;
@@ -177,6 +234,16 @@ public final class RingCentralResponse {
         private String id;
         private String fileName;
         private String contentType;
+
+        public Attachment() {
+            // DTO constructor for Jackson.
+        }
+
+        private Attachment(Attachment other) {
+            this.id = other.id;
+            this.fileName = other.fileName;
+            this.contentType = other.contentType;
+        }
 
         public String getId() {
             return id;

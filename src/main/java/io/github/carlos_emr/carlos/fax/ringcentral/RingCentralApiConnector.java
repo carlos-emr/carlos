@@ -35,6 +35,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.fax.provider.FaxProviderException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import jakarta.annotation.PreDestroy;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
@@ -69,9 +70,16 @@ public class RingCentralApiConnector {
 
     private static final String GRANT_TYPE_JWT = "urn:ietf:params:oauth:grant-type:jwt-bearer";
     private static final Logger logger = MiscUtils.getLogger();
+    private static final RequestConfig REQUEST_CONFIG = RequestConfig.custom()
+            .setConnectionRequestTimeout(Timeout.ofSeconds(30))
+            .setResponseTimeout(Timeout.ofSeconds(60))
+            .build();
 
     private final ObjectMapper objectMapper = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    private final CloseableHttpClient httpClient = HttpClients.custom()
+            .setDefaultRequestConfig(REQUEST_CONFIG)
+            .build();
 
     /**
      * Authenticates with RingCentral using OAuth 2.0 JWT bearer flow.
@@ -82,7 +90,7 @@ public class RingCentralApiConnector {
         params.add(new BasicNameValuePair("grant_type", GRANT_TYPE_JWT));
         params.add(new BasicNameValuePair("assertion", jwtToken));
 
-        HttpPost post = new HttpPost(getRingCentralApiUrl() + "/restapi/oauth/token");
+        HttpPost post = new HttpPost(resolveRingCentralApiUrl() + "/restapi/oauth/token");
         post.setHeader("Authorization", "Basic " + Base64.getEncoder().encodeToString(
                 (clientId + ":" + clientSecret).getBytes(StandardCharsets.UTF_8)));
         post.setEntity(new UrlEncodedFormEntity(params, StandardCharsets.UTF_8));
@@ -153,7 +161,12 @@ public class RingCentralApiConnector {
         executeNoContent(put, "RingCentral mark-as-read failed");
     }
 
-    private String getRingCentralApiUrl() {
+    /**
+     * Resolves the configured RingCentral API origin, falling back to official defaults.
+     *
+     * @return bare RingCentral HTTPS origin for the configured environment
+     */
+    public static String resolveRingCentralApiUrl() {
         CarlosProperties properties = CarlosProperties.getInstance();
         boolean sandbox = "true".equalsIgnoreCase(StringUtils.trimToEmpty(properties.getProperty("ringcentral.use.sandbox")));
         String propertyName = sandbox ? "ringcentral.api.sandbox.url" : "ringcentral.api.url";
@@ -168,8 +181,13 @@ public class RingCentralApiConnector {
             String host = uri.getHost();
             if ("https".equalsIgnoreCase(uri.getScheme())
                     && ("platform.ringcentral.com".equalsIgnoreCase(host)
-                    || "platform.devtest.ringcentral.com".equalsIgnoreCase(host))) {
-                return configured;
+                    || "platform.devtest.ringcentral.com".equalsIgnoreCase(host))
+                    && (uri.getPort() == -1 || uri.getPort() == 443)
+                    && StringUtils.isBlank(uri.getUserInfo())
+                    && (StringUtils.isBlank(uri.getPath()) || "/".equals(uri.getPath()))
+                    && StringUtils.isBlank(uri.getQuery())
+                    && StringUtils.isBlank(uri.getFragment())) {
+                return "https://" + host.toLowerCase();
             }
         } catch (URISyntaxException e) {
             logger.warn("Configured {} is not a valid URI: {} - using default", propertyName, e.getMessage());
@@ -180,7 +198,7 @@ public class RingCentralApiConnector {
     }
 
     private String buildMessageStoreUrl(String accountId, String extensionId) {
-        return getRingCentralApiUrl() + "/restapi/v1.0/account/" + normalizePathId(accountId)
+        return resolveRingCentralApiUrl() + "/restapi/v1.0/account/" + normalizePathId(accountId)
                 + "/extension/" + normalizePathId(extensionId) + "/message-store";
     }
 
@@ -205,21 +223,20 @@ public class RingCentralApiConnector {
 
     private byte[] executeBytes(HttpUriRequestBase request, String errorMessage)
             throws RingCentralException {
-        RequestConfig requestConfig = RequestConfig.custom()
-                .setConnectionRequestTimeout(Timeout.ofSeconds(30))
-                .setResponseTimeout(Timeout.ofSeconds(60))
-                .build();
-        request.setConfig(requestConfig);
+        request.setConfig(REQUEST_CONFIG);
 
-        try (CloseableHttpClient client = HttpClients.custom().setDefaultRequestConfig(requestConfig).build();
-             CloseableHttpResponse response = client.execute(request)) {
+        try (CloseableHttpResponse response = httpClient.execute(request)) {
             int statusCode = response.getCode();
             HttpEntity entity = response.getEntity();
-            byte[] payload = entity == null ? new byte[0] : EntityUtils.toByteArray(entity);
-            if (statusCode < 200 || statusCode >= 300) {
-                throw new RingCentralException(errorMessage + " with HTTP " + statusCode);
+            try {
+                byte[] payload = entity == null ? new byte[0] : EntityUtils.toByteArray(entity);
+                if (statusCode < 200 || statusCode >= 300) {
+                    throw new RingCentralException(errorMessage + " with HTTP " + statusCode);
+                }
+                return payload;
+            } finally {
+                consumeQuietly(entity);
             }
-            return payload;
         } catch (IOException e) {
             throw new RingCentralException(errorMessage + ": communication failure", e,
                     FaxProviderException.isTransientNetworkCause(e));
@@ -229,5 +246,21 @@ public class RingCentralApiConnector {
     private void executeNoContent(HttpUriRequestBase request, String errorMessage)
             throws RingCentralException {
         executeBytes(request, errorMessage);
+    }
+
+    private void consumeQuietly(HttpEntity entity) {
+        try {
+            EntityUtils.consume(entity);
+        } catch (IOException e) {
+            logger.debug("Failed to consume RingCentral response entity: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Closes the shared HTTP client when the Spring context is shutting down.
+     */
+    @PreDestroy
+    public void close() throws IOException {
+        httpClient.close();
     }
 }
