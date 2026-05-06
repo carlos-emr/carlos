@@ -1126,6 +1126,8 @@ var measureArray = [];
 var measureDateArray = [];
 var pendingMeasureRequests = [];
 var pendingMeasureFlush = null;
+var pendingMeasureMarkerId = null;
+var measureInsertionMarkerSequence = 0;
 
 /**
  * Queues measurement/lab history retrieval for a given measurement type and
@@ -1142,6 +1144,10 @@ var pendingMeasureFlush = null;
  */
 function getMeasures(measure, max) {
     return new Promise(function(resolve) {
+        if (pendingMeasureRequests.length === 0) {
+            pendingMeasureMarkerId = createMeasureInsertionMarker();
+        }
+
         pendingMeasureRequests.push({
             measure: measure,
             max: max,
@@ -1156,8 +1162,10 @@ function getMeasures(measure, max) {
 
 function flushMeasureRequests() {
     var requests = pendingMeasureRequests.slice();
+    var markerId = pendingMeasureMarkerId;
     pendingMeasureRequests = [];
     pendingMeasureFlush = null;
+    pendingMeasureMarkerId = null;
 
     Promise.all(requests.map(function(request) {
         return fetchMeasureHistory(request.measure).then(function(history) {
@@ -1167,11 +1175,87 @@ function flushMeasureRequests() {
             };
         });
     })).then(function(results) {
+        insertMeasureBatchAtMarker(markerId, results);
         results.forEach(function(result) {
-            insertMeasureHistory(result.request.measure, result.request.max, result.history);
             result.request.resolve(result.history);
         });
     });
+}
+
+function createMeasureInsertionMarker() {
+    var editorIframe = document.getElementById(cfg_editorname);
+    var editorDoc = editorIframe && editorIframe.contentWindow ? editorIframe.contentWindow.document : null;
+    if (!editorDoc || !editorDoc.body) {
+        return null;
+    }
+
+    var marker = editorDoc.createElement("span");
+    var markerId = "measure-insertion-marker-" + (++measureInsertionMarkerSequence);
+    marker.id = markerId;
+    marker.setAttribute("data-measure-insertion-marker", "true");
+    marker.style.display = "inline-block";
+    marker.style.width = "0";
+    marker.style.overflow = "hidden";
+
+    insertNodeAtCurrentSelection(editorDoc, marker);
+
+    if (editorIframe.contentWindow && editorIframe.contentWindow.focus) {
+        editorIframe.contentWindow.focus();
+    }
+
+    return markerId;
+}
+
+function insertNodeAtCurrentSelection(editorDoc, node) {
+    var sel = editorDoc.getSelection ? editorDoc.getSelection() : null;
+    if (sel && sel.rangeCount > 0) {
+        var range = sel.getRangeAt(0);
+        range.deleteContents();
+        range.insertNode(node);
+        range.setStartAfter(node);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+    } else {
+        editorDoc.body.appendChild(node);
+        if (sel && editorDoc.createRange) {
+            var appendRange = editorDoc.createRange();
+            appendRange.setStartAfter(node);
+            appendRange.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(appendRange);
+        }
+    }
+}
+
+function insertMeasureBatchAtMarker(markerId, results) {
+    var marker = findMeasureInsertionMarker(markerId);
+
+    results.forEach(function(result) {
+        insertMeasureHistory(result.request.measure, result.request.max, result.history, marker);
+    });
+
+    removeMeasureInsertionMarker(marker);
+}
+
+function findMeasureInsertionMarker(markerId) {
+    if (!markerId) {
+        return null;
+    }
+
+    var editorIframe = document.getElementById(cfg_editorname);
+    var editorDoc = editorIframe && editorIframe.contentWindow ? editorIframe.contentWindow.document : null;
+    if (!editorDoc || !editorDoc.getElementById) {
+        return null;
+    }
+
+    return editorDoc.getElementById(markerId);
+}
+
+function removeMeasureInsertionMarker(marker) {
+    if (marker && marker.parentNode) {
+        marker.parentNode.removeChild(marker);
+    }
 }
 
 function fetchMeasureHistory(measure) {
@@ -1241,7 +1325,7 @@ function logMeasureHistoryError(measure, detail) {
     }
 }
 
-function insertMeasureHistory(measure, max, history) {
+function insertMeasureHistory(measure, max, history, marker) {
     var measureArray = history.values;
     var measureDateArray = history.dates;
 
@@ -1252,7 +1336,7 @@ function insertMeasureHistory(measure, max, history) {
 
        
  //myGraphWindow = formPath + measure + measureArray + measureDateArray + measure + ": "
-         doHtml("<font size='3'>"+myGraphWindow +"</font>");
+         doHtmlAtMarker(marker, "<font size='3'>"+myGraphWindow +"</font>");
         var displaynum = measureArray.length
         if (measureArray.length > max) {
             displaynum = max
@@ -1260,10 +1344,23 @@ function insertMeasureHistory(measure, max, history) {
         for (var jj = 0; jj < displaynum; jj++) {
             var d = new Date(measureDateArray[jj])
             var LabDate = "(" + d.getFullYear() + "/" + (d.getMonth() + 1) + "); "
-            doHtml("<font size='3'>"+measureArray[jj].bold()+ "</font>"+"<font size='2'>"+LabDate+ "</font>")
+            doHtmlAtMarker(marker, "<font size='3'>"+measureArray[jj].bold()+ "</font>"+"<font size='2'>"+LabDate+ "</font>")
         }
-           doHtml("<br></br>");
+           doHtmlAtMarker(marker, "<br></br>");
     }
+}
+
+function doHtmlAtMarker(marker, value) {
+    if (!marker || !marker.parentNode || !marker.ownerDocument || !marker.ownerDocument.createRange) {
+        doHtml(value);
+        return;
+    }
+
+    var range = marker.ownerDocument.createRange();
+    range.setStartBefore(marker);
+    range.setEndBefore(marker);
+    var frag = range.createContextualFragment(value);
+    range.insertNode(frag);
 }
 
 // end lab grid //
