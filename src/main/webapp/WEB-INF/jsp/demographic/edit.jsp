@@ -933,7 +933,110 @@
 		}
 	%>
         </script>
+            <%
+            if("true".equals(oscarProps.getProperty("iso3166.2.enabled"))) {
+            %>
+<script>
+            jQuery(document).ready(function () {
 
+                jQuery("#country").on('change', function () {
+                    updateProvinces('');
+                });
+
+                jQuery("#residentialCountry").on('change', function () {
+                    updateResidentialProvinces('');
+                });
+
+                jQuery.ajax({
+                    type: "POST",
+                    url: '<%=request.getContextPath()%>/demographicSupport',
+                    data: 'method=getCountryAndProvinceCodes',
+                    dataType: 'json',
+                    success: function (data) {
+                        jQuery('#country').append(jQuery('<option>').text('').attr('value', ''));
+                        jQuery.each(data, function (i, value) {
+                            jQuery('#country').append(jQuery('<option>').text(value.label).attr('value', value.value));
+                        });
+
+                        var defaultProvince = '<%=CarlosProperties.getInstance().getProperty("demographic.default_province","")%>';
+                        var defaultCountry = '';
+
+                        if (defaultProvince == '' && defaultCountry == '') {
+                            defaultProvince = 'CA-ON';
+                        }
+                        defaultCountry = defaultProvince.substring(0, defaultProvince.indexOf('-'));
+
+                        jQuery("#country").val(defaultCountry);
+                        updateProvinces(defaultProvince);
+                    }
+                });
+
+                jQuery.ajax({
+                    type: "POST",
+                    url: '<%=request.getContextPath()%>/demographicSupport',
+                    data: 'method=getCountryAndProvinceCodes',
+                    dataType: 'json',
+                    success: function (data) {
+                        jQuery('#residentialCountry').append(jQuery('<option>').text('').attr('value', ''));
+                        jQuery.each(data, function (i, value) {
+                            jQuery('#residentialCountry').append(jQuery('<option>').text(value.label).attr('value', value.value));
+                        });
+
+                        var defaultProvince = '<%=CarlosProperties.getInstance().getProperty("demographic.default_province","")%>';
+                        var defaultCountry = '';
+
+                        if (defaultProvince == '' && defaultCountry == '') {
+                            defaultProvince = 'CA-ON';
+                        }
+                        defaultCountry = defaultProvince.substring(0, defaultProvince.indexOf('-'));
+
+                        jQuery("#residentialCountry").val(defaultCountry);
+                        updateResidentialProvinces(defaultProvince);
+                    }
+                });
+            });
+
+            function updateProvinces(province) {
+                var country = jQuery("#country").val();
+                jQuery.ajax({
+                    type: "POST",
+                    url: '<%=request.getContextPath()%>/demographicSupport',
+                    data: 'method=getCountryAndProvinceCodes&country=' + country,
+                    dataType: 'json',
+                    success: function (data) {
+                        jQuery('#province').empty();
+                        jQuery.each(data, function (i, value) {
+                            jQuery('#province').append(jQuery('<option>').text(value.label).attr('value', value.value));
+                        });
+
+                        if (province != null) {
+                            jQuery("#province").val(province);
+                        }
+                    }
+                });
+            }
+
+            function updateResidentialProvinces(province) {
+                var country = jQuery("#residentialCountry").val();
+                jQuery.ajax({
+                    type: "POST",
+                    url: '<%=request.getContextPath()%>/demographicSupport',
+                    data: 'method=getCountryAndProvinceCodes&country=' + country,
+                    dataType: 'json',
+                    success: function (data) {
+                        jQuery('#residentialProvince').empty();
+                        jQuery.each(data, function (i, value) {
+                            jQuery('#residentialProvince').append(jQuery('<option>').text(value.label).attr('value', value.value));
+                        });
+
+                        if (province != null) {
+                            jQuery("#residentialProvince").val(province);
+                        }
+                    }
+                });
+            }
+            <% } %>
+        </script>
         <style>
             /* for the search buttons at the top of the page
 			this should be removed if the page is updated to bootstrap
