@@ -885,7 +885,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                         <table
                                                 style="width: 100%;">
                                             <tr>
-                                                <td colspan=2 style="white-space:nowrap;">
+                                                <td colspan="2" style="white-space:nowrap;">
                                                     <div id="code_desc" style="width:210px; overflow:hidden; text-overflow: ellipsis;"></div>
                                                 </td>
                                             </tr>
