@@ -193,7 +193,7 @@
                                                    BGCOLOR="#C0C0C0">
                                                 <tr valign="middle" BGCOLOR="#EEEEFF">
                                                     <td width="30%">
-                                                        <div align="right"><font face="arial"><fmt:message key="name"/>:</font></div>
+                                                        <div align="right"><font face="arial"><fmt:message key="name"/><fmt:message key="global.labelSeparator"/></font></div>
                                                     </td>
                                                     <td width="25%"><INPUT TYPE="TEXT" NAME="name"
                                                                            VALUE="${carlos:forHtmlAttribute(name)}"
@@ -201,7 +201,7 @@
                                                                            maxlength="50"
                                                                            onChange="checkTimeTypeIn(this)">
                                                     <td width="20%">
-                                                        <div align="right"><font face="arial"><fmt:message key="duration"/>:</font></div>
+                                                        <div align="right"><font face="arial"><fmt:message key="duration"/><fmt:message key="global.labelSeparator"/></font></div>
                                                     </td>
                                                     <td width="25%"><INPUT TYPE="TEXT" NAME="duration"
                                                                            VALUE="${carlos:forHtmlAttribute(duration)}"
@@ -211,13 +211,13 @@
                                                 <tr valign="middle" BGCOLOR="#EEEEFF">
                                                     <td>
                                                         <div align="right"><font face="arial"><font
-                                                                face="arial"><fmt:message key="reason"/>:</font></font></div>
+                                                                face="arial"><fmt:message key="reason"/><fmt:message key="global.labelSeparator"/></font></font></div>
                                                     </td>
                                                     <td><TEXTAREA NAME="reason" COLS="40" ROWS="2" border="0" hspace="2">
                                                         ${carlos:forHtml(reason)}</TEXTAREA>
                                                     </td>
                                                     <td>
-                                                        <div align="right"><font face="arial"><fmt:message key="Appointment.formNotes"/>:</font></div>
+                                                        <div align="right"><font face="arial"><fmt:message key="Appointment.formNotes"/><fmt:message key="global.labelSeparator"/></font></div>
                                                     </td>
                                                     <td><TEXTAREA NAME="notes" COLS="40" ROWS="2" border="0" hspace="2">
                                                         ${carlos:forHtml(notes)}
@@ -225,7 +225,7 @@
                                                     </td>
                                                 </tr>
                                                 <tr valign="middle" BGCOLOR="#EEEEFF">
-                                                    <td align="right"><font face="arial"><fmt:message key="location"/>:</font></td>
+                                                    <td align="right"><font face="arial"><fmt:message key="location"/><fmt:message key="global.labelSeparator"/></font></td>
                                                     <td>
                                                         <c:if test="${not empty locationsList}">
                                                             <select name="location">
@@ -246,7 +246,7 @@
                                                         </c:if>
                                                     </td>
                                                     <td>
-                                                        <div align="right"><font face="arial"><fmt:message key="Appointment.formResources"/>:</font></div>
+                                                        <div align="right"><font face="arial"><fmt:message key="Appointment.formResources"/><fmt:message key="global.labelSeparator"/></font></div>
                                                     </td>
                                                     <td><INPUT TYPE="TEXT" NAME="resources"
                                                                VALUE="${carlos:forHtmlAttribute(resources)}"
