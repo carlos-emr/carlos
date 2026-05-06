@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.fax.ringcentral;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
@@ -46,6 +47,15 @@ public class RingCentralAuthService {
 
     private final Map<CacheKey, CachedToken> tokenCache = new ConcurrentHashMap<>();
     private final Map<CacheKey, Object> tokenLocks = new ConcurrentHashMap<>();
+    private final Clock clock;
+
+    public RingCentralAuthService() {
+        this(Clock.systemUTC());
+    }
+
+    RingCentralAuthService(Clock clock) {
+        this.clock = clock;
+    }
 
     /**
      * Returns a usable access token for the given fax account.
@@ -59,7 +69,7 @@ public class RingCentralAuthService {
         validateCredentials(faxConfig);
         CacheKey cacheKey = CacheKey.from(faxConfig);
         CachedToken cachedToken = cacheKey == null ? null : tokenCache.get(cacheKey);
-        if (cachedToken != null && cachedToken.isUsable()) {
+        if (cachedToken != null && cachedToken.isUsable(clock)) {
             return cachedToken.accessToken;
         }
 
@@ -68,18 +78,20 @@ public class RingCentralAuthService {
         }
 
         Object lock = tokenLocks.computeIfAbsent(cacheKey, ignored -> new Object());
+        String accessToken;
         synchronized (lock) {
             cachedToken = tokenCache.get(cacheKey);
-            if (cachedToken != null && cachedToken.isUsable()) {
+            if (cachedToken != null && cachedToken.isUsable(clock)) {
                 return cachedToken.accessToken;
             }
             RingCentralResponse.Token token = authenticate(faxConfig, apiConnector);
             long expiresIn = token.getExpiresIn() > 0 ? token.getExpiresIn() : 3600;
-            tokenCache.keySet().removeIf(existingKey -> existingKey.hasSameAccountId(cacheKey) && !existingKey.equals(cacheKey));
+            accessToken = token.getAccessToken();
             tokenCache.put(cacheKey, new CachedToken(token.getAccessToken(),
-                    Instant.now().plusSeconds(Math.max(1, expiresIn - TOKEN_EXPIRY_SKEW_SECONDS))));
-            return token.getAccessToken();
+                    Instant.now(clock).plusSeconds(Math.max(1, expiresIn - TOKEN_EXPIRY_SKEW_SECONDS))));
         }
+        tokenCache.keySet().removeIf(existingKey -> existingKey.hasSameAccountId(cacheKey) && !existingKey.equals(cacheKey));
+        return accessToken;
     }
 
     private RingCentralResponse.Token authenticate(FaxConfig faxConfig, RingCentralApiConnector apiConnector) throws RingCentralException {
@@ -127,8 +139,8 @@ public class RingCentralAuthService {
             this.expiresAt = expiresAt;
         }
 
-        private boolean isUsable() {
-            return StringUtils.isNotBlank(accessToken) && Instant.now().isBefore(expiresAt);
+        private boolean isUsable(Clock clock) {
+            return StringUtils.isNotBlank(accessToken) && Instant.now(clock).isBefore(expiresAt);
         }
     }
 

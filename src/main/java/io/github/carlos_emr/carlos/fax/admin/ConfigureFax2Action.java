@@ -139,7 +139,6 @@ public class ConfigureFax2Action extends ActionSupport {
             String[] rcExtensionIds = request.getParameterValues("ringCentralExtensionId");
 
             Integer id;
-            int savedidx;
             FaxConfig faxConfig;
             FaxConfig savedFaxConfig;
 
@@ -173,7 +172,7 @@ public class ConfigureFax2Action extends ActionSupport {
                     FaxConfig.ProviderType providerType = resolveProviderType(providerTypes, idx, id);
                     faxConfig = new FaxConfig();
                     faxConfig.setId(id);
-                    savedidx = savedFaxConfigList.indexOf(faxConfig);
+                    int savedidx = savedFaxConfigList.indexOf(faxConfig);
                     savedFaxConfig = savedidx > -1 ? savedFaxConfigList.get(savedidx) : null;
                     validateConfigRow(providerType, faxUrl, siteUser, sitePasswd, faxUsers, faxPasswds, faxNumbers,
                             senderEmails, inboxQueues, rcClientIds, rcClientSecrets, rcJwtTokens, idx, savedFaxConfig);
@@ -185,7 +184,7 @@ public class ConfigureFax2Action extends ActionSupport {
                             ? RingCentralApiConnector.DEFAULT_RINGCENTRAL_API_URL
                             : faxUrl;
 
-                    if (savedidx > -1) {
+                    if (savedFaxConfig != null) {
                         savedFaxConfig.setUrl(resolvedFaxUrl);
                         savedFaxConfig.setSiteUser(siteUser);
 
@@ -482,6 +481,12 @@ public class ConfigureFax2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Applies RingCentral-specific account fields and clears secret request arrays after use.
+     *
+     * <p>The submitted secret/JWT array entries are set to null after processing to reduce the
+     * lifetime of plaintext credentials in memory.</p>
+     */
     private void applyRingCentralFields(FaxConfig faxConfig, FaxConfig.ProviderType providerType, String[] rcClientIds, String[] rcClientSecrets,
             String[] rcJwtTokens, String[] rcAccountIds, String[] rcExtensionIds, int idx) {
         if (providerType != FaxConfig.ProviderType.RINGCENTRAL) {

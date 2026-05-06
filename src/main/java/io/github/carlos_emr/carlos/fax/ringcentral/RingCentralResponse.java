@@ -148,6 +148,9 @@ public final class RingCentralResponse {
             this.from = from == null ? null : new Party(from);
         }
 
+        /**
+         * Returns an immutable defensive copy of attachment metadata.
+         */
         public List<Attachment> getAttachments() {
             if (attachments == null) {
                 return Collections.emptyList();
@@ -181,6 +184,9 @@ public final class RingCentralResponse {
             // DTO constructor for Jackson.
         }
 
+        /**
+         * Returns an immutable defensive copy of message records.
+         */
         public List<Message> getRecords() {
             if (records == null) {
                 return Collections.emptyList();

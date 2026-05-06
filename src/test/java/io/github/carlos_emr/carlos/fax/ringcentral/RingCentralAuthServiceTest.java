@@ -31,6 +31,9 @@ import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -123,15 +126,17 @@ class RingCentralAuthServiceTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should refresh token when cached token expires")
     void shouldRefreshToken_whenCachedTokenExpires() throws Exception {
+        MutableClock clock = new MutableClock();
+        RingCentralAuthService clockedAuthService = new RingCentralAuthService(clock);
         FaxConfig config = config(2, "client", "secret", "jwt");
         RingCentralApiConnector connector = mock(RingCentralApiConnector.class);
         when(connector.authenticate("client", "secret", "jwt"))
                 .thenReturn(token("first-token", 1))
                 .thenReturn(token("second-token", 3600));
 
-        String firstToken = authService.getAccessToken(config, connector);
-        Thread.sleep(1100L);
-        String secondToken = authService.getAccessToken(config, connector);
+        String firstToken = clockedAuthService.getAccessToken(config, connector);
+        clock.advanceSeconds(2);
+        String secondToken = clockedAuthService.getAccessToken(config, connector);
 
         assertThat(firstToken).isEqualTo("first-token");
         assertThat(secondToken).isEqualTo("second-token");
@@ -196,5 +201,28 @@ class RingCentralAuthServiceTest extends CarlosUnitTestBase {
         token.setAccessToken(accessToken);
         token.setExpiresIn(expiresIn);
         return token;
+    }
+
+    private static class MutableClock extends Clock {
+        private Instant instant = Instant.parse("2026-05-06T00:00:00Z");
+
+        @Override
+        public ZoneId getZone() {
+            return ZoneId.of("UTC");
+        }
+
+        @Override
+        public Clock withZone(ZoneId zone) {
+            return this;
+        }
+
+        @Override
+        public Instant instant() {
+            return instant;
+        }
+
+        private void advanceSeconds(long seconds) {
+            instant = instant.plusSeconds(seconds);
+        }
     }
 }
