@@ -83,12 +83,25 @@ class FlowSheetCustom2ActionTest extends CarlosWebTestBase {
     }
 
     @Test
-    @DisplayName("should allow POST when _flowsheet w is granted")
-    void shouldAllowPost_whenFlowsheetWriteGranted() throws Exception {
+    @DisplayName("should dispatch save on POST when _flowsheet w is granted")
+    void shouldDispatchSave_whenFlowsheetWriteGranted() throws Exception {
         allowPrivilege("_flowsheet", "w");
+        addRequestParameter("method", "save");
+        TestableFlowSheetCustom2Action action = new TestableFlowSheetCustom2Action();
 
-        String result = executeAction(new FlowSheetCustom2Action());
+        String result = executeAction(action);
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(action.saveCalled).isTrue();
+    }
+
+    private static final class TestableFlowSheetCustom2Action extends FlowSheetCustom2Action {
+        private boolean saveCalled;
+
+        @Override
+        public String save() {
+            saveCalled = true;
+            return SUCCESS;
+        }
     }
 }
