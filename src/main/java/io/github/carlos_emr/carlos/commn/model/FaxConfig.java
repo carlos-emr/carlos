@@ -35,7 +35,7 @@ import jakarta.persistence.*;
 /**
  * JPA entity representing fax gateway account configuration.
  *
- * <p>Supports multiple fax provider types (MIDDLEWARE, SRFAX) with encrypted credential storage.
+ * <p>Supports multiple fax provider types (MIDDLEWARE, SRFAX, HYLAFAX) with encrypted credential storage.
  * Each configuration defines connection parameters, authentication credentials, inbox routing,
  * and active/download flags for scheduler control.</p>
  *
@@ -48,6 +48,7 @@ import jakarta.persistence.*;
  * <ul>
  *   <li><strong>MIDDLEWARE:</strong> Relay server intermediary (faxws) - requires url, siteUser, passwd</li>
  *   <li><strong>SRFAX:</strong> Direct SRFax API integration - uses default endpoint (overridable via srfax.api.url property), requires faxUser, faxPasswd</li>
+ *   <li><strong>HYLAFAX:</strong> On-premise HylaFax server - requires host, port, username, and local or SSH client tools</li>
  * </ul>
  *
  * @see io.github.carlos_emr.carlos.fax.provider.FaxProviderClient
@@ -60,7 +61,8 @@ public class FaxConfig extends AbstractModel<Integer> {
 
     public enum ProviderType {
         MIDDLEWARE,
-        SRFAX
+        SRFAX,
+        HYLAFAX
     }
 
     private static final long serialVersionUID = 1L;
@@ -105,6 +107,32 @@ public class FaxConfig extends AbstractModel<Integer> {
     @Convert(converter = FaxConfigProviderTypeConverter.class)
     @Column(name = "providerType")
     private ProviderType providerType = ProviderType.MIDDLEWARE;
+
+    /** HylaFax server host name or IP address (HYLAFAX only). */
+    @Column(name = "hf_host")
+    private String hylafaxHost = "";
+    /** HylaFax server control port; defaults to 4559 (HYLAFAX only). */
+    @Column(name = "hf_port")
+    private Integer hylafaxPort = 4559;
+    /** HylaFax login username (HYLAFAX only). */
+    @Column(name = "hf_username")
+    private String hylafaxUsername = "";
+    /** HylaFax password, encrypted at rest (HYLAFAX only). */
+    @Column(name = "hf_password")
+    private String hylafaxPassword = "";
+    /** Optional HylaFax modem identifier to pass to sendfax. */
+    @Column(name = "hf_modem")
+    private String hylafaxModem = "";
+    /** Whether to use SSH command execution instead of local HylaFax client tools. */
+    @Column(name = "hf_use_ssh", columnDefinition = "boolean default false")
+    private boolean hylafaxUseSsh;
+    /** Optional SSH private key, encrypted at rest. */
+    @Lob
+    @Column(name = "hf_ssh_key")
+    private String hylafaxSshKey = "";
+    /** Local or remote recvq directory used to discover inbound fax files. */
+    @Column(name = "hf_recvq_path")
+    private String hylafaxRecvqPath = "";
 
     @Override
     public Integer getId() {
@@ -331,5 +359,69 @@ public class FaxConfig extends AbstractModel<Integer> {
 
     public void setDownload(boolean download) {
         this.download = download;
+    }
+
+    public String getHylafaxHost() {
+        return hylafaxHost;
+    }
+
+    public void setHylafaxHost(String hylafaxHost) {
+        this.hylafaxHost = hylafaxHost;
+    }
+
+    public Integer getHylafaxPort() {
+        return hylafaxPort == null ? 4559 : hylafaxPort;
+    }
+
+    public void setHylafaxPort(Integer hylafaxPort) {
+        this.hylafaxPort = hylafaxPort == null ? 4559 : hylafaxPort;
+    }
+
+    public String getHylafaxUsername() {
+        return hylafaxUsername;
+    }
+
+    public void setHylafaxUsername(String hylafaxUsername) {
+        this.hylafaxUsername = hylafaxUsername;
+    }
+
+    public String getHylafaxPassword() {
+        return decryptField(hylafaxPassword, "HylaFax password");
+    }
+
+    public void setHylafaxPassword(String hylafaxPassword) {
+        this.hylafaxPassword = encryptField(hylafaxPassword, "HylaFax password");
+    }
+
+    public String getHylafaxModem() {
+        return hylafaxModem;
+    }
+
+    public void setHylafaxModem(String hylafaxModem) {
+        this.hylafaxModem = hylafaxModem;
+    }
+
+    public boolean isHylafaxUseSsh() {
+        return hylafaxUseSsh;
+    }
+
+    public void setHylafaxUseSsh(boolean hylafaxUseSsh) {
+        this.hylafaxUseSsh = hylafaxUseSsh;
+    }
+
+    public String getHylafaxSshKey() {
+        return decryptField(hylafaxSshKey, "HylaFax SSH key");
+    }
+
+    public void setHylafaxSshKey(String hylafaxSshKey) {
+        this.hylafaxSshKey = encryptField(hylafaxSshKey, "HylaFax SSH key");
+    }
+
+    public String getHylafaxRecvqPath() {
+        return hylafaxRecvqPath;
+    }
+
+    public void setHylafaxRecvqPath(String hylafaxRecvqPath) {
+        this.hylafaxRecvqPath = hylafaxRecvqPath;
     }
 }
