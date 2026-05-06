@@ -152,7 +152,6 @@ public class PathValidationUtilsTest {
             String result = PathValidationUtils.validateFileName("my report..<script>-final.pdf");
 
             assertThat(result).isEqualTo("my_report.scriptfinal.pdf");
-            assertThat(result).doesNotContain("<", ">", "-", " ");
         }
 
         @Test

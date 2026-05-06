@@ -89,7 +89,8 @@ public final class PathValidationUtils {
      * the actual file operation is validated separately with {@link #validatePath(String, File)}
      * or {@link #validateUpload(File, String, File)}.
      * Normalization preserves the legacy filename hygiene contract while centralizing
-     * that behavior in this path-validation utility.
+     * that behavior in this path-validation utility, including removal of characters
+     * outside {@code [a-zA-Z0-9._]}.
      *
      * @param userProvidedFileName the filename provided by the user
      * @return the validated filename component

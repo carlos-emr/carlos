@@ -62,7 +62,7 @@ public class BackupDownload extends GenericDownload {
                 return;
             }
             String dir = (String) session.getAttribute("backupfilepath") == null ? "/home/mysql/" : (String) session.getAttribute("backupfilepath");
-            // Normalize filename characters first, then enforce containment in the selected backup directory.
+            // Both steps are required: legacy character normalization, then directory containment.
             String filename = PathValidationUtils.validateFileName(rawFilename);
             filename = PathValidationUtils.validatePath(filename, new File(dir).getCanonicalFile()).getName();
 
