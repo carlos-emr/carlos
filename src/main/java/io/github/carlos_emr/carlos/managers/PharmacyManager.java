@@ -94,7 +94,7 @@ public class PharmacyManager {
         }
 
         if (pharmacy.getDemographicNo() != demographicId) {
-            throw new IllegalArgumentException("Pharmacy association with id " + pharmacyId + " does't belong to demographic record with ID " + demographicId);
+            throw new IllegalArgumentException("Pharmacy association with id " + pharmacyId + " doesn't belong to demographic record with ID " + demographicId);
         }
 
         pharmacy.setStatus("0");

@@ -110,7 +110,10 @@ class UtilXMLUnitTest {
             UtilXML.addNode(doc, "root");
             String xml = UtilXML.toXML(doc);
             assertThat(xml).contains("<?xml");
-            assertThat(xml).contains("<root/>");
+            Document reparsed = UtilXML.parseXML(xml);
+            assertThat(reparsed).isNotNull();
+            assertThat(reparsed.getDocumentElement().getTagName()).isEqualTo("root");
+            assertThat(reparsed.getDocumentElement().getChildNodes().getLength()).isZero();
         }
     }
 
