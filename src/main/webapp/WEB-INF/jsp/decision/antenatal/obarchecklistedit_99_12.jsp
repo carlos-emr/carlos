@@ -79,7 +79,7 @@
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
             SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
             if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
-                throw new SecurityException("missing required sec object (_admin)");
+                throw new SecurityException("missing required sec object (_admin w)");
             }
 
             String checklist = request.getParameter("checklist");
