@@ -12,10 +12,11 @@
     @since 2026-04-13
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
 <head>
     <meta charset="UTF-8">
     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
@@ -72,7 +73,7 @@
                     <td>Provider colour set error page</td>
                     <td>64</td>
                     <td>
-                        <a href="${pageContext.request.contextPath}/provider/providerColourErr.jsp"
+                        <a href="${pageContext.request.contextPath}/provider/ViewProviderColourErr"
                            target="_blank" class="btn btn-outline-primary btn-sm">Open</a>
                     </td>
                 </tr>
@@ -82,7 +83,7 @@
                     <td>Provider fax number error page</td>
                     <td>64</td>
                     <td>
-                        <a href="${pageContext.request.contextPath}/provider/providerFaxErr.jsp"
+                        <a href="${pageContext.request.contextPath}/provider/ViewProviderFaxErr"
                            target="_blank" class="btn btn-outline-primary btn-sm">Open</a>
                     </td>
                 </tr>
@@ -92,7 +93,7 @@
                     <td>Encounter save &amp; exit timeout popup</td>
                     <td>80</td>
                     <td>
-                        <a href="${pageContext.request.contextPath}/encounter/TimeOut.jsp"
+                        <a href="${pageContext.request.contextPath}/encounter/ViewTimeOut"
                            target="_blank" class="btn btn-outline-primary btn-sm">Open</a>
                     </td>
                 </tr>
@@ -102,7 +103,7 @@
                     <td>Consultation &mdash; nothing to print message</td>
                     <td>92</td>
                     <td>
-                        <a href="${pageContext.request.contextPath}/encounter/oscarConsultationRequest/nothingtoPrint.jsp"
+                        <a href="${pageContext.request.contextPath}/encounter/oscarConsultationRequest/ViewNothingtoPrint"
                            target="_blank" class="btn btn-outline-primary btn-sm">Open</a>
                     </td>
                 </tr>
@@ -112,7 +113,7 @@
                     <td>License display page</td>
                     <td>95</td>
                     <td>
-                        <a href="${pageContext.request.contextPath}/encounter/License.jsp"
+                        <a href="${pageContext.request.contextPath}/encounter/ViewLicense"
                            target="_blank" class="btn btn-outline-primary btn-sm">Open</a>
                     </td>
                 </tr>
