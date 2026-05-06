@@ -568,8 +568,9 @@
                 dataType: "html",
                 data: pars,
                 success: function (returnData) {
-                    jQuery("#code_desc").html(returnData);
-                    jQuery("#code_desc").attr("title", returnData.trim());
+                    var text = (returnData || '').toString().trim();
+                    jQuery("#code_desc").html(text);
+                    jQuery("#code_desc").attr("title", text);
                 },
                 error: function (e) {
                     alert(e);
