@@ -100,11 +100,11 @@ public final class PathValidationUtils {
                 .replaceAll("\\.+", ".");
 
         if (normalizedName.trim().isEmpty()) {
-            logger.warn("Filename became empty after normalization: {}", LogSanitizer.sanitize(userProvidedFileName));
+            logger.warn("Filename became empty after normalization");
             throw new SecurityException("Invalid filename");
         }
         if (normalizedName.startsWith(".")) {
-            logger.warn("Hidden filenames not allowed after normalization: {}", LogSanitizer.sanitize(userProvidedFileName));
+            logger.warn("Hidden filenames not allowed after normalization");
             throw new SecurityException("Invalid filename: hidden files not allowed");
         }
         return normalizedName;
