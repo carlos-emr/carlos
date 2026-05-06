@@ -53,9 +53,9 @@
                             <h3><fmt:message key="oscar.billing.CA.BC.billingBC.manageSVCDXAssoc.title"/></h3>
                         </td>
                         <td style="text-align: right" colspan="2"><a
-                                href="javascript:popupStart(300,400,'Help.jsp')"> <fmt:message key="global.help"/> </a> | <a
-                                href="javascript:popupStart(300,400,'About.jsp')"> <fmt:message key="global.about"/> </a> | <a
-                                href="javascript:popupStart(300,400,'License.jsp')"> <fmt:message key="global.license"/> </a></td>
+                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewHelp')"> <fmt:message key="global.help"/> </a> | <a
+                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"> <fmt:message key="global.about"/> </a> | <a
+                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"> <fmt:message key="global.license"/> </a></td>
                     </tr>
                     <tr bgcolor="CCCCFF">
                         <th><fmt:message key="oscar.billing.CA.BC.billingBC.manageSVCDXAssoc.svc"/></th>
