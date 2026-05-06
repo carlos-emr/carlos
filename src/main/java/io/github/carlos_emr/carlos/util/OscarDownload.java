@@ -74,7 +74,7 @@ public class OscarDownload extends GenericDownload {
                     res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid download directory.");
                     return;
                 }
-                // Normalize filename characters first, then enforce containment in the selected download directory.
+                // Both steps are required: legacy character normalization, then directory containment.
                 String filename = PathValidationUtils.validateFileName(rawFilename);
                 filename = PathValidationUtils.validatePath(filename, downloadDir).getName();
                 ServletOutputStream stream = res.getOutputStream();
