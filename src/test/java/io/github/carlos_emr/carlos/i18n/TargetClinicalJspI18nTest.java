@@ -94,7 +94,7 @@ class TargetClinicalJspI18nTest {
 
     @Test
     @DisplayName("should use translated appointment type list values in every shipped locale")
-    void shouldUseTranslatedAppointmentTypeListValues_inEveryLocale() throws IOException {
+    void shouldUseTranslatedAppointmentTypeListValues_inEveryShippedLocale() throws IOException {
         List<String> keys = fmtMessageKeys(Path.of("src/main/webapp/WEB-INF/jsp/appointment/appointmentTypeList.jsp"));
 
         for (String locale : LOCALES) {
@@ -111,7 +111,7 @@ class TargetClinicalJspI18nTest {
 
     @Test
     @DisplayName("should keep appointment type list key values free of trailing colons")
-    void shouldKeepAppointmentTypeListKeyValues_freeOfTrailingColons() throws IOException {
+    void shouldKeepAppointmentTypeListKeyValues_withoutTrailingColons() throws IOException {
         Properties bundle = loadBundle("en");
 
         List<String> keysWithTrailingColons = bundle.stringPropertyNames().stream()
