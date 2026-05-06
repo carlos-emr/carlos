@@ -176,13 +176,10 @@ table#scheduleNavigation, table#monthScheduleNavigation {
     height: 25px;
 }
 
-/* Month view intentionally keeps #monthScheduleNavigation out of this sticky
-   table rule because #fixedHeaderWrapper owns its sticky behavior and #jumpmenu
-   must remain able to overlay the month header. */
+/* #fixedHeaderWrapper owns sticky behavior for #scheduleNavigation.
+   Keep only the table's visual styling here so the schedule header has a
+   single layout owner and provider-header offsets stay in sync. */
 table#scheduleNavigation {
-    position: sticky;
-    top: 0;
-    z-index: 20;
     background-color: whitesmoke;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 }
