@@ -98,9 +98,7 @@ public final class PathValidationUtils {
      */
     public static String validateFileName(String userProvidedFileName) {
         String baseName = sanitizeFileName(userProvidedFileName);
-        String normalizedName = baseName.replaceAll("\\s+", "_")
-                .replaceAll("[^a-zA-Z0-9._]", "")
-                .replaceAll("\\.+", ".");
+        String normalizedName = normalizeFileNameCharacters(baseName);
 
         if (normalizedName.trim().isEmpty()) {
             logger.warn("Filename became empty after normalization");
@@ -111,6 +109,12 @@ public final class PathValidationUtils {
             throw new SecurityException("Invalid filename: hidden files not allowed");
         }
         return normalizedName;
+    }
+
+    private static String normalizeFileNameCharacters(String fileName) {
+        return fileName.replaceAll("\\s+", "_")
+                .replaceAll("[^a-zA-Z0-9._]", "")
+                .replaceAll("\\.+", ".");
     }
 
     /**

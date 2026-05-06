@@ -75,8 +75,8 @@ public class OscarDownload extends GenericDownload {
                     return;
                 }
                 // Both steps are required: legacy character normalization, then directory containment.
-                String filename = PathValidationUtils.validateFileName(rawFilename);
-                filename = PathValidationUtils.validatePath(filename, downloadDir).getName();
+                String normalizedFilename = PathValidationUtils.validateFileName(rawFilename);
+                String filename = PathValidationUtils.validatePath(normalizedFilename, downloadDir).getName();
                 ServletOutputStream stream = res.getOutputStream();
                 transferFile(res, stream, backupfilepath, filename);
                 stream.close();
