@@ -783,7 +783,7 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
         String status = "AC"; // only show active clients
         // get duplicated clients from this sql
         String q = "Select a From Demographic d, Admission a "
-                + "Where d.anonymous = ?1 and (d.patientStatus=?2 or d.patientStatus='' or d.patientStatus=null) and d.demographicNo=a.clientId and a.admissionStatus='current' and a.program.type != 'community'";
+                + "Where d.anonymous = ?1 and (d.patientStatus=?2 or d.patientStatus='' or d.patientStatus is null) and d.demographicNo=a.clientId and a.admissionStatus='current' and a.program.type != 'community'";
         Query query = entityManager.createQuery(q);
         query.setParameter(1, "one-time-anonymous");
         query.setParameter(2, status);
