@@ -84,6 +84,20 @@ public final class PathValidationUtils {
     }
 
     /**
+     * Validates a user-provided filename and returns the safe filename component.
+     * Use this when only a filename should be stored or passed to another API and
+     * the actual file operation is validated separately with {@link #validatePath(String, File)}
+     * or {@link #validateUpload(File, String, File)}.
+     *
+     * @param userProvidedFileName the filename provided by the user
+     * @return the validated filename component
+     * @throws SecurityException if validation fails
+     */
+    public static String validateFileName(String userProvidedFileName) {
+        return sanitizeFileName(userProvidedFileName);
+    }
+
+    /**
      * Validates that an existing file path is within the allowed directory.
      * Use this for validating internal/application-created paths before deletion or access.
      * Unlike validatePath(), this does NOT sanitize or reconstruct the path - it validates

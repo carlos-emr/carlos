@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.eform.data.EForm;
@@ -355,11 +356,7 @@ public class AddEForm2Action extends ActionSupport {
 
                 String rawFileName = curForm.getFormFileName();
                 if (rawFileName != null && !rawFileName.isEmpty()) {
-                    String sanitized = MiscUtils.sanitizeFileName(rawFileName);
-                    if (sanitized.isEmpty() || ".".equals(sanitized) || "..".equals(sanitized)) {
-                        throw new IllegalArgumentException("eForm filename sanitization resulted in unusable filename");
-                    }
-                    curForm.setFormFileName(sanitized);
+                    curForm.setFormFileName(PathValidationUtils.validateFileName(rawFileName));
                 }
                 EFormUtil.writeEformTemplate(LoggedInInfo.getLoggedInInfoFromSession(request), paramNames, paramValues, curForm, fdid, program_no, path);
             }

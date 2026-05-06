@@ -39,6 +39,7 @@ import jakarta.servlet.http.HttpSession;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 public class OscarDownload extends GenericDownload {
     private static final Logger log = MiscUtils.getLogger();
@@ -51,10 +52,9 @@ public class OscarDownload extends GenericDownload {
         try {
             HttpSession session = req.getSession(true);
             String rawFilename = req.getParameter("filename");
-            String filename = rawFilename == null ? null : MiscUtils.sanitizeFileName(rawFilename);
             String homepath = req.getParameter("homepath");
 
-            if (filename == null || filename.isBlank()) {
+            if (rawFilename == null || rawFilename.isBlank()) {
                 res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing required filename parameter.");
                 return;
             }
@@ -74,7 +74,7 @@ public class OscarDownload extends GenericDownload {
                     res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid download directory.");
                     return;
                 }
-                // Path traversal protection is enforced by GenericDownload.transferFile() via PathValidationUtils.validatePath(filename, directory)
+                String filename = PathValidationUtils.validatePath(rawFilename, downloadDir).getName();
                 ServletOutputStream stream = res.getOutputStream();
                 transferFile(res, stream, backupfilepath, filename);
                 stream.close();
@@ -83,6 +83,11 @@ public class OscarDownload extends GenericDownload {
             }
         } catch (IOException e) {
             throw e;
+        } catch (SecurityException e) {
+            log.warn("OscarDownload rejected invalid filename from {}", req.getRemoteAddr());
+            if (!res.isCommitted()) {
+                res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid filename parameter.");
+            }
         } catch (Exception e) {
             log.error("Unexpected error in OscarDownload", e);
             if (!res.isCommitted()) {

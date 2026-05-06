@@ -369,7 +369,12 @@ public final class MiscUtils {
 	 * @param fileName The original file name to be sanitized. It must not be {@code null}.
 	 * @return A sanitized value of the input file name.
 	 * @throws NullPointerException if the input fileName is {@code null}.
+	 * @deprecated Use {@link PathValidationUtils#validateFileName(String)} for filename-only
+	 * validation or {@link PathValidationUtils#validatePath(String, java.io.File)} /
+	 * {@link PathValidationUtils#validateUpload(java.io.File, String, java.io.File)} when
+	 * constructing or validating file paths.
 	 */
+	@Deprecated(since = "2026-05-06", forRemoval = false)
 	public static String sanitizeFileName(String fileName) {
         return fileName.replaceAll("\\s+", "_")
                 .replaceAll("[^a-zA-Z0-9._]", "")

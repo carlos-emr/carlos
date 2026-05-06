@@ -29,6 +29,7 @@
 
 package io.github.carlos_emr.carlos.util;
 
+import java.io.File;
 import java.io.IOException;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -38,6 +39,7 @@ import jakarta.servlet.http.HttpSession;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.logging.log4j.Logger;
 
@@ -51,8 +53,7 @@ public class BackupDownload extends GenericDownload {
         try {
             // check the rights - sanitize filename to prevent XSS and path traversal
             String rawFilename = req.getParameter("filename");
-            String filename = rawFilename == null ? null : MiscUtils.sanitizeFileName(rawFilename);
-            if (filename == null || filename.isBlank()) {
+            if (rawFilename == null || rawFilename.isBlank()) {
                 res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing required filename parameter.");
                 return;
             }

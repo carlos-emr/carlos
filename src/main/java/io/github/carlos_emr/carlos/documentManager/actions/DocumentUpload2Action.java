@@ -144,7 +144,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             }
         } else {
             int numberOfPages = 0;
-            String fileName = MiscUtils.sanitizeFileName(this.filedataFileName);
+            String fileName = PathValidationUtils.validateFileName(this.filedataFileName);
             String user = (String) request.getSession().getAttribute("user");
             SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
             EDoc newDoc = new EDoc("", "", fileName, "", user, user, this.getSource(), 'A',
