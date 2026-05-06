@@ -71,15 +71,14 @@
 
 <h5 class="mb-3"><fmt:message key="billing.billingOnFavourite.title"/></h5>
 
-<%--
-  ${favouriteModel.message} contains assembler-built trusted HTML.
-  The producer (BillingOnFavouriteViewModelAssembler) builds the message from
-  constants only — every user value is wrapped in SafeEncode.forHtml() before
-  concatenation. Do not change this contract without updating the assembler's
-  safety invariant comment.
---%>
-<c:if test="${not empty favouriteModel.message}">
-    <div class="alert alert-info py-1 mb-2 small">${favouriteModel.message}</div>
+<c:if test="${not empty favouriteModel.messageKey}">
+    <div class="alert alert-${favouriteModel.messageLevel} py-1 mb-2 small">
+        <fmt:message key="${favouriteModel.messageKey}">
+            <c:if test="${not empty favouriteModel.messageName}">
+                <fmt:param value="${carlos:forHtml(favouriteModel.messageName)}"/>
+            </c:if>
+        </fmt:message>
+    </div>
 </c:if>
 
 <%-- ===== Form 1: select an existing favourite to edit or delete ===== --%>
