@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
@@ -96,7 +97,8 @@ public class BillingLegacyReport2Action extends ActionSupport {
                 String folderPath = selectedFolderPath(request);
                 if (folderPath != null && !folderPath.isEmpty()) {
                     File folderDir = new File(folderPath);
-                    File target = PathValidationUtils.validatePath(filename, folderDir);
+                    String safeFilename = FilenameUtils.getName(filename);
+                    File target = PathValidationUtils.validatePath(safeFilename, folderDir);
                     if (target.exists() && target.isFile()) {
                         fileContents = FileUtils.readFileToString(target, StandardCharsets.UTF_8);
                     }

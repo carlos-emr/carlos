@@ -1,5 +1,7 @@
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%-- Row Three: Encounter notes, template autocomplete, consumption, action buttons --%>
 <div class="encounter-card card mb-1" id="rowThree">
     <div class="card-header d-flex align-items-center">
@@ -60,10 +62,7 @@
         </c:if>
     </div>
     <div class="d-flex gap-1 align-items-center">
-        <oscar:oscarPropertiesCheck property="CPP" value="yes">
-            <input type="button" class="btn btn-sm btn-secondary" value="CPP"
-                   onclick="document.forms['encForm'].btnPressed.value='Save'; popupPage(700, 960, 'cpp', 'encounterCPP.jsp'); document.forms['encForm'].submit();"/>
-        </oscar:oscarPropertiesCheck>
+
 
         <input type="button" class="btn btn-sm btn-secondary"
                value="<fmt:message key="global.btnPrint"/>"

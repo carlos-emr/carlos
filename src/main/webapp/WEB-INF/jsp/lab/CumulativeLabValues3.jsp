@@ -52,7 +52,7 @@
 <%@ taglib uri="jakarta.tags.core"      prefix="c"   %>
 <%@ taglib uri="jakarta.tags.fmt"       prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn"  %>
-<%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="carlos"                 prefix="carlos" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld"  prefix="oscar"    %>
 <%@ taglib uri="/WEB-INF/security.tld"   prefix="security" %>
 
@@ -248,9 +248,9 @@
         <oscar:nameage demographicNo="${carlos:forHtmlAttribute(demographicNo)}"/>
     </span>
     <span class="small text-muted">
-        <a href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a>
+        <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a>
         &nbsp;|&nbsp;
-        <a href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a>
+        <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a>
     </span>
 </div>
 

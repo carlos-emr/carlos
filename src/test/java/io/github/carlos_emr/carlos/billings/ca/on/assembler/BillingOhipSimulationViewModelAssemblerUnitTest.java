@@ -59,7 +59,7 @@ class BillingOhipSimulationViewModelAssemblerUnitTest {
     }
 
     @Test
-    void shouldRenderProviderDropdownFromTypedProviderEntries() {
+    void shouldRenderProviderDropdown_fromTypedProviderEntries() {
         BillingReviewLoader reviewLoader = mock(BillingReviewLoader.class);
         BillingOnLookupService lookupService = mock(BillingOnLookupService.class);
         @SuppressWarnings("unchecked")
@@ -79,7 +79,7 @@ class BillingOhipSimulationViewModelAssemblerUnitTest {
     }
 
     @Test
-    void shouldUseTypedProviderEntriesForAllProviderSimulationSubmit() {
+    void shouldSubmitProviderSimulation_usingTypedProviderEntries() {
         BillingReviewLoader reviewLoader = mock(BillingReviewLoader.class);
         BillingOnLookupService lookupService = mock(BillingOnLookupService.class);
         OhipClaimFileService claimFileService = mock(OhipClaimFileService.class);

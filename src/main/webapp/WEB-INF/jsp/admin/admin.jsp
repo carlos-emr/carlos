@@ -360,7 +360,7 @@
                     <% } %>
                     <li><a href="#"
                            onclick='popupPage(600,900, "${pageContext.request.contextPath}<%= oscarVariables.getProperty("RA_FORWORD", "/billing/CA/ON/ViewGenRA") %>");return false;'><fmt:message key="admin.admin.btnBillingReconciliation"/></a></li>
-                    <!-- li><a href="#" onclick ='popupPage(600,1000,"${pageContext.request.contextPath}/billing/CA/ON/billingOBECEA.jsp");return false;'><fmt:message key="admin.admin.btnEDTBillingReportGenerator"/></a></li-->
+                    <!-- li><a href="#" onclick ='popupPage(600,1000,"${pageContext.request.contextPath}/billing/CA/ON/ViewBillingOBECEA");return false;'><fmt:message key="admin.admin.btnEDTBillingReportGenerator"/></a></li-->
                     <li>
                         <a href="#" onclick='popupPage(800,1000,"${pageContext.request.contextPath}/mcedt/mcedt");return false;'><fmt:message key="admin.admin.mcedt"/></a>
                     </li>
@@ -485,9 +485,7 @@
 
                     <li><a href="#"
                            onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/ViewPatientlist")'><fmt:message key="admin.admin.exportPatientbyAppt"/></a></li>
-                    <caisi:isModuleLoad moduleName="caisi">
-                        <li><a href="${pageContext.request.contextPath}/PMmodule/reports/activity_report_form.jsp"><fmt:message key="admin.admin.activityRpt"/></a></li>
-                    </caisi:isModuleLoad>
+
                     <li><a href="${pageContext.request.contextPath}/oscarReport/ViewProviderServiceReportForm"><fmt:message key="admin.admin.providerServiceRpt"/></a></li>
                     <caisi:isModuleLoad moduleName="caisi">
                         <li><a href="${pageContext.request.contextPath}/PopulationReport"><fmt:message key="admin.admin.popRpt"/></a></li>
