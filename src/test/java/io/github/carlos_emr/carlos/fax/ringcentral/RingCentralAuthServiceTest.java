@@ -165,8 +165,11 @@ class RingCentralAuthServiceTest extends CarlosUnitTestBase {
     void shouldShareTokenRequest_whenConcurrentCallsMissCache() throws Exception {
         FaxConfig config = config(4, "client", "secret", "jwt");
         RingCentralApiConnector connector = mock(RingCentralApiConnector.class);
+        CountDownLatch authenticateEntered = new CountDownLatch(1);
+        CountDownLatch releaseAuthenticate = new CountDownLatch(1);
         when(connector.authenticate("client", "secret", "jwt")).thenAnswer(invocation -> {
-            Thread.sleep(100L);
+            authenticateEntered.countDown();
+            assertThat(releaseAuthenticate.await(1, TimeUnit.SECONDS)).isTrue();
             return token("shared-token", 3600);
         });
 
@@ -181,6 +184,8 @@ class RingCentralAuthServiceTest extends CarlosUnitTestBase {
         }
 
         start.countDown();
+        assertThat(authenticateEntered.await(1, TimeUnit.SECONDS)).isTrue();
+        releaseAuthenticate.countDown();
         for (Future<String> future : futures) {
             assertThat(future.get()).isEqualTo("shared-token");
         }

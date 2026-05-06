@@ -509,12 +509,7 @@ public class ConfigureFax2Action extends ActionSupport {
             faxConfig.setRingCentralJwtToken("");
             faxConfig.setRingCentralAccountId("");
             faxConfig.setRingCentralExtensionId("");
-            if (rcClientSecrets != null && idx < rcClientSecrets.length) {
-                rcClientSecrets[idx] = null;
-            }
-            if (rcJwtTokens != null && idx < rcJwtTokens.length) {
-                rcJwtTokens[idx] = null;
-            }
+            clearRingCentralSecretInputs(rcClientSecrets, rcJwtTokens, idx);
             return;
         }
         faxConfig.setRingCentralClientId(valueAt(rcClientIds, idx));
@@ -524,12 +519,16 @@ public class ConfigureFax2Action extends ActionSupport {
         if (clientSecret != null && !isPasswordUnchanged(clientSecret)) {
             faxConfig.setRingCentralClientSecret(clientSecret.trim());
         }
-        if (rcClientSecrets != null && idx < rcClientSecrets.length) {
-            rcClientSecrets[idx] = null;
-        }
         String jwtToken = valueAt(rcJwtTokens, idx);
         if (jwtToken != null && !isPasswordUnchanged(jwtToken)) {
             faxConfig.setRingCentralJwtToken(jwtToken.trim());
+        }
+        clearRingCentralSecretInputs(rcClientSecrets, rcJwtTokens, idx);
+    }
+
+    private void clearRingCentralSecretInputs(String[] rcClientSecrets, String[] rcJwtTokens, int idx) {
+        if (rcClientSecrets != null && idx < rcClientSecrets.length) {
+            rcClientSecrets[idx] = null;
         }
         if (rcJwtTokens != null && idx < rcJwtTokens.length) {
             rcJwtTokens[idx] = null;

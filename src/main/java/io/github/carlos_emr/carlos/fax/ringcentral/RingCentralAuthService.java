@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.fax.ringcentral;
 
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -158,11 +159,9 @@ public class RingCentralAuthService {
     private static String fingerprint(FaxConfig faxConfig) throws RingCentralException {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            digest.update(StringUtils.defaultString(faxConfig.getRingCentralClientId()).getBytes(StandardCharsets.UTF_8));
-            digest.update((byte) 0);
-            digest.update(StringUtils.defaultString(faxConfig.getRingCentralClientSecret()).getBytes(StandardCharsets.UTF_8));
-            digest.update((byte) 0);
-            digest.update(StringUtils.defaultString(faxConfig.getRingCentralJwtToken()).getBytes(StandardCharsets.UTF_8));
+            updateCredentialPart(digest, faxConfig.getRingCentralClientId());
+            updateCredentialPart(digest, faxConfig.getRingCentralClientSecret());
+            updateCredentialPart(digest, faxConfig.getRingCentralJwtToken());
             byte[] hash = digest.digest();
             StringBuilder encoded = new StringBuilder(hash.length * 2);
             for (byte b : hash) {
@@ -173,5 +172,11 @@ public class RingCentralAuthService {
         } catch (NoSuchAlgorithmException e) {
             throw new RingCentralException("Unable to fingerprint RingCentral credentials", e);
         }
+    }
+
+    private static void updateCredentialPart(MessageDigest digest, String value) {
+        byte[] bytes = StringUtils.defaultString(value).getBytes(StandardCharsets.UTF_8);
+        digest.update(ByteBuffer.allocate(Integer.BYTES).putInt(bytes.length).array());
+        digest.update(bytes);
     }
 }
