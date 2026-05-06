@@ -35,7 +35,8 @@ class FileSortByDateUnitTest {
     void shouldReturnNegative_whenFirstNewer() throws IOException {
         Path older = Files.createFile(tempDir.resolve("old.txt"));
         Path newer = Files.createFile(tempDir.resolve("new.txt"));
-        newer.toFile().setLastModified(System.currentTimeMillis() + 1000);
+        boolean modified = newer.toFile().setLastModified(System.currentTimeMillis() + 1000);
+        assertThat(modified).isTrue();
 
         int result = sorter.compare(newer.toFile(), older.toFile());
         assertThat(result).isNegative();
