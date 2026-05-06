@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.form.JSONUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -116,6 +117,7 @@ public class ConfigureFax2Action extends ActionSupport {
         try {
             FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
             List<FaxConfig> savedFaxConfigList = faxConfigDao.findAll(null, null);
+            Map<Integer, FaxConfig> savedFaxConfigsById = indexById(savedFaxConfigList);
             List<FaxConfig> faxConfigList = new ArrayList<FaxConfig>();
 
             String faxUrl = request.getParameter("faxUrl");
@@ -170,7 +172,7 @@ public class ConfigureFax2Action extends ActionSupport {
                         throw new IllegalArgumentException("Invalid configuration ID for account row " + (idx + 1) + ".");
                     }
                     FaxConfig.ProviderType providerType = resolveProviderType(providerTypes, idx, id);
-                    savedFaxConfig = findSavedConfig(savedFaxConfigList, id);
+                    savedFaxConfig = findSavedConfig(savedFaxConfigsById, id);
                     validateConfigRow(providerType, faxUrl, siteUser, sitePasswd, faxUsers, faxPasswds, faxNumbers,
                             senderEmails, inboxQueues, rcClientIds, rcClientSecrets, rcJwtTokens, idx, savedFaxConfig);
 
@@ -483,16 +485,21 @@ public class ConfigureFax2Action extends ActionSupport {
         }
     }
 
-    private FaxConfig findSavedConfig(List<FaxConfig> savedFaxConfigList, Integer id) {
+    private Map<Integer, FaxConfig> indexById(List<FaxConfig> savedFaxConfigList) {
+        Map<Integer, FaxConfig> configsById = new HashMap<>();
+        for (FaxConfig savedFaxConfig : savedFaxConfigList) {
+            if (savedFaxConfig.getId() != null) {
+                configsById.put(savedFaxConfig.getId(), savedFaxConfig);
+            }
+        }
+        return configsById;
+    }
+
+    private FaxConfig findSavedConfig(Map<Integer, FaxConfig> savedFaxConfigsById, Integer id) {
         if (id == null) {
             return null;
         }
-        for (FaxConfig savedFaxConfig : savedFaxConfigList) {
-            if (id.equals(savedFaxConfig.getId())) {
-                return savedFaxConfig;
-            }
-        }
-        return null;
+        return savedFaxConfigsById.get(id);
     }
 
     /**

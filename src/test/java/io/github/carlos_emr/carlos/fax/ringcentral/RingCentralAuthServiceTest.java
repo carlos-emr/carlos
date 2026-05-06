@@ -169,7 +169,9 @@ class RingCentralAuthServiceTest extends CarlosUnitTestBase {
         CountDownLatch releaseAuthenticate = new CountDownLatch(1);
         when(connector.authenticate("client", "secret", "jwt")).thenAnswer(invocation -> {
             authenticateEntered.countDown();
-            assertThat(releaseAuthenticate.await(1, TimeUnit.SECONDS)).isTrue();
+            if (!releaseAuthenticate.await(1, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("Timed out waiting to release mocked RingCentral authentication");
+            }
             return token("shared-token", 3600);
         });
 

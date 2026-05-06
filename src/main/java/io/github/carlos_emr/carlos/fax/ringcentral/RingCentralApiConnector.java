@@ -252,7 +252,7 @@ public class RingCentralApiConnector {
         try {
             EntityUtils.consume(entity);
         } catch (IOException e) {
-            logger.debug("Failed to consume RingCentral response entity: {}", e.getMessage());
+            logger.debug("Failed to consume RingCentral response entity", e);
         }
     }
 

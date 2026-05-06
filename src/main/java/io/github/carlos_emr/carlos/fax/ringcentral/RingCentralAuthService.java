@@ -21,10 +21,8 @@
  */
 package io.github.carlos_emr.carlos.fax.ringcentral;
 
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Map;
@@ -45,6 +43,13 @@ public class RingCentralAuthService {
     private static final long TOKEN_EXPIRY_SKEW_SECONDS = 60;
     private static final int TOKEN_LOCK_STRIPES = 32;
     private static final char[] HEX = "0123456789abcdef".toCharArray();
+    private static final ThreadLocal<MessageDigest> SHA_256 = ThreadLocal.withInitial(() -> {
+        try {
+            return MessageDigest.getInstance("SHA-256");
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 digest is unavailable", e);
+        }
+    });
 
     private final Map<Integer, CachedToken> tokenCache = new ConcurrentHashMap<>();
     private final Object[] tokenLocks = new Object[TOKEN_LOCK_STRIPES];
@@ -158,7 +163,8 @@ public class RingCentralAuthService {
 
     private static String fingerprint(FaxConfig faxConfig) throws RingCentralException {
         try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            MessageDigest digest = SHA_256.get();
+            digest.reset();
             updateCredentialPart(digest, faxConfig.getRingCentralClientId());
             updateCredentialPart(digest, faxConfig.getRingCentralClientSecret());
             updateCredentialPart(digest, faxConfig.getRingCentralJwtToken());
@@ -169,14 +175,17 @@ public class RingCentralAuthService {
                 encoded.append(HEX[b & 0x0F]);
             }
             return encoded.toString();
-        } catch (NoSuchAlgorithmException e) {
+        } catch (IllegalStateException e) {
             throw new RingCentralException("Unable to fingerprint RingCentral credentials", e);
         }
     }
 
     private static void updateCredentialPart(MessageDigest digest, String value) {
         byte[] bytes = StringUtils.defaultString(value).getBytes(StandardCharsets.UTF_8);
-        digest.update(ByteBuffer.allocate(Integer.BYTES).putInt(bytes.length).array());
+        digest.update((byte) (bytes.length >>> 24));
+        digest.update((byte) (bytes.length >>> 16));
+        digest.update((byte) (bytes.length >>> 8));
+        digest.update((byte) bytes.length);
         digest.update(bytes);
     }
 }
