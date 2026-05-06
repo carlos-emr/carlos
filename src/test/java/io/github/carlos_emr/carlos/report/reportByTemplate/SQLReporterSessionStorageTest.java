@@ -81,7 +81,9 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
         when(resultSet.isBeforeFirst()).thenReturn(false);
 
         try (MockedConstruction<ReportManager> reportManagers = mockConstruction(ReportManager.class,
-                (mock, context) -> when(mock.getReportTemplateNoParam("1")).thenReturn(report));
+                (mock, context) -> {
+                    when(mock.getReportTemplateNoParam("1")).thenReturn(report);
+                });
              MockedStatic<DBHandler> dbHandler = mockStatic(DBHandler.class)) {
             dbHandler.when(() -> DBHandler.GetPreSQL(eq("select 1"), any(Object[].class))).thenReturn(resultSet);
 
