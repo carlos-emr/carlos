@@ -747,7 +747,7 @@ public class BillingOnLookupService {
         Map<String, String> formFields = new LinkedHashMap<>();
         if (!name.equals(actionParam.substring("edit".length()))) {
             formFields.put("name", name);
-            return new FavouriteMutationResult(KEY_NOT_SAVE_NAME_CHANGED, name, LEVEL_WARNING, "search", formFields);
+            return new FavouriteMutationResult(name.isEmpty() ? KEY_NOT_SAVE_SEARCH_FIRST : KEY_NOT_SAVE_NAME_CHANGED, name, LEVEL_WARNING, "search", formFields);
         }
         String list = buildFavouriteServiceList(request, false);
         boolean ok = updateBillingFavouriteList(name, list, request.providerNo());
