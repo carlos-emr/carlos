@@ -748,6 +748,15 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             throw new IOException("Invalid upload file");
         }
 
+        File uploadBaseDir = new File(EDocUtil.getDocumentTempDir());
+        String basePath = uploadBaseDir.getCanonicalPath();
+        String uploadPath = safeUpload.getCanonicalPath();
+        String baseWithSeparator = basePath.endsWith(File.separator) ? basePath : basePath + File.separator;
+
+        if (!uploadPath.startsWith(baseWithSeparator)) {
+            throw new IOException("Invalid upload file path");
+        }
+
         return FileUtils.openInputStream(safeUpload);
     }
 
