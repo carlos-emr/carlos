@@ -739,7 +739,16 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
      * @throws IOException if the stream cannot be opened
      */
     private InputStream openValidatedUploadInputStream(File validatedUpload) throws IOException {
-        return FileUtils.openInputStream(validatedUpload); // codeql[java/path-injection] - validated by PathValidationUtils.validateUpload()
+        if (validatedUpload == null) {
+            throw new IOException("Upload file is missing");
+        }
+
+        File safeUpload = PathValidationUtils.validateUpload(validatedUpload);
+        if (safeUpload == null || !safeUpload.isFile()) {
+            throw new IOException("Invalid upload file");
+        }
+
+        return FileUtils.openInputStream(safeUpload);
     }
 
     /**
