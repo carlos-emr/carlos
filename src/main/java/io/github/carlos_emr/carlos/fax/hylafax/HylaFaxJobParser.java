@@ -37,6 +37,9 @@ import io.github.carlos_emr.carlos.commn.model.FaxJob;
  */
 public class HylaFaxJobParser {
 
+    private static final java.util.regex.Pattern SUBMITTED_JOB_ID_PATTERN = java.util.regex.Pattern
+            .compile("(?i)(?:jobid|job\\s+id|request\\s+id|job)\\D{0,20}(\\d+)");
+
     /**
      * Maps provider status text from {@code faxstat} to CARLOS fax status values.
      *
@@ -87,9 +90,7 @@ public class HylaFaxJobParser {
         if (output == null) {
             return null;
         }
-        java.util.regex.Matcher matcher = java.util.regex.Pattern
-                .compile("(?i)(?:jobid|job\\s+id|request\\s+id|job)\\D{0,20}(\\d+)")
-                .matcher(output);
+        java.util.regex.Matcher matcher = SUBMITTED_JOB_ID_PATTERN.matcher(output);
         if (matcher.find()) {
             return Long.valueOf(matcher.group(1));
         }
