@@ -60,7 +60,7 @@ class EditControl2AssetRegressionTest {
 
     @Test
     @DisplayName("should preserve the original insertion point when async measurements resolve")
-    void shouldPreserveOriginalInsertionPoint_whenAsyncMeasurementsResolve() throws IOException {
+    void shouldPreserveInsertionPoint_whenAsyncMeasurementsResolve() throws IOException {
         String packagedScript = Files.readString(EDIT_CONTROL_2_JS, StandardCharsets.UTF_8);
         String releaseScript = Files.readString(RELEASE_EDIT_CONTROL_2_JS, StandardCharsets.UTF_8);
 
@@ -88,10 +88,11 @@ class EditControl2AssetRegressionTest {
         assertThat(script).contains("insertMeasureBatchAtMarker(markerId, results);");
         assertThat(script).contains("removeMeasureInsertionMarker(marker);");
         assertThat(script).contains("doHtmlAtMarker(marker, \"<font size='3'>\"+myGraphWindow +\"</font>\");");
+        assertThat(script).contains("logMeasureInsertionWarning(\"marker invalid during async measurement insertion; using current cursor\");");
 
-        assertThat(script.indexOf("pendingMeasureMarkerId = createMeasureInsertionMarker();"))
-                .isLessThan(script.indexOf("pendingMeasureFlush = window.setTimeout(flushMeasureRequests, 0);"));
-        assertThat(script.indexOf("insertMeasureBatchAtMarker(markerId, results);"))
-                .isLessThan(script.indexOf("result.request.resolve(result.history);"));
+        assertThat(script)
+                .containsPattern("pendingMeasureMarkerId = createMeasureInsertionMarker\\(\\);[\\s\\S]*pendingMeasureFlush = window\\.setTimeout\\(flushMeasureRequests, 0\\);");
+        assertThat(script)
+                .containsPattern("insertMeasureBatchAtMarker\\(markerId, results\\);[\\s\\S]*result\\.request\\.resolve\\(result\\.history\\);");
     }
 }

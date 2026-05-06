@@ -1274,8 +1274,8 @@ function createMeasureInsertionMarker() {
 function insertNodeAtCurrentSelection(editorDoc, node) {
     var sel = editorDoc.getSelection ? editorDoc.getSelection() : null;
     if (sel && sel.rangeCount > 0) {
-        var range = sel.getRangeAt(0);
-        range.deleteContents();
+        var range = sel.getRangeAt(0).cloneRange();
+        range.collapse(false);
         range.insertNode(node);
         range.setStartAfter(node);
         range.collapse(true);
@@ -1295,12 +1295,17 @@ function insertNodeAtCurrentSelection(editorDoc, node) {
 
 function insertMeasureBatchAtMarker(markerId, results) {
     var marker = findMeasureInsertionMarker(markerId);
+    if (markerId && !marker) {
+        logMeasureInsertionWarning("marker missing before async measurement batch insertion; falling back to current cursor");
+    }
 
-    results.forEach(function(result) {
-        insertMeasureHistory(result.request.measure, result.request.max, result.history, marker);
-    });
-
-    removeMeasureInsertionMarker(marker);
+    try {
+        results.forEach(function(result) {
+            insertMeasureHistory(result.request.measure, result.request.max, result.history, marker);
+        });
+    } finally {
+        removeMeasureInsertionMarker(marker);
+    }
 }
 
 function findMeasureInsertionMarker(markerId) {
@@ -1390,6 +1395,12 @@ function logMeasureHistoryError(measure, detail) {
     }
 }
 
+function logMeasureInsertionWarning(detail) {
+    if (window.console && window.console.warn) {
+        window.console.warn("Unable to restore original async measurement insertion point: " + detail);
+    }
+}
+
 function insertMeasureHistory(measure, max, history, marker) {
     var measureArray = history.values;
     var measureDateArray = history.dates;
@@ -1417,6 +1428,7 @@ function insertMeasureHistory(measure, max, history, marker) {
 
 function doHtmlAtMarker(marker, value) {
     if (!marker || !marker.parentNode || !marker.ownerDocument || !marker.ownerDocument.createRange) {
+        logMeasureInsertionWarning("marker invalid during async measurement insertion; using current cursor");
         doHtml(value);
         return;
     }
