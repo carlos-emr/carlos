@@ -74,7 +74,8 @@ public class OscarDownload extends GenericDownload {
                     res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid download directory.");
                     return;
                 }
-                String filename = PathValidationUtils.validatePath(rawFilename, downloadDir).getName();
+                String filename = PathValidationUtils.validateFileName(rawFilename);
+                filename = PathValidationUtils.validatePath(filename, downloadDir).getName();
                 ServletOutputStream stream = res.getOutputStream();
                 transferFile(res, stream, backupfilepath, filename);
                 stream.close();

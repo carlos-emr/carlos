@@ -62,7 +62,8 @@ public class BackupDownload extends GenericDownload {
                 return;
             }
             String dir = (String) session.getAttribute("backupfilepath") == null ? "/home/mysql/" : (String) session.getAttribute("backupfilepath");
-            String filename = PathValidationUtils.validatePath(rawFilename, new File(dir).getCanonicalFile()).getName();
+            String filename = PathValidationUtils.validateFileName(rawFilename);
+            filename = PathValidationUtils.validatePath(filename, new File(dir).getCanonicalFile()).getName();
 
             boolean adminPrivs = false;
 

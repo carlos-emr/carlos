@@ -629,7 +629,8 @@ public class ManageDocument2Action extends ActionSupport {
         File parentDir = docDir.getParentFile();
 
         // Use validatePath to create a validated cache directory path
-        File cacheDir = PathValidationUtils.validatePath(documentDirName + "_cache", parentDir);
+        String cacheDirName = PathValidationUtils.validateFileName(documentDirName + "_cache");
+        File cacheDir = PathValidationUtils.validatePath(cacheDirName, parentDir);
 
         if (!cacheDir.exists()) {
             cacheDir.mkdir();

@@ -191,7 +191,7 @@ public class DocumentManagerImpl implements DocumentManager {
             file = PathValidationUtils.validatePath(fileName, new File(documentPath));
             fileName = file.getName();
         } catch (SecurityException e) {
-            logger.error("Document filename failed path validation: {}", Encode.forJava(fileName));
+            logger.error("Document filename failed path validation");
             throw new IOException("Document filename failed path validation", e);
         }
         FileUtils.writeByteArrayToFile(file, documentData);

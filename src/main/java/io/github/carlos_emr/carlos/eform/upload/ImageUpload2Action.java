@@ -81,6 +81,7 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
 
             // Validate upload source and destination filename, and track if the filename changed
             String originalFileName = imageFileName;
+            imageFileName = PathValidationUtils.validateFileName(imageFileName);
             File destinationFile = PathValidationUtils.validateUpload(image, imageFileName, imageFolder);
             imageFileName = destinationFile.getName();
             boolean fileNameWasSanitized = !originalFileName.equals(imageFileName);
