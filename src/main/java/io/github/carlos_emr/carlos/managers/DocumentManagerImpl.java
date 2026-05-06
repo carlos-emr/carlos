@@ -187,6 +187,7 @@ public class DocumentManagerImpl implements DocumentManager {
         String fileName = document.getDocfilename();
         File file;
         try {
+            // Normalize the original filename, then validate the final timestamped storage path.
             fileName = dateTimeFormat.format(today) + "_" + PathValidationUtils.validateFileName(fileName);
             file = PathValidationUtils.validatePath(fileName, new File(documentPath));
             fileName = file.getName();
