@@ -84,7 +84,7 @@ public final class PathValidationUtils {
     }
 
     /**
-     * Validates a user-provided filename and returns the safe filename component.
+     * Validates a user-provided filename and returns a normalized safe filename component.
      * Use this when only a filename should be stored or passed to another API and
      * the actual file operation is validated separately with {@link #validatePath(String, File)}
      * or {@link #validateUpload(File, String, File)}.
@@ -94,7 +94,20 @@ public final class PathValidationUtils {
      * @throws SecurityException if validation fails
      */
     public static String validateFileName(String userProvidedFileName) {
-        return sanitizeFileName(userProvidedFileName);
+        String baseName = sanitizeFileName(userProvidedFileName);
+        String normalizedName = baseName.replaceAll("\\s+", "_")
+                .replaceAll("[^a-zA-Z0-9._]", "")
+                .replaceAll("\\.+", ".");
+
+        if (normalizedName.trim().isEmpty()) {
+            logger.warn("Filename became empty after normalization: {}", LogSanitizer.sanitize(userProvidedFileName));
+            throw new SecurityException("Invalid filename");
+        }
+        if (normalizedName.startsWith(".")) {
+            logger.warn("Hidden filenames not allowed after normalization: {}", LogSanitizer.sanitize(userProvidedFileName));
+            throw new SecurityException("Invalid filename: hidden files not allowed");
+        }
+        return normalizedName;
     }
 
     /**

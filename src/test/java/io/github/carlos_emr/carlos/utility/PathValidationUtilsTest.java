@@ -147,6 +147,13 @@ public class PathValidationUtilsTest {
         }
 
         @Test
+        @DisplayName("should normalize unsafe filename characters")
+        void shouldNormalizeUnsafeCharacters_whenFilenameContainsLegacyUnsafeCharacters() {
+            assertThat(PathValidationUtils.validateFileName("my report..<script>-final.pdf"))
+                .isEqualTo("my_report.scriptfinal.pdf");
+        }
+
+        @Test
         @DisplayName("should reject hidden filename")
         void shouldRejectHiddenFilename_whenNameStartsWithDot() {
             assertThatThrownBy(() -> PathValidationUtils.validateFileName(".env"))
