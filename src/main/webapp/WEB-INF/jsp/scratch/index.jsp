@@ -37,10 +37,12 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.DateUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar"%>
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite"%>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<c:url var="scratchUrl" value="/Scratch"/>
 
 <%
   String user_no = (String) request.getSession().getAttribute("user");
@@ -62,7 +64,7 @@
   List<ScratchPad> dateIdList= scratchData.getAllDates(user_no);
 %>
 
-<html lang="en">
+<html lang="${pageContext.request.locale.language}">
 
 <head>
 <title><fmt:message key="ScratchPad.title"/></title>
@@ -75,7 +77,7 @@
         let saveTimeout = null;
         let currentText = "";
         let lastSavedText = "";
-		const context = "<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptBlock"/>";
+        const scratchSaveUrl = "${carlos:forJavaScript(scratchUrl)}";
 
         function setDirty(){
             dirty = true;
@@ -109,16 +111,21 @@
                 return;
             }
             isSaving = true;
-            let url = context + "/Scratch";
+            let scratchForm = document.getElementById('scratch');
+            if (!scratchForm) {
+                isSaving = false;
+                showErrorMessage('Scratchpad form not found. Please refresh the page.');
+                return;
+            }
             let timeoutId = setTimeout(() => {
                 // Abort ongoing AJAX request if still pending
                 $.ajaxStop();
             }, 30000); // 30 second timeout
 
             $.ajax({
-                url: url,
+                url: scratchSaveUrl,
                 type: 'POST',
-                data: $('#scratch').serialize(),
+                data: $(scratchForm).serialize(),
                 timeout: 30000,
                 dataType: 'json',
                 success: function(responseText) {
@@ -330,7 +337,7 @@
 		        console.warn('showVersion: invalid or non-numeric id, ignoring.');
 		        return;
 	        }
-	        let url = context + "/Scratch?method=showVersion&id=" + numId;
+	        let url = scratchSaveUrl + "?method=showVersion&id=" + numId;
 	        let win = window.open(url, "scratchPadVersion", "width=" +window.innerWidth+ ",height=" +window.innerHeight+ ",toolbar=no, scrollbars=yes");
 	        if (win) {
 		        win.focus();
@@ -450,8 +457,7 @@
 	    </td>
 
 		<td class="MainTableRightColumn" id="mainRight">
-		<form id="scratch" action="">
-            <input type="hidden" name="providerNo" value="<carlos:encode value='<%= user_no %>' context="htmlAttribute"/>" />
+		<form id="scratch" action="${carlos:forHtmlAttribute(scratchUrl)}" method="post">
             <input type="hidden" name="id" id="curr_id" value="<carlos:encode value='<%= id %>' context="htmlAttribute"/>" />
             <input type="hidden" name="windowId" id="windowId" value="<%=String.valueOf(System.nanoTime())%>" />
             <input type="hidden" name="dirty" value=false id="dirty" />
