@@ -44,7 +44,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.OscarDocumentCreator;
@@ -138,7 +138,7 @@ public class printLabDaySheet2Action extends ActionSupport {
         response.setHeader("Content-disposition", getHeader(response).toString());
         OscarDocumentCreator osc = new OscarDocumentCreator();
         try {
-            osc.fillDocumentStream(parameters, sos, "pdf", ins, DbConnectionFilter.getThreadLocalDbConnection());
+            osc.fillDocumentStream(parameters, sos, "pdf", ins, LegacyJdbcQuery.getConnection());
         } catch (SQLException e) {
             MiscUtils.getLogger().error("Error", e);
         }

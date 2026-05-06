@@ -54,7 +54,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.xml.sax.InputSource;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 
 public class JDBCUtil {
     public static Document toDocument(ResultSet rs)
@@ -131,12 +131,12 @@ public class JDBCUtil {
             }
             String sql = "SELECT * FROM " + formName + " WHERE demographic_no=? AND formEdited=?";
             MiscUtils.getLogger().debug(sql);
-            ResultSet rs = DBHandler.GetPreSQL(sql, demographicNo, timeStamp);
+            ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo, timeStamp);
             if (!rs.first()) {
                 rs.close();
                 sql = "SELECT * FROM " + formName + " WHERE demographic_no=? AND ID='0'";
                 MiscUtils.getLogger().debug("sql: " + sql);
-                rs = DBHandler.GetPreSQL(sql, true, new Object[]{demographicNo});
+                rs = LegacyJdbcQuery.getPreparedResultSet(sql, true, new Object[]{demographicNo});
                 rs.moveToInsertRow();
                 // setValidating(true) was removed — incompatible with disallow-doctype-decl which rejects all DOCTYPEs
                 DocumentBuilderFactory factory = XmlUtils.createSecureDocumentBuilderFactory();

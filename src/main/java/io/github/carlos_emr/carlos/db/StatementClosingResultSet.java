@@ -36,6 +36,10 @@ import java.lang.reflect.Proxy;
 import java.sql.ResultSet;
 import java.sql.Statement;
 
+import javax.sql.DataSource;
+
+import org.springframework.jdbc.datasource.DataSourceUtils;
+
 /**
  * A {@link ResultSet} wrapper that ensures the parent {@link Statement} is closed
  * when {@link ResultSet#close()} is called on the result set.
@@ -68,10 +72,18 @@ final class StatementClosingResultSet implements InvocationHandler {
 
     private final ResultSet delegate;
     private final Statement statement;
+    private final java.sql.Connection connection;
+    private final DataSource dataSource;
 
     private StatementClosingResultSet(ResultSet delegate, Statement statement) {
+        this(delegate, statement, null, null);
+    }
+
+    private StatementClosingResultSet(ResultSet delegate, Statement statement, java.sql.Connection connection, DataSource dataSource) {
         this.delegate = delegate;
         this.statement = statement;
+        this.connection = connection;
+        this.dataSource = dataSource;
     }
 
     /**
@@ -96,6 +108,26 @@ final class StatementClosingResultSet implements InvocationHandler {
             rs.getClass().getClassLoader(),
             new Class<?>[] { ResultSet.class },
             new StatementClosingResultSet(rs, stmt)
+        );
+    }
+
+    static ResultSet wrap(ResultSet rs, Statement stmt, java.sql.Connection connection, DataSource dataSource) {
+        if (rs == null) {
+            throw new IllegalArgumentException("ResultSet must not be null");
+        }
+        if (stmt == null) {
+            throw new IllegalArgumentException("Statement must not be null");
+        }
+        if (connection == null) {
+            throw new IllegalArgumentException("Connection must not be null");
+        }
+        if (dataSource == null) {
+            throw new IllegalArgumentException("DataSource must not be null");
+        }
+        return (ResultSet) Proxy.newProxyInstance(
+            rs.getClass().getClassLoader(),
+            new Class<?>[] { ResultSet.class },
+            new StatementClosingResultSet(rs, stmt, connection, dataSource)
         );
     }
 
@@ -127,6 +159,9 @@ final class StatementClosingResultSet implements InvocationHandler {
                     // rs.close() succeeded — propagate the stmt failure
                     throw stmtThrowable;
                 }
+            }
+            if (connection != null && dataSource != null) {
+                DataSourceUtils.releaseConnection(connection, dataSource);
             }
             if (rsThrowable != null) {
                 throw rsThrowable;

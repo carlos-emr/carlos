@@ -16,7 +16,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.carlos.entities.Provider;
 import io.github.carlos_emr.carlos.entities.S21;
 import org.apache.commons.io.IOUtils;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.OscarDocumentCreator;
@@ -188,7 +188,7 @@ public class CreateBillingReport2Action extends ActionSupport {
                 }
 
                 try {
-                    osc.fillDocumentStream(reportParams, outputStream, docFmt, reportInstream, DbConnectionFilter.getThreadLocalDbConnection());
+                    osc.fillDocumentStream(reportParams, outputStream, docFmt, reportInstream, LegacyJdbcQuery.getConnection());
                 } catch (SQLException e) {
                     MiscUtils.getLogger().error("Error", e);
                 }

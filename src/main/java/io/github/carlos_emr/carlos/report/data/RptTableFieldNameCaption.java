@@ -47,7 +47,7 @@ import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.dao.ReportTableFieldCaptionDao;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.commn.model.ReportTableFieldCaption;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -73,7 +73,7 @@ public class RptTableFieldNameCaption {
         PreparedStatement ps = null;
         ResultSet rs = null;
         try {
-            conn = DbConnectionFilter.getThreadLocalDbConnection();
+            conn = LegacyJdbcQuery.getConnection();
             ps = conn.prepareStatement(sql);
             ps.setString(1, table_name);
             ps.setString(2, name);
@@ -141,7 +141,7 @@ public class RptTableFieldNameCaption {
         PreparedStatement ps = null;
         ResultSet rs = null;
         try {
-            conn = DbConnectionFilter.getThreadLocalDbConnection();
+            conn = LegacyJdbcQuery.getConnection();
             ps = conn.prepareStatement(sql);
             ps.setString(1, tableName);
             rs = ps.executeQuery();
@@ -192,7 +192,7 @@ public class RptTableFieldNameCaption {
         PreparedStatement ps = null;
         ResultSet rs = null;
         try {
-            conn = DbConnectionFilter.getThreadLocalDbConnection();
+            conn = LegacyJdbcQuery.getConnection();
             ps = conn.prepareStatement(sql);
             rs = ps.executeQuery(); // nosemgrep: formatted-sql-string — uses PreparedStatement; tableName from internal report config
             ResultSetMetaData md = rs.getMetaData();

@@ -46,7 +46,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -119,7 +119,7 @@ public class PrintClientLabLabel2Action extends ActionSupport {
             ServletOutputStream sos = response.getOutputStream();
             response.setHeader("Content-disposition", getHeader(response).toString());
             OscarDocumentCreator osc = new OscarDocumentCreator();
-            osc.fillDocumentStream(parameters, sos, "pdf", ins, DbConnectionFilter.getThreadLocalDbConnection(), exportPdfJavascript);
+            osc.fillDocumentStream(parameters, sos, "pdf", ins, LegacyJdbcQuery.getConnection(), exportPdfJavascript);
         } catch (FileNotFoundException ex1) {
             logger.debug("Addresslabel.xml not found in user's home directory. Using default instead");
         } catch (IOException ex) {

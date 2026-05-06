@@ -46,8 +46,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.db.DBPreparedHandler;
 import io.github.carlos_emr.carlos.db.DBPreparedHandlerParam;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 
 import io.github.carlos_emr.carlos.commons.KeyConstants;
 import io.github.carlos_emr.carlos.model.FieldDefValue;
@@ -797,8 +797,7 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
 
     @Override
     public void runProcedure(String procName, String[] params) throws SQLException {
-        DBPreparedHandler db = new DBPreparedHandler();
-        db.procExecute(procName, params);
+        LegacyJdbcQuery.procExecute(procName, params);
     }
 
     @Override

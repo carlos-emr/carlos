@@ -62,7 +62,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.eform.data.EFormBase;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.messenger.data.MessengerSystemMessage;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
@@ -675,7 +675,7 @@ public class EFormUtil {
         }
 
         try {
-            ResultSet rs = DBHandler.GetPreSQL(sql, demographicNo);
+            ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo);
             while (rs.next()) {
                 HashMap<String, String> curhash = new HashMap<String, String>();
                 curhash.put("groupName", Misc.getString(rs, "group_name"));
@@ -697,7 +697,7 @@ public class EFormUtil {
         ResultSet rs = null;
         try {
             String sql1 = "SELECT eform_groups.fid FROM eform_groups, eform WHERE eform_groups.fid=? AND eform_groups.fid=eform.fid AND eform.status=1 AND eform_groups.group_name=?";
-            rs = DBHandler.GetPreSQL(sql1, ConversionUtils.fromIntString(fid), groupName);
+            rs = LegacyJdbcQuery.getPreparedResultSet(sql1, ConversionUtils.fromIntString(fid), groupName);
             if (!rs.next()) {
                 EFormGroup eg = new EFormGroup();
                 eg.setFormId(Integer.parseInt(fid));
@@ -731,7 +731,7 @@ public class EFormUtil {
         }
         ArrayList<HashMap<String, ? extends Object>> results = new ArrayList<HashMap<String, ? extends Object>>();
         try {
-            ResultSet rs = DBHandler.GetPreSQL(sql, group);
+            ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, group);
             while (rs.next()) {
                 HashMap<String, String> curht = new HashMap<String, String>();
                 curht.put("fid", rsGetString(rs, "fid"));
@@ -817,7 +817,7 @@ public class EFormUtil {
             return results;
         }
         try {
-            ResultSet rs = DBHandler.GetPreSQL(sql, demographicNo, groupName);
+            ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo, groupName);
             while (rs.next()) {
                 // filter eform by role type
                 if (rsGetString(rs, "roleType") != null && !rsGetString(rs, "roleType").equals("") && !rsGetString(rs, "roleType").equals("null")) {
@@ -1312,7 +1312,7 @@ public class EFormUtil {
         ResultSet rs = null;
         try {
 
-            rs = DBHandler.GetPreSQL(sql);
+            rs = LegacyJdbcQuery.getPreparedResultSet(sql);
         } catch (SQLException sqe) {
             logger.error("Error", sqe);
         }

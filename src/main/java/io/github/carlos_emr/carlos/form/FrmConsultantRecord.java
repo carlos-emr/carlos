@@ -36,7 +36,7 @@ import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 
@@ -54,7 +54,7 @@ public class FrmConsultantRecord extends FrmRecord {
 
             String sql = "SELECT demographic_no, CONCAT(last_name, ', ', first_name) AS pName, address, CONCAT(city, ', ', province, ' ', postal) AS address2, phone, year_of_birth, month_of_birth, date_of_birth, CONCAT(hin, ' ', ver) AS hic FROM demographic WHERE demographic_no = ?";
 
-            ResultSet rs = DBHandler.GetPreSQL(sql, demographicNo);
+            ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo);
             if (rs.next()) {
                 java.util.Date date = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), Misc.getString(rs, "month_of_birth"), Misc.getString(rs, "date_of_birth"));
                 props.setProperty("demographic_no", Misc.getString(rs, "demographic_no"));
@@ -105,7 +105,7 @@ public class FrmConsultantRecord extends FrmRecord {
 
         Properties props = new Properties();
         String sql = "SELECT CONCAT('Dr. ', first_name, ' ', last_name) AS doc_Name FROM provider WHERE provider_no = ?";
-        ResultSet rs = DBHandler.GetPreSQL(sql, provider_no);
+        ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, provider_no);
         if (rs.next()) {
             props.setProperty("doc_name", Misc.getString(rs, "doc_Name"));
         }
@@ -116,7 +116,7 @@ public class FrmConsultantRecord extends FrmRecord {
     public Properties getInitRefDoc(Properties props, int demo_no) throws SQLException {
 
         String sql = "SELECT family_doctor FROM demographic WHERE demographic_no = ?";
-        ResultSet rs = DBHandler.GetPreSQL(sql, demo_no);
+        ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demo_no);
         String refdocno, docno;
         if (rs.next()) {
             docno = Misc.getString(rs, "family_doctor");

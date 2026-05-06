@@ -35,7 +35,7 @@ import java.util.Properties;
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class FrmMentalHealthForm14Record extends FrmRecord {
@@ -46,7 +46,7 @@ public class FrmMentalHealthForm14Record extends FrmRecord {
 
             String demoProvider = "000000";
             String sql = "SELECT demographic_no, CONCAT(CONCAT(last_name, ', '), first_name) AS clientName, year_of_birth, month_of_birth, date_of_birth, provider_no FROM demographic WHERE demographic_no = ?";
-            ResultSet rs = DBHandler.GetPreSQL(sql, demographicNo);
+            ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo);
             if (rs.next()) {
                 Date dob = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), Misc.getString(rs, "month_of_birth"),
                         Misc.getString(rs, "date_of_birth"));
@@ -83,7 +83,7 @@ public class FrmMentalHealthForm14Record extends FrmRecord {
                 // from provider table
                 sql = "SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no "
                         + "FROM provider WHERE provider_no = ?";
-                rs = DBHandler.GetPreSQL(sql, provNo);
+                rs = LegacyJdbcQuery.getPreparedResultSet(sql, provNo);
 
                 if (rs.next()) {
                     String num = Misc.getString(rs, "ohip_no");
@@ -95,7 +95,7 @@ public class FrmMentalHealthForm14Record extends FrmRecord {
             } else {
                 // from provider table
                 sql = "SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no FROM provider WHERE provider_no = ?";
-                rs = DBHandler.GetPreSQL(sql, provNo);
+                rs = LegacyJdbcQuery.getPreparedResultSet(sql, provNo);
 
                 String num = "";
                 if (rs.next()) {
@@ -107,7 +107,7 @@ public class FrmMentalHealthForm14Record extends FrmRecord {
 
                 // from provider table
                 sql = "SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no FROM provider WHERE provider_no = ?";
-                rs = DBHandler.GetPreSQL(sql, demoProvider);
+                rs = LegacyJdbcQuery.getPreparedResultSet(sql, demoProvider);
 
                 if (rs.next()) {
                     if (num.equals("")) {

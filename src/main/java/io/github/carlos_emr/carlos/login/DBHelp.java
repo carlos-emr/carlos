@@ -41,7 +41,7 @@ import io.github.carlos_emr.Misc;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 
 /**
  * deprecated Use JPA instead, no new code should be written against this class.
@@ -64,7 +64,7 @@ public final class DBHelp {
     public static ResultSet searchDBRecord(String sql, Object... params) {
         ResultSet ret = null;
         try {
-            ret = DBHandler.GetPreSQL(sql, params);
+            ret = LegacyJdbcQuery.getPreparedResultSet(sql, params);
         } catch (SQLException e) {
             logger.error("Error", e);
         }

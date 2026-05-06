@@ -36,7 +36,7 @@ import java.util.Properties;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.carlos.db.DBPreparedHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 
 
 /**
@@ -48,7 +48,6 @@ public class RptByExampleData {
     public String sql = "";
     public String results = null;
     public String connect = null;
-    DBPreparedHandler accessDB = null;
     Properties oscarVariables = null;
 
     public RptByExampleData() {
@@ -75,10 +74,8 @@ public class RptByExampleData {
         MiscUtils.getLogger().warn("Admin report SQL execution: {}", sql.length() > 200 ? sql.substring(0, 200) + "..." : sql);
 
         try {
-            accessDB = new DBPreparedHandler();
-
             ResultSet rs = null;
-            rs = accessDB.queryResults(this.sql); // nosemgrep: formatted-sql-string — intentional admin dynamic SQL; validated by DBPreparedHandler.validateSafeSelectQuery
+            rs = LegacyJdbcQuery.queryResults(this.sql); // nosemgrep: formatted-sql-string — intentional admin dynamic SQL; validated by LegacyJdbcQuery.validateSafeSelectQuery
 
             if (rs != null) {
                 results = RptResultStruct.getStructure(rs);

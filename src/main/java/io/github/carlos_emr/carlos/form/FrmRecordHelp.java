@@ -47,7 +47,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.w3c.dom.Document;
 
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.JDBCUtil;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
@@ -101,7 +101,7 @@ public class FrmRecordHelp {
         Properties props = new Properties();
 
 
-        ResultSet rs = DBHandler.GetPreSQL(sql, params);
+        ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, params);
         if (rs.next()) {
             ResultSetMetaData md = rs.getMetaData();
             for (int i = 1; i <= md.getColumnCount(); i++) {
@@ -148,7 +148,7 @@ public class FrmRecordHelp {
     public synchronized int saveFormRecord(Properties props, String sql, Object... params) throws SQLException {
 
 
-        ResultSet rs = DBHandler.GetPreSQL(sql, true, params);
+        ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, true, params);
         rs.moveToInsertRow();
         rs = updateResultSet(props, rs, true);
         rs.insertRow();
@@ -192,7 +192,7 @@ public class FrmRecordHelp {
         } else {
             throw new SQLException("ERROR: Database " + db_type + " unrecognized.");
         }
-        rs = DBHandler.GetPreSQL(sql);
+        rs = LegacyJdbcQuery.getPreparedResultSet(sql);
         if (rs.next())
             ret = rs.getInt(1);
         rs.close();
@@ -286,7 +286,7 @@ public class FrmRecordHelp {
     public void updateFormRecord(Properties props, String sql, Object... params) throws SQLException {
 
 
-        ResultSet rs = DBHandler.GetPreSQL(sql, true, params);
+        ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, true, params);
         //rs.relative(0);
 
         rs = updateResultSet(props, rs, false);
@@ -314,7 +314,7 @@ public class FrmRecordHelp {
     public Properties getPrintRecord(String sql, Object... params) throws SQLException {
         Properties props = new Properties();
 
-        ResultSet rs = DBHandler.GetPreSQL(sql, params);
+        ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, params);
         if (rs.next()) {
             props = getResultsAsProperties(rs);
         }
@@ -340,7 +340,7 @@ public class FrmRecordHelp {
     public List<Properties> getPrintRecords(String sql, Object... params) throws SQLException {
         ArrayList<Properties> results = new ArrayList<Properties>();
 
-        ResultSet rs = DBHandler.GetPreSQL(sql, params);
+        ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, params);
         while (rs.next()) {
             Properties p = getResultsAsProperties(rs);
             results.add(p);
@@ -392,7 +392,7 @@ public class FrmRecordHelp {
     public List<Integer> getDemographicIds(String sql, Object... params) throws SQLException {
         List<Integer> results = new ArrayList<Integer>();
 
-        ResultSet rs = DBHandler.GetPreSQL(sql, params);
+        ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, params);
         while (rs.next()) {
             results.add(rs.getInt("demographic_no"));
         }

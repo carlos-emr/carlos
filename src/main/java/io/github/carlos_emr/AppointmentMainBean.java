@@ -35,7 +35,7 @@ import java.sql.SQLException;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import io.github.carlos_emr.carlos.db.DBPreparedHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.db.DBPreparedHandlerParam;
 import io.github.carlos_emr.carlos.util.UtilDict;
 
@@ -50,15 +50,14 @@ import io.github.carlos_emr.carlos.util.UtilDict;
  *   <li>Executing prepared database statements</li>
  * </ul>
  * 
- * <p><strong>Note:</strong> This class uses deprecated {@link DBPreparedHandler}.
- * Consider migrating to JPA or modern database access patterns.</p>
+ * <p><strong>Note:</strong> This class still exposes legacy {@link ResultSet}-based
+ * query methods for JSP compatibility. Prefer typed DAOs/services for new code.</p>
  * 
- * @see DBPreparedHandler
+ * @see LegacyJdbcQuery
  * @see UtilDict
  */
 public class AppointmentMainBean {
 
-    private DBPreparedHandler dbPH = null;
     private UtilDict toFile = null;
     private UtilDict dbSQL = null;
     private UtilDict requestUtilDict = null;
@@ -106,11 +105,8 @@ public class AppointmentMainBean {
      */
     public void doConfigure(String[][] dbOperation) {
         bDoConfigure = true;
-        if (dbPH != null) dbPH = null;
-
         dbSQL = new UtilDict();
         dbSQL.setDef(dbOperation);
-        dbPH = new DBPreparedHandler();
     }
 
     /**
@@ -121,14 +117,11 @@ public class AppointmentMainBean {
      */
     public void doConfigure(String[][] dbOperation, String[][] controlToFile) {
         bDoConfigure = true;
-        if (dbPH != null) dbPH = null;
-
         toFile = new UtilDict();
         toFile.setDef(controlToFile);
         dbSQL = new UtilDict();
         dbSQL.setDef(dbOperation);
 
-        dbPH = new DBPreparedHandler();
     }
 
     public void doCommand(HttpServletRequest request) {
@@ -153,10 +146,10 @@ public class AppointmentMainBean {
         ResultSet rs = null;
         if (aKeyword[0].equals("*")) {
             sqlQuery = dbSQL.getDef("search*", "");
-            rs = dbPH.queryResults(sqlQuery, new DBPreparedHandlerParam[0]);
+            rs = LegacyJdbcQuery.queryResults(sqlQuery, new DBPreparedHandlerParam[0]);
         } else {
             sqlQuery = dbSQL.getDef(dboperation, "");
-            rs = dbPH.queryResults(sqlQuery, aKeyword);
+            rs = LegacyJdbcQuery.queryResults(sqlQuery, aKeyword);
         }
 
         return rs;
@@ -168,10 +161,10 @@ public class AppointmentMainBean {
         ResultSet rs = null;
         if (aKeyword[0].equals("*")) {
             sqlQuery = dbSQL.getDef("search*", "");
-            rs = dbPH.queryResults_paged(sqlQuery, new DBPreparedHandlerParam[0], iOffSet);
+            rs = LegacyJdbcQuery.queryResultsPaged(sqlQuery, new DBPreparedHandlerParam[0], iOffSet);
         } else {
             sqlQuery = dbSQL.getDef(dboperation, "");
-            rs = dbPH.queryResults_paged(sqlQuery, aKeyword, iOffSet);
+            rs = LegacyJdbcQuery.queryResultsPaged(sqlQuery, aKeyword, iOffSet);
         }
 
         return rs;
@@ -184,10 +177,10 @@ public class AppointmentMainBean {
         if (aKeyword[0].getParamType().equals(DBPreparedHandlerParam.PARAM_STRING) &&
                 aKeyword[0].getStringValue().equals("*")) {
             sqlQuery = dbSQL.getDef("search*", "");
-            rs = dbPH.queryResults_paged(sqlQuery, new DBPreparedHandlerParam[0], iOffSet);
+            rs = LegacyJdbcQuery.queryResultsPaged(sqlQuery, new DBPreparedHandlerParam[0], iOffSet);
         } else {
             sqlQuery = dbSQL.getDef(dboperation, "");
-            rs = dbPH.queryResults_paged(sqlQuery, aKeyword, iOffSet);
+            rs = LegacyJdbcQuery.queryResultsPaged(sqlQuery, aKeyword, iOffSet);
         }
         return rs;
     }
@@ -197,10 +190,10 @@ public class AppointmentMainBean {
         Object[] rs = null;
         if (aKeyword[0].equals("*")) {
             sqlQuery = dbSQL.getDef("search*", "");
-            rs = dbPH.queryResultsCaisi(sqlQuery, new String[0]);
+            rs = LegacyJdbcQuery.queryResultsCaisi(sqlQuery, new String[0]);
         } else {
             sqlQuery = dbSQL.getDef(dboperation, "");
-            rs = dbPH.queryResultsCaisi(sqlQuery, aKeyword);
+            rs = LegacyJdbcQuery.queryResultsCaisi(sqlQuery, aKeyword);
         }
         return rs;
     }
@@ -210,10 +203,10 @@ public class AppointmentMainBean {
         Object[] rs = null;
         if (aKeyword.equals("*")) {
             sqlQuery = dbSQL.getDef("search*", "");
-            rs = dbPH.queryResultsCaisi(sqlQuery, new String[0]);
+            rs = LegacyJdbcQuery.queryResultsCaisi(sqlQuery, new String[0]);
         } else {
             sqlQuery = dbSQL.getDef(dboperation, "");
-            rs = dbPH.queryResultsCaisi(sqlQuery, aKeyword);
+            rs = LegacyJdbcQuery.queryResultsCaisi(sqlQuery, aKeyword);
         }
         return rs;
     }
@@ -221,12 +214,12 @@ public class AppointmentMainBean {
     public Object[] queryResultsCaisi(int aKeyword, String dboperation) throws Exception {
         String sqlQuery = null;
         sqlQuery = dbSQL.getDef(dboperation, "");
-        return dbPH.queryResultsCaisi(sqlQuery, aKeyword);
+        return LegacyJdbcQuery.queryResultsCaisi(sqlQuery, aKeyword);
     }
 
     public Object[] queryResultsCaisi(String dboperation) throws Exception {
         String sqlQuery = dbSQL.getDef(dboperation);
-        return dbPH.queryResultsCaisi(sqlQuery, new String[0]);
+        return LegacyJdbcQuery.queryResultsCaisi(sqlQuery, new String[0]);
     }
 
     public ResultSet queryResults(String aKeyword, String dboperation) throws Exception {
@@ -234,10 +227,10 @@ public class AppointmentMainBean {
         ResultSet rs = null;
         if (aKeyword.equals("*")) {
             sqlQuery = dbSQL.getDef("search*", "");
-            rs = dbPH.queryResults(sqlQuery, new DBPreparedHandlerParam[0]);
+            rs = LegacyJdbcQuery.queryResults(sqlQuery, new DBPreparedHandlerParam[0]);
         } else {
             sqlQuery = dbSQL.getDef(dboperation, "");
-            rs = dbPH.queryResults(sqlQuery, aKeyword);
+            rs = LegacyJdbcQuery.queryResults(sqlQuery, aKeyword);
         }
         return rs;
     }
@@ -247,7 +240,7 @@ public class AppointmentMainBean {
         ResultSet rs = null;
         if (aKeyword.equals("*")) {
             sqlQuery = dbSQL.getDef("search*", "");
-            rs = dbPH.queryResults_paged(sqlQuery, new DBPreparedHandlerParam[0], iOffSet);
+            rs = LegacyJdbcQuery.queryResultsPaged(sqlQuery, new DBPreparedHandlerParam[0], iOffSet);
         } else {
             sqlQuery = dbSQL.getDef(dboperation, "");
             //works with only one " like ?"
@@ -261,9 +254,9 @@ public class AppointmentMainBean {
 //            if(str3.indexOf("and")>iIndex2) iIndex2=str3.indexOf("and") + 3;
                     sqlQuery = str2 + " 1=1 " + str3.substring(iIndex2 + 1, str3.length());
                 }
-                rs = dbPH.queryResults_paged(sqlQuery, new DBPreparedHandlerParam[0], iOffSet);
+                rs = LegacyJdbcQuery.queryResultsPaged(sqlQuery, new DBPreparedHandlerParam[0], iOffSet);
             } else {
-                rs = dbPH.queryResults_paged(sqlQuery, aKeyword, iOffSet);
+                rs = LegacyJdbcQuery.queryResultsPaged(sqlQuery, aKeyword, iOffSet);
             }
         }
         return rs;
@@ -273,7 +266,7 @@ public class AppointmentMainBean {
         String sqlQuery = null;
         ResultSet rs = null;
         sqlQuery = dbSQL.getDef(dboperation, "");
-        rs = dbPH.queryResults(sqlQuery, aKeyword);
+        rs = LegacyJdbcQuery.queryResults(sqlQuery, aKeyword);
         return rs;
     }
 
@@ -281,19 +274,19 @@ public class AppointmentMainBean {
         String sqlQuery = null;
         ResultSet rs = null;
         sqlQuery = dbSQL.getDef(dboperation, "");
-        rs = dbPH.queryResults(sqlQuery, aKeyword, nKeyword);
+        rs = LegacyJdbcQuery.queryResults(sqlQuery, aKeyword, nKeyword);
         return rs;
     }
 
     public ResultSet queryResults(int[] parameters, String dboperation) throws Exception {
         String sqlQuery = dbSQL.getDef(dboperation);
-        return dbPH.queryResults(sqlQuery, parameters);
+        return LegacyJdbcQuery.queryResults(sqlQuery, parameters);
     }
 
     /* This method is called by querys that dont need to set a PreparedStatement */
     public ResultSet queryResults(String dboperation) throws Exception {
         String sqlQuery = dbSQL.getDef(dboperation);
-        return dbPH.queryResults(sqlQuery, new DBPreparedHandlerParam[0]);
+        return LegacyJdbcQuery.queryResults(sqlQuery, new DBPreparedHandlerParam[0]);
     }
 
     public String getString(ResultSet rs, java.lang.String columnName) throws SQLException {

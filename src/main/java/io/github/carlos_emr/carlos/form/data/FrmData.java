@@ -43,7 +43,7 @@ import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class FrmData {
@@ -132,7 +132,7 @@ public class FrmData {
         String selectClause = "SELECT ID, demographic_no, formCreated, formEdited FROM ";
         String whereClause = " WHERE demographic_no=? ORDER BY ID DESC";
         String sql = selectClause + table + whereClause;
-        ResultSet rs = DBHandler.GetPreSQL(sql, demoNo);
+        ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demoNo);
         while (rs.next()) {
             PatientForm frm = new PatientForm(Misc.getString(rs, "ID"), Misc.getString(rs, "demographic_no"),
                     UtilDateUtilities.DateToString(rs.getDate("formCreated"), "yy/MM/dd"), UtilDateUtilities.DateToString(rs.getDate("formEdited"), "yy/MM/dd"));
@@ -151,7 +151,7 @@ public class FrmData {
         // Parameterize studyNo to prevent SQL injection
         String sql = "SELECT e.form_table from encounterForm e, study s where e.form_name = s.form_name and s.study_no = ?";
         String table = "";
-        ResultSet rs = DBHandler.GetPreSQL(sql, studyNo);
+        ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, studyNo);
         while (rs.next()) {
             table = Misc.getString(rs, "form_table");
         }
@@ -165,7 +165,7 @@ public class FrmData {
         String whereClause = " WHERE demographic_no=? ORDER BY ID DESC limit 0,1";
         sql = selectClause + table + whereClause;
         // deepcode ignore SqlInjection: table validated by regex [a-zA-Z][a-zA-Z0-9_]*; demoNo parameterized via GetPreSQL
-        rs = DBHandler.GetPreSQL(sql, demoNo);
+        rs = LegacyJdbcQuery.getPreparedResultSet(sql, demoNo);
         while (rs.next()) {
             frm = new PatientForm(Misc.getString(rs, "ID"), Misc.getString(rs, "demographic_no"),
                     UtilDateUtilities.DateToString(rs.getDate("formCreated"), "yy/MM/dd"), UtilDateUtilities.DateToString(rs.getDate("formEdited"), "yy/MM/dd"));
@@ -180,7 +180,7 @@ public class FrmData {
 
         // Parameterize studyNo to prevent SQL injection
         String sql = "SELECT study_name, study_link FROM study WHERE study_no=?";
-        ResultSet rs = DBHandler.GetPreSQL(sql, studyNo);
+        ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, studyNo);
         while (rs.next()) {
             ret[0] = Misc.getString(rs, "study_name");
             ret[1] = Misc.getString(rs, "study_link");
@@ -225,7 +225,7 @@ public class FrmData {
                 searchFormName = "ar1_99_12"; // quick hack for ease of migration from old forms to new
             if (searchFormName.equals("AR2")) searchFormName = "ar2_99_08"; // ditto
             sql = "SELECT form_no FROM " + table + " WHERE demographic_no=? AND form_name=? order by form_no desc limit 0,1";
-            rs = DBHandler.GetPreSQL(sql, demoNo, searchFormName);
+            rs = LegacyJdbcQuery.getPreparedResultSet(sql, demoNo, searchFormName);
             while (rs.next()) {
                 ret[1] = Misc.getString(rs, "form_no");
             }
@@ -281,7 +281,7 @@ public class FrmData {
             ret[1] = "0";
         } else {
             sql = "SELECT ID FROM " + table + " WHERE demographic_no=? order by formEdited desc limit 0,1";
-            rs = DBHandler.GetPreSQL(sql, demoNo);
+            rs = LegacyJdbcQuery.getPreparedResultSet(sql, demoNo);
             while (rs.next()) {
                 ret[1] = Misc.getString(rs, "ID");
             }
@@ -297,7 +297,7 @@ public class FrmData {
         String ret = "";
 
 
-        ResultSet rs = DBHandler.GetPreSQL("SELECT value FROM property WHERE name=?", "resource");
+        ResultSet rs = LegacyJdbcQuery.getPreparedResultSet("SELECT value FROM property WHERE name=?", "resource");
         while (rs.next()) {
             ret = Misc.getString(rs, "value");
         }
@@ -313,7 +313,7 @@ public class FrmData {
         String ret = "";
 
 
-        ResultSet rs = DBHandler.GetPreSQL("SELECT value FROM property WHERE name=?", name);
+        ResultSet rs = LegacyJdbcQuery.getPreparedResultSet("SELECT value FROM property WHERE name=?", name);
         while (rs.next()) {
             ret = Misc.getString(rs, "value");
         }

@@ -44,7 +44,7 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.report.data.RptResultStruct;
 import io.github.carlos_emr.carlos.util.UtilMisc;
 
@@ -204,7 +204,7 @@ public class SQLReporter implements Reporter {
         String rsHtml = "An SQL query error has occured ";
         String csv = "";
         try (StringWriter swr = new StringWriter();
-             ResultSet rs = DBHandler.GetPreSQL(sql, sqlParams)) {
+             ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, sqlParams)) {
             if (!rs.isBeforeFirst()) {
                 rsHtml = showSqlOnEmpty
                         ? (Encode.forHtml(sql) + "<br/>The query returned no results.")

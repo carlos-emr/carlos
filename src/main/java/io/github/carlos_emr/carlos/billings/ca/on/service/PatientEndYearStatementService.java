@@ -44,7 +44,7 @@ import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 // NOTE: tx is writable (not readOnly = true). This service's reads are
 // dominant, but DemographicManager.searchDemographic — called from
@@ -69,7 +69,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  *       invoiced/paid totals into a {@link PatientEndYearStatementSummary}.</li>
  *   <li>{@link #writePdfTo} — render the JasperReports PDF to the response
  *       output stream. This is the path that previously held a
- *       {@code DbConnectionFilter.getThreadLocalDbConnection()} call inside
+ *       {@code LegacyJdbcQuery.getConnection()} call inside
  *       {@code PatientEndYearStatement2Action}; the connection lifecycle now
  *       lives entirely below the web tier.</li>
  * </ul>
@@ -240,7 +240,7 @@ public class PatientEndYearStatementService {
         try {
             Connection dbConn;
             try {
-                dbConn = DbConnectionFilter.getThreadLocalDbConnection();
+                dbConn = LegacyJdbcQuery.getConnection();
             } catch (SQLException ex) {
                 throw new Failure(Reason.DATABASE_ERROR, ex);
             }

@@ -33,7 +33,7 @@ package io.github.carlos_emr.carlos.mds.data;
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao;
 import io.github.carlos_emr.carlos.commn.model.SystemPreferences;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 
@@ -314,7 +314,7 @@ public class CategoryData {
                 + " OR plr2.demographic_no = '0')";
 
 
-        Connection c = DbConnectionFilter.getThreadLocalDbConnection();
+        Connection c = LegacyJdbcQuery.getConnection();
         PreparedStatement ps = c.prepareStatement(sql);
         
         int paramIndex = 1;
@@ -331,7 +331,7 @@ public class CategoryData {
         ResultSet rs;
         String sql;
         PreparedStatement ps = null;
-        Connection c = DbConnectionFilter.getThreadLocalDbConnection();
+        Connection c = LegacyJdbcQuery.getConnection();
         if (patientSearch) {
             sql = " SELECT HIGH_PRIORITY COUNT(1) as count "
                     + " FROM patientLabRouting cd, demographic d, providerLabRouting plr, hl7TextInfo info "
@@ -389,7 +389,7 @@ public class CategoryData {
                 + " AND 	cd.module_id = -1 "
                 + documentAbnormalSql
                 + documentDateSql;
-        Connection c = DbConnectionFilter.getThreadLocalDbConnection();
+        Connection c = LegacyJdbcQuery.getConnection();
         PreparedStatement ps = c.prepareStatement(sql);
 
         int paramIndex = 1;
@@ -422,7 +422,7 @@ public class CategoryData {
                 + labDateSql
                 + " GROUP BY demographic_no, info.accessionNum ";
 
-        Connection c = DbConnectionFilter.getThreadLocalDbConnection();
+        Connection c = LegacyJdbcQuery.getConnection();
         PreparedStatement ps = c.prepareStatement(sql);
 
         int paramIndex = 1;
@@ -481,7 +481,7 @@ public class CategoryData {
         
         sql.append(" GROUP BY demographic_no ");
         
-        Connection c = DbConnectionFilter.getThreadLocalDbConnection();
+        Connection c = LegacyJdbcQuery.getConnection();
         
         // Try-with-resources automatically closes resources
         try (PreparedStatement ps = c.prepareStatement(sql.toString())) {
@@ -525,7 +525,7 @@ public class CategoryData {
                 + documentAbnormalSql
                 + documentDateSql
                 + " GROUP BY demographic_no ";
-        Connection c = DbConnectionFilter.getThreadLocalDbConnection();
+        Connection c = LegacyJdbcQuery.getConnection();
         PreparedStatement ps = c.prepareStatement(sql);
 
         int paramIndex = 1;

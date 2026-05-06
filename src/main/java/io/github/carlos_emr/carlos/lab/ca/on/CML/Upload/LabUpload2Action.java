@@ -37,7 +37,7 @@ import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -143,7 +143,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                         ABCDParser abc = new ABCDParser();
                         abc.parse(in);
 
-                        abc.save(DbConnectionFilter.getThreadLocalDbConnection());
+                        abc.save(LegacyJdbcQuery.getConnection());
                         outcome = "uploaded";
                     }
                 } else {

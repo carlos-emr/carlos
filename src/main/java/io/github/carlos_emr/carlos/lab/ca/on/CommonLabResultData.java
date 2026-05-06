@@ -570,7 +570,7 @@ public class CommonLabResultData {
                 for (int k = 0; k < labIds.length; k++) {
 
                     for (int j = 0; j < providersArray.length; j++) {
-                        plr.route(labIds[k], providersArray[j], DbConnectionFilter.getThreadLocalDbConnection(), labType);
+                        plr.route(labIds[k], providersArray[j], LegacyJdbcQuery.getConnection(), labType);
                     }
 
                     // delete old entries

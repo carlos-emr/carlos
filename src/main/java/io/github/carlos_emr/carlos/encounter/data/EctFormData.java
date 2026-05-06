@@ -47,7 +47,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -155,7 +155,7 @@ public class EctFormData {
 
         Connection c = null;
         try {
-            c = DbConnectionFilter.getThreadLocalDbConnection();
+            c = LegacyJdbcQuery.getConnection();
 
             if (!table.equals("form")) {
                 String sql = "SELECT max(ID) ID, demographic_no, formCreated, date(formEdited) 'lastEdited', max(formEdited) 'frmEdited' FROM " + table + " WHERE demographic_no=? group by lastEdited";
@@ -220,7 +220,7 @@ public class EctFormData {
 
         Connection c = null;
         try {
-            c = DbConnectionFilter.getThreadLocalDbConnection();
+            c = LegacyJdbcQuery.getConnection();
 
             if (!table.equals("form")) {
                 String sql = "SELECT ID, demographic_no, formCreated, formEdited FROM " + table + " WHERE demographic_no=? ORDER BY ID DESC";

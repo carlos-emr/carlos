@@ -36,7 +36,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.login.DBHelp;
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 //	 Referenced classes of package io.github.carlos_emr.carlos.form:
@@ -56,7 +56,7 @@ public class FrmBCClientChartChecklistRecord extends FrmRecord {
         Properties props = new Properties();
         if (existingID <= 0) {
 
-            ResultSet rs = DBHandler.GetPreSQL("SELECT demographic_no, last_name, first_name, sex, address, city, province, postal, phone, phone2, year_of_birth, month_of_birth, date_of_birth, hin FROM demographic WHERE demographic_no = ?",
+            ResultSet rs = LegacyJdbcQuery.getPreparedResultSet("SELECT demographic_no, last_name, first_name, sex, address, city, province, postal, phone, phone2, year_of_birth, month_of_birth, date_of_birth, hin FROM demographic WHERE demographic_no = ?",
                     demographicNo);
             if (rs.next()) {
                 java.util.Date date = UtilDateUtilities.calcDate(rs

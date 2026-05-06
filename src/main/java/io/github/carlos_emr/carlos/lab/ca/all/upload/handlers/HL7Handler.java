@@ -44,7 +44,7 @@ import java.util.ArrayList;
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
@@ -94,7 +94,7 @@ public class HL7Handler implements MessageHandler {
     // recheck the abnormal status of the last 'n' labs
     private void updateLabStatus(int n) throws SQLException {
         String sql = "SELECT lab_no, result_status FROM hl7TextInfo ORDER BY lab_no DESC";
-        Connection c = DbConnectionFilter.getThreadLocalDbConnection();
+        Connection c = LegacyJdbcQuery.getConnection();
         PreparedStatement ps = c.prepareStatement(sql);
         ResultSet rs = ps.executeQuery(sql);
         while (rs.next() && n > 0) {

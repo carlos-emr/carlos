@@ -44,7 +44,7 @@ import java.util.Map;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
 import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -80,7 +80,7 @@ public class DxReference {
         String nsql = "select dx_code1, dx_code2, dx_code3,service_date from billingmaster where demographic_no = ? and billingstatus != 'D' order by service_date desc limit 10";
         try {
 
-            PreparedStatement pstmt = DbConnectionFilter.getThreadLocalDbConnection().prepareStatement(nsql);
+            PreparedStatement pstmt = LegacyJdbcQuery.getConnection().prepareStatement(nsql);
             pstmt.setString(1, demo);
             ResultSet rs = pstmt.executeQuery();
             Map<String, String> m = new HashMap<String, String>();

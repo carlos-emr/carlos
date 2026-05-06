@@ -45,7 +45,6 @@ import io.github.carlos_emr.carlos.integration.mcedt.mailbox.ActionUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.carlos.db.DBPreparedHandler;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
@@ -59,8 +58,6 @@ public class ObecData {
     public String results = null;
     public String text = null;
     public String connect = null;
-    DBPreparedHandler accessDB = null;
-
     public ObecData() {
     }
 

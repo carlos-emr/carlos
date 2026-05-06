@@ -37,7 +37,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 public class dbExtract implements Serializable {
@@ -60,7 +60,7 @@ public class dbExtract implements Serializable {
         try {
 
             //establish connection with the specified username, password and url
-            con = DbConnectionFilter.getThreadLocalDbConnection();
+            con = LegacyJdbcQuery.getConnection();
             stmt = con.createStatement();
             stmt2 = con.createStatement();
         } catch (SQLException e) {

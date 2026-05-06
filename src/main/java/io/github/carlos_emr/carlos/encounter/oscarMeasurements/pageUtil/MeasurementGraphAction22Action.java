@@ -81,7 +81,7 @@ import io.github.carlos_emr.carlos.PMmodule.utility.UtilDateUtilities;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementsExt;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -677,7 +677,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         if (labType.equals("loinc")) {
             try {
 
-                Connection conn = DbConnectionFilter.getThreadLocalDbConnection();
+                Connection conn = LegacyJdbcQuery.getConnection();
                 list = CommonLabTestValues.findValuesByLoinc2(demographicNo.toString(), identifier, conn);
                 MiscUtils.getLogger().debug("List ->" + list.size());
                 conn.close();

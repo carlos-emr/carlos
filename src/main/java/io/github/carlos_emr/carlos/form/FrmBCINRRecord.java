@@ -34,7 +34,7 @@ import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import io.github.carlos_emr.carlos.login.DBHelp;
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
@@ -94,7 +94,7 @@ public class FrmBCINRRecord extends FrmRecord {
 
         if (existingID <= 0) {
 
-            ResultSet rs = DBHandler.GetPreSQL("SELECT demographic_no, last_name, first_name, sex, address, city, province, postal, phone, phone2, year_of_birth, month_of_birth, date_of_birth, hin, family_doctor FROM demographic WHERE demographic_no = ?",
+            ResultSet rs = LegacyJdbcQuery.getPreparedResultSet("SELECT demographic_no, last_name, first_name, sex, address, city, province, postal, phone, phone2, year_of_birth, month_of_birth, date_of_birth, hin, family_doctor FROM demographic WHERE demographic_no = ?",
                     demographicNo);
             if (rs.next()) {
                 java.util.Date date = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), rs
@@ -216,15 +216,15 @@ public class FrmBCINRRecord extends FrmRecord {
     public Vector getINRLabData(int demographic_no) throws SQLException {
         Vector ret = new Vector();
 
-        ResultSet rs = DBHandler.GetPreSQL("select lab_no from patientLabRouting where lab_type = 'BCP' and demographic_no = ? order by lab_no",
+        ResultSet rs = LegacyJdbcQuery.getPreparedResultSet("select lab_no from patientLabRouting where lab_type = 'BCP' and demographic_no = ? order by lab_no",
                 demographic_no);
         while (rs.next()) {
             int labNo = rs.getInt("lab_no");
-            ResultSet rs1 = DBHandler.GetPreSQL("select obr_id from hl7_obr obr, hl7_pid pid where obr.pid_id = pid.pid_id and pid.message_id = ?",
+            ResultSet rs1 = LegacyJdbcQuery.getPreparedResultSet("select obr_id from hl7_obr obr, hl7_pid pid where obr.pid_id = pid.pid_id and pid.message_id = ?",
                     labNo);
             if (rs1.next()) {
                 int obrId = rs1.getInt("obr_id");
-                ResultSet rs2 = DBHandler.GetPreSQL("select observation_identifier, observation_results, observation_date_time from hl7_obx where obr_id = ? and observation_result_status='F'",
+                ResultSet rs2 = LegacyJdbcQuery.getPreparedResultSet("select observation_identifier, observation_results, observation_date_time from hl7_obx where obr_id = ? and observation_result_status='F'",
                         obrId);
                 while (rs2.next()) {
                     String labTestName = rs2.getString("observation_identifier").substring(
