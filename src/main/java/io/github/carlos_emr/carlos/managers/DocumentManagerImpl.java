@@ -184,11 +184,12 @@ public class DocumentManagerImpl implements DocumentManager {
         Date today = new Date();
         // Generates filename and path data and saves the document data to the file system
         String documentPath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-        String fileName = dateTimeFormat.format(today) + "_" + document.getDocfilename();
-		fileName = MiscUtils.sanitizeFileName(fileName);
+        String fileName = document.getDocfilename();
         File file;
         try {
+            fileName = dateTimeFormat.format(today) + "_" + PathValidationUtils.validateFileName(fileName);
             file = PathValidationUtils.validatePath(fileName, new File(documentPath));
+            fileName = file.getName();
         } catch (SecurityException e) {
             logger.error("Document filename failed path validation: {}", Encode.forJava(fileName));
             throw new IOException("Document filename failed path validation", e);

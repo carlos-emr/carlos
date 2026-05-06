@@ -140,7 +140,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
 
         int numberOfPages = 0;
         String originalFileName = filled(this.docFileFileName) ? this.docFileFileName : uploadedDocFile.getName();
-        String fileName = MiscUtils.sanitizeFileName(originalFileName);
+        String fileName = PathValidationUtils.validateFileName(originalFileName);
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String user = loggedInInfo.getLoggedInProviderNo();
         EDoc newDoc = new EDoc("", "", fileName, "", user, user, this.getSource(), 'A', UtilDateUtilities.getToday("yyyy-MM-dd"), "", "", "demographic", "-1", 0);
@@ -327,8 +327,8 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 errors.put("uploaderror", "dms.error.uploadError");
                 throw new FileNotFoundException();
             }
-            // sanitize the original file name first
-            String fileName1 = MiscUtils.sanitizeFileName(this.docFileFileName);
+            // validate the original file name first
+            String fileName1 = PathValidationUtils.validateFileName(this.docFileFileName);
 
             EDoc newDoc = new EDoc(this.getDocDesc(), this.getDocType(), fileName1, "", this.getDocCreator(), this.getResponsibleId(), this.getSource(), 'A', this.getObservationDate(), "", "", this.getFunction(), this.getFunctionId());
             newDoc.setDocPublic(this.getDocPublic());
@@ -471,7 +471,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             {
                 File docFile = this.getDocFile();
                 if (docFile != null && docFile.exists()) {
-                    fileName = MiscUtils.sanitizeFileName(this.docFileFileName);
+                    fileName = PathValidationUtils.validateFileName(this.docFileFileName);
                     updateFileContent = true; // set update to true
                 }
             }
@@ -507,7 +507,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
             // if the update behavior is true, get the file name
             if (updateFileContent) {
-                fileName = MiscUtils.sanitizeFileName(newDoc.getFileName());
+                fileName = PathValidationUtils.validateFileName(newDoc.getFileName());
                 // save local file
                 writeLocalFile(Files.newInputStream(this.getDocFile().toPath()), fileName);
                 if (fileName.toLowerCase().endsWith(".pdf")) {

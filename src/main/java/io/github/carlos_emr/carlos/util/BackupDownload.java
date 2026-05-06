@@ -29,6 +29,7 @@
 
 package io.github.carlos_emr.carlos.util;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -42,6 +43,7 @@ import jakarta.servlet.http.HttpSession;
 import io.github.carlos_emr.carlos.commn.dao.SecObjPrivilegeDao;
 import io.github.carlos_emr.carlos.commn.model.SecObjPrivilege;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.logging.log4j.Logger;
 
@@ -53,14 +55,14 @@ public class BackupDownload extends GenericDownload {
         try {
             HttpSession session = req.getSession(true);
 
-            // check the rights - sanitize filename to prevent XSS and path traversal
+            // check the rights - validate filename to prevent path traversal
             String rawFilename = req.getParameter("filename");
-            String filename = rawFilename == null ? null : MiscUtils.sanitizeFileName(rawFilename);
-            if (filename == null || filename.isBlank()) {
+            if (rawFilename == null || rawFilename.isBlank()) {
                 res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing required filename parameter.");
                 return;
             }
             String dir = (String) session.getAttribute("backupfilepath") == null ? "/home/mysql/" : (String) session.getAttribute("backupfilepath");
+            String filename = PathValidationUtils.validatePath(rawFilename, new File(dir).getCanonicalFile()).getName();
 
             boolean adminPrivs = false;
 
@@ -77,6 +79,11 @@ public class BackupDownload extends GenericDownload {
             download(bDownload, res, dir, filename, null);
         } catch (IOException e) {
             throw e;
+        } catch (SecurityException e) {
+            log.warn("BackupDownload rejected invalid filename from {}", req.getRemoteAddr());
+            if (!res.isCommitted()) {
+                res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid filename parameter.");
+            }
         } catch (Exception e) {
             log.error("Unexpected error in BackupDownload", e);
             if (!res.isCommitted()) {

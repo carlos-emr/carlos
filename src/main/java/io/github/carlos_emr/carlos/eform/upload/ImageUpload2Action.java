@@ -71,18 +71,6 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
                 return ERROR;
             }
 
-            // Sanitize the filename and track if it changed
-            String originalFileName = imageFileName;
-            imageFileName = MiscUtils.sanitizeFileName(imageFileName);
-            boolean fileNameWasSanitized = !originalFileName.equals(imageFileName);
-
-            // Validate that sanitized filename is not empty
-            if (imageFileName == null || imageFileName.isEmpty()) {
-                MiscUtils.getLogger().warn("Image upload rejected: filename '{}' empty after sanitization", originalFileName);
-                addActionError("Invalid filename: filename cannot be empty after sanitization");
-                return ERROR;
-            }
-
             // Ensure upload directory exists (throws IOException if creation fails)
             File imageFolder = getImageFolder();
             if (!imageFolder.exists()) {
@@ -91,8 +79,18 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
                 return ERROR;
             }
 
-            // Validate upload: source file location + destination path traversal protection
+            // Validate upload source and destination filename, and track if the filename changed
+            String originalFileName = imageFileName;
             File destinationFile = PathValidationUtils.validateUpload(image, imageFileName, imageFolder);
+            imageFileName = destinationFile.getName();
+            boolean fileNameWasSanitized = !originalFileName.equals(imageFileName);
+
+            // Validate that filename is not empty
+            if (imageFileName == null || imageFileName.isEmpty()) {
+                MiscUtils.getLogger().warn("Image upload rejected: filename '{}' empty after validation", originalFileName);
+                addActionError("Invalid filename: filename cannot be empty after validation");
+                return ERROR;
+            }
 
             // Upload the file
             try (InputStream fis = Files.newInputStream(image.toPath());

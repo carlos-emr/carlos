@@ -132,6 +132,30 @@ public class PathValidationUtilsTest {
     }
 
     // ========================================================================
+    // FILENAME-ONLY VALIDATION
+    // ========================================================================
+
+    @Nested
+    @DisplayName("Filename-Only Validation Tests")
+    class FilenameOnlyValidationTests {
+
+        @Test
+        @DisplayName("should return filename component when path is provided")
+        void shouldReturnFilenameComponent_whenPathIsProvided() {
+            assertThat(PathValidationUtils.validateFileName("nested/path/report.pdf"))
+                .isEqualTo("report.pdf");
+        }
+
+        @Test
+        @DisplayName("should reject hidden filename")
+        void shouldRejectHiddenFilename_whenNameStartsWithDot() {
+            assertThatThrownBy(() -> PathValidationUtils.validateFileName(".env"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("hidden files not allowed");
+        }
+    }
+
+    // ========================================================================
     // PATH TRAVERSAL PREVENTION
     // ========================================================================
 
