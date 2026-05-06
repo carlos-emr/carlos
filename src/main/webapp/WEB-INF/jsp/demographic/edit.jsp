@@ -958,7 +958,7 @@
                             jQuery('#country').append(jQuery('<option>').text(value.label).attr('value', value.value));
                         });
 
-                        var defaultProvince = '<%=CarlosProperties.getInstance().getProperty("demographic.default_province","")%>';
+                        var defaultProvince = '<%=org.owasp.encoder.Encode.forJavaScript(CarlosProperties.getInstance().getProperty("demographic.default_province",""))%>';
                         var defaultCountry = '';
 
                         if (defaultProvince == '' && defaultCountry == '') {
@@ -982,7 +982,7 @@
                             jQuery('#residentialCountry').append(jQuery('<option>').text(value.label).attr('value', value.value));
                         });
 
-                        var defaultProvince = '<%=CarlosProperties.getInstance().getProperty("demographic.default_province","")%>';
+                        var defaultProvince = '<%=org.owasp.encoder.Encode.forJavaScript(CarlosProperties.getInstance().getProperty("demographic.default_province",""))%>';
                         var defaultCountry = '';
 
                         if (defaultProvince == '' && defaultCountry == '') {
@@ -1035,8 +1035,8 @@
                     }
                 });
             }
-            <% } %>
         </script>
+        <% } %>
         <style>
             /* for the search buttons at the top of the page
 			this should be removed if the page is updated to bootstrap
