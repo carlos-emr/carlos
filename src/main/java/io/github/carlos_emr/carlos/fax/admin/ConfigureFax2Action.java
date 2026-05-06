@@ -516,7 +516,15 @@ public class ConfigureFax2Action extends ActionSupport {
         }
         faxConfig.setHylafaxHost(valueAt(hylafaxHosts, idx));
         String port = valueAt(hylafaxPorts, idx);
-        faxConfig.setHylafaxPort(StringUtils.isBlank(port) ? 4559 : Integer.parseInt(port.trim()));
+        if (StringUtils.isBlank(port)) {
+            faxConfig.setHylafaxPort(4559);
+        } else {
+            try {
+                faxConfig.setHylafaxPort(Integer.parseInt(port.trim()));
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("HylaFax port must be numeric for account row " + (idx + 1) + ".", e);
+            }
+        }
         faxConfig.setHylafaxUsername(valueAt(hylafaxUsernames, idx));
         faxConfig.setHylafaxPassword("");
         faxConfig.setHylafaxModem(valueAt(hylafaxModems, idx));
