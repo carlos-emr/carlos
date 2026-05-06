@@ -90,7 +90,7 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
             boolean generated = new SQLReporter().generateReport(request);
 
             assertThat(generated).isTrue();
-            assertThat(reportManagers.constructed()).hasSize(1);
+            verify(reportManagers.constructed().get(0)).getReportTemplateNoParam("1");
             verify(request).setAttribute("csv", "");
             verify(session, never()).setAttribute(eq("csv"), any());
         }
