@@ -99,7 +99,7 @@
             // Security check - require write access to _pref security object
             SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
             if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", "w", null)) {
-                throw new SecurityException("missing required sec object: _pref (write access required)");
+                throw new SecurityException("missing required sec object (_pref w)");
             }
 
             String programId_forCME = request.getParameter("case_program_id");
