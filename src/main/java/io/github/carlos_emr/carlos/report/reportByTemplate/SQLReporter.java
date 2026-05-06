@@ -62,7 +62,7 @@ public class SQLReporter implements Reporter {
      * carried forward to the export form. Prevents very large report results from
      * being retained in server-side or client-side request state.
      */
-    static final int MAX_CSV_EXPORT_LENGTH = 5 * 1024 * 1024;
+    public static final int MAX_CSV_EXPORT_LENGTH = 5 * 1024 * 1024;
 
     /** Value of {@link ReportTemplates#getActive()} that indicates an active template. */
     private static final int ACTIVE_STATUS = 1;

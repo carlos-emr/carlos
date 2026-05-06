@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.report.reportByTemplate.actions;
 
+import io.github.carlos_emr.carlos.report.reportByTemplate.SQLReporter;
 import io.github.carlos_emr.carlos.services.security.SecurityManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
@@ -49,8 +50,6 @@ import static org.mockito.Mockito.mockStatic;
 @Tag("unit")
 @Tag("report")
 class GenerateOutFiles2ActionTest extends CarlosUnitTestBase {
-
-    private static final int MAX_CSV_EXPORT_LENGTH = 5 * 1024 * 1024;
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<SecurityManager> securityManagerMock;
@@ -100,7 +99,7 @@ class GenerateOutFiles2ActionTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject missing CSV when only session CSV exists")
-    void shouldRejectMissingCsv_whenOnlySessionCsvExists() {
+    void shouldRejectMissingCsv_whenOnlySessionCsvExists() throws Exception {
         request.setParameter("getCSV", "Export to CSV");
         request.getSession().setAttribute("csv", "from-session");
 
@@ -113,9 +112,9 @@ class GenerateOutFiles2ActionTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject oversized CSV when posted CSV exceeds limit")
-    void shouldRejectOversizedCsv_whenPostedCsvExceedsLimit() {
+    void shouldRejectOversizedCsv_whenPostedCsvExceedsLimit() throws Exception {
         request.setParameter("getCSV", "Export to CSV");
-        request.setParameter("csv", "a".repeat(MAX_CSV_EXPORT_LENGTH + 1));
+        request.setParameter("csv", "a".repeat(SQLReporter.MAX_CSV_EXPORT_LENGTH + 1));
 
         String result = new GenerateOutFiles2Action().execute();
 

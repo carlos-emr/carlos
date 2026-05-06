@@ -35,6 +35,7 @@ package io.github.carlos_emr.carlos.report.reportByTemplate.actions;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.report.reportByTemplate.SQLReporter;
 import io.github.carlos_emr.carlos.services.security.SecurityManager;
 import org.apache.poi.hssf.usermodel.HSSFRow;
 import org.apache.poi.hssf.usermodel.HSSFSheet;
@@ -57,7 +58,6 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class GenerateOutFiles2Action extends ActionSupport {
-    private static final int MAX_CSV_EXPORT_LENGTH = 5 * 1024 * 1024;
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -139,7 +139,7 @@ public class GenerateOutFiles2Action extends ActionSupport {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return false;
         }
-        if (csv.length() > MAX_CSV_EXPORT_LENGTH) {
+        if (csv.length() > SQLReporter.MAX_CSV_EXPORT_LENGTH) {
             MiscUtils.getLogger().warn("GenerateOutFiles2Action: CSV export payload exceeds size limit ({} chars)", csv.length());
             response.setStatus(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
             return false;
