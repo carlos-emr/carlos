@@ -55,9 +55,12 @@
 <head>
     <fmt:message key="appointment.appointmentTypeList.errAppointmentTypeName" var="msgAppointmentTypeName"/>
     <fmt:message key="appointment.appointmentTypeList.errNamesField" var="msgNamesField"/>
-    <fmt:message key="appointment.appointmentTypeList.msgDeleteConfirm" var="msgDeleteConfirm"/>
+    <fmt:message key="appointment.appointmentTypeList.msgAppointmentType" var="msgAppointmentType"/>
+    <fmt:message key="global.confirmDeleteItem" var="msgDeleteConfirm">
+        <fmt:param value="${msgAppointmentType}"/>
+    </fmt:message>
     <title>
-        <fmt:message key="appointment.appointmentTypeList.title"/>
+        <fmt:message key="appointment.addappointment.title2"/>
     </title>
     <script language="JavaScript">
         const i18nAppointmentTypeName = "${carlos:forJavaScript(msgAppointmentTypeName)}";
@@ -168,7 +171,7 @@
                 <tr bgcolor="mediumaquamarine">
                     <th align="right"></th>
                     <th colspan="6" align="left">
-                        &nbsp;&nbsp;&nbsp;&nbsp; <fmt:message key="appointment.appointmentTypeList.title"/>
+                        &nbsp;&nbsp;&nbsp;&nbsp; <fmt:message key="appointment.addappointment.title2"/>
                     </th>
                 </tr>
                 <tr>
@@ -190,7 +193,7 @@
                                                    BGCOLOR="#C0C0C0">
                                                 <tr valign="middle" BGCOLOR="#EEEEFF">
                                                     <td width="30%">
-                                                        <div align="right"><font face="arial"><fmt:message key="appointment.appointmentTypeList.lblName"/></font></div>
+                                                        <div align="right"><font face="arial"><fmt:message key="name"/>:</font></div>
                                                     </td>
                                                     <td width="25%"><INPUT TYPE="TEXT" NAME="name"
                                                                            VALUE="${carlos:forHtmlAttribute(name)}"
@@ -198,7 +201,7 @@
                                                                            maxlength="50"
                                                                            onChange="checkTimeTypeIn(this)">
                                                     <td width="20%">
-                                                        <div align="right"><font face="arial"><fmt:message key="appointment.appointmentTypeList.lblDuration"/></font></div>
+                                                        <div align="right"><font face="arial"><fmt:message key="duration"/>:</font></div>
                                                     </td>
                                                     <td width="25%"><INPUT TYPE="TEXT" NAME="duration"
                                                                            VALUE="${carlos:forHtmlAttribute(duration)}"
@@ -208,13 +211,13 @@
                                                 <tr valign="middle" BGCOLOR="#EEEEFF">
                                                     <td>
                                                         <div align="right"><font face="arial"><font
-                                                                face="arial"><fmt:message key="appointment.appointmentTypeList.lblReason"/></font></font></div>
+                                                                face="arial"><fmt:message key="reason"/>:</font></font></div>
                                                     </td>
                                                     <td><TEXTAREA NAME="reason" COLS="40" ROWS="2" border="0" hspace="2">
                                                         ${carlos:forHtml(reason)}</TEXTAREA>
                                                     </td>
                                                     <td>
-                                                        <div align="right"><font face="arial"><fmt:message key="appointment.appointmentTypeList.lblNotes"/></font></div>
+                                                        <div align="right"><font face="arial"><fmt:message key="Appointment.formNotes"/>:</font></div>
                                                     </td>
                                                     <td><TEXTAREA NAME="notes" COLS="40" ROWS="2" border="0" hspace="2">
                                                         ${carlos:forHtml(notes)}
@@ -222,7 +225,7 @@
                                                     </td>
                                                 </tr>
                                                 <tr valign="middle" BGCOLOR="#EEEEFF">
-                                                    <td align="right"><font face="arial"><fmt:message key="appointment.appointmentTypeList.lblLocation"/></font></td>
+                                                    <td align="right"><font face="arial"><fmt:message key="location"/>:</font></td>
                                                     <td>
                                                         <c:if test="${not empty locationsList}">
                                                             <select name="location">
@@ -243,7 +246,7 @@
                                                         </c:if>
                                                     </td>
                                                     <td>
-                                                        <div align="right"><font face="arial"><fmt:message key="appointment.appointmentTypeList.lblResources"/></font></div>
+                                                        <div align="right"><font face="arial"><fmt:message key="Appointment.formResources"/>:</font></div>
                                                     </td>
                                                     <td><INPUT TYPE="TEXT" NAME="resources"
                                                                VALUE="${carlos:forHtmlAttribute(resources)}"
@@ -256,7 +259,7 @@
                                 </table>
                                 <table border="0" cellpadding="0" cellspacing="0" width="100%">
                                     <tr bgcolor="#CCCCFF">
-                                        <TD nowrap align="center"><input type="submit" value="<fmt:message key='appointment.appointmentTypeList.btnSave'/>" />
+                                        <TD nowrap align="center"><input type="submit" value="<fmt:message key='global.btnSave'/>" />
                                         </TD>
                                     </tr>
                                 </table>
@@ -266,22 +269,22 @@
                 </tr>
                 <tr bgcolor="silver">
                     <th width="15%" nowrap>
-                        <fmt:message key="appointment.appointmentTypeList.lblName"/>
+                        <fmt:message key="name"/>
                     </th>
                     <th width="5%" nowrap>
-                        <fmt:message key="appointment.appointmentTypeList.lblDuration"/>
+                        <fmt:message key="duration"/>
                     </th>
                     <th width="20%" nowrap>
-                        <fmt:message key="appointment.appointmentTypeList.lblReason"/>
+                        <fmt:message key="reason"/>
                     </th>
                     <th width="20%" nowrap>
-                        <fmt:message key="appointment.appointmentTypeList.lblNotes"/>
+                        <fmt:message key="Appointment.formNotes"/>
                     </th>
                     <th width="15%" nowrap>
-                        <fmt:message key="appointment.appointmentTypeList.lblLocation"/>
+                        <fmt:message key="location"/>
                     </th>
                     <th width="15%" nowrap>
-                        <fmt:message key="appointment.appointmentTypeList.lblResources"/>
+                        <fmt:message key="Appointment.formResources"/>
                     </th>
                     <th width="10%" nowrap>
                     </th>
@@ -319,9 +322,9 @@
                         <%= SafeEncode.forHtmlContent(type.getResources()) %>
                     </th>
                     <th nowrap>
-                        <a href="${pageContext.request.contextPath}/appointment/appointmentTypeAction?oper=edit&no=<%= type.getId() %>"><fmt:message key="appointment.appointmentTypeList.btnEdit"/></a>
+                        <a href="${pageContext.request.contextPath}/appointment/appointmentTypeAction?oper=edit&no=<%= type.getId() %>"><fmt:message key="global.btnEdit"/></a>
                         &nbsp;&nbsp;
-                        <a href="javascript:delType('<%= type.getId() %>')"><fmt:message key="appointment.appointmentTypeList.btnDelete"/></a>
+                        <a href="javascript:delType('<%= type.getId() %>')"><fmt:message key="global.btnDelete"/></a>
                     </th>
                 </tr>
                 <%

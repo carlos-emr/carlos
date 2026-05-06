@@ -93,6 +93,38 @@ class TargetClinicalJspI18nTest {
     }
 
     @Test
+    @DisplayName("should use translated appointment type list values in every shipped locale")
+    void shouldUseTranslatedAppointmentTypeListValues_inEveryLocale() throws IOException {
+        List<String> keys = fmtMessageKeys(Path.of("src/main/webapp/WEB-INF/jsp/appointment/appointmentTypeList.jsp"));
+
+        for (String locale : LOCALES) {
+            Properties bundle = loadBundle(locale);
+            List<String> englishPlaceholders = keys.stream()
+                    .filter(key -> bundle.getProperty(key, "").startsWith("[EN] "))
+                    .toList();
+
+            assertThat(englishPlaceholders)
+                    .as("oscarResources_%s.properties should use translations, not [EN] placeholders", locale)
+                    .isEmpty();
+        }
+    }
+
+    @Test
+    @DisplayName("should keep appointment type list key values free of trailing colons")
+    void shouldKeepAppointmentTypeListKeyValues_freeOfTrailingColons() throws IOException {
+        Properties bundle = loadBundle("en");
+
+        List<String> keysWithTrailingColons = bundle.stringPropertyNames().stream()
+                .filter(key -> key.startsWith("appointment.appointmentTypeList."))
+                .filter(key -> bundle.getProperty(key).endsWith(":"))
+                .toList();
+
+        assertThat(keysWithTrailingColons)
+                .as("punctuation should live in JSP label markup, not translatable values")
+                .isEmpty();
+    }
+
+    @Test
     @DisplayName("should not retain externalized appointment type list text")
     void shouldNotRetainExternalizedAppointmentTypeListText_inJsp() throws IOException {
         String content = read(Path.of("src/main/webapp/WEB-INF/jsp/appointment/appointmentTypeList.jsp"));
