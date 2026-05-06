@@ -2407,6 +2407,7 @@
 
 %>
 
+<div class="container">
 <div class="page-header-bar" style="font-size:14px !important;">
     <h4 class="page-header-title" style="font-size:18px !important;font-weight:normal !important;"><fmt:message key="inboxmanager.documentsInQueues"/></h4>
     <input type="hidden" name="providerNo" value="<carlos:encode value='<%= providerNo %>' context="htmlAttribute"/>">
@@ -2464,5 +2465,6 @@
 
 </script>
 <jsp:include page="/images/spinner.jsp"/>
+</div><%-- close container --%>
 </body>
 </html>
