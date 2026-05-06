@@ -60,7 +60,7 @@
         <fmt:param value="${msgAppointmentType}"/>
     </fmt:message>
     <title>
-        <fmt:message key="appointment.addappointment.title2"/>
+        <fmt:message key="appointment.appointmentTypeList.title"/>
     </title>
     <script language="JavaScript">
         const i18nAppointmentTypeName = "${carlos:forJavaScript(msgAppointmentTypeName)}";
@@ -171,7 +171,7 @@
                 <tr bgcolor="mediumaquamarine">
                     <th align="right"></th>
                     <th colspan="6" align="left">
-                        &nbsp;&nbsp;&nbsp;&nbsp; <fmt:message key="appointment.addappointment.title2"/>
+                        &nbsp;&nbsp;&nbsp;&nbsp; <fmt:message key="appointment.appointmentTypeList.title"/>
                     </th>
                 </tr>
                 <tr>
