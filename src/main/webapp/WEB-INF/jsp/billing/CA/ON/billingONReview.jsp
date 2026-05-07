@@ -415,7 +415,7 @@
                                     </c:if>
                                 </tr>
                                 <tr>
-                                    <td><b><fmt:message key="oscar.billing.CA.ON.billingon.ob.SLIcode"/></b></td>
+                                    <td><b><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode"/></b></td>
                                     <td><carlos:encode value="${reviewModel.sliCodeLabel}" context="html"/>
                                         &nbsp;
                                     </td>
@@ -826,7 +826,7 @@
         var regexNumberic = /^([1-9]\d{0,9}|0)(\.\d{1,2})?$/;
         if (!regexNumberic.test(val)) {
             calculateTotal();
-            alert("Please enter digital numbers !");
+            alert("${carlos:forJavaScript(msgEnterNumbers)}");
             return;
         }
 
