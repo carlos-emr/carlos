@@ -340,7 +340,7 @@
     const i18nDeleteConfirm = "${carlos:forJavaScript(msgDeleteConfirm)}";
 
     function delType(id) {
-        var answer = confirm(i18nDeleteConfirm)
+        var answer = confirm(i18nDeleteConfirm);
         if (answer) {
             var form = document.createElement('form');
             form.method = 'post';
