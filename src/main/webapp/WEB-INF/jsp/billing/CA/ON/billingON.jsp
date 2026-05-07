@@ -568,7 +568,9 @@
                 dataType: "html",
                 data: pars,
                 success: function (returnData) {
-                    jQuery("#code_desc").html(returnData);
+                    var text = (returnData || '').toString().trim();
+                    jQuery("#code_desc").html(text);
+                    jQuery("#code_desc").attr("title", text);
                 },
                 error: function (e) {
                     alert(e);
@@ -796,33 +798,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
             </td>
         </tr>
     </table>
-    <c:forEach var="dxEntry" items="${formModel.serviceGrid.dxCodesByServiceType}">
-    <%-- The assembler already runs sanitizeIdToken on service-type codes, so
-         dxEntry.key is alphanumeric+underscore. The fn:replace here is
-         defense-in-depth — if a future code path ever bypasses the sanitizer,
-         the rendered HTML id remains valid (no spaces, which would otherwise
-         split the id attribute and break the JS lookup-by-id). --%>
-    <div id="dxCodeSearchDiv_<carlos:encode value='${fn:replace(dxEntry.key, " ", "_")}' context='htmlAttribute'/>" style="display: none;">
-        <c:forEach var="dx" items="${dxEntry.value}">
-        <table style="width: 98%; margin:auto;" class="table-striped table-hover">
-            <tr>
-                <td style="width: 10%">
-                    <a href="javascript:void(0);"
-                       onclick="document.forms[0].dxCode.value='<carlos:encode value='${dx.diagnosticCode}' context='javaScriptAttribute'/>';showHideLayers('Layer2','','hide');changeCodeDesc();return false;">
-                        <carlos:encode value='${dx.diagnosticCode}' context='html'/>
-                    </a>
-                </td>
-                <td>
-                    <a href="javascript:void(0);"
-                       onclick="document.forms[0].dxCode.value='<carlos:encode value='${dx.diagnosticCode}' context='javaScriptAttribute'/>';showHideLayers('Layer2','','hide');changeCodeDesc();return false;">
-                        <carlos:encode value='${fn:length(dx.description) lt 56 ? dx.description : fn:substring(dx.description, 0, 55)}' context='html'/>
-                    </a>
-                </td>
-            </tr>
-        </table>
-        </c:forEach>
-    </div>
-    </c:forEach>
+
 
 </div>
 
@@ -909,14 +885,12 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                         <table
                                                 style="width: 100%;">
                                             <tr>
-                                                <td style="width: 15%">&nbsp;</td>
-                                                <td style="white-space:nowrap">
-                                                    <div id="code_desc"></div>
+                                                <td colspan="2" style="white-space:nowrap;">
+                                                    <div id="code_desc" style="width:210px; overflow:hidden; text-overflow: ellipsis;"></div>
                                                 </td>
                                             </tr>
                                             <tr>
-                                                <td><a href="javascript:void(0);"
-                                                       onclick="showHideLayers('Layer2','','show','Layer1','','hide'); return false;"><fmt:message key="oscar.billing.ca.on.billingON.dx"/></a>
+                                                <td style="width: 15%"><fmt:message key="oscar.billing.ca.on.billingON.dx"/>
                                                 </td>
                                                 <td><input type="text" name="dxCode" class="form-control form-control-sm d-inline-block w-auto"
                                                            maxlength="5"
