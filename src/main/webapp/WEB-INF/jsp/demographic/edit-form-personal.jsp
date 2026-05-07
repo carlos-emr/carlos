@@ -267,7 +267,7 @@
                                                         <td align="left"><input type="text"
                                                                                 name="middleNames" <%=getDisabled("middleNames")%>
                                                                                 size="30"
-                                                                                value="<carlos:encode value='<%= demographic.getMiddleNames() %>' context="htmlAttribute"/>"
+                                                                                value='<%=(demographic.getMiddleNames()==null||demographic.getMiddleNames().equals("null"))?"":demographic.getMiddleNames()%>' context="htmlAttribute"/>" 
                                                                                 onBlur="upCaseCtrl(this)"></td>
                                                         <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.msgDemoTitle"/>: </b>
                                                         </td>
