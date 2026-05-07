@@ -57,7 +57,7 @@ class SchedulePageUnbillPostRegressionTest {
 
     @Test
     @DisplayName("should use POST form helper when unbill function called")
-    void shouldUsePostFormHelper_whenUnbillFunctionCalled() throws Exception {
+    void shouldUsePostFormHelper_whenUnbillFunctionIsCalled() throws Exception {
         String script = Files.readString(SCHEDULE_PAGE_SCRIPT);
 
         // The local postViaForm helper must submit generated forms with POST.
