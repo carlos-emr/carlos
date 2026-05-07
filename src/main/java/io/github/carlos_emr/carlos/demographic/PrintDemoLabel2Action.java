@@ -42,6 +42,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.HashMap;
 
@@ -230,7 +231,9 @@ public class PrintDemoLabel2Action extends ActionSupport {
         response.setHeader("Content-disposition", getHeader(response).toString());
         OscarDocumentCreator osc = new OscarDocumentCreator();
         try {
-            osc.fillDocumentStream(parameters, sos, "pdf", ins, LegacyJdbcQuery.getConnection(), exportPdfJavascript);
+            try (Connection connection = LegacyJdbcQuery.getConnection()) {
+                osc.fillDocumentStream(parameters, sos, "pdf", ins, connection, exportPdfJavascript);
+            }
         } catch (SQLException e) {
             MiscUtils.getLogger().error("Error", e);
         }

@@ -3,6 +3,7 @@ package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -188,7 +189,9 @@ public class CreateBillingReport2Action extends ActionSupport {
                 }
 
                 try {
-                    osc.fillDocumentStream(reportParams, outputStream, docFmt, reportInstream, LegacyJdbcQuery.getConnection());
+                    try (Connection connection = LegacyJdbcQuery.getConnection()) {
+                        osc.fillDocumentStream(reportParams, outputStream, docFmt, reportInstream, connection);
+                    }
                 } catch (SQLException e) {
                     MiscUtils.getLogger().error("Error", e);
                 }

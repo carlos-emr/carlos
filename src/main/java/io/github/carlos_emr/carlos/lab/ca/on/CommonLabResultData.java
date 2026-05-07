@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.lab.ca.on;
 
+import java.sql.Connection;
+
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.utility.*;
@@ -570,7 +572,9 @@ public class CommonLabResultData {
                 for (int k = 0; k < labIds.length; k++) {
 
                     for (int j = 0; j < providersArray.length; j++) {
-                        plr.route(labIds[k], providersArray[j], LegacyJdbcQuery.getConnection(), labType);
+                        try (Connection connection = LegacyJdbcQuery.getConnection()) {
+                            plr.route(labIds[k], providersArray[j], connection, labType);
+                        }
                     }
 
                     // delete old entries

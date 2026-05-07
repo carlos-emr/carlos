@@ -34,6 +34,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.HashMap;
 
@@ -119,7 +120,9 @@ public class PrintClientLabLabel2Action extends ActionSupport {
             ServletOutputStream sos = response.getOutputStream();
             response.setHeader("Content-disposition", getHeader(response).toString());
             OscarDocumentCreator osc = new OscarDocumentCreator();
-            osc.fillDocumentStream(parameters, sos, "pdf", ins, LegacyJdbcQuery.getConnection(), exportPdfJavascript);
+            try (Connection connection = LegacyJdbcQuery.getConnection()) {
+                osc.fillDocumentStream(parameters, sos, "pdf", ins, connection, exportPdfJavascript);
+            }
         } catch (FileNotFoundException ex1) {
             logger.debug("Addresslabel.xml not found in user's home directory. Using default instead");
         } catch (IOException ex) {

@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.data;
 
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -78,9 +79,8 @@ public class DxReference {
     public List<DxCode> getLatestDxCodes(String demo) {
         ArrayList<DxCode> list = new ArrayList<DxCode>();
         String nsql = "select dx_code1, dx_code2, dx_code3,service_date from billingmaster where demographic_no = ? and billingstatus != 'D' order by service_date desc limit 10";
-        try {
-
-            PreparedStatement pstmt = LegacyJdbcQuery.getConnection().prepareStatement(nsql);
+        try (Connection connection = LegacyJdbcQuery.getConnection();
+                PreparedStatement pstmt = connection.prepareStatement(nsql)) {
             pstmt.setString(1, demo);
             ResultSet rs = pstmt.executeQuery();
             Map<String, String> m = new HashMap<String, String>();
@@ -104,7 +104,6 @@ public class DxReference {
                     }
                 }
             }
-            pstmt.close();
         } catch (SQLException e) {
             MiscUtils.getLogger().error("Error", e);
         }

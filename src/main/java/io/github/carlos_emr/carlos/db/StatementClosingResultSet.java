@@ -35,6 +35,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.sql.DataSource;
 
@@ -74,6 +75,7 @@ final class StatementClosingResultSet implements InvocationHandler {
     private final Statement statement;
     private final java.sql.Connection connection;
     private final DataSource dataSource;
+    private final AtomicBoolean released;
 
     private StatementClosingResultSet(ResultSet delegate, Statement statement) {
         this(delegate, statement, null, null);
@@ -84,6 +86,7 @@ final class StatementClosingResultSet implements InvocationHandler {
         this.statement = statement;
         this.connection = connection;
         this.dataSource = dataSource;
+        this.released = new AtomicBoolean(false);
     }
 
     /**
@@ -150,18 +153,21 @@ final class StatementClosingResultSet implements InvocationHandler {
                 rsThrowable = t;
             }
             try {
-                statement.close();
-            } catch (Throwable stmtThrowable) {
-                if (rsThrowable != null) {
-                    // rs.close() already failed — attach stmt failure as suppressed
-                    rsThrowable.addSuppressed(stmtThrowable);
-                } else {
-                    // rs.close() succeeded — propagate the stmt failure
-                    throw stmtThrowable;
+                try {
+                    statement.close();
+                } catch (Throwable stmtThrowable) {
+                    if (rsThrowable != null) {
+                        // rs.close() already failed — attach stmt failure as suppressed
+                        rsThrowable.addSuppressed(stmtThrowable);
+                    } else {
+                        // rs.close() succeeded — propagate the stmt failure
+                        throw stmtThrowable;
+                    }
                 }
-            }
-            if (connection != null && dataSource != null) {
-                DataSourceUtils.releaseConnection(connection, dataSource);
+            } finally {
+                if (connection != null && dataSource != null && released.compareAndSet(false, true)) {
+                    DataSourceUtils.releaseConnection(connection, dataSource);
+                }
             }
             if (rsThrowable != null) {
                 throw rsThrowable;

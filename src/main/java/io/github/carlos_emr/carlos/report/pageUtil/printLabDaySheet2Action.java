@@ -32,6 +32,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -138,7 +139,9 @@ public class printLabDaySheet2Action extends ActionSupport {
         response.setHeader("Content-disposition", getHeader(response).toString());
         OscarDocumentCreator osc = new OscarDocumentCreator();
         try {
-            osc.fillDocumentStream(parameters, sos, "pdf", ins, LegacyJdbcQuery.getConnection());
+            try (Connection connection = LegacyJdbcQuery.getConnection()) {
+                osc.fillDocumentStream(parameters, sos, "pdf", ins, connection);
+            }
         } catch (SQLException e) {
             MiscUtils.getLogger().error("Error", e);
         }

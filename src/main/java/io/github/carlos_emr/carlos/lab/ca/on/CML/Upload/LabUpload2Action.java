@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.lab.ca.on.CML.Upload;
 
+import java.sql.Connection;
+
 import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
@@ -143,7 +145,9 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                         ABCDParser abc = new ABCDParser();
                         abc.parse(in);
 
-                        abc.save(LegacyJdbcQuery.getConnection());
+                        try (Connection connection = LegacyJdbcQuery.getConnection()) {
+                            abc.save(connection);
+                        }
                         outcome = "uploaded";
                     }
                 } else {

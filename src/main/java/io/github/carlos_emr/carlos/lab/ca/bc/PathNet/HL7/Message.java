@@ -28,6 +28,7 @@
 
 package io.github.carlos_emr.carlos.lab.ca.bc.PathNet.HL7;
 
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.text.Format;
 import java.text.SimpleDateFormat;
@@ -185,7 +186,9 @@ public class Message {
                         for (int p = 0; p < listOfProviderNo.size(); p++) {
                             String prov = listOfProviderNo.get(p);
 
-                            routing.route(parent, prov, LegacyJdbcQuery.getConnection(), "BCP");
+                            try (Connection connection = LegacyJdbcQuery.getConnection()) {
+                                routing.route(parent, prov, connection, "BCP");
+                            }
                         }
                         addedToProviderLabRouting = true;
                     } // providers not found

@@ -33,6 +33,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -126,7 +127,9 @@ public class PrintReferralLabel2Action extends ActionSupport {
                         fos = new FileOutputStream(f);
                         ins = getInputStream();
                         parameters.put("billingreferral_no", ids[x]);
-                        osc.fillDocumentStream(parameters, fos, "pdf", ins, LegacyJdbcQuery.getConnection());
+                        try (Connection connection = LegacyJdbcQuery.getConnection()) {
+                            osc.fillDocumentStream(parameters, fos, "pdf", ins, connection);
+                        }
                         printList.add(f.getAbsolutePath());
                     } finally {
                         IOUtils.closeQuietly(fos);
@@ -137,7 +140,9 @@ public class PrintReferralLabel2Action extends ActionSupport {
             } else {
                 ins = getInputStream();
                 OscarDocumentCreator osc = new OscarDocumentCreator();
-                osc.fillDocumentStream(parameters, sos, "pdf", ins, LegacyJdbcQuery.getConnection());
+                try (Connection connection = LegacyJdbcQuery.getConnection()) {
+                    osc.fillDocumentStream(parameters, sos, "pdf", ins, connection);
+                }
             }
 
         } catch (Exception e) {
