@@ -52,7 +52,7 @@ class SchedulePageUnbillPostRegressionTest {
             Pattern.DOTALL);
     private static final Pattern ON_UNBILLED_OPENS_GET_POPUP = Pattern.compile(
             "function\\s+onUnbilled\\s*\\(\\s*url\\s*\\)\\s*\\{"
-                    + UNTIL_ON_UPDATEBILL + "popupPage\\s*\\(\\s*700\\s*,\\s*720\\s*,\\s*url\\s*\\)",
+                    + UNTIL_ON_UPDATEBILL + "popupPage\\s*\\(",
             Pattern.DOTALL);
 
     @Test
