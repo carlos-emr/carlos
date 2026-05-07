@@ -166,6 +166,8 @@ final class StatementClosingResultSet implements InvocationHandler {
                     }
                 }
             } finally {
+                // connection/dataSource are null for the legacy wrap(rs, stmt) factory,
+                // where there is no Spring-managed connection to release.
                 if (connection != null && dataSource != null && released.compareAndSet(false, true)) {
                     DataSourceUtils.releaseConnection(connection, dataSource);
                 }

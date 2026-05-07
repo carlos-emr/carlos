@@ -559,31 +559,31 @@ public class CommonLabResultData {
         try {
             CommonLabResultData data = new CommonLabResultData();
             ProviderLabRouting plr = new ProviderLabRouting();
-            // MiscUtils.getLogger().info(flaggedLabs.size()+"--");
-            for (int i = 0; i < flaggedLabs.size(); i++) {
-                String[] strarr = flaggedLabs.get(i);
-                String lab = strarr[0];
-                String labType = strarr[1];
+            try (Connection connection = LegacyJdbcQuery.getConnection()) {
+                // MiscUtils.getLogger().info(flaggedLabs.size()+"--");
+                for (int i = 0; i < flaggedLabs.size(); i++) {
+                    String[] strarr = flaggedLabs.get(i);
+                    String lab = strarr[0];
+                    String labType = strarr[1];
 
-                // Forward all versions of the lab
-                String matchingLabs = data.getMatchingLabs(lab, labType);
-                String[] labIds = matchingLabs.split(",");
-                // MiscUtils.getLogger().info(labIds.length+"labIds --");
-                for (int k = 0; k < labIds.length; k++) {
+                    // Forward all versions of the lab
+                    String matchingLabs = data.getMatchingLabs(lab, labType);
+                    String[] labIds = matchingLabs.split(",");
+                    // MiscUtils.getLogger().info(labIds.length+"labIds --");
+                    for (int k = 0; k < labIds.length; k++) {
 
-                    for (int j = 0; j < providersArray.length; j++) {
-                        try (Connection connection = LegacyJdbcQuery.getConnection()) {
+                        for (int j = 0; j < providersArray.length; j++) {
                             plr.route(labIds[k], providersArray[j], connection, labType);
                         }
-                    }
 
-                    // delete old entries
-                    for (ProviderLabRoutingModel p : providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(Integer.parseInt(labIds[k]), labType, "0")) {
-                        providerLabRoutingDao.remove(p.getId());
+                        // delete old entries
+                        for (ProviderLabRoutingModel p : providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(Integer.parseInt(labIds[k]), labType, "0")) {
+                            providerLabRoutingDao.remove(p.getId());
+                        }
+
                     }
 
                 }
-
             }
 
             return true;

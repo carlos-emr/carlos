@@ -242,7 +242,7 @@ public final class LegacyJdbcQuery {
         return values;
     }
 
-    private static Object[] bindParams(PreparedStatement ps, Object... params) throws SQLException {
+    private static void bindParams(PreparedStatement ps, Object... params) throws SQLException {
         for (int i = 0; i < params.length; i++) {
             Object p = params[i];
             if (p == null) {
@@ -251,7 +251,6 @@ public final class LegacyJdbcQuery {
                 ps.setObject(i + 1, p);
             }
         }
-        return params;
     }
 
     private static Object[] queryResultsCaisi(String preparedSQL, Object[] params) throws SQLException {

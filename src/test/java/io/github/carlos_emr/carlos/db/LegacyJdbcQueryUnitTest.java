@@ -44,7 +44,7 @@ class LegacyJdbcQueryUnitTest {
     @Test
     @DisplayName("shouldRejectUnsafeQueries_forAdminReportBoundary")
     void shouldRejectUnsafeQueries_forAdminReportBoundary() {
-        assertThatThrownBy(() -> validateSafeSelectQuery("select * from demographic union select * from provider"))
+        assertThatThrownBy(() -> validateSafeSelectQuery("select * from demographic UnIoN select * from provider"))
                 .isInstanceOf(SQLException.class)
                 .hasMessageContaining("UNION");
     }
@@ -69,6 +69,8 @@ class LegacyJdbcQueryUnitTest {
     private boolean usesDeprecatedDatabaseBoundary(Path path) {
         try {
             String content = Files.readString(path);
+            // Raw text is intentional here: comments and string literals that mention the
+            // removed production APIs should be cleaned up rather than allowlisted.
             return content.contains("DBHandler.GetPreSQL")
                     || content.contains("new DBPreparedHandler")
                     || content.contains("DbConnectionFilter.getThreadLocalDbConnection()");
