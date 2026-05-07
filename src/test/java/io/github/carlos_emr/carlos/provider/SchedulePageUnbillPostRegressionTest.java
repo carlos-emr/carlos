@@ -41,17 +41,20 @@ class SchedulePageUnbillPostRegressionTest {
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "provider", "schedulePage.js.jsp");
 
     @Test
-    @DisplayName("should use POST form helper when the unbilled function is called")
-    void shouldUsePostViaFormHelper_whenUnbilledFunctionIsCalled() throws Exception {
+    @DisplayName("should use POST form helper when the unbill function is called")
+    void shouldUsePostViaFormHelper_whenUnbillFunctionIsCalled() throws Exception {
         String script = Files.readString(SCHEDULE_PAGE_SCRIPT);
 
+        // The local postViaForm helper must submit generated forms with POST.
         assertThat(matches(script, "function\\s+postViaForm\\s*\\(\\s*url\\s*,\\s*targetWindow\\s*\\)\\s*\\{"
                 + "(?:(?!function\\s+scrollOnLoad).)*form\\.method\\s*=\\s*['\"]post['\"]"))
                 .isTrue();
+        // Appointment -B unbill must call postViaForm with the popup target.
         assertThat(matches(script, "function\\s+onUnbilled\\s*\\(\\s*url\\s*\\)\\s*\\{"
                 + "(?:(?!function\\s+onUpdatebill).)*targetWindow\\s*=\\s*['\"]unbilled['\"]"
                 + "(?:(?!function\\s+onUpdatebill).)*postViaForm\\s*\\(\\s*url\\s*,\\s*targetWindow\\s*\\)"))
                 .isTrue();
+        // Appointment -B unbill must not directly open the mutator URL with GET.
         assertThat(matches(script, "function\\s+onUnbilled\\s*\\(\\s*url\\s*\\)\\s*\\{"
                 + "(?:(?!function\\s+onUpdatebill).)*popupPage\\s*\\(\\s*700\\s*,\\s*720\\s*,\\s*url\\s*\\)"))
                 .isFalse();
