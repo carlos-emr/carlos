@@ -34,7 +34,6 @@ import io.github.carlos_emr.carlos.webserv.rest.conversion.DrugConverterImpl;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.PrescriptionConverterImpl;
 import io.github.carlos_emr.carlos.webserv.rest.to.DrugResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.DrugSearchResponse;
-import io.github.carlos_emr.carlos.webserv.rest.to.PrescriptionResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DrugTo1;
 import java.util.ArrayList;
 import java.util.Date;
