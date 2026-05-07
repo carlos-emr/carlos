@@ -40,6 +40,7 @@ import javax.sql.DataSource;
 
 import org.springframework.jdbc.datasource.DataSourceUtils;
 
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
@@ -193,7 +194,7 @@ public final class LegacyJdbcQuery {
         return queryResultsCaisi(preparedSQL, (Object[]) params);
     }
 
-    private static void validateSafeSelectQuery(String sql) throws SQLException {
+    static void validateSafeSelectQuery(String sql) throws SQLException {
         if (sql == null || sql.trim().isEmpty()) {
             throw new SQLException("SQL query must not be empty");
         }
@@ -211,16 +212,21 @@ public final class LegacyJdbcQuery {
             throw new SQLException("Potential SQL injection pattern detected");
         }
 
-        if (normalized.matches(".*\\bunion\\b.*")) {
+        if (containsSqlWord(normalized, "union")) {
             throw new SQLException("Unsafe SQL detected: UNION not permitted");
         }
 
-        String[] blockedPatterns = {"\\binsert\\b", "\\bupdate\\b", "\\bdelete\\b", "\\bdrop\\b",
-                "\\balter\\b", "\\bcreate\\b", "\\btruncate\\b", "\\bgrant\\b", "\\brevoke\\b",
-                "\\bexec\\b", "\\bexecute\\b",
-                "into outfile", "into dumpfile", "load_file", "load data"};
-        for (String pattern : blockedPatterns) {
-            if (normalized.matches(".*" + pattern + ".*")) {
+        String[] blockedWords = {"insert", "update", "delete", "drop", "alter", "create", "truncate",
+                "grant", "revoke", "exec", "execute"};
+        for (String word : blockedWords) {
+            if (containsSqlWord(normalized, word)) {
+                throw new SQLException("Unsafe SQL detected: prohibited keyword");
+            }
+        }
+
+        String[] blockedPhrases = {"into outfile", "into dumpfile", "load_file", "load data"};
+        for (String phrase : blockedPhrases) {
+            if (normalized.contains(phrase)) {
                 throw new SQLException("Unsafe SQL detected: prohibited keyword");
             }
         }
@@ -336,10 +342,30 @@ public final class LegacyJdbcQuery {
         if (procName == null || procName.isEmpty()) {
             throw new SQLException("Stored procedure name must not be null or empty");
         }
+        // Dots are intentionally allowed for legacy schema-qualified procedure names.
         if (!procName.matches("[a-zA-Z0-9_.]+")) {
             throw new SQLException(
                     "Stored procedure name contains invalid characters; only letters, digits, underscores and dots are allowed");
         }
+    }
+
+    private static boolean containsSqlWord(String sql, String word) {
+        int index = sql.indexOf(word);
+        while (index >= 0) {
+            int before = index - 1;
+            int after = index + word.length();
+            boolean leftBoundary = before < 0 || !isSqlIdentifierPart(sql.charAt(before));
+            boolean rightBoundary = after >= sql.length() || !isSqlIdentifierPart(sql.charAt(after));
+            if (leftBoundary && rightBoundary) {
+                return true;
+            }
+            index = sql.indexOf(word, index + 1);
+        }
+        return false;
+    }
+
+    private static boolean isSqlIdentifierPart(char c) {
+        return Character.isLetterOrDigit(c) || c == '_';
     }
 
     private static DataSource dataSource() {
@@ -352,6 +378,7 @@ public final class LegacyJdbcQuery {
                 statement.close();
             } catch (SQLException ignored) {
                 // Preserve the original query exception.
+                MiscUtils.getLogger().debug("Failed to close statement", ignored);
             }
         }
     }

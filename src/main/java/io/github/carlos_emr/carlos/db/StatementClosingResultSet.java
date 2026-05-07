@@ -83,6 +83,9 @@ final class StatementClosingResultSet implements InvocationHandler {
     }
 
     private StatementClosingResultSet(ResultSet delegate, Statement statement, Connection connection, DataSource dataSource) {
+        if ((connection == null) != (dataSource == null)) {
+            throw new IllegalArgumentException("Connection and DataSource must both be null or both be non-null");
+        }
         this.delegate = delegate;
         this.statement = statement;
         this.connection = connection;
@@ -147,6 +150,9 @@ final class StatementClosingResultSet implements InvocationHandler {
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         if ("close".equals(method.getName())) {
+            if (!released.compareAndSet(false, true)) {
+                return null;
+            }
             Throwable rsThrowable = null;
             try {
                 delegate.close();
@@ -170,7 +176,7 @@ final class StatementClosingResultSet implements InvocationHandler {
                 // where there is no Spring-managed connection to release.
                 // For Spring-managed wrappers, always release the connection even
                 // when closing the result set or statement throws.
-                if (connection != null && dataSource != null && released.compareAndSet(false, true)) {
+                if (connection != null && dataSource != null) {
                     DataSourceUtils.releaseConnection(connection, dataSource);
                 }
             }

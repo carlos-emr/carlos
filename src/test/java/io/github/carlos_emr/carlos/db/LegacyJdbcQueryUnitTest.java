@@ -12,8 +12,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.SQLException;
@@ -112,15 +110,6 @@ class LegacyJdbcQueryUnitTest {
     }
 
     private void validateSafeSelectQuery(String sql) throws Exception {
-        Method method = LegacyJdbcQuery.class.getDeclaredMethod("validateSafeSelectQuery", String.class);
-        method.setAccessible(true);
-        try {
-            method.invoke(null, sql);
-        } catch (InvocationTargetException e) {
-            if (e.getCause() instanceof Exception exception) {
-                throw exception;
-            }
-            throw e;
-        }
+        LegacyJdbcQuery.validateSafeSelectQuery(sql);
     }
 }
