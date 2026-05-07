@@ -950,7 +950,7 @@
                 jQuery.ajax({
                     type: "POST",
                     url: '<%=request.getContextPath()%>/demographicSupport',
-                    data: 'method=getCountryAndProvinceCodes',
+                    data: { method: 'getCountryAndProvinceCodes' },
                     dataType: 'json',
                     success: function (data) {
                         jQuery('#country').append(jQuery('<option>').text('').attr('value', ''));
@@ -962,13 +962,13 @@
 
                         var demoProvince = '<carlos:encode value='<%=demographic.getProvince()%>' context="javaScriptBlock"/>';
                         var resiProvince = '<carlos:encode value='<%=demographic.getResidentialProvince()%>' context="javaScriptBlock"/>';
-                        
+
                         var defaultProvince = '<carlos:encode value='<%= CarlosProperties.getInstance().getProperty("demographic.default_province","") %>' context="javaScriptBlock"/>';
                         // override defaultProvince with actual stored demographic's province if present
                         if (demoProvince.length > 0) { defaultProvince = demoProvince; }
                         if (defaultProvince.indexOf('-') < 0) {
                             defaultProvince = 'CA-ON';
-                        } 
+                        }
                         var defaultCountry = defaultProvince.split('-')[0];
                         jQuery("#country").val(defaultCountry);
                         updateProvinces(defaultProvince);
@@ -982,6 +982,11 @@
                         var resiCountry = defaultResiProvince.split('-')[0];
                         jQuery("#residentialCountry").val(resiCountry);
                         updateResidentialProvinces(defaultResiProvince);
+                    },
+                    error: function (xhr, status, error) {
+                        console.error('Failed to load country codes:', error);
+                        jQuery('#country').empty().append(jQuery('<option>').text('Unable to load countries').attr('value', ''));
+                        jQuery('#residentialCountry').empty().append(jQuery('<option>').text('Unable to load countries').attr('value', ''));
                     }
                 });
             });
@@ -998,7 +1003,7 @@
                 jQuery.ajax({
                     type: "POST",
                     url: '<%=request.getContextPath()%>/demographicSupport',
-                    data: 'method=getCountryAndProvinceCodes&country=' + country,
+                    data: { method: 'getCountryAndProvinceCodes', country: country },
                     dataType: 'json',
                     success: function (data) {
                         jQuery('#province').empty();
@@ -1009,6 +1014,10 @@
                         if (province != null) {
                             jQuery("#province").val(province);
                         }
+                    },
+                    error: function (xhr, status, error) {
+                        console.error('Failed to load provinces:', error);
+                        jQuery('#province').empty().append(jQuery('<option>').text('Unable to load provinces').attr('value', ''));
                     }
                 });
             }
@@ -1022,7 +1031,7 @@
                 jQuery.ajax({
                     type: "POST",
                     url: '<%=request.getContextPath()%>/demographicSupport',
-                    data: 'method=getCountryAndProvinceCodes&country=' + country,
+                    data: { method: 'getCountryAndProvinceCodes', country: country },
                     dataType: 'json',
                     success: function (data) {
                         jQuery('#residentialProvince').empty();
@@ -1033,6 +1042,10 @@
                         if (province != null) {
                             jQuery("#residentialProvince").val(province);
                         }
+                    },
+                    error: function (xhr, status, error) {
+                        console.error('Failed to load residential provinces:', error);
+                        jQuery('#residentialProvince').empty().append(jQuery('<option>').text('Unable to load provinces').attr('value', ''));
                     }
                 });
             }
