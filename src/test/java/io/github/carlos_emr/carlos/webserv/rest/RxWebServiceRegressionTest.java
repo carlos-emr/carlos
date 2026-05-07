@@ -106,8 +106,8 @@ class RxWebServiceRegressionTest {
         drug.setAtc("N02BE01");
         drug.setTakeMax(2.0F);
         drug.setTakeMin(1.0F);
-        drug.setRxDate(today.clone());
-        drug.setEndDate(today.clone());
+        drug.setRxDate(new Date(today.getTime()));
+        drug.setEndDate(new Date(today.getTime()));
         drug.setFrequency("BID");
         drug.setDuration(7);
         drug.setDurationUnit("D");
