@@ -42,7 +42,7 @@ class SchedulePageUnbillPostRegressionTest {
 
     @Test
     @DisplayName("should use POST form helper when unbill function called")
-    void shouldUsePostFormHelper_whenUnbillFunctionCalled() throws Exception {
+    void shouldUsePostFormHelper_whenUnbillFunctionIsCalled() throws Exception {
         String script = Files.readString(SCHEDULE_PAGE_SCRIPT);
         String untilNextFunction = "(?:(?!\\nfunction\\s+).)*";
         String untilOnUpdatebill = "(?:(?!function\\s+onUpdatebill).)*";
