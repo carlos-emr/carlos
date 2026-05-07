@@ -31,7 +31,7 @@
 //   evaluate the CURRENT VALUE of an A1C reading against Diabetes Canada
 //   treatment targets and colour-code the result in the flowsheet UI.
 //
-// Clinical Context:
+// 
 //   A1C (HbA1c) reflects average blood glucose over the preceding 2-3
 //   months. Diabetes Canada target: <=7.0% for most adults with diabetes.
 //   Values >7.0% indicate suboptimal glycemic control.

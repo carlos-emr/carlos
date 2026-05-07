@@ -32,7 +32,7 @@
 //   measurements are overdue and generate yellow "recommendation" or red
 //   "warning" alerts in the flowsheet UI.
 //
-// Clinical Context:
+// 
 //   Heart failure patients require regular monitoring of cardiac function,
 //   blood glucose, blood pressure, lipid panels, renal function, and
 //   neurological assessments. Canadian clinical practice guidelines (CCS Heart

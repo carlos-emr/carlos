@@ -760,7 +760,7 @@ public class MSPReconcile {
         double retval = 0.0;
         TeleplanS00Dao dao = SpringUtils.getBean(TeleplanS00Dao.class);
         
-        // Context: In BC MSP billing, S00 records represent the actual Remittance Advice (payments)
+        // In BC MSP billing, S00 records represent the actual Remittance Advice (payments)
         // received from Teleplan. The amount fields are returned in a legacy COBOL format where
         // the sign of the number is encoded into the last digit using alphabetic characters 
         // (e.g., 'J' for -1). We must run the raw string through convCurValue() to decode it.

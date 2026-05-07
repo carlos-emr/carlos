@@ -32,7 +32,7 @@
 //   evaluate ACR values against sex-specific thresholds for detecting
 //   diabetic nephropathy (kidney damage from diabetes).
 //
-// Clinical Context:
+// 
 //   ACR measures urinary albumin relative to creatinine, screening for
 //   microalbuminuria - the earliest sign of diabetic nephropathy.
 //   Diabetes Canada sex-specific thresholds for abnormal ACR:

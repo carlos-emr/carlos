@@ -269,7 +269,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
             String persistedBillType = this.getPersistedBillType(billingmasterNo);
             if (persistedBillType != null) {
                 if (!persistedBillType.equals(billingStatus)) {
-                    // Context: If a bill is changed from MSP to "Bill Patient" (Private), 
+                    // If a bill is changed from MSP to "Bill Patient" (Private), 
                     // we must adjust the fee code. In BC billing, private fee codes are conventionally 
                     // represented by prepending 'A' to the standard MSP service code (e.g., 00100 -> A00100).
                     // This fetches the associated private fee amount to update the bill.

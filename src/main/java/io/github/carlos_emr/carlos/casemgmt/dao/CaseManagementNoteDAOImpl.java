@@ -401,7 +401,7 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
                 }
             }
 
-        // Context: Notes are versioned in CARLOS. Instead of updating an existing row,
+        // Notes are versioned in CARLOS. Instead of updating an existing row,
         // edits often create a new row with the same UUID but a newer update_date.
         // We iterate through the raw join results and manually deduplicate by UUID
         // to ensure we only return the most recent version of each distinct note.

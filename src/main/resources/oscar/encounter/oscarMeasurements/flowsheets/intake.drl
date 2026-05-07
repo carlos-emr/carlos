@@ -33,7 +33,7 @@
 //   community health module. They monitor whether key intake and enrollment
 //   steps have been completed or reviewed within the past year.
 //
-// Clinical Context:
+// 
 //   The intake flowsheet tracks the onboarding process for new clients
 //   entering community health programs (e.g., supportive housing, mental
 //   health services, substance use programs). It ensures critical

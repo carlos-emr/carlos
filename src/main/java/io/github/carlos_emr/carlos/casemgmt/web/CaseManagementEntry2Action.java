@@ -136,7 +136,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         String method = request.getParameter("method") != null ? request.getParameter("method") : (String) request.getAttribute("method");
         
-        // Context: This is a legacy Struts 1 DispatchAction pattern migrated to Struts 2.
+        // This is a legacy Struts 1 DispatchAction pattern migrated to Struts 2.
         // Instead of defining 50+ individual action mappings in struts-encounter.xml,
         // all requests to CaseManagementEntry2Action are routed through this central
         // execute() method and dispatched manually based on the 'method' parameter.

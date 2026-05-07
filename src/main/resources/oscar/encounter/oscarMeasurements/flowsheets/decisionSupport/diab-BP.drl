@@ -31,7 +31,7 @@
 //   systolic and diastolic BP against diabetes/CKD-specific targets and
 //   colour-code the result in the flowsheet UI.
 //
-// Clinical Context:
+// 
 //   Diabetes Canada recommends BP target <130/80 mmHg for patients with
 //   diabetes (lower than the general population target of <140/90).
 //

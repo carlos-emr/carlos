@@ -32,7 +32,7 @@
 //   reading against therapeutic thresholds and colour-code the result in
 //   the flowsheet UI.
 //
-// Clinical Context:
+// 
 //   INR measures the anticoagulation level. The standard therapeutic
 //   range is 2.0-3.0. Values outside these ranges indicate:
 //     - INR <2.0 (sub-therapeutic)

@@ -202,7 +202,7 @@ public class CaseManagementPrint {
         }
 
         // we're not guaranteed any ordering of notes given to us, so sort by observation date
-        // Context: While UI views may have specific sorting applied by the user or default to descending, 
+        // While UI views may have specific sorting applied by the user or default to descending, 
         // the printed output must follow the global CMESort property for consistency across all users 
         // in the clinic unless overridden. "UP" signifies descending (newest first).
         CarlosProperties p = CarlosProperties.getInstance();

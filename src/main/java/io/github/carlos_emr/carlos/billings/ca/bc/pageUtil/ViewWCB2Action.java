@@ -118,7 +118,7 @@ public class ViewWCB2Action extends ActionSupport {
                 this.setInjuryLocations(data.getInjuryLocationList());
 
                 //Retrieve provider ohip number and payee number
-                // Context: This is a legacy direct JDBC call that bypasses Hibernate's caching 
+                // This is a legacy direct JDBC call that bypasses Hibernate's caching 
                 // and session management. Future modernization efforts should replace this with 
                 // a call to ProviderManager to retrieve the Provider entity in a managed way.
                 try (ResultSet rs = DBHandler.GetPreSQL(

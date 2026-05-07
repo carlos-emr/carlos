@@ -239,7 +239,7 @@ public class ProviderManager2 {
 		}
 		*/
 
-        // Context: The Clinical Patient Profile (CPP) display preferences underwent a modernization.
+        // The Clinical Patient Profile (CPP) display preferences underwent a modernization.
         // The legacy UI stored literal layout position strings (e.g., "R1I1", "None", "") in the database.
         // The modern UI uses simple boolean toggles (true/false or on/off). 
         // This mapping layer checks for the new modern boolean properties first. If absent, it falls back 

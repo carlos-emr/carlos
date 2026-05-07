@@ -31,7 +31,7 @@
 //   to count patients whose most recent A1C is at or below the Diabetes
 //   Canada target of 7.0% (or 0.07 in fraction format).
 //
-// Clinical Context:
+// 
 //   This rule is a NUMERATOR test - it determines whether a given patient
 //   should be counted in the numerator of a population health indicator.
 //   The indicator "a1clt0p071" counts diabetic patients who have achieved

@@ -273,7 +273,7 @@ public class GenTa2Action extends ActionSupport {
                     s00Dao.persist(t);
 
 
-                    // Context: Teleplan returns Remittance Advice in flat files with fixed-width records.
+                    // Teleplan returns Remittance Advice in flat files with fixed-width records.
                     // The S00, S02, and S03 records indicate different payment adjudication results:
                     // S02 = Paid with Explanation (amount differs from billed), 
                     // S03 = Refused, 

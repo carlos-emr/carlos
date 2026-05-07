@@ -125,7 +125,7 @@ public class TeleplanS00 extends AbstractModel<Integer> {
     @Column(name = "t_officeno")
     private String officeNo;
 
-    // Context: The following fields (exp1-7, ajc1-7, aja1-7) represent BC MSP Teleplan 
+    // The following fields (exp1-7, ajc1-7, aja1-7) represent BC MSP Teleplan 
     // remittance explanation codes and adjustment amounts. When a claim is reduced or 
     // rejected, MSP returns up to 7 explanatory codes detailing the reason, along with 
     // corresponding adjustment codes (ajc) and amounts (aja).

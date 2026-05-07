@@ -30,7 +30,7 @@
 //   Per-item decision support rule for triglyceride measurements. Evaluates
 //   TG values against the CCS target for diabetic patients.
 //
-// Clinical Context:
+// 
 //   Hypertriglyceridemia is common in diabetes due to insulin resistance
 //   and is part of the metabolic syndrome. CCS guidelines:
 //     - TG <1.5-2.0 mmol/L: target range (no indicator)

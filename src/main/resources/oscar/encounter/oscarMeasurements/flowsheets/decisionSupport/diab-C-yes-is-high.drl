@@ -31,7 +31,7 @@
 //   answering "Yes" indicates a CONCERNING finding. The inverse of
 //   diab-C-no-is-high.drl. Used by items where "Yes" is the undesirable answer.
 //
-// Clinical Context:
+// 
 //   Some flowsheet items ask Yes/No questions where "Yes" is the alarming
 //   answer. Examples from diabetesFlowsheet.xml:
 //     - PANE: "Peripheral neuropathy symptoms?" - Yes = nerve damage

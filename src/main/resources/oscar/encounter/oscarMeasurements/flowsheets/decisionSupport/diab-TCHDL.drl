@@ -31,7 +31,7 @@
 //   ratio. Evaluates the TC/HDL ratio against cardiovascular risk thresholds
 //   used in the Framingham Risk Score calculation.
 //
-// Clinical Context:
+// 
 //   The TC/HDL ratio is a validated predictor of cardiovascular risk used
 //   in Canadian risk calculators. For diabetic patients:
 //     - Ratio <4.0: target/ideal (no indicator)

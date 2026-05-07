@@ -380,7 +380,7 @@ public class BillingCreateBilling2Action extends ActionSupport {
                     "COUNSELING_CODES", "").split(",");
             Vector vCodes = new Vector(Arrays.asList(cnlsCodes));
             
-            // Context: The BC MSP schedule places annual/daily limits on specific counseling 
+            // The BC MSP schedule places annual/daily limits on specific counseling 
             // and patient management codes (e.g., 00120, 14015). This block intercepts those 
             // specific service codes and queries the billing history to ensure the provider 
             // hasn't exceeded the maximum allowable limits for this patient before submission.

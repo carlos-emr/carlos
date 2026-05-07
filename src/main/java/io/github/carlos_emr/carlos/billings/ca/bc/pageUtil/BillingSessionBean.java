@@ -101,7 +101,7 @@ public class BillingSessionBean implements java.io.Serializable {
 
     public String getIcbc_claim_no() {
         this.icbc_claim_no = (null != this.icbc_claim_no) ? this.icbc_claim_no : "";
-        // Context: Teleplan specifications require an 8-character claim number for ICBC claims. 
+        // Teleplan specifications require an 8-character claim number for ICBC claims. 
         // If the billing type isn't ICBC or the number is missing, we provide the sentinel 
         // value "00000000" to prevent XML generation errors downstream.
         if (icbc_claim_no.compareTo("") == 0 ||

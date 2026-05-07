@@ -73,7 +73,7 @@ public class AppManagerImpl implements AppManager {
             }
         }
 
-        // Context: We must build a composite view combining the system-wide list of available 
+        // We must build a composite view combining the system-wide list of available 
         // third-party applications (AppDefinitions) with the current provider's individual 
         // connection state (AppUser). If the provider has a linked AppUser record for an app, 
         // it means they have successfully authenticated/authorized that integration.

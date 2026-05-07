@@ -557,7 +557,7 @@ public class BillingOnLookupService {
     /**
      * Returns patient cur billing demo.
      * 
-     * Context: This is a legacy variant of getPatientCurBillingDemographic retained for 
+     * This is a legacy variant of getPatientCurBillingDemographic retained for 
      * backward compatibility with older Struts actions that strictly expect a 9-element 
      * list. It omits the rosterStatus field added in the newer method.
      *

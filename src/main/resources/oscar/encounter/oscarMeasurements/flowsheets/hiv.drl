@@ -31,7 +31,7 @@
 //   flowsheet. They monitor whether key HIV-related laboratory tests,
 //   co-infection screenings, and metabolic assessments are overdue.
 //
-// Clinical Context:
+// 
 //   HIV-positive patients on antiretroviral therapy (ART) require regular
 //   monitoring of viral suppression (viral load), immune status (CD4 count),
 //   organ function (liver, kidney), metabolic parameters (glucose, lipids),

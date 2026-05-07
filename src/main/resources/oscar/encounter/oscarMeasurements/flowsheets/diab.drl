@@ -32,7 +32,7 @@
 //   whether key diabetes-related measurements are overdue and generate
 //   yellow "recommendation" or red "warning" alerts in the flowsheet UI.
 //
-// Clinical Context:
+// 
 //   Diabetes mellitus (Type 1 and Type 2) requires systematic, ongoing
 //   monitoring of glycemic control, cardiovascular risk factors, and
 //   microvascular/macrovascular complications. The Canadian Diabetes

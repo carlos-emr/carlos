@@ -31,7 +31,7 @@
 //   evaluate BMI values against WHO/Health Canada weight categories and
 //   colour-code the result in the flowsheet UI.
 //
-// Clinical Context:
+// 
 //   BMI classification (WHO/Health Canada):
 //     - <18.5: Underweight (flagged LOW - malnutrition risk)
 //     - 18.5-24.9: Normal weight (no indicator)

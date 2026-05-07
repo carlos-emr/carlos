@@ -32,7 +32,7 @@
 //   in the diabetes and CHF flowsheets where "No" means a recommended
 //   action has NOT been completed.
 //
-// Clinical Context:
+// 
 //   Several flowsheet items ask Yes/No questions where "No" is the
 //   undesirable answer. Examples from diabetesFlowsheet.xml:
 //     - FGLC: "Flu shot given?" - No = patient not vaccinated (risk)

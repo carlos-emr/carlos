@@ -373,7 +373,7 @@ public class MessagingManagerImpl implements MessagingManager {
             return null;
         }
 
-        // Context: MsgMessageData is a legacy data transfer/business logic object originating from 
+        // MsgMessageData is a legacy data transfer/business logic object originating from 
         // the older Struts 1.x message module. It is currently being used here as an ad-hoc service 
         // to handle the complex provider structure resolution and message dispatch. 
         // TODO: Refactor this logic into a proper Spring Service bean to eliminate the coupling 

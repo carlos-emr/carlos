@@ -467,7 +467,7 @@ public class BillingOnFormViewModelAssembler {
         // ---- selected bill type (for the xml_billtype dropdown) ----
         // Legacy logic: roster_status QU/FS (with defaultServiceType != RN)
         // forces PAT, then request param overrides.
-        // Context: 'QU' (Quebec) and 'FS' (Fee for Service) patients lack standard Ontario capitation 
+        // 'QU' (Quebec) and 'FS' (Fee for Service) patients lack standard Ontario capitation 
         // coverage, so the EMR defaults their billing type to Patient Pay (PAT) to prevent silent MOH rejections.
         String defaultBillTypeForJsp = nullToEmpty(b.peekDefaultBillType());
         String defaultServiceTypeForRoster = nullToEmpty(b.peekDefaultServiceType());

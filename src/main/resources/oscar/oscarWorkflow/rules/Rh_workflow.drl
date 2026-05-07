@@ -41,7 +41,7 @@
 //   UI: Linked from RH Form via forwardshortcutname.do?formname=RH Form
 //   Struts: FrmFormAddRHWorkFlow2Action handles form submission
 //
-// CLINICAL CONTEXT:
+// 
 //   Rh-negative mothers carrying Rh-positive fetuses risk developing anti-D
 //   antibodies (Rh isoimmunization) which can cause hemolytic disease of the
 //   newborn (HDN) in subsequent pregnancies. Standard of care:

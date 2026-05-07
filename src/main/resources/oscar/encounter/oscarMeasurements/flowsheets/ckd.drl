@@ -32,7 +32,7 @@
 //   overdue and generate yellow "recommendation" or red "warning" alerts
 //   in the flowsheet UI.
 //
-// Clinical Context:
+// 
 //   Chronic Kidney Disease (CKD) is staged by eGFR and albuminuria (ACR)
 //   per KDIGO guidelines. CKD is triggered in CARLOS by ICD-9 code 585
 //   or the internal OscarCode CKDSCREEN. Regular monitoring of renal

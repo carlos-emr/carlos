@@ -261,7 +261,7 @@ public class RxManagerImpl implements RxManager {
             return null;
         }
 
-        // Context: To maintain a strict audit trail of prescription changes, we never modify existing
+        // To maintain a strict audit trail of prescription changes, we never modify existing
         // Drug entities directly. Instead, we persist the modified state as a new Drug entity and 
         // "archive" the old version. The archived version retains its original state, while the new 
         // version carries forward the clinical intent. This ensures historical integrity of the patient's chart.

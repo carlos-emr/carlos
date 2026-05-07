@@ -285,7 +285,7 @@ public class DemographicManagerImpl implements DemographicManager {
     public void createUpdateDemographicCust(LoggedInInfo loggedInInfo, DemographicCust demoCust) {
         checkPrivilege(loggedInInfo, SecurityInfoManager.WRITE);
         if (demoCust != null) {
-            // Context: The DemographicCust table stores dynamic patient attributes (alerts, assigned nurses, etc.).
+            // The DemographicCust table stores dynamic patient attributes (alerts, assigned nurses, etc.).
             // To maintain a compliant audit trail for PHI changes, we must archive the previous version 
             // of the record in DemographicCustArchive BEFORE updating the active row, but ONLY if 
             // at least one of the tracked clinical fields has actually changed.

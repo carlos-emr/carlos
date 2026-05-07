@@ -171,7 +171,7 @@ public class CaseManagementNote extends BaseObject {
      * Often used for hashing, auditing, or generating a complete snapshot of the note
      * at a point in time.
      * 
-     * Context: This method is primarily used by the persistence layer (e.g., when saving 
+     * This method is primarily used by the persistence layer (e.g., when saving 
      * revisions) to compare the current state of a note with its previous state. 
      * If the audit strings match, it skips creating a new revision entry.
      *

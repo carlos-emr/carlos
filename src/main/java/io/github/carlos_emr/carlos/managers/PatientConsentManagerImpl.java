@@ -169,7 +169,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
                 consent.setDemographicNo(demographic_no);
             }
 
-            // Context: To maintain an accurate legal audit trail of patient consent, we only update 
+            // To maintain an accurate legal audit trail of patient consent, we only update 
             // the consent/opt-out dates when the patient's actual decision changes (or on initial creation).
             // Updating the date on every save (e.g. during a general chart update) would obscure the
             // true date the patient granted or revoked consent.

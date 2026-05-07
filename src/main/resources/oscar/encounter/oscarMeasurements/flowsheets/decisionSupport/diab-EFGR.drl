@@ -31,7 +31,7 @@
 //   the current eGFR value against the CKD stage 3 threshold (60 mL/min)
 //   and colour-codes values indicating reduced kidney function.
 //
-// Clinical Context:
+// 
 //   eGFR (estimated Glomerular Filtration Rate) measures kidney function.
 //   KDIGO CKD stages based on eGFR:
 //     - >=90: Stage 1 (normal or high)

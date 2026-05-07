@@ -605,7 +605,7 @@ public class OscarChartPrinter implements java.io.Closeable {
             //p.setSpacingBefore(font.leading(LINESPACING)*2f);
             phrase = new Phrase(LEADING, "", font);
 
-            // Context: The 'compact' flag controls the density of the PDF output.
+            // The 'compact' flag controls the density of the PDF output.
             // When true (e.g., for CPP sections), notes are printed densely on a single line 
             // (Date: Note). When false (e.g., full encounter notes), they are printed with
             // formal 'Impression/Plan:' headers and line breaks for better readability.
