@@ -202,7 +202,7 @@ public class ReportObjectGeneric implements ReportObject {
      * replaced with one or more JDBC <code>?</code> placeholders.  The corresponding values are
      * returned in the array elements starting at index&nbsp;1; element&nbsp;0 holds the SQL string.
      * <p>
-     * Using this method together with {@link io.github.carlos_emr.carlos.db.DBHandler#GetPreSQL} prevents
+     * Using this method together with {@link io.github.carlos_emr.carlos.db.LegacyJdbcQuery#getPreparedResultSet} prevents
      * SQL injection because user-supplied values never become part of the SQL text.
      *
      * @param parameters the HTTP request parameter map (from {@code request.getParameterMap()})

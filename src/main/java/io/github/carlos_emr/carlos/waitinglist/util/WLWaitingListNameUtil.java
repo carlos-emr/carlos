@@ -104,7 +104,7 @@ public class WLWaitingListNameUtil {
      * current Waiting List Note record.
      *
      * This update involves 8 calls to 2 separate tables and must be able to roll back if any of those calls failed !!!
-     * Currently it seems rather hard to implement the roll back function due to using existing DBHandler, so using the
+     * Currently it seems rather hard to implement the roll back function due to existing legacy JDBC callers, so using the
      * alternate synchronized feature for the 2 methods involved instead ...
      */
     static public void updateWaitingListName(String wlNameId, String wlName, String groupNo, String providerNo)

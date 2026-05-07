@@ -34,7 +34,7 @@ import java.sql.Timestamp;
  * Parameter wrapper for legacy database prepared statement handling.
  * 
  * <p>This class wraps different parameter types (String, Date, int, Timestamp)
- * for use with the deprecated {@link DBPreparedHandler} class. It maintains both
+ * for use with legacy prepared-query compatibility code. It maintains both
  * the value and the parameter type information.</p>
  * 
  * <p><strong>DEPRECATED:</strong> Use JPA (Java Persistence API) or standard

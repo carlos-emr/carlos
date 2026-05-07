@@ -45,7 +45,7 @@ import org.springframework.jdbc.datasource.DataSourceUtils;
  * A {@link ResultSet} wrapper that ensures the parent {@link Statement} is closed
  * when {@link ResultSet#close()} is called on the result set.
  *
- * <p>{@link DBHandler} creates a {@code Statement} or {@code PreparedStatement},
+ * <p>{@link LegacyJdbcQuery} creates a {@code Statement} or {@code PreparedStatement},
  * executes it and returns only the {@link ResultSet} to the caller. Because the
  * caller has no reference to the underlying statement it can never close it, which
  * causes a resource (cursor/memory) leak on every call.
@@ -56,7 +56,7 @@ import org.springframework.jdbc.datasource.DataSourceUtils;
  * and then closes the parent statement in a {@code finally} block, guaranteeing
  * that the statement is always released even if closing the result set throws.
  *
- * <p>Usage (inside {@link DBHandler}):
+ * <p>Usage (inside {@link LegacyJdbcQuery}):
  * <pre>
  *     ResultSet rs = stmt.executeQuery(sql);
  *     return StatementClosingResultSet.wrap(rs, stmt);
@@ -67,7 +67,7 @@ import org.springframework.jdbc.datasource.DataSourceUtils;
  * in place.
  *
  * @since 2026-04-07
- * @see DBHandler
+ * @see LegacyJdbcQuery
  */
 final class StatementClosingResultSet implements InvocationHandler {
 
