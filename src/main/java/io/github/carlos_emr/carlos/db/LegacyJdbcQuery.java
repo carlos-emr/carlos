@@ -79,7 +79,7 @@ public final class LegacyJdbcQuery {
         Connection connection = DataSourceUtils.getConnection(dataSource);
         PreparedStatement ps = null;
         try {
-            ps = connection.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE, // codeql[java/sql-injection] -- legacy boundary; params bound below
+            ps = connection.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE, // codeql[java/sql-injection] -- legacy boundary; params bound via bindParams
                     updatable ? ResultSet.CONCUR_UPDATABLE : ResultSet.CONCUR_READ_ONLY);
             bindParams(ps, params);
             ResultSet rs = ps.executeQuery(); // NOSONAR javasecurity:S3649 -- parameterized query boundary
@@ -190,7 +190,7 @@ public final class LegacyJdbcQuery {
         return queryResultsCaisi(preparedSQL, (Object[]) params);
     }
 
-    static void validateSafeSelectQuery(String sql) throws SQLException {
+    private static void validateSafeSelectQuery(String sql) throws SQLException {
         if (sql == null || sql.trim().isEmpty()) {
             throw new SQLException("SQL query must not be empty");
         }
@@ -299,8 +299,13 @@ public final class LegacyJdbcQuery {
             @Override
             public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
                 if ("close".equals(method.getName())) {
-                    DataSourceUtils.releaseConnection(delegate, dataSource);
-                    return null;
+                    try {
+                        return method.invoke(delegate, args);
+                    } catch (InvocationTargetException e) {
+                        throw e.getCause();
+                    } finally {
+                        DataSourceUtils.releaseConnection(delegate, dataSource);
+                    }
                 }
                 try {
                     return method.invoke(delegate, args);

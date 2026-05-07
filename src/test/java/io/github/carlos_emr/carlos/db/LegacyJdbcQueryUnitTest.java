@@ -12,6 +12,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.SQLException;
@@ -35,14 +37,14 @@ class LegacyJdbcQueryUnitTest {
     @Test
     @DisplayName("shouldAllowSelectOnlyQueries_forAdminReportBoundary")
     void shouldAllowSelectOnlyQueries_forAdminReportBoundary() {
-        assertThatCode(() -> LegacyJdbcQuery.validateSafeSelectQuery("select demographic_no from demographic"))
+        assertThatCode(() -> validateSafeSelectQuery("select demographic_no from demographic"))
                 .doesNotThrowAnyException();
     }
 
     @Test
     @DisplayName("shouldRejectUnsafeQueries_forAdminReportBoundary")
     void shouldRejectUnsafeQueries_forAdminReportBoundary() {
-        assertThatThrownBy(() -> LegacyJdbcQuery.validateSafeSelectQuery("select * from demographic union select * from provider"))
+        assertThatThrownBy(() -> validateSafeSelectQuery("select * from demographic union select * from provider"))
                 .isInstanceOf(SQLException.class)
                 .hasMessageContaining("UNION");
     }
@@ -72,6 +74,19 @@ class LegacyJdbcQueryUnitTest {
                     || content.contains("DbConnectionFilter.getThreadLocalDbConnection()");
         } catch (Exception e) {
             throw new IllegalStateException("Unable to inspect " + path, e);
+        }
+    }
+
+    private void validateSafeSelectQuery(String sql) throws Exception {
+        Method method = LegacyJdbcQuery.class.getDeclaredMethod("validateSafeSelectQuery", String.class);
+        method.setAccessible(true);
+        try {
+            method.invoke(null, sql);
+        } catch (InvocationTargetException e) {
+            if (e.getCause() instanceof Exception exception) {
+                throw exception;
+            }
+            throw e;
         }
     }
 }

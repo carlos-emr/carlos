@@ -33,6 +33,7 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -73,7 +74,7 @@ final class StatementClosingResultSet implements InvocationHandler {
 
     private final ResultSet delegate;
     private final Statement statement;
-    private final java.sql.Connection connection;
+    private final Connection connection;
     private final DataSource dataSource;
     private final AtomicBoolean released;
 
@@ -81,7 +82,7 @@ final class StatementClosingResultSet implements InvocationHandler {
         this(delegate, statement, null, null);
     }
 
-    private StatementClosingResultSet(ResultSet delegate, Statement statement, java.sql.Connection connection, DataSource dataSource) {
+    private StatementClosingResultSet(ResultSet delegate, Statement statement, Connection connection, DataSource dataSource) {
         this.delegate = delegate;
         this.statement = statement;
         this.connection = connection;
@@ -114,7 +115,7 @@ final class StatementClosingResultSet implements InvocationHandler {
         );
     }
 
-    static ResultSet wrap(ResultSet rs, Statement stmt, java.sql.Connection connection, DataSource dataSource) {
+    static ResultSet wrap(ResultSet rs, Statement stmt, Connection connection, DataSource dataSource) {
         if (rs == null) {
             throw new IllegalArgumentException("ResultSet must not be null");
         }
