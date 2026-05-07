@@ -25,6 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -175,5 +176,37 @@ class RingCentralFaxServiceTest extends CarlosUnitTestBase {
         assertThat(result.get(0).getJobId()).isEqualTo(123L);
         assertThat(result.get(0).getFile_name()).isEqualTo("123:456:incoming.pdf");
         assertThat(result.get(0).getStatus()).isEqualTo(FaxJob.STATUS.RECEIVED);
+    }
+
+    @Test
+    @DisplayName("should skip null records when MessageList contains null entries")
+    void shouldSkipNullRecords_whenMessageListContainsNullEntry() throws Exception {
+        FaxConfig config = mock(FaxConfig.class);
+        when(config.getProviderType()).thenReturn(FaxConfig.ProviderType.RINGCENTRAL);
+        when(config.getRingCentralAccountId()).thenReturn("~");
+        when(config.getRingCentralExtensionId()).thenReturn("~");
+        when(authService.getAccessToken(config, apiConnector)).thenReturn("token");
+
+        RingCentralResponse.Message valid1 = inboundMessage("100", "200", "first.pdf");
+        RingCentralResponse.Message valid2 = inboundMessage("101", "201", "second.pdf");
+        RingCentralResponse.MessageList messageList = new RingCentralResponse.MessageList();
+        messageList.setRecords(Arrays.asList(valid1, null, valid2));
+        when(apiConnector.getInboundFaxes("token", "~", "~")).thenReturn(messageList);
+
+        List<FaxJob> result = service.listInboundFaxes(config);
+
+        assertThat(result).hasSize(2);
+        assertThat(result.get(0).getJobId()).isEqualTo(100L);
+        assertThat(result.get(1).getJobId()).isEqualTo(101L);
+    }
+
+    private RingCentralResponse.Message inboundMessage(String messageId, String attachmentId, String fileName) {
+        RingCentralResponse.Attachment attachment = new RingCentralResponse.Attachment();
+        attachment.setId(attachmentId);
+        attachment.setFileName(fileName);
+        RingCentralResponse.Message message = new RingCentralResponse.Message();
+        message.setId(messageId);
+        message.setAttachments(Collections.singletonList(attachment));
+        return message;
     }
 }

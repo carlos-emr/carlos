@@ -981,7 +981,7 @@ Labels are reserved for cross-cutting attributes that can apply alongside any is
 
 **Commit Format**: [Conventional Commits](https://www.conventionalcommits.org/) - `feat:`, `fix:`, `chore:`, `update:`
 
-**DCO Sign-off**: Every commit MUST include a `Signed-off-by:` trailer per the [Developer Certificate of Origin](https://developercertificate.org/). Always commit with `git commit -s` (or `--signoff`). The DCO check workflow rejects unsigned commits, and the project's contribution policy requires the trailer on every patch — including AI-assisted commits, which keep both the human author's `Signed-off-by:` and the existing `Co-Authored-By: Claude Opus ...` trailer.
+**DCO Sign-off**: Every human-authored commit MUST include a `Signed-off-by:` trailer per the [Developer Certificate of Origin](https://developercertificate.org/). Use `git commit -s` (or `--signoff`); to retrofit a branch, use `git rebase --exec "git log -1 --format=%B | grep -q '^Signed-off-by:' || git commit --amend --no-edit --signoff" <ancestor>`. The DCO workflow (`.github/workflows/dco-check.yml`) verifies every PR commit and **exempts known automation accounts**: `claude[bot]`, `copilot-swe-agent[bot]`, `coderabbitai[bot]`, `github-actions[bot]`, `dependabot[bot]`, `google-labs-jules[bot]`. AI-assisted commits authored by a human keep both the human's `Signed-off-by:` and the `Co-Authored-By: Claude Opus ...` trailer. As a fallback when retrofitting is impractical, the PR author or any OWNER/MEMBER/COLLABORATOR/CONTRIBUTOR can post the exact phrase `Confirming DCO sign off for all commits` to pass the check; this confirmation is invalidated by any subsequent commit.
 
 **Key Files**:
 - `CLAUDE.md` - AI context (this file)

@@ -194,9 +194,13 @@ class RingCentralAuthServiceTest extends CarlosUnitTestBase {
             }
         } finally {
             // Always shut down the pool; without this an early assertion failure leaves
-            // worker threads parked on the unreleased latch and the JVM hangs.
+            // worker threads parked on the unreleased latch and the JVM hangs. Surface a
+            // shutdown timeout to stderr so a leaked thread is visible to the next test
+            // without re-asserting in finally (which would mask the original failure).
             executorService.shutdownNow();
-            executorService.awaitTermination(5, TimeUnit.SECONDS);
+            if (!executorService.awaitTermination(5, TimeUnit.SECONDS)) {
+                System.err.println("WARN: executor failed to terminate within 5s after shutdownNow");
+            }
         }
         verify(connector, times(1)).authenticate("client", "secret", "jwt");
     }

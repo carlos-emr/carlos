@@ -99,6 +99,7 @@ public class RingCentralFaxService implements FaxProviderClient {
         List<FaxJob> faxes = new ArrayList<>();
         for (RingCentralResponse.Message message : response.getRecords()) {
             if (message == null) {
+                logger.warn("Skipping null record in RingCentral fax inbox response");
                 continue;
             }
             RingCentralResponse.Attachment attachment = firstAttachment(message);
