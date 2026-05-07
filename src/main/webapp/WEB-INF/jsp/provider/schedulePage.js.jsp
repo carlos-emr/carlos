@@ -545,8 +545,9 @@ document.location.reload();
 }
 }
 
+<fmt:message key="provider.appointmentProviderAdminDay.onUnbilled" var="onUnbilledConfirmMessage"/>
 function onUnbilled(url) {
-if(confirm("<fmt:message key="provider.appointmentProviderAdminDay.onUnbilled"/>")) {
+if(confirm("${carlos:forJavaScript(onUnbilledConfirmMessage)}")) {
 var targetWindow = 'unbilled';
 var popupHeight = 700;
 var popupWidth = 720;

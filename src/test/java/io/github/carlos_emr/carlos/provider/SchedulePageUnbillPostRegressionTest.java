@@ -45,6 +45,13 @@ class SchedulePageUnbillPostRegressionTest {
             "function\\s+postViaForm\\s*\\(\\s*url\\s*,\\s*targetWindow\\s*\\)\\s*\\{"
                     + UNTIL_NEXT_FUNCTION + "form\\.method\\s*=\\s*['\"]post['\"]",
             Pattern.DOTALL);
+    private static final Pattern ON_UNBILLED_CONFIRM_USES_SAFE_MESSAGE = Pattern.compile(
+            "<fmt:message\\s+key=['\"]provider\\.appointmentProviderAdminDay\\.onUnbilled['\"]"
+                    + "\\s+var=['\"]onUnbilledConfirmMessage['\"]\\s*/>\\s*"
+                    + "function\\s+onUnbilled\\s*\\(\\s*url\\s*\\)\\s*\\{"
+                    + UNTIL_ON_UPDATEBILL + "confirm\\s*\\(\\s*['\"]\\$\\{carlos:forJavaScript\\("
+                    + "onUnbilledConfirmMessage\\)}['\"]\\s*\\)",
+            Pattern.DOTALL);
     private static final Pattern ON_UNBILLED_POSTS_TO_TARGET = Pattern.compile(
             "function\\s+onUnbilled\\s*\\(\\s*url\\s*\\)\\s*\\{"
                     + UNTIL_ON_UPDATEBILL + "targetWindow\\s*=\\s*['\"]unbilled['\"]"
@@ -62,6 +69,9 @@ class SchedulePageUnbillPostRegressionTest {
 
         // The local postViaForm helper must submit generated forms with POST.
         assertThat(matches(script, POST_VIA_FORM_USES_POST))
+                .isTrue();
+        // Localized confirmation text must be JavaScript-escaped before confirm().
+        assertThat(matches(script, ON_UNBILLED_CONFIRM_USES_SAFE_MESSAGE))
                 .isTrue();
         // Appointment -B unbill must call postViaForm with the popup target.
         assertThat(matches(script, ON_UNBILLED_POSTS_TO_TARGET))
