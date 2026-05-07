@@ -552,7 +552,27 @@ var popupHeight = 700;
 var popupWidth = 720;
 var windowProps = "height="+popupHeight+",width="+popupWidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=0,left=0";
 var popup = window.open('', targetWindow, windowProps);
+var existingFormCount = document.body ? document.body.getElementsByTagName('form').length : 0;
 postViaForm(url, targetWindow);
+window.setTimeout(function() {
+if (!document.body) {
+return;
+}
+var forms = document.body.getElementsByTagName('form');
+while (forms.length > existingFormCount) {
+var generatedForm = forms[forms.length - 1];
+if (generatedForm == null) {
+break;
+}
+if (generatedForm.parentNode != null) {
+generatedForm.parentNode.removeChild(generatedForm);
+} else if (typeof generatedForm.remove === 'function') {
+generatedForm.remove();
+} else {
+break;
+}
+}
+}, 0);
 if (popup != null) {
 if (popup.opener == null) {
 popup.opener = self;
