@@ -41,7 +41,7 @@ class SchedulePageUnbillPostRegressionTest {
 
     @Test
     @DisplayName("should submit unbill by POST when appointment minus billing is clicked")
-    void shouldSubmitUnbillByPost_whenAppointmentMinusBillingClicked() throws Exception {
+    void shouldSubmitUnbillByPost_whenMinusBillingClicked() throws Exception {
         String script = Files.readString(SCHEDULE_PAGE_SCRIPT);
         String onUnbilled = script.substring(
                 script.indexOf("function onUnbilled(url) {"),
