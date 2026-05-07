@@ -25,11 +25,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response.Status;
-import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.api.Test;
 
 /**
  * Regression tests for JAX-RS WebApplicationException status handling.
@@ -42,17 +40,19 @@ import org.junit.jupiter.params.provider.MethodSource;
 @Tag("regression")
 class WebApplicationExceptionRegressionTest {
 
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("statuses")
     @DisplayName("should preserve HTTP status from WebApplicationException")
-    void shouldPreserveHttpStatus_fromWebApplicationException(Status status) {
-        WebApplicationException exception = new WebApplicationException(status);
+    @Test
+    void shouldPreserveHttpStatus_fromWebApplicationException() {
+        for (Status status : new Status[] {
+                Status.BAD_REQUEST,
+                Status.UNAUTHORIZED,
+                Status.NOT_FOUND,
+                Status.CONFLICT,
+                Status.INTERNAL_SERVER_ERROR
+        }) {
+            WebApplicationException exception = new WebApplicationException(status);
 
-        assertThat(exception.getResponse().getStatus()).isEqualTo(status.getStatusCode());
-    }
-
-    private static Stream<Status> statuses() {
-        return Stream.of(Status.BAD_REQUEST, Status.UNAUTHORIZED, Status.NOT_FOUND, Status.CONFLICT,
-                Status.INTERNAL_SERVER_ERROR);
+            assertThat(exception.getResponse().getStatus()).isEqualTo(status.getStatusCode());
+        }
     }
 }
