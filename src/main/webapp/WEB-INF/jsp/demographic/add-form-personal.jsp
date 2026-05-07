@@ -84,7 +84,10 @@
     String prefillYearOfBirth   = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_year_of_birth"));
     String prefillMonthOfBirth  = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_month_of_birth"));
     String prefillDateOfBirth   = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_date_of_birth"));
-    String prefillDOB           = (!prefillYearOfBirth.equals("") && !prefillMonthOfBirth.equals("") && !prefillDateOfBirth.equals("")) ? prefillYearOfBirth + "-" + prefillMonthOfBirth + "-" + prefillDateOfBirth : "";
+    String prefillDOB           = (!prefillYearOfBirth.equals("") && !prefillMonthOfBirth.equals("") && !prefillDateOfBirth.equals(""))
+            ? prefillYearOfBirth + "-" + org.apache.commons.lang3.StringUtils.leftPad(prefillMonthOfBirth, 2, '0')
+            + "-" + org.apache.commons.lang3.StringUtils.leftPad(prefillDateOfBirth, 2, '0')
+            : "";
     String prefillHin           = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_hin"));
     String prefillVer           = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_ver"));
     String prefillHcType        = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_hc_type"));
