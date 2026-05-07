@@ -548,6 +548,7 @@ document.location.reload();
 function onUnbilled(url) {
 if(confirm("<fmt:message key="provider.appointmentProviderAdminDay.onUnbilled"/>")) {
 var targetWindow = 'unbilled';
+// Match popupPage(700,720): popupPage takes height first, width second.
 var windowProps = "height=700,width=720,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=0,left=0";
 var popup = window.open('', targetWindow, windowProps);
 postViaForm(url, targetWindow);

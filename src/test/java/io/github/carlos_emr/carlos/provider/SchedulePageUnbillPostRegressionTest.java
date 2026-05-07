@@ -23,7 +23,6 @@ package io.github.carlos_emr.carlos.provider;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.DisplayName;
@@ -45,40 +44,17 @@ class SchedulePageUnbillPostRegressionTest {
     @DisplayName("should use POST form helper when the unbilled function is called")
     void shouldUsePostViaFormHelper_whenUnbilledFunctionIsCalled() throws Exception {
         String script = Files.readString(SCHEDULE_PAGE_SCRIPT);
-        String onUnbilled = functionBody(script, "onUnbilled");
 
-        assertThat(matches(script, "function\\s+postViaForm\\s*\\(\\s*url\\s*,\\s*targetWindow\\s*\\)"))
+        assertThat(matches(script, "function\\s+postViaForm\\s*\\(\\s*url\\s*,\\s*targetWindow\\s*\\)\\s*\\{"
+                + "(?:(?!function\\s+scrollOnLoad).)*form\\.method\\s*=\\s*['\"]post['\"]"))
                 .isTrue();
-        assertThat(matches(script, "form\\.method\\s*=\\s*['\"]post['\"]"))
+        assertThat(matches(script, "function\\s+onUnbilled\\s*\\(\\s*url\\s*\\)\\s*\\{"
+                + "(?:(?!function\\s+onUpdatebill).)*targetWindow\\s*=\\s*['\"]unbilled['\"]"
+                + "(?:(?!function\\s+onUpdatebill).)*postViaForm\\s*\\(\\s*url\\s*,\\s*targetWindow\\s*\\)"))
                 .isTrue();
-        assertThat(matches(onUnbilled, "targetWindow\\s*=\\s*['\"]unbilled['\"]"))
-                .isTrue();
-        assertThat(matches(onUnbilled, "postViaForm\\s*\\(\\s*url\\s*,\\s*targetWindow\\s*\\)"))
-                .isTrue();
-        assertThat(matches(onUnbilled, "popupPage\\s*\\(\\s*700\\s*,\\s*720\\s*,\\s*url\\s*\\)"))
+        assertThat(matches(script, "function\\s+onUnbilled\\s*\\(\\s*url\\s*\\)\\s*\\{"
+                + "(?:(?!function\\s+onUpdatebill).)*popupPage\\s*\\(\\s*700\\s*,\\s*720\\s*,\\s*url\\s*\\)"))
                 .isFalse();
-    }
-
-    private static String functionBody(String script, String functionName) {
-        Matcher matcher = Pattern.compile("function\\s+" + Pattern.quote(functionName) + "\\s*\\([^)]*\\)\\s*\\{")
-                .matcher(script);
-        assertThat(matcher.find()).isTrue();
-
-        // This lightweight parser is intentionally scoped to schedulePage.js.jsp's
-        // simple top-level functions; it does not attempt full JavaScript parsing.
-        int depth = 1;
-        for (int i = matcher.end(); i < script.length(); i++) {
-            char c = script.charAt(i);
-            if (c == '{') {
-                depth++;
-            } else if (c == '}') {
-                depth--;
-                if (depth == 0) {
-                    return script.substring(matcher.end(), i);
-                }
-            }
-        }
-        throw new AssertionError("Function body not found for " + functionName);
     }
 
     private static boolean matches(String script, String regex) {
