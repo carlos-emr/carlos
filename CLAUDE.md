@@ -981,6 +981,8 @@ Labels are reserved for cross-cutting attributes that can apply alongside any is
 
 **Commit Format**: [Conventional Commits](https://www.conventionalcommits.org/) - `feat:`, `fix:`, `chore:`, `update:`
 
+**DCO Sign-off**: Every commit MUST include a `Signed-off-by:` trailer per the [Developer Certificate of Origin](https://developercertificate.org/). Always commit with `git commit -s` (or `--signoff`). The DCO check workflow rejects unsigned commits, and the project's contribution policy requires the trailer on every patch — including AI-assisted commits, which keep both the human author's `Signed-off-by:` and the existing `Co-Authored-By: Claude Opus ...` trailer.
+
 **Key Files**:
 - `CLAUDE.md` - AI context (this file)
 - `pom.xml` - 200+ healthcare Maven dependencies
