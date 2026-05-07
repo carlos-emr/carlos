@@ -71,14 +71,25 @@ public class DemographicAdd2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Executes the action to prepare data for the 'Add Demographic' (New Patient) screen.
+     * Validates user session and permissions, then pre-loads various reference data
+     * (country codes, province names, providers) and system defaults (current date, 
+     * billing region settings) into the request context for the JSP to render.
+     *
+     * @return SUCCESS if the data is successfully loaded and user has permission; 
+     *         "logout" if session is invalid.
+     */
     @Override
     public String execute() {
+        // Validate user session
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
             logger.warn("DemographicAdd2Action: missing session");
             throw new SecurityException("missing required session");
         }
 
+        // Verify the user has write privileges for demographics before allowing them to see the add screen
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
             logger.warn("DemographicAdd2Action: provider {} lacks _demographic write privilege",
                     loggedInInfo.getLoggedInProviderNo());
@@ -106,10 +117,12 @@ public class DemographicAdd2Action extends ActionSupport {
         String defaultCity = "ON".equals(prov) && "N".equals(billingCentre) ? "Toronto" : "";
 
         // --- Country codes ---
+        // Preload country list for demographic address selection
         CountryCodeDao ccDAO = SpringUtils.getBean(CountryCodeDao.class);
         List<CountryCode> countryList = ccDAO.getAllCountryCodes();
 
-        // --- HC Type ---
+        // --- HC Type (Health Card Type / Province) ---
+        // Try to get default from user properties first, then fallback to global property
         UserPropertyDAO userPropertyDAO = SpringUtils.getBean(UserPropertyDAO.class);
         String HCType = "";
         UserProperty HCTypeProp = userPropertyDAO.getProp(curUser_no, UserProperty.HC_TYPE);
@@ -127,6 +140,7 @@ public class DemographicAdd2Action extends ActionSupport {
         ProvinceNames pNames = ProvinceNames.getInstance();
 
         // --- Provider lists ---
+        // Fetch active providers separated by role to populate assignable providers dropdowns
         ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
         List<Provider> doctors = providerDao.getActiveProvidersByRole("doctor");
         List<Provider> nurses = providerDao.getActiveProvidersByRole("nurse");

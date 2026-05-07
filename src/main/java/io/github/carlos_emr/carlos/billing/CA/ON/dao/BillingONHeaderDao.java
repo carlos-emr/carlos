@@ -36,6 +36,13 @@ import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONHeader;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * JPA Data Access Object for Ontario (OHIP) Billing Headers.
+ * This DAO retrieves header records that group billing claims submitted 
+ * together on a specific "disk" (batch submission) for a given provider.
+ * <p>
+ * Central to the OHIP claim submission and reconciliation lifecycle.
+ */
 @Repository
 public class BillingONHeaderDao extends AbstractDaoImpl<BillingONHeader> {
 
@@ -43,6 +50,13 @@ public class BillingONHeaderDao extends AbstractDaoImpl<BillingONHeader> {
         super(BillingONHeader.class);
     }
 
+    /**
+     * Finds the OHIP billing header for a specific batch submission disk and provider.
+     * 
+     * @param diskId The unique identifier of the submission disk/batch.
+     * @param providerRegNum The provider's provincial registration number.
+     * @return List of matching BillingONHeader records (typically one, but returns a list based on legacy schema).
+     */
     public List<BillingONHeader> findByDiskIdAndProviderRegNum(Integer diskId, String providerRegNum) {
         Query query = entityManager.createQuery("SELECT b FROM BillingONHeader b where b.diskId = ?1 AND b.providerRegNum=?2");
         query.setParameter(1, diskId);

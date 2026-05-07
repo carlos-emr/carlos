@@ -65,6 +65,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
+/**
+ * JPA implementation of the Data Access Object for Case Management Notes.
+ * Handles the persistence and retrieval of encounter notes, including querying
+ * by patient demographics, issues, providers, and date ranges. Also manages
+ * retrieving historical revisions and aggregated note statistics.
+ */
 @Transactional
 public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseManagementNoteDAO {
 
@@ -395,7 +401,10 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
                 }
             }
 
-        // make unique for uuid
+        // Context: Notes are versioned in CARLOS. Instead of updating an existing row,
+        // edits often create a new row with the same UUID but a newer update_date.
+        // We iterate through the raw join results and manually deduplicate by UUID
+        // to ensure we only return the most recent version of each distinct note.
         HashMap<String, CaseManagementNote> uniqueForUuid = new HashMap<String, CaseManagementNote>();
         for (CaseManagementNote note : notes) {
             CaseManagementNote existingNote = uniqueForUuid.get(note.getUuid());

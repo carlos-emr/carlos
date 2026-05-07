@@ -4,7 +4,7 @@ This guide contains detailed patterns and configurations for writing tests in th
 
 ## Critical Dependency Resolution Patterns
 
-The OpenO codebase has several legacy patterns that require specific handling in tests. Understanding these patterns is essential for writing working tests.
+The CARLOS codebase has several legacy patterns that require specific handling in tests. Understanding these patterns is essential for writing working tests.
 
 ### SpringUtils Anti-Pattern Resolution
 

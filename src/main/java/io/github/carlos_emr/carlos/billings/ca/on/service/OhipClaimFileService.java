@@ -393,6 +393,9 @@ public class OhipClaimFileService {
         return ret;
     }
 
+    // Context: "Header 2" (record type 'HER') is an OHIP technical requirement specifically 
+    // for Reciprocal Medical Billing (RMB) claims. It is only appended when billing for 
+    // an out-of-province patient to capture their extended demographic details.
     private String buildHeader2() {
         healthcardCount++;
         String str1Hin = leftJustify(" ", 12, currentClaimHeader.getHin());

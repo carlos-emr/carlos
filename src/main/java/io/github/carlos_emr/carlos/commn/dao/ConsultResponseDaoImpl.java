@@ -44,6 +44,13 @@ import io.github.carlos_emr.carlos.consultations.ConsultationResponseSearchFilte
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 
+/**
+ * JPA-based Data Access Object for {@link ConsultationResponse}.
+ * Handles complex, dynamic querying for the inbound consultation response workflow.
+ * Uses manual string concatenation for HQL queries (legacy pattern) to support
+ * diverse search filters including response dates, statuses, sorting by linked entities
+ * (like referring doctors and demographics), and urgency.
+ */
 @Repository
 public class ConsultResponseDaoImpl extends AbstractDaoImpl<ConsultationResponse> implements ConsultResponseDao {
     private Logger logger = MiscUtils.getLogger();
@@ -52,6 +59,12 @@ public class ConsultResponseDaoImpl extends AbstractDaoImpl<ConsultationResponse
         super(ConsultationResponse.class);
     }
 
+    /**
+     * Retrieves the total count of consultation responses matching the given search filter.
+     * 
+     * @param filter The structured filter containing date ranges, status, and linked entity filters.
+     * @return The total number of consultation responses.
+     */
     public int getConsultationCount(ConsultationResponseSearchFilter filter) {
         String sql = getSearchQuery(filter, true);
         logger.debug("sql=" + sql);
@@ -65,6 +78,13 @@ public class ConsultResponseDaoImpl extends AbstractDaoImpl<ConsultationResponse
         return count.intValue();
     }
 
+    /**
+     * Retrieves a paginated list of consultation responses with eagerly fetched linked entities.
+     * The legacy query engine returns raw Object arrays to avoid Hibernate N+1 proxy issues on complex joins.
+     * 
+     * @param filter The structured filter containing search criteria, sort directions, and pagination limits.
+     * @return A list of Object arrays containing ConsultationResponse, ProfessionalSpecialist, Demographic, and Provider entities.
+     */
     @SuppressWarnings("unchecked")
     public List<Object[]> search(ConsultationResponseSearchFilter filter) {
         String sql = this.getSearchQuery(filter, false);
@@ -84,6 +104,9 @@ public class ConsultResponseDaoImpl extends AbstractDaoImpl<ConsultationResponse
                         " from ConsultationResponse cr, ProfessionalSpecialist sp, Demographic d left outer join d.provider p" +
                         " where sp.id = cr.referringDocId and d.DemographicNo = cr.demographicNo ");
 
+        // Apply dynamic date range filters for appointment, referral, and response events.
+        // Each filter checks for null before appending to support sparse search queries 
+        // originating from user interface forms where not all criteria are filled.
         if (filter.getAppointmentStartDate() != null) {
             sql.append("and cr.appointmentDate >= :appointmentStartDate ");
         }
@@ -102,17 +125,25 @@ public class ConsultResponseDaoImpl extends AbstractDaoImpl<ConsultationResponse
         if (filter.getResponseEndDate() != null) {
             sql.append("and cr.responseDate <= :responseEndDate ");
         }
+
+        // Status filtering: if explicitly provided, filter by the exact status.
+        // Otherwise, exclude terminal states (e.g., status '4' and '5' typically represent 
+        // cancelled, deleted, or archived states) to only show active consultations by default.
         if (filter.getStatus() != null) {
             sql.append("and cr.status = :status ");
         } else {
             sql.append("and cr.status!='4' and cr.status!='5' ");
         }
+
+        // Apply string-based filters. StringUtils is used to ignore whitespace-only inputs.
         if (StringUtils.isNotBlank(filter.getTeam())) {
             sql.append("and cr.sendTo = :team ");
         }
         if (StringUtils.isNotBlank(filter.getUrgency())) {
             sql.append("and cr.urgency = :urgency ");
         }
+
+        // Linked entity filtering: demographic (patient) and MRP (Most Responsible Provider)
         if (filter.getDemographicNo() != null && filter.getDemographicNo() > 0) {
             sql.append("and cr.demographicNo = :demographicNo ");
         }
@@ -130,6 +161,9 @@ public class ConsultResponseDaoImpl extends AbstractDaoImpl<ConsultationResponse
     }
     
     private void setQueryParameters(Query query, ConsultationResponseSearchFilter filter) {
+        // Bind parameters safely to prevent SQL injection.
+        // For End Dates, we use setCalender to adjust the time to 23:59:59 
+        // to ensure inclusive matching for the entire day.
         if (filter.getAppointmentStartDate() != null) {
             query.setParameter("appointmentStartDate", filter.getAppointmentStartDate());
         }
@@ -217,6 +251,11 @@ public class ConsultResponseDaoImpl extends AbstractDaoImpl<ConsultationResponse
         }
     }
 
+    /**
+     * Helper method to adjust a given date to the very end of the day (23:59:59).
+     * This is crucial for inclusive date range querying where "End Date" should cover 
+     * the entirety of the specified day.
+     */
     private Calendar setCalender(Date date) {
         Calendar cal = Calendar.getInstance();
         cal.setTime(date);

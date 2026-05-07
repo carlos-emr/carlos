@@ -37,6 +37,15 @@ import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
 import io.github.carlos_emr.carlos.daos.security.SecobjprivilegeDao;
 import io.github.carlos_emr.carlos.model.security.Secobjprivilege;
 
+/**
+ * Legacy utility manager for Role-Based Access Control (RBAC) privilege checks.
+ * This class validates if a given set of roles has read/write/delete privileges
+ * for a specific security object (e.g., "_admin.billing", "_encounter").
+ * <p>
+ * Checks are performed against the {@link Secobjprivilege} entity mappings.
+ * Note: Newer code should generally prefer {@code SecurityInfoManager.hasPrivilege()} 
+ * using the {@code LoggedInInfo} context.
+ */
 public class SecurityManager {
     public static final String ACCESS_NONE = "o";
     public static final String ACCESS_READ = "r";
@@ -58,7 +67,13 @@ public class SecurityManager {
         _userOrgAccessList = orgAccessList;
     }
 
-
+    /**
+     * Checks if the provided roles have read ('r') or all ('x') access to the specified object.
+     * 
+     * @param objectName The name of the secured object/module.
+     * @param roleNames A comma-separated list of role names held by the user.
+     * @return True if read access is granted, or if no explicit restrictions exist for the object.
+     */
     public boolean hasReadAccess(String objectName, String roleNames) {
         boolean result = false;
 
@@ -82,10 +97,27 @@ public class SecurityManager {
         return result;
     }
 
+    /**
+     * Checks if the provided roles have write ('w') or all ('x') access to the specified object.
+     * Defaults to NOT requiring an explicit privilege mapping (i.e., returns true if no mapping exists).
+     * 
+     * @param objectName The name of the secured object.
+     * @param roleNames Comma-separated list of roles.
+     * @return True if write access is granted or no mapping exists.
+     */
     public boolean hasWriteAccess(String objectName, String roleNames) {
         return hasWriteAccess(objectName, roleNames, false);
     }
 
+    /**
+     * Checks if the provided roles have write access, optionally enforcing that an explicit
+     * permission mapping MUST exist in the database.
+     * 
+     * @param objectName The secured object name.
+     * @param roleNames Comma-separated list of roles.
+     * @param required If true, access is denied when no explicit mapping exists in the DB.
+     * @return True if write access is granted according to the constraints.
+     */
     public boolean hasWriteAccess(String objectName, String roleNames, boolean required) {
         boolean result = false;
 
@@ -112,6 +144,13 @@ public class SecurityManager {
         return result;
     }
 
+    /**
+     * Checks if the provided roles have delete ('d') or all ('x') access to the specified object.
+     * 
+     * @param objectName The secured object name.
+     * @param roleNames Comma-separated list of roles.
+     * @return True if delete access is granted, or if no explicit restrictions exist for the object.
+     */
     public boolean hasDeleteAccess(String objectName, String roleNames) {
         boolean result = false;
 
@@ -135,6 +174,13 @@ public class SecurityManager {
         return result;
     }
 
+    /**
+     * Checks legacy property-file based privilege configurations.
+     * 
+     * @param objectName The object name.
+     * @param roleName The role to check.
+     * @return True if privileged.
+     */
     public static boolean hasPrivilege(String objectName, String roleName) {
         ArrayList<Object> v = OscarRoleObjectPrivilege.getPrivilegePropAsArrayList(objectName);
         return OscarRoleObjectPrivilege.checkPrivilege(roleName, (Properties) v.get(0), (ArrayList<String>) v.get(1));

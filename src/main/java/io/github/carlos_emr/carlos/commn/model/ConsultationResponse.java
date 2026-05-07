@@ -44,7 +44,10 @@ import jakarta.persistence.TemporalType;
 import java.util.Date;
 
 /**
- * @author Ronnie Cheng
+ * JPA Entity representing a Consultation Response in the EMR.
+ * Tracks the specialist's reply to a {@link ConsultationRequest}, including their
+ * clinical findings (examination, impression, plan), appointment details, and
+ * any updated medication or allergy information.
  */
 @Entity
 @Table(name = "consultationResponse")

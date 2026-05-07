@@ -43,6 +43,9 @@ public class BillingOnDiskTransactionService {
      */
     @Transactional
     public void finalizeGeneratedDisk(OhipClaimFileService writer, int diskId) {
+        // Context: "Disk" refers to the historical OHIP submission medium (floppy disks).
+        // This transaction boundary ensures that local claim records are not marked as "Billed" 
+        // unless the export file metadata is successfully finalized and its financial totals aggregated.
         writer.finalizeGeneratedDisk();
         writer.updateDisknameSum(diskId);
     }

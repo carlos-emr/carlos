@@ -395,6 +395,10 @@ public class BillingOnPayments2Action extends ActionSupport {
 
     record ParsedAmount(BigDecimal value, boolean unreadable) { }
 
+    // Context: Unlike the strict parsing used during save operations, this read-side 
+    // parser uses a soft-fail strategy. If a historical payment record contains a 
+    // corrupted or unparseable amount, it returns zero and flags it as unreadable 
+    // rather than crashing the entire payment listing page with an exception.
     static ParsedAmount parseDec(String s) {
         if (s == null || s.isEmpty()) return new ParsedAmount(BigDecimal.ZERO, false);
         try {

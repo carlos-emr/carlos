@@ -239,17 +239,20 @@ public class ProviderManager2 {
 		}
 		*/
 
-        //OLD
-        //cpp.pref.enable - use for now so changes in the new to hide or display cpp items reflect in the encounter as well as new ui
-        //if this =on then enabled other wise disabled
+        // Context: The Clinical Patient Profile (CPP) display preferences underwent a modernization.
+        // The legacy UI stored literal layout position strings (e.g., "R1I1", "None", "") in the database.
+        // The modern UI uses simple boolean toggles (true/false or on/off). 
+        // This mapping layer checks for the new modern boolean properties first. If absent, it falls back 
+        // to evaluating the legacy position strings to maintain backward compatibility for existing providers.
+        // cpp.pref.enable - use for now so changes in the new to hide or display cpp items reflect in the encounter as well as new ui
+        // if this =on then enabled other wise disabled
         if (map.get("cpp.pref.enable") != null) {
             settings.setSummaryItemCustomDisplay("on".equals(map.get("cpp.pref.enable").getValue()) ? true : false);
         }
 
-
-        //.position exists -> value blank = disable  --in the old ui if cpp.pref.enabled is "on" then changing the position to "None" sets the value to "" hides the CPP item
-        //.position exists -> value off = disable
-        //except for cpp.pref.enable if the absence of the property in the db the UI should display "true" or "Enable" for .position.
+        // .position exists -> value blank = disable  --in the old ui if cpp.pref.enabled is "on" then changing the position to "None" sets the value to "" hides the CPP item
+        // .position exists -> value off = disable
+        // except for cpp.pref.enable if the absence of the property in the db the UI should display "true" or "Enable" for .position.
         if (map.get(PreferenceManagerImpl.ONGOING_POS) != null) {
             settings.setCppDisplayOngoingConcerns("on".equals(map.get(PreferenceManagerImpl.ONGOING_POS).getValue()) ? true : false);
         } else if (map.get(PreferenceManagerImpl.OLD_ONGOING_CONCERNS_POS) != null) {

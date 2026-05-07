@@ -759,6 +759,11 @@ public class MSPReconcile {
     private double getTotalPaidFromS00(String billingmaster_no) {
         double retval = 0.0;
         TeleplanS00Dao dao = SpringUtils.getBean(TeleplanS00Dao.class);
+        
+        // Context: In BC MSP billing, S00 records represent the actual Remittance Advice (payments)
+        // received from Teleplan. The amount fields are returned in a legacy COBOL format where
+        // the sign of the number is encoded into the last digit using alphabetic characters 
+        // (e.g., 'J' for -1). We must run the raw string through convCurValue() to decode it.
         for (TeleplanS00 s : dao.findByOfficeNumber(forwardZero(billingmaster_no, 7))) {
             //this line fixes a bug where the amounts weren't calculating negative values
             String strAmount = convCurValue(s.getPaidAmount());

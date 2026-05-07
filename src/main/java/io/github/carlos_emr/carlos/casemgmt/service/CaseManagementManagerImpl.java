@@ -283,6 +283,10 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
                 throw new NullPointerException("CarlosProperties instance is null");
             }
 
+            // Context: The 'AbandonOldChart' property allows the system to bypass the legacy
+            // EChart table structure (e-chart synchronization). If not abandoned (default),
+            // we must propagate the saved note to the old EChart system for backward 
+            // compatibility with older reporting modules.
             if (!Boolean.parseBoolean(properties.getProperty("AbandonOldChart", "false"))) {
                 if (eChartDao == null) {
                     throw new NullPointerException("eChartDao is null");

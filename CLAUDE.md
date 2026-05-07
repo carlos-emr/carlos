@@ -971,7 +971,7 @@ Labels are reserved for cross-cutting attributes that can apply alongside any is
 - `duplicate` - Duplicate of another issue
 - `good first issue` - Suitable for new contributors
 - `help wanted` - Extra attention needed from community
-- `hibernate-6-prep` - Related to Hibernate 6 migration preparation
+- `hibernate-7-prep` - Related to Hibernate 7 migration preparation
 - `wontfix` - Will not be addressed
 
 **Automated status labels** (set by workflows):
@@ -1155,7 +1155,7 @@ database/mysql/updates/update-2025-*.sql          # Recent migration patterns
 # Security Patterns (READ THESE FIRST)
 src/main/java/io/github/carlos_emr/carlos/managers/SecurityInfoManager.java    # Authorization patterns
 src/main/java/io/github/carlos_emr/carlos/utility/LoggedInInfo.java           # Session management
-src/main/webapp/WEB-INF/classes/oscar/oscarSecurity/                # Security filter examples
+src/main/resources/oscar/oscarSecurity/                # Security filter examples
 
 # OWASP Integration Examples
 src/main/webapp/*/*.jsp                            # Look for Encode.forHtml() usage patterns

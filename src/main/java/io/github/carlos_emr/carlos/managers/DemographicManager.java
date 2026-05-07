@@ -44,12 +44,15 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchResult
 import java.util.*;
 
 /**
- * Will provide access to demographic data, as well as closely related data such as
- * extensions (DemographicExt), merge data, archive data, etc.
+ * Core service interface for the Demographic module.
+ * Provides access to patient demographic data, including core details, extended attributes 
+ * (DemographicExt), custom fields (DemographicCust), and contact information.
  * <p>
- * Future Use: Add privacy, sec, and consent profiles
+ * This manager enforces security constraints, ensuring that access to patient health 
+ * information (PHI) is gated by role-based access controls and provider domains.
+ * <p>
+ * Future Use: Add privacy, sec, and consent profiles.
  */
-
 public interface DemographicManager {
 
     public Demographic getDemographic(LoggedInInfo loggedInInfo, Integer demographicId)
@@ -239,7 +242,7 @@ public interface DemographicManager {
      * @throws RuntimeException if the logged-in user lacks read privilege on _demographic
      * @since 2026-04-11
      */
-    public DemographicHeaderDTO getDemographicHeader(LoggedInInfo loggedInInfo, Integer demographicId);
+    DemographicHeaderDTO getDemographicHeader(LoggedInInfo loggedInInfo, Integer demographicId);
 
     /**
      * Searches demographics by name and returns lightweight list item DTOs.
@@ -254,6 +257,6 @@ public interface DemographicManager {
      * @throws RuntimeException if the logged-in user lacks read privilege on _demographic
      * @since 2026-04-11
      */
-    public List<DemographicListItemDTO> searchDemographicDTOs(LoggedInInfo loggedInInfo, String searchString,
+    List<DemographicListItemDTO> searchDemographicDTOs(LoggedInInfo loggedInInfo, String searchString,
                                                               int startIndex, int itemsToReturn);
 }

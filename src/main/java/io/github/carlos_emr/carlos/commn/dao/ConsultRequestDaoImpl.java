@@ -46,6 +46,13 @@ import io.github.carlos_emr.carlos.consultations.ConsultationRequestSearchFilter
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 
+/**
+ * JPA-based Data Access Object for {@link ConsultationRequest}.
+ * Handles complex, dynamic querying for the consultation referral workflow.
+ * Uses manual string concatenation for HQL queries (legacy pattern) to support
+ * diverse search filters including status, urgency, sorting by linked entities,
+ * and date range filtering.
+ */
 @Repository
 public class ConsultRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> implements ConsultRequestDao {
 
@@ -53,6 +60,13 @@ public class ConsultRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> 
         super(ConsultationRequest.class);
     }
 
+    /**
+     * Retrieves the total count of consultation requests matching the legacy {@link PaginationQuery} criteria.
+     * Useful for building paginated UI tables.
+     * 
+     * @param paginationQuery The filter parameters for the count query.
+     * @return The total number of records matching the criteria.
+     */
     @Override
     public int getConsultationCount(PaginationQuery paginationQuery) {
         QueryWithParams queryWithParams = generateQueryWithParams(paginationQuery, true);
@@ -63,6 +77,13 @@ public class ConsultRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> 
         return x.intValue();
     }
 
+    /**
+     * Retrieves a paginated list of consultation requests based on the legacy {@link ConsultationQuery}.
+     * 
+     * @param consultationQuery The filter, sort, and pagination parameters.
+     * @return A list of {@link ConsultationRequest} entities.
+     * @deprecated Use {@link #search(ConsultationRequestSearchFilter)} instead.
+     */
     @SuppressWarnings("unchecked")
     @Deprecated
     @Override
@@ -179,6 +200,12 @@ public class ConsultRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> 
         return queryWithParams;
     }
 
+    /**
+     * Retrieves the total count of consultation requests matching the modern {@link ConsultationRequestSearchFilter}.
+     * 
+     * @param filter The structured filter object containing search criteria.
+     * @return The total number of records matching the criteria.
+     */
     @Override
     public int getConsultationCount2(ConsultationRequestSearchFilter filter) {
         QueryWithParams queryWithParams = buildSearchQuery(filter, true);
@@ -190,6 +217,12 @@ public class ConsultRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> 
         return count.intValue();
     }
 
+    /**
+     * Searches for consultation requests and eagerly fetches associated entities (Specialist, Service, Demographic, Provider).
+     * 
+     * @param filter The structured filter object containing search criteria and sorting directions.
+     * @return A list of Object arrays, where each array contains the eagerly fetched entities for a single row.
+     */
     @Override
     public List<Object[]> search(ConsultationRequestSearchFilter filter) {
         QueryWithParams queryWithParams = buildSearchQuery(filter, false);

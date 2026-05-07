@@ -53,6 +53,11 @@ import io.github.carlos_emr.carlos.util.LabelValueBean;
 
 import java.util.*;
 
+/**
+ * Core service interface for the Case Management module.
+ * Provides high-level business logic for managing encounter notes, patient issues,
+ * temporary saves, access control evaluations, and demographic integrations.
+ */
 public interface CaseManagementManager {
 
     public enum IssueType {

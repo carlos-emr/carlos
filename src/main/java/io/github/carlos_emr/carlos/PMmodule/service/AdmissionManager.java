@@ -43,6 +43,14 @@ import io.github.carlos_emr.carlos.commn.model.Admission;
 import io.github.carlos_emr.carlos.commn.model.JointAdmission;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+/**
+ * Core service interface for the Program Management (PM) Module's Admission workflows.
+ * Handles the admission, transfer, and discharge of patients (clients) into specific programs,
+ * facilities, or service types.
+ * <p>
+ * This manager enforces business rules such as program capacity limits (ProgramFullException),
+ * patient restrictions (ServiceRestrictionException), and duplicate admissions (AlreadyAdmittedException).
+ */
 public interface AdmissionManager {
 
     List<Admission> getAdmissions_archiveView(String programId, Integer demographicNo);
@@ -55,10 +63,24 @@ public interface AdmissionManager {
 
     List<Admission> getCurrentAdmissionsByFacility(Integer demographicNo, Integer facilityId);
 
+    /**
+     * Retrieves all admissions across the system.
+     * @return List of Admission entities.
+     */
     List<Admission> getAdmissions();
 
+    /**
+     * Retrieves the entire admission history for a specific patient.
+     * @param demographicNo The patient's demographic ID.
+     * @return List of Admission entities.
+     */
     List<Admission> getAdmissions(Integer demographicNo);
 
+    /**
+     * Retrieves currently active admissions for a specific patient.
+     * @param demographicNo The patient's demographic ID.
+     * @return List of active Admission entities.
+     */
     List<Admission> getCurrentAdmissions(Integer demographicNo);
 
 
@@ -76,6 +98,19 @@ public interface AdmissionManager {
 
     void saveAdmission(Admission admission);
 
+    /**
+     * Core workflow method to process a patient's admission into a program.
+     * Enforces capacity and restriction rules.
+     * 
+     * @param demographicNo The patient's ID.
+     * @param providerNo The admitting provider's ID.
+     * @param program The target program entity.
+     * @param dischargeNotes Notes from a previous discharge (if transferring).
+     * @param admissionNotes Clinical notes regarding this admission.
+     * @throws ProgramFullException if the target program has reached its capacity.
+     * @throws AdmissionException if a general admission error occurs.
+     * @throws ServiceRestrictionException if the patient is restricted from this service.
+     */
     void processAdmission(Integer demographicNo, String providerNo, Program program, String dischargeNotes, String admissionNotes) throws ProgramFullException, AdmissionException, ServiceRestrictionException;
 
     void processAdmission(Integer demographicNo, String providerNo, Program program, String dischargeNotes, String admissionNotes, boolean tempAdmission) throws ProgramFullException, AdmissionException, ServiceRestrictionException;
@@ -100,6 +135,15 @@ public interface AdmissionManager {
 
     List search(AdmissionSearchBean searchBean);
 
+    /**
+     * Core workflow method to process a patient's discharge from a program.
+     * 
+     * @param programId The ID of the program being discharged from.
+     * @param demographicNo The patient's ID.
+     * @param dischargeNotes Clinical notes regarding the discharge.
+     * @param radioDischargeReason Structured reason code for the discharge.
+     * @throws AdmissionException if the discharge process fails.
+     */
     void processDischarge(Integer programId, Integer demographicNo, String dischargeNotes, String radioDischargeReason) throws AdmissionException;
 
     void processDischarge(Integer programId, Integer demographicNo, String dischargeNotes, String radioDischargeReason, Date dischargeDate) throws AdmissionException;

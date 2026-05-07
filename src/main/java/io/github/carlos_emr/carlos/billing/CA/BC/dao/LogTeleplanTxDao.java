@@ -32,6 +32,12 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.LogTeleplanTx;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * JPA Data Access Object for logging British Columbia Teleplan transactions.
+ * Teleplan is the BC Medical Services Plan (MSP) electronic billing system.
+ * This DAO records raw transaction logs (uploads, downloads, and rejections) 
+ * for audit, compliance, and troubleshooting purposes.
+ */
 @Repository
 public class LogTeleplanTxDao extends AbstractDaoImpl<LogTeleplanTx> {
 

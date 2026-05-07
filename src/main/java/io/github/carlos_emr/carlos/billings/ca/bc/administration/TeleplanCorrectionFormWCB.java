@@ -61,6 +61,9 @@ public class TeleplanCorrectionFormWCB {
     public TeleplanCorrectionFormWCB(ResultSet result) {
         super();
         try {
+            // Context: Legacy JDBC ResultSet mapping pattern. This constructor directly maps raw 
+            // SQL results to object fields. Future refactoring should replace this with standard 
+            // JPA/Hibernate entity projection or Spring Data mapping to reduce coupling to the schema.
             if (result.next()) {
                 this.demographicNumber = result.getString("demographic_no");
                 this.id = result.getString("billingmaster_no");

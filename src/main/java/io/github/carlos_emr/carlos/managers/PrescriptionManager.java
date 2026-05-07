@@ -41,40 +41,147 @@ import java.util.Date;
 import java.util.List;
 import java.util.Calendar;
 
+/**
+ * Service interface for managing Prescriptions and Drugs in the EMR.
+ * Handles operations related to creating prescriptions, retrieving active/long-term medications,
+ * and linking medications to patient demographics while enforcing access controls via LoggedInInfo.
+ */
 public interface PrescriptionManager {
 
+    /**
+     * Retrieves a specific prescription by its ID.
+     * @param loggedInInfo Security context of the logged-in user.
+     * @param prescriptionId The unique identifier of the prescription.
+     * @return The requested Prescription entity.
+     */
     public Prescription getPrescription(LoggedInInfo loggedInInfo, Integer prescriptionId);
 
+    /**
+     * Retrieves all prescriptions that were updated after a specific date.
+     * Useful for synchronization and auditing purposes.
+     * @param loggedInInfo Security context.
+     * @param updatedAfterThisDateExclusive The threshold date.
+     * @param itemsToReturn Maximum number of items to return.
+     * @return List of updated prescriptions.
+     */
     public List<Prescription> getPrescriptionUpdatedAfterDate(LoggedInInfo loggedInInfo,
                                                               Date updatedAfterThisDateExclusive, int itemsToReturn);
 
+    /**
+     * Retrieves prescriptions for a specific patient demographic that were updated after a specific date.
+     * @param loggedInInfo Security context.
+     * @param demographicId The patient's demographic ID.
+     * @param updatedAfterThisDateExclusive The threshold date.
+     * @return List of updated prescriptions for the demographic.
+     */
     public List<Prescription> getPrescriptionByDemographicIdUpdatedAfterDate(LoggedInInfo loggedInInfo,
                                                                              Integer demographicId, Date updatedAfterThisDateExclusive);
 
+    /**
+     * Retrieves the individual drug line items associated with a specific prescription number.
+     * @param loggedInInfo Security context.
+     * @param scriptNo The prescription number.
+     * @param archived Flag indicating whether to include archived/historical drugs.
+     * @return List of Drug entities.
+     */
     public List<Drug> getDrugsByScriptNo(LoggedInInfo loggedInInfo, Integer scriptNo, Boolean archived);
 
+    /**
+     * Retrieves a unique list of drugs prescribed to a patient.
+     * @param loggedInInfo Security context.
+     * @param demographicNo The patient's demographic ID.
+     * @return List of unique Drug entities.
+     */
     public List<Drug> getUniqueDrugsByPatient(LoggedInInfo loggedInInfo, Integer demographicNo);
 
+    /**
+     * Retrieves prescriptions matching a combination of program, provider, demographic, and date criteria.
+     * Used in complex reporting and program-specific workflows.
+     * @param loggedInInfo Security context.
+     * @param programId Optional program filter.
+     * @param providerNo Optional provider filter.
+     * @param demographicId Optional patient filter.
+     * @param updatedAfterThisDateExclusive The threshold date.
+     * @param itemsToReturn Maximum number of items to return.
+     * @return List of matching Prescriptions.
+     */
     public List<Prescription> getPrescriptionsByProgramProviderDemographicDate(LoggedInInfo loggedInInfo,
                                                                                Integer programId, String providerNo, Integer demographicId, Calendar updatedAfterThisDateExclusive,
                                                                                int itemsToReturn);
 
+    /**
+     * Creates a new prescription record containing one or more drugs for a patient.
+     * @param info Security context.
+     * @param drugs The list of drugs to include in the prescription.
+     * @param demographicNo The patient's demographic ID.
+     * @return The newly created Prescription entity.
+     */
     public Prescription createNewPrescription(LoggedInInfo info, List<Drug> drugs, Integer demographicNo);
 
+    /**
+     * Retrieves all medications (active and optionally archived) for a specific patient.
+     * @param loggedInInfo Security context.
+     * @param demographicNo The patient's demographic ID.
+     * @param archived True to include past/archived medications.
+     * @return List of Drug entities.
+     */
     public List<Drug> getMedicationsByDemographicNo(LoggedInInfo loggedInInfo, Integer demographicNo, Boolean archived);
 
+    /**
+     * Retrieves only the active medications for a patient (String demographic ID version).
+     * @param loggedInInfo Security context.
+     * @param demographicNo The patient's demographic ID as a String.
+     * @return List of active Drug entities.
+     */
     public List<Drug> getActiveMedications(LoggedInInfo loggedInInfo, String demographicNo);
 
+    /**
+     * Retrieves only the active medications for a patient (Integer demographic ID version).
+     * @param loggedInInfo Security context.
+     * @param demographicNo The patient's demographic ID.
+     * @return List of active Drug entities.
+     */
     public List<Drug> getActiveMedications(LoggedInInfo loggedInInfo, Integer demographicNo);
 
+    /**
+     * Finds a specific drug record by its ID.
+     * @param loggedInInfo Security context.
+     * @param drugId The unique identifier of the drug.
+     * @return The requested Drug entity.
+     */
     public Drug findDrugById(LoggedInInfo loggedInInfo, Integer drugId);
 
+    /**
+     * Retrieves medications marked as long-term or chronic for a specific patient.
+     * @param loggedInInfo Security context.
+     * @param demographicId The patient's demographic ID.
+     * @return List of long-term Drug entities.
+     */
     public List<Drug> getLongTermDrugs(LoggedInInfo loggedInInfo, Integer demographicId);
 
+    /**
+     * Retrieves all prescriptions for a specific patient demographic.
+     * @param loggedInInfo Security context.
+     * @param demographicId The patient's demographic ID.
+     * @return List of Prescription entities.
+     */
     public List<Prescription> getPrescriptions(LoggedInInfo loggedInInfo, Integer demographicId);
 
+    /**
+     * Initiates the printing workflow for a specific prescription.
+     * @param loggedInInfo Security context.
+     * @param scriptNo The prescription number.
+     * @return True if the print job was successfully queued.
+     */
     public boolean print(LoggedInInfo loggedInInfo, int scriptNo);
 
+    /**
+     * Attaches a digital signature to a specific prescription, finalizing it.
+     * @param loggedInInfo Security context.
+     * @param scriptNo The prescription number.
+     * @param digitalSignatureId The ID of the applied digital signature.
+     * @return True if the signature was successfully applied.
+     */
     boolean setPrescriptionSignature(LoggedInInfo loggedInInfo, int scriptNo, Integer digitalSignatureId);
 
     /**

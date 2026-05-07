@@ -1,0 +1,79 @@
+- table [ref=e3]:
+  - rowgroup [ref=e4]:
+    - 'row "Abbott, Nathanael Male · 44 years · DOB: 1981-06-09 HIN: 6363134923 AB Next Appointment:" [ref=e5]':
+      - 'cell "Abbott, Nathanael Male · 44 years · DOB: 1981-06-09 HIN: 6363134923 AB Next Appointment:" [ref=e6]':
+        - table [ref=e7]:
+          - rowgroup [ref=e8]:
+            - 'row "Abbott, Nathanael Male · 44 years · DOB: 1981-06-09 HIN: 6363134923 AB Next Appointment:" [ref=e9]':
+              - 'cell "Abbott, Nathanael Male · 44 years · DOB: 1981-06-09 HIN: 6363134923 AB Next Appointment:" [ref=e10]':
+                - text: "Abbott, Nathanael Male · 44 years · DOB: 1981-06-09"
+                - generic [ref=e11]: "HIN: 6363134923 AB"
+                - text: "Next Appointment:"
+    - row [ref=e149]:
+      - cell "Appointment History Billing History Create Invoice Consultations Prescriptions E-Chart Preventions Tickler Documents Current eForms" [ref=e13]:
+        - table [ref=e14]:
+          - rowgroup [ref=e15]:
+            - row "Appointment History" [ref=e16]:
+              - cell "Appointment History" [ref=e17]:
+                - link "Appointment History" [ref=e18] [cursor=pointer]:
+                  - /url: /carlos/demographic/DemographicApptHistory?demographic_no=113&orderby=appttime&dboperation=appt_history&limit1=0&limit2=25
+            - row "Billing History" [ref=e19]:
+              - cell "Billing History" [ref=e20]:
+                - link "Billing History" [ref=e21] [cursor=pointer]:
+                  - /url: "javascript: function myFunction() {return false; }"
+            - row "Create Invoice" [ref=e22]:
+              - cell "Create Invoice" [ref=e23]:
+                - link "Create Invoice" [ref=e24] [cursor=pointer]:
+                  - /url: "javascript: function myFunction() {return false; }"
+            - row "Consultations" [ref=e25]:
+              - cell "Consultations" [ref=e26]:
+                - link "Consultations" [ref=e27] [cursor=pointer]:
+                  - /url: "javascript: function myFunction() {return false; }"
+            - row "Prescriptions" [ref=e28]:
+              - cell "Prescriptions" [ref=e29]:
+                - link "Prescriptions" [ref=e30] [cursor=pointer]:
+                  - /url: "javascript: function myFunction() {return false; }"
+            - row "E-Chart" [ref=e31]:
+              - cell "E-Chart" [ref=e32]:
+                - link "E-Chart" [ref=e33] [cursor=pointer]:
+                  - /url: "javascript: function myFunction() {return false; }"
+            - row "Preventions" [ref=e34]:
+              - cell "Preventions" [ref=e35]:
+                - link "Preventions" [ref=e36] [cursor=pointer]:
+                  - /url: "javascript: function myFunction() {return false; }"
+            - row "Tickler" [ref=e37]:
+              - cell "Tickler" [ref=e38]:
+                - link "Tickler" [ref=e39] [cursor=pointer]:
+                  - /url: "javascript: function myFunction() {return false; }"
+            - row "Documents" [ref=e40]:
+              - cell "Documents" [ref=e41]:
+                - link "Documents" [ref=e42] [cursor=pointer]:
+                  - /url: "javascript: function myFunction() {return false; }"
+            - row "Current eForms" [ref=e43]:
+              - cell "Current eForms" [ref=e44]:
+                - link "Current eForms" [ref=e45] [cursor=pointer]:
+                  - /url: /carlos/eform/efmpatientformlist?demographic_no=113&apptProvider=&appointment=
+      - cell [ref=e150]:
+        - table [ref=e47]:
+          - rowgroup [ref=e48]:
+            - row "Search Patient" [ref=e49]:
+              - cell "Search Patient" [ref=e50] [cursor=pointer]:
+                - link "Search Patient" [ref=e51]:
+                  - /url: javascript:void(0)
+                  - img [ref=e52]
+                  - text: Search Patient
+            - row [ref=e151]:
+              - cell [ref=e152]:
+                - table [ref=e57]:
+                  - rowgroup [ref=e58]:
+                    - row "#113 Close" [ref=e153]:
+                      - cell "#113 Close" [ref=e154]:
+                        - generic [ref=e61]
+                    - row [ref=e156]:
+                      - cell [ref=e157]:
+                        - link "Show all fields" [ref=e71] [cursor=pointer]:
+                          - /url: javascript:void(0)
+                        - table [ref=e158]
+                    - row "Update Record Export this Demographic Audit Information Print / Labels Back" [ref=e448]:
+                      - cell "Update Record Export this Demographic Audit Information Print / Labels Back" [ref=e449]:
+                        - generic [ref=e141]

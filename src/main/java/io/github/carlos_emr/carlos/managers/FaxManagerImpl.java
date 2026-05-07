@@ -704,6 +704,10 @@ public class FaxManagerImpl implements FaxManager {
 
         if (faxJob != null) {
 
+            // Context: To maintain a proper audit trail, we never modify the original
+            // fax job once it has been processed (whether failed or completed). 
+            // Instead, we clone the job properties into a new FaxJob entity, 
+            // optionally overriding the destination number, and set it to WAITING.
             FaxJob reSentFaxJob = new FaxJob(faxJob);
 
             // Destination can be replaced with new user input.

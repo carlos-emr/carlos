@@ -2,7 +2,7 @@
 
 ## Overview
 
-The devcontainer includes a local Postfix SMTP server for testing email functionality in OpenO without sending actual emails. All emails are discarded after logging.
+The devcontainer includes a local Postfix SMTP server for testing email functionality in CARLOS without sending actual emails. All emails are discarded after logging.
 
 ## Quick Start
 
@@ -38,16 +38,16 @@ mail stop
 
 ## How It Works
 
-1. OpenO sends emails to `localhost:25`
+1. CARLOS sends emails to `localhost:25`
 2. Postfix accepts the connection
 3. Email details are logged to `/var/log/mail.log`
 4. Email is **discarded** (never actually sent)
 
 ## Example Log Output
 ```
-postfix/pickup[1234]: ABC123: uid=0 from=<noreply@openo-dev.local>
-postfix/cleanup[1235]: ABC123: message-id=<20251119120000.ABC123@openo-dev.local>
-postfix/qmgr[1236]: ABC123: from=<noreply@openo-dev.local>, size=1234, nrcpt=1
+postfix/pickup[1234]: ABC123: uid=0 from=<noreply@carlos-dev.local>
+postfix/cleanup[1235]: ABC123: message-id=<20251119120000.ABC123@carlos-dev.local>
+postfix/qmgr[1236]: ABC123: from=<noreply@carlos-dev.local>, size=1234, nrcpt=1
 postfix/smtp[1237]: ABC123: to=<patient@example.com>, relay=discard, status=sent (discarded)
 ```
 
@@ -64,7 +64,7 @@ mail start
 
 ### Connection Refused Errors
 
-Ensure Postfix is started before testing email functionality in OpenO.
+Ensure Postfix is started before testing email functionality in CARLOS.
 
 ### No Log File
 
@@ -83,9 +83,9 @@ mail log
 
 ## Testing Email Features
 
-To test OpenO's email functionality:
+To test CARLOS's email functionality:
 
 1. Start Postfix: `mail start`
 2. Open another terminal: `mail log`
-3. In OpenO, trigger an email action (eform, etc.)
+3. In CARLOS, trigger an email action (eform, etc.)
 4. Watch the logs to confirm the email was "sent"

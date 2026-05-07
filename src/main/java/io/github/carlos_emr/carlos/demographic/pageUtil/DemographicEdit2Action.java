@@ -98,31 +98,46 @@ public class DemographicEdit2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Executes the action to prepare data for the 'Edit Demographic' (Edit Patient) screen.
+     * Validates the session, checks read permissions, and loads the patient's existing
+     * demographic data, extended attributes, admission history, and reference data 
+     * (providers, country codes, lookup lists) into the request context.
+     * 
+     * @return SUCCESS if data is loaded properly; ERROR if the demographic_no is missing or invalid;
+     *         "logout" if the session is missing.
+     */
     @Override
     public String execute() {
+        // Retrieve logged in user's information from session
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
             logger.warn("DemographicEdit2Action: missing session");
             throw new SecurityException("missing required session");
         }
 
+        // Verify the user has read privileges for demographics before allowing them to see the edit screen
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             logger.warn("DemographicEdit2Action: provider {} lacks _demographic read privilege",
                     loggedInInfo.getLoggedInProviderNo());
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
+        // Validate the HTTP Session
         HttpSession session = request.getSession();
         if (session.getAttribute("user") == null) {
             return "logout";
         }
 
+        // Retrieve and validate the demographic_no from the request
         String demographic_no = request.getParameter("demographic_no");
         if (demographic_no == null || demographic_no.trim().isEmpty()) {
             logger.warn("DemographicEdit2Action: demographic_no parameter is missing");
             addActionError("demographic_no is required");
             return ERROR;
         }
+        
+        // Ensure demographic_no is numeric to prevent SQL injection or bad lookups
         try {
             Integer.parseInt(demographic_no.trim());
         } catch (NumberFormatException e) {
@@ -136,6 +151,7 @@ public class DemographicEdit2Action extends ActionSupport {
         String curProvider_no = (String) session.getAttribute("user");
 
         // --- Load core demographic data ---
+        // Load the main Demographic entity
         DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
         Demographic demographic = demographicDao.getDemographic(demographic_no);
         if (demographic == null) {
@@ -144,9 +160,11 @@ public class DemographicEdit2Action extends ActionSupport {
             return ERROR;
         }
 
+        // Load extended demographic attributes (e.g. custom fields, flags)
         DemographicExtDao demographicExtDao = SpringUtils.getBean(DemographicExtDao.class);
         Map<String, String> demoExt = demographicExtDao.getAllValuesForDemo(Integer.parseInt(demographic_no));
 
+        // Load customized demographic data specific to certain views
         DemographicCustDao demographicCustDao = SpringUtils.getBean(DemographicCustDao.class);
 
         DemographicArchiveDao demographicArchiveDao = SpringUtils.getBean(DemographicArchiveDao.class);

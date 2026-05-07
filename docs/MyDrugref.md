@@ -56,7 +56,7 @@ MyDrugref uses **XML-RPC** (XML Remote Procedure Call) for communication:
   - `PriceDisplayMyD.jsp` - Pricing information
 
 #### 2. Decision Support Service
-- **Main Class**: `org.oscarehr.decisionSupport.service.DSServiceMyDrugref`
+- **Main Class**: `io.github.carlos_emr.carlos.decisionSupport.service.DSServiceMyDrugref`
 - **Responsibilities**:
   - Fetches clinical guidelines from MyDrugref
   - Validates guideline XML against schema
@@ -64,16 +64,16 @@ MyDrugref uses **XML-RPC** (XML Remote Procedure Call) for communication:
   - Maps guidelines to providers
 
 #### 3. Drug Reference Action Handler
-- **Class**: `oscar.oscarRx.pageUtil.RxMyDrugrefInfoAction`
+- **Class**: `io.github.carlos_emr.carlos.oscarRx.pageUtil.RxMyDrugrefInfoAction`
 - **Methods**:
   - `callOAuthService()` - Main interface for MyDrugref calls (uses XML-RPC)
-  - Handles procedure name mapping between OpenO and MyDrugref
+  - Handles procedure name mapping between CARLOS and MyDrugref
 
 ## API Procedures
 
 ### Available XML-RPC Procedures
 
-| OpenO Procedure Name | MyDrugref XML-RPC Name | Purpose |
+| CARLOS Procedure Name | MyDrugref XML-RPC Name | Purpose |
 |---------------------|------------------------|---------|
 | `atcfetch/getWarnings` | `Fetch` with `warnings_byATC` | Get drug warnings by ATC code |
 | `atcfetch/getBulletins` | `Fetch` with `bulletins_byATC` | Get drug bulletins by ATC code |
@@ -84,10 +84,10 @@ MyDrugref uses **XML-RPC** (XML Remote Procedure Call) for communication:
 ### Data Flow
 
 1. **Provider initiates action** (e.g., prescribing medication)
-2. **OpenO collects drug information** (ATC codes, drug IDs)
+2. **CARLOS collects drug information** (ATC codes, drug IDs)
 3. **Request sent to MyDrugref** via XML-RPC
 4. **MyDrugref processes and returns data**
-5. **OpenO validates and displays information**
+5. **CARLOS validates and displays information**
 6. **Provider makes informed clinical decision**
 
 ## Configuration
@@ -233,7 +233,7 @@ If migrating to a different drug reference service:
 ### Internal Resources
 - Configuration files: System properties
 - Schema documentation: `/docs/dsGuideline.md`
-- Source code: `/src/main/java/org/oscarehr/decisionSupport/`
+- Source code: `/src/main/java/io/github/carlos_emr/carlos/decisionSupport/`
 
 ### External Dependencies
 - XML-RPC library (Apache XML-RPC)

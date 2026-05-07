@@ -280,6 +280,10 @@ public class TicklerManagerImpl implements TicklerManager {
 
     @Override
     public List<Tickler> filterTicklersByAccess(List<Tickler> ticklers, String providerNo, String programNo) {
+        // Context: In the Case Management (CAISI) framework, Ticklers can be scoped to specific Programs.
+        // If a Tickler is assigned to a Program, its visibility is constrained by the provider's role 
+        // within that Program. This method iterates through ticklers and drops those where the current
+        // provider lacks the necessary role access, unless the provider authored the tickler themselves.
         List<Tickler> filteredTicklers = new ArrayList<Tickler>();
 
         if (ticklers.isEmpty()) {

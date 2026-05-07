@@ -38,6 +38,15 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * JPA Entity representing a Consultation Request (Referral) in the EMR.
+ * This model tracks outbound referrals to specialists or other healthcare providers,
+ * capturing clinical information, appointment details, urgency, and the status
+ * of the consultation workflow.
+ * <p>
+ * It can be linked to a {@link ProfessionalSpecialist} (external provider) 
+ * or a {@link DemographicContact} (patient's circle of care).
+ */
 @Entity
 @Table(name = "consultationRequests")
 public class ConsultationRequest extends AbstractModel<Integer> implements Serializable {

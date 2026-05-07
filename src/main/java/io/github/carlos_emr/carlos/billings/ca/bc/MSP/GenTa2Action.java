@@ -273,6 +273,12 @@ public class GenTa2Action extends ActionSupport {
                     s00Dao.persist(t);
 
 
+                    // Context: Teleplan returns Remittance Advice in flat files with fixed-width records.
+                    // The S00, S02, and S03 records indicate different payment adjudication results:
+                    // S02 = Paid with Explanation (amount differs from billed), 
+                    // S03 = Refused, 
+                    // S00 = Data Center Changed. 
+                    // We update the master billing status here to reflect the adjudication.
                     if (header.equals("S02")) { //header.compareTo("S00") == 0 || header.compareTo("S03") == 0){
                         mspReconcile.updateStat(MSPReconcile.PAIDWITHEXP, s02.getBillingMasterNo());
                     } else if (header.equals("S03")) {

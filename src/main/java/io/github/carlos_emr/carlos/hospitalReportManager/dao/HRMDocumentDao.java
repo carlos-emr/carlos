@@ -26,6 +26,13 @@ import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Data Access Object for Hospital Report Manager (HRM) documents.
+ * Handles persistence and complex querying of incoming hospital reports,
+ * including tracking parent/child relationships between amended or split reports,
+ * matching documents to demographics (patients) and providers, and handling
+ * inbox-style filtering (e.g., unsigned reports, unmatched reports).
+ */
 @Repository
 public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
 
@@ -46,6 +53,12 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
         super(HRMDocument.class);
     }
 
+    /**
+     * Retrieves a specific document by its database primary key.
+     * 
+     * @param id The primary key.
+     * @return List containing the document (or empty if not found).
+     */
     public List<HRMDocument> findById(int id) {
         String sql = "select x from " + this.modelClass.getName() + " x where x.id=?1";
         Query query = entityManager.createQuery(sql);
@@ -55,6 +68,13 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
         return documents;
     }
 
+    /**
+     * Retrieves a paginated list of all HRM documents.
+     * 
+     * @param offset The starting index.
+     * @param limit The maximum number of documents to return.
+     * @return List of HRM documents.
+     */
     public List<HRMDocument> findAll(int offset, int limit) {
         String sql = "select x from " + this.modelClass.getName() + " x order by x.id";
         Query query = entityManager.createQuery(sql);
@@ -66,6 +86,11 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
         return documents;
     }
 
+    /**
+     * Retrieves all HRM documents without pagination.
+     * 
+     * @return List of all HRM documents.
+     */
     public List<HRMDocument> findAll() {
         String sql = "select x from " + this.modelClass.getName() + " x order by x.id";
         Query query = entityManager.createQuery(sql);
@@ -75,7 +100,12 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
         return documents;
     }
 
-
+    /**
+     * Finds documents by their exact cryptographic hash. Used to detect duplicates.
+     * 
+     * @param hash The full document hash.
+     * @return List of matching document IDs.
+     */
     public List<Integer> findByHash(String hash) {
         String sql = "select distinct id from " + this.modelClass.getName() + " x where x.reportHash=?1";
         Query query = entityManager.createQuery(sql);
@@ -85,6 +115,13 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
         return matches;
     }
 
+    /**
+     * Finds documents with matching content hashes (ignoring demographic header info).
+     * Used to correlate amended reports or track the lineage of a specific clinical payload.
+     * 
+     * @param hash The hash of the report body.
+     * @return List of matching parent or document IDs.
+     */
     @SuppressWarnings("unchecked")
     public List<Integer> findAllWithSameNoDemographicInfoHash(String hash) {
         String sql = "select distinct parentReport from " + this.modelClass.getName() + " x where x.reportLessDemographicInfoHash=?1";
@@ -101,6 +138,14 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
         return matches;
     }
 
+    /**
+     * Retrieves an entire family (lineage) of amended reports given any single member's ID.
+     * If the ID is a child, it retrieves the parent and all siblings. If the ID is a parent,
+     * it retrieves itself and all its children.
+     * 
+     * @param docId The document ID of any member in the lineage.
+     * @return List of all related HRM documents.
+     */
     @SuppressWarnings("unchecked")
     public List<HRMDocument> findAllDocumentsWithRelationship(Integer docId) {
         List<HRMDocument> documentsWithRelationship = new LinkedList<HRMDocument>();
@@ -137,6 +182,12 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
 
     }
 
+    /**
+     * Retrieves all child documents (amendments/addendums) for a specific parent report.
+     * 
+     * @param docId The parent document ID.
+     * @return List of child HRM documents.
+     */
     public List<HRMDocument> getAllChildrenOf(Integer docId) {
         String sql = "select x from " + this.modelClass.getName() + " x where x.parentReport=?1 and x.id != ?2 order by id asc";
         Query query = entityManager.createQuery(sql);

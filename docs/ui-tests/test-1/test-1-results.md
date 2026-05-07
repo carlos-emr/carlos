@@ -304,10 +304,10 @@ Test 1 validates the complete workflow for logging into CARLOS EMR and accessing
 
 ## Environment Details
 
-- **Application Server**: Apache Tomcat 9.0.97
+- **Application Server**: Apache Tomcat 11.0
 - **Java Version**: 21
 - **Database**: MariaDB (Docker container "db")
-- **Framework**: Struts 2.x with Spring 5.3.39
+- **Framework**: Struts 7.1.1 with Spring 7.0.6
 - **Test Date**: 2026-01-16
 - **Test Framework**: Playwright MCP Server with headless Chromium
 

@@ -98,7 +98,7 @@ DELETE FROM demographic WHERE last_name = 'TEST-UITEST2';
 |------|--------|-----------------|
 | 13 | Click "Edit Demographic" | Edit form opens |
 | 14 | Change phone to 416-555-9999 | Phone updated |
-| 15 | Change email to updated@openoemr.test | Email updated |
+| 15 | Change email to updated@carlos-emr.test | Email updated |
 | 16 | Change address to 456 Updated Avenue | Address updated |
 | 17 | Change city to Ottawa | City updated |
 | 18 | Click "Update Record" | Changes saved |
@@ -108,7 +108,7 @@ DELETE FROM demographic WHERE last_name = 'TEST-UITEST2';
 | Step | Action | Expected Result |
 |------|--------|-----------------|
 | 19 | Verify phone | Shows 416-555-9999 |
-| 20 | Verify email | Shows updated@openoemr.test |
+| 20 | Verify email | Shows updated@carlos-emr.test |
 | 21 | Verify address | Shows 456 Updated Avenue, Ottawa |
 
 ### Phase 6: Search Methods & Filters (Steps 22-26)
@@ -155,7 +155,7 @@ Doctor (MRP): carlosdoc, doctor
 ### Edit Values (Applied During Test)
 ```
 Phone: 416-555-9999
-Email: updated@openoemr.test
+Email: updated@carlos-emr.test
 Address: 456 Updated Avenue
 City: Ottawa
 ```

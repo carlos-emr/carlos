@@ -115,7 +115,10 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
             //If the adjustment amount field isn't empty, create an archive of the adjustment
             if (this.getAdjAmount() != null && !"".equals(this.getAdjAmount())) {
                 double dblAdj = Math.abs(Double.valueOf(this.getAdjAmount()).doubleValue());
-                //if 1 this adjustment is a debit
+                // Context: In the BC Teleplan remittance system, adjustments can be credits or debits.
+                // A debit adjustment (adjType "1") implies money is being clawed back or reduced.
+                // We store this in the billing history archive as a negative value to reflect the 
+                // true impact on the provider's accounts receivable.
                 if ("1".equals(this.getAdjType())) {
                     dblAdj = dblAdj * -1.0;
                 }

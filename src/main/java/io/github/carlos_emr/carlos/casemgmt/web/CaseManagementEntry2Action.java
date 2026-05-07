@@ -85,6 +85,11 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import org.owasp.encoder.Encode;
 
+/**
+ * Struts2 Action handling the entry, editing, and saving of Case Management Notes.
+ * Manages complex state such as note locks, temporary saves, issues/diagnoses linking, 
+ * and session-based demographic data to ensure safe concurrent editing of clinical notes.
+ */
 public class CaseManagementEntry2Action extends ActionSupport implements SessionAware {
 
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -131,6 +136,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         String method = request.getParameter("method") != null ? request.getParameter("method") : (String) request.getAttribute("method");
         
+        // Context: This is a legacy Struts 1 DispatchAction pattern migrated to Struts 2.
+        // Instead of defining 50+ individual action mappings in struts-encounter.xml,
+        // all requests to CaseManagementEntry2Action are routed through this central
+        // execute() method and dispatched manually based on the 'method' parameter.
+        // This preserves legacy URLs while adopting the new *2Action security model.
         if ("setUpMainEncounter".equals(method)) {
             return setUpMainEncounter();
         } else if ("isNoteEdited".equals(method)) {

@@ -259,11 +259,11 @@ See [smoke-test-results.md](./smoke-test-results.md) for detailed test results f
 ## Test Environment
 
 ### Development Environment
-- **Application Server**: Apache Tomcat 9.0.97
+- **Application Server**: Apache Tomcat 11.0
 - **Java Version**: 21
 - **Database**: MariaDB (Docker container)
 - **Application URL**: http://localhost:8080/oscar
-- **Framework**: Struts 2.x + Spring 5.3.39
+- **Framework**: Struts 7.1.1 + Spring 7.0.6
 
 ### Database Connection
 - **Host**: db (Docker service name)

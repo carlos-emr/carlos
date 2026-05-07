@@ -24,7 +24,7 @@ A comprehensive modern test framework has been successfully implemented for CARL
 - **Assertions**: AssertJ 3.24.2 for fluent assertions
 - **Mocking**: Mockito 5.x (Java 21 compatible)
 - **Database**: H2 in-memory database (MySQL mode)
-- **Spring**: Spring Test with Spring 5.3.39
+- **Spring**: Spring Test with Spring 7.0.6
 - **Transactions**: Full transaction support with rollback
 
 ### Design Principles
@@ -383,7 +383,7 @@ From actual test execution:
 - ✅ Manager unit test patterns proven with 117-test DemographicManagerUnitTest
 - ✅ Domain-specific base classes demonstrated (DemographicUnitTestBase, TicklerUnitTestBase)
 
-## Required Configurations for OpenO
+## Required Configurations for CARLOS
 
 ### SpringUtils Configuration
 
@@ -564,7 +564,7 @@ New tests should be written in `src/test-modern/` using JUnit 5 and the establis
 
 - [JUnit 5 User Guide](https://junit.org/junit5/docs/current/user-guide/)
 - [AssertJ Documentation](https://assertj.github.io/doc/)
-- [Spring Test Documentation](https://docs.spring.io/spring-framework/docs/5.3.x/reference/html/testing.html)
+- [Spring Test Documentation](https://docs.spring.io/spring-framework/reference/testing.html)
 - [H2 Database Documentation](https://www.h2database.com/html/main.html)
 
 ---

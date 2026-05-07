@@ -883,7 +883,7 @@ This script executes today because `evalScripts: true` is set on the `Ajax.Updat
 
 **Prototype behavior**: Default `contentType` is `'application/x-www-form-urlencoded'` (prototype.js line 1005). Parameters are encoded as `key=value&key2=value2`.
 
-**Why it matters**: Server-side actions (Struts 2, servlets) expect `application/x-www-form-urlencoded` for POST body parsing via `request.getParameter()`. If Content-Type changes, parameters will be invisible to the server.
+**Why it matters**: Server-side actions (Struts 7.1.1, servlets) expect `application/x-www-form-urlencoded` for POST body parsing via `request.getParameter()`. If Content-Type changes, parameters will be invisible to the server.
 
 **Migration rule**: When sending POST data with `fetch()`, use:
 ```javascript

@@ -42,32 +42,116 @@ import java.util.List;
 import java.util.Set;
 
 
+/**
+ * Core interface for the Rx (Prescription) Manager.
+ * Handles the business logic for creating, modifying, discontinuing, and retrieving
+ * drug records and prescription histories for a patient. Extends beyond {@link PrescriptionManager}
+ * by including favorites management, textual instruction lookup, and specific drug state changes
+ * (archiving, discontinuing).
+ */
 public interface RxManager {
 
-    //public static class PrescriptionDrugs{};
+    /**
+     * Retrieves a list of drugs for a patient based on a string status (e.g., 'current', 'archived', 'all').
+     * @param info Security context of the logged-in user.
+     * @param demographicNo The patient's demographic ID.
+     * @param status The string representation of the drug status.
+     * @return List of matching Drug entities.
+     * @throws UnsupportedOperationException if the status is invalid or not implemented.
+     */
     public List<Drug> getDrugs(LoggedInInfo info, int demographicNo, String status)
             throws UnsupportedOperationException;
 
+    /**
+     * Retrieves a list of drugs for a patient based on the structured {@link RxStatus} enum.
+     * @param info Security context.
+     * @param demographicNo The patient's demographic ID.
+     * @param status The structured enum representation of the drug status.
+     * @return List of matching Drug entities.
+     */
     public List<Drug> getDrugs(LoggedInInfo info, int demographicNo, RxStatus status);
 
+    /**
+     * Retrieves current active medications for a patient, formatted as single-line summary strings.
+     * Used primarily for quick display in charting grids or headers.
+     * @param loggedInInfo Security context.
+     * @param demographicNo The patient's demographic ID.
+     * @return List of medication summary strings.
+     */
     public List<String> getCurrentSingleLineMedications(LoggedInInfo loggedInInfo, int demographicNo);
 
+    /**
+     * Retrieves a specific drug by its unique ID.
+     * @param info Security context.
+     * @param drugId The drug ID.
+     * @return The requested Drug entity.
+     * @throws UnsupportedOperationException if retrieval fails or access is denied.
+     */
     public Drug getDrug(LoggedInInfo info, int drugId) throws UnsupportedOperationException;
 
+    /**
+     * Adds a new drug record to the system (typically not tied to a printed prescription yet).
+     * @param info Security context.
+     * @param d The new Drug entity to persist.
+     * @return The persisted Drug entity.
+     */
     public Drug addDrug(LoggedInInfo info, Drug d);
 
+    /**
+     * Updates an existing drug record.
+     * @param info Security context.
+     * @param d The Drug entity with updated fields.
+     * @return The updated Drug entity.
+     */
     public Drug updateDrug(LoggedInInfo info, Drug d);
 
+    /**
+     * Discontinues an active drug, usually recording a reason and moving its status to archived.
+     * @param info Security context.
+     * @param drugId The ID of the drug to discontinue.
+     * @param demographicId The patient's demographic ID (for verification).
+     * @param reason Textual reason for discontinuation.
+     * @return True if successfully discontinued.
+     */
     public boolean discontinue(LoggedInInfo info, int drugId, int demographicId, String reason);
 
+    /**
+     * The main prescription action: groups a list of drugs under a new Prescription event.
+     * @param info Security context.
+     * @param drugs The list of drugs being prescribed.
+     * @param demoNo The patient's demographic ID.
+     * @return A {@link PrescriptionDrugs} wrapper containing the new Prescription and linked drugs.
+     */
     public RxManagerImpl.PrescriptionDrugs prescribe(LoggedInInfo info, List<Drug> drugs, Integer demoNo);
 
+    /**
+     * Retrieves the history or lineage of a specific drug (e.g., previous dosages or refills).
+     * @param id The origin drug ID.
+     * @param info Security context.
+     * @param demographicNo The patient's demographic ID.
+     * @return List of historical Drug entities related to the origin drug.
+     */
     public List<Drug> getHistory(Integer id, LoggedInInfo info, Integer demographicNo);
 
+    /**
+     * Retrieves the provider's list of favorite or commonly prescribed medications.
+     * @param pid The provider ID.
+     * @return List of Favorite entities.
+     */
     public List<Favorite> getFavorites(String pid);
 
+    /**
+     * Adds a drug to the provider's list of favorites.
+     * @param f The Favorite entity to add.
+     * @return True if successfully added.
+     */
     public Boolean addFavorite(Favorite f);
 
+    /**
+     * Autocomplete helper: retrieves stored prescription instructions matching a partial string.
+     * @param str The partial string (e.g., 'Take 1').
+     * @return Set of matching instruction strings.
+     */
     Set<String> getStoredInstructionsMatching(String str);
 
     /**

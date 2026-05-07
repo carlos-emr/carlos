@@ -269,16 +269,12 @@ public class BillingReProcessBill2Action extends ActionSupport {
             String persistedBillType = this.getPersistedBillType(billingmasterNo);
             if (persistedBillType != null) {
                 if (!persistedBillType.equals(billingStatus)) {
-                    //if the bill status was changed to "Bill Patient
-                    //And the persisted bill status is anything but private
+                    // Context: If a bill is changed from MSP to "Bill Patient" (Private), 
+                    // we must adjust the fee code. In BC billing, private fee codes are conventionally 
+                    // represented by prepending 'A' to the standard MSP service code (e.g., 00100 -> A00100).
+                    // This fetches the associated private fee amount to update the bill.
                     if (MSPReconcile.BILLPATIENT.equals(billingStatus) &&
                             !MSPReconcile.PAIDPRIVATE.equals(persistedBillType)) {
-                        //get the correct the Private code representation
-                        //and correct code amount if applicable
-                        //yes, this is lame. Private codes are simply the standard msp
-                        //code with the letter 'A' prepended. The current db design should really
-                        //have a 'fees' associative table
-                        //get the private fee data if it exists
                         String[] privateCodeRecord = getServiceCodePrice(billingServiceCode, true);
                         if (privateCodeRecord != null && privateCodeRecord.length == 1) {
                             billingServiceCode = "A" + billingServiceCode;

@@ -165,7 +165,7 @@ All screenshots successfully captured with proper fonts rendering:
 
 ### Environment
 - **Application**: CARLOS EMR (Development)
-- **Server**: Apache Tomcat 9.0.97
+- **Server**: Apache Tomcat 11.0
 - **Java**: 21
 - **Database**: MariaDB (Docker container "db")
 - **Browser**: Chromium (headless mode via Playwright)

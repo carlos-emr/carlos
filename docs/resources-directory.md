@@ -1,8 +1,8 @@
-# OpenO Resources Directory Overview
+# CARLOS Resources Directory Overview
 
 ## What is src/main/resources?
 
-The `src/main/resources` directory is a critical component of the OpenO application that contains all non-Java resources required for the application to function. In a Maven project structure, this directory holds files that need to be available on the classpath at runtime but are not Java source code.
+The `src/main/resources` directory is a critical component of the CARLOS application that contains all non-Java resources required for the application to function. In a Maven project structure, this directory holds files that need to be available on the classpath at runtime but are not Java source code.
 
 ## Purpose and Importance
 

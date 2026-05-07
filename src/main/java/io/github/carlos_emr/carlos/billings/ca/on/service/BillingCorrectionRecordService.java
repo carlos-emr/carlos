@@ -232,6 +232,10 @@ public class BillingCorrectionRecordService {
         if (payProgram == null) {
             payProgram = requestData.getParameter("payProgram");
         }
+        // Context: `BillingONExt` records serve as key-value pairs for extended third-party 
+        // billing metadata (e.g., discounts, refunds). If a claim is reverted from third-party 
+        // back to provincial (HCP/RMB/WCB), we must explicitly set these keys to inactive 
+        // to prevent legacy reporting artifacts.
         if ("thirdParty".equals(requestData.getParameter("oldStatus"))
                 && ("HCP".equals(payProgram) || "RMB".equals(payProgram) || "WCB"
                 .equals(payProgram))) {

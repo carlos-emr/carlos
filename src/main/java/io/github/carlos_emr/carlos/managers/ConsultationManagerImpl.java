@@ -282,6 +282,11 @@ public class ConsultationManagerImpl implements ConsultationManager {
         if (request.getId() == null) { //new consultation request
             checkPrivilege(loggedInInfo, SecurityInfoManager.WRITE);
 
+            // Context: Hibernate cascading issue workaround. The ConsultationRequest has a ManyToOne 
+            // relationship with ProfessionalSpecialist. If we persist the request with a detached 
+            // specialist entity, Hibernate may attempt to cascade-persist the specialist and fail.
+            // We temporarily nullify the relationship, persist the base request to generate an ID,
+            // then reattach the specialist and merge the request to update the foreign key.
             ProfessionalSpecialist specialist = request.getProfessionalSpecialist();
             request.setProfessionalSpecialist(null);
             consultationRequestDao.persist(request);

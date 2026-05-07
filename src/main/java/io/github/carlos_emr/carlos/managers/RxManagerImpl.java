@@ -261,6 +261,11 @@ public class RxManagerImpl implements RxManager {
             return null;
         }
 
+        // Context: To maintain a strict audit trail of prescription changes, we never modify existing
+        // Drug entities directly. Instead, we persist the modified state as a new Drug entity and 
+        // "archive" the old version. The archived version retains its original state, while the new 
+        // version carries forward the clinical intent. This ensures historical integrity of the patient's chart.
+        
         // Attempt to add the new drug first, if this fails
         // the don't try to update the old drug to archived.
 
@@ -278,7 +283,7 @@ public class RxManagerImpl implements RxManager {
         //  for archived_reason so that the database
         //  is remains in a state that is usable
         //  by the legacy (Rx2) UI.
-        // TODO: Rework legacy Rx UI to use a new field called "updated"
+        //  TODO: Rework legacy Rx UI to use a new field called "updated"
         old.setArchivedReason(Drug.REPRESCRIBED);
 
         // Push changes on old drug into database.

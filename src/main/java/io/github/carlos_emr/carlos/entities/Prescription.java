@@ -30,16 +30,11 @@
 package io.github.carlos_emr.carlos.entities;
 
 /**
- * SELECT *
- * FROM `prescription`
- * where demographic_no = 1;
- * <p>Title: </p>
- * <p>Description: </p>
- * <p>Copyright: Copyright (c) 2004</p>
- * <p>Company: </p>
- *
- * @author not attributable
- * @version 1.0
+ * Data Transfer Object (DTO) representing the header-level information of a prescription.
+ * This class tracks the overall prescription event, tying a specific provider to a patient
+ * demographic, along with audit trails for when it was originally prescribed, printed, and reprinted.
+ * <p>
+ * The actual medications prescribed during this event are tracked separately (e.g., via Drug entities).
  */
 public class Prescription {
     private String scriptNo;

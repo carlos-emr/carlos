@@ -38,6 +38,13 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS00;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * JPA Data Access Object for BC Teleplan S00 records.
+ * <p>
+ * The S00 record in Teleplan represents an active billing claim transaction.
+ * This DAO provides methods to query these records by control numbers, 
+ * office numbers, and specific error or status indicators (e.g., 'BG' flags).
+ */
 @Repository
 public class TeleplanS00Dao extends AbstractDaoImpl<TeleplanS00> {
 
@@ -51,6 +58,10 @@ public class TeleplanS00Dao extends AbstractDaoImpl<TeleplanS00> {
         return query.getResultList();
     }
 
+    /**
+     * Finds S00 records by their MSP control number, which uniquely identifies
+     * a specific billing submission to the province.
+     */
     @SuppressWarnings("unchecked")
     public List<TeleplanS00> findByBillingNo(String mspCtlNo) {
         Query q = createQuery("t", "t.mspCtlNo = :no");
@@ -75,15 +86,24 @@ public class TeleplanS00Dao extends AbstractDaoImpl<TeleplanS00> {
         return q.getResultList();
     }
 
+    /**
+     * Finds records that have triggered a 'BG' (Background) error or exception flag 
+     * across any of the 7 Teleplan explanatory code fields.
+     */
     @SuppressWarnings("unchecked")
     public List<TeleplanS00> findBgs() {
+        // Teleplan allows up to 7 explanatory codes per transaction; check all of them for 'BG'
         Query q = createQuery("t", "t.exp1 = :s OR t.exp2 = :s OR t.exp3 = :s OR t.exp4 = :s OR t.exp5 = :s OR t.exp6 = :s OR t.exp7 = :s");
         q.setParameter("s", "BG");
         return q.getResultList();
     }
 
+    /**
+     * Queries for practitioners linked to a specific Teleplan S21 (Provider Context) ID.
+     */
     @SuppressWarnings("unchecked")
     public List<Object[]> search_taprovider(Integer s21Id) {
+        // Joins with the Provider table using the OhipNo field (often dual-purposed for provincial billing numbers)
         Query q = entityManager.createQuery("select r.practitionerNo, p.LastName,p.FirstName from TeleplanS00 r, Provider p where p.OhipNo=r.practitionerNo and r.s21Id=?1 group by r.practitionerNo");
         q.setParameter(1, s21Id);
         return q.getResultList();

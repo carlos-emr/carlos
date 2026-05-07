@@ -702,6 +702,8 @@ public final class BillingCreateBillingForm {
     public void setServiceCodeAssociation(ServiceCodeAssociation assoc) {
         this.xml_other1 = assoc.getServiceCode();
         List dxcodes = assoc.getDxCodes();
+        // Context: The legacy billing form UI and underlying schema only support a maximum 
+        // of 3 diagnostic codes per service encounter. We map the first 3 codes and discard any extras.
         for (int i = 0; i < dxcodes.size(); i++) {
             if (i == 0) {
                 this.xml_diagnostic_detail1 = (String) dxcodes.get(i);

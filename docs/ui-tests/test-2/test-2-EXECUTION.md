@@ -198,7 +198,7 @@ If record exists, the save was successful despite any browser timeout.
 **Screenshot**: `test-2-12-contact-section.png`
 **Expected**:
 - Phone: 416-555-0001
-- Email: test2@openoemr.test
+- Email: test2@carlos-emr.test
 - Address: 123 Test Street, Toronto, ON
 
 ---
@@ -223,7 +223,7 @@ If record exists, the save was successful despite any browser timeout.
 **Action**:
 1. Find Email field
 2. Clear current value
-3. Enter: `updated@openoemr.test`
+3. Enter: `updated@carlos-emr.test`
 
 **Screenshot**: `test-2-15-edit-email.png`
 **Expected**: Email field shows new value
@@ -266,7 +266,7 @@ If record exists, the save was successful despite any browser timeout.
 #### Step 20: Verify Email Update
 **Action**: View contact section for email
 **Screenshot**: `test-2-20-verify-email.png`
-**Expected**: Email shows `updated@openoemr.test`
+**Expected**: Email shows `updated@carlos-emr.test`
 
 #### Step 21: Verify Address Update
 **Action**: View address section
@@ -374,7 +374,7 @@ WHERE last_name = 'TEST-UITEST2';"
 Expected:
 - patient_status = 'IN' (Inactive)
 - phone = '416-555-9999'
-- email = 'updated@openoemr.test'
+- email = 'updated@carlos-emr.test'
 - address = '456 Updated Avenue'
 - city = 'Ottawa'
 

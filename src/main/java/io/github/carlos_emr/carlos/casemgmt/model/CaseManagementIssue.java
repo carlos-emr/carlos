@@ -45,6 +45,12 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.model.security.Secrole;
 
+/**
+ * Represents an issue or problem associated with a specific patient (demographic)
+ * within the Case Management module. This acts as a link between a patient
+ * and a standardized clinical issue, tracking its status (e.g., acute, major, resolved)
+ * and managing programmatic access controls.
+ */
 public class CaseManagementIssue extends BaseObject {
 
     private ProgramProviderDAO programProviderDao = (ProgramProviderDAO) SpringUtils.getBean(ProgramProviderDAO.class);
@@ -93,12 +99,18 @@ public class CaseManagementIssue extends BaseObject {
         return this.hashCode;
     }
 
+    /**
+     * Default constructor. Initializes the update date to the current time.
+     */
     public CaseManagementIssue() {
         update_date = new Date();
     }
 
-    /*
-     * Copy constructor performs copy
+    /**
+     * Copy constructor. Creates a new instance with the same properties as the
+     * provided issue, but resets the ID to 0 (indicating it's not yet persisted).
+     *
+     * @param cMgmtIssue the CaseManagementIssue to copy from
      */
     public CaseManagementIssue(CaseManagementIssue cMgmtIssue) {
 
@@ -227,11 +239,23 @@ public class CaseManagementIssue extends BaseObject {
         this.program_id = program_id;
     }
 
+    /**
+     * Checks if a given provider has write access to this issue within the context
+     * of a specific program.
+     *
+     * @param providerNo the provider's identifier
+     * @param programId  the ID of the program context
+     * @return true if the provider has write access, false otherwise
+     */
     public boolean isWriteAccess(String providerNo, int programId) {
         Boolean result = calculateWriteAccess(providerNo, programId);
         return (result);
     }
 
+    /**
+     * Internal logic to calculate write access based on the provider's roles,
+     * program-specific access configurations, and global role permissions.
+     */
     private boolean calculateWriteAccess(String providerNo, int programId) {
         List<ProgramProvider> ppList = programProviderDao.getProgramProviderByProviderProgramId(providerNo, Long.valueOf(programId));
         if (ppList == null || ppList.isEmpty()) {

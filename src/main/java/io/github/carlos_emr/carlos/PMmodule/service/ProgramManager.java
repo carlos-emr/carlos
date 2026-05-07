@@ -39,6 +39,14 @@ import io.github.carlos_emr.carlos.util.LabelValueBean;
 
 import java.util.List;
 
+/**
+ * Core service interface for configuring and managing Programs within the PM Module.
+ * A Program represents a distinct clinical service, community initiative, or specialized
+ * care unit (e.g., "Diabetes Clinic", "Community Outreach").
+ * <p>
+ * This manager handles the CRUD operations for Programs, links providers to programs,
+ * manages program-specific teams, and configures access control/signatures for each program.
+ */
 public interface ProgramManager {
 
     boolean getEnabled();
@@ -71,12 +79,22 @@ public interface ProgramManager {
 
     Program getProgram(Long programId);
 
+    /**
+     * Retrieves active programs associated with a specific provider and facility.
+     * @param providerNo The provider's ID.
+     * @param facilityId The facility ID.
+     * @return List of active Program entities.
+     */
     List<Program> getActiveProgramByFacility(String providerNo, Integer facilityId);
 
     String getProgramName(String programId);
 
     Integer getProgramIdByProgramName(String programName);
 
+    /**
+     * Retrieves all programs in the system regardless of status.
+     * @return List of Program entities.
+     */
     List<Program> getAllPrograms();
 
     List<Program> getAllPrograms(String programStatus, String type, int facilityId);
@@ -97,6 +115,10 @@ public interface ProgramManager {
 
     boolean isCommunityProgram(String programId);
 
+    /**
+     * Creates or updates a Program record.
+     * @param program The Program entity to persist.
+     */
     void saveProgram(Program program);
 
     void removeProgram(String programId);

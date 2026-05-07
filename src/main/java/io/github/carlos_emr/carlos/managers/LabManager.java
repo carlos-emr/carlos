@@ -40,12 +40,51 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 
 
+/**
+ * Core service interface for managing laboratory results in the EMR.
+ * Provides capabilities to retrieve parsed HL7 lab messages for a specific patient,
+ * fetch metadata/summaries, and generate PDF renderings of lab reports.
+ */
 public interface LabManager {
+
+    /**
+     * Retrieves a paginated list of full HL7 text messages (lab reports) for a specific patient.
+     * 
+     * @param loggedInInfo Security context of the logged-in user.
+     * @param demographicNo The patient's demographic ID.
+     * @param offset The starting index for pagination.
+     * @param limit The maximum number of records to return.
+     * @return List of {@link Hl7TextMessage} representing parsed lab reports.
+     */
     public List<Hl7TextMessage> getHl7Messages(LoggedInInfo loggedInInfo, Integer demographicNo, int offset, int limit);
 
+    /**
+     * Retrieves lightweight summary/metadata records for all lab reports tied to a patient.
+     * Useful for building list views without loading full message bodies.
+     * 
+     * @param loggedInInfo Security context.
+     * @param demographicNo The patient's demographic ID.
+     * @return List of {@link Hl7TextInfo} summaries.
+     */
     public List<Hl7TextInfo> getHl7TextInfo(LoggedInInfo loggedInInfo, int demographicNo);
 
+    /**
+     * Retrieves a specific HL7 lab message by its unique ID.
+     * 
+     * @param loggedInInfo Security context.
+     * @param labId The unique identifier of the lab message.
+     * @return The requested {@link Hl7TextMessage}.
+     */
     public Hl7TextMessage getHl7Message(LoggedInInfo loggedInInfo, int labId);
 
+    /**
+     * Renders a specific lab report segment into a printable PDF file.
+     * Typically used for printing or downloading official lab results.
+     * 
+     * @param loggedInInfo Security context.
+     * @param segmentId The ID of the specific lab segment to render.
+     * @return A {@link Path} pointing to the generated PDF file in the temporary directory.
+     * @throws PDFGenerationException if the PDF engine fails to construct the document.
+     */
     public Path renderLab(LoggedInInfo loggedInInfo, Integer segmentId) throws PDFGenerationException;
 }

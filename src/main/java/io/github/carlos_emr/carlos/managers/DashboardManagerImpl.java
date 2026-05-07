@@ -302,6 +302,9 @@ public class DashboardManagerImpl implements DashboardManager {
 
             // check Drilldown query
 
+            // Context: Dashboards allow administrators to upload custom SQL queries via XML definitions.
+            // Before parsing the XML into a JPA entity, we must validate the XML structure against the
+            // expected indicator template schema to prevent malformed queries or injection attempts.
             if (templateHandler.isValidXML()) {
                 indicatorTemplate = templateHandler.getIndicatorTemplateEntity();
             } else {

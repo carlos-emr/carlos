@@ -40,11 +40,23 @@ import java.util.Hashtable;
 import java.util.List;
 import java.util.Vector;
 
+/**
+ * Service implementation for looking up drugs against the internal or external drug reference database (RxDrugRef).
+ * This manager provides methods to search for drugs by name, retrieve detailed drug information
+ * including components and generic names, and handle legacy XML-RPC conversions from DrugRef.
+ */
 @Service
 public class DrugLookUpManager implements DrugLookUp {
 
     private static Logger logger = MiscUtils.getLogger();
 
+    /**
+     * Performs a standard search for drugs by a partial name or query string.
+     * Maps the legacy DrugRef Hashtable output into structured {@link DrugSearchTo1} DTOs.
+     * 
+     * @param s The search string (e.g., partial brand or generic name).
+     * @return List of matching drug DTOs.
+     */
     public List<DrugSearchTo1> search(String s) {
 
         RxDrugRef dr = new RxDrugRef();
@@ -84,6 +96,13 @@ public class DrugLookUpManager implements DrugLookUp {
 
     }
 
+    /**
+     * Performs a full, potentially less-filtered search for drugs by a partial name.
+     * Useful for comprehensive drug lookups.
+     * 
+     * @param s The search string.
+     * @return List of matching drug DTOs.
+     */
     public List<DrugSearchTo1> fullSearch(String s) {
 
         RxDrugRef dr = new RxDrugRef();
@@ -125,6 +144,12 @@ public class DrugLookUpManager implements DrugLookUp {
 
     }
 
+    /**
+     * Searches for drugs based specifically on active ingredients or element names.
+     * 
+     * @param s The active ingredient or element name to search for.
+     * @return List of brand drugs containing that element.
+     */
     @Override
     public List<DrugSearchTo1> searchByElement(String s) {
         RxDrugRef dr = new RxDrugRef();
@@ -166,7 +191,14 @@ public class DrugLookUpManager implements DrugLookUp {
 
     }
 
-
+    /**
+     * Retrieves detailed information about a specific drug, including its ATC code, form,
+     * generic name, and chemical components/strengths.
+     * 
+     * @param id The drug identifier from DrugRef.
+     * @return A populated {@link DrugSearchTo1} containing the details.
+     * @throws Exception if the lookup fails.
+     */
     public DrugSearchTo1 details(String id) throws Exception {
 
         RxDrugRef dr = new RxDrugRef();
@@ -185,6 +217,15 @@ public class DrugLookUpManager implements DrugLookUp {
 
     }
 
+    /**
+     * Internal helper to map the nested Hashtable structure from DrugRef into the DTO.
+     * Resolves edge cases where generic names are missing by falling back to active ingredients.
+     * 
+     * @param t The target DTO to populate.
+     * @param h The source Hashtable from DrugRef.
+     * @param id The drug identifier.
+     * @throws Exception if mapping fails.
+     */
     protected void extractAndPopulateDetails(DrugSearchTo1 t, Hashtable h, String id) throws Exception {
 
         RxDrugRef dr = new RxDrugRef();

@@ -27,7 +27,7 @@ The schema defines a guideline structure with the following components:
 
 ## Usage
 The schema is referenced in:
-- `org.oscarehr.decisionSupport.service.DSServiceMyDrugref.java` - Method `isValidGuidelineXml()`
+- `io.github.carlos_emr.carlos.decisionSupport.service.DSServiceMyDrugref.java` - Method `isValidGuidelineXml()`
 
 ## Example Guideline XML
 ```xml

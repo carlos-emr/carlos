@@ -82,6 +82,12 @@ import java.util.*;
 import java.util.regex.Pattern;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
+/**
+ * Struts2 Action handling the primary Case Management View.
+ * Responsible for rendering the patient's chart, including note history, issues (diagnoses),
+ * prescriptions, and ticklers. It manages complex filtering rules based on provider 
+ * programs, security roles, and user preferences.
+ */
 public class CaseManagementView2Action extends ActionSupport {
 
     HttpServletRequest request = ServletActionContext.getRequest();

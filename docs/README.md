@@ -68,7 +68,7 @@ Key testing resources:
 
 **CARLOS EMR** is a Canadian healthcare EMR system with:
 - Multi-jurisdictional compliance (BC, ON, generic)
-- Java 21, Spring 6.2.17, Struts 7.1.1, Hibernate 6.x, Maven 3, Tomcat 10.1, MariaDB/MySQL
+- Java 21, Spring 7.0.6, Struts 7.1.1, Hibernate 7.2.7, Maven 3, Tomcat 11.0, MariaDB/MySQL
 - HIPAA/PIPEDA compliance for PHI protection
 - Comprehensive medical modules (billing, prescriptions, labs, etc.)
 

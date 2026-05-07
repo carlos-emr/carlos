@@ -48,6 +48,14 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Vector;
 
+/**
+ * Singleton configuration loader for EForm Database Auto-Populate (AP) configurations.
+ * Parses the {@code apconfig.xml} mapping file to dynamically bind database queries to 
+ * HTML input fields (using the {@code oscarDB} attribute) within e-forms.
+ * <p>
+ * This system allows e-forms to pull real-time patient data (e.g., patient_name) 
+ * via configured SQL queries without hardcoding the queries in the JSP layer.
+ */
 public class EFormLoader {
 
     private static Logger logger = MiscUtils.getLogger();
@@ -57,7 +65,12 @@ public class EFormLoader {
     static private String marker = "oscarDB";
     static private String opener = "oscarOPEN";
 
-
+    /**
+     * Retrieves the singleton instance of the EFormLoader, initializing the XML 
+     * configuration parse on the first call.
+     * 
+     * @return The singleton EFormLoader instance.
+     */
     static public EFormLoader getInstance() {
         if (_instance == null) {
             _instance = new EFormLoader();
@@ -116,6 +129,18 @@ public class EFormLoader {
         return opener;
     }
 
+    /**
+     * Constructs a JavaScript window.open() string to launch a specific e-form.
+     * Handles the logic for determining whether to open a new, empty e-form (efmformadd_data)
+     * or a previously saved, populated e-form (efmshowform_data).
+     * 
+     * @param url The base URL for the e-form handler.
+     * @param fdid The Form Data ID (if opening a saved form).
+     * @param fname The symbolic name of the e-form.
+     * @param field Optional link field.
+     * @param efm The core EForm metadata context.
+     * @return A JavaScript string executing window.open(), or null/alert if invalid.
+     */
     public static String getOpenEform(String url, String fdid, String fname, String field, EForm efm) {
         String fid = EFormUtil.getEFormIdByName(fname);
         if (StringUtils.isBlank(fid)) return "alert('Eform does not exist [" + fname + "]');";
@@ -141,6 +166,12 @@ public class EFormLoader {
         return "window.open('" + url + link + "');";
     }
 
+    /**
+     * Retrieves the specific DatabaseAP (query binding) configuration for a given AP name.
+     * 
+     * @param apName The name of the AP binding (e.g., 'patient_name').
+     * @return The configured DatabaseAP, or null if not found.
+     */
     public static DatabaseAP getAP(String apName) {
         //returns he DatabaseAP corresponding to the ap name
         DatabaseAP curAP = null;
@@ -170,6 +201,11 @@ public class EFormLoader {
      *</eformap-config>
      *Call ap like so: <input type="text" oscarDB=patient_name size="20">*/
 
+    /**
+     * Parses the AP XML configuration file via JAXB, converting it into a loaded
+     * collection of {@link DatabaseAP} objects. Defaults to the internal {@code apconfig.xml}
+     * if an external file path is not specified in application properties.
+     */
     public static void parseXML() {
         try {
             Properties op = CarlosProperties.getInstance();

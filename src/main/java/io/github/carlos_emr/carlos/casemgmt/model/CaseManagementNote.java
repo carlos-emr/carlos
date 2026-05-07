@@ -45,6 +45,13 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 
 
+/**
+ * Core model representing a clinical encounter note within the Case Management system.
+ * A CaseManagementNote captures the provider's documentation of a patient visit,
+ * phone call, or administrative action. It can be linked to issues (diagnoses/problems),
+ * other system entities (documents, prescriptions, eForms), and tracks its audit
+ * trail (revisions, signing status, editors).
+ */
 public class CaseManagementNote extends BaseObject {
 
     private Long id;
@@ -92,6 +99,12 @@ public class CaseManagementNote extends BaseObject {
     private CaseManagementNoteLink cmnLink = null;
     private boolean cmnLinkRetrieved = false;
 
+    /**
+     * Converts the core attributes of this note into a Map.
+     * Useful for serialization, logging, or passing data to generic UI layers.
+     *
+     * @return a Map containing the note's properties keyed by their names.
+     */
     public Map<String, Object> getMap() {
         HashMap<String, Object> map = new HashMap<String, Object>();
 
@@ -153,6 +166,17 @@ public class CaseManagementNote extends BaseObject {
         update_date = new Date();
     }
 
+    /**
+     * Constructs a formatted string containing the note text and its associated issues.
+     * Often used for hashing, auditing, or generating a complete snapshot of the note
+     * at a point in time.
+     * 
+     * Context: This method is primarily used by the persistence layer (e.g., when saving 
+     * revisions) to compare the current state of a note with its previous state. 
+     * If the audit strings match, it skips creating a new revision entry.
+     *
+     * @return the formatted audit string
+     */
     public String getAuditString() {
         StringBuilder auditStr = new StringBuilder(getNote());
         Iterator<CaseManagementIssue> iter = issues.iterator();
@@ -467,6 +491,11 @@ public class CaseManagementNote extends BaseObject {
         this.archived = archived;
     }
 
+    /**
+     * Generates a human-readable status string indicating if the note is signed and/or locked.
+     *
+     * @return e.g., "Signed/Locked", "Signed", "Unsigned", "Unsigned/Locked"
+     */
     public String getStatus() {
         String status;
         if (isSigned()) {
@@ -504,22 +533,38 @@ public class CaseManagementNote extends BaseObject {
         this.facilityName = facilityName;
     }
 
+    /**
+     * Checks if this note is specifically an annotation linked to an uploaded document.
+     */
     public boolean isDocumentNote() {
         return isLinkTo(CaseManagementNoteLink.DOCUMENT);
     }
 
+    /**
+     * Checks if this note represents an email communication.
+     */
     public boolean isEmailNote() {
         return isLinkTo(CaseManagementNoteLink.EMAIL);
     }
 
+    /**
+     * Checks if this note is an annotation or reason linked to a drug prescription.
+     */
     public boolean isRxAnnotation() {
         return isLinkTo(CaseManagementNoteLink.DRUGS);
     }
 
+    /**
+     * Checks if this note is linked to submitted eForm data.
+     */
     public boolean isEformData() {
         return isLinkTo(CaseManagementNoteLink.EFORMDATA);
     }
 
+    /**
+     * Internal helper to determine if this note is linked to a specific subsystem table.
+     * Caches the retrieval of the note link to avoid repeated database hits.
+     */
     private boolean isLinkTo(Integer tableName) {
         if (!cmnLinkRetrieved) {
             cmnLink = caseManagementNoteLinkDao.getLastLinkByNote(this.id);

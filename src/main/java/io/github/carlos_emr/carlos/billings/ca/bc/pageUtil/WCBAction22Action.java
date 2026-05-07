@@ -110,6 +110,10 @@ public class WCBAction22Action extends ActionSupport {
             return "saveAndClose";
         }
 
+        // Context: The "Save and Bill" workflow. If the user chooses to bill immediately 
+        // after saving the WCB form, this block extracts the relevant clinical data 
+        // (ICD9, service date, fee items) and forwards it to the billing creation screen 
+        // to avoid duplicate data entry.
         if (request.getParameter("saveandbill") != null) {
             request.setAttribute("WCBFormId", wcb.getId());
             request.setAttribute("icd9", wcb.getW_icd9());

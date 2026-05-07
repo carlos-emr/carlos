@@ -169,7 +169,10 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
                 consent.setDemographicNo(demographic_no);
             }
 
-            // This is to ensure that the dates and user entry id are not being updated on EVERY post.
+            // Context: To maintain an accurate legal audit trail of patient consent, we only update 
+            // the consent/opt-out dates when the patient's actual decision changes (or on initial creation).
+            // Updating the date on every save (e.g. during a general chart update) would obscure the
+            // true date the patient granted or revoked consent.
             if (optOut != consent.isOptout() || consent.getId() == null) {
                 currentDate = new Date(System.currentTimeMillis());
                 consent.setOptout(optOut);

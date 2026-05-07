@@ -36,9 +36,27 @@ import io.github.carlos_emr.carlos.util.LabelValueBean;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * Encounter-specific Program Manager.
+ * Acts as a UI-friendly bridge between the core Program Management (PM) Module and 
+ * the Encounter (e-chart) interface. It is responsible for formatting program lists
+ * into LabelValueBeans for Struts/JSP rendering and managing provider-specific 
+ * encounter program defaults.
+ */
 public interface EctProgramManager {
+
+    /**
+     * Retrieves all programs formatted for UI dropdowns.
+     * @return List of LabelValueBeans containing program ID and names.
+     */
     List<LabelValueBean> getProgramBeans();
 
+    /**
+     * Retrieves active programs for a specific provider and facility.
+     * @param providerNo The provider's ID.
+     * @param facilityId The facility ID.
+     * @return List of formatted LabelValueBeans.
+     */
     List<LabelValueBean> getProgramBeans(String providerNo, Integer facilityId);
 
     List<LabelValueBean> getProgramBeansByFacilityId(Integer facilityId);
@@ -49,6 +67,11 @@ public interface EctProgramManager {
 
     int getDefaultProgramId();
 
+    /**
+     * Retrieves the default program ID the specified provider has selected for encounters.
+     * @param providerNo The provider's ID.
+     * @return The default program ID.
+     */
     int getDefaultProgramId(String providerNo);
 
     void setDefaultProgramId(String providerNo, int programId);

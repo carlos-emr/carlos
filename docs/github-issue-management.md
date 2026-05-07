@@ -2,7 +2,7 @@
 
 ## Issue Templates
 
-OpenO uses GitHub issue templates to standardize issue reporting and automatically set the issue Type field. Templates are located in `.github/ISSUE_TEMPLATE/`.
+CARLOS uses GitHub issue templates to standardize issue reporting and automatically set the issue Type field. Templates are located in `.github/ISSUE_TEMPLATE/`.
 
 ### Available Templates
 

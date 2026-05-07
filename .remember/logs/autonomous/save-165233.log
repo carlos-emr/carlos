@@ -1,0 +1,4 @@
+/home/michael/.claude/plugins/cache/claude-plugins-official/remember/0.1.0/scripts/save-session.sh: line 135: cd: /home/michael/.claude/plugins/cache/claude-plugins-official/.claude/remember: No such file or directory
+/home/michael/.claude/plugins/cache/claude-plugins-official/remember/0.1.0/scripts/save-session.sh: line 140: [: : integer expected
+/home/michael/.claude/plugins/cache/claude-plugins-official/remember/0.1.0/scripts/save-session.sh: line 142: [: : integer expected
+/home/michael/.claude/plugins/cache/claude-plugins-official/remember/0.1.0/scripts/save-session.sh: line 164: cd: /home/michael/.claude/plugins/cache/claude-plugins-official/.claude/remember: No such file or directory

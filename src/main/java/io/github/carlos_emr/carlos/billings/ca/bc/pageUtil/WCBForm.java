@@ -183,6 +183,9 @@ public final class WCBForm {
         return wcb;
     }
 
+    // Context: The legacy WCB form submission API requires all date fields to be populated.
+    // When a date is not provided by the user, we supply a sentinel value ("0001-01-01") 
+    // to satisfy the validation without triggering false positives for actual dates.
     String ddate(String s) {
         if (s == null) {
             return "0001-01-01";

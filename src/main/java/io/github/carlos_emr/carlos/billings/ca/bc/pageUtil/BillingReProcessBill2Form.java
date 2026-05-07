@@ -108,6 +108,9 @@ public final class BillingReProcessBill2Form {
     String adjAmount;
     private String adjType;
     
+    // Context: The following commented-out block appears to be a historical artifact 
+    // from the original Struts 1 implementation. It served as developer reference for 
+    // mapping the XML schema attributes to the JSP form inputs.
   /*
    
      //

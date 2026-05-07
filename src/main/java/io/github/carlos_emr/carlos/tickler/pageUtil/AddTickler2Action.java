@@ -47,6 +47,13 @@ import io.github.carlos_emr.carlos.tickler.TicklerData;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 Action for adding new ticklers.
+ * Handles the HTTP request to create one or more ticklers based on user input.
+ * Supports creating ticklers for multiple demographics simultaneously.
+ * 
+ * @author Jay Gallagher
+ */
 public class AddTickler2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -55,15 +62,27 @@ public class AddTickler2Action extends ActionSupport {
     private TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Default constructor.
+     */
     public AddTickler2Action() {
     }
 
+    /**
+     * Executes the action to add a new tickler.
+     * Validates user permissions, extracts tickler details from the request,
+     * applies defaults if necessary, and delegates creation to the TicklerManager.
+     *
+     * @return "close" upon successful execution to indicate the popup/window should be closed
+     */
     public String execute() {
+        // Verify the user has write access to the _tickler security object
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_tickler", "w", null)) {
             throw new RuntimeException("missing required sec object (_tickler)");
         }
 
-        String[] demos = request.getParameterValues("demo");
+        // Extract parameters from the HTTP request
+        String[] demos = request.getParameterValues("demo"); // Can create for multiple patients at once
         String message = request.getParameter("message");
         String status = request.getParameter("status");
         String service_date = request.getParameter("date");
@@ -71,6 +90,7 @@ public class AddTickler2Action extends ActionSupport {
         String priority = request.getParameter("priority");
         String task_assigned_to = request.getParameter("assignedTo");
 
+        // Apply default values for missing parameters
         if (status == null) {
             status = TicklerData.ACTIVE;
         }
@@ -84,6 +104,7 @@ public class AddTickler2Action extends ActionSupport {
             task_assigned_to = creator;
         }
 
+        // Map string status to the internal Enum representation
         Tickler.STATUS tStatus = Tickler.STATUS.A;
         if (status.equals(TicklerData.COMPLETED)) {
             tStatus = Tickler.STATUS.C;
@@ -92,6 +113,7 @@ public class AddTickler2Action extends ActionSupport {
             tStatus = Tickler.STATUS.D;
         }
 
+        // Map string priority to the internal Enum representation
         Tickler.PRIORITY tPriority = Tickler.PRIORITY.Normal;
         if (priority.equals(TicklerData.HIGH)) {
             tPriority = Tickler.PRIORITY.High;
@@ -100,12 +122,14 @@ public class AddTickler2Action extends ActionSupport {
             tPriority = Tickler.PRIORITY.Low;
         }
 
+        // Create a tickler for each provided demographic number
         if (demos != null) {
             for (int i = 0; i < demos.length; i++) {
-
                 ticklerManager.addTickler(demos[i], message, tStatus, service_date, creator, tPriority, task_assigned_to);
             }
         }
+        
+        // Return "close" result to trigger UI closing logic
         return "close";
     }
 }
