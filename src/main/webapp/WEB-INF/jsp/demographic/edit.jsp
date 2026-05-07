@@ -960,8 +960,8 @@
                             jQuery('#residentialCountry').append(jQuery('<option>').text(value.label).attr('value', value.value));
                         });
 
-                        var demoProvince = '<carlos:encode value='<%=demographic.getProvince();%>' context="javaScriptBlock"/>';
-                        var resiProvince = '<carlos:encode value='<%=demographic.getResidentialProvince();%>' context="javaScriptBlock"/>';
+                        var demoProvince = '<carlos:encode value='<%=demographic.getProvince()%>' context="javaScriptBlock"/>';
+                        var resiProvince = '<carlos:encode value='<%=demographic.getResidentialProvince()%>' context="javaScriptBlock"/>';
                         
                         var defaultProvince = '<carlos:encode value='<%= CarlosProperties.getInstance().getProperty("demographic.default_province","") %>' context="javaScriptBlock"/>';
                         // override defaultProvince with actual stored demographic's province if present
@@ -973,14 +973,15 @@
                         jQuery("#country").val(defaultCountry);
                         updateProvinces(defaultProvince);
 
-                        if (resiProvince.length > 0) { defaultProvince = resiProvince; }
-                        // override defaultProvince with actual stored demographic's residential province if present
-                        if (defaultProvince.indexOf('-') < 0) {
-                            defaultProvince = 'CA-ON';
+                        // initialize residential province separately to avoid overwriting demo values
+                        var defaultResiProvince = '<carlos:encode value='<%= CarlosProperties.getInstance().getProperty("demographic.default_province","") %>' context="javaScriptBlock"/>';
+                        if (resiProvince.length > 0) { defaultResiProvince = resiProvince; }
+                        if (defaultResiProvince.indexOf('-') < 0) {
+                            defaultResiProvince = 'CA-ON';
                         }
-                        defaultCountry = defaultProvince.split('-')[0];
-                        jQuery("#residentialCountry").val(defaultCountry);
-                        updateResidentialProvinces(defaultProvince);
+                        var resiCountry = defaultResiProvince.split('-')[0];
+                        jQuery("#residentialCountry").val(resiCountry);
+                        updateResidentialProvinces(defaultResiProvince);
                     }
                 });
             });
@@ -991,8 +992,9 @@
             function updateProvinces(province) {
                 var country = jQuery("#country").val();
                 if(country == '') {
-                  console.log('empty country');
-                return;
+                    console.log('empty country');
+                    return;
+                }
                 jQuery.ajax({
                     type: "POST",
                     url: '<%=request.getContextPath()%>/demographicSupport',
@@ -1014,8 +1016,9 @@
             function updateResidentialProvinces(province) {
                 var country = jQuery("#residentialCountry").val();
                 if(country == '') {
-                  console.log('empty residential country');
-                return;
+                    console.log('empty residential country');
+                    return;
+                }
                 jQuery.ajax({
                     type: "POST",
                     url: '<%=request.getContextPath()%>/demographicSupport',
