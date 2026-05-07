@@ -936,7 +936,7 @@
             <%
             if("true".equals(oscarProps.getProperty("iso3166.2.enabled"))) {
             %>
-<script>
+        <script>
             jQuery(document).ready(function () {
 
                 jQuery("#country").on('change', function () {
@@ -954,50 +954,45 @@
                     dataType: 'json',
                     success: function (data) {
                         jQuery('#country').append(jQuery('<option>').text('').attr('value', ''));
-                        jQuery.each(data, function (i, value) {
-                            jQuery('#country').append(jQuery('<option>').text(value.label).attr('value', value.value));
-                        });
-
-                        var defaultProvince = '<%=org.owasp.encoder.Encode.forJavaScript(CarlosProperties.getInstance().getProperty("demographic.default_province",""))%>';
-                        var defaultCountry = '';
-
-                        if (defaultProvince == '' && defaultCountry == '') {
-                            defaultProvince = 'CA-ON';
-                        }
-                        defaultCountry = defaultProvince.substring(0, defaultProvince.indexOf('-'));
-
-                        jQuery("#country").val(defaultCountry);
-                        updateProvinces(defaultProvince);
-                    }
-                });
-
-                jQuery.ajax({
-                    type: "POST",
-                    url: '<%=request.getContextPath()%>/demographicSupport',
-                    data: 'method=getCountryAndProvinceCodes',
-                    dataType: 'json',
-                    success: function (data) {
                         jQuery('#residentialCountry').append(jQuery('<option>').text('').attr('value', ''));
                         jQuery.each(data, function (i, value) {
+                            jQuery('#country').append(jQuery('<option>').text(value.label).attr('value', value.value));
                             jQuery('#residentialCountry').append(jQuery('<option>').text(value.label).attr('value', value.value));
                         });
 
-                        var defaultProvince = '<%=org.owasp.encoder.Encode.forJavaScript(CarlosProperties.getInstance().getProperty("demographic.default_province",""))%>';
-                        var defaultCountry = '';
+                        var demoProvince = '<carlos:encode value='<%=demographic.getProvince();%>' context="javaScriptBlock"/>';
+                        var resiProvince = '<carlos:encode value='<%=demographic.getResidentialProvince();%>' context="javaScriptBlock"/>';
+                        
+                        var defaultProvince = '<carlos:encode value='<%= CarlosProperties.getInstance().getProperty("demographic.default_province","") %>' context="javaScriptBlock"/>';
+                        // override defaultProvince with actual stored demographic's province if present
+                        if (demoProvince.length > 0) { defaultProvince = demoProvince; }
+                        if (defaultProvince.indexOf('-') < 0) {
+                            defaultProvince = 'CA-ON';
+                        } 
+                        var defaultCountry = defaultProvince.split('-')[0];
+                        jQuery("#country").val(defaultCountry);
+                        updateProvinces(defaultProvince);
 
-                        if (defaultProvince == '' && defaultCountry == '') {
+                        if (resiProvince.length > 0) { defaultProvince = resiProvince; }
+                        // override defaultProvince with actual stored demographic's residential province if present
+                        if (defaultProvince.indexOf('-') < 0) {
                             defaultProvince = 'CA-ON';
                         }
-                        defaultCountry = defaultProvince.substring(0, defaultProvince.indexOf('-'));
-
+                        defaultCountry = defaultProvince.split('-')[0];
                         jQuery("#residentialCountry").val(defaultCountry);
                         updateResidentialProvinces(defaultProvince);
                     }
                 });
             });
 
+        </script>
+        <% } %>
+        <script>
             function updateProvinces(province) {
                 var country = jQuery("#country").val();
+                if(country == '') {
+                  console.log('empty country');
+                return;
                 jQuery.ajax({
                     type: "POST",
                     url: '<%=request.getContextPath()%>/demographicSupport',
@@ -1018,6 +1013,9 @@
 
             function updateResidentialProvinces(province) {
                 var country = jQuery("#residentialCountry").val();
+                if(country == '') {
+                  console.log('empty residential country');
+                return;
                 jQuery.ajax({
                     type: "POST",
                     url: '<%=request.getContextPath()%>/demographicSupport',
@@ -1036,7 +1034,6 @@
                 });
             }
         </script>
-        <% } %>
         <style>
             /* for the search buttons at the top of the page
 			this should be removed if the page is updated to bootstrap
