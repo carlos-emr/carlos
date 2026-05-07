@@ -643,11 +643,11 @@
                     <tr>
 
                         <td colspan="4" style="text-align:center; background-color:silver">
-                            <input type="submit" name="button" value="<carlos:encode value='${msgBtnBackToEdit}' context='htmlAttribute'/>" class="btn btn-secondary" style="width: 120px;"/>
+                            <input type="submit" name="button" value="<carlos:encode value='${msgBtnBackToEdit}' context='htmlAttribute'/>" class="btn btn-secondary" />
                             <c:choose>
                                 <c:when test="${reviewModel.codeValid and not reviewModel.dupServiceCode and not reviewModel.totalsParseFailed}">
                                     <input type="submit" name="submit" value="<carlos:encode value='${msgBtnSave}' context='htmlAttribute'/>" class="btn btn-primary"
-                                           style="width: 120px;" onClick="onClickSave();"/>
+                                           onClick="onClickSave();"/>
                                     <input type="submit" name="submit" value="<carlos:encode value='${msgBtnSaveAndAdd}' context='htmlAttribute'/>" class="btn btn-secondary"
                                            onClick="onClickSave();"/>
                                 </c:when>
