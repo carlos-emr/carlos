@@ -17,6 +17,12 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import java.util.Properties;
 import java.util.Vector;
+/**
+ * Represents the Gst Report class.
+ *
+ * @since 2026-05-05
+ */
+
 
 public class GstReport {
 

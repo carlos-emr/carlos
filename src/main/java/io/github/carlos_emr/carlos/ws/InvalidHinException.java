@@ -4,6 +4,12 @@ import jakarta.xml.bind.annotation.XmlType;
 import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
+/**
+ * Exception thrown to indicate an error related to Invalid Hin Exception.
+ *
+ * @since 2026-05-05
+ */
+
 
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "InvalidHinException")

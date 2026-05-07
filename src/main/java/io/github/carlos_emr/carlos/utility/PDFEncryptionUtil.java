@@ -8,6 +8,12 @@ import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.encryption.AccessPermission;
 import org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy;
+/**
+ * Utility class providing helper methods for PDF Encryption Util.
+ *
+ * @since 2026-05-05
+ */
+
 
 public class PDFEncryptionUtil {
     public static Path encryptPDF(Path pdfPath, String password) throws IOException {

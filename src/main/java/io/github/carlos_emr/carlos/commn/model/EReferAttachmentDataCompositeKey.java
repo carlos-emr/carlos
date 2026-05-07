@@ -5,6 +5,12 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import java.io.Serializable;
 import java.util.Objects;
+/**
+ * Represents the E Refer Attachment Data Composite Key class.
+ *
+ * @since 2026-05-05
+ */
+
 
 public class EReferAttachmentDataCompositeKey implements Serializable {
     @ManyToOne

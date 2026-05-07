@@ -4,6 +4,12 @@ import io.github.carlos_emr.carlos.commn.model.converter.EmailConfigProviderConv
 import io.github.carlos_emr.carlos.commn.model.converter.EmailConfigTypeConverter;
 import jakarta.persistence.*;
 import java.util.List;
+/**
+ * Represents the Email Config class.
+ *
+ * @since 2026-05-05
+ */
+
 
 @Entity
 @Table(name = "emailConfig")

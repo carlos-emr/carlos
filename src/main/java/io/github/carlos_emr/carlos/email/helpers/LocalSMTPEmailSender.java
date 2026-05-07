@@ -13,6 +13,12 @@ import org.springframework.mail.javamail.JavaMailSenderImpl;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+/**
+ * Utility class providing helper methods for Local SMTP Email Sender.
+ *
+ * @since 2026-05-05
+ */
+
 
 public class LocalSMTPEmailSender extends SMTPEmailSender {
 

@@ -5,6 +5,12 @@ import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import java.io.IOException;
 import java.util.Calendar;
+/**
+ * Utility class providing helper methods for Js Date Serializer.
+ *
+ * @since 2026-05-05
+ */
+
 
 public class JsDateSerializer extends JsonSerializer<java.sql.Date> {
     @Override

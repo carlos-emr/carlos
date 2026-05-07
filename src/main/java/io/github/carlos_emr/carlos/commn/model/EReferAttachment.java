@@ -11,6 +11,12 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.util.Date;
 import java.util.List;
+/**
+ * Represents the E Refer Attachment class.
+ *
+ * @since 2026-05-05
+ */
+
 
 @Entity
 @Table(name = "erefer_attachment")
