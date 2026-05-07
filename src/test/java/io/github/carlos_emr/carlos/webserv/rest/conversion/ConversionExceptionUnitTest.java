@@ -40,7 +40,7 @@ class ConversionExceptionUnitTest {
 
     @Test
     @DisplayName("should preserve message")
-    void shouldPreserve_message() {
+    void shouldPreserveMessage_whenConstructedWithMessage() {
         ConversionException exception = new ConversionException("bad transfer object");
 
         assertThat(exception).hasMessage("bad transfer object");
@@ -48,7 +48,7 @@ class ConversionExceptionUnitTest {
 
     @Test
     @DisplayName("should preserve cause")
-    void shouldPreserve_cause() {
+    void shouldPreserveCause_whenConstructedWithCause() {
         IllegalArgumentException cause = new IllegalArgumentException("bad field");
         ConversionException exception = new ConversionException("bad transfer object", cause);
 

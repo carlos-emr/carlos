@@ -41,7 +41,7 @@ class AccessDeniedExceptionUnitTest {
 
     @Test
     @DisplayName("should store permission action subject")
-    void shouldStorePermissionAction_subject() {
+    void shouldStorePermissionActionSubject_whenConstructed() {
         AccessDeniedException exception = new AccessDeniedException("_rx", "w", 123);
 
         assertThat(exception.getPermission()).isEqualTo("_rx");

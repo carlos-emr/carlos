@@ -64,7 +64,7 @@ class GenericRESTResponseUnitTest {
 
     @Test
     @DisplayName("should default to success status for success factory")
-    void shouldDefaultToSuccessStatus_forSuccessFactory() {
+    void shouldDefaultToSuccessStatus_whenUsingSuccessFactory() {
         RestResponse<String> response = RestResponse.successResponse("ok");
 
         assertThat(response.getStatus()).isEqualTo(ResponseStatus.SUCCESS);
