@@ -21,7 +21,8 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Purpose: Supports billingONReview in the Ontario billing workflow.
+  Purpose: This page provides an opportunity to review
+  and potentially print bills specified in billingON.jsp
   Expected request model data includes: reviewModel.
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.
