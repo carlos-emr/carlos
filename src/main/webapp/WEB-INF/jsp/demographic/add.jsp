@@ -130,6 +130,7 @@
             };
 
             function aSubmit() {
+                syncInputDobParts();
                 if (document.getElementById("eform_iframe") != null) {
                     document.getElementById("eform_iframe").contentWindow.document.forms[0].submit();
                 }
@@ -265,12 +266,18 @@
             }
 
             function checkDob() {
+                syncInputDobParts(); // ensure hidden part-fields reflect current visible input
                 var typeInOK = false;
                 var yyyy = document.adddemographic.year_of_birth.value;
-                var selectBox = document.adddemographic.month_of_birth;
-                var mm = selectBox.options[selectBox.selectedIndex].value;
-                selectBox = document.adddemographic.date_of_birth;
-                var dd = selectBox.options[selectBox.selectedIndex].value;
+                var mm = document.adddemographic.month_of_birth.value;
+                var dd = document.adddemographic.date_of_birth.value;
+
+                return checkDate(yyyy, mm, dd, i18n.msgWrongDOB);
+            }
+
+            function checkDate(yyyy, mm, dd, err_msg) {
+
+                var typeInOK = false;
 
                 if (checkTypeNum(yyyy) && checkTypeNum(mm) && checkTypeNum(dd)) {
                     var check_date = new Date(yyyy, (mm - 1), dd);
@@ -278,9 +285,11 @@
                     var year = now.getFullYear();
                     var month = now.getMonth() + 1;
                     var date = now.getDate();
+                    //alert(yyyy + " | " + mm + " | " + dd + " " + year + " " + month + " " +date);
 
                     var young = new Date(year, month, date);
                     var old = new Date(1800, 1, 1);
+                    //alert(check_date.getTime() + " | " + young.getTime() + " | " + old.getTime());
                     if (check_date.getTime() <= young.getTime() && check_date.getTime() >= old.getTime() && yyyy.length == 4) {
                         typeInOK = true;
                     }
@@ -289,12 +298,8 @@
                     }
                 }
 
-                if (!typeInOK) {
-                    alert(i18n.msgInvalidDOB);
-                }
-
-                if (!isValidDate(dd, mm, yyyy)) {
-                    alert(i18n.msgInvalidDOBDate);
+                if (!isValidDate(dd, mm, yyyy) || !typeInOK) {
+                    showAlert(err_msg + '<br>' + i18n.msgWrongDate);
                     typeInOK = false;
                 }
 
@@ -514,22 +519,6 @@
                 }
             }
 
-            function parsedob_date(){
-                const input=document.getElementById('inputDOB').value;
-                let year="";
-                let month="";
-                let day="";
-                if (input) {
-                    const [y, m, d] = input.split("-");
-                    year = y || "";
-                    month = m || "";
-                    day = d || "";
-                }
-                document.getElementById('year_of_birth').value = year
-                document.getElementById('month_of_birth').value = month
-                document.getElementById('date_of_birth').value = day
-            }
-
             function parseDateField(fieldId) {
                 const input = document.getElementById(fieldId).value;
             
@@ -683,6 +672,7 @@
         // Loop over them and prevent submission
         Array.from(forms).forEach(form => {
           form.addEventListener('submit', event => {
+            syncInputDobParts();
             if (!form.checkValidity()) {
               event.preventDefault()
               event.stopPropagation()
@@ -692,7 +682,12 @@
         })
       })
 
-
+        /* -------------------------------------------------------
+         * DOB single-input: calendar picker + hidden-field sync
+         * The server expects separate year_of_birth / month_of_birth /
+         * date_of_birth parameters; we derive them from the one visible
+         * yyyy-mm-dd field every time it changes or the calendar selects.
+         * ------------------------------------------------------- */
         Calendar.setup({
             inputField: "inputDOB",
             ifFormat: "%Y-%m-%d",
@@ -700,8 +695,31 @@
             button: "inputDOB_cal",
             singleClick: true,
             step: 1,
-            onUpdate: function() { parsedob_date(); }
+            onUpdate: function() { syncInputDobParts(); }
         });
+        function syncInputDobParts() {
+            var dobEl = document.getElementById('inputDOB');
+            var yearEl = document.getElementById('year_of_birth');
+            var monthEl = document.getElementById('month_of_birth');
+            var dayEl = document.getElementById('date_of_birth');
+            var val = dobEl ? dobEl.value.trim() : '';
+
+            if (!yearEl || !monthEl || !dayEl) {
+                return;
+            }
+
+            yearEl.value = '';
+            monthEl.value = '';
+            dayEl.value = '';
+
+            var parts = val.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            if (parts) {
+                yearEl.value = parts[1];
+                monthEl.value = parts[2];
+                dayEl.value = parts[3];
+
+            }
+        }
         Calendar.setup({
             inputField: "waiting_list_referral_date",
             ifFormat: "%Y-%m-%d",
