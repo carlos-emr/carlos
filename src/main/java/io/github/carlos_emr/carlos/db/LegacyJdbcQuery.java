@@ -34,6 +34,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.sql.DataSource;
 
@@ -62,8 +63,10 @@ public final class LegacyJdbcQuery {
      * Obtains a Spring-managed JDBC connection for legacy APIs that require a
      * {@link Connection} parameter.
      *
-     * <p>The returned connection releases back through {@link DataSourceUtils}
-     * when {@link Connection#close()} is called, so callers should use
+     * <p>The returned object is a proxy around a connection obtained through
+     * {@link DataSourceUtils}, so it participates in Spring transaction
+     * synchronization. Calling {@link Connection#close()} on the proxy releases
+     * it through {@link DataSourceUtils}; callers should always use
      * try-with-resources.</p>
      *
      * @return a connection participating in Spring transaction synchronization
@@ -294,6 +297,7 @@ public final class LegacyJdbcQuery {
     }
 
     private static Connection releasingConnection(Connection delegate, DataSource dataSource) {
+        AtomicBoolean released = new AtomicBoolean(false);
         InvocationHandler handler = new InvocationHandler() {
             @Override
             public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
@@ -303,7 +307,9 @@ public final class LegacyJdbcQuery {
                     } catch (InvocationTargetException e) {
                         throw e.getCause();
                     } finally {
-                        DataSourceUtils.releaseConnection(delegate, dataSource);
+                        if (released.compareAndSet(false, true)) {
+                            DataSourceUtils.releaseConnection(delegate, dataSource);
+                        }
                     }
                 }
                 try {
