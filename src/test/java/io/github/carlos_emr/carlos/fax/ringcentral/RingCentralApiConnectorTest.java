@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.fax.ringcentral;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -88,21 +89,51 @@ class RingCentralApiConnectorTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should fall back to ~ when path id sanitizes to empty string")
-    void shouldFallBackToTilde_whenSanitizationEmptiesValue() {
-        RingCentralApiConnector connector = new RingCentralApiConnector();
-
-        assertThat(connector.normalizePathId("!@#$%")).isEqualTo("~");
-        assertThat(connector.normalizePathId("   ")).isEqualTo("~");
-        assertThat(connector.normalizePathId(null)).isEqualTo("~");
+    @DisplayName("should fall back to ~ when account or extension id is null or blank")
+    void shouldFallBackToTilde_whenAccountOrExtensionIdIsNullOrBlank() {
+        assertThat(RingCentralApiConnector.normalizeAccountOrExtensionId(null)).isEqualTo("~");
+        assertThat(RingCentralApiConnector.normalizeAccountOrExtensionId("   ")).isEqualTo("~");
     }
 
     @Test
-    @DisplayName("should preserve allowed characters in path id")
-    void shouldPreserveAllowedCharacters_inPathId() {
-        RingCentralApiConnector connector = new RingCentralApiConnector();
+    @DisplayName("should fall back to ~ when account or extension id sanitizes to empty")
+    void shouldFallBackToTilde_whenAccountOrExtensionIdSanitizesToEmpty() {
+        assertThat(RingCentralApiConnector.normalizeAccountOrExtensionId("!@#$%")).isEqualTo("~");
+    }
 
-        assertThat(connector.normalizePathId("123-abc_XYZ~")).isEqualTo("123-abc_XYZ~");
-        assertThat(connector.normalizePathId("a1!b2@c3")).isEqualTo("a1b2c3");
+    @Test
+    @DisplayName("should preserve allowed characters and ~ sentinel in account id")
+    void shouldPreserveAllowedCharacters_inAccountOrExtensionId() {
+        assertThat(RingCentralApiConnector.normalizeAccountOrExtensionId("123-abc_XYZ~")).isEqualTo("123-abc_XYZ~");
+        assertThat(RingCentralApiConnector.normalizeAccountOrExtensionId("a1!b2@c3")).isEqualTo("a1b2c3");
+        assertThat(RingCentralApiConnector.normalizeAccountOrExtensionId("~")).isEqualTo("~");
+    }
+
+    @Test
+    @DisplayName("should reject blank message id with RingCentralException")
+    void shouldRejectBlankMessageId_withRingCentralException() {
+        assertThatThrownBy(() -> RingCentralApiConnector.normalizeMessageId(null))
+                .isInstanceOf(RingCentralException.class)
+                .hasMessageContaining("required");
+        assertThatThrownBy(() -> RingCentralApiConnector.normalizeMessageId("   "))
+                .isInstanceOf(RingCentralException.class)
+                .hasMessageContaining("required");
+    }
+
+    @Test
+    @DisplayName("should reject message id that sanitizes to empty with RingCentralException")
+    void shouldRejectMessageIdThatSanitizesToEmpty_withRingCentralException() {
+        assertThatThrownBy(() -> RingCentralApiConnector.normalizeMessageId("!@#$%"))
+                .isInstanceOf(RingCentralException.class)
+                .hasMessageContaining("no valid characters");
+    }
+
+    @Test
+    @DisplayName("should preserve allowed characters in message id and strip the ~ sentinel")
+    void shouldPreserveAllowedCharacters_inMessageId() throws Exception {
+        assertThat(RingCentralApiConnector.normalizeMessageId("123-abc_XYZ")).isEqualTo("123-abc_XYZ");
+        assertThat(RingCentralApiConnector.normalizeMessageId("a1!b2@c3")).isEqualTo("a1b2c3");
+        // ~ is intentionally not allowed for message ids - it has no documented meaning here.
+        assertThat(RingCentralApiConnector.normalizeMessageId("123~456")).isEqualTo("123456");
     }
 }

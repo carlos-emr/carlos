@@ -181,6 +181,9 @@ public class RingCentralFaxService implements FaxProviderClient {
         // statuses such as "SendingFailed" and "undelivered" share substrings ("sending", "delivered")
         // with non-error states.
         String normalized = providerStatus.trim().toLowerCase();
+        if (normalized.isEmpty()) {
+            return FaxJob.STATUS.UNKNOWN;
+        }
         if (normalized.contains("fail") || normalized.contains("error") || normalized.contains("rejected")
                 || normalized.contains("undeliver")) {
             return FaxJob.STATUS.ERROR;
@@ -189,12 +192,16 @@ public class RingCentralFaxService implements FaxProviderClient {
             return FaxJob.STATUS.CANCELLED;
         }
         if (normalized.contains("queue") || normalized.contains("sending") || normalized.contains("progress")
-                || normalized.contains("attempt") || normalized.contains("received")) {
+                || normalized.contains("attempt")) {
             return FaxJob.STATUS.SENT;
         }
-        if (normalized.contains("sent") || normalized.contains("delivered") || normalized.contains("complete")) {
+        if (normalized.contains("sent") || normalized.contains("delivered") || normalized.contains("complete")
+                || normalized.contains("received")) {
             return FaxJob.STATUS.COMPLETE;
         }
+        // Surface unmapped vendor keywords so a new RingCentral status doesn't silently leave a fax
+        // stuck in UNKNOWN with no operator signal. providerStatus is a vendor enum, not PHI.
+        logger.warn("Unmapped RingCentral status keyword: '{}' - treating as UNKNOWN", providerStatus);
         return FaxJob.STATUS.UNKNOWN;
     }
 

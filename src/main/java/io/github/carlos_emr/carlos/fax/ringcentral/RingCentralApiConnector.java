@@ -142,7 +142,7 @@ public class RingCentralApiConnector {
     public byte[] downloadFax(String accessToken, String accountId, String extensionId, String messageId,
             String attachmentId) throws RingCentralException {
         HttpGet get = new HttpGet(buildMessageStoreUrl(accountId, extensionId) + "/"
-                + normalizePathId(messageId) + "/content/" + normalizePathId(attachmentId));
+                + normalizeMessageId(messageId) + "/content/" + normalizeMessageId(attachmentId));
         get.setHeader("Authorization", bearer(accessToken));
         return executeBytes(get, "RingCentral fax download failed");
     }
@@ -152,7 +152,7 @@ public class RingCentralApiConnector {
      */
     public RingCentralResponse.Message getFaxStatus(String accessToken, String accountId, String extensionId,
             String messageId) throws RingCentralException {
-        HttpGet get = new HttpGet(buildMessageStoreUrl(accountId, extensionId) + "/" + normalizePathId(messageId));
+        HttpGet get = new HttpGet(buildMessageStoreUrl(accountId, extensionId) + "/" + normalizeMessageId(messageId));
         get.setHeader("Authorization", bearer(accessToken));
         return executeJson(get, RingCentralResponse.Message.class, "RingCentral fax status fetch failed");
     }
@@ -162,7 +162,7 @@ public class RingCentralApiConnector {
      */
     public void markFaxAsRead(String accessToken, String accountId, String extensionId, String messageId)
             throws RingCentralException {
-        HttpPut put = new HttpPut(buildMessageStoreUrl(accountId, extensionId) + "/" + normalizePathId(messageId));
+        HttpPut put = new HttpPut(buildMessageStoreUrl(accountId, extensionId) + "/" + normalizeMessageId(messageId));
         put.setHeader("Authorization", bearer(accessToken));
         put.setEntity(new StringEntity("{\"readStatus\":\"Read\"}", ContentType.APPLICATION_JSON));
         executeNoContent(put, "RingCentral mark-as-read failed");
@@ -205,19 +205,39 @@ public class RingCentralApiConnector {
     }
 
     private String buildMessageStoreUrl(String accountId, String extensionId) {
-        return resolveRingCentralApiUrl() + "/restapi/v1.0/account/" + normalizePathId(accountId)
-                + "/extension/" + normalizePathId(extensionId) + "/message-store";
+        return resolveRingCentralApiUrl() + "/restapi/v1.0/account/" + normalizeAccountOrExtensionId(accountId)
+                + "/extension/" + normalizeAccountOrExtensionId(extensionId) + "/message-store";
     }
 
-    String normalizePathId(String value) {
+    /**
+     * Normalises an account or extension id for the RingCentral message-store path. Null, blank,
+     * and post-sanitisation-empty inputs collapse to {@code "~"}, RingCentral's documented
+     * sentinel for the access-token's current account/extension.
+     */
+    static String normalizeAccountOrExtensionId(String value) {
         String trimmed = StringUtils.trimToNull(value);
         if (trimmed == null) {
             return "~";
         }
-        // Sanitization may strip every character (e.g. value="!@#$"); fall back to the
-        // RingCentral "~" sentinel rather than emitting an empty path segment.
         String sanitized = trimmed.replaceAll("[^A-Za-z0-9~_-]", "");
         return sanitized.isEmpty() ? "~" : sanitized;
+    }
+
+    /**
+     * Normalises a RingCentral message or attachment id for direct path embedding. Unlike account
+     * ids, the {@code "~"} sentinel has no documented meaning here, so blank or sanitisation-empty
+     * values fail fast rather than silently retargeting the request.
+     */
+    static String normalizeMessageId(String value) throws RingCentralException {
+        String trimmed = StringUtils.trimToNull(value);
+        if (trimmed == null) {
+            throw new RingCentralException("RingCentral message id is required for this request");
+        }
+        String sanitized = trimmed.replaceAll("[^A-Za-z0-9_-]", "");
+        if (sanitized.isEmpty()) {
+            throw new RingCentralException("RingCentral message id contains no valid characters");
+        }
+        return sanitized;
     }
 
     private String bearer(String accessToken) {
@@ -238,11 +258,9 @@ public class RingCentralApiConnector {
             throws RingCentralException {
         request.setConfig(REQUEST_CONFIG);
 
-        // Resource management: try-with-resources closes the CloseableHttpResponse (which
-        // releases the underlying connection back to the pool). The HttpEntity body is read
-        // and then explicitly drained/closed via EntityUtils.consume() in the inner finally.
-        // We cannot wrap HttpEntity in try-with-resources because getEntity() may return null
-        // for HEAD / 204 responses, and try-with-resources rejects null resources.
+        // The entity body is drained and closed via EntityUtils.consume() rather than
+        // try-with-resources because consume() is the documented null-tolerant drain-plus-close
+        // hook (HttpEntity.close() alone does not consume an unread body).
         try (CloseableHttpResponse response = httpClient.execute(request)) {
             int statusCode = response.getCode();
             HttpEntity entity = response.getEntity();
@@ -271,8 +289,10 @@ public class RingCentralApiConnector {
         try {
             EntityUtils.consume(entity);
         } catch (IOException e) {
-            // Cleanup can fail if the provider already closed the connection; the primary response handling has completed.
-            logger.debug("Failed to consume RingCentral response entity", e);
+            // Failure to drain the body leaves the connection unreturned to the pool; surface it
+            // at WARN so repeated occurrences are visible before they exhaust the pool.
+            logger.warn("Failed to drain RingCentral response entity (connection may not be returned to pool): {}",
+                    e.getMessage());
         }
     }
 

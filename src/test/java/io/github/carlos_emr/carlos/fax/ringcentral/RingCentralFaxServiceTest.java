@@ -131,6 +131,26 @@ class RingCentralFaxServiceTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should map blank or whitespace provider status to UNKNOWN")
+    void shouldMapBlankStatus_toUnknown() {
+        assertThat(service.mapStatus("")).isEqualTo(FaxJob.STATUS.UNKNOWN);
+        assertThat(service.mapStatus("   ")).isEqualTo(FaxJob.STATUS.UNKNOWN);
+    }
+
+    @Test
+    @DisplayName("should prefer ERROR when status mixes failure and cancel keywords")
+    void shouldPreferError_whenStatusMixesFailureAndCancel() {
+        assertThat(service.mapStatus("Cancelled-Failed")).isEqualTo(FaxJob.STATUS.ERROR);
+        assertThat(service.mapStatus("Failed-Cancelled")).isEqualTo(FaxJob.STATUS.ERROR);
+    }
+
+    @Test
+    @DisplayName("should map Received provider status to COMPLETE")
+    void shouldMapReceivedStatus_toComplete() {
+        assertThat(service.mapStatus("Received")).isEqualTo(FaxJob.STATUS.COMPLETE);
+    }
+
+    @Test
     @DisplayName("should return inbound fax metadata when unread message has attachment")
     void shouldReturnInboundFaxMetadata_whenUnreadMessageHasAttachment() throws Exception {
         FaxConfig config = mock(FaxConfig.class);
