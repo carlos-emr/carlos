@@ -102,18 +102,16 @@ public class BillingOnSave2Action extends ActionSupport {
         }
         request.setAttribute("safeUrlBack", safeUrlBack);
 
-        String submit = request.getParameter("submit");
-        String button = request.getParameter("button");
+        String billingAction = request.getParameter("billingAction");
 
-        if ("Back to Edit".equals(button)) {
+        if ("BACK_TO_EDIT".equals(billingAction)) {
             return "backToEdit";
         }
 
-        if (submit == null || (!submit.equals("Settle & Print Invoice")
-                && !submit.equals("Save & Print Invoice")
-                && !submit.equals("Save")
-                && !submit.equals("Save and Back")
-                && !submit.equals("Save & Add Another Bill"))) {
+        if (!"SAVE".equals(billingAction)
+                && !"SAVE_ADD_ANOTHER".equals(billingAction)
+                && !"SAVE_PRINT".equals(billingAction)
+                && !"SETTLE_PRINT".equals(billingAction)) {
             return SUCCESS;
         }
 
@@ -159,11 +157,11 @@ public class BillingOnSave2Action extends ActionSupport {
 
             request.setAttribute("billingNo", billingNo);
 
-            if ("Save & Print Invoice".equals(submit) || "Settle & Print Invoice".equals(submit)) {
+            if ("SAVE_PRINT".equals(billingAction) || "SETTLE_PRINT".equals(billingAction)) {
                 return "printInvoice";
             }
 
-            if ("Save & Add Another Bill".equals(submit)) {
+            if ("SAVE_ADD_ANOTHER".equals(billingAction)) {
                 request.setAttribute("safeUrlBack", safeUrlBack);
                 // Drives the c:choose branch in billingONSave.jsp without
                 // forcing the JSP to read request parameters directly.

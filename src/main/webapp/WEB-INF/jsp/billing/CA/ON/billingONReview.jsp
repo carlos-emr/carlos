@@ -317,6 +317,7 @@
     <input type="hidden" name="billStatus_old" id="billStatus_old" value="<carlos:encode value='${reviewModel.requestParamEchoes[\"billStatus_old\"]}' context='htmlAttribute'/>"/>
     <input type="hidden" name="billForm" id="billForm" value="<carlos:encode value='${reviewModel.requestParamEchoes[\"billForm\"]}' context='htmlAttribute'/>"/>
     <input type="hidden" name="payeename" id="payeename" value=""/>
+    <input type="hidden" name="billingAction" id="billingAction" value="SAVE"/>
     <table style="width:100%" class="myIvory">
         <tr>
             <td>
@@ -643,13 +644,14 @@
                     <tr>
 
                         <td colspan="4" style="text-align:center; background-color:silver">
-                            <input type="submit" name="button" value="<carlos:encode value='${msgBtnBackToEdit}' context='htmlAttribute'/>" class="btn btn-secondary" />
+                            <input type="submit" value="<carlos:encode value='${msgBtnBackToEdit}' context='htmlAttribute'/>" class="btn btn-secondary"
+                                   onclick="document.getElementById('billingAction').value='BACK_TO_EDIT';"/>
                             <c:choose>
                                 <c:when test="${reviewModel.codeValid and not reviewModel.dupServiceCode and not reviewModel.totalsParseFailed}">
-                                    <input type="submit" name="submit" value="<carlos:encode value='${msgBtnSave}' context='htmlAttribute'/>" class="btn btn-primary"
-                                           onClick="onClickSave();"/>
-                                    <input type="submit" name="submit" value="<carlos:encode value='${msgBtnSaveAndAdd}' context='htmlAttribute'/>" class="btn btn-secondary"
-                                           onClick="onClickSave();"/>
+                                    <input type="submit" value="<carlos:encode value='${msgBtnSave}' context='htmlAttribute'/>" class="btn btn-primary"
+                                           onclick="document.getElementById('billingAction').value='SAVE'; onClickSave();"/>
+                                    <input type="submit" value="<carlos:encode value='${msgBtnSaveAndAdd}' context='htmlAttribute'/>" class="btn btn-secondary"
+                                           onclick="document.getElementById('billingAction').value='SAVE_ADD_ANOTHER'; onClickSave();"/>
                                 </c:when>
                                 <c:when test="${reviewModel.dupServiceCode}">
                         <td>
@@ -750,13 +752,13 @@
     </tr>
     <tr>
         <td colspan='2' align='center' bgcolor="silver">
-            <input type="submit" name="submit" value="<carlos:encode value='${msgBtnSavePrint}' context='htmlAttribute'/>" class="btn btn-secondary"
-                   style="width: 150px;"/>
-            <input type="submit" name="submit" id="settlePrintBtn" class="btn btn-primary"
+            <input type="submit" value="<carlos:encode value='${msgBtnSavePrint}' context='htmlAttribute'/>" class="btn btn-secondary"
+                   style="width: 150px;"
+                   onclick="document.getElementById('billingAction').value='SAVE_PRINT';"/>
+            <input type="submit" id="settlePrintBtn" class="btn btn-primary"
                    value="<carlos:encode value='${msgBtnSettlePrint}' context='htmlAttribute'/>"
-                   onClick="document.forms['titlesearch'].btnPressed.value='Settle'; document.forms['titlesearch'].submit();javascript:popupPage(700,720,'${pageContext.request.contextPath}/billing/CA/ON/ViewBillingON3rdInv');"
-                   style="width: 160px;"/>
-            <input type="hidden" name="btnPressed" value="">
+                   style="width: 160px;"
+                   onclick="document.getElementById('billingAction').value='SETTLE_PRINT'; document.forms['titlesearch'].submit(); popupPage(700,720,'${pageContext.request.contextPath}/billing/CA/ON/ViewBillingON3rdInv');"/>
             <input type="hidden" name="total_payment" id="total_payment" value="0.00"/>
             <input type="hidden" name="total_discount" id="total_discount" value="0.00"/>
             <input type="hidden" name="refund" id="refund" value="0.00"/>
