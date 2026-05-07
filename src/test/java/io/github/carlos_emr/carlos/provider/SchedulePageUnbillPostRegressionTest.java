@@ -39,33 +39,39 @@ class SchedulePageUnbillPostRegressionTest {
 
     private static final Path SCHEDULE_PAGE_SCRIPT =
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "provider", "schedulePage.js.jsp");
+    private static final String UNTIL_NEXT_FUNCTION = "(?:(?!\\nfunction\\s+).)*";
+    private static final String UNTIL_ON_UPDATEBILL = "(?:(?!function\\s+onUpdatebill).)*";
+    private static final Pattern POST_VIA_FORM_USES_POST = Pattern.compile(
+            "function\\s+postViaForm\\s*\\(\\s*url\\s*,\\s*targetWindow\\s*\\)\\s*\\{"
+                    + UNTIL_NEXT_FUNCTION + "form\\.method\\s*=\\s*['\"]post['\"]",
+            Pattern.DOTALL);
+    private static final Pattern ON_UNBILLED_POSTS_TO_TARGET = Pattern.compile(
+            "function\\s+onUnbilled\\s*\\(\\s*url\\s*\\)\\s*\\{"
+                    + UNTIL_ON_UPDATEBILL + "targetWindow\\s*=\\s*['\"]unbilled['\"]"
+                    + UNTIL_ON_UPDATEBILL + "postViaForm\\s*\\(\\s*url\\s*,\\s*targetWindow\\s*\\)",
+            Pattern.DOTALL);
+    private static final Pattern ON_UNBILLED_OPENS_GET_POPUP = Pattern.compile(
+            "function\\s+onUnbilled\\s*\\(\\s*url\\s*\\)\\s*\\{"
+                    + UNTIL_ON_UPDATEBILL + "popupPage\\s*\\(\\s*700\\s*,\\s*720\\s*,\\s*url\\s*\\)",
+            Pattern.DOTALL);
 
     @Test
     @DisplayName("should use POST form helper when unbill function called")
-    void shouldUsePostFormHelper_whenUnbillFunctionIsCalled() throws Exception {
+    void shouldUsePostFormHelper_whenUnbillFunctionCalled() throws Exception {
         String script = Files.readString(SCHEDULE_PAGE_SCRIPT);
-        String untilNextFunction = "(?:(?!\\nfunction\\s+).)*";
-        String untilOnUpdatebill = "(?:(?!function\\s+onUpdatebill).)*";
 
         // The local postViaForm helper must submit generated forms with POST.
-        String postViaFormUsesPost = "function\\s+postViaForm\\s*\\(\\s*url\\s*,\\s*targetWindow\\s*\\)\\s*\\{"
-                + untilNextFunction + "form\\.method\\s*=\\s*['\"]post['\"]";
-        assertThat(matches(script, postViaFormUsesPost))
+        assertThat(matches(script, POST_VIA_FORM_USES_POST))
                 .isTrue();
         // Appointment -B unbill must call postViaForm with the popup target.
-        String onUnbilledPostsToTarget = "function\\s+onUnbilled\\s*\\(\\s*url\\s*\\)\\s*\\{"
-                + untilOnUpdatebill + "targetWindow\\s*=\\s*['\"]unbilled['\"]"
-                + untilOnUpdatebill + "postViaForm\\s*\\(\\s*url\\s*,\\s*targetWindow\\s*\\)";
-        assertThat(matches(script, onUnbilledPostsToTarget))
+        assertThat(matches(script, ON_UNBILLED_POSTS_TO_TARGET))
                 .isTrue();
         // Appointment -B unbill must not directly open the mutator URL with GET.
-        String onUnbilledOpensGetPopup = "function\\s+onUnbilled\\s*\\(\\s*url\\s*\\)\\s*\\{"
-                + untilOnUpdatebill + "popupPage\\s*\\(\\s*700\\s*,\\s*720\\s*,\\s*url\\s*\\)";
-        assertThat(matches(script, onUnbilledOpensGetPopup))
+        assertThat(matches(script, ON_UNBILLED_OPENS_GET_POPUP))
                 .isFalse();
     }
 
-    private static boolean matches(String script, String regex) {
-        return Pattern.compile(regex, Pattern.DOTALL).matcher(script).find();
+    private static boolean matches(String script, Pattern pattern) {
+        return pattern.matcher(script).find();
     }
 }
