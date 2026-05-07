@@ -5,11 +5,12 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 /**
- * Represents the Matching Client Score class.
+ * Represents the confidence score of a demographic matching operation.
+ * <p>
+ * Quantifies the likelihood that a provided set of client parameters matches an existing record.
  *
  * @since 2026-05-05
  */
-
 
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "matchingClientScore", propOrder = { "client", "score" })

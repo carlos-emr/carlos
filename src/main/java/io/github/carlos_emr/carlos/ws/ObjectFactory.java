@@ -5,11 +5,13 @@ import jakarta.xml.bind.JAXBElement;
 import javax.xml.namespace.QName;
 import jakarta.xml.bind.annotation.XmlRegistry;
 /**
- * Utility class providing helper methods for Object Factory.
+ * Factory class for instantiating JAXB-bound objects.
+ * <p>
+ * Provides methods to create instances of XML schema elements and complex types
+ * used within the web service communication layers.
  *
  * @since 2026-05-05
  */
-
 
 @XmlRegistry
 public class ObjectFactory

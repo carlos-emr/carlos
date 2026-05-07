@@ -5,11 +5,11 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 /**
- * Exception thrown to indicate an error related to Duplicate Hin Exception.
+ * Exception thrown when attempting to register or update a client with a Health Insurance Number (HIN)
+ * that already exists in the system.
  *
  * @since 2026-05-05
  */
-
 
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "DuplicateHinException")

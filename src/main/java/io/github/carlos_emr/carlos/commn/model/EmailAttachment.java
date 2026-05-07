@@ -5,11 +5,10 @@ import jakarta.persistence.*;
 
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 /**
- * Represents the Email Attachment class.
+ * Domain entity representing a file attached to an outgoing or logged email message.
  *
  * @since 2026-05-05
  */
-
 
 @Entity
 @Table(name = "emailAttachment")

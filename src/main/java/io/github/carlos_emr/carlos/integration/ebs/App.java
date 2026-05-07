@@ -1,10 +1,9 @@
 package io.github.carlos_emr.carlos.integration.ebs;
 /**
- * Represents the App class.
+ * Main entry point for the external billing service (EBS) integration module.
  *
  * @since 2026-05-05
  */
-
 
 public class App
 {

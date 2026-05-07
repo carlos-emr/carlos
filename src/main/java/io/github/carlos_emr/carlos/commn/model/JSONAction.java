@@ -12,11 +12,12 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 /**
- * Represents the JSON Action class.
+ * Base action class for handling Struts requests that return JSON payloads.
+ * <p>
+ * Provides common utilities for structuring and serializing response data.
  *
  * @since 2026-05-05
  */
-
 
 public class JSONAction extends ActionSupport {
 

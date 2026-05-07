@@ -6,11 +6,12 @@ import jakarta.persistence.ManyToOne;
 import java.io.Serializable;
 import java.util.Objects;
 /**
- * Represents the E Refer Attachment Data Composite Key class.
+ * Composite primary key for the EReferAttachmentData entity.
+ * <p>
+ * Uniquely identifies binary attachment content using a combination of referral and attachment IDs.
  *
  * @since 2026-05-05
  */
-
 
 public class EReferAttachmentDataCompositeKey implements Serializable {
     @ManyToOne

@@ -1,11 +1,11 @@
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.data;
 /**
- * Data Transfer Object (DTO) for Specialist Dto.
- * Encapsulates data transferred between application layers.
+ * Data Transfer Object representing a medical specialist.
+ * <p>
+ * Carries specialist details for use in consultation request and referral workflows.
  *
  * @since 2026-05-05
  */
-
 
 public class SpecialistDto {
     private Integer specId;

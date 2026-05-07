@@ -5,11 +5,12 @@ import io.github.carlos_emr.carlos.commn.model.converter.EmailConfigTypeConverte
 import jakarta.persistence.*;
 import java.util.List;
 /**
- * Represents the Email Config class.
+ * Configuration entity detailing SMTP settings and credentials for outgoing email.
+ * <p>
+ * Supports mapping multiple configuration profiles to different providers or system roles.
  *
  * @since 2026-05-05
  */
-
 
 @Entity
 @Table(name = "emailConfig")

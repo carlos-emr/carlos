@@ -9,11 +9,13 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.encryption.AccessPermission;
 import org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy;
 /**
- * Utility class providing helper methods for PDF Encryption Util.
+ * Provides utility methods for securing and encrypting PDF documents.
+ * <p>
+ * Includes functionality for applying password protection and cryptographic constraints
+ * to ensure privacy and compliance when handling generated PDF files.
  *
  * @since 2026-05-05
  */
-
 
 public class PDFEncryptionUtil {
     public static Path encryptPDF(Path pdfPath, String password) throws IOException {

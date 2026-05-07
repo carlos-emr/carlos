@@ -8,11 +8,10 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 /**
- * Represents the E Refer Attachment Data class.
+ * Domain entity containing the binary payload of an eReferral attachment.
  *
  * @since 2026-05-05
  */
-
 
 @Entity
 @IdClass(EReferAttachmentDataCompositeKey.class)

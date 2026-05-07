@@ -10,11 +10,13 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 /**
- * Represents the Matching Client Parameters class.
+ * Encapsulates search and matching criteria for identifying clients.
+ * <p>
+ * Contains properties such as name, date of birth, and health insurance number
+ * to facilitate demographic matching algorithms.
  *
  * @since 2026-05-05
  */
-
 
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "matchingClientParameters", propOrder = { "maxEntriesToReturn", "minScore", "firstName", "lastName", "birthDate", "hin" })

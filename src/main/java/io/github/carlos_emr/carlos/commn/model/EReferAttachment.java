@@ -12,11 +12,12 @@ import jakarta.persistence.Table;
 import java.util.Date;
 import java.util.List;
 /**
- * Represents the E Refer Attachment class.
+ * Domain entity representing metadata for an eReferral attachment.
+ * <p>
+ * Tracks the file name, content type, and association to a specific referral record.
  *
  * @since 2026-05-05
  */
-
 
 @Entity
 @Table(name = "erefer_attachment")

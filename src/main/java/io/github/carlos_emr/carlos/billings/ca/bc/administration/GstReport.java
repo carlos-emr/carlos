@@ -18,11 +18,13 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import java.util.Properties;
 import java.util.Vector;
 /**
- * Represents the Gst Report class.
+ * Retrieves and aggregates Goods and Services Tax (GST) data for provider billing records.
+ * <p>
+ * Facilitates the generation of GST reports within the British Columbia administration module
+ * by querying billing entries against demographic and provider information.
  *
  * @since 2026-05-05
  */
-
 
 public class GstReport {
 

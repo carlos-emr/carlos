@@ -5,11 +5,12 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 /**
- * Exception thrown to indicate an error related to Invalid Hin Exception.
+ * Exception thrown when a Health Insurance Number (HIN) fails validation checks.
+ * <p>
+ * Validation failures may include incorrect format, invalid checksums, or jurisdictional mismatches.
  *
  * @since 2026-05-05
  */
-
 
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "InvalidHinException")

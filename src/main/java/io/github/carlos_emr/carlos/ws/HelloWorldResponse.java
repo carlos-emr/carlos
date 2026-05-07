@@ -6,11 +6,12 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 /**
- * Represents the Hello World Response class.
+ * Simple diagnostic web service endpoint.
+ * <p>
+ * Used to verify network connectivity and proper deployment of the SOAP/REST service stack.
  *
  * @since 2026-05-05
  */
-
 
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "helloWorldResponse", propOrder = { "_return" })
