@@ -50,6 +50,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @Tag("regression")
 class ProviderServiceRegressionTest {
 
+    private static final String TEST_PROVIDER_NUMBER = "123";
+    private static final String TEST_PROVIDER_FIRST_NAME = "Ada";
+    private static final String TEST_PROVIDER_LAST_NAME = "Lovelace";
+
     @Mock
     private ProviderDao providerDao;
 
@@ -64,13 +68,13 @@ class ProviderServiceRegressionTest {
     @Test
     @DisplayName("should return provider for valid ID")
     void shouldReturnProvider_forValidId() {
-        when(providerDao.getProvider("123")).thenReturn(provider("123"));
+        when(providerDao.getProvider(TEST_PROVIDER_NUMBER)).thenReturn(provider(TEST_PROVIDER_NUMBER));
 
-        ProviderTransfer response = service.getProvider("123");
+        ProviderTransfer response = service.getProvider(TEST_PROVIDER_NUMBER);
 
-        assertThat(response.getProviderNo()).isEqualTo("123");
-        assertThat(response.getFirstName()).isEqualTo("Ada");
-        assertThat(response.getLastName()).isEqualTo("Lovelace");
+        assertThat(response.getProviderNo()).isEqualTo(TEST_PROVIDER_NUMBER);
+        assertThat(response.getFirstName()).isEqualTo(TEST_PROVIDER_FIRST_NAME);
+        assertThat(response.getLastName()).isEqualTo(TEST_PROVIDER_LAST_NAME);
     }
 
     @Test
@@ -96,7 +100,8 @@ class ProviderServiceRegressionTest {
     }
 
     private static Provider provider(String providerNo) {
-        Provider provider = new Provider(providerNo, "Lovelace", "doctor", "F", "general", "Ada");
+        Provider provider = new Provider(providerNo, TEST_PROVIDER_LAST_NAME, "doctor", "F", "general",
+                TEST_PROVIDER_FIRST_NAME);
         provider.setStatus("1");
         return provider;
     }

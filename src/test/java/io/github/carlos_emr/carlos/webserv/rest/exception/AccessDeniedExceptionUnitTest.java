@@ -24,7 +24,6 @@ package io.github.carlos_emr.carlos.webserv.rest.exception;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
-import java.lang.reflect.Field;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -42,17 +41,11 @@ class AccessDeniedExceptionUnitTest {
 
     @Test
     @DisplayName("should store permission action subject")
-    void shouldStorePermissionAction_subject() throws Exception {
+    void shouldStorePermissionAction_subject() {
         AccessDeniedException exception = new AccessDeniedException("_rx", "w", 123);
 
-        assertThat(fieldValue(exception, "permission")).isEqualTo("_rx");
-        assertThat(fieldValue(exception, "action")).isEqualTo("w");
-        assertThat(fieldValue(exception, "subject")).isEqualTo("123");
-    }
-
-    private static String fieldValue(AccessDeniedException exception, String fieldName) throws Exception {
-        Field field = AccessDeniedException.class.getDeclaredField(fieldName);
-        field.setAccessible(true);
-        return (String) field.get(exception);
+        assertThat(exception.getPermission()).isEqualTo("_rx");
+        assertThat(exception.getAction()).isEqualTo("w");
+        assertThat(exception.getSubject()).isEqualTo("123");
     }
 }

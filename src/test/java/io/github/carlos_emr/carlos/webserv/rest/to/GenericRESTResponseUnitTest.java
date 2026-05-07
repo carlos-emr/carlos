@@ -46,7 +46,7 @@ import org.mockito.MockedStatic;
 @Tag("regression")
 class GenericRESTResponseUnitTest {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private MockedStatic<CarlosProperties> carlosProperties;
 
@@ -86,7 +86,7 @@ class GenericRESTResponseUnitTest {
     void shouldSerializeToJson_correctly() throws Exception {
         RestResponse<String> response = RestResponse.successResponse("payload");
 
-        JsonNode json = MAPPER.readTree(MAPPER.writeValueAsString(response));
+        JsonNode json = objectMapper.readTree(objectMapper.writeValueAsString(response));
 
         assertThat(json.get("status").asText()).isEqualTo("SUCCESS");
         assertThat(json.get("body").asText()).isEqualTo("payload");

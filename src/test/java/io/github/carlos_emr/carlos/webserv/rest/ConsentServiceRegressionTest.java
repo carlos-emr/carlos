@@ -50,6 +50,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @Tag("regression")
 class ConsentServiceRegressionTest {
 
+    private static final String TEST_PROVIDER_NUMBER = "999998";
+    private static final String TEST_CONSENT_NAME = "Email";
+    private static final String TEST_CONSENT_DESCRIPTION = "Email consent";
+    private static final String TEST_CONSENT_TYPE = "communication";
+
     @Mock
     private PatientConsentManager patientConsentManager;
 
@@ -69,7 +74,7 @@ class ConsentServiceRegressionTest {
         ConsentTypeTo1 response = service.getConsentType(7);
 
         assertThat(response.getId()).isEqualTo(7);
-        assertThat(response.getName()).isEqualTo("Email");
+        assertThat(response.getName()).isEqualTo(TEST_CONSENT_NAME);
         assertThat(response.isActive()).isTrue();
     }
 
@@ -98,10 +103,10 @@ class ConsentServiceRegressionTest {
     private static ConsentType consentType(int id) {
         ConsentType consentType = new ConsentType();
         consentType.setId(id);
-        consentType.setName("Email");
-        consentType.setDescription("Email consent");
-        consentType.setType("communication");
-        consentType.setProviderNo("999998");
+        consentType.setName(TEST_CONSENT_NAME);
+        consentType.setDescription(TEST_CONSENT_DESCRIPTION);
+        consentType.setType(TEST_CONSENT_TYPE);
+        consentType.setProviderNo(TEST_PROVIDER_NUMBER);
         consentType.setActive(true);
         consentType.setRemoteEnabled(Boolean.TRUE);
         return consentType;

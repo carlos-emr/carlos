@@ -42,7 +42,7 @@ import org.junit.jupiter.api.Test;
 @Tag("regression")
 class DrugResponseUnitTest {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
     @DisplayName("should retain serializable response inheritance")
@@ -62,7 +62,7 @@ class DrugResponseUnitTest {
         response.setMessage("ok");
         response.setDrug(drug);
 
-        JsonNode json = MAPPER.readTree(MAPPER.writeValueAsString(response));
+        JsonNode json = objectMapper.readTree(objectMapper.writeValueAsString(response));
 
         assertThat(json.get("success").asBoolean()).isTrue();
         assertThat(json.get("message").asText()).isEqualTo("ok");

@@ -56,6 +56,8 @@ import org.junit.jupiter.api.Test;
 @Tag("regression")
 class RxWebServiceRegressionTest {
 
+    private static final String TEST_PROVIDER_NUMBER = "999998";
+
     private RxWebService service;
 
     @BeforeEach
@@ -190,7 +192,8 @@ class RxWebServiceRegressionTest {
         @Override
         protected LoggedInInfo getLoggedInInfo() {
             LoggedInInfo loggedInInfo = new LoggedInInfo();
-            loggedInInfo.setLoggedInProvider(new Provider("999998", "Regression", "doctor", "U", "general", "Rest"));
+            loggedInInfo.setLoggedInProvider(new Provider(TEST_PROVIDER_NUMBER, "Regression", "doctor", "U",
+                    "general", "Rest"));
             return loggedInInfo;
         }
     }
