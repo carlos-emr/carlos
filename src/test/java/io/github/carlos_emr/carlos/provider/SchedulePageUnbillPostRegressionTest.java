@@ -41,22 +41,27 @@ class SchedulePageUnbillPostRegressionTest {
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "provider", "schedulePage.js.jsp");
 
     @Test
-    @DisplayName("should use POST form helper when the unbill function is called")
-    void shouldUsePostFormHelper_whenUnbillFunctionIsCalled() throws Exception {
+    @DisplayName("should use POST form helper when unbill function called")
+    void shouldUsePostFormHelper_whenUnbillFunctionCalled() throws Exception {
         String script = Files.readString(SCHEDULE_PAGE_SCRIPT);
+        String untilNextFunction = "(?:(?!\\nfunction\\s+).)*";
+        String untilOnUpdatebill = "(?:(?!function\\s+onUpdatebill).)*";
 
         // The local postViaForm helper must submit generated forms with POST.
-        assertThat(matches(script, "function\\s+postViaForm\\s*\\(\\s*url\\s*,\\s*targetWindow\\s*\\)\\s*\\{"
-                + "(?:(?!\\nfunction\\s+).)*form\\.method\\s*=\\s*['\"]post['\"]"))
+        String postViaFormUsesPost = "function\\s+postViaForm\\s*\\(\\s*url\\s*,\\s*targetWindow\\s*\\)\\s*\\{"
+                + untilNextFunction + "form\\.method\\s*=\\s*['\"]post['\"]";
+        assertThat(matches(script, postViaFormUsesPost))
                 .isTrue();
         // Appointment -B unbill must call postViaForm with the popup target.
-        assertThat(matches(script, "function\\s+onUnbilled\\s*\\(\\s*url\\s*\\)\\s*\\{"
-                + "(?:(?!function\\s+onUpdatebill).)*targetWindow\\s*=\\s*['\"]unbilled['\"]"
-                + "(?:(?!function\\s+onUpdatebill).)*postViaForm\\s*\\(\\s*url\\s*,\\s*targetWindow\\s*\\)"))
+        String onUnbilledPostsToTarget = "function\\s+onUnbilled\\s*\\(\\s*url\\s*\\)\\s*\\{"
+                + untilOnUpdatebill + "targetWindow\\s*=\\s*['\"]unbilled['\"]"
+                + untilOnUpdatebill + "postViaForm\\s*\\(\\s*url\\s*,\\s*targetWindow\\s*\\)";
+        assertThat(matches(script, onUnbilledPostsToTarget))
                 .isTrue();
         // Appointment -B unbill must not directly open the mutator URL with GET.
-        assertThat(matches(script, "function\\s+onUnbilled\\s*\\(\\s*url\\s*\\)\\s*\\{"
-                + "(?:(?!function\\s+onUpdatebill).)*popupPage\\s*\\(\\s*700\\s*,\\s*720\\s*,\\s*url\\s*\\)"))
+        String onUnbilledOpensGetPopup = "function\\s+onUnbilled\\s*\\(\\s*url\\s*\\)\\s*\\{"
+                + untilOnUpdatebill + "popupPage\\s*\\(\\s*700\\s*,\\s*720\\s*,\\s*url\\s*\\)";
+        assertThat(matches(script, onUnbilledOpensGetPopup))
                 .isFalse();
     }
 
