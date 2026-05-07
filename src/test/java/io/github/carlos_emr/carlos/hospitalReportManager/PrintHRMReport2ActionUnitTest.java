@@ -22,12 +22,19 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Optional;
+
+import javax.xml.XMLConstants;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -51,6 +58,10 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
 
 @DisplayName("PrintHRMReport2Action")
 @Tag("unit")
@@ -60,6 +71,9 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
     private static final byte[] PDF_BYTES = "%PDF-1.4\n%CARLOS test HRM PDF\n".getBytes(StandardCharsets.US_ASCII);
     private static final Path STRUTS_DOCUMENT_XML =
             Path.of("src/main/webapp/WEB-INF/classes/struts-document.xml");
+    private static final String HRM_PRINT_ROUTE = "hospitalReportManager/PrintHRMReport";
+    private static final String HRM_PRINT_ACTION_CLASS =
+            "io.github.carlos_emr.carlos.hospitalReportManager.PrintHRMReport2Action";
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
@@ -146,13 +160,45 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldKeepHrmPrintRoute_withoutNamedResults() throws Exception {
-        String strutsDocument = Files.readString(STRUTS_DOCUMENT_XML);
+        Element action = findAction(parse(STRUTS_DOCUMENT_XML), HRM_PRINT_ROUTE)
+                .orElseThrow(() -> new AssertionError(
+                        "struts-document.xml must declare action " + HRM_PRINT_ROUTE));
 
-        assertThat(strutsDocument)
-                .contains("<action name=\"hospitalReportManager/PrintHRMReport\" "
-                        + "class=\"io.github.carlos_emr.carlos.hospitalReportManager.PrintHRMReport2Action\"/>")
-                .doesNotContain("<action name=\"hospitalReportManager/PrintHRMReport\" "
-                        + "class=\"io.github.carlos_emr.carlos.hospitalReportManager.PrintHRMReport2Action\">\n"
-                        + "            <result");
+        assertThat(action.getAttribute("class")).isEqualTo(HRM_PRINT_ACTION_CLASS);
+        assertThat(action.getElementsByTagName("result").getLength())
+                .as("%s must not map named JSP results for direct PDF responses", HRM_PRINT_ROUTE)
+                .isZero();
+    }
+
+    private Optional<Element> findAction(Document document, String actionName) {
+        NodeList actions = document.getElementsByTagName("action");
+        for (int i = 0; i < actions.getLength(); i++) {
+            if (actions.item(i) instanceof Element element && actionName.equals(element.getAttribute("name"))) {
+                return Optional.of(element);
+            }
+        }
+        return Optional.empty();
+    }
+
+    private Document parse(Path configPath) throws Exception {
+        DocumentBuilder db = newHardenedDocumentBuilder();
+        try (InputStream in = new FileInputStream(configPath.toFile())) {
+            return db.parse(in);
+        }
+    }
+
+    private DocumentBuilder newHardenedDocumentBuilder() throws Exception {
+        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+        dbf.setValidating(false);
+        dbf.setNamespaceAware(false);
+        dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        dbf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
+        dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        dbf.setXIncludeAware(false);
+        dbf.setExpandEntityReferences(false);
+        DocumentBuilder db = dbf.newDocumentBuilder();
+        db.setEntityResolver((publicId, systemId) -> new InputSource(new StringReader("")));
+        return db;
     }
 }
