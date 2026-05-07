@@ -126,12 +126,27 @@ public class PrintHRMReport2Action extends ActionSupport {
 
         } catch (IOException e) {
             logger.error("Could not retrieve the Output Stream from the response", e);
-            request.setAttribute("printError", true);
-            return "error";
+            if (!response.isCommitted()) {
+                try {
+                    response.reset();
+                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to generate HRM PDF");
+                } catch (IOException sendErrorException) {
+                    logger.error("Could not send HRM PDF error response", sendErrorException);
+                }
+            }
+            return NONE;
         } finally {
             if (osTemp != null) {
-                osTemp.flush(); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary PDF stream
-                osTemp.close(); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary PDF stream
+                try {
+                    osTemp.flush(); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary PDF stream
+                } catch (IOException flushException) {
+                    logger.error("Could not flush temporary HRM PDF stream", flushException);
+                }
+                try {
+                    osTemp.close(); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary PDF stream
+                } catch (IOException closeException) {
+                    logger.error("Could not close temporary HRM PDF stream", closeException);
+                }
             }
             if (fileTemp != null) {
                 fileTemp.delete();
