@@ -371,7 +371,7 @@
                                     </td>
                                     <td style="vertical-align:top"><b><fmt:message key="oscar.billing.ca.on.billingON.review.referralDoctor"/></b><br>
                                         <carlos:encode value="${reviewModel.requestParamEchoes['referralDocName']}" context="html"/><br>
-                                        <b><fmt:message key="oscar.billing.ca.on.billingON.referralDoctor"/></b><br>
+                                        <b><fmt:message key="oscar.billing.ca.on.billingON.review.referralDoctor"/>&nbsp;#</b><br>
                                         <carlos:encode value="${reviewModel.requestParamEchoes['referralCode']}" context="html"/>
                                     </td>
                                 </tr>
@@ -415,7 +415,7 @@
                                     </c:if>
                                 </tr>
                                 <tr>
-                                    <td><b><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode"/></b></td>
+                                    <td><b><fmt:message key="oscar.billing.CA.ON.billingon.ob.SLIcode"/></b></td>
                                     <td><carlos:encode value="${reviewModel.sliCodeLabel}" context="html"/>
                                         &nbsp;
                                     </td>
@@ -643,12 +643,12 @@
                     <tr>
 
                         <td colspan="4" style="text-align:center; background-color:silver">
-                            <input type="submit" name="button" value="${msgBtnBackToEdit}" class="btn btn-secondary" style="width: 120px;"/>
+                            <input type="submit" name="button" value="<carlos:encode value='${msgBtnBackToEdit}' context='htmlAttribute'/>" class="btn btn-secondary" style="width: 120px;"/>
                             <c:choose>
                                 <c:when test="${reviewModel.codeValid and not reviewModel.dupServiceCode and not reviewModel.totalsParseFailed}">
-                                    <input type="submit" name="submit" value="${msgBtnSave}" class="btn btn-primary"
+                                    <input type="submit" name="submit" value="<carlos:encode value='${msgBtnSave}' context='htmlAttribute'/>" class="btn btn-primary"
                                            style="width: 120px;" onClick="onClickSave();"/>
-                                    <input type="submit" name="submit" value="${msgBtnSaveAndAdd}" class="btn btn-secondary"
+                                    <input type="submit" name="submit" value="<carlos:encode value='${msgBtnSaveAndAdd}' context='htmlAttribute'/>" class="btn btn-secondary"
                                            onClick="onClickSave();"/>
                                 </c:when>
                                 <c:when test="${reviewModel.dupServiceCode}">
@@ -750,10 +750,10 @@
     </tr>
     <tr>
         <td colspan='2' align='center' bgcolor="silver">
-            <input type="submit" name="submit" value="${msgBtnSavePrint}" class="btn btn-secondary"
+            <input type="submit" name="submit" value="<carlos:encode value='${msgBtnSavePrint}' context='htmlAttribute'/>" class="btn btn-secondary"
                    style="width: 150px;"/>
             <input type="submit" name="submit" id="settlePrintBtn" class="btn btn-primary"
-                   value="${msgBtnSettlePrint}"
+                   value="<carlos:encode value='${msgBtnSettlePrint}' context='htmlAttribute'/>"
                    onClick="document.forms['titlesearch'].btnPressed.value='Settle'; document.forms['titlesearch'].submit();javascript:popupPage(700,720,'${pageContext.request.contextPath}/billing/CA/ON/ViewBillingON3rdInv');"
                    style="width: 160px;"/>
             <input type="hidden" name="btnPressed" value="">
@@ -908,7 +908,7 @@
                     <jsp:param name="demographicNo" value="${reviewModel.requestParamEchoes['demographic_no']}"/>
                 </jsp:include>
             </div>
-            <input type="button" value="${msgBtnAddDxRegistry}" class="btn btn-secondary" onclick="addToDiseaseRegistry()"/>
+            <input type="button" value="<carlos:encode value='${msgBtnAddDxRegistry}' context='htmlAttribute'/>" class="btn btn-secondary" onclick="addToDiseaseRegistry()"/>
         </form>
     </div>
 
