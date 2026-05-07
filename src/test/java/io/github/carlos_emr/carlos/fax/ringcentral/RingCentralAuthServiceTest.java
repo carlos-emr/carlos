@@ -176,23 +176,28 @@ class RingCentralAuthServiceTest extends CarlosUnitTestBase {
         });
 
         ExecutorService executorService = Executors.newFixedThreadPool(4);
-        CountDownLatch start = new CountDownLatch(1);
-        List<Future<String>> futures = new ArrayList<>();
-        for (int i = 0; i < 4; i++) {
-            futures.add(executorService.submit(() -> {
-                start.await();
-                return authService.getAccessToken(config, connector);
-            }));
-        }
+        try {
+            CountDownLatch start = new CountDownLatch(1);
+            List<Future<String>> futures = new ArrayList<>();
+            for (int i = 0; i < 4; i++) {
+                futures.add(executorService.submit(() -> {
+                    start.await();
+                    return authService.getAccessToken(config, connector);
+                }));
+            }
 
-        start.countDown();
-        assertThat(authenticateEntered.await(5, TimeUnit.SECONDS)).isTrue();
-        releaseAuthenticate.countDown();
-        for (Future<String> future : futures) {
-            assertThat(future.get()).isEqualTo("shared-token");
+            start.countDown();
+            assertThat(authenticateEntered.await(5, TimeUnit.SECONDS)).isTrue();
+            releaseAuthenticate.countDown();
+            for (Future<String> future : futures) {
+                assertThat(future.get()).isEqualTo("shared-token");
+            }
+        } finally {
+            // Always shut down the pool; without this an early assertion failure leaves
+            // worker threads parked on the unreleased latch and the JVM hangs.
+            executorService.shutdownNow();
+            executorService.awaitTermination(5, TimeUnit.SECONDS);
         }
-        executorService.shutdown();
-        assertThat(executorService.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
         verify(connector, times(1)).authenticate("client", "secret", "jwt");
     }
 

@@ -97,11 +97,10 @@ public class RingCentralFaxService implements FaxProviderClient {
                 faxConfig.getRingCentralAccountId(), faxConfig.getRingCentralExtensionId());
 
         List<FaxJob> faxes = new ArrayList<>();
-        if (response.getRecords() == null) {
-            return faxes;
-        }
-
         for (RingCentralResponse.Message message : response.getRecords()) {
+            if (message == null) {
+                continue;
+            }
             RingCentralResponse.Attachment attachment = firstAttachment(message);
             if (attachment == null || StringUtils.isBlank(message.getId()) || StringUtils.isBlank(attachment.getId())) {
                 logger.warn("Skipping RingCentral fax metadata with missing message or attachment id");
@@ -144,7 +143,8 @@ public class RingCentralFaxService implements FaxProviderClient {
         String accessToken = authService.getAccessToken(faxConfig, apiConnector);
         apiConnector.markFaxAsRead(accessToken, faxConfig.getRingCentralAccountId(),
                 faxConfig.getRingCentralExtensionId(), reference.messageId);
-        logger.info("RingCentral fax marked as read: id={}", fax.getId());
+        logger.info("RingCentral fax marked as read: providerMessageId={} localFaxId={}",
+                reference.messageId, fax.getId());
     }
 
     @Override
