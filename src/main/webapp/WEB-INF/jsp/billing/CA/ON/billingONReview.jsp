@@ -756,7 +756,7 @@
             <input type="submit" value="<carlos:encode value='${msgBtnSavePrint}' context='htmlAttribute'/>" class="btn btn-secondary"
                    style="width: 150px;"
                    onclick="document.getElementById('billingAction').value='SAVE_PRINT';"/>
-            <input type="submit" id="settlePrintBtn" class="btn btn-primary"
+            <input type="button" id="settlePrintBtn" class="btn btn-primary"
                    value="<carlos:encode value='${msgBtnSettlePrint}' context='htmlAttribute'/>"
                    style="width: 160px;"
                    onclick="document.getElementById('billingAction').value='SETTLE_PRINT'; document.forms['titlesearch'].submit(); popupPage(700,720,'${pageContext.request.contextPath}/billing/CA/ON/ViewBillingON3rdInv');"/>

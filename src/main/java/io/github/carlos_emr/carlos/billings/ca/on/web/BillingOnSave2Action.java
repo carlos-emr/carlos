@@ -40,6 +40,8 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingClaimSubmissionService;
 
+import java.util.Set;
+
 /**
  * Struts 2Action for Ontario billing save and post-save routing.
  *
@@ -55,6 +57,13 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingClaimSubmission
  * @since 2026-04-08
  */
 public class BillingOnSave2Action extends ActionSupport {
+
+    private static final Set<String> VALID_SAVE_ACTIONS = Set.of(
+            "SAVE",
+            "SAVE_ADD_ANOTHER",
+            "SAVE_PRINT",
+            "SETTLE_PRINT"
+    );
 
     private final SecurityInfoManager securityInfoManager;
     private final UserPropertyDAO userPropertyDAO;
@@ -108,11 +117,12 @@ public class BillingOnSave2Action extends ActionSupport {
             return "backToEdit";
         }
 
-        if (!"SAVE".equals(billingAction)
-                && !"SAVE_ADD_ANOTHER".equals(billingAction)
-                && !"SAVE_PRINT".equals(billingAction)
-                && !"SETTLE_PRINT".equals(billingAction)) {
-            return SUCCESS;
+        if (!VALID_SAVE_ACTIONS.contains(billingAction)) {
+            LogManager.getLogger(BillingOnSave2Action.class).error(
+                    "Invalid or missing billingAction parameter: {}",
+                    LogSanitizer.sanitize(billingAction));
+            addActionError("Invalid billing action. Please try again.");
+            return ERROR;
         }
 
         String payeeValue = request.getParameter("payeename");
@@ -157,7 +167,7 @@ public class BillingOnSave2Action extends ActionSupport {
 
             request.setAttribute("billingNo", billingNo);
 
-            if ("SAVE_PRINT".equals(billingAction) || "SETTLE_PRINT".equals(billingAction)) {
+            if (Set.of("SAVE_PRINT", "SETTLE_PRINT").contains(billingAction)) {
                 return "printInvoice";
             }
 
