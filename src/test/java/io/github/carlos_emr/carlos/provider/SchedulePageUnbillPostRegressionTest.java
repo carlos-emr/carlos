@@ -42,12 +42,12 @@ class SchedulePageUnbillPostRegressionTest {
 
     @Test
     @DisplayName("should use POST form helper when the unbill function is called")
-    void shouldUsePostViaFormHelper_whenUnbillFunctionIsCalled() throws Exception {
+    void shouldUsePostFormHelper_whenUnbillFunctionIsCalled() throws Exception {
         String script = Files.readString(SCHEDULE_PAGE_SCRIPT);
 
         // The local postViaForm helper must submit generated forms with POST.
         assertThat(matches(script, "function\\s+postViaForm\\s*\\(\\s*url\\s*,\\s*targetWindow\\s*\\)\\s*\\{"
-                + "(?:(?!function\\s+scrollOnLoad).)*form\\.method\\s*=\\s*['\"]post['\"]"))
+                + "(?:(?!\\nfunction\\s+).)*form\\.method\\s*=\\s*['\"]post['\"]"))
                 .isTrue();
         // Appointment -B unbill must call postViaForm with the popup target.
         assertThat(matches(script, "function\\s+onUnbilled\\s*\\(\\s*url\\s*\\)\\s*\\{"
