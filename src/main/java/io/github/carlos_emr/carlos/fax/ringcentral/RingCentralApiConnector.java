@@ -47,6 +47,8 @@ import org.apache.hc.client5.http.entity.mime.MultipartEntityBuilder;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.client5.http.io.HttpClientConnectionManager;
 import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.NameValuePair;
@@ -77,10 +79,13 @@ public class RingCentralApiConnector {
 
     private final ObjectMapper objectMapper = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-    private final CloseableHttpClient httpClient = HttpClients.custom()
-            .setDefaultRequestConfig(REQUEST_CONFIG)
+    private final HttpClientConnectionManager connectionManager = PoolingHttpClientConnectionManagerBuilder.create()
             .setMaxConnTotal(20)
             .setMaxConnPerRoute(10)
+            .build();
+    private final CloseableHttpClient httpClient = HttpClients.custom()
+            .setDefaultRequestConfig(REQUEST_CONFIG)
+            .setConnectionManager(connectionManager)
             .build();
 
     /**
@@ -204,9 +209,15 @@ public class RingCentralApiConnector {
                 + "/extension/" + normalizePathId(extensionId) + "/message-store";
     }
 
-    private String normalizePathId(String value) {
+    String normalizePathId(String value) {
         String trimmed = StringUtils.trimToNull(value);
-        return trimmed == null ? "~" : trimmed.replaceAll("[^A-Za-z0-9~_-]", "");
+        if (trimmed == null) {
+            return "~";
+        }
+        // Sanitization may strip every character (e.g. value="!@#$"); fall back to the
+        // RingCentral "~" sentinel rather than emitting an empty path segment.
+        String sanitized = trimmed.replaceAll("[^A-Za-z0-9~_-]", "");
+        return sanitized.isEmpty() ? "~" : sanitized;
     }
 
     private String bearer(String accessToken) {
@@ -227,18 +238,24 @@ public class RingCentralApiConnector {
             throws RingCentralException {
         request.setConfig(REQUEST_CONFIG);
 
+        // Resource management: try-with-resources closes the CloseableHttpResponse (which
+        // releases the underlying connection back to the pool). The HttpEntity body is read
+        // and then explicitly drained/closed via EntityUtils.consume() in the inner finally.
+        // We cannot wrap HttpEntity in try-with-resources because getEntity() may return null
+        // for HEAD / 204 responses, and try-with-resources rejects null resources.
         try (CloseableHttpResponse response = httpClient.execute(request)) {
             int statusCode = response.getCode();
             HttpEntity entity = response.getEntity();
+            byte[] payload;
             try {
-                byte[] payload = entity == null ? new byte[0] : EntityUtils.toByteArray(entity);
-                if (statusCode < 200 || statusCode >= 300) {
-                    throw new RingCentralException(errorMessage + " with HTTP " + statusCode);
-                }
-                return payload;
+                payload = entity == null ? new byte[0] : EntityUtils.toByteArray(entity);
             } finally {
                 consumeQuietly(entity);
             }
+            if (statusCode < 200 || statusCode >= 300) {
+                throw new RingCentralException(errorMessage + " with HTTP " + statusCode);
+            }
+            return payload;
         } catch (IOException e) {
             throw new RingCentralException(errorMessage + ": communication failure", e,
                     FaxProviderException.isTransientNetworkCause(e));

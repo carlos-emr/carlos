@@ -83,6 +83,54 @@ class RingCentralFaxServiceTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should map SendingFailed to ERROR even though it contains 'sending'")
+    void shouldMapSendingFailed_toError() {
+        assertThat(service.mapStatus("SendingFailed")).isEqualTo(FaxJob.STATUS.ERROR);
+    }
+
+    @Test
+    @DisplayName("should map undelivered to ERROR even though it contains 'delivered'")
+    void shouldMapUndelivered_toError() {
+        assertThat(service.mapStatus("Undelivered")).isEqualTo(FaxJob.STATUS.ERROR);
+    }
+
+    @Test
+    @DisplayName("should map ReceiveFailed to ERROR even though it contains 'received'")
+    void shouldMapReceiveFailed_toError() {
+        assertThat(service.mapStatus("ReceiveFailed")).isEqualTo(FaxJob.STATUS.ERROR);
+    }
+
+    @Test
+    @DisplayName("should map cancelled provider status to CANCELLED")
+    void shouldMapCancelledStatus_toCancelled() {
+        assertThat(service.mapStatus("Cancelled")).isEqualTo(FaxJob.STATUS.CANCELLED);
+    }
+
+    @Test
+    @DisplayName("should map queued provider status to SENT")
+    void shouldMapQueuedStatus_toSent() {
+        assertThat(service.mapStatus("Queued")).isEqualTo(FaxJob.STATUS.SENT);
+    }
+
+    @Test
+    @DisplayName("should map sent provider status to COMPLETE")
+    void shouldMapSentStatus_toComplete() {
+        assertThat(service.mapStatus("Sent")).isEqualTo(FaxJob.STATUS.COMPLETE);
+    }
+
+    @Test
+    @DisplayName("should map null provider status to UNKNOWN")
+    void shouldMapNullStatus_toUnknown() {
+        assertThat(service.mapStatus(null)).isEqualTo(FaxJob.STATUS.UNKNOWN);
+    }
+
+    @Test
+    @DisplayName("should map unrecognized provider status to UNKNOWN")
+    void shouldMapUnrecognizedStatus_toUnknown() {
+        assertThat(service.mapStatus("WeirdNewState")).isEqualTo(FaxJob.STATUS.UNKNOWN);
+    }
+
+    @Test
     @DisplayName("should return inbound fax metadata when unread message has attachment")
     void shouldReturnInboundFaxMetadata_whenUnreadMessageHasAttachment() throws Exception {
         FaxConfig config = mock(FaxConfig.class);

@@ -177,20 +177,23 @@ public class RingCentralFaxService implements FaxProviderClient {
             return FaxJob.STATUS.UNKNOWN;
         }
 
+        // Failure/cancel checks must precede in-progress and complete checks because RingCentral
+        // statuses such as "SendingFailed" and "undelivered" share substrings ("sending", "delivered")
+        // with non-error states.
         String normalized = providerStatus.trim().toLowerCase();
+        if (normalized.contains("fail") || normalized.contains("error") || normalized.contains("rejected")
+                || normalized.contains("undeliver")) {
+            return FaxJob.STATUS.ERROR;
+        }
+        if (normalized.contains("cancel")) {
+            return FaxJob.STATUS.CANCELLED;
+        }
         if (normalized.contains("queue") || normalized.contains("sending") || normalized.contains("progress")
                 || normalized.contains("attempt") || normalized.contains("received")) {
             return FaxJob.STATUS.SENT;
         }
         if (normalized.contains("sent") || normalized.contains("delivered") || normalized.contains("complete")) {
             return FaxJob.STATUS.COMPLETE;
-        }
-        if (normalized.contains("cancel")) {
-            return FaxJob.STATUS.CANCELLED;
-        }
-        if (normalized.contains("fail") || normalized.contains("error") || normalized.contains("rejected")
-                || normalized.contains("undeliver")) {
-            return FaxJob.STATUS.ERROR;
         }
         return FaxJob.STATUS.UNKNOWN;
     }

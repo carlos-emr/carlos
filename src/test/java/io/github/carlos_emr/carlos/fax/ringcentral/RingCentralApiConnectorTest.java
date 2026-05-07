@@ -86,4 +86,23 @@ class RingCentralApiConnectorTest extends CarlosUnitTestBase {
         assertThat(RingCentralApiConnector.resolveRingCentralApiUrl())
                 .isEqualTo(RingCentralApiConnector.DEFAULT_RINGCENTRAL_API_URL);
     }
+
+    @Test
+    @DisplayName("should fall back to ~ when path id sanitizes to empty string")
+    void shouldFallBackToTilde_whenSanitizationEmptiesValue() {
+        RingCentralApiConnector connector = new RingCentralApiConnector();
+
+        assertThat(connector.normalizePathId("!@#$%")).isEqualTo("~");
+        assertThat(connector.normalizePathId("   ")).isEqualTo("~");
+        assertThat(connector.normalizePathId(null)).isEqualTo("~");
+    }
+
+    @Test
+    @DisplayName("should preserve allowed characters in path id")
+    void shouldPreserveAllowedCharacters_inPathId() {
+        RingCentralApiConnector connector = new RingCentralApiConnector();
+
+        assertThat(connector.normalizePathId("123-abc_XYZ~")).isEqualTo("123-abc_XYZ~");
+        assertThat(connector.normalizePathId("a1!b2@c3")).isEqualTo("a1b2c3");
+    }
 }
