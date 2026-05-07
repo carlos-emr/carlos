@@ -1,0 +1,27 @@
+        <div class="powered">
+            <c:if test="${ not empty LoginResourceBean.supportLink
+								or not empty LoginResourceBean.supportName
+								or not empty LoginResourceBean.supportText }">
+                <div class="details">
+                    <div>Powered</div>
+                    <div>by</div>
+                </div>
+            </c:if>
+            <div class="support_details">
+                <a target="_blank" rel="noopener noreferrer" href="${carlos:forHtmlAttribute(LoginResourceBean.supportLink)}" id="supportImageLink">
+                    <img src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/loginResource/supportLogo.png"
+                         alt="${carlos:forHtmlAttribute(LoginResourceBean.supportName)}"
+                         onerror="this.style.display='none'; document.getElementById('supportImageLink').style.display='none';">
+                </a>
+                <c:if test="${ not empty LoginResourceBean.supportName }">
+                    <div id="support_name">
+                        <a target="_blank" rel="noopener noreferrer" href="${carlos:forHtmlAttribute(LoginResourceBean.supportLink)}">
+                            ${carlos:forHtml(LoginResourceBean.supportName)}
+                        </a>
+                    </div>
+                </c:if>
+                <div id="support_text">
+                    <carlos:encode value="${LoginResourceBean.supportText}"/>
+                </div>
+            </div>
+        </div>
