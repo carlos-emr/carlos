@@ -25,6 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.commn.model.Prescription;
+import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.RxManager;
 import io.github.carlos_emr.carlos.managers.RxManagerImpl;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManagerImpl;
@@ -105,8 +106,8 @@ class RxWebServiceRegressionTest {
         drug.setAtc("N02BE01");
         drug.setTakeMax(2.0F);
         drug.setTakeMin(1.0F);
-        drug.setRxDate((Date) today.clone());
-        drug.setEndDate((Date) today.clone());
+        drug.setRxDate(today.clone());
+        drug.setEndDate(today.clone());
         drug.setFrequency("BID");
         drug.setDuration(7);
         drug.setDurationUnit("D");
@@ -188,7 +189,9 @@ class RxWebServiceRegressionTest {
 
         @Override
         protected LoggedInInfo getLoggedInInfo() {
-            return null;
+            LoggedInInfo loggedInInfo = new LoggedInInfo();
+            loggedInInfo.setLoggedInProvider(new Provider("999998", "Regression", "doctor", "U", "general", "Rest"));
+            return loggedInInfo;
         }
     }
 }
