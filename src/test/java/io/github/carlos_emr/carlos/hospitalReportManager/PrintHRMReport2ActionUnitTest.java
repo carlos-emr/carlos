@@ -27,7 +27,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.StringReader;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Optional;
@@ -35,6 +34,7 @@ import java.util.Optional;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -62,13 +62,18 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 
 @DisplayName("PrintHRMReport2Action")
 @Tag("unit")
 @Tag("hrm")
 class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
 
-    private static final byte[] PDF_BYTES = "%PDF-1.4\n%CARLOS test HRM PDF\n".getBytes(StandardCharsets.US_ASCII);
+    private static final byte[] PDF_BYTES = {
+            '%', 'P', 'D', 'F', '-', '1', '.', '4', 0x0A,
+            '%', 'C', 'A', 'R', 'L', 'O', 'S', ' ', 't', 'e', 's', 't', ' ',
+            'H', 'R', 'M', ' ', 'P', 'D', 'F', 0x0A
+    };
     private static final Path STRUTS_DOCUMENT_XML =
             Path.of("src/main/webapp/WEB-INF/classes/struts-document.xml");
     private static final String HRM_PRINT_ROUTE = "hospitalReportManager/PrintHRMReport";
@@ -180,14 +185,14 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
         return Optional.empty();
     }
 
-    private Document parse(Path configPath) throws Exception {
+    private Document parse(Path configPath) throws ParserConfigurationException, SAXException, IOException {
         DocumentBuilder db = newHardenedDocumentBuilder();
         try (InputStream in = new FileInputStream(configPath.toFile())) {
             return db.parse(in);
         }
     }
 
-    private DocumentBuilder newHardenedDocumentBuilder() throws Exception {
+    private DocumentBuilder newHardenedDocumentBuilder() throws ParserConfigurationException {
         DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
         dbf.setValidating(false);
         dbf.setNamespaceAware(false);
