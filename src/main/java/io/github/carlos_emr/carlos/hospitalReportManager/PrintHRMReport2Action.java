@@ -137,15 +137,10 @@ public class PrintHRMReport2Action extends ActionSupport {
             return NONE;
         } finally {
             if (osTemp != null) {
-                try {
-                    osTemp.flush(); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary PDF stream
-                } catch (IOException flushException) {
-                    logger.error("Could not flush temporary HRM PDF stream", flushException);
-                }
-                try {
-                    osTemp.close(); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary PDF stream
-                } catch (IOException closeException) {
-                    logger.error("Could not close temporary HRM PDF stream", closeException);
+                try (FileOutputStream tempStream = osTemp) {
+                    tempStream.flush(); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary PDF stream
+                } catch (IOException cleanupException) {
+                    logger.error("Could not clean up temporary HRM PDF stream", cleanupException);
                 }
             }
             if (fileTemp != null) {

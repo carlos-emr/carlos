@@ -128,7 +128,7 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldReturnNoResult_whenHrmPdfIsStreamed() throws Exception {
+    void shouldReturnNone_whenHrmPdfIsStreamed() throws Exception {
         try (MockedStatic<ConcatPDF> concatPdfMock = mockStatic(ConcatPDF.class)) {
             concatPdfMock.when(() -> ConcatPDF.concat(any(ArrayList.class), any(OutputStream.class)))
                     .thenAnswer(invocation -> {
@@ -145,7 +145,7 @@ class PrintHRMReport2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldReturnNoResultWithHttpError_whenHrmResponseStreamCannotBeOpened() throws Exception {
+    void shouldReturnNone_whenResponseStreamCannotBeOpened() throws Exception {
         HttpServletResponse failingResponse = mock(HttpServletResponse.class);
         when(failingResponse.isCommitted()).thenReturn(false);
         doThrow(new IOException("stream unavailable")).when(failingResponse).getOutputStream();
