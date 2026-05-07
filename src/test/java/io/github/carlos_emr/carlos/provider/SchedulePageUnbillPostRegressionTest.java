@@ -42,8 +42,8 @@ class SchedulePageUnbillPostRegressionTest {
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "provider", "schedulePage.js.jsp");
 
     @Test
-    @DisplayName("should submit unbill by POST when appointment minus billing is clicked")
-    void shouldSubmitUnbillByPost_whenAppointmentMinusBillingClicked() throws Exception {
+    @DisplayName("should use POST form helper when the unbilled function is called")
+    void shouldUsePostViaFormHelper_whenUnbilledFunctionIsCalled() throws Exception {
         String script = Files.readString(SCHEDULE_PAGE_SCRIPT);
         String onUnbilled = functionBody(script, "onUnbilled");
 
@@ -64,6 +64,8 @@ class SchedulePageUnbillPostRegressionTest {
                 .matcher(script);
         assertThat(matcher.find()).isTrue();
 
+        // This lightweight parser is intentionally scoped to schedulePage.js.jsp's
+        // simple top-level functions; it does not attempt full JavaScript parsing.
         int depth = 1;
         for (int i = matcher.end(); i < script.length(); i++) {
             char c = script.charAt(i);
