@@ -272,7 +272,7 @@
                 var mm = document.adddemographic.month_of_birth.value;
                 var dd = document.adddemographic.date_of_birth.value;
 
-                return checkDate(yyyy, mm, dd, i18n.msgWrongDOB);
+                return checkDate(yyyy, mm, dd, i18n.msgInvalidDOB);
             }
 
             function checkDate(yyyy, mm, dd, err_msg) {
@@ -281,15 +281,11 @@
 
                 if (checkTypeNum(yyyy) && checkTypeNum(mm) && checkTypeNum(dd)) {
                     var check_date = new Date(yyyy, (mm - 1), dd);
-                    var now = new Date();
-                    var year = now.getFullYear();
-                    var month = now.getMonth() + 1;
-                    var date = now.getDate();
-                    //alert(yyyy + " | " + mm + " | " + dd + " " + year + " " + month + " " +date);
 
-                    var young = new Date(year, month, date);
-                    var old = new Date(1800, 1, 1);
-                    //alert(check_date.getTime() + " | " + young.getTime() + " | " + old.getTime());
+                    var young = new Date();
+                    young.setDate(young.getDate() + 1); // allow to register newborns born today
+                    var old = new Date(1900, 0, 1);
+
                     if (check_date.getTime() <= young.getTime() && check_date.getTime() >= old.getTime() && yyyy.length == 4) {
                         typeInOK = true;
                     }
