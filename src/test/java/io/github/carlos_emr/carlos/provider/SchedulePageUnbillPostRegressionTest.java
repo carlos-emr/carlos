@@ -23,6 +23,8 @@ package io.github.carlos_emr.carlos.provider;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -41,18 +43,43 @@ class SchedulePageUnbillPostRegressionTest {
 
     @Test
     @DisplayName("should submit unbill by POST when appointment minus billing is clicked")
-    void shouldSubmitUnbillByPost_whenMinusBillingClicked() throws Exception {
+    void shouldSubmitUnbillByPost_whenAppointmentMinusBillingClicked() throws Exception {
         String script = Files.readString(SCHEDULE_PAGE_SCRIPT);
-        String onUnbilled = script.substring(
-                script.indexOf("function onUnbilled(url) {"),
-                script.indexOf("function onUpdatebill(url) {"));
+        String onUnbilled = functionBody(script, "onUnbilled");
 
-        assertThat(script)
-                .contains("function postViaForm(url, targetWindow) {")
-                .contains("form.method = 'post';");
-        assertThat(onUnbilled)
-                .contains("var targetWindow = 'unbilled';")
-                .contains("postViaForm(url, targetWindow);")
-                .doesNotContain("popupPage(700,720, url);");
+        assertThat(matches(script, "function\\s+postViaForm\\s*\\(\\s*url\\s*,\\s*targetWindow\\s*\\)"))
+                .isTrue();
+        assertThat(matches(script, "form\\.method\\s*=\\s*['\"]post['\"]"))
+                .isTrue();
+        assertThat(matches(onUnbilled, "targetWindow\\s*=\\s*['\"]unbilled['\"]"))
+                .isTrue();
+        assertThat(matches(onUnbilled, "postViaForm\\s*\\(\\s*url\\s*,\\s*targetWindow\\s*\\)"))
+                .isTrue();
+        assertThat(matches(onUnbilled, "popupPage\\s*\\(\\s*700\\s*,\\s*720\\s*,\\s*url\\s*\\)"))
+                .isFalse();
+    }
+
+    private static String functionBody(String script, String functionName) {
+        Matcher matcher = Pattern.compile("function\\s+" + Pattern.quote(functionName) + "\\s*\\([^)]*\\)\\s*\\{")
+                .matcher(script);
+        assertThat(matcher.find()).isTrue();
+
+        int depth = 1;
+        for (int i = matcher.end(); i < script.length(); i++) {
+            char c = script.charAt(i);
+            if (c == '{') {
+                depth++;
+            } else if (c == '}') {
+                depth--;
+                if (depth == 0) {
+                    return script.substring(matcher.end(), i);
+                }
+            }
+        }
+        throw new AssertionError("Function body not found for " + functionName);
+    }
+
+    private static boolean matches(String script, String regex) {
+        return Pattern.compile(regex, Pattern.DOTALL).matcher(script).find();
     }
 }
